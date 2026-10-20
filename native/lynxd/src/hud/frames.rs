@@ -42,7 +42,7 @@ impl Frames {
             self.points.push_back(time);
             self.last = time;
         }
-        while self.points.front().map_or(false, |v| now_ns.saturating_sub(*v) > 1_000_000_000) {
+        while self.points.front().map_or(false, |v| now_ns.saturating_sub(*v) >= 1_000_000_000) {
             self.points.pop_front();
         }
     }

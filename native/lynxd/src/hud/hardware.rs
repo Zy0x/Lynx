@@ -12,6 +12,14 @@ pub fn ged_mhz(raw: &str) -> Option<f64> {
     number(cols.last()?).filter(|v| *v > 0.0).map(|v| v / 1000.0)
 }
 
+fn gpu_clock(raw: &str, kind: &str, scale: f64) -> Option<f64> {
+    match kind {
+        "ged" => ged_mhz(raw),
+        "real" => raw.find("(real) freq:").and_then(|pos| raw[pos+12..].split_whitespace().next()).and_then(number).map(|v|v*scale),
+        _ => number(raw).map(|v|v*scale),
+    }.filter(|v| *v >= 0.0)
+}
+
 pub fn cpu_ticks(raw: &str) -> Option<(u64,u64)> {
     let cols: Vec<u64> = raw.lines().find(|s| s.starts_with("cpu "))?.split_whitespace()
         .skip(1).take(8).map(str::parse::<u64>).collect::<Result<_,_>>().ok()?;
@@ -89,11 +97,7 @@ impl Hardware {
         for (path, kind, scale) in &self.gpu {
             match fs::read_to_string(path) {
                 Ok(raw) => {
-                    let v = match *kind {
-                        "ged" => ged_mhz(&raw),
-                        "real" => raw.find("(real) freq:").and_then(|pos| raw[pos+12..].split_whitespace().next()).and_then(number).map(|v| v*scale),
-                        _ => number(&raw).map(|v| v*scale),
-                    };
+                    let v = gpu_clock(&raw,kind,*scale);
                     if let Some(v) = v.filter(|v| *v >= 0.0) { freq = Metric::measured(v,"MHz",path,now); break; }
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => freq = Metric::missing("MHz",path,now,"permission_denied"),
@@ -163,5 +167,15 @@ mod tests {
         assert_eq!(ged_mhz("700000"),Some(700.0));
         assert_eq!(ged_mhz("0 0"),None);
         assert_eq!(ged_mhz("error"),None);
+    }
+    #[test]
+    fn current_clock_sources_have_explicit_units_and_missing_is_not_zero() {
+        assert_eq!(gpu_clock("850000000", "plain",0.000001),Some(850.0));
+        assert_eq!(gpu_clock("target freq: 900000\n(real) freq: 650000", "real",0.001),Some(650.0));
+        assert_eq!(gpu_clock("g_fixed_freq = 950000", "real",0.001),None);
+        assert_eq!(gpu_clock("-1", "plain",0.000001),None);
+        let absent = read("/this-node-does-not-exist/lynx_hud", "°C",0.001,100);
+        assert_eq!(absent.value,None);
+        assert_eq!(absent.status,"unsupported");
     }
 }

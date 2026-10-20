@@ -330,8 +330,9 @@ fallback_cool() {
     write_node_lock "$MTK_DIR/BN_TestMode" "0"
     write_node_lock "$MTK_DIR/BatteryNotify" "1"
     write_node_lock "$MTK_DIR/sw_jeita" "1"
-    write_node_lock "$QC_DIR/restricted_charging" "1"
+    write_node_lock "$QC_DIR/restricted_charging" "0"
     write_node_lock "$QC_DIR/restrict_cur" "1000000"
+    [ -e "$BATT_DIR/step_charging_enabled" ] && echo "1" > "$BATT_DIR/step_charging_enabled" 2>/dev/null
     write_node_lock "$BATT_DIR/current_max" "1000000"
     write_node_lock "$BATT_DIR/constant_charge_current_max" "1000000"
     write_node_lock "$BATT_DIR/constant_charge_current" "1000000"
@@ -352,6 +353,7 @@ fallback_standard() {
 
     write_node_lock "$QC_DIR/restricted_charging" "0"
     write_node_lock "$QC_DIR/restrict_cur" "0"
+    [ -e "$BATT_DIR/step_charging_enabled" ] && echo "1" > "$BATT_DIR/step_charging_enabled" 2>/dev/null
     write_node_lock "$MTK_DIR/BN_TestMode" "0"
     write_node_lock "$MTK_DIR/BatteryNotify" "1"
     write_node_lock "$MTK_DIR/sw_jeita" "1"
@@ -379,8 +381,9 @@ fallback_custom() {
         write_node_lock "$MTK_DIR/sc_ibat_limit" "$target"
         write_node_lock "$MTK_DIR/chg1_current" "$target"
         write_node_lock "$MTK_DIR/chg2_current" "$target"
-        write_node_lock "$QC_DIR/restricted_charging" "1"
+        write_node_lock "$QC_DIR/restricted_charging" "0"
         write_node_lock "$QC_DIR/restrict_cur" "$((target * 1000))"
+        [ -e "$BATT_DIR/step_charging_enabled" ] && echo "1" > "$BATT_DIR/step_charging_enabled" 2>/dev/null
         write_node_lock "$BATT_DIR/current_max" "$((target * 1000))"
         write_node_lock "$BATT_DIR/constant_charge_current_max" "$((target * 1000))"
         write_node_lock "$BATT_DIR/constant_charge_current" "$((target * 1000))"

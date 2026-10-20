@@ -182,7 +182,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val nextX = if (activeModeFlow.value == 0) safeLeft else p.x.coerceIn(safeLeft,(safeLeft+safeWidth-v.width).coerceAtLeast(safeLeft))
         val nextY = p.y.coerceIn(safeTop,(safeTop+safeHeight-v.height).coerceAtLeast(safeTop))
         if (p.x != nextX || p.y != nextY) { p.x = nextX; p.y = nextY; runCatching { windows.updateViewLayout(v,p) } }
-        if (Build.VERSION.SDK_INT >= 29) v.systemGestureExclusionRects = emptyList()
+        if (Build.VERSION.SDK_INT >= 29) {
+            val handle = (48*resources.displayMetrics.density).toInt()
+            val top = ((v.height-handle)/2).coerceAtLeast(0)
+            v.systemGestureExclusionRects = if (activeModeFlow.value == 0 && !open.value)
+                listOf(android.graphics.Rect(0,top,handle.coerceAtMost(v.width),(top+handle).coerceAtMost(v.height))) else emptyList()
+        }
     }
 
     private fun drag(dx: Float, dy: Float) {
@@ -205,6 +210,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply {
+            title = "LynxFloatingHud"
             gravity = Gravity.TOP or Gravity.LEFT; x = safeLeft; y = safeTop+(safeHeight*initial).toInt()
         }
         val host = ComposeView(this)
@@ -225,14 +231,16 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val supported by rates.collectAsState()
             if (mode == 0) HudSidebar(sample,size,expanded,preferences,action,apps,supported,
                 onOpen = { open.value = it }, onDrag = { drag(0f,it) }, onProfile = controller::profile,
-                onHz = { controller.refresh(it,supported) { hz.value.value?.toFloat() } },
+                onHz = { controller.refresh(it,supported,targetDisplay()) { hz.value.value?.toFloat() } },
                 onCapture = { controller.screenshot { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE } },
                 onApp = controller::launch,onStop = { stopSelf() })
             else FloatingHudContent(telemetry = HudLegacyAdapter.project(sample),hudMode = 1,activeStyle = style,pinMiniFps = pinned,
                 currentRefreshRate = sample[HudMetric.DISPLAY_HZ].value?.roundToInt() ?: 0,isExpanded = expanded,
                 onToggleExpand = { open.value = !open.value },onSelectMode = { activeModeFlow.value = it; open.value = false },
                 onSelectStyle = { activeStyleFlow.value = it; pref.edit().putInt("hud_style",it).apply() },onTogglePinMiniFps = { preferences.pin(!pinned) },
-                onClose = { stopSelf() },onProfileSelect = controller::profile,onBoostRam = {},onCycleRefreshRate = {},
+                onClose = { stopSelf() },onProfileSelect = { profile ->
+                    if (profile == "extreme") { activeModeFlow.value = 0; open.value = true } else controller.profile(profile)
+                },onBoostRam = {},onCycleRefreshRate = {},
                 onDrag = ::drag,onDragVertical = { drag(0f,it) })
         }
         view = host
@@ -263,6 +271,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         if (registered) unregisterReceiver(screenReceiver)
         if (::displays.isInitialized) displays.unregisterDisplayListener(displayListener)
         scope.cancel()
+        if (::controller.isInitialized) CoroutineScope(Dispatchers.IO).launch { controller.restoreDisplay() }
         view?.let { runCatching { windows.removeView(it) }; it.disposeComposition() }
         view = null
         snapshotFlow.value = HudSnapshot()

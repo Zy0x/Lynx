@@ -75,6 +75,7 @@ fn print_usage() {
         println!("  tui                               Buka antarmuka terminal interaktif");
         println!("  status [--json]                   Periksa status sistem, daemon, profil, dan modifier");
         println!("  telemetry [--pretty]              Tampilkan telemetri hardware langsung");
+        println!("  hud stream                        Stream JSON HUD read-only sampai stdin ditutup");
         println!("  state get <key> [default]         Baca key dari config.json");
         println!("  state set <k> <v> | <k=v>...      Perbarui satu atau beberapa key config.json secara atomik");
         println!("  state list                        Tampilkan isi config.json");
@@ -119,6 +120,7 @@ fn print_usage() {
     println!("  tui                               Launch interactive terminal UI console (replaces system/bin/lynx)");
     println!("  status [--json]                   Inspect unified system, daemon, profile & modifier status");
     println!("  telemetry [--pretty]              Emit live hardware telemetry (unified JSON or formatted table)");
+    println!("  hud stream                        Stream read-only HUD JSON until stdin closes");
     println!("  state get <key> [default]         Read key from config.json in < 1ms");
     println!("  state set <k> <v> | <k=v>...      Atomically update single or multiple keys in config.json");
     println!("  state list                        Print current config.json contents");

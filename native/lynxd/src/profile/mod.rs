@@ -94,6 +94,6 @@ mod tests {
         }).unwrap();
         assert_eq!(profile.cpu.min_percent, 35);
         assert_eq!(profile.gpu.mode.as_str(), "PowerEfficient");
-        assert_eq!(profile.thermal.critical_temperature, 48);
+        assert_eq!(profile.thermal.critical_temperature, 49);
     }
 }

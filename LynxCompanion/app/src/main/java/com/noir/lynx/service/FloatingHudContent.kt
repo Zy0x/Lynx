@@ -119,7 +119,7 @@ fun FloatingHudContent(
                             .clickable { onSelectMode(0) }
                             .padding(horizontal = 5.dp, vertical = 2.dp)
                     ) {
-                        Text("◄ Kunci ke Tepi (Bilah)", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.hud_dock_edge), color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

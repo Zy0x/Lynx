@@ -119,20 +119,7 @@ function Test-AdbDevice([string]$serial, [string]$hintLine = "") {
         }
     }
 
-    if ($hintLine -match "model:([^\s]+)" -and $hintLine -match "device:([^\s]+)") {
-        $hModel = if ($hintLine -match "model:([^\s]+)") { $matches[1] } else { "Unknown" }
-        $hDevice = if ($hintLine -match "device:([^\s]+)") { $matches[1] } else { "Unknown" }
-        $isRN7 = ($hDevice -match "lavender") -or ($hModel -match "Redmi_Note_7|Redmi")
-        $hPlat = if ($isRN7) { "sdm660" } elseif ($hDevice -match "X698") { "mt6781" } else { "Unknown" }
-        return @{
-            Success               = $true
-            Model                 = $hModel
-            Device                = $hDevice
-            Platform              = $hPlat
-            IsReadOnlyDailyDriver = [bool]$isRN7
-        }
-    }
-
+    # Device-list metadata is a hint, never an identity authorization.
     $probeCmd = "-s $serial shell `"echo LYNX_OK; getprop ro.product.model; getprop ro.product.device; getprop ro.board.platform`""
     $out = Invoke-AdbSafe $probeCmd 2500
     if ($out -and ($out -match "LYNX_OK")) {
@@ -162,6 +149,10 @@ function Test-RoleInterlock([hashtable]$devInfo, [string]$serial) {
     }
     if ($Role -eq "reference" -and -not $devInfo.IsReadOnlyDailyDriver) {
         Write-Info "Skipping active test device $($devInfo.Model) ($($devInfo.Device)) at $serial while searching for 'reference' device..."
+        return $false
+    }
+    if ($Role -eq "test" -and ($devInfo.Device -notmatch "^(?i:X698)$" -or $devInfo.Platform -ne "mt6781")) {
+        Write-Warn "SAFETY INTERLOCK: Active testing requires X698 / mt6781; rejected $serial."
         return $false
     }
     return $true
@@ -332,7 +323,25 @@ if (-not $ForceScan -and -not $manualSubnetMode) {
     }
 }
 
-# TIER 2: Fast Cached IP Direct Reconnect
+# TIER 2: Discover only fixed-port ADB advertisements.
+if (-not $ForceScan -and -not $manualSubnetMode) {
+    $mdns = Invoke-AdbSafe "mdns services" 3000
+    foreach ($line in ($mdns -split "`r?`n")) {
+        if ($line -match "([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):5555\b") {
+            $serial = $matches[0]
+            [void](Invoke-AdbSafe "connect $serial" 2500)
+            $test = Test-AdbDevice $serial
+            if (Test-RoleInterlock $test $serial) {
+                Save-Cache ($serial -split ":")[0] $test
+                Write-Success "Connected and identity-verified through mDNS: $serial"
+                if ($Quiet) { Write-Output $serial }
+                return
+            }
+        }
+    }
+}
+
+# TIER 3: Fast cached endpoint reconnect
 if (-not $ForceScan -and -not $manualSubnetMode -and ($cachedIp -match "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")) {
     $cachedSerial = "$cachedIp`:$Port"
     Write-Info "Probing cached IP: $cachedSerial..."
@@ -372,7 +381,7 @@ if ($targetSubnets.Count -eq 0) {
     } catch {}
 
     $primarySubnets = @($detectedSubnets | Sort-Object -Unique)
-    if ($DeepScan -or $primarySubnets.Count -eq 0) {
+    if ($DeepScan) {
         $targetSubnets = @(@($primarySubnets) + @($Common192Subnets) | Sort-Object -Unique)
     } else {
         $targetSubnets = @($primarySubnets)
@@ -381,14 +390,6 @@ if ($targetSubnets.Count -eq 0) {
 
 Write-Info "Scanning subnet(s): $($targetSubnets -join ', ') (Port $Port)..."
 $discoveredIps = Invoke-FastSubnetScan $targetSubnets $Port 280
-
-if ($discoveredIps.Count -eq 0 -and -not $DeepScan -and -not $manualSubnetMode) {
-    $fallbackSubnets = @($Common192Subnets | Where-Object { $_ -notin $targetSubnets })
-    if ($fallbackSubnets.Count -gt 0) {
-        Write-Info "Expanding scan to common 192.168.X subnets..."
-        $discoveredIps = Invoke-FastSubnetScan $fallbackSubnets $Port 280
-    }
-}
 
 foreach ($discIp in $discoveredIps) {
     $serial = "$discIp`:$Port"
@@ -404,4 +405,4 @@ foreach ($discIp in $discoveredIps) {
     }
 }
 
-Write-Host "  [!] Gagal Menghubungkan ke Perangkat Android (Port $Port)" -ForegroundColor Red
+Write-Warn "No identity-verified target is reachable on ADB port $Port."

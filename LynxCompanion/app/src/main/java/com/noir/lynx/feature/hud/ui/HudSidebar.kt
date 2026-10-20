@@ -85,7 +85,7 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
                     key(tab) {
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(12.dp),verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             when(tab) {
-                                0 -> HudOverview(snapshot,action,onProfile)
+                                0 -> HudOverview(snapshot,action,onProfile,compact = viewport.landscape)
                                 1 -> HudDetails(snapshot)
                                 else -> HudTools(prefs,preferences,rates,action,onHz,onCapture,onStop)
                             }

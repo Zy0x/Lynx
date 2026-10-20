@@ -1,3 +1,35 @@
+# Lynx Universal [Qualcomm PMIC CV Float Voltage Restoration & 100% Saturation Fix] 7.0.0-RC138
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC138** (Lynx Kernel Manager v3.1.84): **Audit & Perbaikan Tuntas Kegagalan Pengisian Daya Penuh (Stuck di 98% / Gagal 100%) pada Platform Qualcomm Snapdragon (Redmi Note 7 / PM660): Mengeliminasi Kesalahan Penulisan `restricted_charging = 1` pada Mode Regulated & Smart Tapering yang Memaksa Kernel Menurunkan Tegangan Float (`fv_votable`) dari 4.40V ke 4.20V (Store Demo Mode); Menghilangkan Penguncian Izin Node Sysfs (`chmod 0444`) pada Qualcomm Sehingga Driver Kernel `smb-lib` & Android Health HAL Leluasa Melakukan Step-Down Arus hingga Ambang Terminasi (`iterm ~150mA`); Memastikan `step_charging_enabled = 1` Aktif Penuh untuk Memandu Fase Constant Voltage (CV) Menuju Status 'Full' (100%); Serta Menyelaraskan Logika Shell Fallback pada `core/Charging-Controller.sh`**.
+
+## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC138)
+
+### 1. 🔍 Investigasi Ilmiah & Akar Masalah Utama (*The Smoking Gun*)
+- **Gejala Masalah**:
+  - Pada pengujian pengisian daya Redmi Note 7 (Qualcomm Snapdragon 660, PMIC PM660) dari 2% dalam kondisi layar mati (deep sleep), baterai terhenti di angka 98% selama hampir 2 jam dan tidak pernah mencapai 100% (Full).
+- **Temuan Akar Masalah**:
+  1. **Kesalahan Fatal `restricted_charging = 1` pada Qualcomm**:
+     - Pada implementasi `apply_regulated_charging` di [charging.rs](file:///e:/Data/GitHub/Lynx/native/lynxd/src/hardware/charging.rs), terdapat kondisi `let restrict = if effective_ma <= 1500 { "1" } else { "0" };`.
+     - Ketika pengisian mencapai fase Smart Tapering (>= 95% SoC) atau mode hemat/cool, arus diturunkan ke 1000mA, yang secara otomatis memicu penulisan `restricted_charging = 1` ke `/sys/class/qcom-battery/restricted_charging`.
+     - Dalam driver kernel Qualcomm (`drivers/power/supply/qcom/smb-lib.c`), `restricted_charging = 1` adalah fitur **Store Demo Mode** yang mengeksekusi `vote(chg->fv_votable, RESTRICTED_CHARGING_VOTER, true, chg->batt_profile_fv_uv - 200000)`. Hal ini menurunkan target tegangan float dari **4.40V menjadi 4.20V**!
+     - Pada sel baterai Li-Po 4.40V (BN4A), tegangan 4.20V merepresentasikan kapasitas **~97%–98%**. Begitu sel mencapai 4.20V, arus masuk seketika anjlok ke 0 mA karena beda potensial habis, namun PMIC **TIDAK PERNAH** mendeteksi voltase ambang batas pengisian penuh (4.40V). Akibatnya, status tidak pernah berubah menjadi `Full` dan baterai terhenti di 98% selamanya.
+  2. **Penguncian Node Sysfs (`write_node_lock` / `chmod 0444`)**:
+     - Mengunci node arus pengisian (`constant_charge_current_max`, `constant_charge_current`, `current_max`, `input_current_limit`) ke izin `0444` pada Qualcomm menghalangi worker kernel `smb-lib` dan daemon `android.hardware.health` dalam menurunkan arus saturasi secara halus ke ambang batas terminasi pengisian (`iterm ~150mA`).
+  3. **Disabling Step Charging (`step_charging_enabled = 0`)**:
+     - Mematikan step charging pada kernel Qualcomm Xiaomi menghentikan transisi multi-tahap tegangan float yang dikelola oleh driver `step-chg-jeita.c`.
+
+### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+- **Mengunci `restricted_charging = 0` pada Seluruh Mode Pengisian Aktif**:
+  - `restricted_charging` kini secara mutlak bernilai `"0"` pada seluruh mode pengisian standar, cool, custom, maupun Smart Tapering. Nilai `"1"` secara ketat hanya diperbolehkan pada Hardware Bypass Charging manual atau AutoCut 100%.
+- **Penulisan Node Dinamis Tanpa Penguncian Izin (`write_node` 0666/0644)**:
+  - Pada perangkat Qualcomm Snapdragon, nilai batas arus ditulis tanpa menggunakan `write_node_lock`, memberikan kebebasan penuh bagi kernel Linux untuk memoderasi fase CV dan mendeteksi terminasi `iterm`.
+- **Aktivasi Kembali `step_charging_enabled = 1`**:
+  - Memastikan state machine pengisian daya bertahap berjalan mulus hingga mencapai 4.40V secara aman.
+- **Sinkronisasi Total Shell Fallback**:
+  - Memperbaiki `core/Charging-Controller.sh` (`fallback_cool`, `fallback_custom`, dan `fallback_standard`) agar konsisten dengan logika native Rust daemon `lynxd`.
+
+---
+
 # Lynx Universal [Zero-AutoClose Longevity & Outside-Touch Dismissal Shield] 7.0.0-RC133
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC133** (Lynx Kernel Manager v3.1.79): **Penyempurnaan Total Ketahanan Waktu Tampilan & Interaksi Penutupan Game HUD: Menghilangkan 100% Batasan Auto-Collapse Timer (Menjaga Overlay Tetap Aktif Tanpa Menghilang Sendiri Setelah Beberapa Detik); Mengintegrasikan Intersepsi `MotionEvent.ACTION_OUTSIDE` Berbasis `FLAG_WATCH_OUTSIDE_TOUCH` Sehingga Ketukan di Luar Overlay Menutup HUD Secara Cepat & Pasti; Mengangkat State `isEdgeDrawerOpen` ke Level Layanan & Menyinkronkan Penutupan Dropdown/Picker Bersih Antar-Mode; Serta Mempertahankan Kemudahan Tutup via Usapan Kiri Maupun Tombol Tutup Khusus**.

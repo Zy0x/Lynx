@@ -2022,4 +2022,20 @@
     <string name="hud_preview">Mini HUD preview</string>
     <string name="hud_loading">Loading…</string>
     <string name="hud_profile_unavailable">Profile cannot be verified yet</string>
+    <string name="hud_settings_title">Game HUD</string>
+    <string name="hud_mode_title">Display mode</string>
+    <string name="hud_sidebar">Sidebar</string>
+    <string name="hud_classic">Classic window</string>
+    <string name="hud_style">Classic window style</string>
+    <string name="hud_permission">Allow Lynx to display over other apps to use the HUD.</string>
+    <string name="hud_permission_action">Open overlay permission</string>
+    <string name="hud_on">HUD active</string>
+    <string name="hud_off">HUD inactive</string>
+    <string name="hud_dock_edge">Dock to screen edge</string>
+    <string name="hud_style_pillar">Pillar</string>
+    <string name="hud_style_ribbon">Ribbon</string>
+    <string name="hud_style_esport">Esport</string>
+    <string name="hud_style_tiles">Tiles</string>
+    <string name="hud_style_deck">Deck</string>
+    <string name="hud_style_ghost">Ghost</string>
 </resources>

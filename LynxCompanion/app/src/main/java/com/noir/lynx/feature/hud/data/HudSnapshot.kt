@@ -15,6 +15,19 @@ enum class HudMetric(val key: String, val label: Int, val intervalMs: Long = 100
     BATTERY_CURRENT("battery_current", R.string.hud_metric_current), BATTERY_POWER("battery_power", R.string.hud_metric_power),
     BATTERY_VOLTAGE("battery_voltage", R.string.hud_metric_voltage),
     FRAME_AVERAGE("frame_average", R.string.hud_metric_frame_average, 500), FPS_LOW("fps_low", R.string.hud_metric_low, 500);
+
+    val unit: String get() = when(this) {
+        FPS, FPS_LOW -> "FPS"
+        FRAME_TIME, FRAME_AVERAGE -> "ms"
+        DISPLAY_HZ -> "Hz"
+        CPU_CLOCK, GPU_CLOCK -> "MHz"
+        CPU_LOAD, GPU_LOAD, BATTERY_LEVEL -> "%"
+        CPU_TEMP, SOC_TEMP, GPU_TEMP, BATTERY_TEMP -> "°C"
+        RAM_USED -> "GiB"
+        BATTERY_CURRENT -> "mA"
+        BATTERY_POWER -> "W"
+        BATTERY_VOLTAGE -> "mV"
+    }
 }
 
 data class HudReading(
@@ -44,7 +57,7 @@ data class HudSnapshot(
     val profile: String? = null,
     val collectionMs: Long = 0,
 ) {
-    operator fun get(metric: HudMetric): HudReading = metrics[metric.key] ?: HudReading()
+    operator fun get(metric: HudMetric): HudReading = metrics[metric.key] ?: HudReading(unit = metric.unit)
     fun fresh(now: Long): HudSnapshot {
         val readings = metrics.mapValues { (key, value) -> value.fresh(now, HudMetric.values().find { it.key == key }?.intervalMs ?: 1000) }
         return copy(metrics = readings, policies = policies.map { it.first to it.second.fresh(now, 1000) },
@@ -69,6 +82,8 @@ data class HudSnapshot(
         private fun parseReading(j: JSONObject): HudReading {
             val status = j.getString("status")
             val value = if (j.isNull("value")) null else j.optDouble("value").takeIf(Double::isFinite)
+            require(status in setOf("valid", "warming_up", "stale", "unsupported", "permission_denied"))
+            require(status != "valid" || value != null)
             return HudReading(if (status == "valid") value else null, j.optString("unit"), j.optString("source"), j.getLong("at_ms"), status)
         }
     }

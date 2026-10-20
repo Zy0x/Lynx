@@ -36,7 +36,7 @@ class HudStreamRepository(private val context: Context) {
     }
 
     fun unavailable(status: String) {
-        mutable.value = HudSnapshot(metrics = HudMetric.values().associate { it.key to HudReading(status = status) })
+        mutable.value = HudSnapshot(metrics = HudMetric.values().associate { it.key to HudReading(unit = it.unit, status = status) })
     }
 
     fun stop() {

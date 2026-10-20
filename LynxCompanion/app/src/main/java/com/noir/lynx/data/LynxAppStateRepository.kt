@@ -36,6 +36,11 @@ internal object LynxAppStateRepository {
 
     private fun getLynxdBinaryPath(): String? {
         cachedLynxdPath?.let { return it }
+        val bundled = File(LynxApp.instance.applicationInfo.nativeLibraryDir, "liblynxhud.so")
+        if (bundled.canExecute()) {
+            cachedLynxdPath = bundled.absolutePath
+            return bundled.absolutePath
+        }
         val path = LynxRepository.getLynxdPath()
         val check = Shell.cmd("[ -x '$path' ] && echo 1 || echo 0").exec()
         val res = if (check.out.firstOrNull()?.trim() == "1") path else null

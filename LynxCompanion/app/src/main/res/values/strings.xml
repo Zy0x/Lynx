@@ -2046,4 +2046,20 @@
     <string name="hud_preview">Pratinjau mini HUD</string>
     <string name="hud_loading">Memuat…</string>
     <string name="hud_profile_unavailable">Profil belum dapat diverifikasi</string>
+    <string name="hud_settings_title">Game HUD</string>
+    <string name="hud_mode_title">Mode tampilan</string>
+    <string name="hud_sidebar">Bilah samping</string>
+    <string name="hud_classic">Jendela klasik</string>
+    <string name="hud_style">Gaya jendela klasik</string>
+    <string name="hud_permission">Izinkan Lynx tampil di atas aplikasi lain untuk menggunakan HUD.</string>
+    <string name="hud_permission_action">Buka izin overlay</string>
+    <string name="hud_on">HUD aktif</string>
+    <string name="hud_off">HUD nonaktif</string>
+    <string name="hud_dock_edge">Kunci ke tepi layar</string>
+    <string name="hud_style_pillar">Pillar</string>
+    <string name="hud_style_ribbon">Ribbon</string>
+    <string name="hud_style_esport">Esport</string>
+    <string name="hud_style_tiles">Tiles</string>
+    <string name="hud_style_deck">Deck</string>
+    <string name="hud_style_ghost">Ghost</string>
 </resources>

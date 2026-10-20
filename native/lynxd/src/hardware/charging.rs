@@ -1320,35 +1320,64 @@ impl ChargingRegulator {
                 "3000000".to_string()
             };
             let qcom_in_ua = (effective_ma as u64 * 1000).to_string();
-            let restrict = if effective_ma <= 1500 { "1" } else { "0" };
+            // CRITICAL: restricted_charging must NEVER be set to "1" during active charging (Cool / Custom / Smart Tapering)!
+            // In Qualcomm kernel smb-lib.c, restricted_charging=1 is Store Demo Mode, activating RESTRICTED_CHARGING_VOTER
+            // which drops fv_votable (Float Voltage) from 4.40V down to 4.20V.
+            // On a 4.40V BN4A Li-Po cell, 4.20V corresponds to exactly ~97-98% SoC. Once the cell hits 4.20V,
+            // current drops to 0mA and the PMIC NEVER sees the 4.40V termination threshold (status: Full),
+            // causing charging to permanently stall at 98%!
+            let restrict = "0";
             (qcom_usb_ua, qcom_in_ua, effective_ma_str.clone(), restrict)
         } else {
-            (mtk_input_ua_str.clone(), mtk_input_ua_str.clone(), mtk_input_str.clone(), "1")
+            (mtk_input_ua_str.clone(), mtk_input_ua_str.clone(), mtk_input_str.clone(), "0")
         };
 
-        // Actively write limit to hardware registers with permission lock!
-        Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
-        Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-        Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
-        Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
+        if is_qcom {
+            // Qualcomm Snapdragon PM660 / QPNP-SMB2:
+            // Write nodes with normal write permissions (0666/0644). Do NOT lock to 0444!
+            // The kernel smb-lib power supply worker and Android Health HAL require write access
+            // during CV phase to naturally adapt current down to the termination threshold (iterm ~150mA).
+            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
+            Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
+        } else {
+            // Actively write limit to hardware registers with permission lock on MediaTek!
+            Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
+            Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
+            Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
+            Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
 
-        Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
-        Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
-        Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
-        Self::write_node(&format!("{}/restricted_charging", QC_DIR), qc_restricted);
+            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
+            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), qc_restricted);
+        }
 
         // Dynamic Sysfs Charger Topology Regulation Sweeper
         for node in Self::crawl_dynamic_power_supply_nodes() {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
                 "constant_charge_current_max" | "constant_charge_current" => {
-                    Self::write_node_lock(&node, &effective_ua_str);
+                    if is_qcom {
+                        Self::write_node(&node, &effective_ua_str);
+                    } else {
+                        Self::write_node_lock(&node, &effective_ua_str);
+                    }
                 }
                 "current_max" | "input_current_limit" | "hw_current_max" => {
-                    Self::write_node_lock(&node, &usb_max_ua_str);
+                    if is_qcom {
+                        Self::write_node(&node, &usb_max_ua_str);
+                    } else {
+                        Self::write_node_lock(&node, &usb_max_ua_str);
+                    }
                 }
                 "fastcharge_mode" | "fast_charge" => {
                     Self::write_node(&node, if is_qcom && effective_ma >= 2000 { "1" } else { "0" });
@@ -1358,6 +1387,17 @@ impl ChargingRegulator {
                 }
                 "input_suspend" => {
                     Self::write_node(&node, "0");
+                }
+                "thermal_input_current_limit" => {
+                    Self::write_node_lock(&node, "-1");
+                }
+                "system_temp_level" | "temp_state" => {
+                    Self::write_node_lock(&node, "0");
+                }
+                "step_charging_enabled" => {
+                    // For Qualcomm: Ensure step charging is active (1) so the kernel step-chg-jeita
+                    // state machine advances to the full-voltage termination phase!
+                    Self::write_node(&node, "1");
                 }
                 _ => {}
             }
@@ -1416,6 +1456,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+        Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
 
         // Unlock all sysfs charger nodes permissions so kernel OEM algorithms control them
         for node in &[

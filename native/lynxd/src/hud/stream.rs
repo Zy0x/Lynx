@@ -2,7 +2,7 @@ use std::io::{BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
-use super::{now_ms, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to}};
+use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to}};
 use crate::utils::json::quote;
 
 /// Execute one bounded system query directly; never invoke a shell pipeline.
@@ -65,7 +65,7 @@ pub fn run() {
             for name in &probe_layers {
                 match query(&["SurfaceFlinger","--latency",name]) {
                     Ok(raw) => { let ts = timestamps(&raw); if let Some(last) = ts.last() {
-                        let sample_now = now_ms()*1_000_000;
+                        let sample_now = frame_now_ns();
                         if *last <= sample_now && sample_now - last <= 1_500_000_000 { candidates.push((*last,name.clone(),ts)); }
                     } },
                     Err(status) => frame_status = status,
@@ -74,11 +74,11 @@ pub fn run() {
             candidates.sort_by(|a,b| b.0.cmp(&a.0));
             // A SurfaceView with submitted frames takes precedence over its activity container.
             if candidates.iter().any(|c|c.1.contains("SurfaceView")) { candidates.retain(|c|c.1.contains("SurfaceView")); }
-            if candidates.len()>1 && candidates[0].0 == candidates[1].0 {
+            if candidates.len()>1 {
                 frames.reset(); layer.clear(); frame_status = "unsupported";
             } else if let Some((_,name,ts)) = candidates.first() {
                 if *name != layer { frames.reset(); layer = name.clone(); }
-                frames.ingest(ts,now_ms()*1_000_000);
+                frames.ingest(ts,frame_now_ns());
                 frame_status = if frames.gap { "warming_up" } else { "valid" };
             } else { frames.reset(); layer.clear(); if frame_status != "permission_denied" { frame_status = "unsupported"; } }
         }
@@ -90,9 +90,10 @@ pub fn run() {
         }
         let source = format!("SurfaceFlinger actualPresentTime: {layer}");
         let mut metrics = hw.metrics.clone();
-        let fresh = frame_status == "valid" && frames.active(stamp*1_000_000);
+        let frame_stamp = frame_now_ns();
+        let fresh = frame_status == "valid" && frames.active(frame_stamp);
         for (key,value,unit) in [
-            ("fps",frames.fps(stamp*1_000_000),"FPS"),
+            ("fps",frames.fps(frame_stamp),"FPS"),
             ("frame_time",frames.latest(),"ms"),
             ("frame_average",frames.average(),"ms"),
             ("fps_low",frames.low(),"FPS"),
@@ -107,8 +108,9 @@ pub fn run() {
         let history = if fresh { frames.history() } else { Vec::new() };
         let history_json = history.iter().map(|v|format!("{v:.4}")).collect::<Vec<_>>().join(",");
         let charging = hw.charging.map(|v| v.to_string()).unwrap_or("null".into());
-        let profile = std::fs::read_to_string("/data/adb/lynx/active_profile").ok()
-            .map(|s|quote(s.trim())).unwrap_or("null".into());
+        let profile = crate::state::ProfileStateManager::load_active().ok().flatten()
+            .filter(|state| !state.dirty && state.status == "applied")
+            .map(|state|quote(&state.active_profile)).unwrap_or("null".into());
         if writeln!(stdout,"{{\"version\":1,\"at_ms\":{stamp},\"package\":{},\"layer\":{},\"profile\":{profile},\"charging\":{charging},\"metrics\":{{{metrics_json}}},\"policies\":[{policies_json}],\"history\":[{history_json}],\"collection_ms\":{}}}",quote(&package),quote(&layer),started.elapsed().as_millis()).is_err() { break; }
         if stdout.flush().is_err() { break; }
         let remaining = Duration::from_millis(500).saturating_sub(started.elapsed());

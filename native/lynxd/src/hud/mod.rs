@@ -30,17 +30,30 @@ impl Metric {
 }
 
 pub fn now_ms() -> u64 {
+    clock_ns(7).unwrap_or_else(fallback_ns) / 1_000_000
+}
+
+pub fn frame_now_ns() -> u64 {
+    // SurfaceFlinger fences use CLOCK_MONOTONIC, which excludes deep suspend.
+    clock_ns(1).unwrap_or_else(fallback_ns)
+}
+
+fn clock_ns(clock: i32) -> Option<u64> {
     #[cfg(target_os = "android")]
     {
         #[repr(C)]
         struct Timespec { sec: i64, nsec: i64 }
         extern "C" { fn clock_gettime(clock: i32, time: *mut Timespec) -> i32; }
         let mut time = Timespec { sec: 0, nsec: 0 };
-        // CLOCK_BOOTTIME shares Android elapsedRealtime's epoch, including suspend.
-        if unsafe { clock_gettime(7, &mut time) } == 0 {
-            return time.sec as u64 * 1000 + time.nsec as u64 / 1_000_000;
+        if unsafe { clock_gettime(clock, &mut time) } == 0 {
+            return Some(time.sec as u64 * 1_000_000_000 + time.nsec as u64);
         }
     }
+    let _ = clock;
+    None
+}
+
+fn fallback_ns() -> u64 {
     static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    EPOCH.get_or_init(std::time::Instant::now).elapsed().as_millis() as u64
+    EPOCH.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
 }

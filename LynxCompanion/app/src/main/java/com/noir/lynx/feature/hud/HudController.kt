@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.MediaStore
+import android.view.Display
+import com.noir.lynx.display.HudDisplaySession
 import com.noir.lynx.R
 import com.noir.lynx.data.LynxRepository
 import com.topjohnwu.superuser.Shell
@@ -27,9 +29,11 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     val actions = mutable.asStateFlow()
     private val appState = MutableStateFlow<List<HudApp>>(emptyList())
     val apps = appState.asStateFlow()
+    private val displaySession = HudDisplaySession(context)
 
     init {
         scope.launch(Dispatchers.IO) {
+            displaySession.restore()
             val pm = context.packageManager
             val candidates = listOf("com.android.chrome", "com.whatsapp", "org.telegram.messenger", "com.discord", "com.google.android.youtube", "com.google.android.calculator", "com.transsion.calculator", "com.android.calculator2")
             appState.value = candidates.mapNotNull { pkg -> runCatching {
@@ -59,13 +63,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         if (applied && output.isSuccess && actual == profile && audit != null && audit.optInt("total") > 0 && audit.optInt("errors", 1) == 0 && audit.optInt("clamped", 1) == 0) R.string.hud_verified else R.string.hud_failed
     }
 
-    fun refresh(hz: Float, supported: List<Float>, current: () -> Float?) = perform {
+    fun refresh(hz: Float, supported: List<Float>, display: Display?, current: () -> Float?) = perform {
         if (supported.none { kotlin.math.abs(it-hz) < 0.2f }) return@perform R.string.hud_failed
         mutable.value = mutable.value.copy(requestedHz = hz)
-        val applied = LynxRepository.setDisplayRefreshRate(hz.toInt())
+        val applied = display?.let { displaySession.apply(it,hz) } == true
         delay(1200)
         if (applied && current()?.let { kotlin.math.abs(it-hz) < 0.6f } == true) R.string.hud_verified else R.string.hud_failed
     }
+
+    fun restoreDisplay() = displaySession.restore()
 
     fun screenshot(hide: (Boolean) -> Unit) = perform {
         withContext(Dispatchers.Main) { hide(true) }
@@ -82,7 +88,16 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             try {
                 val child = ProcessBuilder("su", "-c", "exec screencap -p").redirectError(File("/dev/null")).start()
                 try {
-                    resolver.openOutputStream(uri)?.use { output -> child.inputStream.use { it.copyTo(output) }; success = child.waitFor() == 0 }
+                    resolver.openOutputStream(uri)?.use { output ->
+                        val valid = child.inputStream.use { input ->
+                            val header = ByteArray(8)
+                            var read = 0
+                            while (read < header.size) { val n = input.read(header,read,header.size-read); if (n<0) break; read+=n }
+                            val png = byteArrayOf(0x89.toByte(),0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a)
+                            if (read == 8 && header.contentEquals(png)) { output.write(header); input.copyTo(output)>0 } else false
+                        }
+                        success = child.waitFor() == 0 && valid
+                    }
                 } finally { child.destroy() }
                 if (success && Build.VERSION.SDK_INT >= 29) resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
             } finally { if (!success) resolver.delete(uri, null, null) }

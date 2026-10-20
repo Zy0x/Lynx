@@ -1,6 +1,8 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,15 +23,23 @@ import com.noir.lynx.feature.hud.HudActionState
 import com.noir.lynx.feature.hud.data.*
 
 @Composable
-internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfile: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfile: (String) -> Unit, compact: Boolean = false) {
+    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(hudString(R.string.hud_metric_fps), color = HudMuted, fontSize = 12.sp)
                 HudValue(snapshot[HudMetric.FPS], large = true)
-                Text(statusText(snapshot[HudMetric.FPS].status), color = HudMuted, fontSize = 12.sp)
+                if (!compact) Text(statusText(snapshot[HudMetric.FPS].status), color = HudMuted, fontSize = 12.sp)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (compact) {
+                listOf(HudMetric.FRAME_TIME,HudMetric.DISPLAY_HZ).forEach { metric ->
+                    Column(Modifier.weight(1f)) {
+                        Text(hudString(metric.label),color = HudMuted,fontSize = 12.sp)
+                        Text(snapshot[metric].text(),fontSize = 18.sp)
+                        Text(snapshot[metric].unit,color = HudMuted,fontSize = 12.sp)
+                    }
+                }
+            } else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ).forEach { metric ->
                     Column {
                         Text(hudString(metric.label), color = HudMuted, fontSize = 12.sp)
@@ -39,21 +49,23 @@ internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfil
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Gauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], Modifier.weight(1f))
-            Gauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], Modifier.weight(1f))
+            Gauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], Modifier.weight(1f), compact)
+            Gauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], Modifier.weight(1f), compact)
         }
         HudProfiles(snapshot.profile, action.busy, onProfile)
     }
 }
 
 @Composable
-private fun Gauge(label: String, load: HudReading, clock: HudReading, modifier: Modifier) {
+private fun Gauge(label: String, load: HudReading, clock: HudReading, modifier: Modifier, compact: Boolean) {
+    val sweep by animateFloatAsState(targetValue = load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f,100f) ?: 0f,
+        animationSpec = tween(200), label = "hud_gauge_sweep")
     Surface(modifier, shape = RoundedCornerShape(14.dp), color = HudCard) {
-        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Box(Modifier.size(80.dp), contentAlignment = Alignment.Center) {
+        Column(Modifier.padding(if (compact) 4.dp else 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(Modifier.size(if (compact) 60.dp else 80.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxSize().padding(4.dp)) {
                     drawArc(HudMuted.copy(alpha = 0.16f), 140f, 260f, false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
-                    if (load.status == "valid") load.value?.let { drawArc(HudCyan, 140f, (it.coerceIn(0.0,100.0)*2.6).toFloat(), false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)) }
+                    if (load.status == "valid") drawArc(HudCyan, 140f, sweep*2.6f, false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(hudString(R.string.hud_value, load.text(), load.unit), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
