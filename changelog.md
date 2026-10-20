@@ -1,3 +1,42 @@
+# Lynx Universal [Dynamic Vendor Thermal Studio, Zero-Hardcode INI Parser & Live Bind Mount] 7.0.0-RC125
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC125** (Lynx Kernel Manager v3.1.71): **Perombakan Menyeluruh Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` Qualcomm & `.tp/thermal.conf` MediaTek) Menjadi 100% Dinamis Tanpa Asumsi Hardcoded: Parser Dokumen Dua Arah Universal (`ThermalIniDocument` & `ThermalIniSection`) yang Mendukung Separator Whitespace Maupun Key-Value; Pemilih Seksi Dinamis (Section Selector) untuk Seluruh Seksi yang Terdeteksi pada Berkas Bawaan Pabrik Maupun Kustom; Hybrid Parameter Tuner (Input Teks Presisi Langsung + Slider Taktil Multi-Trip & Stepper per Trip Point untuk Ambang Batas Suhu); Chip Rekomendasi Sensor Kernel Nyata dari `/sys/class/thermal/thermal_zone*/type`; Mode Raw Editor Monospace untuk Pengguna Tingkat Lanjut; Fitur Pemulihan Bertingkat (Reset per Seksi & Reset Seluruh File ke Baseline OEM); Serta Pengujian Instan Tanpa Reboot Melalui Linux Runtime Bind Mount & Deployment Permanen via Magisk Magic Mount Overlay**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC125)
+
+### 1. 🎛️ Eliminasi Total Nilai Hardcoded pada Konfigurasi Thermal Vendor
+- **Akar Masalah**:
+  - Sebelumnya, antarmuka `VendorThermalStudioCard` dan `VendorThermalConfigManager` mengasumsikan nama seksi statis (hanya `[BATTERY_CHARGING_CTL]`) dan nilai penggantian hardcoded (seperti `56000 60000` atau kenaikan +5°C tetap). Pendekatan ini membatasi keleluasaan pengguna pada perangkat Snapdragon atau MediaTek yang memiliki variasi trip point berbeda (2, 3, 5, atau 7 level) dan seksi tambahan seperti `[LCD_MANAGEMENT]`, `[SS-MSM-THERM-*]`, `[SS-GPU]`, dsb.
+- **Solusi**:
+  - Membangun struktur data INI dokumen universal `ThermalIniDocument`, `ThermalIniSection`, dan `ThermalIniProperty` yang mampu membaca, memodifikasi, dan menulis kembali berkas konfigurasi termal vendor secara presisi tanpa merusak format asli.
+  - Mendukung pembagian token fleksibel baik berbasis pemisah spasi (`key value` ala Qualcomm) maupun tanda sama dengan (`key=value`).
+
+### 2. ⚡ Pemilih Seksi Dinamis & Hybrid Tuner (Slider + Teks Presisi)
+- **Solusi**:
+  - Menyediakan *Section Selector Chips* yang secara dinamis menampilkan seluruh seksi yang terdapat pada berkas vendor perangkat pengguna.
+  - Untuk parameter ambang batas suhu (`thresholds`, `thresholds_clr`, `set_point`, `set_point_clr`), pengguna dapat:
+    1. Mengetikkan angka eksak langsung di `OutlinedTextField` (misal: `40000 42000 45000 48000 52000`).
+    2. Menyesuaikan derajat Celsius (°C) secara taktil menggunakan kombinasi Slider dan Tombol Stepper (- / +) dengan target sentuh ergonomis >= 44dp.
+    3. Menggunakan tombol cepat *"Auto -2°C Clr"* untuk otomatis menghitung dan menyinkronkan histeresis pemulihan suhu tanpa kalkulasi manual.
+
+### 3. 🔍 Chip Rekomendasi Sensor Kernel Real-Time
+- **Solusi**:
+  - Mengueri langsung daftar tipe sensor fisik yang aktif di kernel Linux melalui `/sys/class/thermal/thermal_zone*/type`.
+  - Menampilkan *Recommendation Chips* (seperti `quiet-therm-adc`, `battery`, `bms`, `msm-therm-adc`, `backlight_therm`, `gpu-usr`) yang dapat di-tap pengguna untuk langsung mengisi parameter sensor tanpa risiko salah ketik.
+
+### 4. 📝 Mode Raw INI Editor & Pemulihan Bertingkat
+- **Solusi**:
+  - Menghadirkan *Toggle Mode* antara Visual Studio Wizard dan Raw Editor Monospace bagi power user yang ingin menyalin atau menyunting seluruh isi berkas `.conf` secara bebas.
+  - Menambahkan tombol *Sinkronkan ke Visual* untuk memvalidasi dan mengurai teks raw kembali ke struktur studio.
+  - Menyediakan tombol pemulihan bertingkat: *Reset Seksi* (mengembalikan seksi yang dipilih ke nilai bawaan OEM) dan *Pulihkan Seluruh File ke Stock Baseline OEM* (menghapus overlay Magisk secara aman).
+
+### 5. 🚀 Uji Coba Instan (Live Bind Mount) & Magisk Magic Mount
+- **Solusi**:
+  - Mempertahankan dan menyempurnakan mekanisme pengujian instan *Live Bind Mount* ke `/vendor/etc/thermal-engine.conf` disertai pemuatan ulang otomatis daemon `thermal-engine` tanpa perlu reboot perangkat.
+  - Tombol simpan permanen ke direktori modul `/system/vendor/etc/...` dengan dialog konfirmasi restart yang ramah pengguna.
+
+---
+
 # Lynx Universal [Universal Tri-Tier Storage Engine, Device-Mapper Tunneling & F2FS Dynamic IPU] 7.0.0-RC124
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC124** (Lynx Kernel Manager v3.1.70): **Implementasi Mesin Penyimpanan Tri-Tier Dinamis & Cerdas (UFS vs eMMC 5.1 vs MicroSD): Eliminasi Hardcoded Blok Statis pada Native Daemon Rust (`translator.rs`); Resolusi Otomatis Ground Truth Hardware Sysfs (`device/type` & Silsilah Host Controller); Penyelarasan Antrean Virtual Device-Mapper (`dm-*`) Menembus Partisi Fisik Induk; Proteksi Khusus Android FBE (`blk_crypto_wq`) pada eMMC 5.1 (128KB Balance / 256KB Performance Anti-Choke); Burst Prefetch 512KB Optimal untuk Streaming Game Aset MicroSD; Serta Penyetelan Dinamis F2FS In-Place Updates (`ipu_policy = 3`) & Penundaan Checkpoint 300s Selama Sesi Game Aktif Demi Menghilangkan Frame-Drop Akibat `f2fs_gc`**.

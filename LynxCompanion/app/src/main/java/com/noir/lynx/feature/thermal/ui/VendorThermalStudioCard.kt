@@ -5,9 +5,14 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,28 +22,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.designsystem.card.LynxCard
-import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.hardware.BatteryChargingThresholds
-import com.noir.lynx.hardware.LiveThermalTelemetry
-import com.noir.lynx.hardware.VendorThermalConfigManager
-import com.noir.lynx.hardware.VendorThermalStudioState
-import com.noir.lynx.hardware.VendorThermalTweaks
+import com.noir.lynx.hardware.*
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * VendorThermalStudioCard — Interactive configuration studio for vendor-level thermal engine files
- * (Qualcomm thermal-engine.conf / MediaTek .tp/thermal.conf).
- * Features real-time mitigation radar, anti-dimming, CPU/GPU headroom, instant live bind mounting,
- * and permanent Magisk Magic Mount overlay generation.
+ * VendorThermalStudioCard — 100% Dynamic, Non-Hardcoded Vendor Thermal Config Studio.
+ * Allows users to inspect, select, and customize ANY section and key of vendor thermal files
+ * (Qualcomm thermal-engine.conf / MediaTek .tp/thermal.conf) with tactile sliders, direct text inputs,
+ * real sensor recommendation chips, full raw INI editor, live bind mount testing, and Magisk Magic Mount overlay.
  */
 @Composable
 fun VendorThermalStudioCard(
@@ -46,34 +48,33 @@ fun VendorThermalStudioCard(
 ) {
     val coroutineScope = rememberCoroutineScope()
     var studioState by remember { mutableStateOf<VendorThermalStudioState?>(null) }
+    var activeDoc by remember { mutableStateOf(ThermalIniDocument()) }
     var telemetry by remember { mutableStateOf(LiveThermalTelemetry()) }
     var isLoading by remember { mutableStateOf(true) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
 
-    // Editable thresholds state
-    var t1 by remember { mutableIntStateOf(38) }
-    var t2 by remember { mutableIntStateOf(40) }
-    var t3 by remember { mutableIntStateOf(43) }
-    var t4 by remember { mutableIntStateOf(46) }
-    var t5 by remember { mutableIntStateOf(50) }
+    // Navigation and mode state
+    var selectedSectionName by remember { mutableStateOf("") }
+    var isRawEditorMode by remember { mutableStateOf(false) }
+    var rawEditorText by remember { mutableStateOf("") }
 
-    // Tweaks state
-    var antiDimming by remember { mutableStateOf(false) }
-    var cpuGpuHeadroom by remember { mutableStateOf(false) }
+    // Dialogs
+    var showAddSectionDialog by remember { mutableStateOf(false) }
+    var newSectionNameInput by remember { mutableStateOf("") }
+    var showAddPropertyDialog by remember { mutableStateOf(false) }
+    var newPropertyKeyInput by remember { mutableStateOf("") }
+    var newPropertyValueInput by remember { mutableStateOf("") }
 
     fun refreshState() {
         coroutineScope.launch {
             val state = VendorThermalConfigManager.detectState()
             studioState = state
-            val active = state.activeThresholds
-            t1 = active.t1
-            t2 = active.t2
-            t3 = active.t3
-            t4 = active.t4
-            t5 = active.t5
-            antiDimming = state.tweaks.antiLcdDimming
-            cpuGpuHeadroom = state.tweaks.cpuGpuHeadroom
+            activeDoc = state.activeDoc.deepCopy()
+            rawEditorText = state.rawContent
+            if (selectedSectionName.isEmpty() || activeDoc.getSection(selectedSectionName) == null) {
+                selectedSectionName = activeDoc.sections.firstOrNull()?.name ?: ""
+            }
             telemetry = state.telemetry
             isLoading = false
         }
@@ -81,26 +82,32 @@ fun VendorThermalStudioCard(
 
     LaunchedEffect(Unit) {
         refreshState()
-        // Real-time telemetry radar polling loop (every 2.5 seconds)
+        // Real-time telemetry radar polling loop (every 2.5s)
         while (isActive) {
             delay(2500)
-            val currentThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
-            telemetry = VendorThermalConfigManager.queryLiveTelemetry(currentThresholds)
+            telemetry = VendorThermalConfigManager.queryLiveTelemetry(activeDoc)
         }
     }
 
     val state = studioState ?: return
-    if (!state.isSupported) return // Don't show if vendor conf not applicable
+    if (!state.isSupported) return
 
-    val isExtremeHot = t5 >= 46
+    val currentSection = activeDoc.getSection(selectedSectionName)
+
+    // Check if any battery threshold is high (>= 46°C)
+    val batterySec = activeDoc.getSection("BATTERY_CHARGING_CTL")
+    val batteryThresholdsStr = batterySec?.getProperty("thresholds") ?: ""
+    val isExtremeHot = batteryThresholdsStr.split("\\s+".toRegex())
+        .mapNotNull { it.toIntOrNull() }
+        .any { it >= 46000 }
 
     LynxCard(
-        title = "Studio Konfigurasi Thermal Vendor (Magic Mount)",
+        title = "Studio Konfigurasi Thermal Vendor (Universal)",
         icon = Icons.Default.Tune,
         accentColor = if (state.isLiveBindMounted) AccentCyan else if (state.isOverlayActive) AccentOrange else AccentGreen,
         modifier = modifier
     ) {
-        // ── 1. Status Header & Overlay Pill ──────────────────────────
+        // ── 1. Header & Architecture Badges ───────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -121,7 +128,7 @@ fun VendorThermalStudioCard(
                     text = when {
                         state.isLiveBindMounted -> "⚡ Live Bind Mount Aktif (Tanpa Reboot)"
                         state.isOverlayActive -> "Modul Magic Mount Aktif di /system/vendor/etc/"
-                        else -> "Konfigurasi Pabrik Bawaan ROM Aktif"
+                        else -> "Konfigurasi Bawaan Pabrik (OEM Stock)"
                     },
                     color = if (state.isLiveBindMounted) AccentCyan else TextSecondary,
                     fontSize = 10.sp,
@@ -180,7 +187,7 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 2. Radar Telemetri Mitigasi Real-Time ───────────────────
+        // ── 2. Radar Telemetri Mitigasi Real-Time ─────────────────────
         val currentTempColor = when {
             telemetry.sensorTempC >= 46f -> AccentRed
             telemetry.sensorTempC >= 41f -> AccentOrange
@@ -241,7 +248,7 @@ fun VendorThermalStudioCard(
                             fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "Sensor: quiet-therm-adc",
+                            text = "Sensor: ${telemetry.activeSensorName.ifEmpty { "quiet-therm-adc" }}",
                             color = TextSecondary,
                             fontSize = 9.5.sp
                         )
@@ -249,22 +256,21 @@ fun VendorThermalStudioCard(
 
                     Column(horizontalAlignment = Alignment.End) {
                         val activeLevelText = when (telemetry.activeMitigationLevel) {
-                            0 -> "Full Throttle (~3.200 mA)"
-                            1 -> "Level 1 (~2.500 mA)"
-                            2 -> "Level 2 (~2.000 mA)"
-                            3 -> "Level 3 (~1.500 mA)"
-                            4 -> "Level 4 (~1.000 mA)"
-                            5 -> "Level 5 (Cutoff / 0 mA)"
-                            else -> "Standby"
+                            0 -> "Full Speed (~3.200 mA)"
+                            1 -> "Mitigasi Lv.1 (~2.500 mA)"
+                            2 -> "Mitigasi Lv.2 (~2.000 mA)"
+                            3 -> "Mitigasi Lv.3 (~1.500 mA)"
+                            4 -> "Mitigasi Lv.4 (~1.000 mA)"
+                            else -> "Level ${telemetry.activeMitigationLevel} (Cutoff)"
                         }
                         Text(
                             text = activeLevelText,
                             color = if (telemetry.activeMitigationLevel > 0) AccentOrange else AccentGreen,
-                            fontSize = 12.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (telemetry.isThrottled) "⚠️ Mitigasi Arus Sedang Aktif" else "⚡ Maksimum (Unthrottled)",
+                            text = if (telemetry.isThrottled) "⚠️ Throttling Sedang Aktif" else "⚡ Maksimum (Unthrottled)",
                             color = if (telemetry.isThrottled) AccentOrange else AccentGreen,
                             fontSize = 9.5.sp
                         )
@@ -273,90 +279,409 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 3. Tangga Suhu Mitigasi Pengisian Daya ───────────────────
-        Text(
-            text = "TANGGA SUHU PENGISIAN DAYA ([BATTERY_CHARGING_CTL])",
-            color = TextSecondary,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        ThresholdStepperRow(
-            label = "Level 1: Fast Charge Ringan",
-            subLabel = "Arus diturunkan ke ~2500mA",
-            temp = t1,
-            isActive = telemetry.activeMitigationLevel == 1,
-            onTempChange = { t1 = it.coerceIn(35, t2 - 1) },
-            accent = AccentGreen
-        )
-
-        ThresholdStepperRow(
-            label = "Level 2: Pengisian Standar",
-            subLabel = "Arus diturunkan ke ~2000mA",
-            temp = t2,
-            isActive = telemetry.activeMitigationLevel == 2,
-            onTempChange = { t2 = it.coerceIn(t1 + 1, t3 - 1) },
-            accent = AccentGreen
-        )
-
-        ThresholdStepperRow(
-            label = "Level 3: Pengisian Moderat",
-            subLabel = "Arus diturunkan ke ~1500mA",
-            temp = t3,
-            isActive = telemetry.activeMitigationLevel == 3,
-            onTempChange = { t3 = it.coerceIn(t2 + 1, t4 - 1) },
-            accent = AccentOrange
-        )
-
-        ThresholdStepperRow(
-            label = "Level 4: Pengisian Darurat Sejuk",
-            subLabel = "Arus dibatasi ke ~1000mA",
-            temp = t4,
-            isActive = telemetry.activeMitigationLevel == 4,
-            onTempChange = { t4 = it.coerceIn(t3 + 1, t5 - 1) },
-            accent = AccentOrange
-        )
-
-        ThresholdStepperRow(
-            label = "Level 5: Batas Pemutusan Penuh (Safety Cut)",
-            subLabel = "Trickle float / pengisian daya dihentikan",
-            temp = t5,
-            isActive = telemetry.activeMitigationLevel == 5,
-            onTempChange = { t5 = it.coerceIn(t4 + 1, 55) },
-            accent = if (t5 >= 46) AccentRed else AccentOrange
-        )
-
-        // Hysteresis Formula Info
+        // ── 3. Mode Toggle: Visual Wizard vs Raw INI Editor ───────────
         Surface(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(10.dp),
             color = BgDeepOled,
-            border = BorderStroke(0.6.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+            border = BorderStroke(0.8.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Row(modifier = Modifier.fillMaxWidth().padding(3.dp)) {
+                // Tab Visual Studio
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (!isRawEditorMode) AccentCyan.copy(alpha = 0.16f) else Color.Transparent,
+                    border = if (!isRawEditorMode) BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.8f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (isRawEditorMode) {
+                                // Sync back from raw text to activeDoc
+                                activeDoc = ThermalIniDocument.parse(rawEditorText)
+                                isRawEditorMode = false
+                            }
+                        }
                 ) {
-                    Icon(Icons.Default.Autorenew, null, tint = AccentCyan, modifier = Modifier.size(14.dp))
-                    Text(
-                        text = "Histeresis Pemulihan Otomatis (-2°C Anti-Flapping):",
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Tune,
+                            null,
+                            tint = if (!isRawEditorMode) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Mode Visual Studio",
+                            color = if (!isRawEditorMode) AccentCyan else TextSecondary,
+                            fontWeight = if (!isRawEditorMode) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
-                Text(
-                    text = "Pemicu: $t1°C / $t2°C / $t3°C / $t4°C / $t5°C\nPulih: ${(t1 - 2).coerceAtLeast(30)}°C / ${(t2 - 2).coerceAtLeast(31)}°C / ${(t3 - 2).coerceAtLeast(32)}°C / ${(t4 - 2).coerceAtLeast(33)}°C / ${(t5 - 2).coerceAtLeast(34)}°C",
-                    color = TextSecondary,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+
+                // Tab Raw INI Editor
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isRawEditorMode) AccentCyan.copy(alpha = 0.16f) else Color.Transparent,
+                    border = if (isRawEditorMode) BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.8f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (!isRawEditorMode) {
+                                rawEditorText = activeDoc.toIniString()
+                                isRawEditorMode = true
+                            }
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Code,
+                            null,
+                            tint = if (isRawEditorMode) AccentCyan else TextSecondary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Mode Raw Editor (.conf)",
+                            color = if (isRawEditorMode) AccentCyan else TextSecondary,
+                            fontWeight = if (isRawEditorMode) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         }
 
+        // ── 4. Konten Sesuai Mode ────────────────────────────────────
+        if (isRawEditorMode) {
+            // ── RAW INI TEXT EDITOR ──────────────────────────────────
+            Text(
+                text = "EDITOR TEKS LANGSUNG (.CONF)",
+                color = TextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            OutlinedTextField(
+                value = rawEditorText,
+                onValueChange = { rawEditorText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 280.dp, max = 460.dp),
+                shape = RoundedCornerShape(10.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    color = TextPrimary
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentCyan,
+                    unfocusedBorderColor = BorderSubtle,
+                    focusedContainerColor = BgDeepOled,
+                    unfocusedContainerColor = BgDeepOled
+                ),
+                placeholder = { Text("[SECTION]\nkey value", color = TextSecondary.copy(alpha = 0.5f)) }
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Format & Sync to Studio Button
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val parsed = ThermalIniDocument.parse(rawEditorText)
+                            activeDoc = parsed
+                            rawEditorText = parsed.toIniString()
+                            actionMessage = "Teks disinkronkan ke struktur Studio."
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Check, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Sinkronkan ke Visual", color = AccentCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Reset Raw to Stock Button
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            rawEditorText = state.stockDoc.toIniString()
+                            activeDoc = state.stockDoc.deepCopy()
+                            actionMessage = "Teks dikembalikan ke Stock OEM."
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Restore, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Reset ke Stock", color = TextSecondary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        } else {
+            // ── VISUAL STUDIO MODE (DYNAMIC SECTION TUNER) ───────────
+
+            // Section Selector Chips Row
+            Text(
+                text = "PILIH SEKSI KONFIGURASI (${activeDoc.sections.size} Terdeteksi)",
+                color = TextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+            ) {
+                items(activeDoc.sections) { sec ->
+                    val isSelected = sec.name.equals(selectedSectionName, ignoreCase = true)
+                    val chipAccent = when {
+                        sec.name.contains("BATTERY", ignoreCase = true) -> AccentGreen
+                        sec.name.contains("LCD", ignoreCase = true) -> AccentCyan
+                        sec.name.contains("GPU", ignoreCase = true) -> AccentOrange
+                        sec.name.contains("MSM", ignoreCase = true) || sec.name.contains("CLUSTER", ignoreCase = true) -> AccentPurple
+                        else -> TextPrimary
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) chipAccent.copy(alpha = 0.2f) else BgElevated,
+                        border = BorderStroke(if (isSelected) 1.2.dp else 0.6.dp, if (isSelected) chipAccent else BorderSubtle),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { selectedSectionName = sec.name }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) chipAccent else TextSecondary.copy(alpha = 0.5f))
+                            )
+                            Text(
+                                text = "[${sec.name}]",
+                                color = if (isSelected) chipAccent else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Plus button to add section
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showAddSectionDialog = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                            Text("Tambah Seksi", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Render Selected Section
+            if (currentSection != null) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(1.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        // Section Header & Controls
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "[${currentSection.name}]",
+                                    color = TextPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "${currentSection.properties.size} Parameter Terkonfigurasi",
+                                    color = TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                // Reset this section button
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = BgDeepOled,
+                                    border = BorderStroke(0.6.dp, BorderSubtle),
+                                    modifier = Modifier
+                                        .height(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            val stockSec = state.stockDoc.getSection(currentSection.name)
+                                            if (stockSec != null) {
+                                                val idx = activeDoc.sections.indexOfFirst { it.name.equals(currentSection.name, ignoreCase = true) }
+                                                if (idx >= 0) {
+                                                    activeDoc.sections[idx] = stockSec.deepCopy()
+                                                    activeDoc = activeDoc.deepCopy()
+                                                    actionMessage = "Seksi [${currentSection.name}] dipulihkan ke bawaan OEM."
+                                                }
+                                            } else {
+                                                actionMessage = "Seksi ini tidak ada di konfigurasi bawaan OEM."
+                                            }
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Restore, null, tint = TextSecondary, modifier = Modifier.size(13.dp))
+                                        Text("Reset Seksi", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+
+                                // Delete section button
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = BgDeepOled,
+                                    border = BorderStroke(0.6.dp, BorderSubtle),
+                                    modifier = Modifier
+                                        .height(32.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            activeDoc.removeSection(currentSection.name)
+                                            activeDoc = activeDoc.deepCopy()
+                                            selectedSectionName = activeDoc.sections.firstOrNull()?.name ?: ""
+                                            actionMessage = "Seksi dihapus dari konfigurasi."
+                                        }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 8.dp).fillMaxHeight(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.DeleteOutline, null, tint = AccentRed, modifier = Modifier.size(15.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = BorderSubtle, thickness = 0.6.dp, modifier = Modifier.padding(vertical = 10.dp))
+
+                        // Dynamic Property Tuners
+                        currentSection.properties.forEach { prop ->
+                            DynamicPropertyTunerRow(
+                                property = prop,
+                                availableSensors = state.availableSensors,
+                                liveTempC = telemetry.sensorTempC,
+                                onValueChange = { newVal ->
+                                    currentSection.setProperty(prop.key, newVal)
+                                    activeDoc = activeDoc.deepCopy()
+                                },
+                                onSyncHysteresis = {
+                                    // Calculate -2000 mC (-2°C) clearance
+                                    if (prop.key.equals("thresholds", ignoreCase = true)) {
+                                        val tokens = prop.value.split("\\s+".toRegex()).mapNotNull { it.toIntOrNull() }
+                                        val clrTokens = tokens.map { (it - 2000).coerceAtLeast(30000) }
+                                        currentSection.setProperty("thresholds_clr", clrTokens.joinToString(" "))
+                                        activeDoc = activeDoc.deepCopy()
+                                        actionMessage = "thresholds_clr otomatis dihitung (-2°C histeresis)."
+                                    } else if (prop.key.equals("set_point", ignoreCase = true)) {
+                                        val sp = prop.value.toIntOrNull() ?: 45000
+                                        currentSection.setProperty("set_point_clr", (sp - 2000).coerceAtLeast(30000).toString())
+                                        activeDoc = activeDoc.deepCopy()
+                                        actionMessage = "set_point_clr otomatis dihitung (-2°C histeresis)."
+                                    }
+                                },
+                                onDeleteProperty = {
+                                    currentSection.removeProperty(prop.key)
+                                    activeDoc = activeDoc.deepCopy()
+                                }
+                            )
+                            Spacer(Modifier.height(10.dp))
+                        }
+
+                        // Add new parameter button
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgDeepOled,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showAddPropertyDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Add, null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Tambah Parameter Baru", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 5. Cautionary Banner for Extreme Temperatures ────────────
         if (isExtremeHot) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -371,7 +696,7 @@ fun VendorThermalStudioCard(
                 ) {
                     Icon(Icons.Default.Warning, null, tint = AccentRed, modifier = Modifier.size(18.dp))
                     Text(
-                        text = "Peringatan Suhu Tinggi: Level 5 disetel di $t5°C. Sangat disarankan menggunakan pendingin eksternal (phone cooler / kipas) saat pengisian cepat untuk mencegah baterai kembung.",
+                        text = "Peringatan Suhu Tinggi: Ambang batas pengisian daya disetel di atas 46°C. Sangat disarankan memakai pendingin eksternal (phone cooler / fan) guna mencegah degradasi kesehatan baterai.",
                         color = AccentRed,
                         fontSize = 10.5.sp,
                         lineHeight = 14.sp
@@ -380,45 +705,27 @@ fun VendorThermalStudioCard(
             }
         }
 
-        // ── 4. Aturan Ekstra: Anti-Dimming & CPU/GPU Headroom ─────────
-        Text(
-            text = "ATURAN MITIGASI VENDOR TAMBAHAN",
-            color = TextSecondary,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-        )
-
-        LynxSwitch(
-            label = "Cegah Layar Meredup Otomatis (Anti-Dimming)",
-            subLabel = "Menaikkan ambang batas [LCD_MANAGEMENT] ke 56°C agar kecerahan layar tidak otomatis meredup sendiri saat ponsel hangat atau sedang dicas",
-            checked = antiDimming,
-            onCheckedChange = { antiDimming = it }
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        LynxSwitch(
-            label = "Headroom Termal CPU & GPU (+5°C Sustained)",
-            subLabel = "Melonggarkan set point throttling CPU cluster Silver/Gold dan GPU Adreno agar clock tidak terpotong terlalu dini saat bermain game berat",
-            checked = cpuGpuHeadroom,
-            onCheckedChange = { cpuGpuHeadroom = it }
-        )
-
-        // Action Message
+        // Action Message Feedback
         actionMessage?.let { msg ->
-            Text(
-                text = msg,
-                color = AccentCyan,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AccentCyan.copy(alpha = 0.12f),
+                border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Text(
+                    text = msg,
+                    color = AccentCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
         }
 
-        // ── 5. Baris Tombol Aksi (Live Bind Mount & Permanent Mount) ──
+        // ── 6. Baris Tombol Aksi Utama (Touch-First >= 48dp) ──────────
         Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Live Bind Mount Button (Height 50dp, Instant Reload)
@@ -432,9 +739,8 @@ fun VendorThermalStudioCard(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         coroutineScope.launch {
-                            val newThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
-                            val tweaks = VendorThermalTweaks(antiLcdDimming = antiDimming, cpuGpuHeadroom = cpuGpuHeadroom)
-                            val res = VendorThermalConfigManager.applyLiveBindMount(newThresholds, tweaks)
+                            val docToApply = if (isRawEditorMode) ThermalIniDocument.parse(rawEditorText) else activeDoc
+                            val res = VendorThermalConfigManager.applyLiveBindMount(docToApply)
                             if (res.isSuccess) {
                                 actionMessage = "⚡ Live Bind Mount Aktif! Daemon termal dimuat ulang seketika."
                                 refreshState()
@@ -471,9 +777,8 @@ fun VendorThermalStudioCard(
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         coroutineScope.launch {
-                            val newThresholds = BatteryChargingThresholds(t1, t2, t3, t4, t5)
-                            val tweaks = VendorThermalTweaks(antiLcdDimming = antiDimming, cpuGpuHeadroom = cpuGpuHeadroom)
-                            val res = VendorThermalConfigManager.applyCustomThresholds(newThresholds, tweaks)
+                            val docToApply = if (isRawEditorMode) ThermalIniDocument.parse(rawEditorText) else activeDoc
+                            val res = VendorThermalConfigManager.applyCustomConfig(docToApply)
                             if (res.isSuccess) {
                                 actionMessage = "Konfigurasi permanen disimpan ke modul Lynx."
                                 showRebootDialog = true
@@ -508,7 +813,7 @@ fun VendorThermalStudioCard(
                     border = BorderStroke(0.8.dp, BorderSubtle),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .height(44.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable {
                             coroutineScope.launch {
@@ -528,7 +833,7 @@ fun VendorThermalStudioCard(
                         Icon(Icons.Default.Close, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "Batalkan Uji Coba Live",
+                            text = "Batalkan Uji Coba Live (Restore Daemon)",
                             color = TextSecondary,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium
@@ -537,7 +842,7 @@ fun VendorThermalStudioCard(
                 }
             }
 
-            // Reset to Stock Button
+            // Reset All to OEM Stock Button (if overlay exists)
             if (state.isOverlayActive) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
@@ -551,7 +856,7 @@ fun VendorThermalStudioCard(
                             coroutineScope.launch {
                                 val res = VendorThermalConfigManager.resetToStockBaseline()
                                 if (res.isSuccess) {
-                                    actionMessage = "Overlay dihapus. Kembali ke stock baseline."
+                                    actionMessage = "Overlay dihapus. Sistem akan kembali ke stock baseline."
                                     showRebootDialog = true
                                     refreshState()
                                 } else {
@@ -568,7 +873,7 @@ fun VendorThermalStudioCard(
                         Icon(Icons.Default.Restore, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "Pulihkan Konfigurasi Bawaan Pabrik (Stock)",
+                            text = "Pulihkan Seluruh File ke Stock Baseline OEM",
                             color = TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
@@ -579,7 +884,123 @@ fun VendorThermalStudioCard(
         }
     }
 
-    // ── 6. Magic Mount Confirmation Dialog ───────────────────────────
+    // ── 7. Dialogs: Add Section, Add Property, Reboot ───────────────
+
+    // Dialog: Tambah Seksi Baru
+    if (showAddSectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddSectionDialog = false },
+            title = { Text("Tambah Seksi Konfigurasi", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp) },
+            text = {
+                Column {
+                    Text("Masukkan nama seksi baru (misal: BATTERY_CHARGING_CTL, SS-GPU, LCD_MANAGEMENT):", color = TextSecondary, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newSectionNameInput,
+                        onValueChange = { newSectionNameInput = it },
+                        placeholder = { Text("NAMA_SEKSI") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentCyan,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val clean = newSectionNameInput.trim().replace("[", "").replace("]", "")
+                        if (clean.isNotEmpty()) {
+                            activeDoc.getOrCreateSection(clean)
+                            activeDoc = activeDoc.deepCopy()
+                            selectedSectionName = clean
+                            newSectionNameInput = ""
+                            showAddSectionDialog = false
+                        }
+                    }
+                ) {
+                    Text("Tambah", color = AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddSectionDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = BgElevated,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Dialog: Tambah Parameter Baru
+    if (showAddPropertyDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddPropertyDialog = false },
+            title = { Text("Tambah Parameter ke [$selectedSectionName]", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Kunci / Parameter (contoh: thresholds, sensor, sampling, set_point):", color = TextSecondary, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = newPropertyKeyInput,
+                        onValueChange = { newPropertyKeyInput = it },
+                        placeholder = { Text("key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentCyan,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    Text("Nilai Parameter:", color = TextSecondary, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = newPropertyValueInput,
+                        onValueChange = { newPropertyValueInput = it },
+                        placeholder = { Text("value") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentCyan,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val k = newPropertyKeyInput.trim()
+                        val v = newPropertyValueInput.trim()
+                        if (k.isNotEmpty() && currentSection != null) {
+                            currentSection.setProperty(k, v)
+                            activeDoc = activeDoc.deepCopy()
+                            newPropertyKeyInput = ""
+                            newPropertyValueInput = ""
+                            showAddPropertyDialog = false
+                        }
+                    }
+                ) {
+                    Text("Simpan", color = AccentCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddPropertyDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = BgElevated,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Dialog: Reboot Confirmation
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },
@@ -639,113 +1060,379 @@ fun VendorThermalStudioCard(
 }
 
 /**
- * Reusable stepper row with active status badge and glowing neon highlight.
+ * Renders a dynamic tuning row tailored to the parameter type:
+ * - Multi-trip thresholds: Direct text input + tactile sliders & steppers per trip point + auto hysteresis sync
+ * - Single set_point: Text input + slider & stepper + auto hysteresis sync
+ * - Sensor: Text input + horizontal sensor recommendation chips from real kernel hardware
+ * - Generic: Clean editable text field with delete option
  */
 @Composable
-private fun ThresholdStepperRow(
-    label: String,
-    subLabel: String,
-    temp: Int,
-    isActive: Boolean,
-    onTempChange: (Int) -> Unit,
-    accent: Color
+private fun DynamicPropertyTunerRow(
+    property: ThermalIniProperty,
+    availableSensors: List<String>,
+    liveTempC: Float,
+    onValueChange: (String) -> Unit,
+    onSyncHysteresis: () -> Unit,
+    onDeleteProperty: () -> Unit
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (isActive) AccentCyan else BorderSubtle,
-        label = "stepperBorder"
-    )
+    val keyLower = property.key.lowercase()
 
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = if (isActive) AccentCyan.copy(alpha = 0.08f) else BgElevated,
-        border = BorderStroke(if (isActive) 1.2.dp else 0.6.dp, borderColor),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+        color = BgDeepOled,
+        border = BorderStroke(0.6.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            // Header Row (Key Name + Actions)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = label,
-                        color = if (isActive) AccentCyan else TextPrimary,
+                        text = property.key,
+                        color = AccentCyan,
                         fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
                     )
-                    if (isActive) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = AccentCyan.copy(alpha = 0.2f),
-                            border = BorderStroke(0.6.dp, AccentCyan)
-                        ) {
-                            Text(
-                                text = "SEDANG AKTIF",
-                                color = AccentCyan,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-                Text(
-                    text = subLabel,
-                    color = TextSecondary.copy(alpha = 0.7f),
-                    fontSize = 9.sp,
-                    lineHeight = 12.sp
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Minus Button (44dp Touch Box)
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(BgDeepOled)
-                        .clickable { onTempChange(temp - 1) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Remove, null, tint = TextPrimary, modifier = Modifier.size(16.dp))
-                }
-
-                // Temp Value Badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = accent.copy(alpha = 0.15f),
-                    border = BorderStroke(0.8.dp, accent.copy(alpha = 0.5f)),
-                    modifier = Modifier.width(52.dp).height(36.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    if (property.comment.isNotEmpty()) {
                         Text(
-                            text = "$temp°C",
-                            color = accent,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
+                            text = property.comment,
+                            color = TextSecondary.copy(alpha = 0.6f),
+                            fontSize = 9.sp
                         )
                     }
                 }
 
-                // Plus Button (44dp Touch Box)
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(BgDeepOled)
-                        .clickable { onTempChange(temp + 1) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Add, null, tint = TextPrimary, modifier = Modifier.size(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (keyLower == "thresholds" || keyLower == "set_point") {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = AccentCyan.copy(alpha = 0.15f),
+                            border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { onSyncHysteresis() }
+                        ) {
+                            Text(
+                                text = "Auto -2°C Clr",
+                                color = AccentCyan,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .clickable { onDeleteProperty() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, null, tint = TextSecondary.copy(alpha = 0.6f), modifier = Modifier.size(13.dp))
+                    }
                 }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // ── Case A: Multi-point Thresholds (thresholds / thresholds_clr) ─
+            if (keyLower == "thresholds" || keyLower == "thresholds_clr") {
+                val tokens = property.value.split("\\s+".toRegex()).filter { it.isNotEmpty() }
+
+                // Direct Text Input for precision typing
+                OutlinedTextField(
+                    value = property.value,
+                    onValueChange = { onValueChange(it) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    placeholder = { Text("misal: 40000 42000 45000 48000 52000") }
+                )
+
+                // Individual Tactile Sliders & Steppers for each trip point
+                if (tokens.isNotEmpty() && tokens.all { it.toIntOrNull() != null }) {
+                    Spacer(Modifier.height(8.dp))
+                    tokens.forEachIndexed { idx, tokStr ->
+                        val milliC = tokStr.toIntOrNull() ?: 40000
+                        val tempC = milliC / 1000
+                        val isTriggered = liveTempC >= tempC && liveTempC > 0f
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isTriggered) AccentCyan.copy(alpha = 0.08f) else Color.Transparent)
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "Trip #${idx + 1}:",
+                                        color = if (isTriggered) AccentCyan else TextSecondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "$tempC°C (${milliC}mC)",
+                                        color = if (tempC >= 46) AccentRed else AccentGreen,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    if (isTriggered) {
+                                        Text(
+                                            text = "• AKTIF",
+                                            color = AccentCyan,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+
+                                Slider(
+                                    value = tempC.toFloat(),
+                                    onValueChange = { newC ->
+                                        val newTokens = tokens.toMutableList()
+                                        newTokens[idx] = (newC.toInt() * 1000).toString()
+                                        onValueChange(newTokens.joinToString(" "))
+                                    },
+                                    valueRange = 30f..85f,
+                                    steps = 54,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = if (tempC >= 46) AccentRed else AccentCyan,
+                                        activeTrackColor = if (tempC >= 46) AccentRed else AccentCyan
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().height(28.dp)
+                                )
+                            }
+
+                            // Stepper (- / +) buttons with 44dp touch target
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(BgElevated)
+                                        .clickable {
+                                            val newTokens = tokens.toMutableList()
+                                            newTokens[idx] = ((tempC - 1).coerceAtLeast(30) * 1000).toString()
+                                            onValueChange(newTokens.joinToString(" "))
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Remove, null, tint = TextPrimary, modifier = Modifier.size(14.dp))
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(BgElevated)
+                                        .clickable {
+                                            val newTokens = tokens.toMutableList()
+                                            newTokens[idx] = ((tempC + 1).coerceAtMost(90) * 1000).toString()
+                                            onValueChange(newTokens.joinToString(" "))
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, null, tint = TextPrimary, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Case B: Single Set Point (set_point / set_point_clr) ─────────
+            else if (keyLower == "set_point" || keyLower == "set_point_clr") {
+                val milliC = property.value.toIntOrNull() ?: 45000
+                val tempC = milliC / 1000
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    OutlinedTextField(
+                        value = property.value,
+                        onValueChange = { onValueChange(it) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentCyan,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        placeholder = { Text("45000") }
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentCyan.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, AccentCyan),
+                        modifier = Modifier.width(60.dp).height(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "$tempC°C",
+                                color = AccentCyan,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                Slider(
+                    value = tempC.toFloat().coerceIn(30f, 95f),
+                    onValueChange = { onValueChange((it.toInt() * 1000).toString()) },
+                    valueRange = 30f..95f,
+                    steps = 64,
+                    colors = SliderDefaults.colors(
+                        thumbColor = AccentCyan,
+                        activeTrackColor = AccentCyan
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(30.dp)
+                )
+            }
+            // ── Case C: Sensor Name (sensor / trip_sensor / sensors) ─────────
+            else if (keyLower.contains("sensor")) {
+                OutlinedTextField(
+                    value = property.value,
+                    onValueChange = { onValueChange(it) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    placeholder = { Text("quiet-therm-adc") }
+                )
+
+                // Recommendation Chips from real kernel thermal zones
+                if (availableSensors.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Rekomendasi Sensor Perangkat:",
+                        color = TextSecondary.copy(alpha = 0.7f),
+                        fontSize = 9.sp
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                    ) {
+                        items(availableSensors) { sensor ->
+                            val isCurrent = property.value.equals(sensor, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isCurrent) AccentCyan.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(0.5.dp, if (isCurrent) AccentCyan else BorderSubtle),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { onValueChange(sensor) }
+                            ) {
+                                Text(
+                                    text = sensor,
+                                    color = if (isCurrent) AccentCyan else TextSecondary,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Case D: Sampling Interval (sampling) ─────────────────────────
+            else if (keyLower == "sampling") {
+                OutlinedTextField(
+                    value = property.value,
+                    onValueChange = { onValueChange(it) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    placeholder = { Text("10000 (ms)") }
+                )
+
+                val quickSamplings = listOf("10", "500", "1000", "2000", "5000", "10000", "30000")
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                ) {
+                    items(quickSamplings) { s ->
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.5.dp, BorderSubtle),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { onValueChange(s) }
+                        ) {
+                            Text(
+                                text = "${s}ms",
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            // ── Case E: Generic Key-Value Property ───────────────────────────
+            else {
+                OutlinedTextField(
+                    value = property.value,
+                    onValueChange = { onValueChange(it) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentCyan,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
             }
         }
     }

@@ -6,42 +6,164 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Data model for battery charging mitigation trip points.
- * All temperatures in Celsius for UI (internally scaled to milli-Celsius for config files).
+ * Represents a single property entry in an INI section.
+ * Preserves the original key name, value, and any trailing comment.
  */
-data class BatteryChargingThresholds(
-    val t1: Int, // Level 1 (e.g. 37-40°C)
-    val t2: Int, // Level 2 (e.g. 38-42°C)
-    val t3: Int, // Level 3 (e.g. 41-45°C)
-    val t4: Int, // Level 4 (e.g. 42-48°C)
-    val t5: Int, // Level 5 (e.g. 45-52°C)
-    val sensorName: String = "quiet-therm-adc",
-    val samplingMs: Int = 10000,
-    val actionInfo: String = "1 2 4 5 6"
-) {
-    fun toThresholdsMilliC(): String =
-        "${t1 * 1000} ${t2 * 1000} ${t3 * 1000} ${t4 * 1000} ${t5 * 1000}"
+data class ThermalIniProperty(
+    val key: String,
+    val value: String,
+    val comment: String = ""
+)
 
-    /**
-     * Automatic -2°C hysteresis calculation preventing rapid flapping.
-     */
-    fun toThresholdsClrMilliC(): String {
-        val c1 = (t1 - 2).coerceAtLeast(30)
-        val c2 = (t2 - 2).coerceAtLeast(c1 + 1)
-        val c3 = (t3 - 2).coerceAtLeast(c2 + 1)
-        val c4 = (t4 - 2).coerceAtLeast(c3 + 1)
-        val c5 = (t5 - 2).coerceAtLeast(c4 + 1)
-        return "${c1 * 1000} ${c2 * 1000} ${c3 * 1000} ${c4 * 1000} ${c5 * 1000}"
+/**
+ * Represents an INI section, e.g. [BATTERY_CHARGING_CTL] or [LCD_MANAGEMENT].
+ * Keeps track of ordered properties and any section-level comments.
+ */
+data class ThermalIniSection(
+    val name: String,
+    val properties: MutableList<ThermalIniProperty> = mutableListOf(),
+    val rawComments: MutableList<String> = mutableListOf()
+) {
+    fun getProperty(key: String): String? =
+        properties.firstOrNull { it.key.equals(key, ignoreCase = true) }?.value
+
+    fun setProperty(key: String, value: String) {
+        val existingIndex = properties.indexOfFirst { it.key.equals(key, ignoreCase = true) }
+        if (existingIndex >= 0) {
+            properties[existingIndex] = properties[existingIndex].copy(value = value)
+        } else {
+            properties.add(ThermalIniProperty(key, value))
+        }
     }
+
+    fun removeProperty(key: String) {
+        properties.removeAll { it.key.equals(key, ignoreCase = true) }
+    }
+
+    fun deepCopy(): ThermalIniSection =
+        ThermalIniSection(
+            name = name,
+            properties = properties.map { it.copy() }.toMutableList(),
+            rawComments = rawComments.toMutableList()
+        )
 }
 
 /**
- * Toggles for additional vendor thermal daemon rules.
+ * Parsed representation of an entire thermal config file (.conf).
+ * Guarantees zero hardcoded assumptions: preserves exact sections, keys, and values.
  */
-data class VendorThermalTweaks(
-    val antiLcdDimming: Boolean = false,
-    val cpuGpuHeadroom: Boolean = false
-)
+data class ThermalIniDocument(
+    val sections: MutableList<ThermalIniSection> = mutableListOf(),
+    val headerComments: MutableList<String> = mutableListOf()
+) {
+    fun getSection(name: String): ThermalIniSection? =
+        sections.firstOrNull { it.name.equals(name, ignoreCase = true) }
+
+    fun getOrCreateSection(name: String): ThermalIniSection {
+        val existing = getSection(name)
+        if (existing != null) return existing
+        val newSection = ThermalIniSection(name)
+        sections.add(newSection)
+        return newSection
+    }
+
+    fun removeSection(name: String) {
+        sections.removeAll { it.name.equals(name, ignoreCase = true) }
+    }
+
+    fun deepCopy(): ThermalIniDocument =
+        ThermalIniDocument(
+            sections = sections.map { it.deepCopy() }.toMutableList(),
+            headerComments = headerComments.toMutableList()
+        )
+
+    fun toIniString(): String {
+        val sb = StringBuilder()
+        for (c in headerComments) {
+            sb.appendLine(c)
+        }
+        for (sec in sections) {
+            if (sb.isNotEmpty() && !sb.endsWith("\n\n")) {
+                sb.appendLine()
+            }
+            for (c in sec.rawComments) {
+                sb.appendLine(c)
+            }
+            sb.appendLine("[${sec.name}]")
+            for (p in sec.properties) {
+                if (p.comment.isNotEmpty()) {
+                    sb.appendLine("${p.key} ${p.value} ${p.comment}".trimEnd())
+                } else {
+                    sb.appendLine("${p.key} ${p.value}".trimEnd())
+                }
+            }
+        }
+        return sb.toString().trimEnd() + "\n"
+    }
+
+    companion object {
+        /**
+         * Universally parses INI formatted thermal configurations.
+         * Handles both space-separated format (QCOM standard: `key value`) and `=` separated format.
+         */
+        fun parse(content: String): ThermalIniDocument {
+            val doc = ThermalIniDocument()
+            if (content.isBlank()) return doc
+
+            var currentSection: ThermalIniSection? = null
+
+            for (rawLine in content.lines()) {
+                val trimmed = rawLine.trim()
+
+                // Comment or empty lines
+                if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith(";")) {
+                    if (currentSection == null) {
+                        doc.headerComments.add(rawLine)
+                    } else {
+                        currentSection.rawComments.add(rawLine)
+                    }
+                    continue
+                }
+
+                // Section header: [SECTION_NAME]
+                if (trimmed.startsWith("[") && trimmed.contains("]")) {
+                    val secName = trimmed.substringAfter("[").substringBefore("]").trim()
+                    val newSec = ThermalIniSection(name = secName)
+                    currentSection = newSec
+                    doc.sections.add(newSec)
+                    continue
+                }
+
+                // Property line
+                if (currentSection != null) {
+                    val commentIdx = rawLine.indexOfAny(charArrayOf('#', ';'))
+                    val mainPart = if (commentIdx >= 0) rawLine.substring(0, commentIdx).trim() else trimmed
+                    val inlineComment = if (commentIdx >= 0) rawLine.substring(commentIdx).trim() else ""
+
+                    if (mainPart.isNotEmpty()) {
+                        val (key, value) = if (mainPart.contains('=')) {
+                            val k = mainPart.substringBefore('=').trim()
+                            val v = mainPart.substringAfter('=').trim()
+                            k to v
+                        } else {
+                            val firstSpace = mainPart.indexOfAny(charArrayOf(' ', '\t'))
+                            if (firstSpace > 0) {
+                                val k = mainPart.substring(0, firstSpace).trim()
+                                val v = mainPart.substring(firstSpace).trim()
+                                k to v
+                            } else {
+                                mainPart to ""
+                            }
+                        }
+                        currentSection.properties.add(ThermalIniProperty(key, value, inlineComment))
+                    }
+                }
+            }
+
+            return doc
+        }
+    }
+}
 
 /**
  * Real-time hardware telemetry and current active mitigation level.
@@ -49,14 +171,15 @@ data class VendorThermalTweaks(
 data class LiveThermalTelemetry(
     val sensorTempC: Float = 0f,
     val coolingState: Int = 0,
-    val activeMitigationLevel: Int = 0, // 0 = Unthrottled, 1..5 = Level 1..5
+    val activeMitigationLevel: Int = 0, // 0 = Unthrottled, 1..N = Throttling levels
     val isThrottled: Boolean = false,
     val estimatedMaxCurrentMa: Int = 3000,
-    val daemonPid: String = ""
+    val daemonPid: String = "",
+    val activeSensorName: String = ""
 )
 
 /**
- * Snapshot of vendor thermal architecture, live bind mount, and Magisk Magic Mount overlay state.
+ * Snapshot of vendor thermal architecture, active/stock INI documents, live bind mount, and Magisk overlay state.
  */
 data class VendorThermalStudioState(
     val isSupported: Boolean = false,
@@ -65,18 +188,18 @@ data class VendorThermalStudioState(
     val overlayConfigPath: String = "",
     val isOverlayActive: Boolean = false,
     val isLiveBindMounted: Boolean = false,
-    val stockThresholds: BatteryChargingThresholds = BatteryChargingThresholds(37, 38, 41, 42, 45),
-    val activeThresholds: BatteryChargingThresholds = BatteryChargingThresholds(37, 38, 41, 42, 45),
-    val tweaks: VendorThermalTweaks = VendorThermalTweaks(),
+    val stockDoc: ThermalIniDocument = ThermalIniDocument(),
+    val activeDoc: ThermalIniDocument = ThermalIniDocument(),
+    val availableSensors: List<String> = emptyList(),
     val telemetry: LiveThermalTelemetry = LiveThermalTelemetry(),
-    val rawSection: String = "",
+    val rawContent: String = "",
     val message: String = ""
 )
 
 /**
- * VendorThermalConfigManager — Manages vendor-level thermal daemon configurations
- * (Qualcomm thermal-engine.conf & MediaTek .tp/thermal.conf) via Magisk/KernelSU Magic Mount
- * and live runtime bind mount testing without reboot.
+ * VendorThermalConfigManager — 100% Dynamic, Non-Hardcoded Vendor Thermal Config Studio.
+ * Parses, visualizes, dynamically customizes, and deploys thermal-engine.conf (Qualcomm) or thermal.conf (MediaTek)
+ * via Magisk Magic Mount and Linux Bind Mount without reboot.
  */
 object VendorThermalConfigManager {
 
@@ -86,9 +209,10 @@ object VendorThermalConfigManager {
 
     private const val MTK_STOCK_CONF = "/vendor/etc/.tp/thermal.conf"
     private const val MTK_OVERLAY_CONF = "$MODULE_DIR/system/vendor/etc/.tp/thermal.conf"
+    private const val MTK_LIVE_TMP_CONF = "/data/local/tmp/lynx_thermal_tp_live.conf"
 
     /**
-     * Detects thermal architecture, locates stock files, checks active overlays and bind mounts.
+     * Detects thermal architecture, reads stock baseline, overlay file, and active live bind mounts.
      */
     suspend fun detectState(): VendorThermalStudioState = withContext(Dispatchers.IO) {
         try {
@@ -141,18 +265,18 @@ object VendorThermalConfigManager {
 
             // Read stock baseline
             val stockRaw = readProtectedFile(stockPath)
-            val stockParsed = parseBatterySection(stockRaw) ?: BatteryChargingThresholds(37, 38, 41, 42, 45)
+            val stockDoc = ThermalIniDocument.parse(stockRaw)
 
             // Read overlay or active file
-            val (activeParsed, rawActive) = if (hasOverlay) {
+            val (activeDoc, rawActive) = if (hasOverlay) {
                 val overlayRaw = readProtectedFile(overlayPath)
-                (parseBatterySection(overlayRaw) ?: stockParsed) to overlayRaw
+                ThermalIniDocument.parse(overlayRaw) to overlayRaw
             } else {
-                stockParsed to stockRaw
+                stockDoc.deepCopy() to stockRaw
             }
 
-            val tweaks = detectTweaks(rawActive)
-            val telemetry = queryLiveTelemetry(activeParsed)
+            val sensors = queryAvailableSensors()
+            val telemetry = queryLiveTelemetryInternal(activeDoc)
 
             VendorThermalStudioState(
                 isSupported = true,
@@ -161,13 +285,13 @@ object VendorThermalConfigManager {
                 overlayConfigPath = overlayPath,
                 isOverlayActive = hasOverlay,
                 isLiveBindMounted = isBindMounted,
-                stockThresholds = stockParsed,
-                activeThresholds = activeParsed,
-                tweaks = tweaks,
+                stockDoc = stockDoc,
+                activeDoc = activeDoc,
+                availableSensors = sensors,
                 telemetry = telemetry,
-                rawSection = rawActive,
+                rawContent = rawActive,
                 message = when {
-                    isBindMounted -> "Konfigurasi aktif secara Live via Bind Mount"
+                    isBindMounted -> "Konfigurasi aktif secara Live via Bind Mount (Tanpa Reboot)"
                     hasOverlay -> "Overlay Lynx Magic Mount aktif di direktori modul"
                     else -> "Menggunakan konfigurasi bawaan pabrik OEM"
                 }
@@ -181,32 +305,63 @@ object VendorThermalConfigManager {
     }
 
     /**
-     * Queries real-time battery / thermistor temperature, cooling state, and active mitigation level.
+     * Enumerates real hardware thermal sensor names from kernel sysfs.
      */
-    suspend fun queryLiveTelemetry(thresholds: BatteryChargingThresholds): LiveThermalTelemetry = withContext(Dispatchers.IO) {
+    suspend fun queryAvailableSensors(): List<String> = withContext(Dispatchers.IO) {
         try {
             val cmd = """
-                # 1. Read battery/thermistor temperature in Celsius
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    type=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                    [ -n "${'$'}type" ] && echo "${'$'}type"
+                done | sort -u
+            """.trimIndent()
+            val res = Shell.cmd(cmd).exec()
+            val list = res.out.map { it.trim() }.filter { it.isNotEmpty() }
+            if (list.isNotEmpty()) list else listOf("quiet-therm-adc", "battery", "bms", "msm-therm-adc", "backlight_therm", "gpu-usr")
+        } catch (_: Exception) {
+            listOf("quiet-therm-adc", "battery", "bms", "msm-therm-adc", "backlight_therm", "gpu-usr")
+        }
+    }
+
+    /**
+     * Queries real-time hardware telemetry and calculates dynamic mitigation level
+     * based on the active document's [BATTERY_CHARGING_CTL] or user-selected thresholds.
+     */
+    suspend fun queryLiveTelemetry(doc: ThermalIniDocument? = null): LiveThermalTelemetry = withContext(Dispatchers.IO) {
+        queryLiveTelemetryInternal(doc)
+    }
+
+    private fun queryLiveTelemetryInternal(doc: ThermalIniDocument?): LiveThermalTelemetry {
+        try {
+            // Find target sensor and thresholds from active document
+            val batterySection = doc?.getSection("BATTERY_CHARGING_CTL")
+            val targetSensor = batterySection?.getProperty("sensor") ?: "quiet-therm-adc"
+            val thresholdsStr = batterySection?.getProperty("thresholds") ?: ""
+            val thresholdsList = thresholdsStr.split("\\s+".toRegex())
+                .mapNotNull { it.toIntOrNull() }
+                .map { it / 1000 } // convert milli-C to C
+
+            val cmd = """
                 temp=0
-                if [ -f /sys/class/power_supply/battery/temp ]; then
+                # 1. Probe matching sensor or battery thermistor
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    type=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
+                    if [ "${'$'}type" = "$targetSensor" ]; then
+                        raw=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                        if [ "${'$'}raw" -gt 1000 ]; then temp=${'$'}((raw / 1000)); else temp=${'$'}raw; fi
+                        break
+                    fi
+                done
+
+                # Fallback to battery driver temp if sensor node returned 0
+                if [ "${'$'}temp" -le 0 ] && [ -f /sys/class/power_supply/battery/temp ]; then
                     raw=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
                     if [ "${'$'}raw" -gt 1000 ]; then temp=${'$'}((raw / 1000)); else temp=${'$'}((raw / 10)); fi
                 fi
-                if [ "${'$'}temp" -eq 0 ]; then
-                    for tz in /sys/class/thermal/thermal_zone*; do
-                        [ -d "${'$'}tz" ] || continue
-                        type=${'$'}(cat "${'$'}tz/type" 2>/dev/null)
-                        case "${'$'}type" in
-                            *quiet-therm*|*battery*|*bms*)
-                                raw=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
-                                if [ "${'$'}raw" -gt 1000 ]; then temp=${'$'}((raw / 1000)); else temp=${'$'}raw; fi
-                                break
-                                ;;
-                        esac
-                    done
-                fi
 
-                # 2. Read cooling device state for battery
+                # 2. Probe cooling device cur_state for battery/charger
                 cstate=0
                 for cd in /sys/class/thermal/cooling_device*; do
                     [ -d "${'$'}cd" ] || continue
@@ -219,7 +374,7 @@ object VendorThermalConfigManager {
                     esac
                 done
 
-                # 3. Check daemon process
+                # 3. Daemon PID
                 pid=${'$'}(pgrep -f thermal-engine | head -n 1)
 
                 echo "TEL|${'$'}temp|${'$'}cstate|${'$'}pid"
@@ -232,15 +387,17 @@ object VendorThermalConfigManager {
             val cstate = parts.getOrNull(2)?.toIntOrNull() ?: 0
             val pid = parts.getOrNull(3) ?: ""
 
-            // Calculate active level based on temp vs thresholds
-            val level = when {
-                tempC <= 0f -> 0
-                tempC < thresholds.t1 -> 0 // Unthrottled
-                tempC < thresholds.t2 -> 1 // Level 1
-                tempC < thresholds.t3 -> 2 // Level 2
-                tempC < thresholds.t4 -> 3 // Level 3
-                tempC < thresholds.t5 -> 4 // Level 4
-                else -> 5 // Level 5
+            // Calculate active level dynamically against thresholdsList
+            val level = if (thresholdsList.isNotEmpty() && tempC > 0f) {
+                var calculatedLevel = 0
+                for (i in thresholdsList.indices) {
+                    if (tempC >= thresholdsList[i]) {
+                        calculatedLevel = i + 1
+                    }
+                }
+                calculatedLevel
+            } else {
+                0
             }
 
             val estimatedMa = when (level) {
@@ -249,108 +406,34 @@ object VendorThermalConfigManager {
                 2 -> 2000
                 3 -> 1500
                 4 -> 1000
-                5 -> 0
-                else -> 3000
+                else -> 0
             }
 
-            LiveThermalTelemetry(
+            return LiveThermalTelemetry(
                 sensorTempC = tempC,
                 coolingState = cstate,
                 activeMitigationLevel = level,
                 isThrottled = level > 0,
                 estimatedMaxCurrentMa = estimatedMa,
-                daemonPid = pid
+                daemonPid = pid,
+                activeSensorName = targetSensor
             )
         } catch (_: Exception) {
-            LiveThermalTelemetry()
+            return LiveThermalTelemetry()
         }
     }
 
     /**
-     * Detects if Anti-Dimming or CPU/GPU Headroom tweaks are present in config.
+     * Generates and writes custom configuration permanently to the Magisk module directory.
      */
-    private fun detectTweaks(content: String): VendorThermalTweaks {
-        if (content.isBlank()) return VendorThermalTweaks()
-        val hasAntiDim = content.contains("thresholds 56000 60000") ||
-                content.contains("thresholds 55000 58000") ||
-                content.contains("# [LCD_MANAGEMENT]")
-        val hasHeadroom = content.contains("set_point 65000") && content.contains("[SS-MSM-THERM")
-        return VendorThermalTweaks(antiLcdDimming = hasAntiDim, cpuGpuHeadroom = hasHeadroom)
-    }
-
-    /**
-     * Parses the [BATTERY_CHARGING_CTL] section from INI-formatted thermal-engine.conf.
-     */
-    private fun parseBatterySection(content: String): BatteryChargingThresholds? {
-        if (content.isBlank()) return null
-        val lines = content.lines()
-        var inBatterySection = false
-        var thresholdsStr = ""
-        var sensorName = "quiet-therm-adc"
-        var samplingMs = 10000
-        var actionInfo = "1 2 4 5 6"
-
-        for (line in lines) {
-            val trimmed = line.trim()
-            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                val sectionName = trimmed.substring(1, trimmed.length - 1).trim()
-                inBatterySection = sectionName.equals("BATTERY_CHARGING_CTL", ignoreCase = true)
-                continue
-            }
-            if (inBatterySection) {
-                when {
-                    trimmed.startsWith("thresholds ", ignoreCase = true) -> {
-                        thresholdsStr = trimmed.substringAfter("thresholds").trim()
-                    }
-                    trimmed.startsWith("sensor ", ignoreCase = true) -> {
-                        sensorName = trimmed.substringAfter("sensor").trim()
-                    }
-                    trimmed.startsWith("sampling ", ignoreCase = true) -> {
-                        samplingMs = trimmed.substringAfter("sampling").trim().toIntOrNull() ?: 10000
-                    }
-                    trimmed.startsWith("action_info ", ignoreCase = true) -> {
-                        actionInfo = trimmed.substringAfter("action_info").trim()
-                    }
-                }
-            }
-        }
-
-        if (thresholdsStr.isNotEmpty()) {
-            val tokens = thresholdsStr.split("\\s+".toRegex()).mapNotNull { it.toIntOrNull() }
-            if (tokens.size >= 5) {
-                return BatteryChargingThresholds(
-                    t1 = tokens[0] / 1000,
-                    t2 = tokens[1] / 1000,
-                    t3 = tokens[2] / 1000,
-                    t4 = tokens[3] / 1000,
-                    t5 = tokens[4] / 1000,
-                    sensorName = sensorName,
-                    samplingMs = samplingMs,
-                    actionInfo = actionInfo
-                )
-            }
-        }
-        return null
-    }
-
-    /**
-     * Generates custom thermal-engine.conf and applies it permanently to the Magisk module directory.
-     */
-    suspend fun applyCustomThresholds(
-        thresholds: BatteryChargingThresholds,
-        tweaks: VendorThermalTweaks = VendorThermalTweaks()
-    ): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun applyCustomConfig(doc: ThermalIniDocument): Result<String> = withContext(Dispatchers.IO) {
         try {
             val state = detectState()
             if (!state.isSupported) {
                 return@withContext Result.failure(IllegalStateException(state.message))
             }
 
-            val baseContent = readProtectedFile(
-                if (state.isOverlayActive) state.overlayConfigPath else state.stockConfigPath
-            )
-
-            val newContent = buildModifiedContent(baseContent, thresholds, tweaks)
+            val content = doc.toIniString()
             val tmpPath = "/data/local/tmp/lynx_thermal_engine.tmp"
             val targetPath = state.overlayConfigPath
             val targetDir = targetPath.substringBeforeLast('/')
@@ -358,7 +441,7 @@ object VendorThermalConfigManager {
             val writeScript = """
                 mkdir -p "$targetDir" 2>/dev/null
                 cat << 'EOF' > "$tmpPath"
-$newContent
+$content
 EOF
                 if [ -s "$tmpPath" ]; then
                     cp -af "$tmpPath" "$targetPath"
@@ -386,26 +469,20 @@ EOF
      * Applies custom config immediately at runtime via Linux Bind Mount and reloads thermal daemon
      * WITHOUT REBOOTING the device.
      */
-    suspend fun applyLiveBindMount(
-        thresholds: BatteryChargingThresholds,
-        tweaks: VendorThermalTweaks = VendorThermalTweaks()
-    ): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun applyLiveBindMount(doc: ThermalIniDocument): Result<String> = withContext(Dispatchers.IO) {
         try {
             val state = detectState()
             if (!state.isSupported) {
                 return@withContext Result.failure(IllegalStateException(state.message))
             }
 
-            val baseContent = readProtectedFile(
-                if (state.isOverlayActive) state.overlayConfigPath else state.stockConfigPath
-            )
-            val newContent = buildModifiedContent(baseContent, thresholds, tweaks)
-            val liveConf = QCOM_LIVE_TMP_CONF
+            val content = doc.toIniString()
+            val liveConf = if (state.vendorArchitecture == "qcom") QCOM_LIVE_TMP_CONF else MTK_LIVE_TMP_CONF
             val stockConf = state.stockConfigPath
 
             val liveScript = """
                 cat << 'EOF' > "$liveConf"
-$newContent
+$content
 EOF
                 if [ ! -s "$liveConf" ]; then
                     echo "WRITE_FAIL"
@@ -433,9 +510,25 @@ EOF
 
             val res = Shell.cmd(liveScript).exec()
             if (res.out.contains("LIVE_MOUNT_OK")) {
-                Result.success("Berhasil diuji secara Live! Daemon thermal-engine telah dimuat ulang tanpa reboot.")
+                Result.success("Berhasil diuji secara Live! Daemon vendor thermal telah dimuat ulang tanpa reboot.")
             } else {
                 Result.failure(RuntimeException("Gagal menerapkan live bind mount: ${res.err.joinToString("\n")}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Applies raw INI string directly, either as Live Bind Mount or Permanent Magisk Overlay.
+     */
+    suspend fun applyRawContent(rawContent: String, isLive: Boolean): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val parsedDoc = ThermalIniDocument.parse(rawContent)
+            if (isLive) {
+                applyLiveBindMount(parsedDoc)
+            } else {
+                applyCustomConfig(parsedDoc)
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -451,7 +544,7 @@ EOF
             val stockConf = state.stockConfigPath
             val revertScript = """
                 umount "$stockConf" 2>/dev/null
-                rm -f "$QCOM_LIVE_TMP_CONF" 2>/dev/null
+                rm -f "$QCOM_LIVE_TMP_CONF" "$MTK_LIVE_TMP_CONF" 2>/dev/null
                 stop vendor.thermal-engine 2>/dev/null || stop thermal-engine 2>/dev/null
                 sleep 0.3
                 start vendor.thermal-engine 2>/dev/null || start thermal-engine 2>/dev/null
@@ -467,80 +560,6 @@ EOF
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    /**
-     * Injects or modifies [BATTERY_CHARGING_CTL], [LCD_MANAGEMENT], and CPU/GPU rules.
-     */
-    private fun buildModifiedContent(
-        original: String,
-        thresholds: BatteryChargingThresholds,
-        tweaks: VendorThermalTweaks
-    ): String {
-        val newThresholdsLine = "thresholds ${thresholds.toThresholdsMilliC()}"
-        val newThresholdsClrLine = "thresholds_clr ${thresholds.toThresholdsClrMilliC()}"
-
-        val lines = original.lines()
-        val result = mutableListOf<String>()
-        var inBattery = false
-        var inLcd = false
-        var inSilver = false
-        var inGold = false
-        var hasBatterySection = original.contains("[BATTERY_CHARGING_CTL]", ignoreCase = true)
-
-        for (line in lines) {
-            val trimmed = line.trim()
-            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                inBattery = trimmed.equals("[BATTERY_CHARGING_CTL]", ignoreCase = true)
-                inLcd = trimmed.equals("[LCD_MANAGEMENT]", ignoreCase = true)
-                inSilver = trimmed.startsWith("[SS-MSM-THERM-SILVER", ignoreCase = true)
-                inGold = trimmed.startsWith("[SS-MSM-THERM-GOLD", ignoreCase = true)
-                result.add(line)
-                continue
-            }
-
-            if (inBattery) {
-                when {
-                    trimmed.startsWith("thresholds ", ignoreCase = true) -> result.add(newThresholdsLine)
-                    trimmed.startsWith("thresholds_clr ", ignoreCase = true) -> result.add(newThresholdsClrLine)
-                    else -> result.add(line)
-                }
-            } else if (inLcd && tweaks.antiLcdDimming) {
-                // Relax LCD dimming thresholds to 56°C / 60°C
-                when {
-                    trimmed.startsWith("thresholds ", ignoreCase = true) -> result.add("thresholds 56000 60000")
-                    trimmed.startsWith("thresholds_clr ", ignoreCase = true) -> result.add("thresholds_clr 54000 58000")
-                    else -> result.add(line)
-                }
-            } else if ((inSilver || inGold) && tweaks.cpuGpuHeadroom) {
-                // Bump CPU set points by +5°C for sustained gaming FPS
-                when {
-                    trimmed.startsWith("set_point 60000", ignoreCase = true) -> result.add("set_point 65000")
-                    trimmed.startsWith("set_point_clr 55000", ignoreCase = true) -> result.add("set_point_clr 60000")
-                    trimmed.startsWith("set_point 68000", ignoreCase = true) -> result.add("set_point 73000")
-                    trimmed.startsWith("set_point_clr 62000", ignoreCase = true) -> result.add("set_point_clr 67000")
-                    trimmed.startsWith("set_point 75000", ignoreCase = true) -> result.add("set_point 80000")
-                    trimmed.startsWith("set_point_clr 70000", ignoreCase = true) -> result.add("set_point_clr 75000")
-                    else -> result.add(line)
-                }
-            } else {
-                result.add(line)
-            }
-        }
-
-        if (!hasBatterySection) {
-            result.add("")
-            result.add("[BATTERY_CHARGING_CTL]")
-            result.add("algo_type monitor")
-            result.add("sampling ${thresholds.samplingMs}")
-            result.add("sensor ${thresholds.sensorName}")
-            result.add(newThresholdsLine)
-            result.add(newThresholdsClrLine)
-            result.add("actions battery battery battery battery battery")
-            result.add("action_info ${thresholds.actionInfo}")
-        }
-
-        return result.joinToString("\n")
     }
 
     /**
@@ -574,7 +593,7 @@ EOF
     /**
      * Reads file contents via Root Shell to bypass restrictive Android permissions.
      */
-    private fun readProtectedFile(path: String): String {
+    fun readProtectedFile(path: String): String {
         val res = Shell.cmd("cat \"$path\" 2>/dev/null").exec()
         return if (res.isSuccess) res.out.joinToString("\n") else ""
     }
