@@ -31,11 +31,12 @@ import com.noir.lynx.data.LynxRepository
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
- * HudXboostGaugesAndCoreTab — Main "Fitur Dasar" Tab of Infinix XBOOST.
- * Features dual tachometer dial meters (CPU & GPU load %), live FPS corner tag,
- * performance profile selector pills, and the 4 bottom game action tools.
+ * HudXboostGaugesAndCoreTab — Main "Performa" Tab of Lynx Game Matrix.
+ * Features dual tachometer dial meters (CPU & GPU load %), live FPS pacing,
+ * performance profile selector pills, 4 quick tools, and the floating app dock.
  */
 @Composable
 fun HudXboostGaugesAndCoreTab(
@@ -54,30 +55,52 @@ fun HudXboostGaugesAndCoreTab(
     var isCapturingScreenshot by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        // 1. Live FPS Header Tag (Top Right)
+        // 1. Live Telemetry Bar: Stability + FPS Pacing
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val stabilityText = if (telemetry.fps1PercentLow >= 50f) "STABIL" else "AKTIF"
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(NeonGreen)
+                )
+                Text(
+                    text = "$stabilityText · ${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms",
+                    color = MatrixTextSecondary,
+                    fontSize = 8.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     text = "FPS",
-                    color = InfinixTextMuted,
-                    fontSize = 9.sp,
+                    color = MatrixTextMuted,
+                    fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = "${telemetry.renderFps}",
-                    color = Color.White,
-                    fontSize = 15.sp,
+                    color = NeonGreen,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace
                 )
@@ -88,37 +111,37 @@ fun HudXboostGaugesAndCoreTab(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp),
+                .padding(vertical = 1.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // CPU Gauge
-            XboostCircularGauge(
+            // CPU Gauge (Cyan / Emerald)
+            MatrixCircularGauge(
                 value = telemetry.cpuLoadPct.toFloat(),
                 label = "CPU",
-                primaryColor = Color(0xFFFF5252),
-                secondaryColor = Color(0xFFFF9100)
+                primaryColor = NeonCyan,
+                secondaryColor = NeonGreen
             )
 
-            // GPU Gauge
-            XboostCircularGauge(
+            // GPU Gauge (Magenta / Orange)
+            MatrixCircularGauge(
                 value = telemetry.gpuLoadPct.toFloat(),
                 label = "GPU",
-                primaryColor = Color(0xFFFF3D00),
-                secondaryColor = Color(0xFFFFAB00)
+                primaryColor = NeonMagenta,
+                secondaryColor = NeonOrange
             )
         }
 
         // 3. Performance Mode Selector (Horizontal Pills)
         val profiles = listOf(
-            "powersave" to "Penghemat...",
+            "powersave" to "Hemat",
             "balance" to "Seimbang",
             "performance" to "Kinerja",
             "extreme" to "Ekstrem"
         )
 
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             color = Color(0x33141F2E),
             border = BorderStroke(1.dp, Color(0x18FFFFFF)),
             modifier = Modifier.fillMaxWidth()
@@ -134,10 +157,14 @@ fun HudXboostGaugesAndCoreTab(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(9.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .then(
                                 if (isSel) {
-                                    Modifier.background(Brush.horizontalGradient(listOf(Color(0x55FF5252), Color(0x33FF9100))))
+                                    Modifier.background(
+                                        Brush.horizontalGradient(
+                                            listOf(NeonCyan.copy(alpha = 0.35f), NeonCyan.copy(alpha = 0.15f))
+                                        )
+                                    )
                                 } else {
                                     Modifier.background(Color.Transparent)
                                 }
@@ -145,17 +172,17 @@ fun HudXboostGaugesAndCoreTab(
                             .border(
                                 BorderStroke(
                                     1.dp,
-                                    if (isSel) Color(0xFFFF9100) else Color.Transparent
+                                    if (isSel) NeonCyan else Color.Transparent
                                 ),
-                                RoundedCornerShape(9.dp)
+                                RoundedCornerShape(8.dp)
                             )
                             .clickable { onProfileSelect(pKey) }
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = pLabel,
-                            color = if (isSel) Color(0xFFFFD180) else InfinixTextSecondary,
+                            color = if (isSel) Color.White else MatrixTextSecondary,
                             fontSize = 8.5.sp,
                             fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
                             maxLines = 1,
@@ -166,15 +193,15 @@ fun HudXboostGaugesAndCoreTab(
             }
         }
 
-        // 4. Bottom Action Tools (Tangkapan Layar, Refresh Rate, Pin FPS, Bersihkan Memori)
+        // 4. Action Tools (Tangkapan Layar, Ganti Hz, Pin FPS, Pembersihan Memori)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             // Tool 1: Tangkapan Layar
-            XboostBottomToolButton(
+            MatrixBottomToolButton(
                 icon = "✂️",
-                label = if (isCapturingScreenshot) "Disimpan!" else "Tangkapan\nlayar",
+                label = if (isCapturingScreenshot) "Disimpan!" else "Tangkapan\nLayar",
                 isActive = isCapturingScreenshot,
                 activeColor = NeonCyan,
                 onClick = {
@@ -191,7 +218,7 @@ fun HudXboostGaugesAndCoreTab(
             )
 
             // Tool 2: Display Refresh Rate Hz
-            XboostBottomToolButton(
+            MatrixBottomToolButton(
                 icon = "⚡",
                 label = "$currentRefreshRate Hz\nGanti Layar",
                 isActive = false,
@@ -201,7 +228,7 @@ fun HudXboostGaugesAndCoreTab(
             )
 
             // Tool 3: Pin Mini FPS
-            XboostBottomToolButton(
+            MatrixBottomToolButton(
                 icon = "📌",
                 label = if (pinMiniFps) "Pin FPS\nAktif" else "Pin FPS\nOff",
                 isActive = pinMiniFps,
@@ -211,9 +238,9 @@ fun HudXboostGaugesAndCoreTab(
             )
 
             // Tool 4: Pembersihan Memori
-            XboostBottomToolButton(
+            MatrixBottomToolButton(
                 icon = "🧹",
-                label = if (isBoosting) "RAM\nBersih!" else "Pember-\nsihan Memori",
+                label = if (isBoosting) "RAM\nBersih!" else "Pember-\nsihan RAM",
                 isActive = isBoosting,
                 activeColor = NeonGreen,
                 onClick = {
@@ -229,14 +256,26 @@ fun HudXboostGaugesAndCoreTab(
                 modifier = Modifier.weight(1f)
             )
         }
+
+        // 5. Floating App Dock Strip
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                text = "APLIKASI MENGAMBANG",
+                color = MatrixTextMuted,
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+            HudXboostAppDock()
+        }
     }
 }
 
 /**
- * XboostCircularGauge — Authentic Tachometer Circular Dial Meter.
+ * MatrixCircularGauge — Authentic Cyber-Tactical Tachometer Circular Dial Meter.
  */
 @Composable
-private fun XboostCircularGauge(
+private fun MatrixCircularGauge(
     value: Float,
     label: String,
     primaryColor: Color,
@@ -248,18 +287,18 @@ private fun XboostCircularGauge(
     )
 
     Box(
-        modifier = Modifier.size(108.dp),
+        modifier = Modifier.size(98.dp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(6.dp)) {
-            val strokeW = 8.dp.toPx()
-            val outerStrokeW = 2.dp.toPx()
+        Canvas(modifier = Modifier.fillMaxSize().padding(5.dp)) {
+            val strokeW = 7.5.dp.toPx()
+            val outerStrokeW = 1.5.dp.toPx()
             val arcSize = Size(size.width - strokeW, size.height - strokeW)
             val arcOffset = Offset(strokeW / 2, strokeW / 2)
 
             // 1. Outer subtle track ring
             drawArc(
-                color = Color(0x22FFFFFF),
+                color = Color(0x18FFFFFF),
                 startAngle = 140f,
                 sweepAngle = 260f,
                 useCenter = false,
@@ -270,7 +309,7 @@ private fun XboostCircularGauge(
 
             // 2. Main background track arc
             drawArc(
-                color = Color(0x332A1818),
+                color = Color(0x33101826),
                 startAngle = 140f,
                 sweepAngle = 260f,
                 useCenter = false,
@@ -303,14 +342,14 @@ private fun XboostCircularGauge(
             Text(
                 text = "${value.toInt()}%",
                 color = Color.White,
-                fontSize = 18.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace
             )
             Text(
                 text = label,
-                color = InfinixTextMuted,
-                fontSize = 9.sp,
+                color = MatrixTextMuted,
+                fontSize = 8.5.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.5.sp
             )
@@ -319,7 +358,7 @@ private fun XboostCircularGauge(
 }
 
 @Composable
-private fun XboostBottomToolButton(
+private fun MatrixBottomToolButton(
     icon: String,
     label: String,
     isActive: Boolean,
@@ -329,28 +368,28 @@ private fun XboostBottomToolButton(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         // Squircle Icon Container
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             color = if (isActive) activeColor.copy(alpha = 0.2f) else Color(0x33141F2E),
             border = BorderStroke(1.dp, if (isActive) activeColor else Color(0x22FFFFFF)),
-            modifier = Modifier.size(42.dp)
+            modifier = Modifier.size(38.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                Text(text = icon, fontSize = 16.sp)
+                Text(text = icon, fontSize = 15.sp)
             }
         }
 
         // Multi-line Label
         Text(
             text = label,
-            color = if (isActive) activeColor else InfinixTextSecondary,
+            color = if (isActive) activeColor else MatrixTextSecondary,
             fontSize = 7.5.sp,
             textAlign = TextAlign.Center,
             lineHeight = 9.sp,

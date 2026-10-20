@@ -14,9 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
@@ -39,12 +37,12 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * HudEdgeDrawer — Infinix XBOOST AI Inspired Full Gaming Console.
- * Matches the authentic Infinix XBOOST Game Bar layout:
- * - Floating top dock of apps (WhatsApp, Chrome, YouTube, Calculator, etc.) in freeform mode
- * - Left vertical category rail (Fitur Dasar, Alat Akses Cepat, Anti-gangguan, Gameplay Tambahan)
- * - Dual circular tachometer gauges (CPU % & GPU %) with glowing gradient dials
- * - Performance profile pills & bottom gaming action tools
+ * HudEdgeDrawer — Lynx Game Matrix Gaming Console.
+ * An authentic, original cyber-tactical gaming overlay designed specifically for Lynx:
+ * - Clean horizontal segmented category bar (Performa, Alat Cepat, Perisai, Ekstra)
+ * - Zero empty void: auto-wraps content naturally in both portrait & landscape
+ * - Dual circular tachometer gauges (CPU & GPU) with live FPS pacing
+ * - Top floating app dock launching in freeform window mode
  */
 @Composable
 fun HudEdgeDrawer(
@@ -67,7 +65,7 @@ fun HudEdgeDrawer(
     onClose: () -> Unit,
     onDragVertical: (Float) -> Unit,
 ) {
-    var selectedCategoryIndex by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableStateOf(0) }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -140,7 +138,7 @@ fun HudEdgeDrawer(
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0xFFFF5252), Color.White, NeonCyan)
+                                listOf(NeonCyan, Color.White, NeonCyan)
                             )
                         )
                 )
@@ -185,16 +183,17 @@ fun HudEdgeDrawer(
             }
         }
     } else {
-        // ── STATE 2: EXPANDED INFINIX XBOOST CONSOLE ──
-        val consoleWidth = if (isLandscape) 385.dp else 330.dp
+        // ── STATE 2: EXPANDED LYNX GAME MATRIX CONSOLE ──
+        val consoleWidth = if (isLandscape) 365.dp else 320.dp
 
         Surface(
-            shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
-            color = Color(0xF4080D15),
-            border = BorderStroke(1.dp, Color(0x3300E5FF)),
-            shadowElevation = 24.dp,
+            shape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
+            color = MatrixBg,
+            border = BorderStroke(1.dp, MatrixCardBorder),
+            shadowElevation = 20.dp,
             modifier = Modifier
                 .width(consoleWidth)
+                .wrapContentHeight()
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
                     detectDragGestures(
@@ -211,10 +210,12 @@ fun HudEdgeDrawer(
         ) {
             Column(
                 modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 1. Infinix XBOOST Top Bar (Logo, Status Icons, Battery, Clock, Collapse)
+                // 1. Header Bar: Lynx Emblem, Title, Status, Clock, Close
                 val currentTimeStr = remember(telemetry.renderFps) {
                     SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                 }
@@ -224,7 +225,7 @@ fun HudEdgeDrawer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Brand: Flame Icon + XBOOST AI
+                    // Left Brand: Lynx Insignia + LYNX MATRIX
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -233,29 +234,26 @@ fun HudEdgeDrawer(
                             modifier = Modifier
                                 .size(14.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFFF3D00)),
+                                .background(NeonCyan),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("⚡", fontSize = 9.sp)
+                            Text("⚡", fontSize = 8.5.sp, color = Color.Black)
                         }
                         Text(
-                            text = "XBOOST AI",
-                            color = Color.White,
-                            fontSize = 12.sp,
+                            text = "LYNX MATRIX",
+                            color = NeonCyan,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.8.sp
                         )
                     }
 
-                    // Right Status Cluster
+                    // Right Status: Battery, Clock, Close
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Sound / Mute Indicator
-                        Text("🔇", fontSize = 10.sp)
-
-                        // Battery % and Icon
+                        // Battery Level
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -263,23 +261,23 @@ fun HudEdgeDrawer(
                             Text("🔋", fontSize = 10.sp)
                             Text(
                                 text = "${telemetry.battLevelPct}%",
-                                color = InfinixTextSecondary,
+                                color = MatrixTextSecondary,
                                 fontSize = 8.5.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
 
-                        // Digital Time Clock
+                        // Digital Clock
                         Text(
                             text = currentTimeStr,
                             color = Color.White,
-                            fontSize = 10.5.sp,
+                            fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
                         )
 
-                        // Close / Collapse Button
+                        // Close Button
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
@@ -290,7 +288,7 @@ fun HudEdgeDrawer(
                         ) {
                             Icon(
                                 Icons.Default.Close,
-                                contentDescription = "Tutup Bilah",
+                                contentDescription = "Tutup",
                                 tint = NeonRed,
                                 modifier = Modifier.size(13.dp)
                             )
@@ -298,99 +296,81 @@ fun HudEdgeDrawer(
                     }
                 }
 
-                // 2. Horizontal Floating App Dock (WhatsApp, Chrome, YouTube, Calculator, etc.)
-                HudXboostAppDock(
-                    onAppLaunched = {
-                        // Optional: keep console open or auto-collapse when app is launched
-                    }
+                // 2. Horizontal Segmented Category Navigation (Full Width, Zero Waste)
+                val tabs = listOf(
+                    "📊 Performa",
+                    "⚡ Alat Cepat",
+                    "🛡️ Perisai",
+                    "🪄 Ekstra"
                 )
 
-                HorizontalDivider(
-                    color = Color(0x18FFFFFF),
-                    thickness = 0.8.dp,
-                    modifier = Modifier.padding(vertical = 1.dp)
-                )
-
-                // 3. Main Console Body: Left Vertical Category Rail + Right Content Area
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0x33141F2E),
+                    border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Left Vertical Category Rail (4 Tabs)
-                    val categories = listOf(
-                        Triple("🔲", "Fitur\nDasar", 0),
-                        Triple("⚙️", "Alat Akses\nCepat", 1),
-                        Triple("🔕", "Anti-\ngangguan", 2),
-                        Triple("🪄", "Gameplay\nTambahan", 3)
-                    )
-
-                    Column(
-                        modifier = Modifier.width(62.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(2.5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
-                        categories.forEach { (icon, label, idx) ->
-                            val isSelected = (selectedCategoryIndex == idx)
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) Color(0x44FF3D00) else Color(0x18FFFFFF),
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) Color(0xFFFF9100) else Color(0x15FFFFFF)
-                                ),
+                        tabs.forEachIndexed { idx, label ->
+                            val isSelected = (selectedTab == idx)
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { selectedCategoryIndex = idx }
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    Text(text = icon, fontSize = 14.sp)
-                                    Text(
-                                        text = label,
-                                        color = if (isSelected) Color.White else InfinixTextSecondary,
-                                        fontSize = 7.5.sp,
-                                        lineHeight = 9.sp,
-                                        textAlign = TextAlign.Center,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) NeonCyan.copy(alpha = 0.22f) else Color.Transparent)
+                                    .border(
+                                        BorderStroke(
+                                            0.8.dp,
+                                            if (isSelected) NeonCyan else Color.Transparent
+                                        ),
+                                        RoundedCornerShape(8.dp)
                                     )
-                                }
+                                    .clickable { selectedTab = idx }
+                                    .padding(vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) NeonCyan else MatrixTextSecondary,
+                                    fontSize = 8.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
+                }
 
-                    // Right Main Content Panel (Dynamically switches based on selected tab)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    ) {
-                        when (selectedCategoryIndex) {
-                            1 -> HudXboostQuickAccessTab(
-                                currentRefreshRate = currentRefreshRate,
-                                onCycleRefreshRate = onCycleRefreshRate
-                            )
-                            2 -> HudXboostDndTab()
-                            3 -> HudXboostGameplayTab(
-                                isHudBenchmarking = isHudBenchmarking,
-                                hudBenchmarkCountdown = hudBenchmarkCountdown,
-                                hudBenchmarkSummary = hudBenchmarkSummary,
-                                onStartHudBenchmark = onStartHudBenchmark
-                            )
-                            else -> HudXboostGaugesAndCoreTab(
-                                telemetry = telemetry,
-                                currentRefreshRate = currentRefreshRate,
-                                pinMiniFps = pinMiniFps,
-                                onProfileSelect = onProfileSelect,
-                                onBoostRam = onBoostRam,
-                                onCycleRefreshRate = onCycleRefreshRate,
-                                onTogglePinMiniFps = onTogglePinMiniFps,
-                                onCloseDrawer = { onToggleDrawer(false) }
-                            )
-                        }
+                // 3. Tab Content (Auto-wrapping with no empty void)
+                Box(modifier = Modifier.fillMaxWidth().wrapContentHeight()) {
+                    when (selectedTab) {
+                        1 -> HudXboostQuickAccessTab(
+                            currentRefreshRate = currentRefreshRate,
+                            onCycleRefreshRate = onCycleRefreshRate
+                        )
+                        2 -> HudXboostDndTab()
+                        3 -> HudXboostGameplayTab(
+                            isHudBenchmarking = isHudBenchmarking,
+                            hudBenchmarkCountdown = hudBenchmarkCountdown,
+                            hudBenchmarkSummary = hudBenchmarkSummary,
+                            onStartHudBenchmark = onStartHudBenchmark
+                        )
+                        else -> HudXboostGaugesAndCoreTab(
+                            telemetry = telemetry,
+                            currentRefreshRate = currentRefreshRate,
+                            pinMiniFps = pinMiniFps,
+                            onProfileSelect = onProfileSelect,
+                            onBoostRam = onBoostRam,
+                            onCycleRefreshRate = onCycleRefreshRate,
+                            onTogglePinMiniFps = onTogglePinMiniFps,
+                            onCloseDrawer = { onToggleDrawer(false) }
+                        )
                     }
                 }
             }

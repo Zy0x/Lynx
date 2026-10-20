@@ -21,13 +21,12 @@ import com.noir.lynx.data.LynxRepository
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * HudXboostSecondaryTabs — Provides content for tabs 2, 3, and 4:
- * Tab 2: Alat Akses Cepat (Hz, TouchBoost, Bypass Charging, Kecerahan)
- * Tab 3: Anti-gangguan (Blokir Notifikasi Heads-Up, DND)
- * Tab 4: Gameplay Tambahan (Crosshair, Benchmark 60s, Screen Recorder)
+ * Tab 2: Alat Akses Cepat (Hz, TouchBoost, Bypass Charging)
+ * Tab 3: Anti-gangguan (Blokir Notifikasi Heads-Up, Pencegahan Salah Sentuh)
+ * Tab 4: Gameplay Tambahan (Crosshair, Benchmark 60s)
  */
 
 @Composable
@@ -41,30 +40,32 @@ fun HudXboostQuickAccessTab(
     var isBypassChargeActive by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Text(
             text = "ALAT AKSES CEPAT",
-            color = InfinixTextPrimary,
-            fontSize = 11.sp,
+            color = MatrixTextPrimary,
+            fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp
         )
 
         // 1. Refresh Rate Switcher
-        XboostSettingCard(
+        MatrixSettingCard(
             title = "Refresh Rate Layar",
             subtitle = "Saat ini: $currentRefreshRate Hz",
             icon = "⚡",
-            actionText = "Ubah Hz",
+            actionText = "Ganti Hz",
             onAction = onCycleRefreshRate
         )
 
         // 2. TouchBoost Multi-OEM
-        XboostToggleCard(
+        MatrixToggleCard(
             title = "TouchBoost Responsif",
-            subtitle = "Meningkatkan sampling rate sentuhan layar",
+            subtitle = "Meningkatkan responsivitas sentuhan layar",
             icon = "🎯",
             isChecked = isTouchBoostActive,
             onToggle = {
@@ -77,9 +78,9 @@ fun HudXboostQuickAccessTab(
         )
 
         // 3. Bypass Charging / AutoCut
-        XboostToggleCard(
+        MatrixToggleCard(
             title = "Bypass Charging (Direct Power)",
-            subtitle = "Daya langsung ke motherboard, cegah panas baterai",
+            subtitle = "Daya langsung ke motherboard, tahan panas baterai",
             icon = "🔋",
             isChecked = isBypassChargeActive,
             onToggle = {
@@ -102,21 +103,23 @@ fun HudXboostDndTab(
     var isMistouchLocked by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Text(
-            text = "ANTI-GANGGUAN (GAMING SHIELD)",
-            color = InfinixTextPrimary,
-            fontSize = 11.sp,
+            text = "PERISAI GAME (ANTI-GANGGUAN)",
+            color = MatrixTextPrimary,
+            fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp
         )
 
         // 1. Blokir Notifikasi Heads-Up
-        XboostToggleCard(
+        MatrixToggleCard(
             title = "Blokir Banner Notifikasi",
-            subtitle = "Sembunyikan pop-up WA/pesan saat bermain",
+            subtitle = "Sembunyikan pop-up pesan WA saat bermain",
             icon = "🔕",
             isChecked = isHeadsUpBlocked,
             onToggle = {
@@ -128,10 +131,10 @@ fun HudXboostDndTab(
             }
         )
 
-        // 2. Kunci Tombol Navigasi
-        XboostToggleCard(
+        // 2. Kunci Tombol Navigasi / Pencegahan Salah Sentuh
+        MatrixToggleCard(
             title = "Pencegahan Salah Sentuh",
-            subtitle = "Kunci navigasi gestur bezel selama pertandingan",
+            subtitle = "Kunci navigasi gestur tepi layar selama game",
             icon = "🛡️",
             isChecked = isMistouchLocked,
             onToggle = {
@@ -149,25 +152,26 @@ fun HudXboostGameplayTab(
     onStartHudBenchmark: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
     var isCrosshairEnabled by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Text(
-            text = "GAMEPLAY TAMBAHAN",
-            color = InfinixTextPrimary,
-            fontSize = 11.sp,
+            text = "EKSTRA GAMEPLAY",
+            color = MatrixTextPrimary,
+            fontSize = 10.5.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp
         )
 
         // 1. Crosshair / Virtual Aim
-        XboostToggleCard(
+        MatrixToggleCard(
             title = "Crosshair Virtual Aim",
-            subtitle = "Titik bidik presisi di tengah layar untuk game FPS",
+            subtitle = "Titik bidik presisi di tengah layar untuk FPS",
             icon = "🪄",
             isChecked = isCrosshairEnabled,
             onToggle = {
@@ -175,7 +179,7 @@ fun HudXboostGameplayTab(
             }
         )
 
-        // 2. Benchmark 60 Detik
+        // 2. Benchmark Stabilitas 60 Detik
         Surface(
             shape = RoundedCornerShape(10.dp),
             color = if (isHudBenchmarking) NeonMagenta.copy(alpha = 0.18f) else Color(0x33141F2E),
@@ -195,11 +199,11 @@ fun HudXboostGameplayTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("⏱", fontSize = 14.sp)
+                        Text("⏱", fontSize = 13.sp)
                         Text(
                             text = if (isHudBenchmarking) "Menguji Pacing... ${hudBenchmarkCountdown}s" else "Uji Stabilitas 60 Detik",
-                            color = if (isHudBenchmarking) NeonMagenta else InfinixTextPrimary,
-                            fontSize = 9.5.sp,
+                            color = if (isHudBenchmarking) NeonMagenta else MatrixTextPrimary,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -224,7 +228,7 @@ fun HudXboostGameplayTab(
 }
 
 @Composable
-private fun XboostToggleCard(
+private fun MatrixToggleCard(
     title: String,
     subtitle: String,
     icon: String,
@@ -240,7 +244,7 @@ private fun XboostToggleCard(
             .clickable { onToggle() }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -251,8 +255,8 @@ private fun XboostToggleCard(
             ) {
                 Text(icon, fontSize = 14.sp)
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(title, color = InfinixTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text(subtitle, color = InfinixTextMuted, fontSize = 7.5.sp)
+                    Text(title, color = MatrixTextPrimary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text(subtitle, color = MatrixTextMuted, fontSize = 7.sp)
                 }
             }
             Box(
@@ -263,7 +267,7 @@ private fun XboostToggleCard(
             ) {
                 Text(
                     text = if (isChecked) "AKTIF" else "OFF",
-                    color = if (isChecked) Color.Black else InfinixTextSecondary,
+                    color = if (isChecked) Color.Black else MatrixTextSecondary,
                     fontSize = 7.5.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -273,7 +277,7 @@ private fun XboostToggleCard(
 }
 
 @Composable
-private fun XboostSettingCard(
+private fun MatrixSettingCard(
     title: String,
     subtitle: String,
     icon: String,
@@ -287,7 +291,7 @@ private fun XboostSettingCard(
         modifier = Modifier.fillMaxWidth().clickable { onAction() }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -298,8 +302,8 @@ private fun XboostSettingCard(
             ) {
                 Text(icon, fontSize = 14.sp)
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(title, color = InfinixTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text(subtitle, color = InfinixTextMuted, fontSize = 7.5.sp)
+                    Text(title, color = MatrixTextPrimary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text(subtitle, color = MatrixTextMuted, fontSize = 7.sp)
                 }
             }
             Box(
