@@ -25,7 +25,8 @@ import com.noir.lynx.ui.*
 fun LazyListScope.tuningGpuCategoryItems(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    context: Context
+    context: Context,
+    targetTab: Int = uiState.selectedGpuTab
 ) {
     val state = uiState.state
     val gpu = uiState.gpuInfo
@@ -33,7 +34,7 @@ fun LazyListScope.tuningGpuCategoryItems(
     val gpuOverride = state.profileOverrides[com.noir.lynx.profiles.ProfileDomain.GPU]
         ?: state.profileOverrides[com.noir.lynx.profiles.ProfileDomain.GRAPHICS]
 
-    when (uiState.selectedGpuTab) {
+    when (targetTab) {
         0 -> {
             // ── TAB 0: TUNING ──
             // 1. One-Click GPU Quick Profiles (Harmonic Presets)

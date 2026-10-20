@@ -1,4 +1,4 @@
-﻿package com.noir.lynx.ui
+package com.noir.lynx.ui
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
@@ -171,11 +171,12 @@ fun LazyListScope.tuningProfilesCategoryItems(
     context: Context,
     onAddAppClick: () -> Unit = {},
     onEditRuleClick: (AppProfileRule) -> Unit = {},
-    onExtremeConfirmRequired: () -> Unit
+    onExtremeConfirmRequired: () -> Unit,
+    targetTab: Int = uiState.selectedProfileTab
 ) {
     val state = uiState.state
 
-    when (uiState.selectedProfileTab) {
+    when (targetTab) {
         0 -> {
             // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
             // TAB 0: PROFILE
@@ -600,6 +601,7 @@ fun TuningProfilesCategory(
     onAddAppClick: () -> Unit = {},
     onEditRuleClick: (AppProfileRule) -> Unit = {},
     onExtremeConfirmRequired: () -> Unit,
+    targetTab: Int = uiState.selectedProfileTab,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current

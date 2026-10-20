@@ -212,11 +212,20 @@ object LynxRepository {
             """.trimIndent()).exec()
 
             // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
+            // Note: Only migrate if it was an ACTUAL installed module (has module.prop).
+            // Do NOT touch or create Lynx_legacy if /data/adb/modules/Lynx is just an orphan non-module folder!
             Shell.cmd("""
-                if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then
+                if [ -d "$MODULE_DIR" ] && [ -f "$MODULE_DIR/module.prop" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then
                     mkdir -p /data/adb/modules/Lynx_legacy 2>/dev/null
                     cp -af $MODULE_DIR/* /data/adb/modules/Lynx_legacy/ 2>/dev/null
                     touch /data/adb/modules/Lynx_legacy/disable 2>/dev/null
+                fi
+                # Clean up any ghost non-module folders created prematurely
+                if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/module.prop" ]; then
+                    rm -rf "$MODULE_DIR" 2>/dev/null
+                fi
+                if [ -d "/data/adb/modules/Lynx_legacy" ] && [ ! -f "/data/adb/modules/Lynx_legacy/module.prop" ]; then
+                    rm -rf /data/adb/modules/Lynx_legacy 2>/dev/null
                 fi
             """.trimIndent()).exec()
         } catch (_: Exception) {}
@@ -228,7 +237,7 @@ object LynxRepository {
     suspend fun isModuleInstalled(): Boolean = withContext(Dispatchers.IO) {
         cachedModuleInstalled?.let { return@withContext it }
         try {
-            val result = Shell.cmd("[ -d '$MODULE_DIR' ] && echo 1 || echo 0").exec()
+            val result = Shell.cmd("[ -d '$MODULE_DIR' ] && [ -f '$MODULE_DIR/module.prop' ] && echo 1 || echo 0").exec()
             val installed = result.out.firstOrNull()?.trim() == "1"
             cachedModuleInstalled = installed
             installed

@@ -41,17 +41,19 @@ fun TuningCpuCategory(
 fun LazyListScope.tuningCpuCategoryItems(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    context: Context
+    context: Context,
+    targetTab: Int = uiState.selectedCpuTab
 ) {
-    modularTuningCpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
+    modularTuningCpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context, targetTab = targetTab)
 }
 
 fun LazyListScope.tuningGpuCategoryItems(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    context: Context
+    context: Context,
+    targetTab: Int = uiState.selectedGpuTab
 ) {
-    modularTuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context)
+    modularTuningGpuCategoryItems(uiState = uiState, viewModel = viewModel, context = context, targetTab = targetTab)
 }
 
 @Composable

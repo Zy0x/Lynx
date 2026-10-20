@@ -1,3 +1,38 @@
+# Lynx Universal [Ghost Module Elimination & Strict Module.prop Integrity Guard] 7.0.0-RC140
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC140** (Lynx Kernel Manager v3.1.86): **Penyempurnaan Integritas Deteksi Modul Root & Eliminasi Total Folder Hantu (`Lynx` & `Lynx_legacy`): Mengatasi Masalah Munculnya Folder Modul Kosong Sebelum Modul Di-flash; Memperbaiki Logika Deteksi `isModuleInstalled()` & Migrasi Legacy Agar Wajib Memverifikasi Keberadaan Berkas Metadata `module.prop`; Mengalihkan Direktori Log Daemon `lynxd` ke Jalur Aman Standalone Saat Modul Belum Di-flash; Serta Menghapus Otomatis Folder Yatim Piatu (Orphan Directories) yang Tidak Memiliki `module.prop` Sehingga Tampilan Root Manager Bersih, Akurat, dan Konsisten**.
+
+## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC140)
+
+### 1. 🔍 Investigasi Ilmiah & Bedah Akar Masalah
+- **Pertanyaan Pengguna**:
+  - Mengapa di `/data/adb/modules/` sudah ada folder `Lynx` dan `Lynx_legacy` padahal pengguna belum me-flash modul Lynx?
+  - Mengapa kedua folder tersebut tidak tampil di daftar modul Root Manager (Magisk / KernelSU / APatch)?
+- **Akar Masalah Teridentifikasi**:
+  1. **Pembuatan Direktori Prematur oleh Daemon Native (`lynxd`)**:
+     - Saat aplikasi `LynxCompanion` dijalankan dengan hak root, daemon native diluncurkan. Logika penulisan log daemon sebelumnya memanggil `std::fs::create_dir_all("/data/adb/modules/Lynx/logs")` secara tanpa syarat. Hal ini secara otomatis menciptakan folder `/data/adb/modules/Lynx` meskipun pengguna belum pernah me-flash modul ZIP.
+  2. **Deteksi Palsu Modul Lama (*False Legacy Migration*)**:
+     - Di dalam `LynxRepository.kt`, fungsi pembersihan satu kali (`performOneTimeBootCleanup`) memeriksa:
+       `if [ -d "$MODULE_DIR" ] && [ ! -f "$MODULE_DIR/system/bin/lynxd" ]; then`
+     - Karena folder `/data/adb/modules/Lynx` baru saja dibuat oleh daemon untuk log dan belum memiliki biner di `system/bin/`, skrip mengira folder tersebut adalah modul Lynx versi lama (Generasi V4/V5/V6). Skrip langsung mem-backup folder tersebut ke `/data/adb/modules/Lynx_legacy` dan menonaktifkannya (`touch disable`).
+  3. **Mengapa Tidak Tampil di Root Manager (Magisk / KernelSU / APatch)?**:
+     - Root Manager (Magisk, KernelSU, APatch) **TIDAK PERNAH** mengenali sebuah folder di `/data/adb/modules/` sebagai modul hanya berdasarkan nama foldernya.
+     - Root Manager **secara mutlak mewajibkan adanya berkas metadata `module.prop`** yang valid di dalam setiap folder modul (`/data/adb/modules/<id>/module.prop`).
+     - Karena folder `Lynx` dan `Lynx_legacy` tersebut tercipta oleh aplikasi dan bukan hasil flash ZIP lewat Root Manager, kedua folder tersebut **tidak memiliki `module.prop`**. Akibatnya, Root Manager mengabaikannya dan tidak menampilkannya di tab Modules.
+
+### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+- **Verifikasi Wajib `module.prop` pada `isModuleInstalled()`**:
+  - Status modul terpasang kini secara ketat memeriksa:
+    `[ -d '$MODULE_DIR' ] && [ -f '$MODULE_DIR/module.prop' ]`
+- **Pembersihan Folder Hantu Otomatis (*Orphan Ghost Cleanup*)**:
+  - `performOneTimeBootCleanup()` kini secara otomatis menghapus folder `/data/adb/modules/Lynx` atau `/data/adb/modules/Lynx_legacy` jika tidak memiliki `module.prop`, mencegah kebingungan pengguna.
+- **Pengalihan Log Aman pada Daemon `lynxd`**:
+  - Jika `/data/adb/modules/Lynx/module.prop` belum ada, `lynxd` mencatat log ke `/data/local/tmp/lynxd.log` dan **tidak akan** menyentuh atau membuat folder `/data/adb/modules/Lynx` secara prematur.
+- **Proteksi `customize.sh`**:
+  - Menambahkan syarat `[ -f "$mod_dir/module.prop" ]` pada fungsi `preserve_legacy_module()` saat instalasi ZIP.
+
+---
+
 # Lynx Universal [Qualcomm PMIC CV Float Voltage Restoration & 100% Saturation Fix] 7.0.0-RC138
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC138** (Lynx Kernel Manager v3.1.84): **Audit & Perbaikan Tuntas Kegagalan Pengisian Daya Penuh (Stuck di 98% / Gagal 100%) pada Platform Qualcomm Snapdragon (Redmi Note 7 / PM660): Mengeliminasi Kesalahan Penulisan `restricted_charging = 1` pada Mode Regulated & Smart Tapering yang Memaksa Kernel Menurunkan Tegangan Float (`fv_votable`) dari 4.40V ke 4.20V (Store Demo Mode); Menghilangkan Penguncian Izin Node Sysfs (`chmod 0444`) pada Qualcomm Sehingga Driver Kernel `smb-lib` & Android Health HAL Leluasa Melakukan Step-Down Arus hingga Ambang Terminasi (`iterm ~150mA`); Memastikan `step_charging_enabled = 1` Aktif Penuh untuk Memandu Fase Constant Voltage (CV) Menuju Status 'Full' (100%); Serta Menyelaraskan Logika Shell Fallback pada `core/Charging-Controller.sh`**.

@@ -41,7 +41,7 @@ check_root
 preserve_legacy_module() {
     local mod_dir="/data/adb/modules/Lynx"
     local backup_dir="/data/adb/modules/Lynx_legacy"
-    if [ -d "$mod_dir" ] && [ ! -f "$mod_dir/system/bin/lynxd" ]; then
+    if [ -d "$mod_dir" ] && [ -f "$mod_dir/module.prop" ] && [ ! -f "$mod_dir/system/bin/lynxd" ]; then
         ui_print "📦 Terdeteksi modul Lynx versi lama di $mod_dir"
         ui_print "🛡️ Mengamankan ke $backup_dir dan menonaktifkannya..."
         mkdir -p "$backup_dir" 2>/dev/null

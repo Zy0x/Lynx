@@ -102,9 +102,11 @@ impl ProfileStateManager {
 
         #[cfg(target_os = "android")]
         {
-            let ksu_dir = PathBuf::from("/data/adb/modules/Lynx/state");
-            if fs::create_dir_all(&ksu_dir).is_ok() {
-                return ksu_dir;
+            if Path::new("/data/adb/modules/Lynx/module.prop").exists() {
+                let ksu_dir = PathBuf::from("/data/adb/modules/Lynx/state");
+                if fs::create_dir_all(&ksu_dir).is_ok() {
+                    return ksu_dir;
+                }
             }
 
             let adb_dir = PathBuf::from("/data/adb/lynx/state");
@@ -185,9 +187,11 @@ impl ProfileStateManager {
     pub fn journal_file() -> PathBuf {
         #[cfg(target_os = "android")]
         {
-            let log_dir = PathBuf::from("/data/adb/modules/Lynx/logs");
-            if fs::create_dir_all(&log_dir).is_ok() {
-                return log_dir.join("transaction.log");
+            if Path::new("/data/adb/modules/Lynx/module.prop").exists() {
+                let log_dir = PathBuf::from("/data/adb/modules/Lynx/logs");
+                if fs::create_dir_all(&log_dir).is_ok() {
+                    return log_dir.join("transaction.log");
+                }
             }
         }
         Self::get_state_dir().join("transaction.log")

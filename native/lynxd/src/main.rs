@@ -495,8 +495,13 @@ fn handle_daemon_start() {
         return;
     }
     let lynxd_bin = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("/data/adb/modules/Lynx/system/bin/lynxd"));
-    let log_path = "/data/adb/modules/Lynx/logs/lynxd.log";
-    let _ = std::fs::create_dir_all("/data/adb/modules/Lynx/logs");
+    let has_module = std::path::Path::new("/data/adb/modules/Lynx/module.prop").exists();
+    let (log_dir, log_path) = if has_module {
+        ("/data/adb/modules/Lynx/logs", "/data/adb/modules/Lynx/logs/lynxd.log")
+    } else {
+        ("/data/local/tmp", "/data/local/tmp/lynxd.log")
+    };
+    let _ = std::fs::create_dir_all(log_dir);
     let log_file = std::fs::OpenOptions::new().create(true).append(true).open(log_path);
     if let Ok(file) = log_file {
         let err_file = file.try_clone().unwrap_or_else(|_| std::fs::OpenOptions::new().create(true).append(true).open(log_path).unwrap());
