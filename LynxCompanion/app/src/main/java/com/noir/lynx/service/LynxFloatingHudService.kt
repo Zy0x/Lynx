@@ -222,7 +222,24 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         try {
             windowManager.updateViewLayout(view, params)
+            updateSystemGestureExclusion(view)
         } catch (_: Exception) {}
+    }
+
+    private fun updateSystemGestureExclusion(view: View) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (activeModeFlow.value == 0) {
+                val w = view.width
+                val h = view.height
+                if (w > 0 && h > 0) {
+                    val maxH = (200 * resources.displayMetrics.density).toInt()
+                    val exclusionRect = android.graphics.Rect(0, 0, w, h.coerceAtMost(maxH))
+                    view.systemGestureExclusionRects = listOf(exclusionRect)
+                }
+            } else {
+                view.systemGestureExclusionRects = emptyList()
+            }
+        }
     }
 
     private fun clampHudPositionToScreen() {
@@ -336,6 +353,19 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
+                    val w = right - left
+                    val h = bottom - top
+                    if (w > 0 && h > 0 && activeModeFlow.value == 0) {
+                        val maxH = (200 * resources.displayMetrics.density).toInt()
+                        val exclusionRect = android.graphics.Rect(0, 0, w, h.coerceAtMost(maxH))
+                        v.systemGestureExclusionRects = listOf(exclusionRect)
+                    } else if (activeModeFlow.value != 0) {
+                        v.systemGestureExclusionRects = emptyList()
+                    }
+                }
+            }
             setContent {
                 val tel by telemetryFlow.collectAsState()
                 val isHudBenchmarking by isHudBenchmarkingFlow.collectAsState()

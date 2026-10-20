@@ -1,3 +1,44 @@
+# Lynx Universal [Zen Bento Edge Bar Redesign & System Back Gesture Shielding] 7.0.0-RC130
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC130** (Lynx Kernel Manager v3.1.76): **Redesain Menyeluruh Antarmuka Bilah Sisi Game Bar (Edge Drawer) Berstandar Zen Bento Aesthetics yang Tidak Membingungkan & Menenangkan Psikologis Pengguna, Dilengkapi Perlindungan Total Terhadap Konflik Gestur Navigasi Android (`View.setSystemGestureExclusionRects` & `Modifier.systemGestureExclusion`): Pembukaan & Usapan Bilah Sisi Bebas 100% dari Pemicuan Back Gesture Sistem; Dekomposisi Gestur Cerdas (Memisahkan Drag Reposisi Vertikal dari Usap/Ketuk Pembuka Panel Tanpa Salah Picu); Pengorganisasian Metrik Performa ke Dalam 2x2 Bento Stat Tiles (GPU, CPU, Baterai, Memori) yang Proporsional & Bebas Sesak Teks; Hero Live FPS Counter dengan Kapsul Status Stabilitas Frametime; 4-Button Segmented Profil Performa Ergonomis 38dp+; Quick Gaming Tools Terintegrasi (RAM Drop Caches, Refresh Rate Cycler, Pin Mini-FPS, Benchmark); Serta Penambahan Tombol Matikan HUD Mandiri & Buffer Inaktivitas 12 Detik Bebas Stres**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC130)
+
+### 1. 🛡️ Perlindungan Total Gestur Navigasi Android (Anti-Back Gesture Shielding)
+- **Akar Masalah**:
+  - Pada ponsel Android 10+ dengan sistem navigasi gestur (*gesture navigation*), usapan dari tepi kiri atau kanan layar dialokasikan oleh sistem operasi sebagai perintah **Kembali (Back Gesture)**.
+  - Saat HUD berada pada Mode Bilah Sisi (docked di tepi `x = 0`), sentuhan atau tarikan handle oleh pengguna sering kali disabotase oleh `EdgeBackGestureHandler` SystemUI Android sebagai gestur Back, sehingga game atau aplikasi yang sedang berjalan tiba-tiba keluar, pause, atau membatalkan aksi in-game.
+- **Solusi**:
+  - Mengimplementasikan pendaftaran dinamis `View.setSystemGestureExclusionRects` pada `composeView` di [LynxFloatingHudService.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/LynxFloatingHudService.kt) melalui `OnLayoutChangeListener`.
+  - Menerapkan `Modifier.systemGestureExclusion()` langsung pada container Composable tab handle dan slide-out drawer di [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
+  - Menjaga ketinggian area handle tetap berada di bawah batas ambang 200dp Android per-tepi layar, menjamin sistem operasi secara mutlak mengecualikan area Bilah Sisi dari penangkapan gestur Back.
+
+### 2. 🎯 Dekomposisi Gestur Sentuh Cerdas (Anti-Accidental Pop-up)
+- **Akar Masalah**:
+  - Versi sebelumnya menggunakan ambang pemicu tunggal yang sangat tipis (`dx > 14f`). Ketika pengguna hanya bermaksud menggeser ketinggian handle ke atas/bawah agar tidak menutupi kontrol game di layar, gerakan jari yang sedikit miring langsung membuka paksa seluruh panel drawer secara mengejutkan (*jarring/disruptive*).
+- **Solusi**:
+  - Memisahkan logika vektor pointer sentuh:
+    - **Single Tap**: Langsung membuka drawer secara instan dan mulus.
+    - **Vertical Drag (`abs(dy) > abs(dx) * 1.2f`)**: Didedikasikan murni untuk mereposisi ketinggian handle di sepanjang bezel layar (`onDragVertical(deltaY)`), tanpa pernah membuka drawer.
+    - **Horizontal Swipe Right (`dx > 30f` & `abs(dx) > abs(dy)`)**: Membuka drawer secara terencana saat pengguna sengaja menarik tab ke arah tengah layar.
+
+### 3. 🍱 Redesain Antarmuka Bilah Sisi Zen Bento (Anti-Cognitive Overload)
+- **Akar Masalah**:
+  - Desain lama menumpuk 4 baris teks sangat rapat dengan lebih dari 20 angka desimal kecil (8.5sp), singkatan teknis padat, dan warna neon yang saling bertabrakan (Cyan, Magenta, Green, Gold, Orange, Red sekaligus). Hal ini memicu kelelahan visual dan stres kognitif saat pengguna melirik performa di tengah permainan.
+- **Solusi**:
+  - **Palet Obsidian Glass Terkalibrasi**: Latar belakang dark glass OLED `#0B1017` bergradien halus dengan aksen tunggal yang dominan (Precision Cyan `#00E5FF`) dan indikator titik status semantik yang tenang.
+  - **Susunan 2x2 Bento Stat Tiles**:
+    - **Tile GPU**: Frekuensi MHz tebal + Beban % dan Suhu Kernel (°C).
+    - **Tile CPU**: Ringkasan Core/Clock + Beban % dan Suhu Kernel (°C).
+    - **Tile Baterai**: Suhu (°C) & Persentase Baterai + Arus (mA) dan Konsumsi Daya Watt.
+    - **Tile Memori**: RAM Terpakai/Total + Persentase & ZRAM GB.
+  - **Hero Performance Card**: Live FPS counter besar 24sp monospace tabular + Kapsul status stabilitas frametime (`STABIL` / `AKTIF`) + Frametime sparkline canvas.
+  - **Segmented Performance Modes**: 4 tombol profil ergonomis (BAL, PERF, EXT, PWR) dengan tinggi sentuh 38dp+ yang nyaman dijangkau satu jempol.
+  - **Tombol Matikan Mandiri**: Tombol daya `PowerSettingsNew` khusus di header panel untuk mematikan HUD service secara instan tanpa perlu repot membuka panel notifikasi sistem.
+  - **Buffer Inaktivitas Relaks (12s)**: Menggantikan jeda auto-collapse 5 detik yang agresif dengan buffer 12 detik, serta auto-reset timer pada setiap sentuhan agar pengguna leluasa membaca data tanpa terputus.
+
+---
+
 # Lynx Universal [Game HUD Subsystem & Overlay Engine Bug Overhaul] 7.0.0-RC129
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC129** (Lynx Kernel Manager v3.1.75): **Perombakan Menyeluruh Sub-Sistem Floating Game HUD, OSD Telemetri, & Window Overlay Engine untuk Menutup Seluruh Celah Logika & Menumpas Bug Kritis: Eliminasi Nilai Hardcoded/Mock Suhu (Hardcoded 58°C & Rumus Palsu +15) Digantikan dengan Pembacaan Asli Zona Termal Kernel Linux (`cpu`, `soc`, `gpu`, `mali`, `kgsl`, `tsens`); Sinkronisasi Status Reaktif Penuh Dua Arah via `isRunningFlow` Antara Quick Settings Tile, Notification Action, Automation Watcher, Floating Close Button, dan UI Switch; Perbaikan Bug Dislokasi Mid-Air pada Mode Tampilan Layar (Bilah Sisi vs Jendela Bebas); Mekanisme Penjaga Orientasi Layar (Screen Rotation Auto-Clamping) Mencegah HUD Hilang di Luar Layar Saat Masuk Game Landscape; Pelindung Tidur Layar (Screen-State Power-Awareness & Sleep Shield) Menghentikan Total Polling Telemetri Saat Layar Mati (0% CPU Wake Lock); Optimasi Buffer I/O SharedPreferences dengan Debounce 300ms Saat Drag; Serta Watchdog Izin Overlay Cerdas dengan Deteksi Otomatis & Pemulihan Instan**.
