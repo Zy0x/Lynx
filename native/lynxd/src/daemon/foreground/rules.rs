@@ -301,9 +301,19 @@ impl RulesEngine {
         const MEDIA_APPS: &[&str] = &[
             "com.spotify.music",
             "com.google.android.youtube",
+            "app.revanced.android.youtube",
+            "com.google.android.apps.youtube.music",
             "com.netflix.mediaclient",
             "com.apple.android.music",
             "org.videolan.vlc",
+            "tv.twitch.android.app",
+            "com.twitter.android",
+            "com.twitter.android.lite",
+            "com.zhiliaoapp.musically",
+            "com.ss.android.ugc.trill",
+            "com.instagram.android",
+            "com.facebook.katana",
+            "com.facebook.lite",
         ];
         if MEDIA_APPS.contains(&pkg_lower.as_str()) {
             return ForegroundApp {
@@ -424,6 +434,14 @@ mod tests {
         let app = engine.categorize("com.spotify.music");
         assert_eq!(app.category, AppCategory::Media);
         assert_eq!(app.confidence, Confidence::High);
+
+        let twitter = engine.categorize("com.twitter.android");
+        assert_eq!(twitter.category, AppCategory::Media);
+        assert_eq!(twitter.confidence, Confidence::High);
+
+        let tiktok = engine.categorize("com.zhiliaoapp.musically");
+        assert_eq!(tiktok.category, AppCategory::Media);
+        assert_eq!(tiktok.confidence, Confidence::High);
     }
 
     #[test]

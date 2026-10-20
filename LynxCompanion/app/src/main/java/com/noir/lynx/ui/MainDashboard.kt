@@ -157,21 +157,6 @@ fun MainDashboard(
             viewModel.refreshDisplayRefreshRate()
         }
     }
-    var lastCpuTab by rememberSaveable { mutableStateOf(uiState.selectedCpuTab) }
-    var lastGpuTab by rememberSaveable { mutableStateOf(uiState.selectedGpuTab) }
-    var lastBattTab by rememberSaveable { mutableStateOf(uiState.batterySubTab) }
-    var lastProfileTab by rememberSaveable { mutableStateOf(uiState.selectedProfileTab) }
-    var lastNetTab by rememberSaveable { mutableStateOf(uiState.selectedNetworkTab) }
-    LaunchedEffect(uiState.selectedCpuTab, uiState.selectedGpuTab, uiState.batterySubTab, uiState.selectedProfileTab, uiState.selectedNetworkTab) {
-        if (uiState.selectedCpuTab != lastCpuTab || uiState.selectedGpuTab != lastGpuTab || uiState.batterySubTab != lastBattTab || uiState.selectedProfileTab != lastProfileTab || uiState.selectedNetworkTab != lastNetTab) {
-            lastCpuTab = uiState.selectedCpuTab
-            lastGpuTab = uiState.selectedGpuTab
-            lastBattTab = uiState.batterySubTab
-            lastProfileTab = uiState.selectedProfileTab
-            lastNetTab = uiState.selectedNetworkTab
-            subscreenLazyState.scrollToItem(0)
-        }
-    }
     var showAddAppDialog by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<AppProfileRule?>(null) }
     var selectedTargetProfile by remember { mutableStateOf("performance") }

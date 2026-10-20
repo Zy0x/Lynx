@@ -37,23 +37,28 @@ pub struct DecisionEngine {
 
 impl DecisionEngine {
     pub fn new(initial_profile: &str, cooldown_seconds: u64) -> Self {
-        let baseline = if initial_profile == "performance" || initial_profile == "extreme" {
-            "balance".to_string()
-        } else {
-            initial_profile.to_string()
-        };
         Self {
             policy: SwitchingPolicy::default(),
             cooldown: CooldownManager::new(cooldown_seconds),
             adaptive: AdaptiveGovernor::new(),
             current_profile: initial_profile.to_string(),
-            baseline_profile: baseline,
+            baseline_profile: initial_profile.to_string(),
             last_target_app: None,
         }
     }
 
     pub fn current_profile(&self) -> &str {
         &self.current_profile
+    }
+
+    pub fn baseline_profile(&self) -> &str {
+        &self.baseline_profile
+    }
+
+    pub fn update_baseline_profile(&mut self, new_baseline: &str) {
+        if !new_baseline.is_empty() && self.baseline_profile != new_baseline {
+            self.baseline_profile = new_baseline.to_string();
+        }
     }
 
     pub fn current_modifier(&self) -> ModifierLevel {
@@ -85,7 +90,9 @@ impl DecisionEngine {
         // ── 1. Screen OFF Guard ─────────────────────────────────────────────
         if screen == ScreenState::Off {
             self.adaptive.reset();
-            // If screen turned off while in performance, cleanly revert to baseline
+            self.cooldown.on_game_active();
+            self.last_target_app = None;
+            // If screen turned off while in performance or extreme, cleanly revert to balance (or powersave) to save battery
             if self.current_profile == "performance" || self.current_profile == "extreme" {
                 let fallback = match self.baseline_profile.as_str() {
                     "powersave" => "powersave",
@@ -103,7 +110,9 @@ impl DecisionEngine {
         // ── 2. Screen ON Evaluation ─────────────────────────────────────────
         let is_target_app = match fg_app {
             Some(app) => {
-                app.category == AppCategory::Game || app.category == AppCategory::Benchmark
+                app.category == AppCategory::Game
+                    || app.category == AppCategory::Benchmark
+                    || app.target_profile.is_some()
             }
             None => false,
         };
@@ -115,6 +124,7 @@ impl DecisionEngine {
                 Some("extreme") => "extreme",
                 Some("powersave") => "powersave",
                 Some("balance") => "balance",
+                Some("performance") => "performance",
                 _ => {
                     if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark) {
                         "extreme"
@@ -168,50 +178,68 @@ impl DecisionEngine {
             DecisionAction::MaintainCurrent
         } else {
             // Non-target application (Normal, System, Media, or None)
-            if self.current_profile == "powersave" && self.baseline_profile != "powersave" {
-                let fallback: &'static str = match self.baseline_profile.as_str() {
-                    "performance" => "performance",
-                    "extreme" => "extreme",
-                    _ => "balance",
-                };
+            let fallback: &'static str = match self.baseline_profile.as_str() {
+                "powersave" => "powersave",
+                "performance" => "performance",
+                "extreme" => "extreme",
+                _ => "balance",
+            };
+
+            // If we are currently in powersave, but baseline is NOT powersave, revert to baseline
+            if self.current_profile == "powersave" && fallback != "powersave" {
                 self.adaptive.reset();
+                self.last_target_app = None;
                 return DecisionAction::ApplyProfile {
                     target_profile: fallback,
                     reason: "Screen active: Reverting powersave back to baseline profile for instant responsiveness"
                         .to_string(),
                 };
             }
-            if self.current_profile == "performance" || self.current_profile == "extreme" {
-                // User left target app: enter or evaluate hysteresis cooldown
-                let fallback = match self.baseline_profile.as_str() {
-                    "powersave" => "powersave",
-                    _ => "balance",
-                };
-                self.cooldown.on_game_exited(now, fallback, self.last_target_app.clone());
 
-                match self.cooldown.evaluate(now) {
-                    CooldownStatus::Holding { remaining_secs } => {
-                        DecisionAction::HoldInCooldown { remaining_secs }
-                    }
-                    CooldownStatus::Expired { fallback_profile } => {
-                        self.adaptive.reset();
-                        DecisionAction::ApplyProfile {
-                            target_profile: fallback_profile,
-                            reason: "Target application closed or exit cooldown expired"
-                                .to_string(),
-                        }
-                    }
-                    CooldownStatus::Inactive => {
-                        self.adaptive.reset();
-                        DecisionAction::ApplyProfile {
-                            target_profile: fallback,
-                            reason: "Target application closed (immediate reversion to baseline)"
-                                .to_string(),
-                        }
+            // If current profile is ALREADY the fallback baseline profile, stay there!
+            if self.current_profile == fallback {
+                self.cooldown.on_game_active();
+                self.last_target_app = None;
+                return DecisionAction::MaintainCurrent;
+            }
+
+            // If device woke from Screen OFF (parked in balance) without exiting a game, restore baseline immediately
+            if self.last_target_app.is_none() {
+                self.adaptive.reset();
+                return DecisionAction::ApplyProfile {
+                    target_profile: fallback,
+                    reason: format!(
+                        "Restoring baseline profile '{}' for active foreground app",
+                        fallback
+                    ),
+                };
+            }
+
+            // User left target app: enter or evaluate hysteresis cooldown before dropping back to baseline
+            self.cooldown.on_game_exited(now, fallback, self.last_target_app.clone());
+
+            match self.cooldown.evaluate(now) {
+                CooldownStatus::Holding { remaining_secs } => {
+                    DecisionAction::HoldInCooldown { remaining_secs }
+                }
+                CooldownStatus::Expired { fallback_profile } => {
+                    self.adaptive.reset();
+                    self.last_target_app = None;
+                    DecisionAction::ApplyProfile {
+                        target_profile: fallback_profile,
+                        reason: "Target application closed or exit cooldown expired"
+                            .to_string(),
                     }
                 }
-            } else {
-                DecisionAction::MaintainCurrent
+                CooldownStatus::Inactive => {
+                    self.adaptive.reset();
+                    self.last_target_app = None;
+                    DecisionAction::ApplyProfile {
+                        target_profile: fallback,
+                        reason: "Target application closed (immediate reversion to baseline)"
+                            .to_string(),
+                    }
+                }
             }
         }
     }
@@ -402,6 +430,55 @@ mod tests {
                 assert!(reason.contains("Reverting powersave back to baseline"));
             }
             _ => panic!("Expected ApplyProfile balance when screen is ON and current profile is powersave"),
+        }
+    }
+
+    #[test]
+    fn test_decision_performance_baseline_retains_performance_in_normal_apps() {
+        let mut engine = DecisionEngine::new("performance", 5);
+        let telemetry = make_test_telemetry();
+
+        let twitter_app = ForegroundApp {
+            package: "com.twitter.android".to_string(),
+            category: AppCategory::Media,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+
+        // When user opens Twitter while in performance baseline, it must MAINTAIN current performance!
+        let action = engine.evaluate(Some(&twitter_app), ScreenState::On, &telemetry, 100);
+        assert_eq!(action, DecisionAction::MaintainCurrent);
+    }
+
+    #[test]
+    fn test_decision_wake_screen_restores_performance_baseline() {
+        let mut engine = DecisionEngine::new("performance", 5);
+        let telemetry = make_test_telemetry();
+
+        // 1. Screen turns OFF: parks into balance
+        let action1 = engine.evaluate(None, ScreenState::Off, &telemetry, 100);
+        assert_eq!(
+            action1,
+            DecisionAction::ApplyProfile {
+                target_profile: "balance",
+                reason: "Screen turned OFF (Reverting to baseline to prevent pocket battery drain)".to_string(),
+            }
+        );
+        engine.notify_applied("balance");
+
+        // 2. Screen turns ON with Twitter: immediately restores performance baseline!
+        let twitter_app = ForegroundApp {
+            package: "com.twitter.android".to_string(),
+            category: AppCategory::Media,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+        let action2 = engine.evaluate(Some(&twitter_app), ScreenState::On, &telemetry, 101);
+        match action2 {
+            DecisionAction::ApplyProfile { target_profile, .. } => {
+                assert_eq!(target_profile, "performance");
+            }
+            _ => panic!("Expected immediate restoration of performance baseline upon screen wake"),
         }
     }
 }

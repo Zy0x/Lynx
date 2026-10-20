@@ -4,8 +4,9 @@ import android.content.Context
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.noir.lynx.data.AppProfileRule
@@ -30,6 +31,10 @@ fun CpuSwipeableSubscreen(
     subscreenFling: FlingBehavior,
     modifier: Modifier = Modifier
 ) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     LynxTabPager(
         pageCount = 3,
         selectedPage = uiState.selectedCpuTab,
@@ -45,9 +50,13 @@ fun CpuSwipeableSubscreen(
         },
         modifier = modifier
     ) { page ->
-        val pageLazyState = rememberLazyListState()
+        val listState = when (page) {
+            0 -> page0State
+            1 -> page1State
+            else -> page2State
+        }
         LazyColumn(
-            state = pageLazyState,
+            state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -67,6 +76,10 @@ fun GpuSwipeableSubscreen(
     subscreenFling: FlingBehavior,
     modifier: Modifier = Modifier
 ) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     LynxTabPager(
         pageCount = 3,
         selectedPage = uiState.selectedGpuTab,
@@ -82,9 +95,13 @@ fun GpuSwipeableSubscreen(
         },
         modifier = modifier
     ) { page ->
-        val pageLazyState = rememberLazyListState()
+        val listState = when (page) {
+            0 -> page0State
+            1 -> page1State
+            else -> page2State
+        }
         LazyColumn(
-            state = pageLazyState,
+            state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -103,6 +120,9 @@ fun BatterySwipeableSubscreen(
     subscreenFling: FlingBehavior,
     modifier: Modifier = Modifier
 ) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     ChargingScreenLifecycle(uiState, viewModel)
     LynxTabPager(
         pageCount = 2,
@@ -119,9 +139,9 @@ fun BatterySwipeableSubscreen(
         },
         modifier = modifier
     ) { page ->
-        val pageLazyState = rememberLazyListState()
+        val listState = if (page == 0) page0State else page1State
         LazyColumn(
-            state = pageLazyState,
+            state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -157,6 +177,8 @@ fun ProfilesSwipeableSubscreen(
     onExtremeConfirmRequired: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     LynxTabPager(
         pageCount = 2,
         selectedPage = uiState.selectedProfileTab,
@@ -173,9 +195,8 @@ fun ProfilesSwipeableSubscreen(
         modifier = modifier
     ) { page ->
         if (page == 0) {
-            val pageLazyState = rememberLazyListState()
             LazyColumn(
-                state = pageLazyState,
+                state = page0State,
                 flingBehavior = subscreenFling,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -217,6 +238,9 @@ fun NetworkAudioSwipeableSubscreen(
     subscreenFling: FlingBehavior,
     modifier: Modifier = Modifier
 ) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
     LynxTabPager(
         pageCount = 2,
         selectedPage = uiState.selectedNetworkTab,
@@ -232,9 +256,9 @@ fun NetworkAudioSwipeableSubscreen(
         },
         modifier = modifier
     ) { page ->
-        val pageLazyState = rememberLazyListState()
+        val listState = if (page == 0) page0State else page1State
         LazyColumn(
-            state = pageLazyState,
+            state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)

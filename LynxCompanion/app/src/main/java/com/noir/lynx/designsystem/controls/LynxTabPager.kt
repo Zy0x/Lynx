@@ -17,19 +17,11 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 
 /**
- * Global Slider Interaction Guard:
- * When active (true), prevents HorizontalPager from hijacking gestures while sliders are being manipulated.
- */
-val LocalSliderInteraction = compositionLocalOf<MutableState<Boolean>> {
-    mutableStateOf(false)
-}
-
-/**
  * LynxTabPager — High-precision swipeable tab container for subscreen navigation.
  *
  * Architecture & Features:
  * 1. Synchronized Indicator: Real-time synchronization between active tab index and pager state.
- * 2. Slider Drag Guard: Pager scroll disabled dynamically when any child slider is touched/dragged.
+ * 2. Gesture Priority: SafeSlider pointer consumption prevents horizontal pager swipe during active slider dragging.
  * 3. Haptic Feedback: Micro-haptic tick upon settling on a target page.
  * 4. Preserved Scroll State: Each page retains independent vertical scroll offsets without jump/reset.
  */
@@ -45,7 +37,6 @@ fun LynxTabPager(
 ) {
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
-    val sliderInteracting = remember { mutableStateOf(false) }
 
     val safeCount = pageCount.coerceAtLeast(1)
     val initialIndex = selectedPage.coerceIn(0, safeCount - 1)
@@ -76,34 +67,31 @@ fun LynxTabPager(
         }
     }
 
-    CompositionLocalProvider(LocalSliderInteraction provides sliderInteracting) {
-        Column(modifier = modifier.fillMaxSize()) {
-            tabRow?.invoke(pagerState.currentPage) { targetPage ->
-                if (targetPage != pagerState.currentPage && targetPage in 0 until safeCount) {
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(
-                            page = targetPage,
-                            animationSpec = tween(durationMillis = 240)
-                        )
-                    }
+    Column(modifier = modifier.fillMaxSize()) {
+        tabRow?.invoke(pagerState.currentPage) { targetPage ->
+            if (targetPage != pagerState.currentPage && targetPage in 0 until safeCount) {
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(
+                        page = targetPage,
+                        animationSpec = tween(durationMillis = 240)
+                    )
                 }
             }
+        }
 
-            HorizontalPager(
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            key = { page -> page },
+            flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
-                userScrollEnabled = !sliderInteracting.value,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                key = { page -> page },
-                flingBehavior = PagerDefaults.flingBehavior(
-                    state = pagerState,
-                    pagerSnapDistance = PagerSnapDistance.atMost(1)
-                )
-            ) { page ->
-                Box(modifier = Modifier.fillMaxSize()) {
-                    content(page)
-                }
+                pagerSnapDistance = PagerSnapDistance.atMost(1)
+            )
+        ) { page ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                content(page)
             }
         }
     }

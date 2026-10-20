@@ -393,19 +393,27 @@ impl HardwareTranslator {
                     );
                 }
 
-                let ged_flag = if is_perf_or_ext { "1" } else { "0" };
+                // Frame Pacing & Smart Boost: Active in Balanced, Performance, and Extreme to eliminate scroll/video jitter
+                let frame_pacer_flag = if is_powersave { "0" } else { "1" };
+                for (node, desc) in &[
+                    (MtkHardware::FPSGO_ENABLE, "MediaTek FPSGO frame pacer"),
+                    (MtkHardware::FPSGO_BOOST_TA, "FPSGO top-app boost"),
+                    ("/sys/module/ged/parameters/ged_smart_boost", "GED smart boost"),
+                    ("/sys/module/ged/parameters/boost_gpu_enable", "GED boost GPU enable"),
+                    ("/sys/module/ged/parameters/enable_gpu_boost", "GED GPU boost"),
+                ] {
+                    Self::push_op(&mut ops, "MTK-GPU", *desc, *node, frame_pacer_flag, false);
+                }
+
+                // Heavy 3D Gaming Game Mode Toggles: Active in Performance & Extreme
+                let ged_game_flag = if is_perf_or_ext { "1" } else { "0" };
                 for (node, desc) in &[
                     (MtkHardware::GED_GX_GAME_MODE, "GED GX game mode"),
                     (MtkHardware::GED_GX_BOOST_ON, "GED GX boost"),
                     (MtkHardware::GED_GX_FORCE_CPU_BOOST, "GED GX force CPU boost"),
-                    ("/sys/module/ged/parameters/ged_smart_boost", "GED smart boost"),
-                    ("/sys/module/ged/parameters/boost_gpu_enable", "GED boost GPU enable"),
-                    ("/sys/module/ged/parameters/enable_gpu_boost", "GED GPU boost"),
-                    (MtkHardware::FPSGO_ENABLE, "MediaTek FPSGO frame pacer"),
-                    (MtkHardware::FPSGO_BOOST_TA, "FPSGO top-app boost"),
                     (MtkHardware::FPSGO_ULTRA_RESCUE, "FPSGO emergency ultra rescue"),
                 ] {
-                    Self::push_op(&mut ops, "MTK-GPU", *desc, *node, ged_flag, false);
+                    Self::push_op(&mut ops, "MTK-GPU", *desc, *node, ged_game_flag, false);
                 }
 
                 // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
@@ -438,9 +446,13 @@ impl HardwareTranslator {
                 let (ta_boost, fg_boost, uclamp_min_perf, big_task_rot) = if is_extreme {
                     ("100", "50", "1024", "1")
                 } else if is_perf_or_ext {
-                    ("50", "25", "512", "1")
-                } else {
+                    ("60", "35", "640", "1")
+                } else if is_powersave {
                     ("0", "0", "0", "0")
+                } else {
+                    // Balanced: 25% top-app, 15% foreground boost, 256 uclamp min, big task rotation
+                    // Guarantees video decoders and social feed scrolling get scheduled on Cortex-A76 Big cores
+                    ("25", "15", "256", "1")
                 };
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app boost", MtkHardware::PERFMGR_TA_BOOST, ta_boost, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);
@@ -486,10 +498,10 @@ impl HardwareTranslator {
                 );
 
                 let (qcom_up, qcom_down) = match profile.name {
-                    "extreme" => ("60 80", "40 60"),
-                    "performance" => ("65 85", "50 70"),
+                    "extreme" => ("50 70", "35 55"),
+                    "performance" => ("60 75", "45 60"),
                     "powersave" => ("90 95", "75 85"),
-                    _ => ("85 95", "65 85"), // Balanced OEM baseline for 3-cluster SM8150
+                    _ => ("70 85", "55 70"), // Balanced: rapid migration to Big cores for media decode and scrolling
                 };
 
                 // Critical Linux WALT rule: downmigrate must strictly be <= upmigrate.
@@ -790,7 +802,7 @@ impl HardwareTranslator {
                 "extreme" => ("50", "30", "1", "1"),
                 "performance" => ("35", "25", "1", "1"),
                 "powersave" => ("0", "0", "0", "0"),
-                _ => ("15", "10", "1", "0"), // Balance: 15% EAS margin for snappy UI & app launch
+                _ => ("18", "12", "1", "0"), // Balance: 18% EAS margin for snappy UI & app launch
             };
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
@@ -801,9 +813,10 @@ impl HardwareTranslator {
         let stune_fg = Path::new("/dev/stune/foreground");
         if stune_fg.is_dir() {
             let (fg_boost, fg_idle) = match profile.name {
-                "extreme" | "performance" => ("15", "1"),
+                "extreme" => ("30", "1"),
+                "performance" => ("25", "1"),
                 "powersave" => ("0", "0"),
-                _ => ("5", "1"),
+                _ => ("15", "1"), // Balance: 15% foreground boost protects MediaCodec & video decoders from UI fling starvation
             };
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground boost", stune_fg.join("schedtune.boost"), fg_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground prefer_idle", stune_fg.join("schedtune.prefer_idle"), fg_idle, false);
@@ -816,13 +829,14 @@ impl HardwareTranslator {
             Self::push_op(&mut ops, "Scheduler", "Schedtune background prefer_high_cap clamp", stune_bg.join("schedtune.prefer_high_cap"), "0", false);
         }
 
-        // B. CFS CPU Controller Shares (/dev/cpuctl) — Prevent background apps from starving top-app
+        // B. CFS CPU Controller Shares (/dev/cpuctl) — Prevent background apps from starving top-app & media workers
         let cpuctl = Path::new("/dev/cpuctl");
         if cpuctl.is_dir() {
             let top_shares = if is_perf_or_ext { "4096" } else if is_powersave { "1024" } else { "2048" };
+            let fg_shares = if is_perf_or_ext { "2048" } else if is_powersave { "1024" } else { "1536" };
             let bg_shares = if is_perf_or_ext { "64" } else { "128" };
             Self::push_op(&mut ops, "Scheduler", "CFS top-app cpu.shares priority", cpuctl.join("top-app/cpu.shares"), top_shares, false);
-            Self::push_op(&mut ops, "Scheduler", "CFS foreground cpu.shares priority", cpuctl.join("foreground/cpu.shares"), "1024", false);
+            Self::push_op(&mut ops, "Scheduler", "CFS foreground cpu.shares priority", cpuctl.join("foreground/cpu.shares"), fg_shares, false);
             Self::push_op(&mut ops, "Scheduler", "CFS system cpu.shares priority", cpuctl.join("system/cpu.shares"), "1024", false);
             Self::push_op(&mut ops, "Scheduler", "CFS system-background cpu.shares clamp", cpuctl.join("system-background/cpu.shares"), "256", false);
             Self::push_op(&mut ops, "Scheduler", "CFS background cpu.shares clamp", cpuctl.join("background/cpu.shares"), bg_shares, false);
@@ -1022,6 +1036,52 @@ impl HardwareTranslator {
             "TCP time-wait socket reuse",
             "/proc/sys/net/ipv4/tcp_tw_reuse",
             "1",
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "TCP window scaling enabled",
+            "/proc/sys/net/ipv4/tcp_window_scaling",
+            "1",
+            false,
+        );
+        // Video streaming buffer optimization (dynamic buffer growth up to 6MB prevents video buffer starvation on Twitter/TikTok)
+        let (tcp_rmem, tcp_wmem, max_buf) = if is_powersave {
+            ("4096 87380 2097152", "4096 16384 2097152", "2097152")
+        } else {
+            ("4096 87380 6291456", "4096 65536 6291456", "6291456")
+        };
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "TCP receive memory window autotune",
+            "/proc/sys/net/ipv4/tcp_rmem",
+            tcp_rmem,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "TCP write memory window autotune",
+            "/proc/sys/net/ipv4/tcp_wmem",
+            tcp_wmem,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "Core socket receive buffer max",
+            "/proc/sys/net/core/rmem_max",
+            max_buf,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Network",
+            "Core socket send buffer max",
+            "/proc/sys/net/core/wmem_max",
+            max_buf,
             false,
         );
 

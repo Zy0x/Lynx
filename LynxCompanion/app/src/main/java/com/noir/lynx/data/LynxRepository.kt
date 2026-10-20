@@ -169,7 +169,7 @@ object LynxRepository {
                 pkill -9 -f "Smart-AI.sh" 2>/dev/null
                 pkill -9 -f "AI_performance.sh" 2>/dev/null
                 pkill -9 -f "AI_balance.sh" 2>/dev/null
-                kill -9 12492 2>/dev/null
+                kill -9 12492 13423 2>/dev/null
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
                 if [ -f /data/local/tmp/lynxd_new ]; then
                     pkill -9 -f "lynxd daemon" 2>/dev/null

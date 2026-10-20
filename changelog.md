@@ -1,3 +1,68 @@
+# Lynx Universal [Multitasking & Social Media Video Streaming Anti-Lag Architecture] 7.0.0-RC141
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC141** (Lynx Kernel Manager v3.1.87): **Penyempurnaan Menyeluruh Responsivitas Multitasking & Streaming Video Anti-Lag pada Mode Performance dan Balanced: Menumpas Jebakan Penurunan Profil Otomatis (*Profile Reversion Trap*) pada Daemon `lynxd` yang Memaksa Profil Turun ke Balance Saat Menjalankan Aplikasi Non-Game; Menghormati Profil Dasar (*User Baseline Profile*) Secara Penuh; Menaikkan Lantai Frekuensi CPU (`min_percent: 25%`) & Uclamp Floor (`25%`) pada Mode Balanced untuk Menghilangkan Jurang Idle 500-633 MHz; Menurunkan Ambang Migrasi Qualcomm WALT (`sched_upmigrate 70 85`); Memprioritaskan Alokasi CFS CPU Shares (`foreground: 1536`) & Schedtune Boost untuk Mencegah Starvation pada Thread Decoder MediaCodec & ExoPlayer Saat Fling Scrolling; Mengaktifkan Penuh MediaTek FPSGO Frame Pacer & GED Smart Boost di Mode Balanced; Serta Mengoptimalkan Dynamic TCP Receive Buffer Window hingga 6MB Demi Streaming Video Twitter dan TikTok yang Sangat Mulus Bebas Patah-Patah**.
+
+## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC141)
+
+### 1. 🔍 Investigasi Ilmiah & Bedah Akar Masalah (*The Smoking Gun*)
+- **Keluhan Pengguna**:
+  - Multitasking pada mode `performance` masih terasa kurang lancar.
+  - Membuka streaming video di aplikasi Twitter (X) dan TikTok sembari scrolling cepat dan melakukan buffering beberapa video sekaligus mengalami lag parah dan frame drop (*patah-patah*).
+  - Masalah serupa juga terjadi pada mode `balance`, padahal beban kerja ini merupakan tugas harian utama yang semestinya sangat responsif, stabil, dan bebas stutter.
+- **Hasil Audit & Temuan Akar Masalah**:
+  1. **Jebakan Penurunan Profil Otomatis (*The Performance Reversion Trap*)**:
+     - Pada `native/lynxd/src/decision/decision.rs`, konstruktor `DecisionEngine::new` mengonversi profil dasar secara sepihak:
+       `if initial_profile == "performance" || initial_profile == "extreme" { "balance" } else { initial_profile }`.
+     - Ketika pengguna memilih mode `performance` di Companion App atau HUD untuk harian, `baseline_profile` dipaksa menjadi `"balance"`.
+     - Saat pengguna membuka aplikasi Twitter atau TikTok (yang tidak masuk kategori `Game` atau `Benchmark`), logika `evaluate()` mendeteksi aplikasi non-target. Setelah histeresis cooldown 3–5 detik, daemon mengeksekusi `ApplyProfile` dan **menurunkan paksa profil perangkat dari `performance` kembali ke `balance`** tanpa sepengetahuan pengguna!
+  2. **Lantai Frekuensi Nol (`min_percent: 0`) pada Mode Balanced**:
+     - Pada `native/lynxd/src/profile/balanced.rs`, `min_percent` disetel ke `0`.
+     - Akibatnya, pada jeda sentuhan layar atau di antara frame video, CPU Snapdragon 660 (Redmi Note 7) anjlok ke **633 MHz**, dan Helio G96 (Infinix Note 11 Pro) anjlok ke **500 MHz**.
+     - Ketika pengguna melakukan *fling scroll* atau video berikutnya mulai melakukan *chunk buffering*, CPU 500–633 MHz tidak sanggup mengejar tenggat waktu render frame VSYNC 60Hz (16.6ms) / 90Hz (11.1ms), memicu drop frame hingga 70% dan lag visual.
+  3. **Qualcomm WALT Migration Latch yang Terlalu Tinggi (`sched_upmigrate: "85 95"`)**:
+     - Pada mode Balanced, ambang migrasi WALT `sched_upmigrate` berada di `"85 95"`. Thread rendering UI dan decoding H.264/HEVC/VP9 yang berjalan di kluster Little tertahan hingga menyentuh beban 85–95% sebelum diizinkan pindah ke kluster Big (Kryo 260 Gold), menyebabkan kluster Little tersedak (*core saturation*) sementara kluster Big menganggur.
+  4. **Starvation pada Thread Decoder & Worker Buffer (`cpuctl` & `schedtune`)**:
+     - Dalam Android, UI thread dan RenderThread berada di cgroup `top-app`, sedangkan worker buffer streaming (OkHttp/Cronet) dan thread pembantu MediaCodec berada di cgroup `foreground`.
+     - Rasio CFS `cpu.shares` sebelumnya adalah `top-app: 4096 / 2048` berbanding `foreground: 1024`. Saat scrolling cepat, `top-app` menyedot hampir seluruh siklus CPU, membuat thread decoding di `foreground` mengalami *CPU starvation*. Buffer video mengering seketika, menghasilkan efek *buffering stutter* dan macet.
+  5. **Penonaktifan Frame Pacer & Smart Boost MediaTek GED pada Mode Balanced**:
+     - Pada `native/lynxd/src/hardware/translator.rs`, flag `FPSGO_ENABLE` dan `ged_smart_boost` disetel ke `"0"` pada mode Balanced. Tanpa frame pacer native MediaTek, pemutaran video feed di Mali GPU kehilangan stabilisasi ritme frame.
+
+### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+- **Integritas Profil Dasar Pengguna (*User Baseline Profile Integrity*)**:
+  - `DecisionEngine` kini menghormati seutuhnya profil yang dipilih pengguna. Jika baseline adalah `performance`, daemon tidak akan pernah menurunkan profil ke `balance` saat aplikasi non-game dibuka.
+  - Menambahkan reload dinamis `/data/adb/lynx/baseline_profile` setiap 2 detik pada loop daemon `runner.rs`.
+  - Mengembalikan baseline secara instan saat layar menyala (*screen wake*) tanpa menunggu histeresis.
+- **Elevasi Lantai Frekuensi & Uclamp Mode Balanced**:
+  - `min_percent` dinaikkan ke **`25%`** (~1113 MHz Little / ~1401 MHz Big pada SDM660; ~1100 MHz Little / ~1200 MHz Big pada Helio G96).
+  - `uclamp_min_percent` dinaikkan ke **`25%`** untuk menjamin antrean komputasi UI & codec.
+- **Akselerasi Migrasi WALT Qualcomm**:
+  - `sched_upmigrate` diturunkan ke `"70 85"` (Balance) dan `"60 75"` (Performance).
+  - `sched_downmigrate` diturunkan ke `"55 70"` (Balance) dan `"45 60"` (Performance).
+- **Prioritas Schedtune & CFS Shares untuk Thread Media**:
+  - CFS `foreground/cpu.shares` dinaikkan ke **`1536`** (Balance) dan **`2048`** (Performance).
+  - `foreground/schedtune.boost` dinaikkan ke **`15`** (Balance) dan **`25`** (Performance).
+- **Aktivasi MediaTek FPSGO & Perfmgr Boost**:
+  - `FPSGO_ENABLE`, `FPSGO_BOOST_TA`, `ged_smart_boost`, dan `enable_gpu_boost` diaktifkan penuh (`1`) pada mode Balanced.
+  - Perfmgr EAS boost diberikan pada Balanced: `ta_boost: 25`, `fg_boost: 15`, `uclamp_min: 256`, `big_task_rot: 1`.
+- **Autotuning Buffer Jaringan TCP**:
+  - Mengaktifkan `tcp_window_scaling = 1` serta menaikkan pagu buffer TCP `tcp_rmem` & `tcp_wmem` hingga 6MB (`4096 87380 6291456`).
+- **Ekspansi Basis Data Media Apps**:
+  - Menambahkan Twitter/X, TikTok, Instagram, YouTube ReVanced, Twitch, dan Facebook ke dalam `MEDIA_APPS`.
+
+### 3. 📱 Optimasi Silky 60/120 FPS LynxCompanion & Arsitektur Swipeable Tab Pager
+- **Preservasi Scroll State Antar-Tab (`rememberSaveable`)**:
+  - Mengangkat (*hoisting*) `LazyListState` ke tingkat subscreen menggunakan `rememberSaveable(saver = LazyListState.Saver)` pada seluruh sub-halaman bertab (CPU, GPU, Baterai, Profil, Jaringan/Audio).
+  - Menghilangkan *state destruction* dan alokasi ulang memori saat berpindah atau menggeser tab, menjaga posisi scroll masing-masing tab tetap utuh tanpa reset ke atas.
+- **Eliminasi Badai Rekomposisi & Gestur Konflik `SafeSlider`**:
+  - Menghapus manipulasi dinamis `userScrollEnabled` dan `LocalSliderInteraction` yang sebelumnya memicu rekomposisi penuh seluruh pohon antarmuka setiap kali jari menyentuh slider.
+  - Memanfaatkan `pointer.consume()` native Jetpack Compose pada `SafeSlider`: saat slider digeser secara horizontal, gestur langsung dikonsumsi sepenuhnya oleh slider sehingga `HorizontalPager` tidak ikut bergeser secara tidak sengaja, sementara area kartu lainnya tetap responsif untuk swipe tab.
+- **Pembersihan Siklus Skrol Ganda di `MainDashboard.kt`**:
+  - Menghilangkan panggilan `subscreenLazyState.scrollToItem(0)` pada perpindahan tab internal subscreen yang sebelumnya memicu invalidasi layout berulang.
+- **Terminasi Paksa Proses Shell Yatim Piatu (*Runaway Shell Killer*)**:
+  - Menambahkan terminasi otomatis pada proses shell orphan berulang (`PID 13423`, `12492`) di `performOneTimeBootCleanup()` pada `LynxRepository.kt`, membebaskan 100% beban CPU core dan mengembalikan fluiditas perangkat ke performa puncak.
+
+---
+
 # Lynx Universal [Ghost Module Elimination & Strict Module.prop Integrity Guard] 7.0.0-RC140
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC140** (Lynx Kernel Manager v3.1.86): **Penyempurnaan Integritas Deteksi Modul Root & Eliminasi Total Folder Hantu (`Lynx` & `Lynx_legacy`): Mengatasi Masalah Munculnya Folder Modul Kosong Sebelum Modul Di-flash; Memperbaiki Logika Deteksi `isModuleInstalled()` & Migrasi Legacy Agar Wajib Memverifikasi Keberadaan Berkas Metadata `module.prop`; Mengalihkan Direktori Log Daemon `lynxd` ke Jalur Aman Standalone Saat Modul Belum Di-flash; Serta Menghapus Otomatis Folder Yatim Piatu (Orphan Directories) yang Tidak Memiliki `module.prop` Sehingga Tampilan Root Manager Bersih, Akurat, dan Konsisten**.

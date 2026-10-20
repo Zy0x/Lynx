@@ -29,10 +29,13 @@ impl DaemonRunner {
         let mut fg_detector = ForegroundDetector::new();
         let mut daemon_state = DaemonState::new();
 
-        let initial_profile = ProfileStateManager::load_active()
-            .ok()
-            .flatten()
-            .map(|a| a.active_profile)
+        let initial_profile = Self::read_baseline_profile()
+            .or_else(|| {
+                ProfileStateManager::load_active()
+                    .ok()
+                    .flatten()
+                    .map(|a| a.active_profile)
+            })
             .unwrap_or_else(|| "balance".to_string());
 
         let initial_cooldown = Self::read_cooldown_duration();
@@ -58,13 +61,23 @@ impl DaemonRunner {
                 .unwrap_or_default()
                 .as_secs();
 
-            // Dynamic cooldown duration reload from Companion App / WebUI config
+            // Dynamic cooldown duration & baseline profile reload from Companion App / WebUI config
             if now.saturating_sub(last_cooldown_check) >= 2 {
                 let target_cooldown = Self::read_cooldown_duration();
                 if target_cooldown != decision_engine.cooldown_duration() {
                     decision_engine.set_cooldown_duration(target_cooldown);
                     let label = if target_cooldown == 0 { "Persistent (RAM)".to_string() } else { format!("{}s", target_cooldown) };
                     Logger::info(format!("[DAEMON] Durasi histeresis keluar diperbarui: {}", label));
+                }
+                if let Some(target_baseline) = Self::read_baseline_profile() {
+                    if target_baseline != decision_engine.baseline_profile() {
+                        Logger::info(if is_english() {
+                            format!("[DAEMON] Dynamic baseline profile updated: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
+                        } else {
+                            format!("[DAEMON] Profil dasar dinamis diperbarui: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
+                        });
+                        decision_engine.update_baseline_profile(&target_baseline);
+                    }
                 }
                 last_cooldown_check = now;
             }
@@ -499,6 +512,21 @@ impl DaemonRunner {
             }
         }
         30 // Default 30s
+    }
+
+    pub fn read_baseline_profile() -> Option<String> {
+        for path in &[
+            "/data/adb/lynx/baseline_profile",
+            "/data/adb/modules/Lynx/baseline_profile",
+        ] {
+            if let Ok(s) = std::fs::read_to_string(path) {
+                let trimmed = s.trim().to_lowercase();
+                if !trimmed.is_empty() {
+                    return Some(trimmed);
+                }
+            }
+        }
+        None
     }
 }
 

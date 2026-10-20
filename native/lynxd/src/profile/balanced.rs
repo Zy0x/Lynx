@@ -6,11 +6,11 @@ pub fn get_profile() -> Profile {
         name: "balanced",
         description: "Daily smooth responsiveness, fluid video playback & efficient multitasking",
         cpu: CpuPolicy {
-            // schedutil / WALT dynamically scales within 0–100%.
-            // Removing the 75% artificial ceiling ensures low-end and mid-end devices have full
-            // burst capacity during video decoding (1080p60/4K) and app switching without frame drop.
+            // schedutil / WALT dynamically scales within 25–100%.
+            // 25% floor (~1100MHz Little / ~1400MHz Big) prevents low-end and mid-end devices (SDM660, Helio G96)
+            // from dropping to sluggish 500-633MHz idle states during video playback (Twitter/TikTok) and feed scrolling.
             governor: Governor::Schedutil,
-            min_percent: 0,
+            min_percent: 25,
             max_percent: 100,
             boost: false,
         },
@@ -25,9 +25,9 @@ pub fn get_profile() -> Profile {
         scheduler: SchedulerPolicy {
             prefer_latency: false,
             prefer_power: false,
-            // 12% UI task floor guarantees SurfaceFlinger & video presentation queues
+            // 25% UI & codec task floor guarantees SurfaceFlinger, MediaCodec & video presentation queues
             // are dispatched without idle micro-stalls.
-            uclamp_min_percent: 12,
+            uclamp_min_percent: 25,
         },
     }
 }

@@ -48,7 +48,6 @@ fun SafeSlider(
     val change by rememberUpdatedState(onValueChange)
     val finished by rememberUpdatedState(onValueChangeFinished)
     var preview by remember { mutableStateOf<Float?>(null) }
-    val sliderInteracting = LocalSliderInteraction.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val commit: (Float) -> Boolean = { proposed ->
         val next = snapSliderValue(proposed, min, max, safeSteps)
@@ -89,7 +88,6 @@ fun SafeSlider(
                 if (!enabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    sliderInteracting.value = true
                     val session = SliderGestureSession(currentValue, min, max, safeSteps,
                         (size.width - 20.dp.toPx()).coerceAtLeast(1f), viewConfiguration.touchSlop, rtl)
                     var released: Float? = null
@@ -125,7 +123,6 @@ fun SafeSlider(
                             }
                         }
                     } finally {
-                        sliderInteracting.value = false
                         preview = null // Also runs on ACTION_CANCEL, lifecycle disposal and key changes.
                         if (released == null && wasDragged) {
                             change(session.startValue)
