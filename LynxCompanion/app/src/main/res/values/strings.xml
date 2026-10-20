@@ -2062,4 +2062,18 @@
     <string name="hud_style_tiles">Tiles</string>
     <string name="hud_style_deck">Deck</string>
     <string name="hud_style_ghost">Ghost</string>
+    <string name="hud_expanded">Diperluas</string>
+    <string name="hud_collapsed">Diciutkan</string>
+    <string name="hud_capture_short">Tangkap layar</string>
+    <string name="hud_applying">Menerapkan profil…</string>
+    <string name="hud_group_frame">Frame dan display</string>
+    <string name="hud_group_processor">CPU dan GPU</string>
+    <string name="hud_group_memory_temperature">RAM dan suhu</string>
+    <string name="hud_group_battery">Baterai</string>
+    <string name="hud_diagnostics">Sumber dan diagnostik</string>
+    <string name="hud_chart_range">%1$s–%2$s ms</string>
+    <string name="hud_quick_actions">Alat cepat</string>
+    <string name="hud_actual_hz">Hz aktual</string>
+    <string name="hud_mini_title">Mini HUD</string>
+    <string name="hud_session">Sesi HUD</string>
 </resources>

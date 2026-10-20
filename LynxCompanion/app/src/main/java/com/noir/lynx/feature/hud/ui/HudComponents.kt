@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -29,7 +30,9 @@ internal fun hudString(@StringRes id: Int, vararg args: Any): String = AppLocale
 internal fun HudTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(primary = HudCyan, onPrimary = Color.Black,
         background = HudBackground, surface = HudBackground, onSurface = Color(0xFFF0F6F7),
-        surfaceVariant = HudCard, onSurfaceVariant = HudMuted), content = content)
+        surfaceVariant = HudCard, onSurfaceVariant = HudMuted),
+        typography = MaterialTheme.typography.copy(bodyLarge = MaterialTheme.typography.bodyLarge.copy(
+            lineHeight = TextUnit.Unspecified, letterSpacing = 0.sp)), content = content)
 }
 
 @Composable

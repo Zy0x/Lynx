@@ -2038,4 +2038,18 @@
     <string name="hud_style_tiles">Tiles</string>
     <string name="hud_style_deck">Deck</string>
     <string name="hud_style_ghost">Ghost</string>
+    <string name="hud_expanded">Expanded</string>
+    <string name="hud_collapsed">Collapsed</string>
+    <string name="hud_capture_short">Screenshot</string>
+    <string name="hud_applying">Applying profile…</string>
+    <string name="hud_group_frame">Frames and display</string>
+    <string name="hud_group_processor">CPU and GPU</string>
+    <string name="hud_group_memory_temperature">RAM and temperature</string>
+    <string name="hud_group_battery">Battery</string>
+    <string name="hud_diagnostics">Sources and diagnostics</string>
+    <string name="hud_chart_range">%1$s–%2$s ms</string>
+    <string name="hud_quick_actions">Quick actions</string>
+    <string name="hud_actual_hz">Actual Hz</string>
+    <string name="hud_mini_title">Mini HUD</string>
+    <string name="hud_session">HUD session</string>
 </resources>
