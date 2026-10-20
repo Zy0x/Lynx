@@ -41,6 +41,8 @@ fun HudEdgeDrawer(
     activeStyle: Int,
     pinMiniFps: Boolean,
     currentRefreshRate: Int,
+    isDrawerOpen: Boolean = false,
+    onToggleDrawer: (Boolean) -> Unit = {},
     isHudBenchmarking: Boolean,
     hudBenchmarkCountdown: Int,
     hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult?,
@@ -54,15 +56,11 @@ fun HudEdgeDrawer(
     onClose: () -> Unit,
     onDragVertical: (Float) -> Unit,
 ) {
-    var isDrawerOpen by remember { mutableStateOf(false) }
     var showStylePicker by remember { mutableStateOf(false) }
-    var lastTouchTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-    // Generous auto-collapse (12s) to prevent jarring psychological cut-offs
-    LaunchedEffect(isDrawerOpen, lastTouchTime) {
-        if (isDrawerOpen) {
-            delay(12000L)
-            isDrawerOpen = false
+    // When drawer closes, ensure dropdown picker is dismissed
+    LaunchedEffect(isDrawerOpen) {
+        if (!isDrawerOpen) {
             showStylePicker = false
         }
     }
@@ -91,8 +89,7 @@ fun HudEdgeDrawer(
                                 if (!change.pressed) {
                                     if (!isDragging) {
                                         // 100% Reliable Single Tap: Instantly expand drawer with zero latency
-                                        isDrawerOpen = true
-                                        lastTouchTime = System.currentTimeMillis()
+                                        onToggleDrawer(true)
                                     }
                                     break
                                 }
@@ -112,8 +109,7 @@ fun HudEdgeDrawer(
                                         onDragVertical(deltaY)
                                     } else if (dx > touchSlop * 1.15f) {
                                         // Intentional horizontal pull outward: expand drawer smoothly
-                                        isDrawerOpen = true
-                                        lastTouchTime = System.currentTimeMillis()
+                                        onToggleDrawer(true)
                                         break
                                     }
                                 }
@@ -163,8 +159,7 @@ fun HudEdgeDrawer(
                     border = BorderStroke(1.dp, BorderHud.copy(alpha = 0.5f)),
                     shadowElevation = 6.dp,
                     modifier = Modifier.clickable {
-                        isDrawerOpen = true
-                        lastTouchTime = System.currentTimeMillis()
+                        onToggleDrawer(true)
                     }
                 ) {
                     Row(
@@ -203,10 +198,9 @@ fun HudEdgeDrawer(
                     detectDragGestures(
                         onDrag = { change, dragAmount ->
                             change.consume()
-                            lastTouchTime = System.currentTimeMillis()
                             // Swiping left closes drawer smoothly
                             if (dragAmount.x < -20f) {
-                                isDrawerOpen = false
+                                onToggleDrawer(false)
                             } else {
                                 onDragVertical(dragAmount.y)
                             }
@@ -221,7 +215,7 @@ fun HudEdgeDrawer(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null
                     ) {
-                        lastTouchTime = System.currentTimeMillis()
+                        showStylePicker = false
                     },
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
@@ -260,7 +254,7 @@ fun HudEdgeDrawer(
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(Color(0x18FFFFFF))
                                 .clickable {
-                                    isDrawerOpen = false
+                                    onToggleDrawer(false)
                                     onSelectMode(1)
                                 }
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
@@ -276,7 +270,6 @@ fun HudEdgeDrawer(
                                 .border(BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.4f)), RoundedCornerShape(6.dp))
                                 .clickable {
                                     showStylePicker = !showStylePicker
-                                    lastTouchTime = System.currentTimeMillis()
                                 }
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
@@ -290,7 +283,7 @@ fun HudEdgeDrawer(
                                 .clip(CircleShape)
                                 .background(Color(0x18FFFFFF))
                                 .clickable {
-                                    isDrawerOpen = false
+                                    onToggleDrawer(false)
                                     onClose()
                                 },
                             contentAlignment = Alignment.Center
@@ -310,7 +303,7 @@ fun HudEdgeDrawer(
                                 .clip(CircleShape)
                                 .background(Color(0x22FF5252))
                                 .clickable {
-                                    isDrawerOpen = false
+                                    onToggleDrawer(false)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -353,7 +346,6 @@ fun HudEdgeDrawer(
                                         .clickable {
                                             onSelectStyle(sId)
                                             showStylePicker = false
-                                            lastTouchTime = System.currentTimeMillis()
                                         }
                                         .padding(vertical = 4.dp),
                                     contentAlignment = Alignment.Center
@@ -510,7 +502,6 @@ fun HudEdgeDrawer(
                                     .weight(1f)
                                     .clickable {
                                         onProfileSelect(pKey)
-                                        lastTouchTime = System.currentTimeMillis()
                                     }
                             ) {
                                 Box(
@@ -540,7 +531,7 @@ fun HudEdgeDrawer(
                     onCycleRefreshRate = onCycleRefreshRate,
                     onTogglePinMiniFps = onTogglePinMiniFps,
                     onStartHudBenchmark = onStartHudBenchmark,
-                    onInteraction = { lastTouchTime = System.currentTimeMillis() }
+                    onInteraction = {}
                 )
             }
         }

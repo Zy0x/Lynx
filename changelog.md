@@ -1,3 +1,29 @@
+# Lynx Universal [Zero-AutoClose Longevity & Outside-Touch Dismissal Shield] 7.0.0-RC133
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC133** (Lynx Kernel Manager v3.1.79): **Penyempurnaan Total Ketahanan Waktu Tampilan & Interaksi Penutupan Game HUD: Menghilangkan 100% Batasan Auto-Collapse Timer (Menjaga Overlay Tetap Aktif Tanpa Menghilang Sendiri Setelah Beberapa Detik); Mengintegrasikan Intersepsi `MotionEvent.ACTION_OUTSIDE` Berbasis `FLAG_WATCH_OUTSIDE_TOUCH` Sehingga Ketukan di Luar Overlay Menutup HUD Secara Cepat & Pasti; Mengangkat State `isEdgeDrawerOpen` ke Level Layanan & Menyinkronkan Penutupan Dropdown/Picker Bersih Antar-Mode; Serta Mempertahankan Kemudahan Tutup via Usapan Kiri Maupun Tombol Tutup Khusus**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC133)
+
+### 1. ⏳ Eliminasi Total Batasan Auto-Collapse Timer (Bebas Menghilang Sendiri)
+- **Akar Masalah**:
+  - Pada versi sebelumnya, terdapat timer inaktivitas `delay(12000L)` yang secara otomatis menutup panel drawer Game HUD setelah beberapa detik.
+  - Akibatnya, saat pengguna sedang menganalisis statistik frekuensi CPU/GPU, membaca metrik frame rate, atau hendak memilih profil daya, overlay tiba-tiba tertutup sendiri secara mengejutkan (*disruptive*).
+- **Solusi**:
+  - Menghapus 100% logika auto-collapse timer di [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
+  - Overlay kini **bertahan penuh tanpa batas waktu** selama pengguna menginginkannya, memberikan ketenangan dan fleksibilitas optimal saat melakukan tuning in-game.
+
+### 2. 🎯 Intersepsi Ketukan di Luar Overlay (`ACTION_OUTSIDE` Dismissal)
+- **Akar Masalah**:
+  - Meskipun flag `FLAG_WATCH_OUTSIDE_TOUCH` telah dikonfigurasi pada `WindowManager.LayoutParams`, view root overlay belum memiliki handler sentuhan untuk mendeteksi event `MotionEvent.ACTION_OUTSIDE`.
+  - Akibatnya, ketukan pengguna di luar jendela overlay diabaikan oleh sistem dan tidak menutup panel.
+- **Solusi**:
+  - Memasang `setOnTouchListener` pada `composeView` di [LynxFloatingHudService.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/LynxFloatingHudService.kt) untuk menangkap `MotionEvent.ACTION_OUTSIDE`.
+  - Meneruskan sinyal penutupan secara reaktif via `outsideTouchFlow` ke state `isEdgeDrawerOpen` dan `isExpanded`.
+  - Saat pengguna mengetuk area mana pun di luar bilah sisi atau jendela melayang, overlay langsung menutup seketika (*instant zero-latency dismissal*).
+  - Menyelaraskan penutupan dropdown pemilih gaya (*style picker*) agar turut tertutup bersih saat outside touch terpicu.
+
+---
+
 # Lynx Universal [Ultra-Slim Laser Line Dock & Zero-Miss Invisible Hit-Buffer] 7.0.0-RC132
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC132** (Lynx Kernel Manager v3.1.78): **Penyempurnaan Estetika Bilah Sisi Game HUD Menjadi Garis Tepi Ultra-Ramping (Laser Line Dock ~3.5dp) Tanpa Mengorbankan Presisi Sentuh (Zero-Miss Hit Buffer): Mengembalikan Desain Minimalis Garis Vertikal Presisi Bergradien Neon Cyan yang Menempel Ramping di Bezel Layar; Menghilangkan Tab Kapsul Tebal yang Memblokir Pandangan Layar; Dilengkapi Invisible Hit-Buffer Sentuh yang Membentang Halus ke Dalam Layar untuk Menjamin Ketukan Ringan Selalu Mendarat 100% Akurat Tanpa Meleset; Mempertahankan Arsitektur Tap-First Ergonomics & Pelindung Gestur 220dp Horizontal Sehingga Pembukaan Bilah Sisi Instan, Presisi, dan Kebal Sabotase Back Gesture Android**.

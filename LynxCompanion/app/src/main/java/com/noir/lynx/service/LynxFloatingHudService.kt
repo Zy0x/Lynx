@@ -73,6 +73,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
     private var isScreenInteractive = true
     private val telemetryWakeSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val outsideTouchFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var receiverRegistered = false
 
     private val screenStateReceiver = object : BroadcastReceiver() {
@@ -354,6 +355,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
+            setOnTouchListener { _, event ->
+                if ((event.action and MotionEvent.ACTION_MASK) == MotionEvent.ACTION_OUTSIDE) {
+                    outsideTouchFlow.tryEmit(Unit)
+                    true
+                } else {
+                    false
+                }
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
                     val h = bottom - top
@@ -378,6 +387,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 val pinMiniFps by pinMiniFpsFlow.collectAsState()
                 val currentDisplayHz by currentDisplayHzFlow.collectAsState()
                 var isExpanded by remember { mutableStateOf(false) }
+                var isEdgeDrawerOpen by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    outsideTouchFlow.collect {
+                        isEdgeDrawerOpen = false
+                        isExpanded = false
+                    }
+                }
 
                 FloatingHudContent(
                     telemetry = tel,
@@ -386,6 +403,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     pinMiniFps = pinMiniFps,
                     currentRefreshRate = currentDisplayHz,
                     isExpanded = isExpanded,
+                    isEdgeDrawerOpen = isEdgeDrawerOpen,
+                    onToggleEdgeDrawer = { isEdgeDrawerOpen = it },
                     isHudBenchmarking = isHudBenchmarking,
                     hudBenchmarkCountdown = hudBenchmarkCountdown,
                     hudBenchmarkSummary = hudBenchmarkSummary,

@@ -70,6 +70,8 @@ fun FloatingHudContent(
     pinMiniFps: Boolean = false,
     currentRefreshRate: Int = 120,
     isExpanded: Boolean,
+    isEdgeDrawerOpen: Boolean = false,
+    onToggleEdgeDrawer: (Boolean) -> Unit = {},
     isHudBenchmarking: Boolean = false,
     hudBenchmarkCountdown: Int = 60,
     hudBenchmarkSummary: com.noir.lynx.data.LynxBenchmarkResult? = null,
@@ -92,6 +94,8 @@ fun FloatingHudContent(
             activeStyle = activeStyle,
             pinMiniFps = pinMiniFps,
             currentRefreshRate = currentRefreshRate,
+            isDrawerOpen = isEdgeDrawerOpen,
+            onToggleDrawer = onToggleEdgeDrawer,
             isHudBenchmarking = isHudBenchmarking,
             hudBenchmarkCountdown = hudBenchmarkCountdown,
             hudBenchmarkSummary = hudBenchmarkSummary,
@@ -108,6 +112,12 @@ fun FloatingHudContent(
     } else {
         // Mode 1: Classic Floating Window
         var showStylePicker by remember { mutableStateOf(false) }
+
+        LaunchedEffect(isExpanded) {
+            if (!isExpanded) {
+                showStylePicker = false
+            }
+        }
 
         Column(modifier = Modifier.wrapContentSize().padding(4.dp)) {
             // Style Picker Dropdown
