@@ -1,5 +1,6 @@
 package com.noir.lynx.service
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,8 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,10 +39,12 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * HudEdgeDrawer — Infinix Game Space inspired Edge Bar overlay.
- * Docked cleanly to the bezel when collapsed, and expands into a full-featured,
- * psychologically calming in-game gaming suite with real-time telemetry,
- * performance profiles, and tactile game tools (RAM Boost, Hz switch, Pin FPS, Benchmark).
+ * HudEdgeDrawer — Infinix XBOOST AI Inspired Full Gaming Console.
+ * Matches the authentic Infinix XBOOST Game Bar layout:
+ * - Floating top dock of apps (WhatsApp, Chrome, YouTube, Calculator, etc.) in freeform mode
+ * - Left vertical category rail (Fitur Dasar, Alat Akses Cepat, Anti-gangguan, Gameplay Tambahan)
+ * - Dual circular tachometer gauges (CPU % & GPU %) with glowing gradient dials
+ * - Performance profile pills & bottom gaming action tools
  */
 @Composable
 fun HudEdgeDrawer(
@@ -63,13 +67,9 @@ fun HudEdgeDrawer(
     onClose: () -> Unit,
     onDragVertical: (Float) -> Unit,
 ) {
-    var showStylePicker by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isDrawerOpen) {
-        if (!isDrawerOpen) {
-            showStylePicker = false
-        }
-    }
+    var selectedCategoryIndex by remember { mutableStateOf(0) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     if (!isDrawerOpen) {
         // ── STATE 1: COLLAPSED BEZEL DOCK (Precision Glowing Handle) ──
@@ -135,12 +135,12 @@ fun HudEdgeDrawer(
             ) {
                 Box(
                     modifier = Modifier
-                        .width(4.dp)
+                        .width(4.5.dp)
                         .height(48.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(
                             Brush.verticalGradient(
-                                listOf(NeonCyan, Color.White, NeonCyan)
+                                listOf(Color(0xFFFF5252), Color.White, NeonCyan)
                             )
                         )
                 )
@@ -185,20 +185,22 @@ fun HudEdgeDrawer(
             }
         }
     } else {
-        // ── STATE 2: INFINIX GAME SPACE SLIDE-OUT BAR ──
+        // ── STATE 2: EXPANDED INFINIX XBOOST CONSOLE ──
+        val consoleWidth = if (isLandscape) 385.dp else 330.dp
+
         Surface(
-            shape = RoundedCornerShape(topEnd = 22.dp, bottomEnd = 22.dp),
-            color = InfinixBg,
-            border = BorderStroke(1.dp, InfinixCardBorder),
-            shadowElevation = 20.dp,
+            shape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp),
+            color = Color(0xF4080D15),
+            border = BorderStroke(1.dp, Color(0x3300E5FF)),
+            shadowElevation = 24.dp,
             modifier = Modifier
-                .width(292.dp)
+                .width(consoleWidth)
                 .systemGestureExclusion()
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDrag = { change, dragAmount ->
                             change.consume()
-                            if (dragAmount.x < -18f) {
+                            if (dragAmount.x < -20f) {
                                 onToggleDrawer(false)
                             } else {
                                 onDragVertical(dragAmount.y)
@@ -209,16 +211,10 @@ fun HudEdgeDrawer(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(11.dp)
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        showStylePicker = false
-                    },
-                verticalArrangement = Arrangement.spacedBy(7.dp)
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 1. Infinix Game Space Top Header (Clock, Battery, Actions)
+                // 1. Infinix XBOOST Top Bar (Logo, Status Icons, Battery, Clock, Collapse)
                 val currentTimeStr = remember(telemetry.renderFps) {
                     SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
                 }
@@ -228,390 +224,176 @@ fun HudEdgeDrawer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Brand & Clock Pod
+                    // Left Brand: Flame Icon + XBOOST AI
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(7.dp)
+                                .size(14.dp)
                                 .clip(CircleShape)
-                                .background(InfinixAccent)
-                        )
+                                .background(Color(0xFFFF3D00)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⚡", fontSize = 9.sp)
+                        }
                         Text(
-                            text = "GAME SPACE",
-                            color = InfinixAccent,
-                            fontSize = 11.sp,
+                            text = "XBOOST AI",
+                            color = Color.White,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.6.sp
-                        )
-                        Text(
-                            text = "· $currentTimeStr",
-                            color = InfinixTextSecondary,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            letterSpacing = 0.8.sp
                         )
                     }
 
-                    // Right Controls (Battery, Window, Style, Close)
+                    // Right Status Cluster
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Switch to Floating Window Mode
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0x18FFFFFF))
-                                .clickable {
-                                    onToggleDrawer(false)
-                                    onSelectMode(1)
-                                }
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Text("Jendela", color = InfinixTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
-                        }
+                        // Sound / Mute Indicator
+                        Text("🔇", fontSize = 10.sp)
 
-                        // Style Dropdown Trigger (S1-S6)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(NeonCyan.copy(alpha = 0.15f))
-                                .border(BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.4f)), RoundedCornerShape(6.dp))
-                                .clickable {
-                                    showStylePicker = !showStylePicker
-                                }
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        // Battery % and Icon
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Text("S$activeStyle ▾", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        // Power Off Overlay
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(Color(0x18FFFFFF))
-                                .clickable {
-                                    onToggleDrawer(false)
-                                    onClose()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.PowerSettingsNew,
-                                contentDescription = "Matikan HUD",
-                                tint = InfinixTextSecondary,
-                                modifier = Modifier.size(12.dp)
+                            Text("🔋", fontSize = 10.sp)
+                            Text(
+                                text = "${telemetry.battLevelPct}%",
+                                color = InfinixTextSecondary,
+                                fontSize = 8.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
 
-                        // Collapse Drawer Button
+                        // Digital Time Clock
+                        Text(
+                            text = currentTimeStr,
+                            color = Color.White,
+                            fontSize = 10.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Close / Collapse Button
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
                                 .clip(CircleShape)
                                 .background(Color(0x22FF5252))
-                                .clickable {
-                                    onToggleDrawer(false)
-                                },
+                                .clickable { onToggleDrawer(false) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.ChevronLeft,
+                                Icons.Default.Close,
                                 contentDescription = "Tutup Bilah",
                                 tint = NeonRed,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                     }
                 }
 
-                // Style Picker Dropdown (when tapped)
-                AnimatedVisibility(
-                    visible = showStylePicker,
-                    enter = fadeIn(),
-                    exit = fadeOut()
+                // 2. Horizontal Floating App Dock (WhatsApp, Chrome, YouTube, Calculator, etc.)
+                HudXboostAppDock(
+                    onAppLaunched = {
+                        // Optional: keep console open or auto-collapse when app is launched
+                    }
+                )
+
+                HorizontalDivider(
+                    color = Color(0x18FFFFFF),
+                    thickness = 0.8.dp,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+
+                // 3. Main Console Body: Left Vertical Category Rail + Right Content Area
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xEE111824),
-                        border = BorderStroke(1.dp, BorderHud),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val styleNames = listOf("Pillar", "Ribbon", "Esport", "Tiles", "Deck", "Ghost")
-                            styleNames.forEachIndexed { idx, _ ->
-                                val sId = idx + 1
-                                val isSel = (activeStyle == sId)
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(5.dp))
-                                        .background(if (isSel) NeonCyan.copy(alpha = 0.3f) else Color(0x18FFFFFF))
-                                        .clickable {
-                                            onSelectStyle(sId)
-                                            showStylePicker = false
-                                        }
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "${idx + 1}",
-                                        color = if (isSel) NeonCyan else Color.White,
-                                        fontSize = 9.sp,
-                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 2. Hero Performance Pod (FPS & Frametime)
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = InfinixCard,
-                    border = BorderStroke(1.dp, InfinixCardBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "${telemetry.renderFps}",
-                                    color = InfinixAccent,
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                                Text(
-                                    text = "FPS",
-                                    color = InfinixAccent,
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(bottom = 2.dp)
-                                )
-                                if (currentRefreshRate > 0) {
-                                    Text(
-                                        text = "· ${currentRefreshRate}Hz",
-                                        color = InfinixTextMuted,
-                                        fontSize = 8.5.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.padding(bottom = 2.dp)
-                                    )
-                                }
-                            }
-
-                            val stabilityText = if (telemetry.fps1PercentLow >= 50f) "STABIL" else "AKTIF"
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = InfinixAccent.copy(alpha = 0.15f),
-                                border = BorderStroke(0.6.dp, InfinixAccent.copy(alpha = 0.35f))
-                            ) {
-                                Text(
-                                    text = "${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms · $stabilityText",
-                                    color = InfinixAccent,
-                                    fontSize = 8.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        // Smooth Frametime Canvas Sparkline
-                        FrametimeSparklineCanvas(
-                            history = telemetry.frametimeHistory,
-                            heightDp = 12,
-                            modifier = Modifier.padding(vertical = 1.dp)
-                        )
-                    }
-                }
-
-                // 3. Ergonomic 2x2 Bento Stat Tiles
-                val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
-                val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    // Row 1: GPU & CPU
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        HudBentoTile(
-                            label = "GPU",
-                            dotColor = NeonMagenta,
-                            primaryText = if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "Otomatis",
-                            subText = "${telemetry.gpuLoadPct}% Load · $gpuTempStr",
-                            modifier = Modifier.weight(1f)
-                        )
-                        HudBentoTile(
-                            label = "CPU",
-                            dotColor = NeonCyan,
-                            primaryText = telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "Multi-Core" },
-                            subText = "${telemetry.cpuLoadPct}% Load · $cpuTempStr",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Row 2: BATERAI & MEMORI
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        val batDotColor = if (telemetry.battTempC > 42f) NeonRed else NeonOrange
-                        HudBentoTile(
-                            label = "BATERAI",
-                            dotColor = batDotColor,
-                            primaryText = "${telemetry.battTempC.toInt()}°C · ${telemetry.battLevelPct}%",
-                            subText = "${telemetry.battCurrentMa} mA · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W",
-                            modifier = Modifier.weight(1f)
-                        )
-                        HudBentoTile(
-                            label = "MEMORI",
-                            dotColor = NeonGold,
-                            primaryText = if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
-                            subText = "${telemetry.ramPct}% · ZRAM ${telemetry.zramUsedGb}G",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // 4. Kernel Performance Profile Switcher (Infinix Game Mode Buttons)
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = "MODE PERFORMA",
-                        color = InfinixTextSecondary,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
+                    // Left Vertical Category Rail (4 Tabs)
+                    val categories = listOf(
+                        Triple("🔲", "Fitur\nDasar", 0),
+                        Triple("⚙️", "Alat Akses\nCepat", 1),
+                        Triple("🔕", "Anti-\ngangguan", 2),
+                        Triple("🪄", "Gameplay\nTambahan", 3)
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+
+                    Column(
+                        modifier = Modifier.width(62.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val profiles = listOf(
-                            "powersave" to "PWR",
-                            "balance" to "BAL",
-                            "performance" to "PERF",
-                            "extreme" to "EXT"
-                        )
-                        profiles.forEach { (pKey, pLabel) ->
-                            val isSel = telemetry.activeProfile.equals(pKey, ignoreCase = true)
+                        categories.forEach { (icon, label, idx) ->
+                            val isSelected = (selectedCategoryIndex == idx)
                             Surface(
-                                shape = RoundedCornerShape(7.dp),
-                                color = if (isSel) NeonCyan.copy(alpha = 0.22f) else InfinixCard,
-                                border = BorderStroke(1.dp, if (isSel) NeonCyan else InfinixCardBorder),
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) Color(0x44FF3D00) else Color(0x18FFFFFF),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) Color(0xFFFF9100) else Color(0x15FFFFFF)
+                                ),
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        onProfileSelect(pKey)
-                                    }
+                                    .fillMaxWidth()
+                                    .clickable { selectedCategoryIndex = idx }
                             ) {
-                                Box(
-                                    modifier = Modifier.padding(vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
+                                Column(
+                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
+                                    Text(text = icon, fontSize = 14.sp)
                                     Text(
-                                        text = pLabel,
-                                        color = if (isSel) NeonCyan else InfinixTextPrimary,
-                                        fontSize = 9.sp,
-                                        fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.SemiBold
+                                        text = label,
+                                        color = if (isSelected) Color.White else InfinixTextSecondary,
+                                        fontSize = 7.5.sp,
+                                        lineHeight = 9.sp,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
                         }
                     }
+
+                    // Right Main Content Panel (Dynamically switches based on selected tab)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        when (selectedCategoryIndex) {
+                            1 -> HudXboostQuickAccessTab(
+                                currentRefreshRate = currentRefreshRate,
+                                onCycleRefreshRate = onCycleRefreshRate
+                            )
+                            2 -> HudXboostDndTab()
+                            3 -> HudXboostGameplayTab(
+                                isHudBenchmarking = isHudBenchmarking,
+                                hudBenchmarkCountdown = hudBenchmarkCountdown,
+                                hudBenchmarkSummary = hudBenchmarkSummary,
+                                onStartHudBenchmark = onStartHudBenchmark
+                            )
+                            else -> HudXboostGaugesAndCoreTab(
+                                telemetry = telemetry,
+                                currentRefreshRate = currentRefreshRate,
+                                pinMiniFps = pinMiniFps,
+                                onProfileSelect = onProfileSelect,
+                                onBoostRam = onBoostRam,
+                                onCycleRefreshRate = onCycleRefreshRate,
+                                onTogglePinMiniFps = onTogglePinMiniFps,
+                                onCloseDrawer = { onToggleDrawer(false) }
+                            )
+                        }
+                    }
                 }
-
-                // 5. Infinix Gaming Tools & Benchmark
-                HudQuickToolsAndBenchmark(
-                    currentRefreshRate = currentRefreshRate,
-                    pinMiniFps = pinMiniFps,
-                    isHudBenchmarking = isHudBenchmarking,
-                    hudBenchmarkCountdown = hudBenchmarkCountdown,
-                    hudBenchmarkSummary = hudBenchmarkSummary,
-                    onBoostRam = onBoostRam,
-                    onCycleRefreshRate = onCycleRefreshRate,
-                    onTogglePinMiniFps = onTogglePinMiniFps,
-                    onStartHudBenchmark = onStartHudBenchmark,
-                    onInteraction = {}
-                )
             }
-        }
-    }
-}
-
-@Composable
-private fun HudBentoTile(
-    label: String,
-    dotColor: Color,
-    primaryText: String,
-    subText: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = InfinixCard,
-        border = BorderStroke(1.dp, InfinixCardBorder),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(5.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
-                Text(
-                    text = label,
-                    color = InfinixTextSecondary,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                )
-            }
-            Text(
-                text = primaryText,
-                color = InfinixTextPrimary,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = subText,
-                color = InfinixTextMuted,
-                fontSize = 7.5.sp,
-                fontFamily = FontFamily.Monospace,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
