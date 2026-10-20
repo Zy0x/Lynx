@@ -84,18 +84,31 @@ fun CpuUnifiedSystemCard(
     val schedInfo = uiState.schedulerInfo
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        LynxCard(
-            title = "STATUS PROFIL SISTEM",
-            icon = Icons.Default.SettingsSuggest,
-            accentColor = AccentOrange
+        // ── 1. Status Profil Sistem (Zen Bento Architecture) ──────
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF10141F),
+            border = BorderStroke(
+                0.8.dp,
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0x28FFFFFF),
+                        Color(0x10FFFFFF)
+                    )
+                )
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 val masterProfile = uiState.cpuComprehensiveProfile.lowercase()
                 val masterLabel = when (masterProfile) {
-                    "battery" -> "Mode Baterai (Hemat Daya)"
+                    "battery" -> "Mode Hemat Daya (Powersave)"
                     "performance", "gaming" -> "Mode $PERFORMA_LABEL (Gaming Stabil)"
                     "extreme" -> "Mode Ekstrem (100% Clock Max)"
-                    else -> "Mode Seimbang (Optimal)"
+                    else -> "Mode Seimbang (Balance Optimal)"
                 }
                 val masterIcon = when (masterProfile) {
                     "battery" -> Icons.Default.BatteryChargingFull
@@ -105,112 +118,114 @@ fun CpuUnifiedSystemCard(
                 }
                 val masterAccent = when (masterProfile) {
                     "battery" -> AccentGreen
-                    "performance", "gaming" -> AccentBlue
+                    "performance", "gaming" -> AccentOrange
                     "extreme" -> AccentRed
                     else -> AccentCyan
                 }
                 val isModified = uiState.isCpuModified
 
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(0.8.dp, if (isModified) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isModified) AccentOrange.copy(alpha = 0.14f) else masterAccent.copy(alpha = 0.14f),
+                            border = BorderStroke(0.6.dp, if (isModified) AccentOrange.copy(alpha = 0.35f) else masterAccent.copy(alpha = 0.35f)),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f).padding(end = 8.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (isModified) AccentOrange.copy(alpha = 0.16f) else masterAccent.copy(alpha = 0.16f),
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = if (isModified) Icons.Default.Tune else masterIcon,
-                                            contentDescription = null,
-                                            tint = if (isModified) AccentOrange else masterAccent,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        text = masterLabel,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        text = if (isModified) "Parameter disesuaikan manual" else "Selaras dengan Tab Performa",
-                                        fontSize = 9.5.sp,
-                                        color = if (isModified) AccentOrange else TextSecondary
-                                    )
-                                }
-                            }
-
-                            if (isModified) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = AccentOrange.copy(alpha = 0.16f)
-                                ) {
-                                    Text(
-                                        text = "Kustom",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentOrange,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (isModified) Icons.Default.Tune else masterIcon,
+                                    contentDescription = null,
+                                    tint = if (isModified) AccentOrange else masterAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = masterLabel,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (isModified) "Parameter disesuaikan manual" else "Selaras dengan Tab Performa",
+                                fontSize = 10.sp,
+                                color = if (isModified) AccentOrange else TextSecondary.copy(alpha = 0.75f)
+                            )
+                        }
+                    }
 
-                        if (isModified) {
+                    if (isModified) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = AccentOrange.copy(alpha = 0.14f),
+                            border = BorderStroke(0.5.dp, AccentOrange.copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = "Kustom",
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentOrange,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (isModified) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF0C0F17),
+                        border = BorderStroke(0.5.dp, Color(0x12FFFFFF)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
                             Text(
                                 text = "Konfigurasi telah disesuaikan di luar baseline master. Anda dapat mereset parameter agar kembali selaras.",
-                                fontSize = 10.sp,
-                                color = TextTertiary,
-                                lineHeight = 13.5.sp
+                                fontSize = 10.5.sp,
+                                color = TextSecondary.copy(alpha = 0.8f),
+                                lineHeight = 14.sp
                             )
-
+                            Spacer(Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End
                             ) {
-                                Button(
+                                Surface(
                                     onClick = onResetToStandardProfile,
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AccentOrange,
-                                        contentColor = Color.Black
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                    modifier = Modifier.defaultMinSize(minHeight = 40.dp)
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = AccentOrange.copy(alpha = 0.16f),
+                                    border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.45f)),
+                                    modifier = Modifier.height(32.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = "Reset ke $masterLabel",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = AccentOrange,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = "Reset ke Baseline",
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = AccentOrange
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -264,7 +279,7 @@ fun CpuUnifiedSystemCard(
     if (activeTooltip != null) {
         AlertDialog(
             onDismissRequest = { activeTooltip = null },
-            containerColor = BgCard,
+            containerColor = Color(0xFF141824),
             title = {
                 Text(
                     text = "Informasi Kernel Hardware",

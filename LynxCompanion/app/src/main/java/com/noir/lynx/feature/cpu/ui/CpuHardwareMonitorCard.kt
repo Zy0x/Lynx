@@ -83,14 +83,20 @@ fun CpuHardwareMonitorCard(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // Master Hero Card (Bezier Waveform & 8-Core Live Grid)
         Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF10141F),
+            border = BorderStroke(
+                0.8.dp,
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0x28FFFFFF),
+                        Color(0x10FFFFFF)
+                    )
+                )
+            ),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Header: Title & Live indicator
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -155,24 +161,24 @@ fun CpuHardwareMonitorCard(
 
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = BgSurfaceLowest,
-                        border = BorderStroke(0.8.dp, BorderSubtle)
+                        color = Color(0xFF0C0F17),
+                        border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Suhu:", fontSize = 9.5.sp, color = TextTertiary)
-                                Text(if (temp > 0) "${temp}°C" else "38°C", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Suhu:", fontSize = 9.5.sp, color = TextSecondary.copy(alpha = 0.6f))
+                                Text(if (temp > 0) "${temp}°C" else "38°C", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = TextPrimary)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Rata-rata:", fontSize = 9.5.sp, color = TextTertiary)
-                                Text("$avgMhz MHz", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Rata-rata:", fontSize = 9.5.sp, color = TextSecondary.copy(alpha = 0.6f))
+                                Text("$avgMhz MHz", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = TextPrimary)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Puncak:", fontSize = 9.5.sp, color = TextTertiary)
-                                Text("$peakMhz MHz", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                                Text("Puncak:", fontSize = 9.5.sp, color = TextSecondary.copy(alpha = 0.6f))
+                                Text("$peakMhz MHz", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = AccentCyan)
                             }
                         }
                     }
@@ -279,8 +285,8 @@ fun CpuHardwareMonitorCard(
 
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = BgSurfaceLowest,
-                                border = BorderStroke(0.8.dp, if (core.isOnline) coreAccent.copy(alpha = 0.35f) else BorderSubtle),
+                                color = Color(0xFF0C0F17),
+                                border = BorderStroke(0.6.dp, if (core.isOnline) coreAccent.copy(alpha = 0.35f) else Color(0x15FFFFFF)),
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
@@ -380,7 +386,7 @@ fun CpuHardwareMonitorCard(
         val core = pendingHotplugCore!!
         AlertDialog(
             onDismissRequest = { pendingHotplugCore = null },
-            containerColor = BgCard,
+            containerColor = Color(0xFF141824),
             title = {
                 Text(
                     text = "Konfirmasi CPU Hotplug",
@@ -420,7 +426,7 @@ fun CpuHardwareMonitorCard(
     if (showCore0Notice) {
         AlertDialog(
             onDismissRequest = { showCore0Notice = false },
-            containerColor = BgCard,
+            containerColor = Color(0xFF141824),
             title = {
                 Text("Core 0 Dilindungi", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             },

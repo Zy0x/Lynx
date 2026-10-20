@@ -211,8 +211,8 @@ fun TopProcessListCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(BgSurfaceLowest, RoundedCornerShape(10.dp))
-                            .border(0.8.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                            .background(Color(0xFF0C0F17), RoundedCornerShape(10.dp))
+                            .border(0.6.dp, Color(0x15FFFFFF), RoundedCornerShape(10.dp))
                             .clickable { selectedProcess = Pair(p, displayName) }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,

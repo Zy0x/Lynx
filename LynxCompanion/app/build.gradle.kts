@@ -3,6 +3,24 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val buildHudCollector by tasks.registering(Exec::class) {
+    val nativeRoot = rootProject.projectDir.resolve("../native/lynxd")
+    workingDir(nativeRoot)
+    inputs.dir(nativeRoot.resolve("src"))
+    inputs.file(nativeRoot.resolve("Cargo.toml"))
+    val packaged = layout.buildDirectory.file("generated/hudJni/arm64-v8a/liblynxhud.so")
+    outputs.file(packaged)
+    commandLine("cargo", "build", "--release", "--target", "aarch64-linux-android")
+    doLast {
+        copy {
+            from(nativeRoot.resolve("target/aarch64-linux-android/release/lynxd"))
+            into(packaged.get().asFile.parentFile)
+            rename { "liblynxhud.so" }
+        }
+    }
+}
+tasks.named("preBuild").configure { dependsOn(buildHudCollector) }
+
 android {
     namespace = "com.noir.lynx"
     compileSdk = 34
@@ -11,8 +29,8 @@ android {
         applicationId = "com.noir.lynx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20261226
-        versionName = "3.1.82"
+        versionCode = 20261227
+        versionName = "3.1.83"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -34,6 +52,7 @@ android {
             isMinifyEnabled = false
         }
     }
+    sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/hudJni"))
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -49,6 +68,10 @@ android {
         kotlinCompilerExtensionVersion = "1.5.8"
     }
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols += "**/liblynxhud.so"
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
@@ -84,6 +107,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test:runner:1.5.2")

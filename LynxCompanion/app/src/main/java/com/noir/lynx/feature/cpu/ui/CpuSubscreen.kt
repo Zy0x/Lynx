@@ -1,7 +1,12 @@
 package com.noir.lynx.feature.cpu.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
@@ -50,23 +55,59 @@ fun CpuSubscreen(
     ) {
         uiState.state.profileOverrides[com.noir.lynx.profiles.ProfileDomain.CPU]?.let { overrideProfile ->
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgSurfaceLowest,
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF10141F),
+                border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.profile_override_status, "CPU", overrideProfile.uppercase(), uiState.state.activeProfile.uppercase()),
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { viewModel.resetCpuToActiveProfile(context) }) {
-                        Text("Ikuti Global", fontSize = 10.sp)
+                    Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(AccentOrange, CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.profile_override_status, "CPU", overrideProfile.uppercase(), uiState.state.activeProfile.uppercase()),
+                            color = TextSecondary.copy(alpha = 0.85f),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Surface(
+                        onClick = { viewModel.resetCpuToActiveProfile(context) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentOrange.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 9.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = AccentOrange,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Ikuti Global",
+                                color = AccentOrange,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
@@ -212,23 +253,59 @@ fun androidx.compose.foundation.lazy.LazyListScope.tuningCpuCategoryItems(
     uiState.state.profileOverrides[com.noir.lynx.profiles.ProfileDomain.CPU]?.let { overrideProfile ->
         item(key = "cpu_profile_override_status") {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgSurfaceLowest,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF10141F),
+                border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.profile_override_status, "CPU", overrideProfile.uppercase(), uiState.state.activeProfile.uppercase()),
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { viewModel.resetCpuToActiveProfile(context) }) {
-                        Text("Ikuti Global", fontSize = 10.sp)
+                    Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(AccentOrange, CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.profile_override_status, "CPU", overrideProfile.uppercase(), uiState.state.activeProfile.uppercase()),
+                            color = TextSecondary.copy(alpha = 0.85f),
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Surface(
+                        onClick = { viewModel.resetCpuToActiveProfile(context) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentOrange.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 9.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = AccentOrange,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Ikuti Global",
+                                color = AccentOrange,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }

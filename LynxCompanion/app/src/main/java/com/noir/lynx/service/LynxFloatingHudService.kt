@@ -1,115 +1,59 @@
 package com.noir.lynx.service
 
-import com.noir.lynx.core.locale.AppLocale
-import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.app.*
+import android.content.*
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.os.Build
-import android.os.IBinder
-import android.os.PowerManager
+import android.hardware.display.DisplayManager
+import android.os.*
 import android.provider.Settings
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
-import android.view.WindowManager
+import android.view.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.ComposeView
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.LifecycleRegistry
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistry
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.*
+import androidx.savedstate.*
 import com.noir.lynx.R
-import com.noir.lynx.data.LynxHudTelemetryRepository
-import com.noir.lynx.data.LynxRepository
-import com.noir.lynx.ui.MainActivity
-import com.topjohnwu.superuser.Shell
+import com.noir.lynx.core.locale.AppLocale
+import com.noir.lynx.feature.hud.HudController
+import com.noir.lynx.feature.hud.data.*
+import com.noir.lynx.feature.hud.ui.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.*
 import kotlin.math.roundToInt
 
-/**
- * LynxFloatingHudService — Real-time floating Game HUD / OSD Overlay.
- *
- * Supports 6 distinct, customizable layout styles:
- * 1. VERTICAL_PILLAR (Modern Slim RTSS)
- * 2. TOP_RIBBON (Top Nano-Ribbon)
- * 3. DUAL_BLOCK (Dual-Block Esport)
- * 4. QUAD_TILES (Quad-Tiles Modular)
- * 5. DECK_BANNER (Steam Deck Banner)
- * 6. GHOST_TEXT (Ghost Frameless)
- *
- * Engineered with:
- * - Reactive state flow (zero UI desync across Quick Tile, Activity, Notification, and Watcher)
- * - Screen-state sleep shield (pauses telemetry during screen OFF, 0% CPU wake lock)
- * - Orientation auto-clamping preventing HUD off-screen loss on rotation
- * - Debounced disk writes preventing I/O queue floods during dragging
- * - Genuine Linux thermal zone parsing (CPU/SoC & GPU) without mock values
- */
+/** Bounded overlay host. Native collection is read-only and scoped to screen-on lifetime. */
 class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwner {
-
-    private lateinit var windowManager: WindowManager
-    private var floatView: View? = null
-    private var currentLayoutParams: WindowManager.LayoutParams? = null
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
-    private var savePositionJob: Job? = null
-
-    private val lifecycleRegistry = LifecycleRegistry(this)
-    private val savedStateRegistryController = SavedStateRegistryController.create(this)
-
-    private var isScreenInteractive = true
-    private val telemetryWakeSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    private val outsideTouchFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    private var receiverRegistered = false
-
-    private val screenStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                Intent.ACTION_SCREEN_OFF -> {
-                    isScreenInteractive = false
-                }
-                Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
-                    isScreenInteractive = true
-                    telemetryWakeSignal.tryEmit(Unit)
-                }
-            }
-        }
-    }
-
-    private fun getDisplayRefreshRate(): Int {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                display?.mode?.refreshRate?.roundToInt() ?: 120
-            } else {
-                @Suppress("DEPRECATION")
-                windowManager.defaultDisplay?.mode?.refreshRate?.roundToInt() ?: 120
-            }
-        } catch (_: Exception) {
-            120
-        }
-    }
-
-    override val lifecycle: Lifecycle get() = lifecycleRegistry
-    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val registry = LifecycleRegistry(this)
+    private val saved = SavedStateRegistryController.create(this)
+    override val lifecycle: Lifecycle get() = registry
+    override val savedStateRegistry: SavedStateRegistry get() = saved.savedStateRegistry
+    private lateinit var windows: WindowManager
+    private lateinit var displays: DisplayManager
+    private lateinit var repository: HudStreamRepository
+    private lateinit var preferences: HudPreferencesStore
+    private lateinit var controller: HudController
+    private var view: ComposeView? = null
+    private var params: WindowManager.LayoutParams? = null
+    private val interactive = MutableStateFlow(false)
+    private val rendered = MutableStateFlow(HudSnapshot())
+    private val viewport = MutableStateFlow(HudViewport())
+    private val open = MutableStateFlow(false)
+    private val hz = MutableStateFlow(HudReading(unit = "Hz"))
+    private val rates = MutableStateFlow<List<Float>>(emptyList())
+    private var safeLeft = 0
+    private var safeTop = 0
+    private var safeWidth = 0
+    private var safeHeight = 0
+    private var registered = false
 
     companion object {
         val isRunningFlow = MutableStateFlow(false)
         val isRunning: Boolean get() = isRunningFlow.value
-
+        val activeStyleFlow = MutableStateFlow(1)
+        val activeModeFlow = MutableStateFlow(0)
+        val pinMiniFpsFlow = MutableStateFlow(false)
+        val snapshotFlow = MutableStateFlow(HudSnapshot())
         const val ACTION_START = "com.noir.lynx.service.START_HUD"
         const val ACTION_STOP = "com.noir.lynx.service.STOP_HUD"
         const val ACTION_SET_STYLE = "com.noir.lynx.service.SET_STYLE"
@@ -118,468 +62,212 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         const val EXTRA_MODE = "extra_hud_mode"
         const val ACTION_SET_PIN_FPS = "com.noir.lynx.service.SET_PIN_FPS"
         const val EXTRA_PIN_FPS = "extra_pin_fps"
-
-        val activeStyleFlow = MutableStateFlow(1)
-        val activeModeFlow = MutableStateFlow(0) // 0 = Edge Drawer, 1 = Classic Floating
-        val pinMiniFpsFlow = MutableStateFlow(false)
-        private const val NOTIF_CHANNEL_ID = "lynx_game_hud_channel"
-        private const val NOTIF_ID = 8801
+        private const val CHANNEL = "lynx_game_hud_channel"
     }
 
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            interactive.value = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+            if (!interactive.value) open.value = false
+        }
+    }
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(id: Int) = updateDisplay()
+        override fun onDisplayChanged(id: Int) { updateDisplay(); updateBounds() }
+        override fun onDisplayRemoved(id: Int) = updateDisplay()
+    }
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-
-        if (!Settings.canDrawOverlays(this)) {
-            Shell.cmd("appops set $packageName SYSTEM_ALERT_WINDOW allow 2>/dev/null").exec()
-            if (!Settings.canDrawOverlays(this)) {
-                stopSelf()
-                return
+        if (!Settings.canDrawOverlays(this)) { stopSelf(); return }
+        saved.performRestore(null)
+        registry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        registry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        registry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        windows = getSystemService(WINDOW_SERVICE) as WindowManager
+        displays = getSystemService(DISPLAY_SERVICE) as DisplayManager
+        repository = HudStreamRepository(this)
+        preferences = HudPreferencesStore(this)
+        controller = HudController(this,scope)
+        val prefs = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
+        activeStyleFlow.value = prefs.getInt("hud_style",1).coerceIn(1,6)
+        activeModeFlow.value = prefs.getInt("hud_mode",0).coerceIn(0,1)
+        pinMiniFpsFlow.value = preferences.read().pinned
+        startNotification()
+        interactive.value = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+        val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT) }
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver,filter,RECEIVER_NOT_EXPORTED) else registerReceiver(screenReceiver,filter)
+        registered = true
+        displays.registerDisplayListener(displayListener,Handler(Looper.getMainLooper()))
+        updateBounds()
+        updateDisplay()
+        createOverlay()
+        scope.launch {
+            preferences.changes.collect { pinMiniFpsFlow.value = it.pinned }
+        }
+        scope.launch {
+            interactive.collectLatest { on ->
+                if (!on) {
+                    repository.unavailable("stale")
+                    rendered.value = repository.current()
+                    snapshotFlow.value = rendered.value
+                    return@collectLatest
+                }
+                coroutineScope {
+                    launch(Dispatchers.IO) { repository.collect() }
+                    try {
+                        while (isActive) {
+                            val sample = repository.current()
+                            val displayReading = hz.value.copy(atMs = SystemClock.elapsedRealtime())
+                            val current = sample.copy(metrics = sample.metrics + (HudMetric.DISPLAY_HZ.key to displayReading))
+                            rendered.value = current
+                            snapshotFlow.value = current
+                            delay(250)
+                        }
+                    } finally {
+                        // Stop the pipe before waiting for a cancelled blocking reader to finish.
+                        withContext(NonCancellable + Dispatchers.IO) { repository.stop() }
+                    }
+                }
             }
         }
-
-        LynxHudTelemetryRepository.reset()
-
-        val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
-        isScreenInteractive = powerManager?.isInteractive ?: true
-
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_USER_PRESENT)
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(screenStateReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                registerReceiver(screenStateReceiver, filter)
-            }
-            receiverRegistered = true
-        } catch (_: Exception) {}
-
-        val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
-        val savedStyle = prefs.getInt("hud_style", 1)
-        activeStyleFlow.value = savedStyle.coerceIn(1, 6)
-        val savedMode = prefs.getInt("hud_mode", 0)
-        activeModeFlow.value = savedMode.coerceIn(0, 1)
-        val savedPin = prefs.getBoolean("pin_mini_fps", false)
-        pinMiniFpsFlow.value = savedPin
-
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        createNotificationChannel()
-        startForeground(NOTIF_ID, buildForegroundNotification())
-        createFloatingHud()
         isRunningFlow.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            cleanUpAndStop()
-            return START_NOT_STICKY
+        if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
+        val prefs = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
+        when(intent?.action) {
+            ACTION_SET_STYLE -> { activeStyleFlow.value = intent.getIntExtra(EXTRA_STYLE,1).coerceIn(1,6); prefs.edit().putInt("hud_style",activeStyleFlow.value).apply() }
+            ACTION_SET_MODE -> { activeModeFlow.value = intent.getIntExtra(EXTRA_MODE,0).coerceIn(0,1); open.value = false; prefs.edit().putInt("hud_mode",activeModeFlow.value).apply(); view?.post { clamp() } }
+            ACTION_SET_PIN_FPS -> preferences.pin(intent.getBooleanExtra(EXTRA_PIN_FPS,false))
         }
-        if (intent?.action == ACTION_SET_STYLE || intent?.hasExtra(EXTRA_STYLE) == true) {
-            val newStyle = intent.getIntExtra(EXTRA_STYLE, activeStyleFlow.value).coerceIn(1, 6)
-            activeStyleFlow.value = newStyle
-            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", newStyle).apply()
+        return START_NOT_STICKY
+    }
+
+    private fun targetDisplay(): Display? = view?.display ?: displays.getDisplay(Display.DEFAULT_DISPLAY)
+    private fun updateDisplay() {
+        val display = targetDisplay()
+        val mode = display?.mode
+        hz.value = if (mode != null) HudReading(mode.refreshRate.toDouble(),"Hz","Display ${display.displayId}: mode ${mode.modeId}",SystemClock.elapsedRealtime(),"valid") else HudReading(unit = "Hz",status = "unsupported")
+        rates.value = display?.supportedModes?.filter { mode != null && it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight }
+            ?.map { it.refreshRate }?.distinctBy { (it*10).roundToInt() }?.sorted() ?: emptyList()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun updateBounds() {
+        val density = resources.displayMetrics.density
+        if (Build.VERSION.SDK_INT >= 30) {
+            val metrics = windows.currentWindowMetrics
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            safeLeft = insets.left; safeTop = insets.top
+            safeWidth = metrics.bounds.width()-insets.left-insets.right
+            safeHeight = metrics.bounds.height()-insets.top-insets.bottom
+        } else {
+            val metrics = android.util.DisplayMetrics()
+            windows.defaultDisplay.getRealMetrics(metrics)
+            val insets = view?.rootWindowInsets
+            safeLeft = insets?.stableInsetLeft ?: 0; safeTop = insets?.stableInsetTop ?: 0
+            safeWidth = metrics.widthPixels-safeLeft-(insets?.stableInsetRight ?: 0)
+            safeHeight = metrics.heightPixels-safeTop-(insets?.stableInsetBottom ?: 0)
         }
-        if (intent?.action == ACTION_SET_MODE || intent?.hasExtra(EXTRA_MODE) == true) {
-            val newMode = intent.getIntExtra(EXTRA_MODE, activeModeFlow.value).coerceIn(0, 1)
-            activeModeFlow.value = newMode
-            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_mode", newMode).apply()
-            updateModePosition(newMode)
+        viewport.value = HudViewport(safeWidth/density,safeHeight/density)
+        clamp()
+    }
+
+    private fun clamp() {
+        val v = view ?: return
+        val p = params ?: return
+        val nextX = if (activeModeFlow.value == 0) safeLeft else p.x.coerceIn(safeLeft,(safeLeft+safeWidth-v.width).coerceAtLeast(safeLeft))
+        val nextY = p.y.coerceIn(safeTop,(safeTop+safeHeight-v.height).coerceAtLeast(safeTop))
+        if (p.x != nextX || p.y != nextY) { p.x = nextX; p.y = nextY; runCatching { windows.updateViewLayout(v,p) } }
+        if (Build.VERSION.SDK_INT >= 29) v.systemGestureExclusionRects = emptyList()
+    }
+
+    private fun drag(dx: Float, dy: Float) {
+        val p = params ?: return
+        p.y += dy.toInt()
+        if (activeModeFlow.value == 1) p.x += dx.toInt()
+        val v = view ?: return
+        p.x = if (activeModeFlow.value == 0) safeLeft else p.x.coerceIn(safeLeft,(safeLeft+safeWidth-v.width).coerceAtLeast(safeLeft))
+        p.y = p.y.coerceIn(safeTop,(safeTop+safeHeight-v.height).coerceAtLeast(safeTop))
+        runCatching { windows.updateViewLayout(v,p) }
+        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+        getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE).edit().putFloat(key,(p.y-safeTop).toFloat()/safeHeight.coerceAtLeast(1)).apply()
+    }
+
+    private fun createOverlay() {
+        val pref = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
+        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+        val initial = pref.getFloat(key,pref.getInt("hud_y",280).toFloat()/safeHeight.coerceAtLeast(1)).coerceIn(0f,1f)
+        params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply {
+            gravity = Gravity.TOP or Gravity.LEFT; x = safeLeft; y = safeTop+(safeHeight*initial).toInt()
         }
-        if (intent?.action == ACTION_SET_PIN_FPS || intent?.hasExtra(EXTRA_PIN_FPS) == true) {
-            val newPin = intent.getBooleanExtra(EXTRA_PIN_FPS, pinMiniFpsFlow.value)
-            pinMiniFpsFlow.value = newPin
-            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putBoolean("pin_mini_fps", newPin).apply()
+        val host = ComposeView(this)
+        host.setViewTreeLifecycleOwner(this)
+        host.setViewTreeSavedStateRegistryOwner(this)
+        host.setOnTouchListener { _,event -> if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { open.value = false; false } else false }
+        host.addOnLayoutChangeListener { _,_,_,_,_,_,_,_,_ -> host.post { clamp() } }
+        host.setOnApplyWindowInsetsListener { _,insets -> host.post { updateBounds() }; insets }
+        host.setContent {
+            val sample by rendered.collectAsState()
+            val size by viewport.collectAsState()
+            val expanded by open.collectAsState()
+            val mode by activeModeFlow.collectAsState()
+            val style by activeStyleFlow.collectAsState()
+            val pinned by pinMiniFpsFlow.collectAsState()
+            val action by controller.actions.collectAsState()
+            val apps by controller.apps.collectAsState()
+            val supported by rates.collectAsState()
+            if (mode == 0) HudSidebar(sample,size,expanded,preferences,action,apps,supported,
+                onOpen = { open.value = it }, onDrag = { drag(0f,it) }, onProfile = controller::profile,
+                onHz = { controller.refresh(it,supported) { hz.value.value?.toFloat() } },
+                onCapture = { controller.screenshot { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE } },
+                onApp = controller::launch,onStop = { stopSelf() })
+            else FloatingHudContent(telemetry = HudLegacyAdapter.project(sample),hudMode = 1,activeStyle = style,pinMiniFps = pinned,
+                currentRefreshRate = sample[HudMetric.DISPLAY_HZ].value?.roundToInt() ?: 0,isExpanded = expanded,
+                onToggleExpand = { open.value = !open.value },onSelectMode = { activeModeFlow.value = it; open.value = false },
+                onSelectStyle = { activeStyleFlow.value = it; pref.edit().putInt("hud_style",it).apply() },onTogglePinMiniFps = { preferences.pin(!pinned) },
+                onClose = { stopSelf() },onProfileSelect = controller::profile,onBoostRam = {},onCycleRefreshRate = {},
+                onDrag = ::drag,onDragVertical = { drag(0f,it) })
         }
-        return START_STICKY
+        view = host
+        runCatching { windows.addView(host,params); updateDisplay() }.onFailure { stopSelf() }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        clampHudPositionToScreen()
+        updateBounds(); updateDisplay()
+        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+        params?.y = safeTop+(safeHeight*getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE).getFloat(key,0.2f)).toInt()
+        view?.post { clamp(); params?.let { p -> runCatching { windows.updateViewLayout(view,p) } } }
     }
 
-    private fun updateModePosition(mode: Int) {
-        val view = floatView ?: return
-        val params = currentLayoutParams ?: return
-        val dm = resources.displayMetrics
-        val screenW = dm.widthPixels
-        val screenH = dm.heightPixels
-        val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
-
-        if (mode == 0) {
-            params.x = 0
-            params.y = prefs.getInt("hud_y", 280).coerceIn(60, (screenH - 120).coerceAtLeast(100))
-        } else {
-            params.x = prefs.getInt("hud_x", 80).coerceIn(10, (screenW - 200).coerceAtLeast(20))
-            params.y = prefs.getInt("hud_y", 280).coerceIn(60, (screenH - 120).coerceAtLeast(100))
-        }
-        try {
-            windowManager.updateViewLayout(view, params)
-            updateSystemGestureExclusion(view)
-        } catch (_: Exception) {}
-    }
-
-    private fun updateSystemGestureExclusion(view: View) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (activeModeFlow.value == 0) {
-                val h = view.height
-                if (h > 0) {
-                    val dm = resources.displayMetrics
-                    val exclusionW = (220 * dm.density).toInt()
-                    val maxH = (200 * dm.density).toInt()
-                    val exclusionRect = android.graphics.Rect(0, 0, exclusionW, h.coerceAtMost(maxH))
-                    view.systemGestureExclusionRects = listOf(exclusionRect)
-                }
-            } else {
-                view.systemGestureExclusionRects = emptyList()
-            }
-        }
-    }
-
-    private fun clampHudPositionToScreen() {
-        val view = floatView ?: return
-        val params = currentLayoutParams ?: return
-        val dm = resources.displayMetrics
-        val screenW = dm.widthPixels
-        val screenH = dm.heightPixels
-
-        if (activeModeFlow.value == 0) {
-            params.x = 0
-            params.y = params.y.coerceIn(60, (screenH - 120).coerceAtLeast(100))
-        } else {
-            params.x = params.x.coerceIn(10, (screenW - 120).coerceAtLeast(20))
-            params.y = params.y.coerceIn(60, (screenH - 120).coerceAtLeast(100))
-        }
-        try {
-            windowManager.updateViewLayout(view, params)
-        } catch (_: Exception) {}
-    }
-
-    private fun debouncedSavePosition(x: Int, y: Int) {
-        savePositionJob?.cancel()
-        savePositionJob = serviceScope.launch {
-            delay(300L)
-            getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit()
-                .putInt("hud_x", x)
-                .putInt("hud_y", y)
-                .apply()
-        }
-    }
-
-    private fun cleanUpAndStop() {
-        isRunningFlow.value = false
-        serviceScope.cancel()
-        if (receiverRegistered) {
-            try {
-                unregisterReceiver(screenStateReceiver)
-            } catch (_: Exception) {}
-            receiverRegistered = false
-        }
-        floatView?.let { view ->
-            try {
-                windowManager.removeViewImmediate(view)
-            } catch (e: Exception) {
-                try {
-                    windowManager.removeView(view)
-                } catch (_: Exception) {}
-            }
-        }
-        floatView = null
-        currentLayoutParams = null
-        LynxHudTelemetryRepository.reset()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
-        }
-        stopSelf()
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun createFloatingHud() {
-        val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
-        val initialMode = activeModeFlow.value
-        val dm = resources.displayMetrics
-        val initialY = prefs.getInt("hud_y", 280).coerceIn(60, (dm.heightPixels - 120).coerceAtLeast(100))
-        val initialX = if (initialMode == 0) 0 else prefs.getInt("hud_x", 80).coerceIn(10, (dm.widthPixels - 200).coerceAtLeast(20))
-
-        val layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = initialX
-            y = initialY
-        }
-        currentLayoutParams = layoutParams
-
-        val telemetryFlow = MutableStateFlow(LynxRepository.FloatingHudTelemetry())
-        val isHudBenchmarkingFlow = MutableStateFlow(false)
-        val hudBenchmarkCountdownFlow = MutableStateFlow(60)
-        val hudBenchmarkSummaryFlow = MutableStateFlow<com.noir.lynx.data.LynxBenchmarkResult?>(null)
-        val currentDisplayHzFlow = MutableStateFlow(getDisplayRefreshRate())
-
-        // Start Telemetry Query Loop (500ms with Screen-State Sleep Shield)
-        serviceScope.launch {
-            withContext(Dispatchers.IO) {
-                Shell.cmd("dumpsys SurfaceFlinger --timestats -enable 2>/dev/null").exec()
-            }
-            while (isActive) {
-                if (!isScreenInteractive) {
-                    telemetryWakeSignal.first()
-                }
-                val displayHz = getDisplayRefreshRate()
-                currentDisplayHzFlow.value = displayHz
-                val tel = withContext(Dispatchers.IO) {
-                    LynxRepository.readFloatingHudTelemetry(displayHz)
-                }
-                telemetryFlow.value = tel
-                delay(500L)
-            }
-        }
-
-        val composeView = ComposeView(this).apply {
-            setViewTreeLifecycleOwner(this@LynxFloatingHudService)
-            setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
-            setOnTouchListener { _, event ->
-                if ((event.action and MotionEvent.ACTION_MASK) == MotionEvent.ACTION_OUTSIDE) {
-                    outsideTouchFlow.tryEmit(Unit)
-                    true
-                } else {
-                    false
-                }
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                addOnLayoutChangeListener { v, left, top, right, bottom, _, _, _, _ ->
-                    val h = bottom - top
-                    if (h > 0 && activeModeFlow.value == 0) {
-                        val dm = resources.displayMetrics
-                        val exclusionW = (220 * dm.density).toInt()
-                        val maxH = (200 * dm.density).toInt()
-                        val exclusionRect = android.graphics.Rect(0, 0, exclusionW, h.coerceAtMost(maxH))
-                        v.systemGestureExclusionRects = listOf(exclusionRect)
-                    } else if (activeModeFlow.value != 0) {
-                        v.systemGestureExclusionRects = emptyList()
-                    }
-                }
-            }
-            setContent {
-                val tel by telemetryFlow.collectAsState()
-                val isHudBenchmarking by isHudBenchmarkingFlow.collectAsState()
-                val hudBenchmarkCountdown by hudBenchmarkCountdownFlow.collectAsState()
-                val hudBenchmarkSummary by hudBenchmarkSummaryFlow.collectAsState()
-                val activeStyle by activeStyleFlow.collectAsState()
-                val activeMode by activeModeFlow.collectAsState()
-                val pinMiniFps by pinMiniFpsFlow.collectAsState()
-                val currentDisplayHz by currentDisplayHzFlow.collectAsState()
-                var isExpanded by remember { mutableStateOf(false) }
-                var isEdgeDrawerOpen by remember { mutableStateOf(false) }
-
-                LaunchedEffect(Unit) {
-                    outsideTouchFlow.collect {
-                        isEdgeDrawerOpen = false
-                        isExpanded = false
-                    }
-                }
-
-                FloatingHudContent(
-                    telemetry = tel,
-                    hudMode = activeMode,
-                    activeStyle = activeStyle,
-                    pinMiniFps = pinMiniFps,
-                    currentRefreshRate = currentDisplayHz,
-                    isExpanded = isExpanded,
-                    isEdgeDrawerOpen = isEdgeDrawerOpen,
-                    onToggleEdgeDrawer = { isEdgeDrawerOpen = it },
-                    isHudBenchmarking = isHudBenchmarking,
-                    hudBenchmarkCountdown = hudBenchmarkCountdown,
-                    hudBenchmarkSummary = hudBenchmarkSummary,
-                    onToggleExpand = { isExpanded = !isExpanded },
-                    onSelectMode = { newMode ->
-                        val clamped = newMode.coerceIn(0, 1)
-                        activeModeFlow.value = clamped
-                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_mode", clamped).apply()
-                        updateModePosition(clamped)
-                    },
-                    onSelectStyle = { newStyle ->
-                        val clamped = newStyle.coerceIn(1, 6)
-                        activeStyleFlow.value = clamped
-                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putInt("hud_style", clamped).apply()
-                    },
-                    onTogglePinMiniFps = {
-                        val newPin = !pinMiniFpsFlow.value
-                        pinMiniFpsFlow.value = newPin
-                        getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE).edit().putBoolean("pin_mini_fps", newPin).apply()
-                    },
-                    onClose = { cleanUpAndStop() },
-                    onProfileSelect = { profile ->
-                        telemetryFlow.value = tel.copy(activeProfile = profile)
-                        serviceScope.launch {
-                            LynxRepository.setProfile(profile)
-                        }
-                    },
-                    onBoostRam = {
-                        serviceScope.launch {
-                            withContext(Dispatchers.IO) {
-                                LynxRepository.dropCaches()
-                            }
-                        }
-                    },
-                    onCycleRefreshRate = {
-                        serviceScope.launch {
-                            val supported = withContext(Dispatchers.IO) {
-                                LynxRepository.readSupportedRefreshRates()
-                            }.ifEmpty { listOf(60, 90, 120) }
-                            val cur = currentDisplayHzFlow.value
-                            val next = when {
-                                supported.contains(cur) -> {
-                                    val idx = supported.indexOf(cur)
-                                    supported[(idx + 1) % supported.size]
-                                }
-                                else -> 60
-                            }
-                            withContext(Dispatchers.IO) {
-                                LynxRepository.setDisplayRefreshRate(next)
-                            }
-                            currentDisplayHzFlow.value = next
-                        }
-                    },
-                    onStartHudBenchmark = {
-                        serviceScope.launch {
-                            if (isHudBenchmarkingFlow.value) return@launch
-                            isHudBenchmarkingFlow.value = true
-                            hudBenchmarkSummaryFlow.value = null
-                            try {
-                                val res = withContext(Dispatchers.IO) {
-                                    LynxRepository.runHardwareBenchmark(durationSeconds = 60) { rem ->
-                                        hudBenchmarkCountdownFlow.value = rem
-                                    }
-                                }
-                                hudBenchmarkSummaryFlow.value = res
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            } finally {
-                                isHudBenchmarkingFlow.value = false
-                            }
-                        }
-                    },
-                    onDrag = { dx, dy ->
-                        val currentParams = currentLayoutParams ?: layoutParams
-                        val metrics = resources.displayMetrics
-                        val screenW = metrics.widthPixels
-                        val screenH = metrics.heightPixels
-                        if (activeMode == 0) {
-                            currentParams.x = 0
-                            currentParams.y = (currentParams.y + dy).toInt().coerceIn(60, (screenH - 120).coerceAtLeast(100))
-                            debouncedSavePosition(0, currentParams.y)
-                        } else {
-                            currentParams.x = (currentParams.x + dx).toInt().coerceIn(10, (screenW - 120).coerceAtLeast(20))
-                            currentParams.y = (currentParams.y + dy).toInt().coerceIn(60, (screenH - 120).coerceAtLeast(100))
-                            debouncedSavePosition(currentParams.x, currentParams.y)
-                        }
-                        try {
-                            windowManager.updateViewLayout(this@apply, currentParams)
-                        } catch (_: Exception) {}
-                    },
-                    onDragVertical = { dy ->
-                        val currentParams = currentLayoutParams ?: layoutParams
-                        val metrics = resources.displayMetrics
-                        val screenH = metrics.heightPixels
-                        currentParams.x = 0
-                        currentParams.y = (currentParams.y + dy).toInt().coerceIn(60, (screenH - 120).coerceAtLeast(100))
-                        debouncedSavePosition(0, currentParams.y)
-                        try {
-                            windowManager.updateViewLayout(this@apply, currentParams)
-                        } catch (_: Exception) {}
-                    }
-                )
-            }
-        }
-
-        floatView = composeView
-        try {
-            windowManager.addView(composeView, layoutParams)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            cleanUpAndStop()
-        }
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIF_CHANNEL_ID,
-                AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title)
-                setShowBadge(false)
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
-        }
-    }
-
-    private fun buildForegroundNotification(): Notification {
-        val openAppIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pOpenIntent = PendingIntent.getActivity(
-            this, 0, openAppIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val stopIntent = Intent(this, LynxFloatingHudService::class.java).apply {
-            action = ACTION_STOP
-        }
-        val pStopIntent = PendingIntent.getService(
-            this, 1, stopIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, NOTIF_CHANNEL_ID)
-                .setContentTitle(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title))
-                .setContentText(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_tap_close))
-                .setSmallIcon(android.R.drawable.ic_menu_compass)
-                .setContentIntent(pOpenIntent)
-                .addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_action_close),
-                    pStopIntent
-                )
-                .setOngoing(true)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_title))
-                .setContentText(AppLocale.getString(this@LynxFloatingHudService, R.string.floating_hud_notification_tap))
-                .setSmallIcon(android.R.drawable.ic_menu_compass)
-                .setContentIntent(pOpenIntent)
-                .build()
-        }
+    private fun startNotification() {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(NotificationChannel(CHANNEL,AppLocale.getString(this,R.string.floating_hud_channel_name),NotificationManager.IMPORTANCE_LOW))
+        val launch = Intent(this,com.noir.lynx.ui.MainActivity::class.java)
+        val pending = PendingIntent.getActivity(this,0,launch,PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val stop = PendingIntent.getService(this,1,Intent(this,javaClass).setAction(ACTION_STOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        startForeground(8801,Notification.Builder(this,CHANNEL).setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(AppLocale.getString(this,R.string.floating_hud_notification_title))
+            .setContentText(AppLocale.getString(this,R.string.floating_hud_notification_tap_close))
+            .setContentIntent(pending).setOngoing(true).addAction(Notification.Action.Builder(null,AppLocale.getString(this,R.string.floating_hud_action_close),stop).build()).build())
     }
 
     override fun onDestroy() {
+        if (registered) unregisterReceiver(screenReceiver)
+        if (::displays.isInitialized) displays.unregisterDisplayListener(displayListener)
+        scope.cancel()
+        view?.let { runCatching { windows.removeView(it) }; it.disposeComposition() }
+        view = null
+        snapshotFlow.value = HudSnapshot()
+        isRunningFlow.value = false
+        if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         super.onDestroy()
-        cleanUpAndStop()
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
     }
 }

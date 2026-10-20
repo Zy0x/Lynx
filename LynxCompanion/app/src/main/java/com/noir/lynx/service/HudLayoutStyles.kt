@@ -115,7 +115,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("GPU", NeonMagenta)
                     Text(
-                        text = if (telemetry.gpuFreqMhz > 0) "${telemetry.gpuFreqMhz} MHz" else "--",
+                        text = if (telemetry.gpuFreqMhz > 0) "${hudNumber(telemetry.gpuFreqMhz)} MHz" else "—",
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -123,16 +123,16 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        text = "${telemetry.gpuLoadPct}%",
+                        text = "${hudNumber(telemetry.gpuLoadPct)}%",
                         color = NeonMagenta,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(42.dp)
                     )
-                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${hudNumber(telemetry.gpuTempC)}°C" else "—"
                     Text(
-                        text = "$gpuTempStr · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W",
+                        text = "$gpuTempStr · ${hudNumber(telemetry.battWatt)}W",
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -145,7 +145,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("CPU", NeonCyan)
                     Text(
-                        text = telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${telemetry.cpuFreqMhz} MHz" else "--" },
+                        text = telemetry.cpuCoresSummary.ifEmpty { if (telemetry.cpuFreqMhz > 0) "${hudNumber(telemetry.cpuFreqMhz)} MHz" else "—" },
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -153,14 +153,14 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        text = "${telemetry.cpuLoadPct}%",
+                        text = "${hudNumber(telemetry.cpuLoadPct)}%",
                         color = NeonCyan,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(42.dp)
                     )
-                    val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+                    val cpuTempStr = if (telemetry.cpuTempC > 0f) "${hudNumber(telemetry.cpuTempC)}°C" else "—"
                     Text(
                         text = cpuTempStr,
                         color = TextSlate,
@@ -175,7 +175,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("RAM", NeonGold)
                     Text(
-                        text = if (telemetry.ramUsedGb > 0f) "${telemetry.ramUsedGb} / ${telemetry.ramTotalGb}G" else "--",
+                        text = if (telemetry.ramUsedGb > 0f) "${hudNumber(telemetry.ramUsedGb)} / ${hudNumber(telemetry.ramTotalGb)}G" else "—",
                         color = Color.White,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -183,7 +183,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        text = "${telemetry.ramPct}%",
+                        text = "${hudNumber(telemetry.ramPct)}%",
                         color = NeonGold,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -191,7 +191,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(42.dp)
                     )
                     Text(
-                        text = "ZRAM ${telemetry.zramUsedGb}G",
+                        text = "ZRAM ${hudNumber(telemetry.zramUsedGb)}G",
                         color = TextSlate,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
@@ -204,7 +204,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("FPS", NeonGreen)
                     Text(
-                        text = "${telemetry.renderFps} FPS",
+                        text = "${hudNumber(telemetry.renderFps)} FPS",
                         color = NeonGreen,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -212,7 +212,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        text = "AVG ${telemetry.avgFps.toInt()}",
+                        text = "AVG ${hudNumber(telemetry.avgFps)}",
                         color = NeonGreen.copy(alpha = 0.85f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -220,7 +220,7 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(48.dp)
                     )
                     Text(
-                        text = "1%L ${telemetry.fps1PercentLow.toInt()}",
+                        text = "1%L ${hudNumber(telemetry.fps1PercentLow)}",
                         color = NeonGold,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -234,7 +234,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("FT", TextSlate)
                     Text(
-                        text = "${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms",
+                        text = "${hudNumber(telemetry.frametimeMs)} ms",
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -242,14 +242,14 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(70.dp)
                     )
                     Text(
-                        text = "AVG ${String.format(Locale.US, "%.1f", telemetry.avgFrametimeMs)}",
+                        text = "AVG ${hudNumber(telemetry.avgFrametimeMs)}",
                         color = TextSlate,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(48.dp)
                     )
                     Text(
-                        text = "±${String.format(Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms",
+                        text = "±${hudNumber(telemetry.frametimeJitterMs)} ms",
                         color = TextMuted,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
@@ -269,7 +269,7 @@ fun HudVerticalPillar(
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CategoryBadge("BAT", NeonOrange)
                     Text(
-                        text = "${telemetry.battTempC}°C",
+                        text = "${hudNumber(telemetry.battTempC)}°C",
                         color = if (telemetry.battTempC > 42f) NeonRed else NeonOrange,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -277,14 +277,14 @@ fun HudVerticalPillar(
                         modifier = Modifier.width(55.dp)
                     )
                     Text(
-                        text = "${telemetry.battCurrentMa} mA",
+                        text = "${hudNumber(telemetry.battCurrentMa)} mA",
                         color = if (telemetry.isCharging) NeonGreen else Color.White,
                         fontSize = 9.5.sp,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.width(60.dp)
                     )
                     Text(
-                        text = "${telemetry.battLevelPct}% · ${if (telemetry.isCharging) "+" else ""}${String.format(Locale.US, "%.1f", telemetry.battWatt)}W",
+                        text = "${hudNumber(telemetry.battLevelPct)}% · ${if (telemetry.isCharging) "+" else ""}${hudNumber(telemetry.battWatt)}W",
                         color = TextSlate,
                         fontSize = 9.sp,
                         fontFamily = FontFamily.Monospace,
@@ -357,8 +357,8 @@ fun HudTopRibbon(
             // FPS
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 CategoryBadge("FPS", NeonGreen)
-                Text("${telemetry.renderFps}", color = NeonGreen, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
-                Text("A:${telemetry.avgFps.toInt()}", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                Text("${hudNumber(telemetry.renderFps)}", color = NeonGreen, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, fontFamily = FontFamily.Monospace)
+                Text("A:${hudNumber(telemetry.avgFps)}", color = TextSlate, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             }
 
             Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
@@ -366,7 +366,7 @@ fun HudTopRibbon(
             // GPU
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("GPU", color = NeonMagenta, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                Text("${telemetry.gpuLoadPct}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text("${hudNumber(telemetry.gpuLoadPct)}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
 
             Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
@@ -374,7 +374,7 @@ fun HudTopRibbon(
             // CPU
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("CPU", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                Text("${telemetry.cpuLoadPct}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text("${hudNumber(telemetry.cpuLoadPct)}%", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             }
 
             Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
@@ -382,14 +382,14 @@ fun HudTopRibbon(
             // RAM
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("RAM", color = NeonGold, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                Text("${telemetry.ramUsedGb}G", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
+                Text("${hudNumber(telemetry.ramUsedGb)}G", color = Color.White, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace)
             }
 
             Text("|", color = Color(0x33FFFFFF), fontSize = 10.sp)
 
             // BAT & Style
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("${telemetry.battTempC.toInt()}°C", color = NeonOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                Text("${hudNumber(telemetry.battTempC)}°C", color = NeonOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
@@ -437,18 +437,18 @@ fun HudDualBlock(
             Column(modifier = Modifier.padding(6.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("FPS HUB", color = NeonCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.refreshRateHz}Hz", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text("${hudNumber(telemetry.refreshRateHz)}Hz", color = NeonGreen, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(
-                    text = "${telemetry.renderFps}",
+                    text = "${hudNumber(telemetry.renderFps)}",
                     color = NeonGreen,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(vertical = 1.dp)
                 )
-                Text("AVG: ${telemetry.avgFps.toInt()} · 1%L: ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
-                Text("FT: ${String.format(Locale.US, "%.1f", telemetry.frametimeMs)}ms", color = TextMuted, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Text("AVG: ${hudNumber(telemetry.avgFps)} · 1%L: ${hudNumber(telemetry.fps1PercentLow)}", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                Text("FT: ${hudNumber(telemetry.frametimeMs)}ms", color = TextMuted, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                 Spacer(Modifier.height(3.dp))
                 FrametimeSparklineCanvas(history = telemetry.frametimeHistory, heightDp = 14)
             }
@@ -485,23 +485,23 @@ fun HudDualBlock(
                     }
                 }
                 HorizontalDivider(color = Color(0x22FFFFFF), thickness = 1.dp, modifier = Modifier.padding(vertical = 3.dp))
-                val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
-                val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+                val gpuTempStr = if (telemetry.gpuTempC > 0f) "${hudNumber(telemetry.gpuTempC)}°C" else "—"
+                val cpuTempStr = if (telemetry.cpuTempC > 0f) "${hudNumber(telemetry.cpuTempC)}°C" else "—"
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("GPU ${telemetry.gpuFreqMhz}M", color = NeonMagenta, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.gpuLoadPct}% · $gpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Text("GPU ${hudNumber(telemetry.gpuFreqMhz)}M", color = NeonMagenta, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${hudNumber(telemetry.gpuLoadPct)}% · $gpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("CPU ${telemetry.cpuFreqMhz}M", color = NeonCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.cpuLoadPct}% · $cpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Text("CPU ${hudNumber(telemetry.cpuFreqMhz)}M", color = NeonCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${hudNumber(telemetry.cpuLoadPct)}% · $cpuTempStr", color = Color.White, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("RAM ${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("ZRAM ${telemetry.zramUsedGb}G", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    Text("RAM ${hudNumber(telemetry.ramUsedGb)}G", color = NeonGold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("ZRAM ${hudNumber(telemetry.zramUsedGb)}G", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("BAT ${telemetry.battTempC}°C", color = NeonOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.battLevelPct}% · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
+                    Text("BAT ${hudNumber(telemetry.battTempC)}°C", color = NeonOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("${hudNumber(telemetry.battLevelPct)}% · ${hudNumber(telemetry.battWatt)}W", color = TextSlate, fontSize = 8.5.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -553,17 +553,17 @@ fun HudQuadTiles(
             Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonGreen.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(5.dp)) {
                     Text("FPS PACING", color = NeonGreen, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.renderFps}", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    Text("AVG ${telemetry.avgFps.toInt()} · 1%L ${telemetry.fps1PercentLow.toInt()}", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    Text("${hudNumber(telemetry.renderFps)}", color = NeonGreen, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("AVG ${hudNumber(telemetry.avgFps)} · 1%L ${hudNumber(telemetry.fps1PercentLow)}", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
             // Tile 2: GPU
             Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonMagenta.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(5.dp)) {
                     Text("GPU ENGINE", color = NeonMagenta, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.gpuLoadPct}%", color = NeonMagenta, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
-                    Text("${telemetry.gpuFreqMhz}M · $gpuTempStr", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    Text("${hudNumber(telemetry.gpuLoadPct)}%", color = NeonMagenta, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    val gpuTempStr = if (telemetry.gpuTempC > 0f) "${hudNumber(telemetry.gpuTempC)}°C" else "—"
+                    Text("${hudNumber(telemetry.gpuFreqMhz)}M · $gpuTempStr", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -572,16 +572,16 @@ fun HudQuadTiles(
             Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(5.dp)) {
                     Text("CPU LOAD", color = NeonCyan, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.cpuLoadPct}%", color = NeonCyan, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    Text(telemetry.cpuCoresSummary.ifEmpty { "${telemetry.cpuFreqMhz}M" }, color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    Text("${hudNumber(telemetry.cpuLoadPct)}%", color = NeonCyan, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text(telemetry.cpuCoresSummary.ifEmpty { "${hudNumber(telemetry.cpuFreqMhz)}M" }, color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
             // Tile 4: RAM & BAT
             Surface(shape = RoundedCornerShape(8.dp), color = BgHud, border = BorderStroke(1.dp, NeonGold.copy(alpha = 0.4f)), modifier = Modifier.weight(1f)) {
                 Column(Modifier.padding(5.dp)) {
                     Text("MEM & POWER", color = NeonGold, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                    Text("${telemetry.ramUsedGb}G", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
-                    Text("${telemetry.battTempC}°C · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                    Text("${hudNumber(telemetry.ramUsedGb)}G", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+                    Text("${hudNumber(telemetry.battTempC)}°C · ${hudNumber(telemetry.battWatt)}W", color = TextSlate, fontSize = 8.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }

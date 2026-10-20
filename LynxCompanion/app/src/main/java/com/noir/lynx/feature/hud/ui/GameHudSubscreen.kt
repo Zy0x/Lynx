@@ -136,6 +136,8 @@ fun GameHudSubscreen(
             }
         )
 
+        HudMiniSettings()
+
         Spacer(Modifier.height(16.dp))
     }
 }

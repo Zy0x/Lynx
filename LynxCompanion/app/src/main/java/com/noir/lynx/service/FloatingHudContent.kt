@@ -43,29 +43,8 @@ fun FloatingHudContent(
     onDrag: (Float, Float) -> Unit,
     onDragVertical: (Float) -> Unit,
 ) {
-    if (hudMode == 0) {
-        // Mode 0: Edge Drawer (Infinix Game Space / Game Bar Style)
-        HudEdgeDrawer(
-            telemetry = telemetry,
-            activeStyle = activeStyle,
-            pinMiniFps = pinMiniFps,
-            currentRefreshRate = currentRefreshRate,
-            isDrawerOpen = isEdgeDrawerOpen,
-            onToggleDrawer = onToggleEdgeDrawer,
-            isHudBenchmarking = isHudBenchmarking,
-            hudBenchmarkCountdown = hudBenchmarkCountdown,
-            hudBenchmarkSummary = hudBenchmarkSummary,
-            onSelectMode = onSelectMode,
-            onSelectStyle = onSelectStyle,
-            onTogglePinMiniFps = onTogglePinMiniFps,
-            onProfileSelect = onProfileSelect,
-            onStartHudBenchmark = onStartHudBenchmark,
-            onBoostRam = onBoostRam,
-            onCycleRefreshRate = onCycleRefreshRate,
-            onClose = onClose,
-            onDragVertical = onDragVertical
-        )
-    } else {
+    if (hudMode == 0) return
+    run {
         // Mode 1: Classic Floating Window
         var showStylePicker by remember { mutableStateOf(false) }
 

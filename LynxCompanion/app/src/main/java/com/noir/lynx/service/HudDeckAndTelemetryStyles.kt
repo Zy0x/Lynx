@@ -61,7 +61,7 @@ fun HudDeckBanner(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "${telemetry.renderFps}",
+                        text = "${hudNumber(telemetry.renderFps)}",
                         color = NeonGreen,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Black,
@@ -75,7 +75,7 @@ fun HudDeckBanner(
                     modifier = Modifier.width(140.dp)
                 )
                 Text(
-                    text = "AVG ${telemetry.avgFps.toInt()} · 1%L ${telemetry.fps1PercentLow.toInt()}",
+                    text = "AVG ${hudNumber(telemetry.avgFps)} · 1%L ${hudNumber(telemetry.fps1PercentLow)}",
                     color = TextSlate,
                     fontSize = 8.5.sp,
                     fontFamily = FontFamily.Monospace
@@ -95,10 +95,10 @@ fun HudDeckBanner(
 
             // Tier 2: Hardware Strip
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                HardwareDeckChip("GPU", "${telemetry.gpuLoadPct}%", NeonMagenta, Modifier.weight(1f))
-                HardwareDeckChip("CPU", "${telemetry.cpuLoadPct}%", NeonCyan, Modifier.weight(1f))
-                HardwareDeckChip("RAM", "${telemetry.ramUsedGb}G", NeonGold, Modifier.weight(1f))
-                HardwareDeckChip("BAT", "${telemetry.battTempC.toInt()}°C", NeonOrange, Modifier.weight(1f))
+                HardwareDeckChip("GPU", "${hudNumber(telemetry.gpuLoadPct)}%", NeonMagenta, Modifier.weight(1f))
+                HardwareDeckChip("CPU", "${hudNumber(telemetry.cpuLoadPct)}%", NeonCyan, Modifier.weight(1f))
+                HardwareDeckChip("RAM", "${hudNumber(telemetry.ramUsedGb)}G", NeonGold, Modifier.weight(1f))
+                HardwareDeckChip("BAT", "${hudNumber(telemetry.battTempC)}°C", NeonOrange, Modifier.weight(1f))
             }
         }
     }
@@ -129,55 +129,55 @@ fun HudGhostText(
             .clickable { onToggleStylePicker() }
             .padding(4.dp)
     ) {
-        val gpuTempStr = if (telemetry.gpuTempC > 0f) "${telemetry.gpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
-        val cpuTempStr = if (telemetry.cpuTempC > 0f) "${telemetry.cpuTempC.toInt()}°C" else if (telemetry.battTempC > 0f) "${telemetry.battTempC.toInt()}°C" else "--"
+        val gpuTempStr = if (telemetry.gpuTempC > 0f) "${hudNumber(telemetry.gpuTempC)}°C" else "—"
+        val cpuTempStr = if (telemetry.cpuTempC > 0f) "${hudNumber(telemetry.cpuTempC)}°C" else "—"
 
         // Ghost Line: GPU
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("GPU", color = NeonMagenta, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
-            Text("${telemetry.gpuFreqMhz} MHz", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
-            Text("${telemetry.gpuLoadPct}%", color = NeonMagenta, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
-            Text("$gpuTempStr · ${String.format(Locale.US, "%.1f", telemetry.battWatt)}W", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.gpuFreqMhz)} MHz", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.gpuLoadPct)}%", color = NeonMagenta, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("$gpuTempStr · ${hudNumber(telemetry.battWatt)}W", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
         }
 
         // Ghost Line: CPU
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("CPU", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
-            Text(telemetry.cpuCoresSummary.ifEmpty { "${telemetry.cpuFreqMhz} MHz" }, color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
-            Text("${telemetry.cpuLoadPct}%", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text(telemetry.cpuCoresSummary.ifEmpty { "${hudNumber(telemetry.cpuFreqMhz)} MHz" }, color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.cpuLoadPct)}%", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
             Text(cpuTempStr, color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
         }
 
         // Ghost Line: RAM
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("RAM", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold))
-            Text("${telemetry.ramUsedGb} / ${telemetry.ramTotalGb} GB", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
-            Text("${telemetry.ramPct}%", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
-            Text("ZRAM ${telemetry.zramUsedGb}G", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.ramUsedGb)} / ${hudNumber(telemetry.ramTotalGb)} GB", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.ramPct)}%", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("ZRAM ${hudNumber(telemetry.zramUsedGb)}G", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
         }
 
         // Ghost Line: FPS
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("FPS", color = NeonGreen, style = TextStyle(shadow = ghostShadow, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold))
-            Text("${telemetry.renderFps}", color = NeonGreen, style = TextStyle(shadow = ghostShadow, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace))
-            Text("AVG ${telemetry.avgFps.toInt()}", color = NeonGreen.copy(alpha = 0.85f), style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
-            Text("1%L ${telemetry.fps1PercentLow.toInt()}", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.renderFps)}", color = NeonGreen, style = TextStyle(shadow = ghostShadow, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace))
+            Text("AVG ${hudNumber(telemetry.avgFps)}", color = NeonGreen.copy(alpha = 0.85f), style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
+            Text("1%L ${hudNumber(telemetry.fps1PercentLow)}", color = NeonGold, style = TextStyle(shadow = ghostShadow, fontSize = 10.sp, fontFamily = FontFamily.Monospace))
         }
 
         // Ghost Line: FT
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("FT", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold))
-            Text("${String.format(Locale.US, "%.1f", telemetry.frametimeMs)} ms", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
-            Text("AVG ${String.format(Locale.US, "%.1f", telemetry.avgFrametimeMs)}", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
-            Text("±${String.format(Locale.US, "%.1f", telemetry.frametimeJitterMs)} ms", color = TextMuted, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.frametimeMs)} ms", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("AVG ${hudNumber(telemetry.avgFrametimeMs)}", color = TextSlate, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
+            Text("±${hudNumber(telemetry.frametimeJitterMs)} ms", color = TextMuted, style = TextStyle(shadow = ghostShadow, fontSize = 9.sp, fontFamily = FontFamily.Monospace))
         }
 
         // Ghost Line: BAT
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("BAT", color = NeonOrange, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold))
-            Text("${telemetry.battTempC}°C", color = NeonOrange, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
-            Text("${telemetry.battCurrentMa} mA", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
-            Text("${telemetry.battLevelPct}% [${telemetry.activeProfile.uppercase().take(3)}]", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.battTempC)}°C", color = NeonOrange, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.battCurrentMa)} mA", color = Color.White, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontFamily = FontFamily.Monospace))
+            Text("${hudNumber(telemetry.battLevelPct)}% [${telemetry.activeProfile.uppercase().take(3)}]", color = NeonCyan, style = TextStyle(shadow = ghostShadow, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace))
         }
     }
 }

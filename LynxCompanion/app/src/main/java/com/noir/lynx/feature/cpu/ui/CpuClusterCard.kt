@@ -116,14 +116,14 @@ fun CompactClusterRow(
     )
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = BgElevated,
-        border = BorderStroke(0.8.dp, BorderGlass),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(0.8.dp, Color(0x18FFFFFF)),
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize()
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             // Header Row (Clickable to Toggle Expansion)
             Row(
                 modifier = Modifier
@@ -133,26 +133,35 @@ fun CompactClusterRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(clusterAccent)
-                    )
-                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = clusterAccent.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, clusterAccent.copy(alpha = 0.25f)),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.DeveloperBoard,
+                                contentDescription = null,
+                                tint = clusterAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = clusterTitle,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(5.dp))
                             Text(
                                 text = "(Policy ${cluster.id})",
                                 fontSize = 10.sp,
-                                color = TextTertiary,
+                                color = TextSecondary.copy(alpha = 0.6f),
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -164,20 +173,20 @@ fun CompactClusterRow(
                             Text(
                                 text = "$coreCount Inti (${cluster.cpus}) • $minMhz-$maxMhz MHz",
                                 fontSize = 10.sp,
-                                color = TextSecondary
+                                color = TextSecondary.copy(alpha = 0.75f)
                             )
                             Spacer(Modifier.width(6.dp))
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = clusterAccent.copy(alpha = 0.14f),
-                                border = BorderStroke(0.6.dp, clusterAccent.copy(alpha = 0.35f))
+                                shape = RoundedCornerShape(5.dp),
+                                color = Color(0xFF141824),
+                                border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
                             ) {
                                 Text(
                                     text = cluster.curGov,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = clusterAccent,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
@@ -187,7 +196,7 @@ fun CompactClusterRow(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = TextSecondary,
+                    tint = TextSecondary.copy(alpha = 0.6f),
                     modifier = Modifier
                         .size(18.dp)
                         .rotate(rotationAngle)
@@ -204,7 +213,7 @@ fun CompactClusterRow(
                     modifier = Modifier.padding(top = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    HorizontalDivider(color = BorderSubtle, thickness = 0.8.dp)
+                    HorizontalDivider(color = Color(0x15FFFFFF), thickness = 0.8.dp)
 
                     // 1. Frequency Levels (OPP Table Dual-Pill)
                     Row(
@@ -216,14 +225,14 @@ fun CompactClusterRow(
                             text = "FREQUENCY LEVELS (OPP)",
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = TextSecondary,
+                            color = TextSecondary.copy(alpha = 0.75f),
                             letterSpacing = 0.6.sp
                         )
 
                         Text(
                             text = "${cluster.availFreqs.size} Tingkatan",
                             fontSize = 9.sp,
-                            color = TextTertiary
+                            color = TextSecondary.copy(alpha = 0.5f)
                         )
                     }
 
@@ -236,20 +245,20 @@ fun CompactClusterRow(
                         Surface(
                             onClick = { freqPickerTarget = Pair(cluster, true) },
                             modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgSurfaceLowest,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                            shape = RoundedCornerShape(9.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Min", fontSize = 8.5.sp, color = TextTertiary)
-                                    Text("$minMhz MHz", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text("Min", fontSize = 8.5.sp, color = TextSecondary.copy(alpha = 0.5f))
+                                    Text("$minMhz MHz", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = TextPrimary)
                                 }
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                             }
                         }
 
@@ -257,20 +266,20 @@ fun CompactClusterRow(
                         Surface(
                             onClick = { freqPickerTarget = Pair(cluster, false) },
                             modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgSurfaceLowest,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                            shape = RoundedCornerShape(9.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Max", fontSize = 8.5.sp, color = TextTertiary)
-                                    Text("$maxMhz MHz", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = clusterAccent)
+                                    Text("Max", fontSize = 8.5.sp, color = TextSecondary.copy(alpha = 0.5f))
+                                    Text("$maxMhz MHz", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = clusterAccent)
                                 }
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                             }
                         }
 
@@ -279,13 +288,14 @@ fun CompactClusterRow(
                             onClick = { onLockToggle(cluster.id, !cluster.isLocked, cluster.curMin, cluster.curMax) },
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (cluster.isLocked) AccentRed.copy(alpha = 0.15f) else BgSurfaceLowest)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(if (cluster.isLocked) AccentRed.copy(alpha = 0.15f) else Color(0xFF0C0F17))
+                                .border(0.6.dp, if (cluster.isLocked) AccentRed.copy(alpha = 0.4f) else Color(0x15FFFFFF), RoundedCornerShape(9.dp))
                         ) {
                             Icon(
                                 imageVector = if (cluster.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                                 contentDescription = localizedUiText("Kunci Frekuensi"),
-                                tint = if (cluster.isLocked) AccentRed else TextTertiary,
+                                tint = if (cluster.isLocked) AccentRed else TextSecondary.copy(alpha = 0.5f),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -296,7 +306,7 @@ fun CompactClusterRow(
                         text = "CPU RESPONSE (GOVERNOR)",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
+                        color = TextSecondary.copy(alpha = 0.75f),
                         letterSpacing = 0.6.sp
                     )
 
@@ -307,10 +317,10 @@ fun CompactClusterRow(
                     ) {
                         Surface(
                             onClick = { govPickerTarget = cluster },
-                            modifier = Modifier.weight(1f).height(40.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgSurfaceLowest,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                            modifier = Modifier.weight(1f).height(42.dp),
+                            shape = RoundedCornerShape(9.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
@@ -318,7 +328,7 @@ fun CompactClusterRow(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(13.dp))
+                                    Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text(
                                         text = "$govDisplayName (${cluster.curGov})",
@@ -327,7 +337,7 @@ fun CompactClusterRow(
                                         color = TextPrimary
                                     )
                                 }
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                             }
                         }
 
@@ -337,19 +347,19 @@ fun CompactClusterRow(
                                 onLoadTunables(cluster.id, cluster.curGov)
                                 tunablesTarget = cluster
                             },
-                            modifier = Modifier.height(40.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgSurfaceLowest,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                            modifier = Modifier.height(42.dp),
+                            shape = RoundedCornerShape(9.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Tune, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(13.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Tunables", fontSize = 10.5.sp, color = TextPrimary)
+                                Icon(Icons.Default.Tune, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(5.dp))
+                                Text("Tunables", fontSize = 10.5.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                             }
                         }
                     }
@@ -363,8 +373,8 @@ fun CompactClusterRow(
         val (targetCluster, isMinPicker) = freqPickerTarget!!
         ModalBottomSheet(
             onDismissRequest = { freqPickerTarget = null },
-            containerColor = BgCard,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = BorderGlass) }
+            containerColor = Color(0xFF141824),
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x30FFFFFF)) }
         ) {
             Column(
                 modifier = Modifier
@@ -407,16 +417,16 @@ fun CompactClusterRow(
                                 freqPickerTarget = null
                             },
                             modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isCurrent) clusterAccent.copy(alpha = 0.18f) else BgSurfaceLowest,
-                            border = if (isCurrent) BorderStroke(1.dp, clusterAccent) else null
+                            shape = RoundedCornerShape(9.dp),
+                            color = if (isCurrent) clusterAccent.copy(alpha = 0.16f) else Color(0xFF0C0F17),
+                            border = if (isCurrent) BorderStroke(0.8.dp, clusterAccent) else BorderStroke(0.5.dp, Color(0x12FFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("$mhz MHz", fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, color = TextPrimary)
+                                Text("$mhz MHz", fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, fontFamily = FontFamily.Monospace, color = TextPrimary)
                                 if (isCurrent) {
                                     Icon(Icons.Default.Check, contentDescription = null, tint = clusterAccent, modifier = Modifier.size(15.dp))
                                 }
@@ -433,8 +443,8 @@ fun CompactClusterRow(
         val targetCluster = govPickerTarget!!
         ModalBottomSheet(
             onDismissRequest = { govPickerTarget = null },
-            containerColor = BgCard,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = BorderGlass) }
+            containerColor = Color(0xFF141824),
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x30FFFFFF)) }
         ) {
             Column(
                 modifier = Modifier
@@ -478,9 +488,9 @@ fun CompactClusterRow(
                                 govPickerTarget = null
                             },
                             modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isCurrent) AccentCyan.copy(alpha = 0.18f) else BgSurfaceLowest,
-                            border = if (isCurrent) BorderStroke(1.dp, AccentCyan) else null
+                            shape = RoundedCornerShape(9.dp),
+                            color = if (isCurrent) AccentCyan.copy(alpha = 0.16f) else Color(0xFF0C0F17),
+                            border = if (isCurrent) BorderStroke(0.8.dp, AccentCyan) else BorderStroke(0.5.dp, Color(0x12FFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
@@ -505,8 +515,8 @@ fun CompactClusterRow(
         val tunables = governorTunables[targetCluster.id] ?: emptyList()
         ModalBottomSheet(
             onDismissRequest = { tunablesTarget = null },
-            containerColor = BgCard,
-            dragHandle = { BottomSheetDefaults.DragHandle(color = BorderGlass) }
+            containerColor = Color(0xFF141824),
+            dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x30FFFFFF)) }
         ) {
             Column(
                 modifier = Modifier

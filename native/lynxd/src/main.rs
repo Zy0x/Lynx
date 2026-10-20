@@ -3,6 +3,7 @@ pub mod core;
 pub mod daemon;
 pub mod decision;
 pub mod hardware;
+pub mod hud;
 pub mod inspector;
 pub mod profile;
 pub mod state;
@@ -1096,6 +1097,7 @@ fn main() {
             let json = args.iter().any(|a| a == "--json");
             handle_status(json);
         }
+        "hud" if args.get(2).map(String::as_str) == Some("stream") => hud::run(),
         "telemetry" => {
             let pretty = args.iter().any(|a| a == "--pretty");
             handle_telemetry(pretty);
