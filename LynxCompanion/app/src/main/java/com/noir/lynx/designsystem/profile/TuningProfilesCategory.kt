@@ -48,8 +48,13 @@ import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.profiles.ProfileDomain
 import com.noir.lynx.ui.AppIconImage
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.Brush
+
 /**
  * ProfilesCategoryTabRow — High-performance Segmented Tab Pill Row for Kernel Performance Profiles.
+ * Redesigned for visual calm, ergonomic tactile feedback, and unified dark aesthetic.
  */
 @Composable
 fun ProfilesCategoryTabRow(
@@ -57,36 +62,67 @@ fun ProfilesCategoryTabRow(
     onSelectTab: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val tabs = listOf(
-        Triple(0, "Profile", Icons.Default.Tune),
-        Triple(1, "Otomasi Aplikasi", Icons.Default.SportsEsports)
+        Triple(0, "Katalog Profil", Icons.Default.Tune),
+        Triple(1, "Otomasi Aplikasi", Icons.Default.AutoMode)
     )
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = BgElevated,
-        border = BorderStroke(0.8.dp, BorderSubtle)
+            .height(46.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF10141E),
+        border = BorderStroke(0.6.dp, Color(0x1AFFFFFF))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(3.5.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             tabs.forEach { (index, title, icon) ->
                 val isSelected = selectedTab == index
-                val tabAccent = if (index == 0) AccentOrange else AccentCyan
+                val animatedBg by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (isSelected) Color(0xFF1E2638) else Color.Transparent,
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+                    label = "tab_bg_$index"
+                )
+                val animatedText by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.65f),
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+                    label = "tab_text_$index"
+                )
+                val animatedIcon by androidx.compose.animation.animateColorAsState(
+                    targetValue = if (isSelected) Color(0xFFD0DCF0) else TextSecondary.copy(alpha = 0.5f),
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+                    label = "tab_icon_$index"
+                )
+
                 Surface(
-                    onClick = { onSelectTab(index) },
+                    onClick = {
+                        if (!isSelected) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelectTab(index)
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) tabAccent.copy(alpha = 0.16f) else Color.Transparent,
-                    border = if (isSelected) BorderStroke(1.dp, tabAccent.copy(alpha = 0.5f)) else null
+                    shape = RoundedCornerShape(9.dp),
+                    color = animatedBg,
+                    border = if (isSelected) {
+                        BorderStroke(
+                            0.6.dp,
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0x35FFFFFF),
+                                    Color(0x10FFFFFF)
+                                )
+                            )
+                        )
+                    } else null
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -96,15 +132,16 @@ fun ProfilesCategoryTabRow(
                         Icon(
                             imageVector = icon,
                             contentDescription = title,
-                            tint = if (isSelected) tabAccent else TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            tint = animatedIcon,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(7.dp))
                         Text(
                             text = title,
-                            color = if (isSelected) TextPrimary else TextSecondary,
+                            color = animatedText,
                             fontSize = 12.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            letterSpacing = (-0.1).sp
                         )
                     }
                 }
@@ -486,13 +523,21 @@ fun LazyListScope.tuningProfilesCategoryItems(
 
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) {
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = BgElevated,
-                        border = BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF10141F),
+                        border = BorderStroke(
+                            0.8.dp,
+                            Brush.verticalGradient(
+                                listOf(
+                                    activeColor.copy(alpha = 0.28f),
+                                    Color(0x15FFFFFF)
+                                )
+                            )
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            // Top Row: Status badge and Overrides Tag
+                            // Top Row: Zen Reassurance Status Bar
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -500,25 +545,26 @@ fun LazyListScope.tuningProfilesCategoryItems(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .background(
-                                            color = activeColor.copy(alpha = 0.12f),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)
                                 ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = activeColor,
-                                        modifier = Modifier.size(6.dp)
-                                    ) {}
-                                    Spacer(Modifier.width(6.dp))
+                                    // Subtle Zen Pulse Indicator
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = activeColor.copy(alpha = 0.18f),
+                                            modifier = Modifier.size(12.dp)
+                                        ) {}
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = activeColor,
+                                            modifier = Modifier.size(6.dp)
+                                        ) {}
+                                    }
                                     Text(
-                                        text = if (activeProfileId == "auto") "AUTO (AI) ENGINE" else "STATUS ENGINE AKTIF",
-                                        color = activeColor,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.8.sp
+                                        text = if (activeProfileId == "auto") "Mesin Otomatis Adaptif" else "Profil Sistem Aktif",
+                                        color = TextSecondary.copy(alpha = 0.85f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 }
 
@@ -530,22 +576,16 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     if (isAutoRunning) {
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = AccentGreen.copy(alpha = 0.16f),
-                                            border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.45f))
+                                            color = Color(0x1400E676),
+                                            border = BorderStroke(0.5.dp, Color(0x2800E676))
                                         ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                            ) {
-                                                Surface(shape = CircleShape, color = AccentGreen, modifier = Modifier.size(5.dp)) {}
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(
-                                                    text = "OTOMASI AKTIF",
-                                                    color = AccentGreen,
-                                                    fontSize = 9.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
+                                            Text(
+                                                text = "Otomasi Aktif",
+                                                color = AccentGreen.copy(alpha = 0.9f),
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                            )
                                         }
                                     }
 
@@ -554,22 +594,22 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     if (state.profileOverrides.isNotEmpty() || activeGamePkg != null) {
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = AccentOrange.copy(alpha = 0.18f),
-                                            border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                                            color = Color(0x18FF9100),
+                                            border = BorderStroke(0.5.dp, Color(0x35FF9100))
                                         ) {
                                             Text(
-                                                text = if (activeGameName != null) "OVERRIDE: ${activeGameName.take(15)}" else "OVERRIDE AKTIF",
-                                                color = AccentOrange,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                text = if (activeGameName != null) "Override: ${activeGameName.take(14)}" else "Override Aktif",
+                                                color = AccentOrange.copy(alpha = 0.9f),
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                                             )
                                         }
                                     }
                                 }
                             }
 
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(13.dp))
 
                             // Main Row: Icon + Title & Desc
                             Row(
@@ -577,17 +617,17 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = activeColor.copy(alpha = 0.14f),
-                                    border = BorderStroke(1.dp, activeColor.copy(alpha = 0.35f)),
-                                    modifier = Modifier.size(48.dp)
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = activeColor.copy(alpha = 0.10f),
+                                    border = BorderStroke(0.6.dp, activeColor.copy(alpha = 0.25f)),
+                                    modifier = Modifier.size(44.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = activeIcon,
                                             contentDescription = null,
                                             tint = activeColor,
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
@@ -596,55 +636,57 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     Text(
                                         text = activeTitle,
                                         color = TextPrimary,
-                                        fontSize = 16.5.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = (-0.2).sp
                                     )
                                     Spacer(Modifier.height(2.dp))
                                     Text(
                                         text = activeDesc,
-                                        color = TextSecondary,
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp
+                                        color = TextSecondary.copy(alpha = 0.75f),
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp
                                     )
                                 }
                             }
 
-                            // Subsystem telemetry badges (Equal 3-column Bento mini cards)
-                            Spacer(Modifier.height(12.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            // Subsystem telemetry specs (Calm unified ribbon)
+                            Spacer(Modifier.height(13.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF0C0F17),
+                                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                val cpuGov = uiState.clusters.firstOrNull()?.curGov?.ifEmpty { "Schedutil" } ?: "Schedutil"
-                                val thermalMode = state.thermal.mode.ifEmpty { "Dynamic" }.replaceFirstChar { it.uppercase() }
-                                val defaultGpuFallback = when (uiState.gpuInfo.platform) {
-                                    "adreno" -> "Adreno Boost"
-                                    "mali_ged", "mali_kbase" -> "GED Boost"
-                                    else -> "GPU Boost"
-                                }
-                                val gpuState = if (uiState.telemetry != null && uiState.telemetry.gpuFreq > 0) "${uiState.telemetry.gpuFreq}MHz" else defaultGpuFallback
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val cpuGov = uiState.clusters.firstOrNull()?.curGov?.ifEmpty { "Schedutil" } ?: "Schedutil"
+                                    val thermalMode = state.thermal.mode.ifEmpty { "Dinamis" }.replaceFirstChar { it.uppercase() }
+                                    val defaultGpuFallback = when (uiState.gpuInfo.platform) {
+                                        "adreno" -> "Adreno Boost"
+                                        "mali_ged", "mali_kbase" -> "GED Boost"
+                                        else -> "GPU Boost"
+                                    }
+                                    val gpuState = if (uiState.telemetry != null && uiState.telemetry.gpuFreq > 0) "${uiState.telemetry.gpuFreq}MHz" else defaultGpuFallback
 
-                                listOf(
-                                    "CPU: $cpuGov",
-                                    "GPU: $gpuState",
-                                    "Thermal: $thermalMode"
-                                ).forEach { metric ->
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = BgDeepOled,
-                                        border = BorderStroke(0.6.dp, BorderGlass),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = metric,
-                                            color = TextSecondary,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textAlign = TextAlign.Center,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Text("CPU", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                        Text(cpuGov, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Text("GPU", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                        Text(gpuState, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Text("Termal", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                        Text(thermalMode, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -659,46 +701,41 @@ fun LazyListScope.tuningProfilesCategoryItems(
                             }
 
                             if (isAutoRunning || activeProfileId == "auto") {
-                                Spacer(Modifier.height(10.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BgDeepOled,
-                                    border = BorderStroke(0.6.dp, BorderGlass),
-                                    modifier = Modifier.fillMaxWidth()
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.Restore,
-                                                contentDescription = null,
-                                                tint = AccentCyan,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(
-                                                text = "Profil Dasar Pemulihan:",
-                                                color = TextSecondary,
-                                                fontSize = 11.sp
-                                            )
-                                        }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Restore,
+                                            contentDescription = null,
+                                            tint = TextSecondary.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(Modifier.width(5.dp))
                                         Text(
-                                            text = baselineDisplayName,
-                                            color = AccentCyan,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
+                                            text = "Pemulihan saat keluar app:",
+                                            color = TextSecondary.copy(alpha = 0.65f),
+                                            fontSize = 10.5.sp
                                         )
                                     }
+                                    Text(
+                                        text = baselineDisplayName,
+                                        color = AccentCyan.copy(alpha = 0.9f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
 
                             if (state.profileOverrides.isNotEmpty()) {
-                                Spacer(Modifier.height(10.dp))
-                                HorizontalDivider(color = BorderGlass.copy(alpha = 0.5f))
                                 Spacer(Modifier.height(8.dp))
+                                HorizontalDivider(color = Color(0x15FFFFFF), thickness = 0.6.dp)
+                                Spacer(Modifier.height(6.dp))
                                 val overrides = state.profileOverrides.entries
                                     .sortedBy { it.key.storageKey }
                                     .joinToString(" • ") { (domain, profile) -> "${domain.storageKey.uppercase()}: ${profile.uppercase()}" }
@@ -708,8 +745,8 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Override: $overrides",
-                                        color = TextSecondary,
+                                        text = "Override aktif: $overrides",
+                                        color = TextSecondary.copy(alpha = 0.7f),
                                         fontSize = 10.sp,
                                         modifier = Modifier.weight(1f).padding(end = 8.dp)
                                     )
@@ -718,27 +755,27 @@ fun LazyListScope.tuningProfilesCategoryItems(
                                             viewModel.selectKernelPerformanceProfile(activeProfileId, context, true)
                                         },
                                         shape = RoundedCornerShape(8.dp),
-                                        color = AccentOrange.copy(alpha = 0.12f),
-                                        border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.45f)),
-                                        modifier = Modifier.height(36.dp)
+                                        color = AccentOrange.copy(alpha = 0.10f),
+                                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
+                                        modifier = Modifier.height(32.dp)
                                     ) {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 10.dp),
+                                            modifier = Modifier.padding(horizontal = 9.dp),
                                             horizontalArrangement = Arrangement.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.RestartAlt,
                                                 contentDescription = null,
                                                 tint = AccentOrange,
-                                                modifier = Modifier.size(13.dp)
+                                                modifier = Modifier.size(12.dp)
                                             )
-                                            Spacer(Modifier.width(5.dp))
+                                            Spacer(Modifier.width(4.dp))
                                             Text(
                                                 text = "Reset Override",
                                                 color = AccentOrange,
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Bold
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold
                                             )
                                         }
                                     }
@@ -749,7 +786,7 @@ fun LazyListScope.tuningProfilesCategoryItems(
                 }
             }
 
-            // ── 2. Section Header: DAFTAR PROFIL PERFORMA ────────────
+            // ── 2. Section Header: Katalog Profil ────────────
             item(key = "tab0_profiles_section_header") {
                 Row(
                     modifier = Modifier
@@ -760,24 +797,24 @@ fun LazyListScope.tuningProfilesCategoryItems(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "DAFTAR PROFIL PERFORMA",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            text = "Katalog Profil",
+                            color = TextSecondary.copy(alpha = 0.85f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.2.sp
                         )
                         Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = BgElevated,
-                            border = BorderStroke(0.6.dp, BorderGlass)
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
                         ) {
                             Text(
-                                text = "${uiState.kernelProfileCatalog.profiles.size}",
-                                color = TextPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
+                                text = "${uiState.kernelProfileCatalog.profiles.size} Pilihan",
+                                color = TextSecondary.copy(alpha = 0.75f),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -1392,11 +1429,11 @@ fun AutomationHeroServiceCard(
     }
 
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = BgElevated,
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141E),
         border = BorderStroke(
-            1.dp,
-            if (isAutomationRunning) AccentCyan.copy(alpha = 0.45f) else BorderSubtle
+            0.8.dp,
+            if (isAutomationRunning) AccentCyan.copy(alpha = 0.30f) else BorderSubtle
         ),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -1410,10 +1447,10 @@ fun AutomationHeroServiceCard(
                 // Left: Automation Status Indicator
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isAutomationRunning) AccentCyan.copy(alpha = 0.12f) else BgDeepOled.copy(alpha = 0.6f),
+                    color = if (isAutomationRunning) AccentCyan.copy(alpha = 0.10f) else BgDeepOled.copy(alpha = 0.6f),
                     border = BorderStroke(
-                        0.7.dp,
-                        if (isAutomationRunning) AccentCyan.copy(alpha = 0.35f) else BorderGlass
+                        0.6.dp,
+                        if (isAutomationRunning) AccentCyan.copy(alpha = 0.25f) else BorderGlass
                     )
                 ) {
                     Row(
@@ -1427,11 +1464,11 @@ fun AutomationHeroServiceCard(
                         ) {}
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = if (isAutomationRunning) "OTOMASI PROFIL AKTIF" else "OTOMASI NONAKTIF",
+                            text = if (isAutomationRunning) "Otomasi Aktif" else "Otomasi Nonaktif",
                             color = if (isAutomationRunning) AccentCyan else TextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.8.sp
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.2.sp
                         )
                     }
                 }
@@ -1440,8 +1477,8 @@ fun AutomationHeroServiceCard(
                 if (hasOverride) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = AccentOrange.copy(alpha = 0.16f),
-                        border = BorderStroke(0.7.dp, AccentOrange.copy(alpha = 0.45f))
+                        color = AccentOrange.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -1450,10 +1487,10 @@ fun AutomationHeroServiceCard(
                             Surface(shape = CircleShape, color = AccentOrange, modifier = Modifier.size(5.dp)) {}
                             Spacer(Modifier.width(5.dp))
                             Text(
-                                text = if (activeGameName != null) "OVERRIDE: ${activeGameName.take(16)}" else "OVERRIDE AKTIF",
+                                text = if (activeGameName != null) "Override: ${activeGameName.take(16)}" else "Override Aktif",
                                 color = AccentOrange,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -1720,23 +1757,23 @@ fun AutomationSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "DAFTAR ATURAN APLIKASI",
-                color = TextSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                text = "Daftar Aturan Aplikasi",
+                color = TextSecondary.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.2.sp
             )
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = BgElevated,
-                border = BorderStroke(0.6.dp, BorderGlass)
+                color = Color(0xFF141824),
+                border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
             ) {
                 Text(
-                    text = "${uiState.appProfileRules.size}",
-                    color = TextPrimary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
+                    text = "${uiState.appProfileRules.size} Aturan",
+                    color = TextSecondary.copy(alpha = 0.75f),
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
         }

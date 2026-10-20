@@ -1,3 +1,38 @@
+# Lynx Universal [Zen-Tech Calm Profile & Harmonized Segmented Tab Studio] 7.0.0-RC122
+Released on: 2026-10-20
+> **Lynx Universal v7.0.0-RC122** (Lynx Kernel Manager v3.1.68): **Redesain Menyeluruh Halaman Profil & Tab Otomasi Berbasis Prinsip *Zen-Tech & Calm Technology* (Menghilangkan "AI Slop", Batas Neon Berlebih, & Tipografi Berteriak): Kapsul Segmented Tab Melayang 46dp dengan Animasi Transisi Halus & Umpan Balik Taktil Haptik (`TextHandleMove`); Kartu Hero Status Aktif yang Tenang dengan Indikator Reassurance Pulse & Pita Spesifikasi Subsistem 1-Baris; Kartu Katalog Profil Berlatar Obsidian Gelap Redup (`0xFF121622`) dengan Batas Alpha Halus (35%) Menggantikan Cahaya Neon Berlebihan (70%); Lencana Status Minimalis (*Aktif* dengan Glowing Dot Reassurance); Serta Tombol Simpan Profil Kustom Bergaya Machined Calm Dark**.
+
+## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC122)
+
+### 1. 🧘 Redesain Kapsul Segmented Tab Melayang (`ProfilesCategoryTabRow`)
+- **Akar Masalah**:
+  - Pergantian antara Tab 0 (*Profile*) dan Tab 1 (*Otomasi Aplikasi*) sebelumnya memicu perubahan warna aksen mendadak dari `AccentOrange` ke `AccentCyan` di seluruh wadah, memicu ketidaknyamanan visual (*visual dissonance*).
+  - Tab menggunakan ikon gamepad agresif dan border neon tebal yang memberi kesan ramai ("AI slop").
+- **Solusi**:
+  - Merancang ulang bilah navigasi tab menjadi kapsul melayang ramping berukuran 46dp (`Color(0xFF10141E)`) dengan thumb aktif obsidian (`Color(0xFF1E2638)`) dan border gradien spekular halus.
+  - Mengganti ikon dengan metafora fungsional yang tenang (`Icons.Default.Tune` dan `Icons.Default.AutoMode`).
+  - Menambahkan interpolasi animasi warna halus (`animateColorAsState` 180ms) dan umpan balik haptik taktil (`HapticFeedbackType.TextHandleMove`) saat berpindah tab.
+
+### 2. 🌊 Kartu Hero Status Reassurance (`tab0_hero_active_card`)
+- **Akar Masalah**:
+  - Kartu hero profil aktif sebelumnya memiliki 5 lapisan batas bertingkat (*border-inside-border*) dan 4 warna neon saturasi tinggi yang menyala bersamaan, diperparah teks huruf besar berteriak (`STATUS ENGINE AKTIF`, `OTOMASI AKTIF`), memicu keletihan kognitif pengguna.
+- **Solusi**:
+  - Mengubah indikator status menjadi *Reassurance Pulse* dengan halo halus (`alpha = 0.18f`) dan titik 6dp yang memberi rasa aman dan kepastian performa.
+  - Mengganti teks huruf besar menjadi tipografi *Sentence Case* yang ramah dan tenang.
+  - Menyatukan ringkasan subsistem menjadi pita telemetri 1-baris tanpa kotak batas bersarang (`CPU Schedutil • GPU DVFS • Termal Dinamis`).
+
+### 3. 🛡️ Katalog Profil Tenang & Obsidian Card (`ProfileGrid`)
+- **Akar Masalah**:
+  - Kartu profil aktif sebelumnya menggunakan border neon `0.70f` yang menyilaukan mata dan badge `[✓ AKTIF]` tebal berteriak.
+  - Tombol aksi "Simpan Profil Kustom" menggunakan warna oranye mencolok yang bersaing dengan profil utama.
+- **Solusi**:
+  - Melembutkan border kartu terpilih ke batas presisi 35% pada latar belakang obsidian gelap (`0xFF121622`).
+  - Mengganti badge `[✓ AKTIF]` dengan pil minimalis bergradasi lembut (`Aktif` dengan glowing dot).
+  - Merapikan baris tag subsistem menjadi kapsul bersahaja (`0xFF0F131D`).
+  - Memperbarui tombol "Simpan Profil Kustom" menjadi permukaan *machined dark* yang tenang dan serasi dengan antarmuka.
+
+---
+
 # Lynx Universal [Vendor Thermal Studio: Live Radar, Anti-Dimming & Runtime Bind Mount Engine] 7.0.0-RC121
 Released on: 2026-10-20
 > **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56�C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5�C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.

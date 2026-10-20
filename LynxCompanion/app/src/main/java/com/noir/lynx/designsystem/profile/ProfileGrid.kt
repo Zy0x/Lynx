@@ -85,8 +85,8 @@ fun ProfileGrid(
         profiles.forEach { profile ->
             val item = profileItem(profile)
             val isSelected = profile.id == currentProfile
-            val targetBg = if (isSelected) item.color.copy(alpha = 0.12f) else BgElevated
-            val targetBorder = if (isSelected) item.color.copy(alpha = 0.70f) else BorderSubtle
+            val targetBg = if (isSelected) Color(0xFF121622) else BgElevated
+            val targetBorder = if (isSelected) item.color.copy(alpha = 0.35f) else BorderSubtle
             val animatedBg by animateColorAsState(targetBg, animationSpec = tween(180), label = "profile_grid_bg_${profile.id}")
             val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(180), label = "profile_grid_border_${profile.id}")
             var cardMenuExpanded by remember { mutableStateOf(false) }
@@ -145,16 +145,16 @@ fun ProfileGrid(
                         // 1. Squircle Icon Badge
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = item.color.copy(alpha = 0.16f),
-                            border = BorderStroke(0.8.dp, item.color.copy(alpha = 0.35f)),
-                            modifier = Modifier.size(44.dp)
+                            color = if (isSelected) item.color.copy(alpha = 0.12f) else Color(0xFF141824),
+                            border = BorderStroke(0.6.dp, if (isSelected) item.color.copy(alpha = 0.28f) else BorderSubtle),
+                            modifier = Modifier.size(42.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = null,
                                     tint = item.color,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
@@ -214,27 +214,25 @@ fun ProfileGrid(
                         // 3. Right Status & Actions (Active Pill + 48dp Menu Button)
                         if (isSelected) {
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = item.color.copy(alpha = 0.18f),
-                                border = BorderStroke(0.8.dp, item.color.copy(alpha = 0.65f))
+                                shape = RoundedCornerShape(12.dp),
+                                color = item.color.copy(alpha = 0.10f),
+                                border = BorderStroke(0.6.dp, item.color.copy(alpha = 0.30f))
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = item.color,
-                                        modifier = Modifier.size(11.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(5.dp)
+                                            .background(item.color, CircleShape)
                                     )
                                     Text(
-                                        text = "AKTIF",
+                                        text = "Aktif",
                                         color = item.color,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        letterSpacing = 0.5.sp
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -573,16 +571,16 @@ fun ProfileGrid(
                     ) {
                         tags.forEach { tag ->
                             Surface(
-                                shape = RoundedCornerShape(5.dp),
-                                color = BgDeepOled.copy(alpha = 0.65f),
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF0F131D),
                                 border = BorderStroke(0.5.dp, BorderSubtle)
                             ) {
                                 Text(
                                     text = tag,
-                                    color = TextSecondary.copy(alpha = 0.9f),
+                                    color = TextSecondary.copy(alpha = 0.85f),
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                                 )
                             }
                         }
@@ -591,16 +589,16 @@ fun ProfileGrid(
             }
         }
 
-        // Action CTA: Create / Save Current Profile (Symmetrical Cyberpunk Button)
+        // Action CTA: Create / Save Current Profile (Machined Calm Dark Button)
         Spacer(Modifier.height(6.dp))
         Surface(
             onClick = { creating = true },
             shape = RoundedCornerShape(14.dp),
-            color = BgElevated,
-            border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.5f)),
+            color = Color(0xFF131724),
+            border = BorderStroke(0.8.dp, Color(0xFF222B3D)),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(50.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
@@ -610,15 +608,15 @@ fun ProfileGrid(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = AccentOrange,
-                    modifier = Modifier.size(18.dp)
+                    tint = TextSecondary,
+                    modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = "Simpan Profil Kustom",
-                    color = AccentOrange,
+                    color = TextPrimary,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -678,7 +676,7 @@ fun ProfileGrid(
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("STATUS KUSTOMISASI", color = AccentCyan, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.8.sp)
+                            Text("Pengalihan Profil", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                             Text("Kustomisasi Subsistem Aktif", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
