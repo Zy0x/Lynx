@@ -75,6 +75,35 @@ This documentation suite provides deep engineering specifications, kernel sysfs/
 
 ---
 
+## 📱 Lynx Companion — Modular Screen Architecture Suite (`docs/architecture/`)
+
+For granular transparency, each screen and sub-screen of the native companion app is documented with its UI composition, ViewModel state flows, user-facing configurations, hardware sysfs node mappings, and safety limits:
+
+- 📑 **[Master Architecture & Screen Map](./architecture/README.md)**
+  - [`00_OVERVIEW_AND_NAVIGATION.md`](./architecture/screens/00_OVERVIEW_AND_NAVIGATION.md): AppShell, Virtual Dock, BackHandler, Dual-Mode Root Handshake.
+  - [`01_DASHBOARD.md`](./architecture/screens/01_DASHBOARD.md): Tab 0 Live Gauges, CPU Matrix, Quick Profiles Switcher.
+  - [`02_PROFILES_HUB.md`](./architecture/screens/02_PROFILES_HUB.md): Tab 1 Per-App Rules Engine, Game Whitelist, Profile Catalog.
+  - [`03_TUNING_CPU.md`](./architecture/screens/03_TUNING_CPU.md): Dynamic Clusters Min/Max MHz, Governors, Schedutil, CPU Sets.
+  - [`04_TUNING_GPU_DISPLAY.md`](./architecture/screens/04_TUNING_GPU_DISPLAY.md): GPU Master Tuner, KGSL / GED Driver, Refresh Rate & TouchBoost, ColorMatrix.
+  - [`05_TUNING_BATTERY_CHARGING.md`](./architecture/screens/05_TUNING_BATTERY_CHARGING.md): Hyper Charge Current, Bypass Charging, AutoCut 46.0°C Emergency Clamp.
+  - [`06_TUNING_MEMORY_STORAGE.md`](./architecture/screens/06_TUNING_MEMORY_STORAGE.md): MountX Tri-Tier Storage, I/O Schedulers, ZRAM & VM Compaction.
+  - [`07_TUNING_THERMAL.md`](./architecture/screens/07_TUNING_THERMAL.md): Vendor Thermal Studio, Dynamic Trip Point Offsets, Throttling Neutralizer.
+  - [`08_TUNING_NETWORK_AUDIO.md`](./architecture/screens/08_TUNING_NETWORK_AUDIO.md): Wi-Fi Low-Latency Mode, TCP BBR, ALSA Sound Gain, Hardware Media Decoders.
+  - [`09_TUNING_SYSTEM.md`](./architecture/screens/09_TUNING_SYSTEM.md): Custom Shell Scripts Manager, Deep Tunables Store, Live Dmesg Viewer.
+  - [`10_TOOLS_AND_DIAGNOSTICS.md`](./architecture/screens/10_TOOLS_AND_DIAGNOSTICS.md): Battery Lab, Benchmark Studio, AnyKernel3 Flasher, SQLite WAL, Preferences.
+  - [`11_FLOATING_HUD_SERVICE.md`](./architecture/screens/11_FLOATING_HUD_SERVICE.md): Floating Telemetry Overlay Service, Edge Drawer, Quick Settings Tiles.
+
+---
+
+## 📂 Subdirectory References
+
+- **[Benchmarks & Field Trials Archive](./benchmarks/)**: Empirical hardware trial logs, Genshin frame stability audits, video memory traces, and thermal dissipation records.
+- **[User Guides](./userguides/)**: Panduan instalasi dan penggunaan modul dalam Bahasa Indonesia ([`UserGuide-ID.md`](./userguides/UserGuide-ID.md)) dan English ([`UserGuide-EN.md`](./userguides/UserGuide-EN.md)).
+- **[Testing & CI Infrastructure](./testing/)**: Kerangka kerja pengujian otomatis e2e ([`TEST_INFRA.md`](./testing/TEST_INFRA.md), [`TEST_READY.md`](./testing/TEST_READY.md)).
+- **[Hardware Reference DTS](./references/)**: Matriks registri Device Tree Blob (DTS) untuk Qualcomm dan MediaTek.
+
+---
+
 ## 🛡️ Core Architectural Principles
 
 1. **Kernel Ground Truth Over User-Space Properties**:

@@ -1,24 +1,75 @@
-# Scratch and temporary work
-scratch/
-Emergency_Recovery/
-*.img
-*.log
+# ==============================================================================
+# 🛡️ LYNX UNIVERSAL REPOSITORY IGNORE SPECIFICATION (.gitignore)
+# Strict Zero-Bloat Mandate: Prevents local build binaries, test debris, 
+# device dumps, and private diagnostic traces from ever polluting Git history.
+# ==============================================================================
+
+# ── 1. Distribution & Build Binaries (Strict Git Exemption) ───────────────
+dist/
+LynxKernelManager.apk
+*.apk
+*.aab
+*.zip
+*.sha256
+*.kpm
+*.jar
+*.o
+*.bin
+*.so
+build-safe.ps1
+
+# ── 2. Android & Gradle Build Systems ─────────────────────────────────────
 .gradle/
 local.properties
 .idea/
-*.pyc
-__pycache__/
-archive/packages/Chimera.zip
-archive/packages/Lynx.zip
-tools/.last_device_ip
+*.iml
+.DS_Store
+captures/
+.cxx/
+.externalNativeBuild/
+LynxCompanion/app/build/
+LynxCompanion/.gradle/
+LynxCompanion/local.properties
+
+# ── 3. Native Rust & C Build Artifacts ────────────────────────────────────
 native/lynxd/target/
 native/lynxd/state/
-docs/android-improvement-plans/
-archive/local_backups/
-# Local device traces, screenshots, and downloaded analysis dependencies.
-/tools/extreme_trial_*/
-# Private diagnostic captures remain local; share only redacted reports.
-/tools/video_memory_audit_*/
-/tools/KernelPatch/
 native/kpm/**/build/
-build-safe.ps1
+
+# ── 4. Screenshots, UI Dumps, Lockfiles & Test Artifacts ──────────────────
+*.png
+*.jpg
+*.jpeg
+*.webp
+dump*.xml
+*.xml.dump
+*.lock
+test-results/
+
+# ── 5. Scratch, Device Recovery & Local Diagnostic Work ───────────────────
+scratch/
+Emergency_Recovery/
+tools/probes_archive/
+tests/live_probes_archive/
+tools/extreme_trial_*/
+tools/video_memory_audit_*/
+tools/KernelPatch/
+tools/io_trial_*/
+tools/.last_device_ip
+tools/.last_reference_ip
+
+# ── 6. Local Backups & Heavy Reference Repositories ───────────────────────
+archive/local_backups/
+archive/packages/*.zip
+archive/packages/*.apk
+archive/kpm_backup/
+references/kernel_managers/
+
+# ── 7. Agent Context & Temporary Workspaces ───────────────────────────────
+.agents/
+
+# ── 8. Python & Generic System Logs ───────────────────────────────────────
+*.pyc
+__pycache__/
+*.log
+*.img

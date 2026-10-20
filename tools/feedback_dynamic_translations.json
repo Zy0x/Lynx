@@ -1,0 +1,494 @@
+[
+  {
+    "key": "dynamic_feedback_automation_rule_saved",
+    "pattern": "^Aturan profil untuk (.+) disimpan!$",
+    "id": "Aturan profil untuk %1$s disimpan!",
+    "en": "App profile rule for %1$s saved!"
+  },
+  {
+    "key": "dynamic_feedback_battery_current_limit",
+    "pattern": "^Batas permintaan arus: (.+) mA$",
+    "id": "Batas permintaan arus: %1$s mA",
+    "en": "Requested current limit: %1$s mA"
+  },
+  {
+    "key": "dynamic_feedback_battery_calibration_dual",
+    "pattern": "^Kalibrasi Sel Baterai: (.+)x \\(Dual-Cell 2S Series\\)$",
+    "id": "Kalibrasi Sel Baterai: %1$sx (Dual-Cell 2S Series)",
+    "en": "Battery cell calibration: %1$sx (dual-cell 2S series)"
+  },
+  {
+    "key": "dynamic_feedback_battery_calibration_single",
+    "pattern": "^Kalibrasi Sel Baterai: (.+)x \\(Single Cell Standar\\)$",
+    "id": "Kalibrasi Sel Baterai: %1$sx (Single Cell Standar)",
+    "en": "Battery cell calibration: %1$sx (standard single cell)"
+  },
+  {
+    "key": "dynamic_feedback_cable_test_result",
+    "pattern": "^Pengujian Selesai: (.+)★ \\((.+) mΩ\\) - (.+)$",
+    "id": "Pengujian Selesai: %1$s★ (%2$s mΩ) - %3$s",
+    "en": "Test complete: %1$s★ (%2$s mΩ) - %3$s"
+  },
+  {
+    "key": "dynamic_feedback_cable_test_failed",
+    "pattern": "^Gagal menjalankan pengujian kabel: (.+)$",
+    "id": "Gagal menjalankan pengujian kabel: %1$s",
+    "en": "Cable test failed: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_benchmark_failed",
+    "pattern": "^Benchmark gagal: (.+)$",
+    "id": "Benchmark gagal: %1$s",
+    "en": "Benchmark failed: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_deep_scan_complete",
+    "pattern": "^Deep Scan selesai: (.+) parameter hardware ditemukan!$",
+    "id": "Deep Scan selesai: %1$s parameter hardware ditemukan!",
+    "en": "Deep scan complete: found %1$s hardware parameters!"
+  },
+  {
+    "key": "dynamic_feedback_parameter_applied",
+    "pattern": "^Parameter diterapkan: (.+) = (.+)$",
+    "id": "Parameter diterapkan: %1$s = %2$s",
+    "en": "Parameter applied: %1$s = %2$s"
+  },
+  {
+    "key": "dynamic_feedback_parameter_apply_failed",
+    "pattern": "^Gagal menerapkan parameter ke (.+)$",
+    "id": "Gagal menerapkan parameter ke %1$s",
+    "en": "Failed to apply the parameter to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_node_unavailable",
+    "pattern": "^Node tidak ditemukan atau tidak dapat dibaca: (.+)$",
+    "id": "Node tidak ditemukan atau tidak dapat dibaca: %1$s",
+    "en": "Node not found or unreadable: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_script_saved",
+    "pattern": "^Skrip '(.+)' disimpan$",
+    "id": "Skrip '%1$s' disimpan",
+    "en": "Script '%1$s' saved"
+  },
+  {
+    "key": "dynamic_feedback_script_running",
+    "pattern": "^Mengeksekusi '(.+)'\\.\\.\\.$",
+    "id": "Mengeksekusi '%1$s'...",
+    "en": "Running '%1$s'..."
+  },
+  {
+    "key": "dynamic_feedback_script_exit",
+    "pattern": "^Eksekusi selesai \\(Exit: (.+)\\)$",
+    "id": "Eksekusi selesai (Exit: %1$s)",
+    "en": "Execution finished (exit code: %1$s)"
+  },
+  {
+    "key": "dynamic_feedback_dmesg_exported",
+    "pattern": "^Dmesg diekspor ke (.+)$",
+    "id": "Dmesg diekspor ke %1$s",
+    "en": "Dmesg exported to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_kernel_rejected_value",
+    "pattern": "^Kernel menolak perubahan \\(nilai terbaca: (.+)\\)\\. Parameter dikunci read-only\\.$",
+    "id": "Kernel menolak perubahan (nilai terbaca: %1$s). Parameter dikunci read-only.",
+    "en": "Kernel rejected the change (read-back value: %1$s). Parameter is locked as read-only."
+  },
+  {
+    "key": "dynamic_feedback_dc_dimming_enabled",
+    "pattern": "^DC Dimming diaktifkan$",
+    "id": "DC Dimming diaktifkan",
+    "en": "DC dimming enabled"
+  },
+  {
+    "key": "dynamic_feedback_dc_dimming_disabled",
+    "pattern": "^DC Dimming dinonaktifkan$",
+    "id": "DC Dimming dinonaktifkan",
+    "en": "DC dimming disabled"
+  },
+  {
+    "key": "dynamic_feedback_graphics_rule_saved",
+    "pattern": "^Aturan grafis untuk (.+) disimpan$",
+    "id": "Aturan grafis untuk %1$s disimpan",
+    "en": "Graphics rule for %1$s saved"
+  },
+  {
+    "key": "dynamic_feedback_color_calibration_enabled",
+    "pattern": "^Kalibrasi warna diaktifkan \\((.+)\\)$",
+    "id": "Kalibrasi warna diaktifkan (%1$s)",
+    "en": "Color calibration enabled (%1$s)"
+  },
+  {
+    "key": "dynamic_feedback_color_profile_applied",
+    "pattern": "^Profil warna '(.+)' diterapkan$",
+    "id": "Profil warna '%1$s' diterapkan",
+    "en": "Color profile '%1$s' applied"
+  },
+  {
+    "key": "dynamic_feedback_session_saved",
+    "pattern": "^Sesi (.+) tersimpan \\((.+)s, (.+) frames\\)$",
+    "id": "Sesi %1$s tersimpan (%2$ss, %3$s frames)",
+    "en": "Session %1$s saved (%2$s s, %3$s frames)"
+  },
+  {
+    "key": "dynamic_feedback_report_exported",
+    "pattern": "^Laporan berhasil diekspor ke: (.+)$",
+    "id": "Laporan berhasil diekspor ke: %1$s",
+    "en": "Report exported to: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_kernel_profile_saved",
+    "pattern": "^Profil (.+) tersimpan$",
+    "id": "Profil %1$s tersimpan",
+    "en": "Profile %1$s saved"
+  },
+  {
+    "key": "dynamic_feedback_kernel_profile_apply_failed",
+    "pattern": "^Profil dasar (.+) gagal diterapkan\\. Mengembalikan ke mode (.+)\\.$",
+    "id": "Profil dasar %1$s gagal diterapkan. Mengembalikan ke mode %2$s.",
+    "en": "Base profile %1$s failed to apply. Reverting to mode %2$s."
+  },
+  {
+    "key": "dynamic_feedback_kernel_profile_applied",
+    "pattern": "^Profil (.+) diterapkan$",
+    "id": "Profil %1$s diterapkan",
+    "en": "Profile %1$s applied"
+  },
+  {
+    "key": "dynamic_feedback_partial_initialization",
+    "pattern": "^Perhatian: Inisialisasi parsial \\((.+)\\)$",
+    "id": "Perhatian: Inisialisasi parsial (%1$s)",
+    "en": "Warning: Partial initialization (%1$s)"
+  },
+  {
+    "key": "dynamic_feedback_lmk_preset_applied",
+    "pattern": "^LMK preset '(.+)' diterapkan$",
+    "id": "LMK preset '%1$s' diterapkan",
+    "en": "LMK preset '%1$s' applied"
+  },
+  {
+    "key": "dynamic_feedback_game_package_added",
+    "pattern": "^Ditambahkan ke Game Mode: (.+)$",
+    "id": "Ditambahkan ke Game Mode: %1$s",
+    "en": "Added to Game Mode: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_game_package_removed",
+    "pattern": "^Dihapus dari Game Mode: (.+)$",
+    "id": "Dihapus dari Game Mode: %1$s",
+    "en": "Removed from Game Mode: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_wakelock_count",
+    "pattern": "^Wakelock kernel diperbarui \\((.+) sumber\\)$",
+    "id": "Wakelock kernel diperbarui (%1$s sumber)",
+    "en": "Kernel wakelocks updated (%1$s sources)"
+  },
+  {
+    "key": "dynamic_feedback_wakelock_blocked",
+    "pattern": "^Wakelock '(.+)' diblokir$",
+    "id": "Wakelock '%1$s' diblokir",
+    "en": "Wakelock '%1$s' blocked"
+  },
+  {
+    "key": "dynamic_feedback_wakelock_unblocked",
+    "pattern": "^Wakelock '(.+)' dibuka$",
+    "id": "Wakelock '%1$s' dibuka",
+    "en": "Wakelock '%1$s' unblocked"
+  },
+  {
+    "key": "dynamic_feedback_tunable_updated",
+    "pattern": "^Parameter (.+) diperbarui \\(Mode Kustom\\)$",
+    "id": "Parameter %1$s diperbarui (Mode Kustom)",
+    "en": "Parameter %1$s updated (custom mode)"
+  },
+  {
+    "key": "dynamic_feedback_tunable_update_failed",
+    "pattern": "^Gagal memperbarui (.+)$",
+    "id": "Gagal memperbarui %1$s",
+    "en": "Failed to update %1$s"
+  },
+  {
+    "key": "dynamic_feedback_migration_hysteresis",
+    "pattern": "^Hysteresis migrasi diperbarui \\((.+)% / (.+)% - Mode Kustom\\)$",
+    "id": "Hysteresis migrasi diperbarui (%1$s%% / %2$s%% - Mode Kustom)",
+    "en": "Migration hysteresis updated (%1$s%% / %2$s%% - custom mode)"
+  },
+  {
+    "key": "dynamic_feedback_arch_mode_enabled",
+    "pattern": "^Mode arsitektur (.+) aktif \\(Mode Kustom\\)$",
+    "id": "Mode arsitektur %1$s aktif (Mode Kustom)",
+    "en": "Architecture mode %1$s enabled (custom mode)"
+  },
+  {
+    "key": "dynamic_feedback_arch_mode_failed",
+    "pattern": "^Gagal mengubah mode ke (.+)$",
+    "id": "Gagal mengubah mode ke %1$s",
+    "en": "Failed to change mode to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_scheduler_preset_applied",
+    "pattern": "^Preset Penjadwal '(.+)' berhasil diterapkan$",
+    "id": "Preset Penjadwal '%1$s' berhasil diterapkan",
+    "en": "Scheduler preset '%1$s' applied successfully"
+  },
+  {
+    "key": "dynamic_feedback_scheduler_preset_failed",
+    "pattern": "^Gagal menerapkan preset penjadwal '(.+)'$",
+    "id": "Gagal menerapkan preset penjadwal '%1$s'",
+    "en": "Failed to apply scheduler preset '%1$s'"
+  },
+  {
+    "key": "dynamic_feedback_cpuset_preset_applied",
+    "pattern": "^Profil CPU Sets '(.+)' berhasil diterapkan$",
+    "id": "Profil CPU Sets '%1$s' berhasil diterapkan",
+    "en": "CPU sets profile '%1$s' applied successfully"
+  },
+  {
+    "key": "dynamic_feedback_cpuset_preset_failed",
+    "pattern": "^Gagal menerapkan profil CPU Sets '(.+)'$",
+    "id": "Gagal menerapkan profil CPU Sets '%1$s'",
+    "en": "Failed to apply CPU sets profile '%1$s'"
+  },
+  {
+    "key": "dynamic_feedback_core_group_failed",
+    "pattern": "^Gagal memperbarui Core (.+) pada (.+)$",
+    "id": "Gagal memperbarui Core %1$s pada %2$s",
+    "en": "Failed to update core %1$s in %2$s"
+  },
+  {
+    "key": "dynamic_feedback_workqueue_enabled",
+    "pattern": "^Power-Efficient Workqueue diaktifkan \\(Hemat Daya\\)$",
+    "id": "Power-Efficient Workqueue diaktifkan (Hemat Daya)",
+    "en": "Power-efficient workqueue enabled (power saving)"
+  },
+  {
+    "key": "dynamic_feedback_workqueue_disabled",
+    "pattern": "^Power-Efficient Workqueue dinonaktifkan \\(Latensi Rendah\\)$",
+    "id": "Power-Efficient Workqueue dinonaktifkan (Latensi Rendah)",
+    "en": "Power-efficient workqueue disabled (low latency)"
+  },
+  {
+    "key": "dynamic_feedback_qualcomm_touchboost_enabled",
+    "pattern": "^Qualcomm Touchboost diaktifkan$",
+    "id": "Qualcomm Touchboost diaktifkan",
+    "en": "Qualcomm TouchBoost enabled"
+  },
+  {
+    "key": "dynamic_feedback_qualcomm_touchboost_disabled",
+    "pattern": "^Qualcomm Touchboost dinonaktifkan$",
+    "id": "Qualcomm Touchboost dinonaktifkan",
+    "en": "Qualcomm TouchBoost disabled"
+  },
+  {
+    "key": "dynamic_feedback_cci_enabled",
+    "pattern": "^Akselerasi Bus CCI & Memori DDR diaktifkan$",
+    "id": "Akselerasi Bus CCI & Memori DDR diaktifkan",
+    "en": "CCI bus and DDR memory acceleration enabled"
+  },
+  {
+    "key": "dynamic_feedback_cci_disabled",
+    "pattern": "^Akselerasi Bus CCI & Memori DDR dinonaktifkan$",
+    "id": "Akselerasi Bus CCI & Memori DDR dinonaktifkan",
+    "en": "CCI bus and DDR memory acceleration disabled"
+  },
+  {
+    "key": "dynamic_feedback_dvfs_label",
+    "pattern": "^Mode Daya DVFS Silikon diatur ke (.+)$",
+    "id": "Mode Daya DVFS Silikon diatur ke %1$s",
+    "en": "Silicon DVFS power mode set to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_dlpt_enabled",
+    "pattern": "^Bypass Limit Arus Puncak \\(DLPT & Imax\\) diaktifkan$",
+    "id": "Bypass Limit Arus Puncak (DLPT & Imax) diaktifkan",
+    "en": "Peak current limit bypass (DLPT and Imax) enabled"
+  },
+  {
+    "key": "dynamic_feedback_dlpt_disabled",
+    "pattern": "^Bypass Limit Arus Puncak \\(DLPT & Imax\\) dinonaktifkan$",
+    "id": "Bypass Limit Arus Puncak (DLPT & Imax) dinonaktifkan",
+    "en": "Peak current limit bypass (DLPT and Imax) disabled"
+  },
+  {
+    "key": "dynamic_feedback_devfreq_accel_enabled",
+    "pattern": "^Akselerasi Bus Memori & Cache L3 \\(Devfreq\\) diaktifkan$",
+    "id": "Akselerasi Bus Memori & Cache L3 (Devfreq) diaktifkan",
+    "en": "Memory bus and L3 cache acceleration (devfreq) enabled"
+  },
+  {
+    "key": "dynamic_feedback_devfreq_accel_disabled",
+    "pattern": "^Akselerasi Bus Memori & Cache L3 \\(Devfreq\\) dinonaktifkan$",
+    "id": "Akselerasi Bus Memori & Cache L3 (Devfreq) dinonaktifkan",
+    "en": "Memory bus and L3 cache acceleration (devfreq) disabled"
+  },
+  {
+    "key": "dynamic_feedback_memory_bus_frequency",
+    "pattern": "^Frekuensi Bus Memori & Interkoneksi diatur ke (.+)$",
+    "id": "Frekuensi Bus Memori & Interkoneksi diatur ke %1$s",
+    "en": "Memory bus and interconnect frequency set to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_touch_accel_enabled",
+    "pattern": "^Akselerasi Respons Sentuhan diaktifkan$",
+    "id": "Akselerasi Respons Sentuhan diaktifkan",
+    "en": "Touch response acceleration enabled"
+  },
+  {
+    "key": "dynamic_feedback_touch_accel_disabled",
+    "pattern": "^Akselerasi Respons Sentuhan dinonaktifkan$",
+    "id": "Akselerasi Respons Sentuhan dinonaktifkan",
+    "en": "Touch response acceleration disabled"
+  },
+  {
+    "key": "dynamic_feedback_peak_clock_enabled",
+    "pattern": "^Pertahankan Plafon Clock Puncak diaktifkan$",
+    "id": "Pertahankan Plafon Clock Puncak diaktifkan",
+    "en": "Peak clock ceiling hold enabled"
+  },
+  {
+    "key": "dynamic_feedback_peak_clock_disabled",
+    "pattern": "^Pertahankan Plafon Clock Puncak dinonaktifkan$",
+    "id": "Pertahankan Plafon Clock Puncak dinonaktifkan",
+    "en": "Peak clock ceiling hold disabled"
+  },
+  {
+    "key": "dynamic_feedback_zram_algorithm_applied",
+    "pattern": "^Algoritma ZRAM berhasil diubah ke (.+)$",
+    "id": "Algoritma ZRAM berhasil diubah ke %1$s",
+    "en": "ZRAM algorithm changed to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_zram_algorithm_failed",
+    "pattern": "^Gagal mengubah algoritma ZRAM ke (.+)$",
+    "id": "Gagal mengubah algoritma ZRAM ke %1$s",
+    "en": "Failed to change the ZRAM algorithm to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_vm_dirty_ratio",
+    "pattern": "^VM Dirty Ratio diatur ke (.+)%$",
+    "id": "VM Dirty Ratio diatur ke %1$s%%",
+    "en": "VM dirty ratio set to %1$s%%"
+  },
+  {
+    "key": "dynamic_feedback_vm_dirty_background",
+    "pattern": "^VM Dirty Background: (.+)%$",
+    "id": "VM Dirty Background: %1$s%%",
+    "en": "VM dirty background ratio: %1$s%%"
+  },
+  {
+    "key": "dynamic_feedback_vfs_cache_pressure",
+    "pattern": "^VFS Cache Pressure diatur ke (.+)$",
+    "id": "VFS Cache Pressure diatur ke %1$s",
+    "en": "VFS cache pressure set to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_vm_expire_time",
+    "pattern": "^VM Expire Time: (.+)s$",
+    "id": "VM Expire Time: %1$ss",
+    "en": "VM expire time: %1$s s"
+  },
+  {
+    "key": "dynamic_feedback_vm_writeback_interval",
+    "pattern": "^VM Writeback Interval: (.+)s$",
+    "id": "VM Writeback Interval: %1$ss",
+    "en": "VM writeback interval: %1$s s"
+  },
+  {
+    "key": "dynamic_feedback_vm_stat_interval",
+    "pattern": "^VM Stat Interval: (.+)s$",
+    "id": "VM Stat Interval: %1$ss",
+    "en": "VM stat interval: %1$s s"
+  },
+  {
+    "key": "dynamic_feedback_vm_preset_applied",
+    "pattern": "^Preset VM '(.+)' berhasil diterapkan$",
+    "id": "Preset VM '%1$s' berhasil diterapkan",
+    "en": "VM preset '%1$s' applied successfully"
+  },
+  {
+    "key": "dynamic_feedback_vm_preset_failed",
+    "pattern": "^Gagal menerapkan preset VM '(.+)'$",
+    "id": "Gagal menerapkan preset VM '%1$s'",
+    "en": "Failed to apply VM preset '%1$s'"
+  },
+  {
+    "key": "dynamic_feedback_refresh_rate_set",
+    "pattern": "^Refresh rate diatur ke (.+)Hz$",
+    "id": "Refresh rate diatur ke %1$sHz",
+    "en": "Refresh rate set to %1$s Hz"
+  },
+  {
+    "key": "dynamic_feedback_soc_engine_set",
+    "pattern": "^Engine SoC diubah ke: (.+)$",
+    "id": "Engine SoC diubah ke: %1$s",
+    "en": "SoC engine changed to: %1$s"
+  },
+  {
+    "key": "dynamic_feedback_voltage_offset",
+    "pattern": "^Offset voltase (.+)mV diaplikasikan$",
+    "id": "Offset voltase %1$smV diaplikasikan",
+    "en": "Voltage offset of %1$s mV applied"
+  },
+  {
+    "key": "dynamic_feedback_entropy_threshold",
+    "pattern": "^Threshold entropi disimpan \\((.+) / (.+)\\)$",
+    "id": "Threshold entropi disimpan (%1$s / %2$s)",
+    "en": "Entropy thresholds saved (%1$s / %2$s)"
+  },
+  {
+    "key": "dynamic_feedback_selinux_mode",
+    "pattern": "^SELinux diubah ke (.+)$",
+    "id": "SELinux diubah ke %1$s",
+    "en": "SELinux mode changed to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_adb_port_locked",
+    "pattern": "^Port ADB berhasil dikunci ke (.+)$",
+    "id": "Port ADB berhasil dikunci ke %1$s",
+    "en": "ADB port locked to %1$s"
+  },
+  {
+    "key": "dynamic_feedback_adb_port_save_failed",
+    "pattern": "^Gagal menyimpan port ADB (.+)$",
+    "id": "Gagal menyimpan port ADB %1$s",
+    "en": "Failed to save ADB port %1$s"
+  },
+  {
+    "key": "dynamic_feedback_ksm_enabled",
+    "pattern": "^KSM diaktifkan$",
+    "id": "KSM diaktifkan",
+    "en": "KSM enabled"
+  },
+  {
+    "key": "dynamic_feedback_ksm_disabled",
+    "pattern": "^KSM dinonaktifkan$",
+    "id": "KSM dinonaktifkan",
+    "en": "KSM disabled"
+  },
+  {
+    "key": "dynamic_feedback_tcp_applied",
+    "pattern": "^TCP: (.+) berhasil diterapkan$",
+    "id": "TCP: %1$s berhasil diterapkan",
+    "en": "TCP: %1$s applied successfully"
+  },
+  {
+    "key": "dynamic_feedback_tcp_apply_failed",
+    "pattern": "^Gagal menerapkan TCP (.+) \\(Kernel menolak\\)$",
+    "id": "Gagal menerapkan TCP %1$s (Kernel menolak)",
+    "en": "Failed to apply TCP %1$s (kernel rejected it)"
+  },
+  {
+    "key": "dynamic_feedback_governor_preset",
+    "pattern": "^Preset Governor (.+) disetel ke: (.+)$",
+    "id": "Preset Governor %1$s disetel ke: %2$s",
+    "en": "Governor preset %1$s set to: %2$s"
+  },
+  {
+    "key": "dynamic_feedback_dmesg_path",
+    "pattern": "^Dmesg diekspor ke (.+)$",
+    "id": "Dmesg diekspor ke %1$s",
+    "en": "Dmesg exported to %1$s"
+  }
+]

@@ -1,0 +1,410 @@
+[
+  {
+    "key": "dynamic_benchmark_frametime_distribution",
+    "pattern": "^DISTRIBUSI FRAMETIME \\((.+) FRAMES\\)$",
+    "id": "DISTRIBUSI FRAMETIME (%1$s FRAME)",
+    "en": "FRAME TIME DISTRIBUTION (%1$s FRAMES)"
+  },
+  {
+    "key": "dynamic_headphone_gain",
+    "pattern": "^Headphone Gain \\(L/R\\): (.+)dB / (.+)dB$",
+    "id": "Penguatan Headphone (Kiri/Kanan): %1$s dB / %2$s dB",
+    "en": "Headphone Gain (Left/Right): %1$s dB / %2$s dB"
+  },
+  {
+    "key": "dynamic_speaker_gain",
+    "pattern": "^Speaker Gain: (.+)dB$",
+    "id": "Penguatan Speaker: %1$s dB",
+    "en": "Speaker Gain: %1$s dB"
+  },
+  {
+    "key": "dynamic_microphone_gain",
+    "pattern": "^Microphone Gain: (.+)dB$",
+    "id": "Penguatan Mikrofon: %1$s dB",
+    "en": "Microphone Gain: %1$s dB"
+  },
+  {
+    "key": "dynamic_legacy_minfree_levels",
+    "pattern": "^Legacy Minfree Levels: (.+)$",
+    "id": "Level Minfree Lama: %1$s",
+    "en": "Legacy Minfree Levels: %1$s"
+  },
+  {
+    "key": "dynamic_read_wakeup_threshold",
+    "pattern": "^Read Wakeup Threshold: (.+) bits$",
+    "id": "Ambang Wakeup Baca: %1$s bit",
+    "en": "Read Wakeup Threshold: %1$s bits"
+  },
+  {
+    "key": "dynamic_write_wakeup_threshold",
+    "pattern": "^Write Wakeup Threshold: (.+) bits$",
+    "id": "Ambang Wakeup Tulis: %1$s bit",
+    "en": "Write Wakeup Threshold: %1$s bits"
+  },
+  {
+    "key": "dynamic_active_kernel_features",
+    "pattern": "^Fitur Kernel Aktif: (.+)$",
+    "id": "Fitur Kernel Aktif: %1$s",
+    "en": "Active Kernel Features: %1$s"
+  },
+  {
+    "key": "dynamic_available_gpu_opp_steps",
+    "pattern": "^Tersedia (.+) step frekuensi clock OPP$",
+    "id": "Tersedia %1$s step frekuensi clock OPP",
+    "en": "%1$s OPP clock frequency steps available"
+  },
+  {
+    "key": "dynamic_edit_tunable_title",
+    "pattern": "^Edit Tunable: (.+)$",
+    "id": "Edit Tunable: %1$s",
+    "en": "Edit Tunable: %1$s"
+  },
+  {
+    "key": "dynamic_cpu_core_status_count",
+    "pattern": "^STATUS INTI CPU \\((.+) CORES\\)$",
+    "id": "STATUS INTI CPU (%1$s CORE)",
+    "en": "CPU CORE STATUS (%1$s CORES)"
+  },
+  {
+    "key": "dynamic_frequency_step_table_count",
+    "pattern": "^TABEL LENGKAP STEPPING FREKUENSI \\((.+) OPP\\)$",
+    "id": "TABEL LENGKAP STEPPING FREKUENSI (%1$s OPP)",
+    "en": "COMPLETE FREQUENCY STEP TABLE (%1$s OPP)"
+  },
+  {
+    "key": "dynamic_physical_gpu_driver",
+    "pattern": "^Driver Fisik • (.+)$",
+    "id": "Driver Fisik • %1$s",
+    "en": "Physical Driver • %1$s"
+  },
+  {
+    "key": "dynamic_gpu_session_condition",
+    "pattern": "^Kondisi: (.+) MHz • (.+)% Load • (.+)$",
+    "id": "Kondisi: %1$s MHz • %2$s%% Beban • %3$s",
+    "en": "Condition: %1$s MHz • %2$s%% Load • %3$s"
+  },
+  {
+    "key": "dynamic_load_more_tunables",
+    "pattern": "^Muat Lebih Banyak \\((.+) tersisa\\)$",
+    "id": "Muat Lebih Banyak (%1$s tersisa)",
+    "en": "Load More (%1$s remaining)"
+  },
+  {
+    "key": "dynamic_kernel_compatibility_score",
+    "pattern": "^Skor Kompatibilitas Kernel: (.+)%$",
+    "id": "Skor Kompatibilitas Kernel: %1$s%%",
+    "en": "Kernel Compatibility Score: %1$s%%"
+  },
+  {
+    "key": "dynamic_thermal_sensor_count",
+    "pattern": "^(.+) Sensor Thermal Hardware Aktif$",
+    "id": "%1$s Sensor Thermal Hardware Aktif",
+    "en": "%1$s Active Hardware Thermal Sensors"
+  },
+  {
+    "key": "dynamic_top_wakeup_source_count",
+    "pattern": "^Sumber Wakeup Tertinggi \\((.+)\\)$",
+    "id": "Sumber Wakeup Tertinggi (%1$s)",
+    "en": "Top Wakeup Sources (%1$s)"
+  },
+  {
+    "key": "dynamic_wakeup_count",
+    "pattern": "^(.+)x bangun$",
+    "id": "%1$sx bangun",
+    "en": "%1$s wakeups"
+  },
+  {
+    "key": "dynamic_script_library_count",
+    "pattern": "^Pustaka Skrip Kernel & Sistem \\((.+)\\)$",
+    "id": "Pustaka Skrip Kernel & Sistem (%1$s)",
+    "en": "Kernel & System Script Library (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_active_value",
+    "pattern": "^Aktif: (.+)$",
+    "id": "Aktif: %1$s",
+    "en": "Active: %1$s"
+  },
+  {
+    "key": "dynamic_tunable_min_value",
+    "pattern": "^Min: (.+)$",
+    "id": "Min: %1$s",
+    "en": "Min: %1$s"
+  },
+  {
+    "key": "dynamic_tunable_max_value",
+    "pattern": "^Max: (.+)$",
+    "id": "Max: %1$s",
+    "en": "Max: %1$s"
+  },
+  {
+    "key": "dynamic_tunable_value_range",
+    "pattern": "^Rentang: (.+) - (.+) (.*)$",
+    "id": "Rentang: %1$s - %2$s %3$s",
+    "en": "Range: %1$s–%2$s %3$s"
+  },
+  {
+    "key": "dynamic_parameter_search_empty",
+    "pattern": "^Tidak ada parameter yang cocok dengan '(.+)'$",
+    "id": "Tidak ada parameter yang cocok dengan '%1$s'",
+    "en": "No parameters match '%1$s'"
+  },
+  {
+    "key": "dynamic_app_profile_rule_count",
+    "pattern": "^(.+) Aturan Profil Dikonfigurasi$",
+    "id": "%1$s Aturan Profil Dikonfigurasi",
+    "en": "%1$s App Profile Rules Configured"
+  },
+  {
+    "key": "dynamic_tunable_charging_current_name",
+    "pattern": "^Batas Arus Pengisian \\((.+)\\)$",
+    "id": "Batas Arus Pengisian (%1$s)",
+    "en": "Charging Current Limit (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_read_ahead_name",
+    "pattern": "^I/O Read-Ahead Cache \\((.+)\\)$",
+    "id": "Cache Read-Ahead I/O (%1$s)",
+    "en": "I/O Read-Ahead Cache (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_io_scheduler_name",
+    "pattern": "^I/O Scheduler \\((.+)\\)$",
+    "id": "Penjadwal I/O (%1$s)",
+    "en": "I/O Scheduler (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_thermal_policy_name",
+    "pattern": "^Thermal Policy \\((.+)\\)$",
+    "id": "Kebijakan Termal (%1$s)",
+    "en": "Thermal Policy (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_thermal_throttling_name",
+    "pattern": "^Thermal Throttling \\((.+)\\)$",
+    "id": "Throttling Termal (%1$s)",
+    "en": "Thermal Throttling (%1$s)"
+  },
+  {
+    "key": "dynamic_tunable_thermal_policy_description",
+    "pattern": "^Algoritma mitigasi panas zona (.+) \\(step_wise, power_allocator, user_space\\)\\.$",
+    "id": "Algoritma mitigasi panas zona %1$s (step_wise, power_allocator, user_space).",
+    "en": "Thermal mitigation algorithm for zone %1$s (step_wise, power_allocator, user_space)."
+  },
+  {
+    "key": "dynamic_tunable_thermal_status_description",
+    "pattern": "^Status proteksi throttling termal hardware untuk zona (.+)\\.$",
+    "id": "Status proteksi throttling termal hardware untuk zona %1$s.",
+    "en": "Hardware thermal throttling protection status for zone %1$s."
+  },
+  {
+    "key": "dynamic_tunable_ppm_policy_name",
+    "pattern": "^PPM Policy (.+): (.+)$",
+    "id": "Kebijakan PPM %1$s: %2$s",
+    "en": "PPM Policy %1$s: %2$s"
+  },
+  {
+    "key": "dynamic_network_port_locked",
+    "pattern": "^● LOCKED : (.+)$",
+    "id": "● TERKUNCI: %1$s",
+    "en": "● LOCKED: %1$s"
+  },
+  {
+    "key": "dynamic_network_port_restoring",
+    "pattern": "^⚡ MEMULIHKAN : (.+)$",
+    "id": "⚡ MEMULIHKAN: %1$s",
+    "en": "⚡ RESTORING: %1$s"
+  },
+  {
+    "key": "dynamic_gpu_mtk_title",
+    "pattern": "^Akselerasi MediaTek \\((.+) & FPSGO\\)$",
+    "id": "Akselerasi MediaTek (%1$s & FPSGO)",
+    "en": "MediaTek Acceleration (%1$s & FPSGO)"
+  },
+  {
+    "key": "dynamic_gpu_generic_title",
+    "pattern": "^Akselerasi Hardware GPU \\((.+)\\)$",
+    "id": "Akselerasi Hardware GPU (%1$s)",
+    "en": "GPU Hardware Acceleration (%1$s)"
+  },
+  {
+    "key": "dynamic_gpu_percent_plus",
+    "pattern": "^\\+(.+)%$",
+    "id": "+%1$s%%",
+    "en": "+%1$s%%"
+  },
+  {
+    "key": "dynamic_gpu_percent",
+    "pattern": "^(.+)%$",
+    "id": "%1$s%%",
+    "en": "%1$s%%"
+  },
+  {
+    "key": "dynamic_gpu_milliseconds",
+    "pattern": "^(.+) ms$",
+    "id": "%1$s ms",
+    "en": "%1$s ms"
+  },
+  {
+    "key": "dynamic_cpu_mid_cluster",
+    "pattern": "^Kluster (.+) Mid$",
+    "id": "Kluster %1$s Mid",
+    "en": "%1$s Mid Cluster"
+  },
+  {
+    "key": "dynamic_cpu_cluster",
+    "pattern": "^Kluster (.+)$",
+    "id": "Kluster %1$s",
+    "en": "%1$s Cluster"
+  },
+  {
+    "key": "dynamic_cpu_performance_limited",
+    "pattern": "^(.+) Dibatasi$",
+    "id": "%1$s Dibatasi",
+    "en": "%1$s Limited"
+  },
+  {
+    "key": "dynamic_cpu_performance_standby",
+    "pattern": "^(.+) Siaga$",
+    "id": "%1$s Siaga",
+    "en": "%1$s on Standby"
+  },
+  {
+    "key": "dynamic_cpu_cores_offline",
+    "pattern": "^(.+) Core Diparkir \\(Offline\\)$",
+    "id": "%1$s Core Diparkir (Offline)",
+    "en": "%1$s Cores Parked (Offline)"
+  },
+  {
+    "key": "dynamic_cpu_cci_freq_voltage",
+    "pattern": "^(.+) MHz @ (.+) mV$",
+    "id": "%1$s MHz @ %2$s mV",
+    "en": "%1$s MHz @ %2$s mV"
+  },
+  {
+    "key": "dynamic_cpu_cci_freq",
+    "pattern": "^(.+) MHz$",
+    "id": "%1$s MHz",
+    "en": "%1$s MHz"
+  },
+  {
+    "key": "dynamic_cpu_unified_mode",
+    "pattern": "^Mode (.+) \\(Gaming Stabil\\)$",
+    "id": "Mode %1$s (Gaming Stabil)",
+    "en": "%1$s Mode (Stable Gaming)"
+  },
+  {
+    "key": "dynamic_charging_custom_current",
+    "pattern": "^Batas arus manual disetel ke (.+) mA dengan penguncian sysfs aktif\\.$",
+    "id": "Batas arus manual disetel ke %1$s mA dengan penguncian sysfs aktif.",
+    "en": "Manual current limit set to %1$s mA with sysfs locking enabled."
+  },
+  {
+    "key": "dynamic_charging_custom_pill",
+    "pattern": "^Mode Kustom Aktif • (.+) mA$",
+    "id": "Mode Kustom Aktif • %1$s mA",
+    "en": "Custom Mode Active • %1$s mA"
+  },
+  {
+    "key": "dynamic_cpu_cluster_revision",
+    "pattern": "^Kluster (.+) · (.+)$",
+    "id": "Kluster %1$s · %2$s",
+    "en": "Cluster %1$s · %2$s"
+  },
+  {
+    "key": "dynamic_cpu_cluster_detail",
+    "pattern": "^Kluster (.+) \\((.+)\\)$",
+    "id": "Kluster %1$s (%2$s)",
+    "en": "Cluster %1$s (%2$s)"
+  },
+  {
+    "key": "dynamic_cpu_core_opp_governor",
+    "pattern": "^Core (.+) · (.+) · (.+) Level OPP · Gov: (.+)$",
+    "id": "Core %1$s · %2$s · %3$s Level OPP · Gov: %4$s",
+    "en": "Core %1$s · %2$s · %3$s OPP Levels · Governor: %4$s"
+  },
+  {
+    "key": "dynamic_hud_benchmark_countdown",
+    "pattern": "^Benchmarking\\.\\.\\. (.+)s$",
+    "id": "Benchmark berjalan... %1$s dtk",
+    "en": "Benchmarking... %1$s s"
+  },
+  {
+    "key": "dynamic_gpu_client_composition",
+    "pattern": "^Sebagian buffer dikomposisikan via GPU Client Fallback \\((.+)\\)\\.$",
+    "id": "Sebagian buffer dikomposisikan melalui GPU Client Fallback (%1$s).",
+    "en": "Some buffers are composited through GPU Client Fallback (%1$s)."
+  },
+  {
+    "key": "dynamic_physical_driver_node_list",
+    "pattern": "^Daftar Node Fisik Driver \\((.+) Node\\)$",
+    "id": "Daftar Node Fisik Driver (%1$s Node)",
+    "en": "Physical Driver Node List (%1$s Nodes)"
+  },
+  {
+    "key": "dynamic_process_thread_count",
+    "pattern": "^(.+) Threads$",
+    "id": "%1$s thread",
+    "en": "%1$s Threads"
+  },
+  {
+    "key": "dynamic_process_cpu_affinity",
+    "pattern": "^Core (.+)$",
+    "id": "Inti %1$s",
+    "en": "Core %1$s"
+  },
+  {
+    "key": "dynamic_process_nice_priority",
+    "pattern": "^(-?\\d+) \\((.+)\\)$",
+    "id": "%1$s (%2$s)",
+    "en": "%1$s (%2$s)"
+  },
+  {
+    "key": "dynamic_thermal_zone_label",
+    "pattern": "^Zone (.+)$",
+    "id": "Zona %1$s",
+    "en": "Zone %1$s"
+  },
+  {
+    "key": "dynamic_hud_stability_percentile",
+    "pattern": "^Stab (.+)% · 1%L (.+)$",
+    "id": "Stabilitas %1$s%% • 1%%L %2$s",
+    "en": "Stability %1$s%% • 1%%L %2$s"
+  },
+  {
+    "key": "dynamic_wakelock_prevent_suspend",
+    "pattern": "^(.+)ms tahan sleep$",
+    "id": "%1$s ms mencegah tidur",
+    "en": "%1$s ms preventing sleep"
+  },
+  {
+    "key": "dynamic_resolution_pixels",
+    "pattern": "^(.+) Piksel$",
+    "id": "%1$s piksel",
+    "en": "%1$s pixels"
+  },
+  {
+    "key": "dynamic_gpu_hal_architecture",
+    "pattern": "^HAL: (.+)$",
+    "id": "HAL: %1$s",
+    "en": "HAL: %1$s"
+  },
+  {
+    "key": "dynamic_gpu_thermal_throttling_warning",
+    "pattern": "^Thermal Throttling: (.+)$",
+    "id": "Throttling Termal: %1$s",
+    "en": "Thermal Throttling: %1$s"
+  },
+  {
+    "key": "dynamic_color_saturation",
+    "pattern": "^Saturation: (.+)$",
+    "id": "Saturasi: %1$s",
+    "en": "Saturation: %1$s"
+  },
+  {
+    "key": "dynamic_kcal_saturation",
+    "pattern": "^KCAL Saturation: (.+)$",
+    "id": "Saturasi KCAL: %1$s",
+    "en": "KCAL Saturation: %1$s"
+  }
+]

@@ -1,5 +1,13 @@
 # ⚡ LYNX [Codename: Deity] — Universal Hybrid Root Optimizer
-> **Versi Modul**: 7.0.0-RC26 | **Aplikasi**: v3.0.91 | **Author**: ɴᴏɪʀ | **Platform**: Android (KernelSU / APatch / Magisk)
+> **Versi Modul**: 7.0.0-RC123 | **Author**: ɴᴏɪʀ | **Platform**: Android 10 – 15 (KernelSU / APatch / Magisk)
+
+---
+
+## 📌 Dokumentasi & Cetak Biru Arsitektur
+- 📚 **[Dokumentasi Spesifikasi Teknis Lengkap (`docs/`)](./docs/README.md)**
+- 📱 **[Cetak Biru Arsitektur Modular Per-Halaman (`docs/architecture/`)](./docs/architecture/README.md)**
+- 📖 **[Panduan Pengguna (Bahasa Indonesia)](./docs/userguides/UserGuide-ID.md) | [User Guide (English)](./docs/userguides/UserGuide-EN.md)**
+- 🔬 **[Arsip Pengujian & Benchmarks Lapangan](./docs/benchmarks/)**
 
 ---
 
