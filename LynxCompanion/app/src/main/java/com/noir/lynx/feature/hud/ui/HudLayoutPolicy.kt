@@ -8,7 +8,7 @@ internal data class HudPanelLayout(val railWidth: Float, val contentWidth: Float
 
 /** All widths are dp; label widths must already include the current font scale. */
 internal object HudLayoutPolicy {
-    const val CONTENT_PADDING = 8f
+    const val CONTENT_PADDING = 6f
     const val MIN_CONTENT = 176f
 
     fun resolve(panelWidth: Float, widestLabel: Float): HudPanelLayout {

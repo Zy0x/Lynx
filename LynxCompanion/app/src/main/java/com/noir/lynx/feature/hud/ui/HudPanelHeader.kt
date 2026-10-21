@@ -34,13 +34,13 @@ import com.noir.lynx.feature.hud.data.HudReading
 internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Float) -> Unit, onClose: () -> Unit) {
     val drag by rememberUpdatedState(onDrag)
     val description = hudString(R.string.hud_drag)
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).heightIn(min = 48.dp).semantics { contentDescription = description }
             .pointerInput(Unit) { detectDragGestures { change, amount -> change.consume(); drag(amount.y) } },
             verticalArrangement = Arrangement.Center) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.width(3.dp).height(16.dp).background(HudCyan, RoundedCornerShape(2.dp)))
-                Text(hudString(R.string.hud_title), color = HudCyan, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Text(hudString(R.string.hud_title), color = HudCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 12.sp,
                 color = HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -56,10 +56,10 @@ internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Floa
 @Composable
 internal fun HudAppDock(apps: List<HudApp>, onApp: (HudApp) -> Unit) {
     if (apps.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-        .padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        .padding(horizontal = 6.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         apps.forEach { app ->
             Box(Modifier.size(48.dp).clickable(role = Role.Button) { onApp(app) }, contentAlignment = Alignment.Center) {
-                Image(app.icon.asImageBitmap(), app.label, Modifier.size(32.dp))
+                Image(app.icon.asImageBitmap(), app.label, Modifier.size(28.dp))
             }
         }
     }

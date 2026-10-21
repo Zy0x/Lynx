@@ -34,21 +34,21 @@ internal val HudPage.label: Int get() = when (this) {
 
 @Composable
 internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPage) -> Unit) {
-    Column(Modifier.width(width.dp).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)
-        .selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.width(width.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)
+        .selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         HudPage.values().forEach { page ->
             val active = selected == page
             val title = hudString(page.label)
             val background by animateColorAsState(if (active) HudCyan.copy(alpha = 0.12f) else Color.Transparent, tween(200), label = title)
             Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp).clip(RoundedCornerShape(10.dp))
                 .background(background).selectable(active, role = Role.Tab, onClick = { onSelect(page) })
-                .heightIn(min = 64.dp)) {
+                .heightIn(min = 56.dp)) {
                 if (active) Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(24.dp)
                     .background(HudCyan, RoundedCornerShape(2.dp)))
-                Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     val icon = when(page) { HudPage.Summary -> Icons.Default.Speed; HudPage.Details -> Icons.Default.ShowChart; HudPage.Tools -> Icons.Default.Tune }
-                    Icon(icon, null, Modifier.size(20.dp), tint = if (active) HudCyan else HudMuted)
+                    Icon(icon, null, Modifier.size(18.dp), tint = if (active) HudCyan else HudMuted)
                     Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                         color = if (active) HudCyan else HudMuted, softWrap = false)
                 }

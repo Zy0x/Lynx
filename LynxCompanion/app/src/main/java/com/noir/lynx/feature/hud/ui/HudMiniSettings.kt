@@ -24,7 +24,7 @@ fun HudMiniSettings(modifier: Modifier = Modifier) {
     HudTheme {
         Surface(modifier.fillMaxWidth(), color = HudCard, shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(hudString(R.string.hud_configure), fontSize = 16.sp)
+                Text(hudString(R.string.hud_configure), fontSize = 14.sp)
                 HudMetricSelection(prefs, store)
             }
         }
@@ -47,7 +47,7 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
                     row.forEach { metric ->
                         Column(Modifier.weight(1f)) {
                             Text(hudString(metric.label), fontSize = 12.sp, color = HudMuted)
-                            Text("—", fontSize = 18.sp)
+                            Text("—", fontSize = 16.sp)
                         }
                     }
                 }
@@ -62,15 +62,15 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
 
 @Composable
 internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val labelWidth = hudLabelWidth(listOf(label), 14)
+    val labelWidth = hudLabelWidth(listOf(label))
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (HudLayoutPolicy.fits(maxWidth.value, listOf(labelWidth, 52f))) {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(label, Modifier.weight(1f), fontSize = 14.sp)
+                Text(label, Modifier.weight(1f), fontSize = 12.sp)
                 Switch(checked, onCheckedChange, Modifier.semantics { contentDescription = label })
             }
         } else Column(Modifier.fillMaxWidth()) {
-            Text(label, fontSize = 14.sp)
+            Text(label, fontSize = 12.sp)
             Switch(checked, onCheckedChange, Modifier.align(Alignment.End).semantics { contentDescription = label })
         }
     }

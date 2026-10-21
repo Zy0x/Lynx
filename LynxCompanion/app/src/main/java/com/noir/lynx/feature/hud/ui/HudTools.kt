@@ -17,7 +17,7 @@ import kotlin.math.abs
 internal fun HudTools(prefs: HudPreferences, store: HudPreferencesStore, rates: List<Float>, activeHz: HudReading,
     action: HudActionState, onHz: (Float) -> Unit, onCapture: () -> Unit, onStop: () -> Unit) {
     var configure by rememberSaveable { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HudSection(hudString(R.string.hud_quick_actions)) {
             HudAction(hudString(R.string.hud_capture), !action.busy, onCapture, Modifier.fillMaxWidth())
         }

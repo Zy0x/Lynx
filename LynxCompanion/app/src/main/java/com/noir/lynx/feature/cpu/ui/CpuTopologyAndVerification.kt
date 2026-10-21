@@ -69,7 +69,7 @@ fun CpuTopologySpecCard(
     val expandedClusters = remember { mutableStateMapOf<Int, Boolean>() }
 
     LynxCard(
-        title = "TOPOLOGI SILIKON & LEVEL FREKUENSI",
+        title = "Topologi Silikon & Level Frekuensi",
         icon = Icons.Default.Memory,
         accentColor = AccentCyan,
         modifier = modifier
@@ -81,7 +81,7 @@ fun CpuTopologySpecCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text("MODEL CHIPSET", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Model Chipset", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     Text(
                         text = if (socPlatform.isNotBlank()) socPlatform else "Qualcomm / MediaTek ARM",
                         fontSize = 11.5.sp,
@@ -94,7 +94,7 @@ fun CpuTopologySpecCard(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text("SUSUNAN INTI", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Susunan Inti", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     Text(
                         text = if (socTopology.isNotBlank()) socTopology else "8 Inti Heterogeneous",
                         fontSize = 11.sp,
@@ -109,7 +109,7 @@ fun CpuTopologySpecCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text("ARSITEKTUR ISA", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Arsitektur ISA", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     Text(
                         text = siliconDetails.isaArchitecture.ifBlank { "ARMv8.2-A (64-bit)" },
                         fontSize = 10.5.sp,
@@ -122,7 +122,7 @@ fun CpuTopologySpecCard(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text("DRIVER & IDLE STATE", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Driver & Idle State", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     val idleText = if (siliconDetails.cStateSummary.isNotBlank()) {
                         "${siliconDetails.scalingDriver} · ${siliconDetails.cStateSummary.substringBefore(" (")}"
                     } else {
@@ -142,7 +142,7 @@ fun CpuTopologySpecCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                    Text("VENDOR IMPLEMENTER", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Vendor Implementer", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     Text(
                         text = siliconDetails.implementerName.ifBlank { "ARM Limited (0x41)" },
                         fontSize = 10.5.sp,
@@ -155,7 +155,7 @@ fun CpuTopologySpecCard(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text("INTERCONNECT / MEMORY BUS", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Interconnect / Memory Bus", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     val cciText = when {
                         siliconDetails.interconnectBusLabel.isNotBlank() -> siliconDetails.interconnectBusLabel
                         siliconDetails.cciFreqMhz > 0 -> {
@@ -178,7 +178,7 @@ fun CpuTopologySpecCard(
 
             if (siliconDetails.instructionSummary.isNotBlank()) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("INSTRUKSI HARDWARE (ISA EXTENSIONS)", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                    Text("Instruksi Hardware (ISA Extensions)", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
                     Text(
                         text = siliconDetails.instructionSummary,
                         fontSize = 9.8.sp,

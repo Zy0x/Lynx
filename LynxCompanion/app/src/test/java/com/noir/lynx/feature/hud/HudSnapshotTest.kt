@@ -38,9 +38,15 @@ class HudSnapshotTest {
     @Test fun panelFitsPortraitLandscapeTabletAndNarrowWindows() {
         listOf(360f to 800f, 800f to 360f, 1080f to 800f, 280f to 640f).forEach { (w,h) ->
             val v = HudViewport(w,h)
-            assertTrue(v.panelWidth <= w * if (v.landscape) 0.44f else 0.8f)
+            assertTrue(v.panelWidth <= w * if (v.landscape) 0.44f else 0.85f)
             assertTrue(v.panelWidth <= if (v.landscape) 384f else 336f)
             assertTrue(v.panelHeight <= h)
         }
+    }
+
+    @Test fun portraitUsesEightyFivePercentUntilTheExistingDpCap() {
+        assertEquals(306f, HudViewport(360f, 800f).panelWidth, 0.001f)
+        assertEquals(336f, HudViewport(412f, 800f).panelWidth, 0.001f)
+        assertEquals(352f, HudViewport(800f, 360f).panelWidth, 0.001f)
     }
 }

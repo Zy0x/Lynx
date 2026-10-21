@@ -43,7 +43,7 @@ internal fun hudLabelWidth(labels: List<String>, size: Int = 12, numeric: Boolea
 @Composable
 internal fun HudSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxWidth(), color = HudCard, shape = RoundedCornerShape(12.dp)) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, color = HudCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             content()
         }
@@ -56,7 +56,7 @@ internal fun HudChoice(label: String, selected: Boolean, onClick: () -> Unit,
     val background by animateColorAsState(if (selected) HudCyan.copy(alpha = 0.14f) else Color.Transparent, tween(200), label = label)
     Box(modifier.clip(RoundedCornerShape(10.dp)).background(background)
         .selectable(selected, enabled = enabled, role = role, onClick = onClick)
-        .heightIn(min = 48.dp).padding(horizontal = 4.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+        .heightIn(min = 48.dp).padding(horizontal = 4.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (!enabled) HudMuted.copy(alpha = 0.5f) else if (selected) HudCyan else HudMuted,
             fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
     }
@@ -76,18 +76,18 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
 internal fun HudReadingLine(label: String, reading: HudReading) {
     val value = hudString(R.string.hud_value, reading.text(), reading.unit)
     val labelWidth = hudLabelWidth(listOf(label))
-    val valueWidth = hudLabelWidth(listOf(value), 16, numeric = true)
+    val valueWidth = hudLabelWidth(listOf(value), 14, numeric = true)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val available = maxWidth.value
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             if (HudLayoutPolicy.fits(available, listOf(labelWidth, valueWidth))) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(label, Modifier.weight(1f), fontSize = 12.sp, color = HudMuted)
-                    Text(value, fontSize = 16.sp, fontFamily = FontFamily.Monospace)
+                    Text(value, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
                 }
             } else {
                 Text(label, fontSize = 12.sp, color = HudMuted)
-                Text(value, fontSize = 16.sp, fontFamily = FontFamily.Monospace)
+                Text(value, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
             }
             if (reading.status != "valid") Text(statusText(reading.status), fontSize = 12.sp, color = HudMuted)
         }

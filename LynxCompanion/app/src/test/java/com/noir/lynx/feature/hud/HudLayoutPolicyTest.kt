@@ -7,9 +7,9 @@ import org.junit.Test
 
 class HudLayoutPolicyTest {
     @Test fun navigationSwitchesExactlyAtMinimumContentWidth() {
-        assertTrue(HudLayoutPolicy.resolve(264f, 56f).useRail)
-        assertEquals(176f, HudLayoutPolicy.resolve(264f, 56f).contentWidth, 0f)
-        val narrower = HudLayoutPolicy.resolve(263.9f, 56f)
+        assertTrue(HudLayoutPolicy.resolve(260f, 56f).useRail)
+        assertEquals(176f, HudLayoutPolicy.resolve(260f, 56f).contentWidth, 0f)
+        val narrower = HudLayoutPolicy.resolve(259.9f, 56f)
         assertFalse(narrower.useRail)
         assertEquals(247.9f, narrower.contentWidth, 0.001f)
     }
@@ -20,7 +20,7 @@ class HudLayoutPolicyTest {
         assertEquals(72f, short.railWidth, 0f)
         assertEquals(106f, long.railWidth, 0f)
         assertTrue(long.useRail)
-        assertFalse(HudLayoutPolicy.resolve(336f, 130f).useRail)
+        assertFalse(HudLayoutPolicy.resolve(336f, 134f).useRail)
     }
 
     @Test fun safeWindowAndScaledLabelMatrixStaysWithinExistingOverlayLimits() {
@@ -31,7 +31,7 @@ class HudLayoutPolicyTest {
                     for (label in listOf(52f, 58f, 84f)) {
                         val layout = HudLayoutPolicy.resolve(viewport.panelWidth, label * scale)
                         assertTrue(layout.contentWidth > 0)
-                        val occupied = layout.contentWidth + 16f + if (layout.useRail) layout.railWidth else 0f
+                        val occupied = layout.contentWidth + HudLayoutPolicy.CONTENT_PADDING * 2 + if (layout.useRail) layout.railWidth else 0f
                         assertEquals(viewport.panelWidth, occupied, 0.001f)
                         if (layout.useRail) assertTrue(layout.contentWidth >= 176f)
                         assertTrue(viewport.panelHeight <= viewport.heightDp)

@@ -37,7 +37,7 @@ internal fun HudTheme(content: @Composable () -> Unit) {
 
 @Composable
 internal fun HudValue(reading: HudReading, large: Boolean = false) {
-    Text(text = reading.text(), fontSize = if (large) 32.sp else 18.sp,
+    Text(text = reading.text(), fontSize = if (large) 28.sp else 16.sp,
         fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, color = if (reading.value != null && reading.status == "valid") Color.White else HudMuted,
         maxLines = 1)
 }
@@ -45,7 +45,7 @@ internal fun HudValue(reading: HudReading, large: Boolean = false) {
 @Composable
 internal fun HudAction(label: String, enabled: Boolean = true, onClick: () -> Unit, modifier: Modifier = Modifier) {
     OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 48.dp),
-        border = BorderStroke(1.dp, HudMuted.copy(alpha = 0.22f)), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
+        border = BorderStroke(1.dp, HudMuted.copy(alpha = 0.22f)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
         Text(text = label, fontSize = 12.sp)
     }
 }

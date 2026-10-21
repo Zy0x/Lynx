@@ -53,14 +53,14 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
                 Row(Modifier.weight(1f, fill = false)) {
                     if (layout.useRail) HudNavigationRail(page, layout.railWidth) { page = it }
                     Column(Modifier.weight(1f)) {
-                        if (!layout.useRail) Box(Modifier.padding(horizontal = 8.dp)) {
+                        if (!layout.useRail) Box(Modifier.padding(horizontal = HudLayoutPolicy.CONTENT_PADDING.dp)) {
                             HudDisclosure(hudString(page.label), menuOpen) { menuOpen = !menuOpen }
                         }
                         if (!layout.useRail && menuOpen) {
                             HudPageMenu(page, { page = it; menuOpen = false }, Modifier.weight(1f, fill = false))
                         } else pageState.SaveableStateProvider(page.name) {
                             Column(Modifier.weight(1f, fill = false).verticalScroll(scrolls.getValue(page))
-                                .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 when (page) {
                                     HudPage.Summary -> HudOverview(snapshot, action, onProfile, onCapture, { page = HudPage.Tools })
                                     HudPage.Details -> HudDetails(snapshot)

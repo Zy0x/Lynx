@@ -166,8 +166,8 @@ fun TopProcessListCard(
     val activeProcs = if (procs.isNotEmpty()) procs else LynxRepository.getCachedTopProcesses()
 
     LynxCard(
-        title = "PROSES CPU AKTIF (SNAPSHOT)",
-        subtitle = "Daftar dipotret saat Monitor dibuka; grafik CPU tetap live",
+        title = "Proses CPU Aktif",
+        subtitle = "Snapshot beban thread dan aplikasi tertinggi",
         icon = Icons.Default.Terminal,
         accentColor = AccentOrange,
         modifier = modifier

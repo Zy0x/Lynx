@@ -1,3 +1,40 @@
+# Lynx Universal [CPU System & Monitor Tabs Architectural Redesign] 7.0.0-RC144
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC144** (Lynx Kernel Manager v3.1.90): **Redesain Menyeluruh Halaman CPU Bagian Tab Sistem dan Tab Monitor Berdasarkan Pedoman `/redesign-existing-projects`: Menyatukan Seluruh Kartu Terpisah Menjadi Satu Pengalaman Master Berhierarki Bersih yang Selaras Sempurna dengan Tab Performa; Menghadirkan Banner Status Sistem Terpadu dengan 4 Preset Harmonik 1-Klik (Hemat Daya, Seimbang, Responsif, Maksimal); Mengintegrasikan 3 Seksi Accordion Dropdown (Penjadwal Tugas & Uclamp Boost, Efisiensi Daya & C-States, Isolasi Aplikasi & CPU Sets) Menggunakan Tipografi Sentence Case dan Bahasa Manusiawi yang Menghilangkan Beban Psikologis Pengguna; Mempercantik Tab Monitor dengan Hero Waveform Bezier Bergradien Halus, Matriks 2x4 Inti CPU Tactile Bento Berbadge Arsitektur Little/Big dan Angka Monospace Tabular; Serta Merapikan Kartu Snapshot Proses Aktif dan Topologi Silikon Tanpa AI Slop**.
+
+## Rangkuman Perbaikan & Redesain Arsitektur (7.0.0-RC144)
+
+### 1. 🎨 Redesain Tab Sistem (`CpuUnifiedSystemCard.kt`)
+- **Penyatuan Kartu (*Unified Master Experience*)**:
+  - Mengeliminasi fragmentasi 4 kartu terpisah (`Status Profil`, `CpuIdleCoreParkingCard`, `CpuSetsTaskShieldCard`, `KernelSchedulerCard`) menjadi satu kesatuan kartu master terstruktur dengan background `Color(0xFF10141F)` dan border gradient lembut.
+- **Header Status & Preset Harmonik 1-Klik**:
+  - Menampilkan status keselarasan sistem terhadap baseline profil aktif master dengan tombol *single-tap* "Reset Baseline" jika parameter dimodifikasi.
+  - Menyediakan 4 preset sistem harmonik: **Hemat Daya (Eco Sleep)**, **Seimbang (Balanced - Standar)**, **Responsif (Low Latency)**, dan **Maksimal (High Priority)**.
+- **3 Seksi Dropdown Accordion Terpadu**:
+  - **Seksi 1: Penjadwal Kernel & Prioritas Tugas (EAS & Uclamp Boost)**:
+    - Selector mode arsitektur penjadwalan (EAS / HMP / Hybrid).
+    - Slider Uclamp Boost dengan spektrum visual 4-zona kontinu dan deskripsi efek dinamis yang mudah dipahami tanpa intimidasi teknis.
+    - Toggle Prefer Idle dan Power-Efficient Workqueue.
+  - **Seksi 2: Efisiensi Daya & Istirahat Inti (C-States & Core Parking)**:
+    - Selector mode core parking (Dinamis OEM / Parkir Big Core / Semua Inti Siaga).
+    - Tombol akses lembar granular C-states dan toggle ARM PLL Deep Sleep.
+  - **Seksi 3: Isolasi Aplikasi & Perisai Tugas (CPU Sets)**:
+    - Preset alokasi tugas (Standar OEM / Gaming Shield / Fokus Latar Depan).
+    - Tombol akses lembar matriks alokasi inti manual.
+
+### 2. 📊 Redesain Tab Monitor (`CpuHardwareMonitorCard.kt`)
+- **Master Telemetry & Waveform Hero Card**:
+  - Indikator status live stream yang tenang dan tidak menyilaukan mata.
+  - Kluster metrik hero: Angka besar beban CPU total dengan badge klasifikasi dinamis (*Beban Ringan / Optimal / Tinggi / Puncak*), disandingkan dengan mini-panel spesifikasi Suhu, Clock Rata-rata, dan Clock Puncak dalam font monospace tabular.
+  - Kanvas kurva Bezier halus bergradien hijau-transparan dengan garis referensi grid subtil dan ringkasan 30 detik (Min / Avg / Max).
+- **Matriks 2x4 Inti CPU Tactile Bento**:
+  - Chip inti berukuran ergonomis dengan badge peran inti (`L` untuk Little, `B` untuk Big), frekuensi monospace tabular, status dot aktif/tidur, dan micro-bar beban inti.
+  - Perlindungan dialog Core 0 dan konfirmasi hotplug dengan umpan balik haptic.
+- **Penyelarasan Kartu Proses & Topologi**:
+  - Memperbarui `TopProcessListCard` dan `CpuTopologySpecCard` ke gaya tipografi sentence case yang bersih, bebas huruf kapital berlebihan (*anti-all-caps*), dan terstruktur rapi.
+
+---
+
 # Lynx Universal [Zero-Shell Compose UI & Main Thread Lock Elimination Architecture] 7.0.0-RC143
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC143** (Lynx Kernel Manager v3.1.89): **Penyelesaian Tuntas & Mutlak Masalah UI Macet / ANR (*Application Not Responding*) Berdasarkan Bukti Nyata Stack Trace ART Dropbox: Menghapus Total Eksekusi `Shell.cmd().exec()` pada Main UI Thread di dalam Compose `DashboardHeaderItem`, `AutomationHeroServiceCard`, dan `TuningProfilesCategory` yang Terjadi Akibat Pemanggilan `LynxAppAutomationService.currentBaseline`; Mengubah `currentBaseline` Menjadi In-Memory State Murni Berbasis `@Volatile var cachedBaseline` Berlatensi Nol; Menambahkan Perlindungan `Looper.getMainLooper()` pada `readBaselineProfile()` dan `readCurrentProfileFast()` di `LynxRepository.kt` untuk Menjamin Tidak Ada Perintah Shell yang Dapat Berjalan di Main Thread; Menghapus Pemindaian Otomatis 300 Node Sysfs (`scanDeepTunables()`) pada Jendela 500ms Cold Start yang Mengunci Antrean LibSU; Serta Menumpas Seketika Proses Orphan Runaway Shell (PID 5995 & 18764) yang Memonopoli 100% CPU Menggunakan `pgrep -P 1 -x sh` Tanpa Beban Subshell**.

@@ -20,7 +20,7 @@ import com.noir.lynx.feature.hud.data.*
 @Composable
 internal fun HudDetails(snapshot: HudSnapshot) {
     var diagnostics by rememberSaveable { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HudSection(hudString(R.string.hud_group_frame)) {
             HudFrameChart(snapshot)
             listOf(HudMetric.FPS, HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ, HudMetric.FRAME_AVERAGE, HudMetric.FPS_LOW).forEach {
@@ -69,7 +69,7 @@ private fun HudFrameChart(snapshot: HudSnapshot) {
         Text(hudString(R.string.hud_frame_chart), fontSize = 12.sp, color = HudMuted)
         Text(hudString(R.string.hud_chart_range, "%.1f".format(low), "%.1f".format(high)), fontSize = 12.sp, color = HudMuted)
         val description = hudString(R.string.hud_frame_chart)
-        Canvas(Modifier.fillMaxWidth().height(56.dp).semantics { contentDescription = description }) {
+        Canvas(Modifier.fillMaxWidth().height(48.dp).semantics { contentDescription = description }) {
             val max = high.coerceAtLeast(1f)
             val path = Path()
             history.forEachIndexed { i, v ->

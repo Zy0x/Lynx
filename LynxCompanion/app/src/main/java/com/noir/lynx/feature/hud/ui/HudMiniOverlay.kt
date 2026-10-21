@@ -25,7 +25,7 @@ import kotlin.math.min
 
 data class HudViewport(val widthDp: Float = 360f, val heightDp: Float = 720f) {
     val landscape get() = widthDp > heightDp
-    val panelWidth get() = min(widthDp * if (landscape) 0.44f else 0.8f, if (landscape) 384f else 336f)
+    val panelWidth get() = min(widthDp * if (landscape) 0.44f else 0.85f, if (landscape) 384f else 336f)
     val panelHeight get() = heightDp * if (landscape) 1f else 0.7f
 }
 

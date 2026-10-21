@@ -1,69 +1,57 @@
 package com.noir.lynx.feature.cpu.ui
-import com.noir.lynx.feature.cpu.ui.CompactClusterRow
 
-import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.designsystem.card.*
-import com.noir.lynx.designsystem.controls.*
-import com.noir.lynx.designsystem.tweak.*
-import com.noir.lynx.designsystem.profile.*
-
-import java.util.Locale
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas as AndroidCanvas
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
-import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.noir.lynx.R
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.*
-import com.noir.lynx.feature.cpu.ui.CpuSetsTaskShieldCard
+import com.noir.lynx.designsystem.theme.*
 
-import com.noir.lynx.ui.*
-
+/**
+ * CpuHardwareMonitorCard — Redesigned Master CPU Monitor & Silicon Telemetry.
+ *
+ * Standards:
+ * 1. Master Telemetry Hero: High-precision Bezier waveform with 30s min/avg/max tracking.
+ * 2. 8-Core Bento Matrix: Tactile 2x4 core chips with Little/Big role markers, MHz, and load bars.
+ * 3. Hotplug Safety: Protected Core 0 notice and explicit confirmation modal with haptics.
+ * 4. Structured Process & Topology Sub-cards: Sentence case, clean tabular figures, zero visual slop.
+ */
 @Composable
 fun CpuHardwareMonitorCard(
     uiState: LynxUiState,
     onToggleCore: (CpuCoreInfo) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val cores = uiState.cpuCores
     val history = uiState.cpuLoadHistory
     val curLoad = uiState.totalCpuLoadPercent.coerceIn(0, 100)
@@ -80,23 +68,22 @@ fun CpuHardwareMonitorCard(
     val avgMhz = if (onlineCores.isNotEmpty()) onlineCores.map { it.curFreqKhz / 1000 }.average().toInt() else 0
     val peakMhz = uiState.clusters.map { it.curMax / 1000 }.maxOrNull() ?: 2050
 
+    val (loadCategoryLabel, loadCategoryColor) = when {
+        curLoad <= 25 -> Pair("Beban Ringan", AccentGreen)
+        curLoad <= 65 -> Pair("Beban Optimal", AccentCyan)
+        curLoad <= 85 -> Pair("Beban Tinggi", AccentOrange)
+        else -> Pair("Beban Puncak", AccentRed)
+    }
+
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Master Hero Card (Bezier Waveform & 8-Core Live Grid)
+        // ── 1. Master Telemetry Hero Card (Waveform & 8-Core Grid) ──
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = Color(0xFF10141F),
-            border = BorderStroke(
-                0.8.dp,
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0x28FFFFFF),
-                        Color(0x10FFFFFF)
-                    )
-                )
-            ),
+            border = BorderStroke(0.8.dp, Brush.verticalGradient(listOf(Color(0x28FFFFFF), Color(0x10FFFFFF)))),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Header: Title & Live indicator
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -104,61 +91,71 @@ fun CpuHardwareMonitorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Analytics,
-                            contentDescription = null,
-                            tint = AccentGreen,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "AKTIVITAS CPU REAL-TIME",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AccentGreen.copy(alpha = 0.12f),
+                            border = BorderStroke(0.5.dp, AccentGreen.copy(alpha = 0.35f)),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Analytics, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Aktivitas CPU Real-Time", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                            Text("Pemantauan live frekuensi dan beban inti", fontSize = 9.5.sp, color = TextSecondary.copy(alpha = 0.75f))
+                        }
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentGreen.copy(alpha = 0.12f),
+                        border = BorderStroke(0.5.dp, AccentGreen.copy(alpha = 0.35f))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(AccentGreen)
-                        )
-                        Text(
-                            text = "Live Stream",
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentGreen
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(AccentGreen))
+                            Text("Live", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = AccentGreen)
+                        }
                     }
                 }
 
-                // Hero Metric Row: Big Percent on Left, Compact Specs on Right
+                // Hero Metric Cluster: Total Load + Status Pill on Left, Bento Stats on Right
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(
-                            text = "$curLoad%",
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TextPrimary,
-                            lineHeight = 36.sp
-                        )
-                        Text(
-                            text = "Beban Sistem Total",
-                            fontSize = 10.sp,
-                            color = TextSecondary
-                        )
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = "$curLoad",
+                                fontSize = 34.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace,
+                                color = TextPrimary,
+                                lineHeight = 36.sp
+                            )
+                            Text(
+                                text = "%",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary,
+                                modifier = Modifier.padding(bottom = 3.dp, start = 2.dp)
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(loadCategoryColor))
+                            Spacer(Modifier.width(5.dp))
+                            Text(loadCategoryLabel, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = loadCategoryColor)
+                        }
                     }
 
+                    // Mini Stats Grid
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF0C0F17),
@@ -195,10 +192,10 @@ fun CpuHardwareMonitorCard(
                         val h = size.height
                         if (w <= 0 || h <= 0) return@Canvas
 
-                        val gridColor = BorderSubtle
-                        drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.25f), end = androidx.compose.ui.geometry.Offset(w, h * 0.25f), strokeWidth = 1f)
-                        drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.50f), end = androidx.compose.ui.geometry.Offset(w, h * 0.50f), strokeWidth = 1f)
-                        drawLine(gridColor, start = androidx.compose.ui.geometry.Offset(0f, h * 0.75f), end = androidx.compose.ui.geometry.Offset(w, h * 0.75f), strokeWidth = 1f)
+                        val gridColor = Color(0x12FFFFFF)
+                        drawLine(gridColor, start = Offset(0f, h * 0.25f), end = Offset(w, h * 0.25f), strokeWidth = 1f)
+                        drawLine(gridColor, start = Offset(0f, h * 0.50f), end = Offset(w, h * 0.50f), strokeWidth = 1f)
+                        drawLine(gridColor, start = Offset(0f, h * 0.75f), end = Offset(w, h * 0.75f), strokeWidth = 1f)
 
                         val points = if (history.size < 2) listOf(curLoad, curLoad) else history
                         val stepX = w / (points.size - 1).coerceAtLeast(1)
@@ -238,8 +235,8 @@ fun CpuHardwareMonitorCard(
 
                         val lastX = w
                         val lastY = (1f - (curLoad / 100f)) * (h - 8f) + 4f
-                        drawCircle(color = AccentGreen.copy(alpha = 0.3f), radius = 6f, center = androidx.compose.ui.geometry.Offset(lastX, lastY))
-                        drawCircle(color = AccentGreen, radius = 3f, center = androidx.compose.ui.geometry.Offset(lastX, lastY))
+                        drawCircle(color = AccentGreen.copy(alpha = 0.3f), radius = 6f, center = Offset(lastX, lastY))
+                        drawCircle(color = AccentGreen, radius = 3f, center = Offset(lastX, lastY))
                     }
                 }
 
@@ -250,12 +247,12 @@ fun CpuHardwareMonitorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Riwayat Beban (30 Detik)", fontSize = 9.sp, color = TextTertiary)
-                    Text("Min $minVal% • Avg $avgVal% • Max $maxVal%", fontSize = 9.sp, color = TextSecondary)
+                    Text("Min $minVal% • Avg $avgVal% • Max $maxVal%", fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = TextSecondary)
                 }
 
-                HorizontalDivider(color = BorderSubtle, thickness = 0.8.dp)
+                HorizontalDivider(color = Color(0x12FFFFFF), thickness = 0.8.dp)
 
-                // 8-Core Live Grid (Always Open, Clean & Symmetrical 2x4)
+                // 8-Core Live Grid Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -263,16 +260,17 @@ fun CpuHardwareMonitorCard(
                 ) {
                     Text(
                         text = "STATUS INTI CPU (${if (cores.isNotEmpty()) cores.size else 8} CORES)",
-                        fontSize = 9.sp,
+                        fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextSecondary,
-                        letterSpacing = 0.8.sp
+                        letterSpacing = 0.6.sp
                     )
-                    Text("Ketuk untuk hotplug", fontSize = 8.5.sp, color = TextTertiary)
+                    Text("Ketuk inti untuk kontrol hotplug", fontSize = 8.5.sp, color = TextTertiary)
                 }
 
+                // 2x4 Core Tactile Bento Grid
                 val rows = cores.chunked(4)
-                rows.forEachIndexed { rowIndex, quad ->
+                rows.forEachIndexed { _, quad ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -284,12 +282,13 @@ fun CpuHardwareMonitorCard(
                             val load = core.loadPercent.coerceIn(0, 100)
 
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 color = Color(0xFF0C0F17),
                                 border = BorderStroke(0.6.dp, if (core.isOnline) coreAccent.copy(alpha = 0.35f) else Color(0x15FFFFFF)),
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         if (core.coreId == 0) {
                                             showCore0Notice = true
                                         } else if (core.isSwitchable) {
@@ -298,7 +297,7 @@ fun CpuHardwareMonitorCard(
                                     }
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Row(
@@ -312,22 +311,37 @@ fun CpuHardwareMonitorCard(
                                             fontWeight = FontWeight.Bold,
                                             color = if (core.isOnline) coreAccent else TextSecondary
                                         )
-                                        Box(
-                                            modifier = Modifier
-                                                .size(5.dp)
-                                                .clip(CircleShape)
-                                                .background(if (core.isOnline) coreAccent else AccentRed)
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                            Surface(
+                                                shape = RoundedCornerShape(3.dp),
+                                                color = if (isPerfCore) AccentOrange.copy(alpha = 0.15f) else AccentGreen.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    text = if (isPerfCore) "B" else "L",
+                                                    fontSize = 7.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isPerfCore) AccentOrange else AccentGreen,
+                                                    modifier = Modifier.padding(horizontal = 2.5.dp, vertical = 0.5.dp)
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (core.isOnline) coreAccent else AccentRed)
+                                            )
+                                        }
                                     }
                                     Spacer(Modifier.height(3.dp))
                                     Text(
                                         text = if (core.isOnline) "${core.curFreqKhz / 1000}" else "OFF",
-                                        fontSize = 11.5.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.ExtraBold,
+                                        fontFamily = FontFamily.Monospace,
                                         color = if (core.isOnline) TextPrimary else AccentRed
                                     )
                                     if (core.isOnline) {
-                                        Text("MHz", fontSize = 7.5.sp, color = TextSecondary, lineHeight = 7.5.sp)
+                                        Text("MHz", fontSize = 8.sp, color = TextSecondary, lineHeight = 8.sp)
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     Box(
@@ -349,7 +363,8 @@ fun CpuHardwareMonitorCard(
                                     Spacer(Modifier.height(3.dp))
                                     Text(
                                         text = if (core.isOnline) "$load%" else "--",
-                                        fontSize = 8.sp,
+                                        fontSize = 8.5.sp,
+                                        fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Medium,
                                         color = if (core.isOnline) TextSecondary else TextTertiary
                                     )
@@ -366,13 +381,13 @@ fun CpuHardwareMonitorCard(
             }
         }
 
-        // Top CPU Consumer Processes Card (Scene-Style)
+        // ── 2. Top CPU Consumer Processes Card ────────────────────
         TopProcessListCard(
             procs = uiState.topCpuProcesses,
             clusters = uiState.clusters
         )
 
-        // Hardware Topology Spec Card
+        // ── 3. Hardware Topology Spec Card ────────────────────────
         CpuTopologySpecCard(
             socPlatform = uiState.socPlatformName,
             socTopology = uiState.socTopology,
@@ -397,9 +412,10 @@ fun CpuHardwareMonitorCard(
             },
             text = {
                 Text(
-                    text = androidx.compose.ui.res.stringResource(if (core.isOnline) com.noir.lynx.R.string.cpu_core_disable_confirmation else com.noir.lynx.R.string.cpu_core_enable_confirmation, core.coreId),
+                    text = stringResource(if (core.isOnline) R.string.cpu_core_disable_confirmation else R.string.cpu_core_enable_confirmation, core.coreId),
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 16.sp
                 )
             },
             confirmButton = {
@@ -411,7 +427,7 @@ fun CpuHardwareMonitorCard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = Color.Black)
                 ) {
-                    Text("Terapkan")
+                    Text("Terapkan", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -434,18 +450,15 @@ fun CpuHardwareMonitorCard(
                 Text(
                     "Core 0 adalah Master Core sistem operasi Android yang menjalankan bootloader dan init daemon utama. Mematikan Core 0 akan memicu kernel panic seketika.",
                     fontSize = 12.sp,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 16.sp
                 )
             },
             confirmButton = {
                 TextButton(onClick = { showCore0Notice = false }) {
-                    Text("Mengerti", color = AccentCyan)
+                    Text("Mengerti", color = AccentCyan, fontWeight = FontWeight.Bold)
                 }
             }
         )
     }
 }
-
-// ============================================================
-//  9. TOP PROCESS LIST CARD (SCENE-STYLE PROCESS MONITOR)
-// ============================================================
