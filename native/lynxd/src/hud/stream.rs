@@ -2,8 +2,45 @@ use std::io::{BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
-use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to}};
+use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to, clean_layer_name, refresh_rate}};
 use crate::utils::json::quote;
+
+/// Resolves the current active performance profile with standalone fallback.
+fn detect_active_profile() -> Option<String> {
+    if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
+        if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
+            return Some(state.active_profile);
+        }
+    }
+    // Fallback 1: /data/adb/lynx/active_profile
+    if let Ok(content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
+        let p = content.trim().to_lowercase();
+        if matches!(p.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
+            return Some(p);
+        }
+    }
+    // Fallback 2: /data/adb/modules/Lynx/config.json or /data/adb/lynx/config.json
+    for path in ["/data/adb/modules/Lynx/config.json", "/data/adb/lynx/config.json"] {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Some(pos) = content.find("\"active_profile\"") {
+                if let Some(after) = content[pos..].split(':').nth(1) {
+                    let cleaned = after.trim().trim_start_matches('"').split('"').next().unwrap_or("").to_lowercase();
+                    if matches!(cleaned.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
+                        return Some(cleaned);
+                    }
+                }
+            }
+        }
+    }
+    // Fallback 3: getprop lynx.mode
+    if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
+        let p = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
+        if matches!(p.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
+            return Some(p);
+        }
+    }
+    None
+}
 
 /// Execute one bounded system query directly; never invoke a shell pipeline.
 fn query(args: &[&str]) -> Result<String, &'static str> {
@@ -51,36 +88,47 @@ pub fn run() {
             frames.reset(); layer.clear(); layers.clear(); next_layers = 0; package = target;
         }
         let mut frame_status = "warming_up";
+        let mut display_hz: Option<f64> = None;
         if package.is_empty() || package == "com.android.systemui" { frame_status = "unsupported"; }
         else {
-            if now >= next_layers {
+            if now >= next_layers || layers.is_empty() {
                 layers = query(&["SurfaceFlinger","--list"]).unwrap_or_default().lines()
-                    .filter(|s| belongs_to(s,&package)).take(12).map(str::to_owned).collect();
+                    .filter(|s| belongs_to(s,&package)).map(clean_layer_name).take(12).collect();
                 next_layers = now + 2000;
             }
             let mut candidates = Vec::new();
             let probe_layers: Vec<_> = if !layer.is_empty() && now + 500 < next_layers {
                 vec![layer.clone()]
-            } else { layers.iter().take(4).cloned().collect() };
+            } else { layers.iter().take(6).cloned().collect() };
             for name in &probe_layers {
                 match query(&["SurfaceFlinger","--latency",name]) {
-                    Ok(raw) => { let ts = timestamps(&raw); if let Some(last) = ts.last() {
-                        let sample_now = frame_now_ns();
-                        if *last <= sample_now && sample_now - last <= 1_500_000_000 { candidates.push((*last,name.clone(),ts)); }
-                    } },
+                    Ok(raw) => {
+                        if let Some(hz) = refresh_rate(&raw) { display_hz = Some(hz); }
+                        let ts = timestamps(&raw);
+                        if let Some(last) = ts.last() {
+                            let sample_now = frame_now_ns();
+                            if *last <= sample_now && sample_now - last <= 1_500_000_000 { candidates.push((*last,name.clone(),ts)); }
+                        }
+                    },
                     Err(status) => frame_status = status,
+                }
+            }
+            if display_hz.is_none() {
+                if let Ok(raw) = query(&["SurfaceFlinger","--latency"]) {
+                    display_hz = refresh_rate(&raw);
                 }
             }
             candidates.sort_by(|a,b| b.0.cmp(&a.0));
             // A SurfaceView with submitted frames takes precedence over its activity container.
             if candidates.iter().any(|c|c.1.contains("SurfaceView")) { candidates.retain(|c|c.1.contains("SurfaceView")); }
-            if candidates.len()>1 {
-                frames.reset(); layer.clear(); frame_status = "unsupported";
-            } else if let Some((_,name,ts)) = candidates.first() {
+            if let Some((_,name,ts)) = candidates.first() {
                 if *name != layer { frames.reset(); layer = name.clone(); }
                 frames.ingest(ts,frame_now_ns());
                 frame_status = if frames.gap { "warming_up" } else { "valid" };
-            } else { frames.reset(); layer.clear(); if frame_status != "permission_denied" { frame_status = "unsupported"; } }
+            } else {
+                frames.reset(); layer.clear(); next_layers = 0;
+                if frame_status != "permission_denied" { frame_status = "unsupported"; }
+            }
         }
         let stamp = now_ms();
         if stamp >= next_hw {
@@ -90,6 +138,9 @@ pub fn run() {
         }
         let source = format!("SurfaceFlinger actualPresentTime: {layer}");
         let mut metrics = hw.metrics.clone();
+        let hz_metric = display_hz.map(|hz| Metric::measured(hz, "Hz", "SurfaceFlinger refreshPeriod", stamp))
+            .unwrap_or_else(|| Metric::missing("Hz", "SurfaceFlinger", stamp, "unsupported"));
+        metrics.insert("display_hz".into(), hz_metric);
         let frame_stamp = frame_now_ns();
         let fresh = frame_status == "valid" && frames.active(frame_stamp);
         for (key,value,unit) in [
@@ -108,9 +159,7 @@ pub fn run() {
         let history = if fresh { frames.history() } else { Vec::new() };
         let history_json = history.iter().map(|v|format!("{v:.4}")).collect::<Vec<_>>().join(",");
         let charging = hw.charging.map(|v| v.to_string()).unwrap_or("null".into());
-        let profile = crate::state::ProfileStateManager::load_active().ok().flatten()
-            .filter(|state| !state.dirty && state.status == "applied")
-            .map(|state|quote(&state.active_profile)).unwrap_or("null".into());
+        let profile = detect_active_profile().map(|p| quote(&p)).unwrap_or_else(|| "null".into());
         if writeln!(stdout,"{{\"version\":1,\"at_ms\":{stamp},\"package\":{},\"layer\":{},\"profile\":{profile},\"charging\":{charging},\"metrics\":{{{metrics_json}}},\"policies\":[{policies_json}],\"history\":[{history_json}],\"collection_ms\":{}}}",quote(&package),quote(&layer),started.elapsed().as_millis()).is_err() { break; }
         if stdout.flush().is_err() { break; }
         let remaining = Duration::from_millis(500).saturating_sub(started.elapsed());

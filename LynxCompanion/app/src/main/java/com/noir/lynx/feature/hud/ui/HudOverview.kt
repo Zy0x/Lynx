@@ -41,6 +41,8 @@ internal fun HudOverview(
     onTools: () -> Unit,
     onBoostRam: () -> Unit = {}
 ) {
+    val effectiveProfile = snapshot.profile ?: remember { com.noir.lynx.data.LynxRepository.readCurrentProfileFast() }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // ── 1. BENTO HERO PERFORMANCE CARD (FPS, FRAME TIME, HZ) ──
         HudFrameSummary(snapshot)
@@ -62,7 +64,7 @@ internal fun HudOverview(
                         clock = snapshot[HudMetric.CPU_CLOCK],
                         dial = dial,
                         modifier = Modifier.weight(1f),
-                        profile = snapshot.profile
+                        profile = effectiveProfile
                     )
                     HudGauge(
                         label = hudString(R.string.hud_gpu),
@@ -70,7 +72,7 @@ internal fun HudOverview(
                         clock = snapshot[HudMetric.GPU_CLOCK],
                         dial = dial,
                         modifier = Modifier.weight(1f),
-                        profile = snapshot.profile
+                        profile = effectiveProfile
                     )
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -80,7 +82,7 @@ internal fun HudOverview(
                     clock = snapshot[HudMetric.CPU_CLOCK],
                     dial = dial,
                     modifier = Modifier.fillMaxWidth(),
-                    profile = snapshot.profile
+                    profile = effectiveProfile
                 )
                 HudGauge(
                     label = hudString(R.string.hud_gpu),
@@ -88,13 +90,13 @@ internal fun HudOverview(
                     clock = snapshot[HudMetric.GPU_CLOCK],
                     dial = dial,
                     modifier = Modifier.fillMaxWidth(),
-                    profile = snapshot.profile
+                    profile = effectiveProfile
                 )
             }
         }
 
         // ── 3. PROFILE SELECTOR ───────────────────────────────────
-        HudProfiles(snapshot.profile, action.busy, onProfile)
+        HudProfiles(effectiveProfile, action.busy, onProfile)
 
         // ── 4. QUICK TOOLS 2x2 GRID (XBOOST CONSOLE STYLE) ───────
         val hzText = snapshot[HudMetric.DISPLAY_HZ].value?.let { "${it.toInt()} Hz" } ?: "60 Hz"

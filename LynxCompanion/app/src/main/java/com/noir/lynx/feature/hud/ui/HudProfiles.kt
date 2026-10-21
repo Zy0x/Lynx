@@ -26,13 +26,15 @@ import com.noir.lynx.core.locale.LynxText as Text
 internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) -> Unit) {
     var more by rememberSaveable { mutableStateOf(false) }
     var extreme by rememberSaveable { mutableStateOf(false) }
+    val active = current?.takeIf { it in setOf("powersave", "balance", "performance", "auto", "extreme", "dormant") }
+        ?: remember { com.noir.lynx.data.LynxRepository.readCurrentProfileFast() }
     val choices = listOf("powersave" to R.string.hud_save, "balance" to R.string.hud_balanced, "performance" to R.string.hud_performance)
     val labels = choices.map { hudString(it.second) }
     val cellWidth = (hudLabelWidth(labels) + 8f).coerceAtLeast(48f)
-    val name = when(current) {
+    val name = when(active) {
         "powersave" -> R.string.hud_save; "balance" -> R.string.hud_balanced; "performance" -> R.string.hud_performance
         "auto" -> R.string.hud_auto; "extreme" -> R.string.hud_extreme; "dormant" -> R.string.hud_dormant
-        else -> R.string.hud_unsupported
+        else -> R.string.hud_balanced
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -51,13 +53,13 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
             )
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                val (chipColor, chipText) = when (current) {
+                val (chipColor, chipText) = when (active) {
                     "performance" -> HudOrange to hudString(R.string.hud_performance)
                     "extreme" -> Color(0xFFFF3B5C) to hudString(R.string.hud_extreme)
                     "powersave" -> Color(0xFF10B981) to hudString(R.string.hud_save)
                     "auto" -> HudBlue to hudString(R.string.hud_auto)
                     "balance" -> HudCyan to hudString(R.string.hud_balanced)
-                    else -> HudMuted to hudString(name)
+                    else -> HudCyan to hudString(name)
                 }
                 Surface(
                     shape = RoundedCornerShape(6.dp),
@@ -97,7 +99,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                             ProfileSegmentPill(
                                 label = labels[index],
                                 id = id,
-                                selected = current == id,
+                                selected = active == id,
                                 enabled = !busy,
                                 onClick = { onProfile(id) },
                                 modifier = Modifier.weight(1f)
@@ -109,7 +111,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                         ProfileSegmentPill(
                             label = labels[index],
                             id = id,
-                            selected = current == id,
+                            selected = active == id,
                             enabled = !busy,
                             onClick = { onProfile(id) },
                             modifier = Modifier.fillMaxWidth()

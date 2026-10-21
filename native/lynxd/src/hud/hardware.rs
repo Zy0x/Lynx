@@ -4,7 +4,9 @@ use super::Metric;
 
 pub type Metrics = BTreeMap<String, Metric>;
 
-pub fn number(raw: &str) -> Option<f64> { raw.trim().parse::<f64>().ok().filter(|v| v.is_finite()) }
+pub fn number(raw: &str) -> Option<f64> {
+    raw.trim().trim_end_matches('%').trim().parse::<f64>().ok().filter(|v| v.is_finite())
+}
 
 pub fn ged_mhz(raw: &str) -> Option<f64> {
     let cols: Vec<_> = raw.split_whitespace().collect();
@@ -15,8 +17,16 @@ pub fn ged_mhz(raw: &str) -> Option<f64> {
 fn gpu_clock(raw: &str, kind: &str, scale: f64) -> Option<f64> {
     match kind {
         "ged" => ged_mhz(raw),
-        "real" => raw.find("(real) freq:").and_then(|pos| raw[pos+12..].split_whitespace().next()).and_then(number).map(|v|v*scale),
-        _ => number(raw).map(|v|v*scale),
+        "real" => raw.find("(real) freq:").and_then(|pos| raw[pos+12..].split_whitespace().next()).and_then(number).map(|v| v * scale),
+        _ => number(raw).map(|v| {
+            if scale == 1.0 {
+                if v > 10_000_000.0 { v / 1_000_000.0 }
+                else if v > 10_000.0 { v / 1_000.0 }
+                else { v }
+            } else {
+                v * scale
+            }
+        }),
     }.filter(|v| *v >= 0.0)
 }
 
@@ -55,7 +65,9 @@ pub struct Hardware {
 impl Hardware {
     pub fn new() -> Self {
         let mut gpu = vec![
+            ("/sys/class/kgsl/kgsl-3d0/clock_mhz".into(), "plain", 1.0),
             ("/sys/class/kgsl/kgsl-3d0/gpuclk".into(), "plain", 0.000001),
+            ("/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq".into(), "plain", 1.0),
             ("/sys/kernel/ged/hal/current_freqency".into(), "ged", 1.0),
             ("/proc/gpufreq/gpufreq_var_dump".into(), "real", 0.001),
         ];
@@ -63,7 +75,7 @@ impl Hardware {
             for p in entries.flatten() {
                 let canonical = fs::canonicalize(p.path()).unwrap_or(p.path()).to_string_lossy().to_lowercase();
                 if ["gpu", "mali", "kgsl"].iter().any(|s| canonical.contains(s)) {
-                    gpu.push((p.path().join("cur_freq").to_string_lossy().into(), "plain", 0.000001));
+                    gpu.push((p.path().join("cur_freq").to_string_lossy().into(), "plain", 1.0));
                 }
             }
         }
@@ -119,13 +131,21 @@ impl Hardware {
         for (key,node,unit,scale) in [
             ("battery_level","capacity","%",1.0), ("battery_current","current_now","mA",0.001),
             ("battery_voltage","voltage_now","mV",0.001),
-        ] { self.metrics.insert(key.into(),read(&format!("/sys/class/power_supply/battery/{node}"),unit,scale,now)); }
+        ] {
+            let mut m = read(&format!("/sys/class/power_supply/battery/{node}"),unit,scale,now);
+            if m.value.is_none() {
+                let bms = read(&format!("/sys/class/power_supply/bms/{node}"),unit,scale,now);
+                if bms.value.is_some() { m = bms; }
+            }
+            self.metrics.insert(key.into(),m);
+        }
         let watts = self.metrics["battery_voltage"].value.zip(self.metrics["battery_current"].value).map(|(v,i)| v*i.abs()/1_000_000.0);
         self.metrics.insert("battery_power".into(),watts.map(|v| Metric::measured(v,"W","battery voltage × |current|",now))
             .unwrap_or_else(|| Metric::missing("W","battery",now,"unsupported")));
-        self.charging = fs::read_to_string("/sys/class/power_supply/battery/status").ok().and_then(|s| match s.trim() {
-            "Charging" => Some(true), "Discharging" | "Not charging" | "Full" => Some(false), _ => None
-        });
+        self.charging = fs::read_to_string("/sys/class/power_supply/battery/status").ok().or_else(|| fs::read_to_string("/sys/class/power_supply/bms/status").ok())
+            .and_then(|s| match s.trim() {
+                "Charging" => Some(true), "Discharging" | "Not charging" | "Full" => Some(false), _ => None
+            });
         let mem = fs::read_to_string("/proc/meminfo").unwrap_or_default();
         let kb = |key: &str| mem.lines().find(|l| l.starts_with(key)).and_then(|l| l.split_whitespace().nth(1)).and_then(number);
         let total = kb("MemTotal:");
@@ -134,8 +154,10 @@ impl Hardware {
             self.metrics.insert(key.into(),value.map(|v| Metric::measured(v,"GiB","/proc/meminfo",now)).unwrap_or_else(|| Metric::missing("GiB","/proc/meminfo",now,"unsupported")));
         }
         if temperatures {
-            self.metrics.insert("battery_temp".into(),read("/sys/class/power_supply/battery/temp","°C",0.1,now));
-            for (key, patterns) in [("cpu_temp",vec!["cpu","apc"]),("soc_temp",vec!["soc","tsens_tz"]),("gpu_temp",vec!["gpu","mali","kgsl","g3d"])] {
+            let mut btemp = read("/sys/class/power_supply/battery/temp","°C",0.1,now);
+            if btemp.value.is_none() { btemp = read("/sys/class/power_supply/bms/temp","°C",0.1,now); }
+            self.metrics.insert("battery_temp".into(),btemp);
+            for (key, patterns) in [("cpu_temp",vec!["cpu","apc"]),("soc_temp",vec!["soc","tsens","msm","pm","quiet"]),("gpu_temp",vec!["gpu","mali","kgsl","g3d"])] {
                 let mut best = Metric::missing("°C","thermal_zone/type",now,"unsupported");
                 for (path,kind) in &self.thermal {
                     if !patterns.iter().any(|p| kind.contains(p)) { continue; }
