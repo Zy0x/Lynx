@@ -259,13 +259,12 @@ fun CpuHardwareMonitorCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "STATUS INTI CPU (${if (cores.isNotEmpty()) cores.size else 8} CORES)",
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
-                        letterSpacing = 0.6.sp
+                        text = "Status Inti CPU (${if (cores.isNotEmpty()) cores.size else 8} Inti)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
                     )
-                    Text("Ketuk inti untuk kontrol hotplug", fontSize = 8.5.sp, color = TextTertiary)
+                    Text("Ketuk inti untuk kelola daya", fontSize = 8.5.sp, color = TextTertiary)
                 }
 
                 // 2x4 Core Tactile Bento Grid
@@ -305,12 +304,22 @@ fun CpuHardwareMonitorCard(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = "C${core.coreId}",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (core.isOnline) coreAccent else TextSecondary
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                text = "C${core.coreId}",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (core.isOnline) coreAccent else TextSecondary
+                                            )
+                                            if (core.coreId == 0) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = null,
+                                                    tint = TextTertiary,
+                                                    modifier = Modifier.size(9.dp)
+                                                )
+                                            }
+                                        }
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Surface(
                                                 shape = RoundedCornerShape(3.dp),
@@ -392,30 +401,46 @@ fun CpuHardwareMonitorCard(
             socPlatform = uiState.socPlatformName,
             socTopology = uiState.socTopology,
             clusters = uiState.clusters,
-            siliconDetails = uiState.siliconTopologyDetails
+            siliconDetails = uiState.siliconTopologyDetails,
+            uiState = uiState
         )
     }
 
     // Hotplug Confirmation Dialog
     if (pendingHotplugCore != null) {
         val core = pendingHotplugCore!!
+        val willTurnOff = core.isOnline
         AlertDialog(
             onDismissRequest = { pendingHotplugCore = null },
             containerColor = Color(0xFF141824),
+            shape = RoundedCornerShape(14.dp),
             title = {
-                Text(
-                    text = "Konfirmasi CPU Hotplug",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (willTurnOff) Icons.Default.PowerSettingsNew else Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = if (willTurnOff) AccentOrange else AccentGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (willTurnOff) "Parkir Inti CPU ${core.coreId}?" else "Aktifkan Inti CPU ${core.coreId}?",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
             },
             text = {
                 Text(
-                    text = stringResource(if (core.isOnline) R.string.cpu_core_disable_confirmation else R.string.cpu_core_enable_confirmation, core.coreId),
+                    text = if (willTurnOff) {
+                        "Inti CPU ${core.coreId} akan dinonaktifkan sementara untuk menghemat konsumsi daya. Anda dapat mengaktifkannya kembali kapan saja."
+                    } else {
+                        "Inti CPU ${core.coreId} akan diaktifkan kembali ke status siaga untuk memproses beban kerja komputasi."
+                    },
                     fontSize = 12.sp,
                     color = TextSecondary,
-                    lineHeight = 16.sp
+                    lineHeight = 16.5.sp
                 )
             },
             confirmButton = {
@@ -425,9 +450,13 @@ fun CpuHardwareMonitorCard(
                         pendingHotplugCore = null
                         onToggleCore(c)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentCyan, contentColor = Color.Black)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (willTurnOff) AccentOrange else AccentGreen,
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Terapkan", fontWeight = FontWeight.Bold)
+                    Text(if (willTurnOff) "Nonaktifkan Inti" else "Aktifkan Inti", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -438,25 +467,30 @@ fun CpuHardwareMonitorCard(
         )
     }
 
-    // Core 0 Protection Warning Dialog
+    // Core 0 Protection Notice Dialog (Reassuring & Informative)
     if (showCore0Notice) {
         AlertDialog(
             onDismissRequest = { showCore0Notice = false },
             containerColor = Color(0xFF141824),
+            shape = RoundedCornerShape(14.dp),
             title = {
-                Text("Core 0 Dilindungi", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Shield, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Core 0 Terlindungi", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
             },
             text = {
                 Text(
-                    "Core 0 adalah Master Core sistem operasi Android yang menjalankan bootloader dan init daemon utama. Mematikan Core 0 akan memicu kernel panic seketika.",
+                    "Core 0 berfungsi sebagai Master Core untuk sistem operasi Android dan kernel. Demi menjaga stabilitas serta responsivitas perangkat, Core 0 selalu dipertahankan aktif secara otomatis.",
                     fontSize = 12.sp,
                     color = TextSecondary,
-                    lineHeight = 16.sp
+                    lineHeight = 16.5.sp
                 )
             },
             confirmButton = {
                 TextButton(onClick = { showCore0Notice = false }) {
-                    Text("Mengerti", color = AccentCyan, fontWeight = FontWeight.Bold)
+                    Text("Mengerti", color = AccentCyan, fontWeight = FontWeight.SemiBold)
                 }
             }
         )

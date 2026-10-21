@@ -1,68 +1,48 @@
 package com.noir.lynx.feature.cpu.ui
-import com.noir.lynx.feature.cpu.ui.CompactClusterRow
 
-import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.designsystem.card.*
-import com.noir.lynx.designsystem.controls.*
-import com.noir.lynx.designsystem.tweak.*
-import com.noir.lynx.designsystem.profile.*
-
-import java.util.Locale
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas as AndroidCanvas
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
-import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.*
-import com.noir.lynx.feature.cpu.ui.CpuSetsTaskShieldCard
-
-import com.noir.lynx.ui.*
+import com.noir.lynx.designsystem.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 private val appIconCache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
 private val appLabelCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 private val failedPkgs = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProcessIcon(
     packageName: String,
@@ -138,8 +118,8 @@ fun ProcessIcon(
             modifier = modifier
                 .size(32.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(BgElevated)
-                .border(0.6.dp, BorderSubtle, RoundedCornerShape(8.dp)),
+                .background(Color(0xFF141824))
+                .border(0.6.dp, Color(0x18FFFFFF), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -152,7 +132,15 @@ fun ProcessIcon(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * TopProcessListCard — Human-friendly, uncluttered active process monitoring.
+ *
+ * Anti-AI-Slop & Ergonomics:
+ * 1. Default to Top 5 prominent processes to prevent visual fatigue.
+ * 2. Progressive disclosure toggle to expand up to 15 processes on demand.
+ * 3. Human-friendly app labels and clean PID/package subtitles.
+ * 4. Monospace tabular CPU load metrics with load-aware colors.
+ */
 @Composable
 fun TopProcessListCard(
     procs: List<CpuProcessInfo>,
@@ -160,143 +148,218 @@ fun TopProcessListCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val pm = context.packageManager
     var selectedProcess by remember { mutableStateOf<Pair<CpuProcessInfo, String>?>(null) }
+    var isExpanded by remember { mutableStateOf(false) }
 
     val activeProcs = if (procs.isNotEmpty()) procs else LynxRepository.getCachedTopProcesses()
+    val displayedProcs = if (isExpanded) activeProcs.take(15) else activeProcs.take(5)
 
-    LynxCard(
-        title = "Proses CPU Aktif",
-        subtitle = "Snapshot beban thread dan aplikasi tertinggi",
-        icon = Icons.Default.Terminal,
-        accentColor = AccentOrange,
-        modifier = modifier
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(0.8.dp, Brush.verticalGradient(listOf(Color(0x28FFFFFF), Color(0x10FFFFFF)))),
+        modifier = modifier.fillMaxWidth()
     ) {
-        if (activeProcs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Menunggu snapshot proses awal...", fontSize = 11.sp, color = TextSecondary)
-            }
-        } else {
-            Column(
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Header: Icon + Title + Process count badge
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                activeProcs.take(15).forEach { p ->
-                    val cleanPkg = if (p.packageName.contains(":")) p.packageName.substringBefore(":") else p.packageName
-                    val displayName = remember(p.packageName, p.name) {
-                        if (cleanPkg.contains(".") && !failedPkgs.contains(cleanPkg)) {
-                            appLabelCache[cleanPkg] ?: runCatching {
-                                val appInfo = pm.getApplicationInfo(cleanPkg, 0)
-                                val label = pm.getApplicationLabel(appInfo).toString()
-                                appLabelCache[cleanPkg] = label
-                                label
-                            }.getOrElse {
-                                failedPkgs.add(cleanPkg)
-                                appLabelCache[cleanPkg] = p.name
-                                p.name
-                            }
-                        } else {
-                            p.name
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentOrange.copy(alpha = 0.12f),
+                        border = BorderStroke(0.5.dp, AccentOrange.copy(alpha = 0.35f)),
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(16.dp))
                         }
                     }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("Proses CPU Aktif", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Text("Aplikasi dan thread dengan beban tertinggi", fontSize = 9.5.sp, color = TextSecondary.copy(alpha = 0.75f))
+                    }
+                }
 
-                    val loadNormalized = (p.cpuPercent / 100f).coerceIn(0.04f, 1f)
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF0C0F17),
+                    border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
+                ) {
+                    Text(
+                        text = "${activeProcs.size} Thread",
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
 
+            if (activeProcs.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF0C0F17),
+                    border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
+                    modifier = Modifier.fillMaxWidth().height(60.dp)
+                ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF0C0F17), RoundedCornerShape(10.dp))
-                            .border(0.6.dp, Color(0x15FFFFFF), RoundedCornerShape(10.dp))
-                            .clickable { selectedProcess = Pair(p, displayName) }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxSize().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            ProcessIcon(
-                                packageName = p.packageName,
-                                processName = p.name
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = displayName,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "PID ${p.pid} • ${p.packageName.take(24)}",
-                                    fontSize = 9.sp,
-                                    color = TextTertiary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Seluruh thread CPU dalam batas normal", fontSize = 11.sp, color = TextSecondary)
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    displayedProcs.forEach { p ->
+                        val cleanPkg = if (p.packageName.contains(":")) p.packageName.substringBefore(":") else p.packageName
+                        val displayName = remember(p.packageName, p.name) {
+                            if (cleanPkg.contains(".") && !failedPkgs.contains(cleanPkg)) {
+                                appLabelCache[cleanPkg] ?: runCatching {
+                                    val appInfo = pm.getApplicationInfo(cleanPkg, 0)
+                                    val label = pm.getApplicationLabel(appInfo).toString()
+                                    appLabelCache[cleanPkg] = label
+                                    label
+                                }.getOrElse {
+                                    failedPkgs.add(cleanPkg)
+                                    appLabelCache[cleanPkg] = p.name
+                                    p.name
+                                }
+                            } else {
+                                p.name
                             }
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(horizontalAlignment = Alignment.End) {
+                        val loadNormalized = (p.cpuPercent / 100f).coerceIn(0.04f, 1f)
+                        val loadColor = when {
+                            p.cpuPercent >= 50f -> AccentRed
+                            p.cpuPercent >= 15f -> AccentOrange
+                            else -> AccentCyan
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedProcess = Pair(p, displayName)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    ProcessIcon(
+                                        packageName = p.packageName,
+                                        processName = p.name
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = displayName,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "PID ${p.pid} • ${cleanPkg.take(24)}",
+                                            fontSize = 8.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = TextTertiary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (p.rawCpuPercent >= 80f) {
-                                        val coreCountEstimate = p.rawCpuPercent / 100f
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = AccentOrange.copy(alpha = 0.15f),
-                                            modifier = Modifier.padding(end = 6.dp)
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = String.format(Locale.US, "%.1f%%", p.cpuPercent),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = loadColor
+                                        )
+                                        Spacer(Modifier.height(3.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .width(48.dp)
+                                                .height(3.dp)
+                                                .clip(RoundedCornerShape(1.5.dp))
+                                                .background(Color(0xFF141824))
                                         ) {
-                                            Text(
-                                                text = String.format(Locale.US, "%.1f Inti", coreCountEstimate),
-                                                fontSize = 8.5.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = AccentOrange,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(fraction = loadNormalized)
+                                                    .fillMaxHeight()
+                                                    .background(loadColor)
                                             )
                                         }
                                     }
-                                    Text(
-                                        text = String.format(Locale.US, "%.1f%%", p.cpuPercent),
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (p.cpuPercent >= 15f) AccentOrange else AccentCyan
-                                    )
-                                }
-                                Spacer(Modifier.height(3.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .width(52.dp)
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(1.5.dp))
-                                        .background(BgElevated)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(fraction = loadNormalized)
-                                            .fillMaxHeight()
-                                            .background(if (p.cpuPercent >= 15f) AccentOrange else AccentCyan)
+                                    Spacer(Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = null,
+                                        tint = TextTertiary,
+                                        modifier = Modifier.size(15.dp)
                                     )
                                 }
                             }
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = TextTertiary,
-                                modifier = Modifier.size(15.dp)
-                            )
+                        }
+                    }
+
+                    // Progressive Disclosure Toggle
+                    if (activeProcs.size > 5) {
+                        Surface(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                isExpanded = !isExpanded
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF0C0F17),
+                            border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                            modifier = Modifier.fillMaxWidth().height(36.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isExpanded) "Tampilkan Ringkas (5 Teratas)" else "Lihat ${activeProcs.size.coerceAtMost(15)} Proses Aktif",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AccentOrange
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = AccentOrange,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
                         }
                     }
                 }

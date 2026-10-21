@@ -1,3 +1,32 @@
+# Lynx Universal [CPU Monitor Tab Psychological & Structural Bento Redesign] 7.0.0-RC146
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC146** (Lynx Kernel Manager v3.1.92): **Redesain Menyeluruh Tab Monitor CPU Berbasis Pedoman `/redesign-existing-projects`: Mengeliminasi Beban Psikologis & Kecemasan Pengguna dengan Mengganti Peringatan Alarm Menakutkan Core 0 Menjadi Badge Terlindungi yang Menenangkan; Memperkaya Kartu Hero Telemetri dengan Matriks 2x4 Inti CPU Berpenanda Kunci Master Core yang Rapi dan Dialog Hotplug Ergonomis; Memangkas Clutter Daftar Proses Aktif Menjadi 5 Proses Teratas Pilihan dengan Toggle Pengungkapan Progresif (Progressive Disclosure) Hingga 15 Thread; Merestrukturisasi Topologi Silikon Menjadi 2x2 Bento Hardware Matrix dan Accordion Kluster Berpenanda Little/Big yang Menampilkan Titik Frekuensi OPP Serta Waktu Dominan (Time-In-State); Serta Memisahkan Verifikasi Kernel Sysfs ke Berkas Modular Tersendiri (`CpuDeveloperVerificationSheet.kt`) Demi Kepatuhan Aturan Batas Baris Kode**.
+
+## Rangkuman Redesain & Peningkatan Arsitektur (7.0.0-RC146)
+
+### 1. 🛡️ Kenyamanan Psikologis Pengguna & Rekayasa Hero Telemetri (`CpuHardwareMonitorCard.kt`)
+- **Pelepasan Beban Alarm Core 0**: Mengganti dialog peringatan yang menakutkan (*"Mematikan Core 0 akan memicu kernel panic seketika"*) menjadi dialog penjelas yang menenangkan (*"Core 0 berfungsi sebagai Master Core untuk sistem operasi Android dan kernel. Demi menjaga stabilitas serta responsivitas perangkat, Core 0 selalu dipertahankan aktif secara otomatis"*).
+- **Penanda Kunci Master Core Visual**: Menambahkan ikon gembok `Icons.Default.Lock` berukuran proporsional pada chip inti `C0` di grid 2x4, memberikan pemahaman intuitif langsung tanpa menimbulkan kecemasan.
+- **Dialog Hotplug Ergonomis**: Mengganti modal konfirmasi generik menjadi dialog tindakan spesifik ("Parkir Inti CPU X?" / "Aktifkan Inti CPU X?") dengan teks penjelas yang mengutamakan pemahaman orang awam dan tombol tindakan berlabel tegas ("Nonaktifkan Inti" / "Aktifkan Inti").
+- **Header Sentence-Case Bersih**: Mengubah judul all-caps `"STATUS INTI CPU (8 CORES)"` menjadi `"Status Inti CPU (8 Inti)"` dengan tipografi semi-bold modern.
+
+### 2. ⚡ Pemangkasan Clutter & Optimalisasi Proses CPU Aktif (`CpuProcessMonitoring.kt`)
+- **Pengungkapan Progresif (Anti-Cognitive Fatigue)**: Menghapuskan tumpukan panjang 15 proses secara default. Antarmuka kini menampilkan 5 proses teratas yang paling relevan dengan tombol ekspansi taktil *"Lihat 15 Proses Aktif"* / *"Tampilkan Ringkas (5 Teratas)"*.
+- **Penyelarasan Desain Master Bento**: Membungkus daftar proses dalam kartu `Surface(16.dp)` bertema gelap `Color(0xFF10141F)` dengan border gradien vertikal lembut yang selaras dengan Tab Performa dan Tab Sistem.
+- **Hierarki Tipografi Manusiawi**: Nama aplikasi ditampilkan tebal dan mudah dibaca (dengan caching nama aplikasi dan ikon aplikasi sistem/pengguna), sedangkan PID dan nama paket diletakkan sebagai teks sekunder monospace yang tenang.
+- **Indikator Beban Halus**: Persentase CPU menggunakan angka monospace tabular dengan mikro-bar melengkung dinamis (Cyan untuk beban normal, Oranye untuk $\ge 15\%$, dan Merah untuk $\ge 50\%$).
+
+### 3. 🔬 Restrukturisasi Topologi Silikon & OPP Frequency (`CpuTopologyAndVerification.kt`)
+- **Bento Hardware Overview 2x2**: Menyajikan spesifikasi silikon dalam 4 kartu ringkas: Model Chipset, Susunan Inti & ISA, Interkoneksi Bus (CCI/DSU), serta Driver CPUFreq & Idle C-States.
+- **Accordion Kluster Adaptif**: Setiap kluster CPU kini memiliki kartu accordion mandiri berbadge Little (`AccentGreen`) atau Big (`AccentOrange`), lengkap dengan rentang frekuensi (`min–max MHz`), kapasitas EAS, latensi transisi, dan distribusi frekuensi dominan (*Time-In-State*).
+- **Daftar Stepping Frekuensi Rapi**: Menampilkan deretan titik frekuensi OPP dalam format monospace tabular dengan pemisah titik tengah yang mudah dipindai tanpa memakan ruang vertikal berlebih.
+
+### 4. 🧩 Pemisahan Modularitas & Kepatuhan Aturan Baris Kode (`CpuDeveloperVerificationSheet.kt`)
+- **Ekstraksi Sheet Verifikasi Sysfs**: Memindahkan `CpuDeveloperVerificationSheet` ke berkas mandiri sehingga seluruh berkas UI CPU tetap berada di bawah batas ketat 699 baris (`CpuHardwareMonitorCard`: 498 baris, `CpuProcessMonitoring`: 378 baris, `CpuTopologyAndVerification`: 440 baris, `CpuDeveloperVerificationSheet`: 265 baris).
+- **Akses Transparan & Reassuring**: Tombol verifikasi di bagian bawah topologi silikon hadir dengan badge hijau *"100% Asli"* yang memberikan kepastian penuh kepada pengguna atas integritas tuning kernel hardware.
+
+---
+
 # Lynx Universal [Hyper Charging Mode Pipeline & Daemon Sync Architecture] 7.0.0-RC145
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC145** (Lynx Kernel Manager v3.1.91): **Penyelesaian Tuntas & Audit Forensik Masalah Mode Hyper Charge Tidak Bisa Diaktifkan: Memperbaiki UI Intent Overwrite pada `LynxViewModelBattery.kt` yang Mengakibatkan Background Telemetry Loop Menimpa Kembali Status Mode ke Standard Dalam 1-2 Detik; Menghilangkan Pemblokiran Tier 4 AutoCut Smart Limit pada Rust Daemon `lynxd` (`hardware/charging.rs`) Saat Mode Hyper Berjalan; Mengeliminasi Brittle Exit Condition pada `ExtremeChargingScript.kt` Agar Fallback Shell Tetap Berhasil Menerapkan Node Kernel Meski Salah Satu Sysfs OEM Read-Only; Mengintegrasikan Atomic Batch ConfigStore Transaction pada `lynxd charging mode` untuk Mencegah File Lock Contention; Serta Menghadirkan Indikator Siaga Visual yang Jelas Saat Mode Hyper Dipilih Namun Kabel Charger Belum Terhubung**.
