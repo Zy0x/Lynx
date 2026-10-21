@@ -1,3 +1,26 @@
+# Lynx Universal [Dynamic Freeform Window Engine & Dock Apps Resizing Architecture] 7.0.0-RC151
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC151** (Lynx Kernel Manager v3.1.97): **Implementasi Mesin Peluncur Jendela Mengambang (Dynamic Freeform Window Engine) & Pengatur Ukuran Multi-Tasking Fleksibel untuk Aplikasi Dock Game HUD: Menghadirkan Kemampuan Membuka Seluruh Aplikasi Dock Cepat (WhatsApp, Chrome, YouTube, Telegram, Discord, Kalkulator) Langsung Sebagai Jendela Mengambang (Floating Window) di Atas Sesi Permainan; Dilengkapi Penghitung Batas Layar Dinamis (`ActivityOptions.setLaunchBounds` & `WINDOWING_MODE_FREEFORM = 5`) Serta Fallback Root Shell `am start --windowingMode 5`; Menyediakan 3 Preset Ukuran Fleksibel (Kompak 55%×50%, Standar 70%×65%, Lebar 85%×80%) dan Mode Kustom Presisi dengan Slider Lebar & Tinggi Bebas; Memasang Pengalih Cepat Preset Pada Header Dock HUD; Menambahkan Kartu Konfigurasi Khusus Pada Subscreen HUD; Serta Mengintegrasikan Eksekusi Otomatis Paksa Freeform Sistem (`settings put global enable_freeform_support 1` & `force_resizable_activities 1`) Demi Menjamin Seluruh Aplikasi Dapat Diubah Ukurannya Secara Mulus dan Stabil**.
+
+## Rangkuman Fitur & Arsitektur Jendela Mengambang Baru (7.0.0-RC151)
+
+### 1. 🚀 Mesin Peluncur Freeform Multi-Window Cerdas (`HudController.kt`)
+- **Peluncuran Jendela Mengambang Mulus**: Saat pengguna mengetuk ikon aplikasi di dock HUD saat game berlangsung, sistem secara otomatis meluncurkannya dalam mode *Freeform Floating Window* alih-alih layar penuh.
+- **Kombinasi Multi-Lapisan**: Memadukan `ActivityOptions.setLaunchBounds(bounds)`, refleksi `setLaunchWindowingMode(5)`, bendera `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK`, dan properti OEM (`miui.action.EXTRA_IS_FLOATING_WINDOW`, `is_floating_window`) dengan fallback *Root Shell* (`am start -n <cmp> --windowingMode 5 --bounds <bounds>`) untuk memastikan keandalan 100% pada berbagai ROM Android (AOSP, MIUI/HyperOS, Transsion XOS, ColorOS).
+
+### 2. 📐 Kontrol Ukuran Fleksibel & Pengalih Cepat di Dock HUD (`HudPanelHeader.kt` & `HudPreferences.kt`)
+- **Pengalih Cepat Satu Sentuhan di Dock HUD**: Di bagian atas daftar aplikasi dock, hadir lencana status mengambang interaktif (`[ ⛶ Standar (70%) ]`). Mengetuk lencana langsung menggulir preset ukuran instan (*Kompak $	o$ Standar $	o$ Lebar*) tanpa perlu keluar dari game.
+- **Spektrum 3 Preset Ergonomis**:
+  1. *Kompak (55% × 50%)*: Optimal untuk percakapan singkat WhatsApp/Telegram dan perhitungan cepat kalkulator tanpa menghalangi visual game.
+  2. *Standar (70% × 65%)*: Ukuran seimbang untuk membaca panduan browser Chrome, media YouTube, atau chat Discord.
+  3. *Lebar (85% × 80%)*: Pengalaman multi-tasking komprehensif saat rehat match game.
+
+### 3. 🛠️ Kartu Konfigurasi Floating Windows & Slider Presisi (`GameHudSubscreen.kt`)
+- **Kartu Khusus Pengaturan Dock Floating Windows**: Menyediakan master toggle aktivasi, seleksi 4 preset ukuran, dan penggeser slider kustom presisi (*Lebar 35%–95%* dan *Tinggi 35%–90%*).
+- **Tombol Paksa Freeform Sistem (Root)**: Menyediakan tombol 1-sentuh untuk mengeksekusi `settings put global enable_freeform_support 1` dan `settings put global force_resizable_activities 1` secara permanen, sehingga aplikasi yang semula melarang multi-window pun dapat dipaksa berjalan dalam jendela mengambang yang dapat diubah ukurannya.
+
+---
+
 # Lynx Universal [Floating Game Booster Luxury HUD & Bento OSD Redesign] 7.0.0-RC150
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC150** (Lynx Kernel Manager v3.1.96): **Redesain Menyeluruh Floating Game HUD Console Berbasis Standar `/redesign-existing-projects`: Menghadirkan Antarmuka Game Booster Modern Minimalis yang Sangat Elegan, Bersih, dan Presisi; Mengintegrasikan Bento Hero Performance Card yang Menggabungkan Indikator Status Live FPS Monospace Tebal Bersama Panel Frame Time dan Display Refresh Rate Tanpa Teks Tercecer; Memperbarui Piringan Takometer Ganda (Dual Tachometer Gauges) CPU & GPU dengan Busur Presisi Bercahaya (Halo Glow) dan Kapsul Monospace Frekuensi Silikon; Menghadirkan Kontrol Segmented Profile Pill Tactile dengan Lencana Status Aktif Luminous; Merestrukturisasi Matriks 4 Alat Cepat dengan Lencana Squircle Ikon Berwarna Semantik; Menyempurnakan Kapsul Header dengan Indikator Baterai Ringkas, Jam Monospace, dan Dock Aplikasi Frosted Glass Elegan; Serta Menambahkan Garis Pemisah Hairline Kaca Antara Rel Navigasi dan Halaman Konten Demi Kerapian Tingkat Tinggi**.

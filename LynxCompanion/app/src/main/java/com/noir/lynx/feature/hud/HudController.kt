@@ -1,14 +1,17 @@
 package com.noir.lynx.feature.hud
 
+import android.app.ActivityOptions
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Build
 import android.provider.MediaStore
 import android.view.Display
 import com.noir.lynx.display.HudDisplaySession
 import com.noir.lynx.R
 import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,9 +50,80 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         }
     }
 
-    fun launch(app: HudApp) {
-        runCatching { context.startActivity(context.packageManager.getLaunchIntentForPackage(app.packageName)!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { mutable.value = HudActionState(message = R.string.hud_app_failed) }
+    fun launch(app: HudApp, forceFullscreen: Boolean = false) {
+        val prefs = HudPreferencesStore(context).read()
+        if (!prefs.floatingEnabled || forceFullscreen) {
+            runCatching {
+                val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)!!
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }.onFailure {
+                mutable.value = HudActionState(message = R.string.hud_app_failed)
+            }
+            return
+        }
+
+        launchFloating(app, prefs.floatingWidthPct, prefs.floatingHeightPct)
+    }
+
+    fun launchFloating(app: HudApp, widthPct: Int = 70, heightPct: Int = 65) {
+        scope.launch(Dispatchers.IO) {
+            val dm = context.resources.displayMetrics
+            val screenW = dm.widthPixels
+            val screenH = dm.heightPixels
+
+            val w = (screenW * (widthPct.coerceIn(35, 95) / 100f)).toInt()
+            val h = (screenH * (heightPct.coerceIn(35, 90) / 100f)).toInt()
+
+            val left = ((screenW - w) / 2).coerceAtLeast(0)
+            val top = ((screenH - h) * 0.35f).toInt().coerceAtLeast(60)
+            val right = left + w
+            val bottom = top + h
+            val bounds = Rect(left, top, right, bottom)
+
+            // Auto-enable freeform support and force resizable activities via root
+            Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
+
+            val pm = context.packageManager
+            val intent = pm.getLaunchIntentForPackage(app.packageName)
+            if (intent == null) {
+                mutable.value = HudActionState(message = R.string.hud_app_failed)
+                return@launch
+            }
+
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+            // OEM floating window flags
+            intent.putExtra("miui.action.EXTRA_IS_FLOATING_WINDOW", true)
+            intent.addFlags(0x00002000)
+            intent.putExtra("is_floating_window", true)
+            intent.putExtra("floating_window_mode", 1)
+            intent.putExtra("freeform_support", true)
+
+            var launched = false
+            try {
+                val options = ActivityOptions.makeBasic()
+                options.setLaunchBounds(bounds)
+                try {
+                    val setWindowingMode = ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
+                    setWindowingMode.invoke(options, 5) // WINDOWING_MODE_FREEFORM = 5
+                } catch (_: Exception) {}
+
+                withContext(Dispatchers.Main) {
+                    context.startActivity(intent, options.toBundle())
+                }
+                launched = true
+            } catch (e: Exception) {
+                val cmp = intent.component?.flattenToShortString() ?: app.packageName
+                val boundsStr = "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
+                val res = Shell.cmd("am start -n '$cmp' --windowingMode 5 --bounds '$boundsStr'").exec()
+                launched = res.isSuccess
+            }
+
+            if (!launched) {
+                mutable.value = HudActionState(message = R.string.hud_app_failed)
+            }
+        }
     }
 
     fun profile(profile: String) = perform {

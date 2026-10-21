@@ -301,15 +301,183 @@ fun GameHudSubscreen(
             }
         }
 
-        // ── KARTU 3: METRIK TELEMETRI MINI OSD ──────────────────────────────
+        // ── KARTU 3: FLOATING WINDOWS APLIKASI (DOCK APPS) ──────────────────
+        val store = remember(context) { HudPreferencesStore(context) }
+        val prefs by store.changes.collectAsState(initial = store.read())
+
+        LynxCard(
+            title = localizedUiText("Floating Windows Aplikasi (Dock Apps)"),
+            subtitle = localizedUiText("Buka aplikasi saat game berjalan dalam jendela mengambang"),
+            icon = Icons.Default.OpenInNew,
+            accentColor = AccentBlue,
+            action = {
+                Switch(
+                    checked = prefs.floatingEnabled,
+                    onCheckedChange = { store.setFloatingEnabled(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = AccentBlue,
+                        uncheckedThumbColor = TextSecondary,
+                        uncheckedTrackColor = BgElevated,
+                        uncheckedBorderColor = BorderSubtle,
+                    )
+                )
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = localizedUiText("Aplikasi yang diketuk pada Dock Bilah Samping akan diluncurkan dalam mode jendela mengambang (Freeform) di atas game."),
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+
+                if (prefs.floatingEnabled) {
+                    Text(
+                        text = localizedUiText("Preset Ukuran Default:"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentBlue
+                    )
+
+                    val presets = listOf(
+                        "compact" to ("Kompak" to "55% × 50% (Chat / Kalkulator)"),
+                        "standard" to ("Standar" to "70% × 65% (Browser / Media)"),
+                        "large" to ("Lebar" to "85% × 80% (Multi-Tasking)"),
+                        "custom" to ("Kustom" to "${prefs.floatingWidthPct}% × ${prefs.floatingHeightPct}% (Presisi)")
+                    )
+
+                    presets.chunked(2).forEach { row ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { (presetKey, pair) ->
+                                val (title, desc) = pair
+                                val isSelected = prefs.floatingSizePreset == presetKey
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) AccentBlue.copy(alpha = 0.16f) else BgElevated,
+                                    border = BorderStroke(0.8.dp, if (isSelected) AccentBlue else BorderSubtle),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { store.setFloatingSizePreset(presetKey) }
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            RadioButton(
+                                                selected = isSelected,
+                                                onClick = { store.setFloatingSizePreset(presetKey) },
+                                                colors = RadioButtonDefaults.colors(selectedColor = AccentBlue),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = title,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) Color.White else TextPrimary
+                                            )
+                                        }
+                                        Text(
+                                            text = desc,
+                                            fontSize = 9.5.sp,
+                                            color = TextSecondary,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (prefs.floatingSizePreset == "custom") {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderSubtle),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Lebar Jendela", fontSize = 12.sp, color = TextPrimary)
+                                    Text("${prefs.floatingWidthPct}%", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = AccentBlue)
+                                }
+                                Slider(
+                                    value = prefs.floatingWidthPct.toFloat(),
+                                    onValueChange = { store.setFloatingCustomSize(it.toInt(), prefs.floatingHeightPct) },
+                                    valueRange = 35f..95f,
+                                    steps = 11,
+                                    colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Tinggi Jendela", fontSize = 12.sp, color = TextPrimary)
+                                    Text("${prefs.floatingHeightPct}%", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = AccentBlue)
+                                }
+                                Slider(
+                                    value = prefs.floatingHeightPct.toFloat(),
+                                    onValueChange = { store.setFloatingCustomSize(prefs.floatingWidthPct, it.toInt()) },
+                                    valueRange = 35f..90f,
+                                    steps = 10,
+                                    colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(localizedUiText("Paksa Dukungan Freeform Global"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Text(localizedUiText("Mengizinkan semua aplikasi dibuka dalam jendela mengambang"), fontSize = 10.sp, color = TextSecondary)
+                            }
+                            Button(
+                                onClick = {
+                                    com.topjohnwu.superuser.Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
+                                    android.widget.Toast.makeText(context, "Dukungan Freeform Global Diaktifkan", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text("Aktifkan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── KARTU 4: METRIK TELEMETRI MINI OSD ──────────────────────────────
         LynxCard(
             title = localizedUiText("Konfigurasi Metrik Mini OSD"),
             subtitle = localizedUiText("Pilih sensor yang dipantau pada floating widget"),
             icon = Icons.Default.Tune,
             accentColor = AccentCyan
         ) {
-            val store = remember(context) { HudPreferencesStore(context) }
-            val prefs by store.changes.collectAsState(initial = store.read())
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // Pin toggle

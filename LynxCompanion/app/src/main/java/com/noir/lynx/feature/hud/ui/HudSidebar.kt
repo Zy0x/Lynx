@@ -50,7 +50,7 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
             border = BorderStroke(1.dp, HudBorder)) {
             Column {
                 HudPanelHeader(appLabel, snapshot[HudMetric.BATTERY_LEVEL], onDrag) { onOpen(false) }
-                HudAppDock(apps) { onOpen(false); onApp(it) }
+                HudAppDock(apps, preferences, prefs) { onOpen(false); onApp(it) }
                 HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
                 Row(Modifier.weight(1f, fill = false)) {
                     if (layout.useRail) {

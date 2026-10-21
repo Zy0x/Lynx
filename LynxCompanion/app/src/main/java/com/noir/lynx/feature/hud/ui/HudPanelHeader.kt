@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -32,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.HudApp
+import com.noir.lynx.feature.hud.data.HudPreferences
+import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.noir.lynx.feature.hud.data.HudReading
 
 @Composable
@@ -171,38 +174,110 @@ internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Floa
 }
 
 @Composable
-internal fun HudAppDock(apps: List<HudApp>, onApp: (HudApp) -> Unit) {
+internal fun HudAppDock(
+    apps: List<HudApp>,
+    preferences: HudPreferencesStore? = null,
+    prefs: HudPreferences? = null,
+    onApp: (HudApp) -> Unit
+) {
     if (apps.isEmpty()) return
+    val isFloating = prefs?.floatingEnabled ?: true
+    val currentPreset = prefs?.floatingSizePreset ?: "standard"
+    val wPct = prefs?.floatingWidthPct ?: 70
+
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = HudCard.copy(alpha = 0.65f),
+        shape = RoundedCornerShape(13.dp),
+        color = HudCard.copy(alpha = 0.75f),
         border = BorderStroke(0.8.dp, HudBorder),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            apps.forEach { app ->
-                Surface(
-                    onClick = { onApp(app) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color.White.copy(alpha = 0.05f),
-                    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.08f)),
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Image(
-                            bitmap = app.icon.asImageBitmap(),
-                            contentDescription = app.label,
-                            modifier = Modifier.size(24.dp)
-                        )
+            // Header bar of the App Dock: Floating Window size status & fast preset switcher
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "APLIKASI CEPAT",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    color = HudMuted
+                )
+
+                // Preset selector pill
+                if (preferences != null && prefs != null) {
+                    val presetLabel = when (currentPreset) {
+                        "compact" -> "Kompak (55%)"
+                        "large" -> "Lebar (85%)"
+                        "custom" -> "Kustom ($wPct%)"
+                        else -> "Standar (70%)"
+                    }
+                    Surface(
+                        onClick = {
+                            val nextPreset = when (currentPreset) {
+                                "compact" -> "standard"
+                                "standard" -> "large"
+                                "large" -> "compact"
+                                else -> "standard"
+                            }
+                            preferences.setFloatingSizePreset(nextPreset)
+                        },
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isFloating) HudCyan.copy(alpha = 0.12f) else HudElevated,
+                        border = BorderStroke(0.6.dp, if (isFloating) HudCyan.copy(alpha = 0.35f) else HudBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInNew,
+                                contentDescription = null,
+                                tint = if (isFloating) HudCyan else HudMuted,
+                                modifier = Modifier.size(10.dp)
+                            )
+                            Text(
+                                text = if (isFloating) presetLabel else "Layar Penuh",
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isFloating) HudCyan else HudMuted
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Apps list in horizontal scroll
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                apps.forEach { app ->
+                    Surface(
+                        onClick = { onApp(app) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color.White.copy(alpha = 0.05f),
+                        border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.08f)),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Image(
+                                bitmap = app.icon.asImageBitmap(),
+                                contentDescription = app.label,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
             }
