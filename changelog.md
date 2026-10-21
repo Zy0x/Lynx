@@ -1,3 +1,27 @@
+# Lynx Universal [Floating Game Booster Luxury HUD & Bento OSD Redesign] 7.0.0-RC150
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC150** (Lynx Kernel Manager v3.1.96): **Redesain Menyeluruh Floating Game HUD Console Berbasis Standar `/redesign-existing-projects`: Menghadirkan Antarmuka Game Booster Modern Minimalis yang Sangat Elegan, Bersih, dan Presisi; Mengintegrasikan Bento Hero Performance Card yang Menggabungkan Indikator Status Live FPS Monospace Tebal Bersama Panel Frame Time dan Display Refresh Rate Tanpa Teks Tercecer; Memperbarui Piringan Takometer Ganda (Dual Tachometer Gauges) CPU & GPU dengan Busur Presisi Bercahaya (Halo Glow) dan Kapsul Monospace Frekuensi Silikon; Menghadirkan Kontrol Segmented Profile Pill Tactile dengan Lencana Status Aktif Luminous; Merestrukturisasi Matriks 4 Alat Cepat dengan Lencana Squircle Ikon Berwarna Semantik; Menyempurnakan Kapsul Header dengan Indikator Baterai Ringkas, Jam Monospace, dan Dock Aplikasi Frosted Glass Elegan; Serta Menambahkan Garis Pemisah Hairline Kaca Antara Rel Navigasi dan Halaman Konten Demi Kerapian Tingkat Tinggi**.
+
+## Rangkuman Redesain & Peningkatan Estetika (7.0.0-RC150)
+
+### 1. 🎮 Bento Hero Performance Card (`HudOverview.kt`)
+- **Struktur Bersatu & Presisi**: Mengeliminasi teks status mentah yang tercecer dan menggantinya dengan kartu performa Bento terpadu. Sisi kiri menyajikan counter FPS monolitik berdigit besar dengan indikator status siaga/aktif titik bulat (`●`), dipisahkan garis vertikal kaca halus dari sisi kanan yang memuat metrik Frame Time (`ms`) dan Display Refresh Rate (`Hz`).
+- **Eliminasi Teks Duplikat**: Menghapus teks "Tidak tersedia" yang berulang secara canggung pada status siaga, menggantikannya dengan tipografi monospace bergradasi kontras yang tenang dan elegan.
+
+### 2. ⚡ Dual Precision Tachometer Gauges CPU & GPU (`HudOverview.kt`)
+- **Estetika Cyber Tachometer Konsol**: Piringan pengukur beban CPU dan GPU kini menampilkan busur ganda bercahaya halus (*halo glow*) beraksen dinamis profil (Oranye Amber Gaming untuk Kinerja/Extreme, Hijau Emerald Eco untuk Hemat, dan Cyan Cyber Mint untuk Seimbang).
+- **Kapsul Frekuensi Silikon**: Di bawah piringan persentase beban, hadir kapsul berpenanda frekuensi clock fisik (`MHz`) dalam font monospace semi-bold yang rapi.
+
+### 3. 🎯 Segmented Profile Pill & Matriks 4 Alat Cepat (`HudProfiles.kt` & `HudOverview.kt`)
+- **Kontrol Profil Bersegmen**: Mengganti pilihan profil datar dengan bilah bersegmen (*segmented pill bar*) berkapsul elevated. Pilihan aktif memancarkan pendaran warna aksen lembut dengan umpan balik sentuhan instan.
+- **Matriks 4 Alat Cepat Premium**: 4 tombol alat cepat (Tangkap Layar, Display Hz, Bersihkan RAM, dan Alat Lengkap) kini dilengkapi wadah squircle ikon berpenanda warna aksen fungsional, label primer semi-bold, dan sublabel penjelas yang rapi dengan target sentuh setidaknya 48dp.
+
+### 4. 💎 Header Kapsul & Dock Aplikasi Frosted Glass (`HudPanelHeader.kt`)
+- **Header Terpadu**: Mengganti teks aplikasi yang redundan dengan penanda status konsol gaming modern, persentase baterai ringkas tanpa spasi ganjil (`15%`), jam digital monospace, dan tombol tutup melingkar minimalis.
+- **Dock Aplikasi Kapsul**: Ikon aplikasi cepat kini tertata rapi di dalam dock horizontal frosted glass berkontur squircle dengan batas halus yang nyaman disentuh.
+
+---
+
 # Lynx Universal [In-Game HUD Architecture & XBOOST Bento Console Redesign] 7.0.0-RC149
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC149** (Lynx Kernel Manager v3.1.95): **Penyelesaian Tuntas Masalah Halaman HUD Tidak Bisa Dibuka & Redesain Menyeluruh Floating Game HUD Konsol (XBOOST Style): Mengeliminasi Beban Komputasi 19 `BoxWithConstraints` dan 18 `TextMeasurer` Berulang pada `HudMiniSettings.kt` yang Memicu UI Thread Freeze / Deadlock; Memisahkan Konflik Deteksi Gestur Ketuk (`detectTapGestures`) dan Seret (`detectDragGestures`) dengan Akumulator Horizontal pada `HudMiniOverlay.kt` Agar Gagang Floating HUD Dapat Dibuka Instan via Sentuhan Maupun Geseran; Menambahkan Jam Real-Time (`HH:mm`) pada Header Panel (`HudPanelHeader.kt`); Mengintegrasikan Piringan Pengukur Ganda (Dual Concentric Glowing Gauges) CPU & GPU dengan Warna Busur Dinamis Sesuai Profil Aktif (Oranye Gaming untuk Kinerja/Extreme, Hijau Eco untuk Hemat, Cyan untuk Seimbang); Serta Menghadirkan Matriks 4 Alat Cepat (Tangkapan Layar, Display Hz, RAM Boost Drop Caches, dan Pengaturan Alat Lengkap) Sesuai Rujukan Antarmuka Konsol Gaming**.

@@ -1,5 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -17,6 +18,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -67,24 +70,45 @@ internal fun HudMiniOverlay(snapshot: HudSnapshot, prefs: HudPreferences, viewpo
                 },
             contentAlignment = Alignment.CenterStart
         ) {
-            Box(Modifier.width(5.dp).height(40.dp).background(HudCyan, RoundedCornerShape(3.dp)))
+            Surface(
+                shape = RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp),
+                color = HudCyan,
+                shadowElevation = 3.dp,
+                modifier = Modifier.width(4.5.dp).height(42.dp)
+            ) {}
         }
-        if (showMetrics) Surface(Modifier.weight(1f), color = HudBackground, shape = RoundedCornerShape(12.dp)) {
-            Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+        if (showMetrics) Surface(
+            modifier = Modifier.weight(1f),
+            color = HudCard,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(0.8.dp, HudBorder)
+        ) {
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                 HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth()) { page ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         pages.getOrNull(page)?.forEach { metric ->
-                            Column(Modifier.weight(1f).clickable(onClick = onOpen).heightIn(min = 48.dp)) {
-                                Text(hudString(metric.label), fontSize = 12.sp, color = HudMuted, maxLines = 1)
-                                Text(hudString(R.string.hud_value, snapshot[metric].text(), snapshot[metric].unit), fontSize = 14.sp, maxLines = 1)
+                            Column(Modifier.weight(1f).clickable(onClick = onOpen).heightIn(min = 44.dp)) {
+                                Text(hudString(metric.label), fontSize = 10.5.sp, color = HudMuted, maxLines = 1)
+                                Text(
+                                    hudString(R.string.hud_value, snapshot[metric].text(), snapshot[metric].unit),
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
                             }
                         }
                     }
                 }
-                if (pages.size>1) {
-                    val pageText = hudString(R.string.hud_page,pager.currentPage+1,pages.size)
-                    Row(Modifier.fillMaxWidth().semantics { contentDescription = pageText }, horizontalArrangement = Arrangement.Center) {
-                        pages.indices.forEach { i -> Box(Modifier.padding(2.dp).size(3.dp).background(if (i == pager.currentPage) HudCyan else HudMuted)) }
+                if (pages.size > 1) {
+                    val pageText = hudString(R.string.hud_page, pager.currentPage + 1, pages.size)
+                    Row(Modifier.fillMaxWidth().padding(top = 2.dp).semantics { contentDescription = pageText }, horizontalArrangement = Arrangement.Center) {
+                        pages.indices.forEach { i ->
+                            Box(
+                                Modifier.padding(horizontal = 2.dp).size(width = if (i == pager.currentPage) 8.dp else 4.dp, height = 3.dp)
+                                    .background(if (i == pager.currentPage) HudCyan else HudMuted.copy(alpha = 0.3f), RoundedCornerShape(1.5.dp))
+                            )
+                        }
                     }
                 }
             }

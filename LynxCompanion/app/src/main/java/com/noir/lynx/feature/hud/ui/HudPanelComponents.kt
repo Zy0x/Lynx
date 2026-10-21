@@ -2,6 +2,7 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
@@ -42,9 +43,14 @@ internal fun hudLabelWidth(labels: List<String>, size: Int = 12, numeric: Boolea
 
 @Composable
 internal fun HudSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), color = HudCard, shape = RoundedCornerShape(12.dp)) {
-        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, color = HudCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HudCard,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(0.8.dp, HudBorder)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, color = HudCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
             content()
         }
     }
@@ -54,21 +60,39 @@ internal fun HudSection(title: String, content: @Composable ColumnScope.() -> Un
 internal fun HudChoice(label: String, selected: Boolean, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, role: Role = Role.RadioButton) {
     val background by animateColorAsState(if (selected) HudCyan.copy(alpha = 0.14f) else Color.Transparent, tween(200), label = label)
-    Box(modifier.clip(RoundedCornerShape(10.dp)).background(background)
-        .selectable(selected, enabled = enabled, role = role, onClick = onClick)
-        .heightIn(min = 48.dp).padding(horizontal = 4.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (!enabled) HudMuted.copy(alpha = 0.5f) else if (selected) HudCyan else HudMuted,
-            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+    val border by animateColorAsState(if (selected) HudCyan.copy(alpha = 0.4f) else Color.Transparent, tween(200), label = "border_$label")
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(9.dp),
+        color = background,
+        border = BorderStroke(0.8.dp, border),
+        modifier = modifier.heightIn(min = 44.dp)
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
+            Text(label, color = if (!enabled) HudMuted.copy(alpha = 0.4f) else if (selected) HudCyan else HudMuted,
+                fontSize = 11.5.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center)
+        }
     }
 }
 
 @Composable
 internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit) {
     val state = hudString(if (expanded) R.string.hud_expanded else R.string.hud_collapsed)
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        .semantics { stateDescription = state }, contentPadding = PaddingValues(horizontal = 2.dp)) {
-        Text(label, Modifier.weight(1f), fontSize = 12.sp, color = HudCyan)
-        Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, Modifier.size(20.dp))
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = HudCard,
+        border = BorderStroke(0.8.dp, HudBorder),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { stateDescription = state }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, Modifier.weight(1f), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = HudCyan)
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = HudMuted, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -76,20 +100,22 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
 internal fun HudReadingLine(label: String, reading: HudReading) {
     val value = hudString(R.string.hud_value, reading.text(), reading.unit)
     val labelWidth = hudLabelWidth(listOf(label))
-    val valueWidth = hudLabelWidth(listOf(value), 14, numeric = true)
+    val valueWidth = hudLabelWidth(listOf(value), 13, numeric = true)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val available = maxWidth.value
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (HudLayoutPolicy.fits(available, listOf(labelWidth, valueWidth))) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, Modifier.weight(1f), fontSize = 12.sp, color = HudMuted)
-                    Text(value, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                    Text(label, Modifier.weight(1f), fontSize = 11.5.sp, color = HudMuted)
+                    Text(value, fontSize = 12.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                        color = if (reading.status == "valid") Color.White else HudMuted.copy(alpha = 0.5f))
                 }
             } else {
-                Text(label, fontSize = 12.sp, color = HudMuted)
-                Text(value, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                Text(label, fontSize = 11.sp, color = HudMuted)
+                Text(value, fontSize = 12.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
+                    color = if (reading.status == "valid") Color.White else HudMuted.copy(alpha = 0.5f))
             }
-            if (reading.status != "valid") Text(statusText(reading.status), fontSize = 12.sp, color = HudMuted)
+            if (reading.status != "valid") Text(statusText(reading.status), fontSize = 10.sp, color = HudMuted.copy(alpha = 0.5f))
         }
     }
 }

@@ -4,7 +4,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -39,31 +41,65 @@ internal fun HudOverview(
     onTools: () -> Unit,
     onBoostRam: () -> Unit = {}
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // ── 1. BENTO HERO PERFORMANCE CARD (FPS, FRAME TIME, HZ) ──
         HudFrameSummary(snapshot)
+
+        // ── 2. DUAL TACHOMETER GAUGES (CPU & GPU) ──────────────────
         val scale = LocalDensity.current.fontScale
-        val loadWidth = hudLabelWidth(listOf("100 %"), 15, numeric = true)
-        val clockWidth = hudLabelWidth(listOf("0000.0 MHz"), numeric = true)
+        val loadWidth = hudLabelWidth(listOf("100%"), 14, numeric = true)
+        val clockWidth = hudLabelWidth(listOf("0000.0 MHz"), 11, numeric = true)
         val labelWidth = hudLabelWidth(listOf(hudString(R.string.hud_cpu), hudString(R.string.hud_gpu)))
-        val dial = maxOf(60f, loadWidth + 12f, labelWidth + 12f, 34f * scale + 10f)
+        val dial = maxOf(58f, loadWidth + 12f, labelWidth + 12f, 32f * scale + 10f)
         val cardWidth = maxOf(dial + 12f, clockWidth + 12f)
+
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (HudLayoutPolicy.fits(maxWidth.value, listOf(cardWidth, cardWidth))) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.weight(1f), snapshot.profile)
-                    HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.weight(1f), snapshot.profile)
+                    HudGauge(
+                        label = hudString(R.string.hud_cpu),
+                        load = snapshot[HudMetric.CPU_LOAD],
+                        clock = snapshot[HudMetric.CPU_CLOCK],
+                        dial = dial,
+                        modifier = Modifier.weight(1f),
+                        profile = snapshot.profile
+                    )
+                    HudGauge(
+                        label = hudString(R.string.hud_gpu),
+                        load = snapshot[HudMetric.GPU_LOAD],
+                        clock = snapshot[HudMetric.GPU_CLOCK],
+                        dial = dial,
+                        modifier = Modifier.weight(1f),
+                        profile = snapshot.profile
+                    )
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.fillMaxWidth(), snapshot.profile)
-                HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.fillMaxWidth(), snapshot.profile)
+                HudGauge(
+                    label = hudString(R.string.hud_cpu),
+                    load = snapshot[HudMetric.CPU_LOAD],
+                    clock = snapshot[HudMetric.CPU_CLOCK],
+                    dial = dial,
+                    modifier = Modifier.fillMaxWidth(),
+                    profile = snapshot.profile
+                )
+                HudGauge(
+                    label = hudString(R.string.hud_gpu),
+                    load = snapshot[HudMetric.GPU_LOAD],
+                    clock = snapshot[HudMetric.GPU_CLOCK],
+                    dial = dial,
+                    modifier = Modifier.fillMaxWidth(),
+                    profile = snapshot.profile
+                )
             }
         }
+
+        // ── 3. PROFILE SELECTOR ───────────────────────────────────
         HudProfiles(snapshot.profile, action.busy, onProfile)
 
-        // 4 Quick Tools Grid (XBOOST console style)
-        val hzText = snapshot[HudMetric.DISPLAY_HZ].value?.let { "${it.toInt()} Hz" } ?: hudString(R.string.hud_metric_display_hz)
+        // ── 4. QUICK TOOLS 2x2 GRID (XBOOST CONSOLE STYLE) ───────
+        val hzText = snapshot[HudMetric.DISPLAY_HZ].value?.let { "${it.toInt()} Hz" } ?: "60 Hz"
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth.value >= 160f) {
+            if (maxWidth.value >= 150f) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         HudQuickToolItem(
@@ -80,7 +116,7 @@ internal fun HudOverview(
                             label = hudString(R.string.hud_metric_display_hz),
                             sublabel = hzText,
                             enabled = true,
-                            accentColor = Color(0xFF64B5F6),
+                            accentColor = HudBlue,
                             onClick = onTools,
                             modifier = Modifier.weight(1f)
                         )
@@ -91,7 +127,7 @@ internal fun HudOverview(
                             label = hudString(R.string.hud_boost_ram),
                             sublabel = hudString(R.string.hud_boost_ram_sub),
                             enabled = !action.busy,
-                            accentColor = Color(0xFFFFB74D),
+                            accentColor = HudOrange,
                             onClick = onBoostRam,
                             modifier = Modifier.weight(1f)
                         )
@@ -100,7 +136,7 @@ internal fun HudOverview(
                             label = hudString(R.string.hud_tools_full),
                             sublabel = hudString(R.string.hud_tools_full_sub),
                             enabled = true,
-                            accentColor = Color(0xFFCE93D8),
+                            accentColor = HudPurple,
                             onClick = onTools,
                             modifier = Modifier.weight(1f)
                         )
@@ -122,7 +158,7 @@ internal fun HudOverview(
                         label = hudString(R.string.hud_metric_display_hz),
                         sublabel = hzText,
                         enabled = true,
-                        accentColor = Color(0xFF64B5F6),
+                        accentColor = HudBlue,
                         onClick = onTools,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -131,7 +167,7 @@ internal fun HudOverview(
                         label = hudString(R.string.hud_boost_ram),
                         sublabel = hudString(R.string.hud_boost_ram_sub),
                         enabled = !action.busy,
-                        accentColor = Color(0xFFFFB74D),
+                        accentColor = HudOrange,
                         onClick = onBoostRam,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -140,11 +176,212 @@ internal fun HudOverview(
                         label = hudString(R.string.hud_tools_full),
                         sublabel = hudString(R.string.hud_tools_full_sub),
                         enabled = true,
-                        accentColor = Color(0xFFCE93D8),
+                        accentColor = HudPurple,
                         onClick = onTools,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudFrameSummary(snapshot: HudSnapshot) {
+    val fpsReading = snapshot[HudMetric.FPS]
+    val isValid = fpsReading.status == "valid"
+    val fpsDisplay = if (isValid) fpsReading.text() else "—"
+
+    Surface(
+        shape = RoundedCornerShape(13.dp),
+        color = HudCard,
+        border = BorderStroke(0.8.dp, HudBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 10.dp, vertical = 9.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left: FPS Hero Box
+            Column(modifier = Modifier.weight(1.05f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .size(5.5.dp)
+                            .background(if (isValid) HudCyan else HudOrange, CircleShape)
+                    )
+                    Text(
+                        text = "FPS GAME",
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp,
+                        color = HudMuted
+                    )
+                }
+                Spacer(Modifier.height(1.dp))
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = fpsDisplay,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        color = if (isValid) Color.White else HudMuted.copy(alpha = 0.55f)
+                    )
+                    Text(
+                        text = "fps",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = HudMuted,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+            }
+
+            // Vertical divider
+            Box(
+                Modifier
+                    .height(34.dp)
+                    .width(0.8.dp)
+                    .background(HudBorder)
+            )
+
+            // Right: Frame Time & Refresh Rate Pills
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Frame Time
+                val ftReading = snapshot[HudMetric.FRAME_TIME]
+                val ftText = if (ftReading.status == "valid") "${ftReading.text()} ms" else "— ms"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Frame Time", fontSize = 10.sp, color = HudMuted)
+                    Text(ftText, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
+
+                // Display Hz
+                val hzReading = snapshot[HudMetric.DISPLAY_HZ]
+                val hzText = if (hzReading.status == "valid") "${hzReading.text()} Hz" else "60 Hz"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Display Hz", fontSize = 10.sp, color = HudMuted)
+                    Text(hzText, fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, color = HudCyan)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudGauge(
+    label: String,
+    load: HudReading,
+    clock: HudReading,
+    dial: Float,
+    modifier: Modifier,
+    profile: String? = null
+) {
+    val sweep by animateFloatAsState(
+        load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f, 100f) ?: 0f,
+        tween(250),
+        label = label
+    )
+    val arcColor = when (profile) {
+        "performance", "extreme" -> Color(0xFFFF7A00) // Gaming Amber Orange
+        "powersave" -> Color(0xFF10B981) // Eco Emerald Green
+        else -> HudCyan // Cyber Mint
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(13.dp),
+        color = HudCard,
+        border = BorderStroke(0.8.dp, HudBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 7.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(Modifier.size(dial.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize().padding(3.dp)) {
+                    // Track Arc
+                    drawArc(
+                        color = HudMuted.copy(alpha = 0.12f),
+                        startAngle = 140f,
+                        sweepAngle = 260f,
+                        useCenter = false,
+                        style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    if (load.status == "valid") {
+                        // Halo Glow behind arc
+                        drawArc(
+                            color = arcColor.copy(alpha = 0.22f),
+                            startAngle = 140f,
+                            sweepAngle = sweep * 2.6f,
+                            useCenter = false,
+                            style = Stroke(6.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                        // Sharp Foreground Arc
+                        drawArc(
+                            color = arcColor,
+                            startAngle = 140f,
+                            sweepAngle = sweep * 2.6f,
+                            useCenter = false,
+                            style = Stroke(3.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val percentText = if (load.status == "valid") "${load.text()}%" else "—%"
+                    Text(
+                        text = percentText,
+                        fontSize = 14.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = if (load.status == "valid") Color.White else HudMuted
+                    )
+                    Text(
+                        text = label,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = arcColor
+                    )
+                }
+            }
+
+            // Frequency Pill Capsule
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = HudElevated,
+                border = BorderStroke(0.6.dp, HudBorder)
+            ) {
+                val clockText = if (clock.status == "valid") "${clock.text()} MHz" else "— MHz"
+                Text(
+                    text = clockText,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
             }
         }
     }
@@ -163,22 +400,33 @@ private fun HudQuickToolItem(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         color = HudCard,
-        border = BorderStroke(1.dp, HudMuted.copy(alpha = 0.15f)),
+        border = BorderStroke(0.8.dp, HudBorder),
         modifier = modifier.heightIn(min = 48.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (enabled) accentColor else HudMuted.copy(alpha = 0.4f),
-                modifier = Modifier.size(18.dp)
-            )
+            // Squircle Icon Badge
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (enabled) accentColor.copy(alpha = 0.14f) else HudMuted.copy(alpha = 0.08f),
+                border = BorderStroke(0.6.dp, if (enabled) accentColor.copy(alpha = 0.35f) else Color.Transparent),
+                modifier = Modifier.size(30.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (enabled) accentColor else HudMuted.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
             Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
                     text = label,
@@ -196,114 +444,6 @@ private fun HudQuickToolItem(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun HudFrameSummary(snapshot: HudSnapshot) {
-    val fpsWidth = maxOf(hudLabelWidth(listOf("000", snapshot[HudMetric.FPS].text()), 28, numeric = true), hudLabelWidth(listOf(hudString(R.string.hud_metric_fps))))
-    val sideWidth = maxOf(hudLabelWidth(listOf(hudString(R.string.hud_metric_frame_time), hudString(R.string.hud_metric_display_hz))),
-        hudLabelWidth(listOf("000.0 ms", "000.00 Hz"), 14, numeric = true))
-    val fps: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(hudString(R.string.hud_metric_fps), color = HudMuted, fontSize = 12.sp)
-            HudValue(snapshot[HudMetric.FPS], large = true)
-            if (snapshot[HudMetric.FPS].status != "valid")
-                Text(statusText(snapshot[HudMetric.FPS].status), color = HudMuted, fontSize = 12.sp)
-        }
-    }
-    val timing: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ).forEach { metric ->
-                Column {
-                    Text(hudString(metric.label), color = HudMuted, fontSize = 12.sp)
-                    Text(hudString(R.string.hud_value, snapshot[metric].text(), snapshot[metric].unit), fontSize = 14.sp, fontFamily = FontFamily.Monospace)
-                    if (snapshot[metric].status != "valid")
-                        Text(statusText(snapshot[metric].status), fontSize = 12.sp, color = HudMuted)
-                }
-            }
-        }
-    }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (HudLayoutPolicy.fits(maxWidth.value, listOf(fpsWidth, sideWidth), 8f)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.width(fpsWidth.dp)) { fps() }
-                Box(Modifier.weight(1f)) { timing() }
-            }
-        } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) { fps(); timing() }
-    }
-}
-
-@Composable
-private fun HudGauge(
-    label: String,
-    load: HudReading,
-    clock: HudReading,
-    dial: Float,
-    modifier: Modifier,
-    profile: String? = null
-) {
-    val sweep by animateFloatAsState(
-        load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f, 100f) ?: 0f,
-        tween(200),
-        label = label
-    )
-    val arcColor = when (profile) {
-        "performance", "extreme" -> Color(0xFFFF7A00) // Gaming Orange
-        "powersave" -> Color(0xFF00E676) // Eco Green
-        else -> HudCyan // Cyan for Balance / Auto
-    }
-    Surface(modifier, shape = RoundedCornerShape(12.dp), color = HudCard) {
-        Column(
-            Modifier.padding(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Box(Modifier.size(dial.dp), contentAlignment = Alignment.Center) {
-                Canvas(Modifier.fillMaxSize().padding(4.dp)) {
-                    drawArc(
-                        HudMuted.copy(alpha = 0.16f),
-                        140f,
-                        260f,
-                        false,
-                        style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                    if (load.status == "valid") {
-                        drawArc(
-                            arcColor.copy(alpha = 0.28f),
-                            140f,
-                            sweep * 2.6f,
-                            false,
-                            style = Stroke(6.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                        drawArc(
-                            arcColor,
-                            140f,
-                            sweep * 2.6f,
-                            false,
-                            style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                    }
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        hudString(R.string.hud_value, load.text(), load.unit),
-                        fontSize = 15.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(label, fontSize = 12.sp, color = HudMuted)
-                }
-            }
-            Text(
-                hudString(R.string.hud_value, clock.text(), clock.unit),
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
-            )
-            if (load.status != "valid") Text(statusText(load.status), fontSize = 12.sp, color = HudMuted)
-            if (clock.status != "valid" && clock.status != load.status)
-                Text(statusText(clock.status), fontSize = 12.sp, color = HudMuted)
         }
     }
 }

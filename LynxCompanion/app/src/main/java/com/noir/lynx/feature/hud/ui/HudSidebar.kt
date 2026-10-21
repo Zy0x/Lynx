@@ -1,6 +1,7 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,13 +47,16 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
         if (!open) HudMiniOverlay(snapshot, prefs, viewport, { onOpen(true) }, onDrag)
         else Surface(Modifier.width(viewport.panelWidth.dp).heightIn(max = viewport.panelHeight.dp),
             shape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp), color = HudBackground,
-            border = BorderStroke(1.dp, HudMuted.copy(alpha = 0.15f))) {
+            border = BorderStroke(1.dp, HudBorder)) {
             Column {
                 HudPanelHeader(appLabel, snapshot[HudMetric.BATTERY_LEVEL], onDrag) { onOpen(false) }
                 HudAppDock(apps) { onOpen(false); onApp(it) }
-                HorizontalDivider(color = HudMuted.copy(alpha = 0.12f))
+                HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
                 Row(Modifier.weight(1f, fill = false)) {
-                    if (layout.useRail) HudNavigationRail(page, layout.railWidth) { page = it }
+                    if (layout.useRail) {
+                        HudNavigationRail(page, layout.railWidth) { page = it }
+                        Box(Modifier.fillMaxHeight().width(0.8.dp).background(HudBorder))
+                    }
                     Column(Modifier.weight(1f)) {
                         if (!layout.useRail) Box(Modifier.padding(horizontal = HudLayoutPolicy.CONTENT_PADDING.dp)) {
                             HudDisclosure(hudString(page.label), menuOpen) { menuOpen = !menuOpen }
@@ -61,13 +65,13 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
                             HudPageMenu(page, { page = it; menuOpen = false }, Modifier.weight(1f, fill = false))
                         } else pageState.SaveableStateProvider(page.name) {
                             Column(Modifier.weight(1f, fill = false).verticalScroll(scrolls.getValue(page))
-                                .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 when (page) {
                                     HudPage.Summary -> HudOverview(snapshot, action, onProfile, onCapture, { page = HudPage.Tools }, onBoostRam)
                                     HudPage.Details -> HudDetails(snapshot)
                                     HudPage.Tools -> HudTools(prefs, preferences, rates, snapshot[HudMetric.DISPLAY_HZ], action, onHz, onCapture, onStop)
                                 }
-                                action.message?.let { Text(hudString(it), fontSize = 12.sp, color = HudCyan) }
+                                action.message?.let { Text(hudString(it), fontSize = 11.sp, color = HudCyan) }
                             }
                         }
                     }

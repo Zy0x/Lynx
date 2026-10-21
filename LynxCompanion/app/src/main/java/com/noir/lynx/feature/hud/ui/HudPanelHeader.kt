@@ -1,24 +1,27 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -35,35 +38,173 @@ import com.noir.lynx.feature.hud.data.HudReading
 internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Float) -> Unit, onClose: () -> Unit) {
     val drag by rememberUpdatedState(onDrag)
     val description = hudString(R.string.hud_drag)
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).heightIn(min = 48.dp).semantics { contentDescription = description }
-            .pointerInput(Unit) { detectDragGestures { change, amount -> change.consume(); drag(amount.y) } },
-            verticalArrangement = Arrangement.Center) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.width(3.dp).height(16.dp).background(HudCyan, RoundedCornerShape(2.dp)))
-                Text(hudString(R.string.hud_title), color = HudCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+    val displayApp = if (appLabel.isBlank() || appLabel.equals("Lynx", ignoreCase = true)) {
+        "Game Booster"
+    } else appLabel
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left: Drag Handle & Title
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 44.dp)
+                .semantics { contentDescription = description }
+                .pointerInput(Unit) { detectDragGestures { change, amount -> change.consume(); drag(amount.y) } },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                Modifier
+                    .width(3.5.dp)
+                    .height(18.dp)
+                    .background(HudCyan, RoundedCornerShape(2.dp))
+            )
+            Column(verticalArrangement = Arrangement.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = hudString(R.string.hud_title),
+                        color = Color.White,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = HudCyan.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, HudCyan.copy(alpha = 0.4f)),
+                        modifier = Modifier.padding(start = 2.dp)
+                    ) {
+                        Text(
+                            text = "OSD",
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = HudCyan,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = displayApp,
+                    fontSize = 10.5.sp,
+                    color = HudMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 12.sp,
-                color = HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(hudString(R.string.hud_value, battery.text(), battery.unit), fontSize = 11.sp, color = HudMuted, fontFamily = FontFamily.Monospace)
+
+        // Right: Status Badges (Battery + Clock) & Close Button
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Battery Capsule
+            val battText = battery.value?.let { "${it.toInt()}%" } ?: battery.text()
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = HudCard,
+                border = BorderStroke(0.6.dp, HudBorder)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryStd,
+                        contentDescription = null,
+                        tint = if (battery.status == "valid") HudCyan else HudMuted,
+                        modifier = Modifier.size(11.dp)
+                    )
+                    Text(
+                        text = battText,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Live Clock Capsule
             val timeStr = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()) }
-            Text(timeStr, fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
-        }
-        IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Default.Close, hudString(R.string.hud_close), Modifier.size(20.dp))
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = HudCard,
+                border = BorderStroke(0.6.dp, HudBorder)
+            ) {
+                Text(
+                    text = timeStr,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+
+            // Close button
+            Surface(
+                onClick = onClose,
+                shape = CircleShape,
+                color = HudCard,
+                border = BorderStroke(0.8.dp, HudBorder),
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = hudString(R.string.hud_close),
+                        tint = HudMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 internal fun HudAppDock(apps: List<HudApp>, onApp: (HudApp) -> Unit) {
-    if (apps.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-        .padding(horizontal = 6.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        apps.forEach { app ->
-            Box(Modifier.size(48.dp).clickable(role = Role.Button) { onApp(app) }, contentAlignment = Alignment.Center) {
-                Image(app.icon.asImageBitmap(), app.label, Modifier.size(28.dp))
+    if (apps.isEmpty()) return
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = HudCard.copy(alpha = 0.65f),
+        border = BorderStroke(0.8.dp, HudBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            apps.forEach { app ->
+                Surface(
+                    onClick = { onApp(app) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.05f),
+                    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.08f)),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Image(
+                            bitmap = app.icon.asImageBitmap(),
+                            contentDescription = app.label,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
         }
     }

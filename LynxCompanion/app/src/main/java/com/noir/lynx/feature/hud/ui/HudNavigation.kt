@@ -2,24 +2,23 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,23 +33,63 @@ internal val HudPage.label: Int get() = when (this) {
 
 @Composable
 internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPage) -> Unit) {
-    Column(Modifier.width(width.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)
-        .selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(
+        modifier = Modifier
+            .width(width.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 4.dp, horizontal = 2.dp)
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         HudPage.values().forEach { page ->
             val active = selected == page
             val title = hudString(page.label)
-            val background by animateColorAsState(if (active) HudCyan.copy(alpha = 0.12f) else Color.Transparent, tween(200), label = title)
-            Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp).clip(RoundedCornerShape(10.dp))
-                .background(background).selectable(active, role = Role.Tab, onClick = { onSelect(page) })
-                .heightIn(min = 56.dp)) {
-                if (active) Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(24.dp)
-                    .background(HudCyan, RoundedCornerShape(2.dp)))
-                Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val icon = when(page) { HudPage.Summary -> Icons.Default.Speed; HudPage.Details -> Icons.Default.ShowChart; HudPage.Tools -> Icons.Default.Tune }
-                    Icon(icon, null, Modifier.size(18.dp), tint = if (active) HudCyan else HudMuted)
-                    Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (active) HudCyan else HudMuted, softWrap = false)
+            val background by animateColorAsState(
+                if (active) HudCyan.copy(alpha = 0.12f) else Color.Transparent,
+                tween(200),
+                label = "bg_$title"
+            )
+            val borderColor by animateColorAsState(
+                if (active) HudCyan.copy(alpha = 0.35f) else Color.Transparent,
+                tween(200),
+                label = "border_$title"
+            )
+
+            Surface(
+                onClick = { onSelect(page) },
+                shape = RoundedCornerShape(12.dp),
+                color = background,
+                border = BorderStroke(0.8.dp, borderColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp)
+                    .heightIn(min = 52.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val icon = when (page) {
+                        HudPage.Summary -> Icons.Default.Speed
+                        HudPage.Details -> Icons.AutoMirrored.Filled.ShowChart
+                        HudPage.Tools -> Icons.Default.Tune
+                    }
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (active) HudCyan else HudMuted
+                    )
+                    Text(
+                        text = title,
+                        fontSize = 10.5.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        color = if (active) HudCyan else HudMuted,
+                        softWrap = false
+                    )
                 }
             }
         }
@@ -59,10 +98,20 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
 
 @Composable
 internal fun HudPageMenu(selected: HudPage, onSelect: (HudPage) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.verticalScroll(rememberScrollState()).selectableGroup().padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .selectableGroup()
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         HudPage.values().forEach { page ->
-            HudChoice(hudString(page.label), selected == page, { onSelect(page) }, Modifier.fillMaxWidth(), role = Role.Tab)
+            HudChoice(
+                label = hudString(page.label),
+                selected = selected == page,
+                onClick = { onSelect(page) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
