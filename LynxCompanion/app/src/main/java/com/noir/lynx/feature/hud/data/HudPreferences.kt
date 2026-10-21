@@ -10,6 +10,7 @@ data class HudPreferences(
     val pinned: Boolean = false,
     val selected: Set<String> = setOf("fps", "frame_time"),
     val floatingEnabled: Boolean = true,
+    val floatingEngine: String = "standalone",
     val floatingSizePreset: String = "standard",
     val floatingWidthPct: Int = 70,
     val floatingHeightPct: Int = 65
@@ -22,10 +23,11 @@ class HudPreferencesStore(context: Context) {
         val pinned = prefs.getBoolean("pin_mini_fps", false)
         val selected = prefs.getStringSet("mini_metrics_v1", setOf("fps", "frame_time"))?.toSet() ?: emptySet()
         val floating = prefs.getBoolean("hud_floating_enabled", true)
+        val engine = prefs.getString("hud_floating_engine", "standalone") ?: "standalone"
         val preset = prefs.getString("hud_floating_preset", "standard") ?: "standard"
         val wPct = prefs.getInt("hud_floating_w_pct", 70)
         val hPct = prefs.getInt("hud_floating_h_pct", 65)
-        return HudPreferences(pinned, selected, floating, preset, wPct, hPct)
+        return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct)
     }
 
     val changes = callbackFlow {
@@ -46,6 +48,10 @@ class HudPreferencesStore(context: Context) {
 
     fun setFloatingEnabled(value: Boolean) {
         prefs.edit().putBoolean("hud_floating_enabled", value).apply()
+    }
+
+    fun setFloatingEngine(engine: String) {
+        prefs.edit().putString("hud_floating_engine", engine).apply()
     }
 
     fun setFloatingSizePreset(preset: String) {

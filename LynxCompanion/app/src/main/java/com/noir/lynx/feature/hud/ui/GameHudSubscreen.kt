@@ -334,6 +334,62 @@ fun GameHudSubscreen(
 
                 if (prefs.floatingEnabled) {
                     Text(
+                        text = localizedUiText("Mesin Eksekusi Jendela:"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentCyan
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val engines = listOf(
+                            "standalone" to ("⚡ Standalone Studio" to "Overlay mandiri (Browser, Calc, Notes, Timer)"),
+                            "system_freeform" to ("🪟 System Freeform" to "Root windowingMode 5 sistem ROM")
+                        )
+                        engines.forEach { (engineKey, pair) ->
+                            val (title, desc) = pair
+                            val isSelected = prefs.floatingEngine == engineKey
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) AccentCyan.copy(alpha = 0.16f) else BgElevated,
+                                border = BorderStroke(0.8.dp, if (isSelected) AccentCyan else BorderSubtle),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { store.setFloatingEngine(engineKey) }
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = { store.setFloatingEngine(engineKey) },
+                                            colors = RadioButtonDefaults.colors(selectedColor = AccentCyan),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = title,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.White else TextPrimary
+                                        )
+                                    }
+                                    Text(
+                                        text = desc,
+                                        fontSize = 9.sp,
+                                        color = TextSecondary,
+                                        maxLines = 2,
+                                        lineHeight = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Text(
                         text = localizedUiText("Preset Ukuran Default:"),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,

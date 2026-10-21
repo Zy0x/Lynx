@@ -14,6 +14,8 @@ import androidx.lifecycle.*
 import androidx.savedstate.*
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.AppLocale
+import com.noir.lynx.feature.floating.FloatingToolType
+import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.hud.HudController
 import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.feature.hud.ui.*
@@ -62,6 +64,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         const val EXTRA_MODE = "extra_hud_mode"
         const val ACTION_SET_PIN_FPS = "com.noir.lynx.service.SET_PIN_FPS"
         const val EXTRA_PIN_FPS = "extra_pin_fps"
+        const val ACTION_OPEN_TOOL = "com.noir.lynx.service.OPEN_FLOATING_TOOL"
+        const val EXTRA_TOOL_TYPE = "extra_tool_type"
         private const val CHANNEL = "lynx_game_hud_channel"
         private const val WINDOW_TITLE = "LynxFloatingHud"
     }
@@ -91,6 +95,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         repository = HudStreamRepository(this)
         preferences = HudPreferencesStore(this)
         controller = HudController(this,scope)
+        LynxFloatingWindowManager.init(this, windows, scope, this, this)
         val prefs = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
         activeStyleFlow.value = prefs.getInt("hud_style",1).coerceIn(1,6)
         activeModeFlow.value = prefs.getInt("hud_mode",0).coerceIn(0,1)
@@ -143,6 +148,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             ACTION_SET_STYLE -> { activeStyleFlow.value = intent.getIntExtra(EXTRA_STYLE,1).coerceIn(1,6); prefs.edit().putInt("hud_style",activeStyleFlow.value).apply() }
             ACTION_SET_MODE -> { activeModeFlow.value = intent.getIntExtra(EXTRA_MODE,0).coerceIn(0,1); open.value = false; prefs.edit().putInt("hud_mode",activeModeFlow.value).apply(); view?.post { clamp() } }
             ACTION_SET_PIN_FPS -> preferences.pin(intent.getBooleanExtra(EXTRA_PIN_FPS,false))
+            ACTION_OPEN_TOOL -> {
+                val toolName = intent.getStringExtra(EXTRA_TOOL_TYPE)
+                val tool = runCatching { FloatingToolType.valueOf(toolName ?: "") }.getOrDefault(FloatingToolType.BROWSER)
+                LynxFloatingWindowManager.openTool(tool)
+            }
         }
         return START_NOT_STICKY
     }
@@ -275,6 +285,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         if (::displays.isInitialized) displays.unregisterDisplayListener(displayListener)
         scope.cancel()
         if (::controller.isInitialized) CoroutineScope(Dispatchers.IO).launch { controller.restoreDisplay() }
+        LynxFloatingWindowManager.destroy()
         view?.let { runCatching { windows.removeView(it) }; it.disposeComposition() }
         view = null
         snapshotFlow.value = HudSnapshot()

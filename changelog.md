@@ -1,3 +1,27 @@
+# Lynx Universal [Standalone Overlay Floating Window Studio & Freeform Multi-Engine] 7.0.0-RC152
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC152** (Lynx Kernel Manager v3.1.98): **Implementasi Penuh Arsitektur Jendela Mengambang Mandiri (Standalone Overlay Floating Window Studio) & Penyempurnaan Mesin Peluncuran Ganda (Dual-Engine System): Menghadirkan Jendela Mengambang Mandiri (Standalone Overlay Window) Berbasis `WindowManager` & Jetpack Compose yang Berjalan 100% Imun Terhadap Keterbatasan OEM Freeform Maupun Pembatasan ROM; Dilengkapi Fitur Ubah Ukuran Dinamis (Interactive Corner Resize Grip) di Sudut Kanan Bawah dengan Pembatasan Batas Halus (Smooth Bounds Clamping); Mendukung Gerakan Seret Presisi (Draggable Window Header), Pengatur Transparansi Multi-Tingkat (100%, 80%, 60%, 40% Opacity Cycle), Pengalih Preset Cepat (Kompak, Standar, Lebar), Serta Minimized Bubble Pill yang Ramping di Tepi Layar; Mengintegrasikan 4 Alat Taktis Bawaan (Built-in Power Tools) di Dalam Jendela Mengambang Meliputi In-Game Web Browser & Wiki Interaktif dengan Bookmark Game Cepat, Kalkulator Game & Formula DPS/EHP/CDR, Catatan Taktis Game dengan Penyimpanan Persisten, Serta Countdown Timer Objektif (Turtle, Lord, Dragon, Flash, Cleanse, Ult); Memperbaiki Logika Peluncuran System Freeform Bawaan dengan Eksekusi Langsung Root `cmd package resolve-activity` dan `am start --windowingMode 5` Sesuai Mekanisme Terbukti pada Versi Awal; Serta Menghadirkan Pengalih Mode Mesin (⚡ Standalone Studio vs 🪟 System Freeform) Langsung Pada Header Dock Bilah Samping Maupun Subscreen Game HUD**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC152)
+
+### 1. 🪟 Arsitektur Jendela Mengambang Mandiri (`LynxFloatingWindowManager.kt` & `FloatingWindowFrame.kt`)
+- **Standalone Overlay Window**: Berjalan di atas sesi permainan melalui Android `WindowManager` (`TYPE_APPLICATION_OVERLAY`) tanpa mengganggu atau memutus fokus game.
+- **Interaktif Ubah Ukuran (Corner Resize Handle)**: Hadir dengan pegangan sudut (grip handle) di pojok kanan-bawah yang dapat digeser secara sentuhan bebas untuk mengubah lebar dan tinggi jendela secara *real-time* dengan batasan aman ($250\text{–}600\text{ dp}$ lebar, $220\text{–}800\text{ dp}$ tinggi).
+- **Pengatur Transparansi (Opacity Cycle)**: Tombol 1-ketuk untuk mengganti transparansi jendela ($100\% \to 80\% \to 60\% \to 40\%$) sehingga pemain tetap dapat melihat pergerakan musuh di balik panduan peta atau kalkulator.
+- **Minimized Bubble Pill**: Dapat diminimalkan menjadi gelembung mengambang ramping berukuran $52\times 52\text{ dp}$ di tepi layar yang dapat diketuk kapan saja untuk kembali ke ukuran semula.
+
+### 2. ⚡ 4 Alat Bawaan Game Booster di Dalam Jendela Mengambang
+1. **🌐 In-Game Web Browser & Wiki Hub (`FloatingBrowserTool.kt`)**: Browser perangkat keras berbasis `WebView` dengan navigasi lengkap (Maju, Mundur, Refresh, Input URL) dan tombol pintas panduan game (Genshin Interactive Map, MLBB Wiki, Game8 Guides, YouTube Gaming, Google Search) tanpa meninggalkan game.
+2. **🧮 Kalkulator Game & Formula DPS/EHP (`FloatingCalculatorTool.kt`)**: Kalkulator lengkap disertai formula stat game instan seperti *Damage Reduction (DR%)*, *Cooldown Reduction (CDR%)*, dan *Effective HP (EHP)*.
+3. **📝 Catatan Taktis Persisten (`FloatingNotesTool.kt`)**: Kertas coretan catatan taktis dengan penyimpanan otomatis lokal, penghitung karakter, tombol salin/hapus, dan chip makro stempel waktu instan (`[Flash 5m]`, `[Lord 8m]`, `[Turtle 2m]`, `[Ult 60s]`).
+4. **⏱️ Timer Objektif Real-Time (`FloatingTimersTool.kt`)**: Penghitung mundur multi-objektif dengan bilah progres berwarna, tombol putar/jeda/ulang, dan getaran notifikasi saat respawn tiba.
+
+### 3. 🛠️ Pemulihan Logika Peluncuran System Freeform Bawaan (`HudController.kt`)
+- Mengembalikan mekanisme eksekusi langsung via *Root Shell* (`cmd package resolve-activity --brief <pkg>` dilanjutkan `am start -n <cmp> --windowingMode 5`) tanpa melewati perantara `context.startActivity` yang kerap memicu paksaan layar penuh pada Android 14/15.
+- Pengguna dapat memilih bebas antara mode **⚡ Standalone Studio** (direkomendasikan) atau **🪟 System Freeform** langsung dari header dock bilah samping maupun menu pengaturan HUD.
+
+---
+
 # Lynx Universal [Dynamic Freeform Window Engine & Dock Apps Resizing Architecture] 7.0.0-RC151
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC151** (Lynx Kernel Manager v3.1.97): **Implementasi Mesin Peluncur Jendela Mengambang (Dynamic Freeform Window Engine) & Pengatur Ukuran Multi-Tasking Fleksibel untuk Aplikasi Dock Game HUD: Menghadirkan Kemampuan Membuka Seluruh Aplikasi Dock Cepat (WhatsApp, Chrome, YouTube, Telegram, Discord, Kalkulator) Langsung Sebagai Jendela Mengambang (Floating Window) di Atas Sesi Permainan; Dilengkapi Penghitung Batas Layar Dinamis (`ActivityOptions.setLaunchBounds` & `WINDOWING_MODE_FREEFORM = 5`) Serta Fallback Root Shell `am start --windowingMode 5`; Menyediakan 3 Preset Ukuran Fleksibel (Kompak 55%×50%, Standar 70%×65%, Lebar 85%×80%) dan Mode Kustom Presisi dengan Slider Lebar & Tinggi Bebas; Memasang Pengalih Cepat Preset Pada Header Dock HUD; Menambahkan Kartu Konfigurasi Khusus Pada Subscreen HUD; Serta Mengintegrasikan Eksekusi Otomatis Paksa Freeform Sistem (`settings put global enable_freeform_support 1` & `force_resizable_activities 1`) Demi Menjamin Seluruh Aplikasi Dapat Diubah Ukurannya Secara Mulus dan Stabil**.

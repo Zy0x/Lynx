@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.feature.floating.FloatingToolType
+import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.hud.HudApp
 import com.noir.lynx.feature.hud.data.HudPreferences
 import com.noir.lynx.feature.hud.data.HudPreferencesStore
@@ -180,10 +182,10 @@ internal fun HudAppDock(
     prefs: HudPreferences? = null,
     onApp: (HudApp) -> Unit
 ) {
-    if (apps.isEmpty()) return
     val isFloating = prefs?.floatingEnabled ?: true
     val currentPreset = prefs?.floatingSizePreset ?: "standard"
-    val wPct = prefs?.floatingWidthPct ?: 70
+    val engine = prefs?.floatingEngine ?: "standalone"
+    val isStandalone = engine == "standalone"
 
     Surface(
         shape = RoundedCornerShape(13.dp),
@@ -204,78 +206,141 @@ internal fun HudAppDock(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "APLIKASI CEPAT",
+                    text = "FLOATING STUDIO",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp,
-                    color = HudMuted
+                    color = HudCyan
                 )
 
-                // Preset selector pill
+                // Action Controls: Engine Toggle & Preset Selector
                 if (preferences != null && prefs != null) {
-                    val presetLabel = when (currentPreset) {
-                        "compact" -> "Kompak (55%)"
-                        "large" -> "Lebar (85%)"
-                        "custom" -> "Kustom ($wPct%)"
-                        else -> "Standar (70%)"
-                    }
-                    Surface(
-                        onClick = {
-                            val nextPreset = when (currentPreset) {
-                                "compact" -> "standard"
-                                "standard" -> "large"
-                                "large" -> "compact"
-                                else -> "standard"
-                            }
-                            preferences.setFloatingSizePreset(nextPreset)
-                        },
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (isFloating) HudCyan.copy(alpha = 0.12f) else HudElevated,
-                        border = BorderStroke(0.6.dp, if (isFloating) HudCyan.copy(alpha = 0.35f) else HudBorder)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        // Engine Toggle Pill (Overlay vs Freeform)
+                        Surface(
+                            onClick = {
+                                val nextEngine = if (isStandalone) "system_freeform" else "standalone"
+                                preferences.setFloatingEngine(nextEngine)
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isStandalone) HudCyan.copy(alpha = 0.16f) else Color(0xFF241C10),
+                            border = BorderStroke(0.6.dp, if (isStandalone) HudCyan.copy(alpha = 0.45f) else Color(0xFFFFB300).copy(alpha = 0.45f))
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.OpenInNew,
-                                contentDescription = null,
-                                tint = if (isFloating) HudCyan else HudMuted,
-                                modifier = Modifier.size(10.dp)
-                            )
-                            Text(
-                                text = if (isFloating) presetLabel else "Layar Penuh",
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isFloating) HudCyan else HudMuted
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Text(
+                                    text = if (isStandalone) "⚡ Overlay" else "🪟 Freeform",
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isStandalone) HudCyan else Color(0xFFFFB300)
+                                )
+                            }
+                        }
+
+                        // Preset selector pill
+                        val presetLabel = when (currentPreset) {
+                            "compact" -> "55%"
+                            "large" -> "85%"
+                            else -> "70%"
+                        }
+                        Surface(
+                            onClick = {
+                                val nextPreset = when (currentPreset) {
+                                    "compact" -> "standard"
+                                    "standard" -> "large"
+                                    else -> "compact"
+                                }
+                                preferences.setFloatingSizePreset(nextPreset)
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isFloating) HudElevated else Color(0xFF1B2028),
+                            border = BorderStroke(0.6.dp, if (isFloating) HudBorder else Color.Transparent)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.OpenInNew,
+                                    contentDescription = null,
+                                    tint = if (isFloating) HudCyan else HudMuted,
+                                    modifier = Modifier.size(9.dp)
+                                )
+                                Text(
+                                    text = if (isFloating) presetLabel else "Layar Penuh",
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isFloating) HudCyan else HudMuted
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Apps list in horizontal scroll
+            // Tools and Apps Strip in horizontal scroll
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Built-in Standalone Power Tools
+                val builtInTools = listOf(
+                    Triple(FloatingToolType.BROWSER, "🌐", Color(0xFF00E5FF)),
+                    Triple(FloatingToolType.CALCULATOR, "🧮", Color(0xFFFF9800)),
+                    Triple(FloatingToolType.NOTES, "📝", Color(0xFF00E676)),
+                    Triple(FloatingToolType.TIMERS, "⏱️", Color(0xFFFF4081))
+                )
+
+                builtInTools.forEach { (tool, emoji, accent) ->
+                    Surface(
+                        onClick = {
+                            LynxFloatingWindowManager.openTool(tool)
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = accent.copy(alpha = 0.12f),
+                        border = BorderStroke(0.7.dp, accent.copy(alpha = 0.35f)),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(emoji, fontSize = 16.sp)
+                        }
+                    }
+                }
+
+                // Vertical separator if apps exist
+                if (apps.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .height(24.dp)
+                            .width(0.8.dp)
+                            .background(HudBorder)
+                    )
+                }
+
+                // Installed quick apps
                 apps.forEach { app ->
                     Surface(
                         onClick = { onApp(app) },
                         shape = RoundedCornerShape(10.dp),
                         color = Color.White.copy(alpha = 0.05f),
                         border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.08f)),
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
                                 bitmap = app.icon.asImageBitmap(),
                                 contentDescription = app.label,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }

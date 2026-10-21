@@ -11,6 +11,8 @@ import android.view.Display
 import com.noir.lynx.display.HudDisplaySession
 import com.noir.lynx.R
 import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.feature.floating.FloatingToolType
+import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +52,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         }
     }
 
+    fun openFloatingTool(tool: FloatingToolType, url: String? = null) {
+        LynxFloatingWindowManager.openTool(tool, url)
+    }
+
     fun launch(app: HudApp, forceFullscreen: Boolean = false) {
         val prefs = HudPreferencesStore(context).read()
         if (!prefs.floatingEnabled || forceFullscreen) {
@@ -61,6 +67,28 @@ class HudController(private val context: Context, private val scope: CoroutineSc
                 mutable.value = HudActionState(message = R.string.hud_app_failed)
             }
             return
+        }
+
+        // In Standalone Overlay mode, map relevant apps to built-in tools
+        if (prefs.floatingEngine == "standalone") {
+            when {
+                app.packageName == "com.android.chrome" -> {
+                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://www.google.com")
+                    return
+                }
+                app.packageName.contains("calculator") -> {
+                    LynxFloatingWindowManager.openTool(FloatingToolType.CALCULATOR)
+                    return
+                }
+                app.packageName == "com.google.android.youtube" -> {
+                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://m.youtube.com")
+                    return
+                }
+                app.packageName == "com.discord" -> {
+                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://discord.com/app")
+                    return
+                }
+            }
         }
 
         launchFloating(app, prefs.floatingWidthPct, prefs.floatingHeightPct)
@@ -84,40 +112,45 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             // Auto-enable freeform support and force resizable activities via root
             Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
 
-            val pm = context.packageManager
-            val intent = pm.getLaunchIntentForPackage(app.packageName)
-            if (intent == null) {
-                mutable.value = HudActionState(message = R.string.hud_app_failed)
-                return@launch
+            // Resolve target activity via root cmd package (the proven mechanism from early version)
+            val resolveCmd = "cmd package resolve-activity --brief ${app.packageName} 2>/dev/null | tail -n 1"
+            val resolved = Shell.cmd(resolveCmd).exec().out.joinToString("").trim()
+            val targetCmp = if (resolved.isNotEmpty() && resolved.contains("/")) resolved else {
+                val pm = context.packageManager
+                val intent = pm.getLaunchIntentForPackage(app.packageName)
+                intent?.component?.flattenToShortString() ?: app.packageName
             }
 
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-            // OEM floating window flags
-            intent.putExtra("miui.action.EXTRA_IS_FLOATING_WINDOW", true)
-            intent.addFlags(0x00002000)
-            intent.putExtra("is_floating_window", true)
-            intent.putExtra("floating_window_mode", 1)
-            intent.putExtra("freeform_support", true)
+            val boundsStr = "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
+            var res = Shell.cmd("am start -n '$targetCmp' --windowingMode 5 --bounds '$boundsStr'").exec()
+            var launched = res.isSuccess
 
-            var launched = false
-            try {
-                val options = ActivityOptions.makeBasic()
-                options.setLaunchBounds(bounds)
-                try {
-                    val setWindowingMode = ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
-                    setWindowingMode.invoke(options, 5) // WINDOWING_MODE_FREEFORM = 5
-                } catch (_: Exception) {}
-
-                withContext(Dispatchers.Main) {
-                    context.startActivity(intent, options.toBundle())
-                }
-                launched = true
-            } catch (e: Exception) {
-                val cmp = intent.component?.flattenToShortString() ?: app.packageName
-                val boundsStr = "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
-                val res = Shell.cmd("am start -n '$cmp' --windowingMode 5 --bounds '$boundsStr'").exec()
+            if (!launched) {
+                // Secondary root fallback without bounds
+                res = Shell.cmd("am start -n '$targetCmp' --windowingMode 5").exec()
                 launched = res.isSuccess
+            }
+
+            if (!launched) {
+                // Application context fallback
+                val pm = context.packageManager
+                val intent = pm.getLaunchIntentForPackage(app.packageName)
+                if (intent != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                    try {
+                        val options = ActivityOptions.makeBasic()
+                        options.setLaunchBounds(bounds)
+                        try {
+                            val setWindowingMode = ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
+                            setWindowingMode.invoke(options, 5)
+                        } catch (_: Exception) {}
+                        withContext(Dispatchers.Main) {
+                            context.startActivity(intent, options.toBundle())
+                        }
+                        launched = true
+                    } catch (_: Exception) {}
+                }
             }
 
             if (!launched) {
