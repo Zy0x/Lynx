@@ -65,6 +65,10 @@ fun CpuUnifiedSystemCard(
     onArchitectureModeChange: (String) -> Unit = {},
     onTopAppPreferIdleChange: (Boolean) -> Unit = {},
     onWorkqueuePowerEfficientChange: (Boolean) -> Unit = {},
+    onBigTaskRotationChange: (Boolean) -> Unit = {},
+    onCstateAwareChange: (Boolean) -> Unit = {},
+    onEnergyAwareChange: (Boolean) -> Unit = {},
+    onIowaitBoostChange: (Boolean) -> Unit = {},
     onResetSection: (Pair<String, String>) -> Unit,
     onResetToStandardProfile: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -262,6 +266,10 @@ fun CpuUnifiedSystemCard(
             onArchitectureModeChange = onArchitectureModeChange,
             onTopAppPreferIdleChange = onTopAppPreferIdleChange,
             onWorkqueuePowerEfficientChange = onWorkqueuePowerEfficientChange,
+            onBigTaskRotationChange = onBigTaskRotationChange,
+            onCstateAwareChange = onCstateAwareChange,
+            onEnergyAwareChange = onEnergyAwareChange,
+            onIowaitBoostChange = onIowaitBoostChange,
             onShowTooltip = { activeTooltip = it }
         )
 

@@ -179,6 +179,10 @@ fun CpuSubscreen(
                     onArchitectureModeChange = { mode -> viewModel.setSchedulerArchitectureMode(mode, context) },
                     onTopAppPreferIdleChange = { en -> viewModel.setSchedtunePreferIdle("top-app", en, context) },
                     onWorkqueuePowerEfficientChange = { en -> viewModel.setWorkqueuePowerEfficient(en, context) },
+                    onBigTaskRotationChange = { en -> viewModel.setSchedulerTunable("sched_big_task_rotation", if (en) 1L else 0L, context) },
+                    onCstateAwareChange = { en -> viewModel.setSchedulerTunable("sched_cstate_aware", if (en) 1L else 0L, context) },
+                    onEnergyAwareChange = { en -> viewModel.setSchedulerTunable("sched_energy_aware", if (en) 1L else 0L, context) },
+                    onIowaitBoostChange = { en -> viewModel.setSchedulerTunable("iowait_boost_enable", if (en) 1L else 0L, context) },
                     onResetSection = { pendingResetSection = it },
                     onResetToStandardProfile = { viewModel.resetCpuToActiveProfile(context) }
                 )
@@ -392,6 +396,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.tuningCpuCategoryItems(
                         onArchitectureModeChange = { mode -> viewModel.setSchedulerArchitectureMode(mode, context) },
                         onTopAppPreferIdleChange = { en -> viewModel.setSchedtunePreferIdle("top-app", en, context) },
                         onWorkqueuePowerEfficientChange = { en -> viewModel.setWorkqueuePowerEfficient(en, context) },
+                        onBigTaskRotationChange = { en -> viewModel.setSchedulerTunable("sched_big_task_rotation", if (en) 1L else 0L, context) },
+                        onCstateAwareChange = { en -> viewModel.setSchedulerTunable("sched_cstate_aware", if (en) 1L else 0L, context) },
+                        onEnergyAwareChange = { en -> viewModel.setSchedulerTunable("sched_energy_aware", if (en) 1L else 0L, context) },
+                        onIowaitBoostChange = { en -> viewModel.setSchedulerTunable("iowait_boost_enable", if (en) 1L else 0L, context) },
                         onResetSection = { },
                         onResetToStandardProfile = { viewModel.resetCpuToActiveProfile(context) }
                     )

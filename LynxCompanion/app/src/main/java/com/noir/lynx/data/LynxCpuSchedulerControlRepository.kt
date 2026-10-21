@@ -103,6 +103,18 @@ internal object LynxCpuSchedulerControlRepository {
                     val safe = if (value > 0) 1 else 0
                     "[ -f /proc/sys/kernel/sched_energy_aware ] && echo $safe > /proc/sys/kernel/sched_energy_aware 2>/dev/null; [ -f /sys/devices/system/cpu/eas/enable ] && echo $safe > /sys/devices/system/cpu/eas/enable 2>/dev/null; echo ok"
                 }
+                "sched_big_task_rotation" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "[ -f /proc/sys/kernel/sched_walt_rotate_big_tasks ] && echo $safe > /proc/sys/kernel/sched_walt_rotate_big_tasks 2>/dev/null; [ -f /proc/sys/kernel/sched_big_task_rotation ] && echo $safe > /proc/sys/kernel/sched_big_task_rotation 2>/dev/null; [ -f /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation ] && echo $safe > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null; echo ok"
+                }
+                "sched_cstate_aware" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "[ -f /proc/sys/kernel/sched_cstate_aware ] && echo $safe > /proc/sys/kernel/sched_cstate_aware 2>/dev/null; echo ok"
+                }
+                "iowait_boost_enable" -> {
+                    val safe = if (value > 0) 1 else 0
+                    "for iow in /sys/devices/system/cpu/cpufreq/policy*/schedutil/iowait_boost_enable /sys/devices/system/cpu/cpufreq/policy*/sugov_ext/iowait_boost_enable /sys/devices/system/cpu/cpufreq/policy*/walt/iowait_boost_enable; do [ -f \"\$iow\" ] && echo $safe > \"\$iow\" 2>/dev/null; done; echo ok"
+                }
                 "sched_boost" -> {
                     val safe = value.coerceIn(0L, 3L)
                     "[ -f /proc/sys/kernel/sched_boost ] && echo $safe > /proc/sys/kernel/sched_boost 2>/dev/null; echo ok"

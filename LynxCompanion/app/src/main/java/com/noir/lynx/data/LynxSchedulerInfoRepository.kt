@@ -109,6 +109,8 @@ internal object LynxSchedulerInfoRepository {
             var univTouchEn = false
             var antiThrottlingGuard = false
             var wqPwrEff = true
+            var hasIowaitBoost = false
+            var iowaitBoost = 0
 
             res.out.forEach { line ->
                 val parts = line.split(":", limit = 2)
@@ -206,6 +208,8 @@ internal object LynxSchedulerInfoRepository {
                         "univ_touch_en" -> univTouchEn = v == "1"
                         "anti_throttling_guard" -> antiThrottlingGuard = v == "1"
                         "wq_pwr_eff" -> wqPwrEff = v == "1"
+                        "has_iowait_boost" -> hasIowaitBoost = v == "1"
+                        "iowait_boost" -> iowaitBoost = v.toIntOrNull() ?: 0
                     }
                 }
             }
@@ -297,6 +301,8 @@ internal object LynxSchedulerInfoRepository {
                 isSyncHintSupported = hasSyncHint,
                 schedCstateAware = cstateAware,
                 isCstateAwareSupported = hasCstateAware,
+                iowaitBoostEnabled = iowaitBoost == 1,
+                isIowaitBoostSupported = hasIowaitBoost,
                 schedStuneTaskThreshold = stuneThres,
                 isStuneThresholdSupported = hasStuneThres,
                 schedUpmigrate = upmigrate,

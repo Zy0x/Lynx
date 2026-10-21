@@ -160,9 +160,18 @@ internal object LynxSchedulerProbeScript {
                 has_stune="0"
                 [ -d /dev/stune ] && has_stune="1"
 
-                big_task_rot=${'$'}(cat /proc/sys/kernel/sched_big_task_rotation 2>/dev/null || echo "1")
+                big_task_rot="1"
                 has_big_task_rot="0"
-                [ -f /proc/sys/kernel/sched_big_task_rotation ] && has_big_task_rot="1"
+                if [ -f /proc/sys/kernel/sched_walt_rotate_big_tasks ]; then
+                    has_big_task_rot="1"
+                    big_task_rot=${'$'}(cat /proc/sys/kernel/sched_walt_rotate_big_tasks 2>/dev/null || echo "1")
+                elif [ -f /proc/sys/kernel/sched_big_task_rotation ]; then
+                    has_big_task_rot="1"
+                    big_task_rot=${'$'}(cat /proc/sys/kernel/sched_big_task_rotation 2>/dev/null || echo "1")
+                elif [ -f /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation ]; then
+                    has_big_task_rot="1"
+                    big_task_rot=${'$'}(cat /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null || echo "1")
+                fi
 
                 sync_hint=${'$'}(cat /proc/sys/kernel/sched_sync_hint_enable 2>/dev/null || echo "1")
                 has_sync_hint="0"
@@ -171,6 +180,16 @@ internal object LynxSchedulerProbeScript {
                 cstate_aware=${'$'}(cat /proc/sys/kernel/sched_cstate_aware 2>/dev/null || echo "1")
                 has_cstate_aware="0"
                 [ -f /proc/sys/kernel/sched_cstate_aware ] && has_cstate_aware="1"
+
+                iowait_boost="0"
+                has_iowait_boost="0"
+                for iow in /sys/devices/system/cpu/cpufreq/policy*/schedutil/iowait_boost_enable /sys/devices/system/cpu/cpufreq/policy*/sugov_ext/iowait_boost_enable /sys/devices/system/cpu/cpufreq/policy*/walt/iowait_boost_enable; do
+                    if [ -f "${'$'}iow" ]; then
+                        has_iowait_boost="1"
+                        iowait_boost=${'$'}(cat "${'$'}iow" 2>/dev/null || echo "0")
+                        break
+                    fi
+                done
 
                 stune_thres=${'$'}(cat /proc/sys/kernel/sched_stune_task_threshold 2>/dev/null || echo "124")
                 has_stune_thres="0"
@@ -430,6 +449,8 @@ internal object LynxSchedulerProbeScript {
                 echo "has_sync_hint:${'$'}has_sync_hint"
                 echo "cstate_aware:${'$'}cstate_aware"
                 echo "has_cstate_aware:${'$'}has_cstate_aware"
+                echo "iowait_boost:${'$'}iowait_boost"
+                echo "has_iowait_boost:${'$'}has_iowait_boost"
                 echo "stune_thres:${'$'}stune_thres"
                 echo "has_stune_thres:${'$'}has_stune_thres"
                 echo "has_rq:${'$'}has_rq"

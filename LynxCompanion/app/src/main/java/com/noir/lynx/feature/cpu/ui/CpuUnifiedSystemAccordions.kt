@@ -47,6 +47,10 @@ fun CpuSchedulerAccordion(
     onArchitectureModeChange: (String) -> Unit,
     onTopAppPreferIdleChange: (Boolean) -> Unit,
     onWorkqueuePowerEfficientChange: (Boolean) -> Unit,
+    onBigTaskRotationChange: (Boolean) -> Unit = {},
+    onCstateAwareChange: (Boolean) -> Unit = {},
+    onEnergyAwareChange: (Boolean) -> Unit = {},
+    onIowaitBoostChange: (Boolean) -> Unit = {},
     onShowTooltip: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -233,6 +237,112 @@ fun CpuSchedulerAccordion(
                         checked = schedInfo.workqueuePowerEfficient,
                         onCheckedChange = onWorkqueuePowerEfficientChange
                     )
+
+                    // ── Mikro-Tweak Penjadwal Kernel Lanjutan (Clean Collapsible Card) ──
+                    var showMicroTweaks by remember { mutableStateOf(false) }
+                    val microChevronAngle by animateFloatAsState(
+                        targetValue = if (showMicroTweaks) 180f else 0f,
+                        label = "microChevronAngle"
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF10141F),
+                        border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { showMicroTweaks = !showMicroTweaks },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentCyan.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.3f)),
+                                        modifier = Modifier.size(26.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.Tune,
+                                                contentDescription = null,
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "Mikro-Tweak Penjadwal Silikon",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = if (showMicroTweaks) "Rotasi WALT, C-State Aware, EAS & I/O Boost" else "Ketuk untuk membuka 4 mikro-tweak lanjutan",
+                                            fontSize = 9.sp,
+                                            color = TextSecondary.copy(alpha = 0.75f)
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = if (showMicroTweaks) AccentCyan else TextSecondary.copy(alpha = 0.6f),
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .rotate(microChevronAngle)
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = showMicroTweaks,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    HorizontalDivider(color = Color(0x10FFFFFF), thickness = 0.6.dp)
+
+                                    LynxSwitch(
+                                        label = "Rotasi Inti Tugas Berat (Big Task Rotation)",
+                                        subLabel = "Ratakan suhu & cegah thermal hotspot dengan merotasi thread intensif antar-inti Big",
+                                        checked = schedInfo.schedBigTaskRotation,
+                                        onCheckedChange = onBigTaskRotationChange
+                                    )
+
+                                    LynxSwitch(
+                                        label = "Bangun Latensi Rendah (C-State Aware)",
+                                        subLabel = "Prioritaskan bangun di inti dengan sleep dangkal untuk memotong jeda latensi respon sentuhan",
+                                        checked = schedInfo.schedCstateAware,
+                                        onCheckedChange = onCstateAwareChange
+                                    )
+
+                                    LynxSwitch(
+                                        label = "Penjadwal Sadar Energi (Energy-Aware EAS)",
+                                        subLabel = "Evaluasi efisiensi baterai saat memilih inti. Matikan untuk throughput CFS murni tanpa batas",
+                                        checked = schedInfo.schedEnergyAware,
+                                        onCheckedChange = onEnergyAwareChange
+                                    )
+
+                                    LynxSwitch(
+                                        label = "Boost I/O Penyimpanan (I/O Wait Boost)",
+                                        subLabel = "Naikkan frekuensi CPU seketika saat proses membaca storage untuk memangkas waktu loading game",
+                                        checked = schedInfo.iowaitBoostEnabled,
+                                        onCheckedChange = onIowaitBoostChange
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

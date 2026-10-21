@@ -1,3 +1,22 @@
+# Lynx Universal [Advanced Silicon Scheduler Micro-Tweaks & Clean Obsidian Tuning Experience] 7.0.0-RC156
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC156** (Lynx Kernel Manager v3.2.02): **Integrasi Sempurna Mikro-Tweak Penjadwal Kernel Lanjutan dengan Antarmuka Obsidian Clean & Rapi: Menghadirkan 4 Kontrol Penjadwal Silikon Tingkat Tinggi pada Tab Sistem (`CpuUnifiedSystemAccordions.kt`): Rotasi Inti Tugas Berat WALT (`sched_walt_rotate_big_tasks` / `sched_big_task_rotation`) untuk Menghilangkan Hotspot Termal; Bangun Latensi Rendah (`sched_cstate_aware`) untuk Memotong Jeda Bangun C-States; Saklar Sadar Energi (`sched_energy_aware`) untuk Throughput CFS Murni Tanpa Batas; Serta Boost I/O Penyimpanan (`iowait_boost_enable`) pada Driver Schedutil untuk Mempercepat Waktu Loading Game; Seluruh Tweak Dikemas dalam Kartu Kolaps Obsidian yang Rapi Tanpa Membebani Tampilan UI**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC156)
+
+### 1. ⚡ 4 Mikro-Tweak Penjadwal Silikon Lanjutan (`CpuUnifiedSystemAccordions.kt`)
+- **Rotasi Inti Tugas Berat (Big Task Rotation / WALT)**: Mengaktifkan rotasi thread intensif antar-inti Big secara periodik (`/proc/sys/kernel/sched_walt_rotate_big_tasks`, `/proc/sys/kernel/sched_big_task_rotation`, atau `/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation`). Hal ini mencegah satu inti silikon menerima beban terus-menerus yang dapat memicu akumulasi panas lokal (*thermal hotspot*) dan thermal throttling.
+- **Bangun Latensi Rendah (C-State Aware Scheduling)**: Menyesuaikan parameter `/proc/sys/kernel/sched_cstate_aware` agar kernel Linux memprioritaskan CPU yang sedang berada dalam status tidur dangkal (*shallow sleep*) saat ada interupsi sentuhan, sehingga memangkas latensi bangun CPU (*wake-up latency*) secara signifikan.
+- **Penjadwal Sadar Energi (Energy-Aware EAS Switch)**: Mengontrol status `/proc/sys/kernel/sched_energy_aware` dan `/sys/devices/system/cpu/eas/enable`. Pengguna dapat memilih kalkulasi biaya energi baterai cerdas (EAS Aktif) atau throughput mentah CFS tanpa batasan (*Pure Throughput Mode*) untuk skenario benchmark dan gaming kompetitif.
+- **Boost I/O Penyimpanan (Storage I/O Wait Boost)**: Menautkan saklar ke node governor schedutil/walt/sugov_ext (`/sys/devices/system/cpu/cpufreq/policy*/schedutil/iowait_boost_enable`) agar frekuensi clock CPU melonjak seketika saat proses membaca data besar dari media penyimpanan UFS/eMMC, memotong waktu *loading screen* pada game berat.
+
+### 2. 🎨 Desain Antarmuka Clean, Rapi, & Ergonomis (Anti-Clutter UX)
+- **Sub-Kartu Obsidian Kolapsibel**: Seluruh 4 mikro-tweak dikemas rapi di bawah kartu *Prioritas Frekuensi (EAS Boost)* dalam wadah `Surface` berlatar belakang Obsidian (`#10141F`) dengan border kaca halus (`0x18FFFFFF`).
+- **Pengungkapan Progresif (*Progressive Disclosure*)**: Tampilan default tetap bersih dan ringkas hanya menampilkan header dengan ikon tune dan deskripsi singkat. Saat diketuk, kartu meluncur terbuka (*glide open*) dengan animasi halus `AnimatedVisibility` (150–250ms).
+- **Target Sentuh Ergonomis & Touch-First**: Setiap toggle menggunakan komponen `LynxSwitch` terstandarisasi dengan touch target $\ge 48\text{ dp}$, penjelasan fungsi manusiawi yang mudah dipahami, serta debounce guard anti-race condition.
+
+---
+
 # Lynx Universal [Authentic SurfaceFlinger FPS Layer Parser & Standalone Profile Fallback] 7.0.0-RC155
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC155** (Lynx Kernel Manager v3.2.01): **Penyempurnaan Kritis Mesin Telemetri Native Game HUD (Authentic SurfaceFlinger Present Time Engine & Multi-Tier Profile Fallback): Memperbaiki Masalah FPS dan Frame Time Bergaris (`— fps`, `— ms`) Melalui Pembersihan Nama Layer SurfaceFlinger Android 14/15 (`RequestedLayerState{...}`) Sebelum Kueri `--latency` Sehingga Menghasilkan 100% Data Waktu Hadir Hardware Murni Tanpa Angka Palsu; Menghilangkan Bug Pembersihan Kandidat Multi-Layer (`candidates.len() > 1`) Dengan Memilih Layer Render Teraktif Berdasarkan Timestamp Terkini Serta Memprioritaskan SurfaceView/BLAST; Mengaktifkan Deteksi Refresh Rate Otomatis (`display_hz`) Langsung Dari Header SurfaceFlinger; Mengatasi Label "Tidak Tersedia" Pada Mode Performa Dengan Sistem Fallback Berlapis (Memeriksa State Module, File `/data/adb/lynx/active_profile`, `config.json`, Serta Properti Sistem `lynx.mode`); Serta Memperbaiki Ekstraksi Suhu SoC Package (`msm-therm`, `quiet-therm`, `pm660`) dan Utilisasi Beban GPU Adreno**.

@@ -638,6 +638,8 @@ data class SchedulerInfo(
     val isSyncHintSupported: Boolean = true,
     val schedCstateAware: Boolean = true,
     val isCstateAwareSupported: Boolean = true,
+    val iowaitBoostEnabled: Boolean = false,
+    val isIowaitBoostSupported: Boolean = true,
     val schedStuneTaskThreshold: Int = 124,
     val isStuneThresholdSupported: Boolean = true,
 
