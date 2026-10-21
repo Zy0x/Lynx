@@ -151,9 +151,11 @@ object LynxFloatingWindowManager {
             val widthPx = (mutableState.value.widthDp * density).toInt()
             val heightPx = (mutableState.value.heightDp * density).toInt()
 
-            val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
 
             layoutParams = WindowManager.LayoutParams(
                 widthPx,

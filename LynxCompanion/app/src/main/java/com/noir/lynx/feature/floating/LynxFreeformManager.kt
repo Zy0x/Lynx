@@ -86,7 +86,8 @@ object LynxFreeformManager {
         label: String,
         icon: Bitmap,
         widthPct: Int = 70,
-        heightPct: Int = 65
+        heightPct: Int = 65,
+        engine: String = "standalone"
     ) {
         val ctx = appContext ?: return
         val scope = coroutineScope ?: return
@@ -111,19 +112,24 @@ object LynxFreeformManager {
             Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
 
             // 2. Resolve target launcher component
-            val resolveCmd = "cmd package resolve-activity --brief $packageName 2>/dev/null | tail -n 1"
-            val resolved = Shell.cmd(resolveCmd).exec().out.joinToString("").trim()
-            val targetCmp = if (resolved.isNotEmpty() && resolved.contains("/")) resolved else {
-                val pm = ctx.packageManager
-                val intent = pm.getLaunchIntentForPackage(packageName)
-                intent?.component?.flattenToShortString() ?: packageName
+            val pm = ctx.packageManager
+            val launchIntent = pm.getLaunchIntentForPackage(packageName)
+            val cmp = launchIntent?.component
+            val targetCmp = cmp?.flattenToShortString() ?: run {
+                val resolveCmd = "cmd package resolve-activity --brief $packageName 2>/dev/null | tail -n 1"
+                Shell.cmd(resolveCmd).exec().out.joinToString("").trim().ifEmpty { packageName }
             }
 
-            // 3. Start Activity in Freeform Windowing Mode (5)
-            Shell.cmd("cmd activity start-activity --windowingMode 5 -n '$targetCmp'").exec()
+            // 3. Start Activity in Freeform Windowing Mode (5) with native LMO or AOSP
+            val hasLmo = Shell.cmd("pm path com.libremobileos.freeform 2>/dev/null").exec().out.isNotEmpty()
+            if (hasLmo && cmp != null) {
+                Shell.cmd("am broadcast -a com.libremobileos.freeform.START_FREEFORM --es packageName '$packageName' --es activityName '${cmp.className}'").exec()
+            } else {
+                Shell.cmd("am start -n '$targetCmp' --windowingMode 5").exec()
+            }
 
             // Brief wait for task registration
-            delay(250)
+            delay(180)
 
             // 4. Query exact freeform task ID
             val queryCmd = "dumpsys activity activities | grep -E 'Task\\{.*$packageName.*mode=freeform' | head -n 1"
@@ -139,8 +145,8 @@ object LynxFreeformManager {
                     ?: System.currentTimeMillis().toInt()
             }
 
-            // 5. Force task resizable & immediately apply preset bounds
-            Shell.cmd("cmd activity task resizeable $taskId 3; cmd activity task resize $taskId $left $top $right $bottom").exec()
+            // 5. Force task resizable & immediately apply preset bounds & grant task focus
+            Shell.cmd("cmd activity task resizeable $taskId 3; cmd activity task resize $taskId $left $top $right $bottom; cmd activity task focus $taskId").exec()
 
             val instance = FreeformAppInstance(
                 taskId = taskId,
@@ -158,7 +164,9 @@ object LynxFreeformManager {
                 val current = mutableApps.value.toMutableMap()
                 current[taskId] = instance
                 mutableApps.value = current
-                attachOrUpdateGrip(instance)
+                if (engine == "standalone" || !hasLmo) {
+                    attachOrUpdateGrip(instance)
+                }
             }
         }
     }
@@ -183,7 +191,8 @@ object LynxFreeformManager {
 
         val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -394,7 +403,7 @@ object LynxFreeformManager {
 
         current?.let { app ->
             coroutineScope?.launch(Dispatchers.IO) {
-                Shell.cmd("cmd activity task kill $taskId; am force-stop ${app.packageName}").exec()
+                Shell.cmd("am force-stop ${app.packageName}").exec()
             }
         }
     }

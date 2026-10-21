@@ -115,6 +115,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             preferences.changes.collect { pinMiniFpsFlow.value = it.pinned }
         }
         scope.launch {
+            open.collect { isOpen ->
+                val p = params ?: return@collect
+                val v = view ?: return@collect
+                val dm = resources.displayMetrics
+                if (isOpen && activeModeFlow.value == 0) {
+                    p.width = (viewport.value.panelWidth * dm.density).toInt()
+                    p.height = (viewport.value.panelHeight * dm.density).toInt()
+                } else {
+                    p.width = WindowManager.LayoutParams.WRAP_CONTENT
+                    p.height = WindowManager.LayoutParams.WRAP_CONTENT
+                }
+                clamp()
+                runCatching { windows.updateViewLayout(v, p) }
+            }
+        }
+        scope.launch {
             interactive.collectLatest { on ->
                 if (!on) {
                     repository.unavailable("stale")
@@ -222,7 +238,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply {
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
+            PixelFormat.TRANSLUCENT).apply {
             title = WINDOW_TITLE
             gravity = Gravity.TOP or Gravity.LEFT
             x = if (activeModeFlow.value == 0) safeLeft else pref.getInt("hud_x",safeLeft)

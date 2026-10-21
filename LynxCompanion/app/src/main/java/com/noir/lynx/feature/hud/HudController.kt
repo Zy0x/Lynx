@@ -76,7 +76,8 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             label = app.label,
             icon = app.icon,
             widthPct = prefs.floatingWidthPct,
-            heightPct = prefs.floatingHeightPct
+            heightPct = prefs.floatingHeightPct,
+            engine = prefs.floatingEngine
         )
     }
 
