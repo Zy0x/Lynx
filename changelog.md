@@ -1,3 +1,27 @@
+# Lynx Universal [In-Game HUD Architecture & XBOOST Bento Console Redesign] 7.0.0-RC149
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC149** (Lynx Kernel Manager v3.1.95): **Penyelesaian Tuntas Masalah Halaman HUD Tidak Bisa Dibuka & Redesain Menyeluruh Floating Game HUD Konsol (XBOOST Style): Mengeliminasi Beban Komputasi 19 `BoxWithConstraints` dan 18 `TextMeasurer` Berulang pada `HudMiniSettings.kt` yang Memicu UI Thread Freeze / Deadlock; Memisahkan Konflik Deteksi Gestur Ketuk (`detectTapGestures`) dan Seret (`detectDragGestures`) dengan Akumulator Horizontal pada `HudMiniOverlay.kt` Agar Gagang Floating HUD Dapat Dibuka Instan via Sentuhan Maupun Geseran; Menambahkan Jam Real-Time (`HH:mm`) pada Header Panel (`HudPanelHeader.kt`); Mengintegrasikan Piringan Pengukur Ganda (Dual Concentric Glowing Gauges) CPU & GPU dengan Warna Busur Dinamis Sesuai Profil Aktif (Oranye Gaming untuk Kinerja/Extreme, Hijau Eco untuk Hemat, Cyan untuk Seimbang); Serta Menghadirkan Matriks 4 Alat Cepat (Tangkapan Layar, Display Hz, RAM Boost Drop Caches, dan Pengaturan Alat Lengkap) Sesuai Rujukan Antarmuka Konsol Gaming**.
+
+## Rangkuman Perbaikan & Redesain HUD (7.0.0-RC149)
+
+### 1. 🚀 Solusi Tuntas Masalah HUD Tidak Bisa Dibuka (`HudMiniSettings.kt` & `GameHudSubscreen.kt`)
+- **Akar Masalah**: Evaluasi tata letak `HudMiniSettings` sebelumnya memuat 19 `BoxWithConstraints` bersarang dan 18 pengukuran teks `TextMeasurer` berturut-turut di dalam item `LazyColumn`. Hal ini memicu loop rekursi layout Compose (*re-entrancy measurement loop*) dan kehabisan memori grafis saat pengguna menavigasi ke tab HUD, menyebabkan layar membeku (*freeze*).
+- **Arsitektur Bento Baru**: Mengganti total implementasi subscreen HUD dengan standar komponen Bento native Lynx (`LynxCard`, `AccentCyan`, `AccentOrange`, switch modern), memisahkan Kartu Master Aktivasi & Izin Overlay, Kartu Pemilihan Mode Tampilan (Bilah Samping vs OSD Klasik 6 Gaya), dan Matriks Pilihan Metrik ringan tanpa beban layout dinamis.
+
+### 2. 👆 Responsivitas Sentuhan Gagang Mini Overlay (`HudMiniOverlay.kt`)
+- **Eliminasi Konflik Gestur**: Memisahkan modifier `.clickable` yang sebelumnya tertelan oleh `pointerInput { detectDragGestures }`. Menghadirkan blok `detectTapGestures(onTap = { onOpen() })` independen serta akumulator pergeseran horizontal (`accDx > 12f`) sehingga gagang HUD dapat dibuka dengan ketukan santai satu jari maupun sapuan geser (*swipe-to-open*) yang mulus.
+
+### 3. 🎮 Konsol Bilah Samping XBOOST & 4 Alat Cepat (`HudOverview.kt` & `HudPanelHeader.kt`)
+- **Indikator Waktu Real-Time**: Header panel bilah samping kini menampilkan jam sistem langsung (`HH:mm`) berdampingan dengan persentase baterai.
+- **Dual Concentric Dynamic Gauges**: Piringan pengukur beban dan clock CPU & GPU kini mengadopsi warna busur dinamis adaptif profil: Oranye Menyala (`#FFFF7A00`) saat Profil Kinerja/Extreme aktif, Hijau Segar (`#FF00E676`) saat Profil Hemat, dan Cyber Cyan (`#FF58E5D1`) saat Profil Seimbang.
+- **Matriks 4 Alat Cepat**: Menghadirkan tombol aksi cepat ergonomis dengan target sentuh setidaknya 48dp:
+  1. *Tangkapan Layar*: Mengambil tangkapan layar instan tanpa menyertakan overlay HUD.
+  2. *Display Hz*: Memantau kecepatan refresh dan membuka kontrol laju penyegaran panel.
+  3. *Boost RAM*: Membersihkan page cache dan buffer kernel (`sync; echo 3 > /proc/sys/vm/drop_caches`).
+  4. *Alat Lengkap*: Membuka pengaturan OSD lanjutan dan penyesuaian parameter visual.
+
+---
+
 # Lynx Universal [Integrated Forensic Log Hub & Smart Crash Alert Architecture] 7.0.0-RC148
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC148** (Lynx Kernel Manager v3.1.94): **Implementasi Pusat Log & Forensik Sistem Berkategori Lengkap Serta Smart Crash Alert Banner: Menghadirkan Episentrum Diagnostik Mandiri pada Tab Alat (`LOG_CENTER`) Berbasis Temuan Forensik Kernel Panic Nyata; Terbagi Menjadi 4 Tab Kategori Terstruktur (Tab 1: Kernel Panic & Last Kmsg Mengurai `SYSTEM_LAST_KMSG`, PStore Ramoops, `/proc/last_kmsg`, Serta Ekstraksi Otomatis Faulting PC; Tab 2: Android Crash & ANR Dropbox dengan Kartu Insiden Interaktif dan Modal Bottom Sheet Penampil Stack Trace Lengkap; Tab 3: Lynx Daemon & Engine Watchdog Memantau Transisi AI dan Log Charging; Tab 4: Live Dmesg Ring Buffer Real-Time); Dilengkapi Mesin Ekspor 1-Klik Berkas ZIP Diagnostik Lengkap (`Lynx_Diag_Report.zip`) yang Siap Dibagikan via Android Share Sheet; Tombol Salin Ringkasan Cepat ke Clipboard; Serta Smart Crash Alert Banner Proaktif pada Dashboard Utama yang Seketika Memperingatkan Pengguna Pasca-Reboot Abnormal**.

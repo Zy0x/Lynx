@@ -2,15 +2,24 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -22,8 +31,14 @@ import com.noir.lynx.feature.hud.HudActionState
 import com.noir.lynx.feature.hud.data.*
 
 @Composable
-internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfile: (String) -> Unit,
-    onCapture: () -> Unit, onTools: () -> Unit) {
+internal fun HudOverview(
+    snapshot: HudSnapshot,
+    action: HudActionState,
+    onProfile: (String) -> Unit,
+    onCapture: () -> Unit,
+    onTools: () -> Unit,
+    onBoostRam: () -> Unit = {}
+) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HudFrameSummary(snapshot)
         val scale = LocalDensity.current.fontScale
@@ -35,27 +50,151 @@ internal fun HudOverview(snapshot: HudSnapshot, action: HudActionState, onProfil
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (HudLayoutPolicy.fits(maxWidth.value, listOf(cardWidth, cardWidth))) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.weight(1f))
-                    HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.weight(1f))
+                    HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.weight(1f), snapshot.profile)
+                    HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.weight(1f), snapshot.profile)
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.fillMaxWidth())
-                HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.fillMaxWidth())
+                HudGauge(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_CLOCK], dial, Modifier.fillMaxWidth(), snapshot.profile)
+                HudGauge(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_CLOCK], dial, Modifier.fillMaxWidth(), snapshot.profile)
             }
         }
         HudProfiles(snapshot.profile, action.busy, onProfile)
-        val capture = hudString(R.string.hud_capture_short)
-        val tools = hudString(R.string.hud_tools)
-        val buttonWidth = hudLabelWidth(listOf(capture, tools)) + 20f
+
+        // 4 Quick Tools Grid (XBOOST console style)
+        val hzText = snapshot[HudMetric.DISPLAY_HZ].value?.let { "${it.toInt()} Hz" } ?: hudString(R.string.hud_metric_display_hz)
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (HudLayoutPolicy.fits(maxWidth.value, listOf(buttonWidth, buttonWidth))) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    HudAction(capture, !action.busy, onCapture, Modifier.weight(1f))
-                    HudAction(tools, onClick = onTools, modifier = Modifier.weight(1f))
+            if (maxWidth.value >= 160f) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        HudQuickToolItem(
+                            icon = Icons.Default.CameraAlt,
+                            label = hudString(R.string.hud_capture_short),
+                            sublabel = hudString(R.string.hud_capture_sub),
+                            enabled = !action.busy,
+                            accentColor = HudCyan,
+                            onClick = onCapture,
+                            modifier = Modifier.weight(1f)
+                        )
+                        HudQuickToolItem(
+                            icon = Icons.Default.Speed,
+                            label = hudString(R.string.hud_metric_display_hz),
+                            sublabel = hzText,
+                            enabled = true,
+                            accentColor = Color(0xFF64B5F6),
+                            onClick = onTools,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        HudQuickToolItem(
+                            icon = Icons.Default.CleaningServices,
+                            label = hudString(R.string.hud_boost_ram),
+                            sublabel = hudString(R.string.hud_boost_ram_sub),
+                            enabled = !action.busy,
+                            accentColor = Color(0xFFFFB74D),
+                            onClick = onBoostRam,
+                            modifier = Modifier.weight(1f)
+                        )
+                        HudQuickToolItem(
+                            icon = Icons.Default.Tune,
+                            label = hudString(R.string.hud_tools_full),
+                            sublabel = hudString(R.string.hud_tools_full_sub),
+                            enabled = true,
+                            accentColor = Color(0xFFCE93D8),
+                            onClick = onTools,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
-            } else Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                HudAction(capture, !action.busy, onCapture, Modifier.fillMaxWidth())
-                HudAction(tools, onClick = onTools, modifier = Modifier.fillMaxWidth())
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    HudQuickToolItem(
+                        icon = Icons.Default.CameraAlt,
+                        label = hudString(R.string.hud_capture_short),
+                        sublabel = hudString(R.string.hud_capture_sub),
+                        enabled = !action.busy,
+                        accentColor = HudCyan,
+                        onClick = onCapture,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    HudQuickToolItem(
+                        icon = Icons.Default.Speed,
+                        label = hudString(R.string.hud_metric_display_hz),
+                        sublabel = hzText,
+                        enabled = true,
+                        accentColor = Color(0xFF64B5F6),
+                        onClick = onTools,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    HudQuickToolItem(
+                        icon = Icons.Default.CleaningServices,
+                        label = hudString(R.string.hud_boost_ram),
+                        sublabel = hudString(R.string.hud_boost_ram_sub),
+                        enabled = !action.busy,
+                        accentColor = Color(0xFFFFB74D),
+                        onClick = onBoostRam,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    HudQuickToolItem(
+                        icon = Icons.Default.Tune,
+                        label = hudString(R.string.hud_tools_full),
+                        sublabel = hudString(R.string.hud_tools_full_sub),
+                        enabled = true,
+                        accentColor = Color(0xFFCE93D8),
+                        onClick = onTools,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudQuickToolItem(
+    icon: ImageVector,
+    label: String,
+    sublabel: String? = null,
+    enabled: Boolean = true,
+    accentColor: Color = HudCyan,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(10.dp),
+        color = HudCard,
+        border = BorderStroke(1.dp, HudMuted.copy(alpha = 0.15f)),
+        modifier = modifier.heightIn(min = 48.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (enabled) accentColor else HudMuted.copy(alpha = 0.4f),
+                modifier = Modifier.size(18.dp)
+            )
+            Column(modifier = Modifier.weight(1f, fill = false)) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (enabled) Color.White else HudMuted.copy(alpha = 0.4f),
+                    maxLines = 1
+                )
+                if (sublabel != null) {
+                    Text(
+                        text = sublabel,
+                        fontSize = 9.sp,
+                        color = HudMuted,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -97,22 +236,71 @@ private fun HudFrameSummary(snapshot: HudSnapshot) {
 }
 
 @Composable
-private fun HudGauge(label: String, load: HudReading, clock: HudReading, dial: Float, modifier: Modifier) {
-    val sweep by animateFloatAsState(load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f, 100f) ?: 0f,
-        tween(200), label = label)
+private fun HudGauge(
+    label: String,
+    load: HudReading,
+    clock: HudReading,
+    dial: Float,
+    modifier: Modifier,
+    profile: String? = null
+) {
+    val sweep by animateFloatAsState(
+        load.value?.takeIf { load.status == "valid" }?.toFloat()?.coerceIn(0f, 100f) ?: 0f,
+        tween(200),
+        label = label
+    )
+    val arcColor = when (profile) {
+        "performance", "extreme" -> Color(0xFFFF7A00) // Gaming Orange
+        "powersave" -> Color(0xFF00E676) // Eco Green
+        else -> HudCyan // Cyan for Balance / Auto
+    }
     Surface(modifier, shape = RoundedCornerShape(12.dp), color = HudCard) {
-        Column(Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            Modifier.padding(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Box(Modifier.size(dial.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxSize().padding(4.dp)) {
-                    drawArc(HudMuted.copy(alpha = 0.16f), 140f, 260f, false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
-                    if (load.status == "valid") drawArc(HudCyan, 140f, sweep * 2.6f, false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+                    drawArc(
+                        HudMuted.copy(alpha = 0.16f),
+                        140f,
+                        260f,
+                        false,
+                        style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                    if (load.status == "valid") {
+                        drawArc(
+                            arcColor.copy(alpha = 0.28f),
+                            140f,
+                            sweep * 2.6f,
+                            false,
+                            style = Stroke(6.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                        drawArc(
+                            arcColor,
+                            140f,
+                            sweep * 2.6f,
+                            false,
+                            style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(hudString(R.string.hud_value, load.text(), load.unit), fontSize = 15.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        hudString(R.string.hud_value, load.text(), load.unit),
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Text(label, fontSize = 12.sp, color = HudMuted)
                 }
             }
-            Text(hudString(R.string.hud_value, clock.text(), clock.unit), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            Text(
+                hudString(R.string.hud_value, clock.text(), clock.unit),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
             if (load.status != "valid") Text(statusText(load.status), fontSize = 12.sp, color = HudMuted)
             if (clock.status != "valid" && clock.status != load.status)
                 Text(statusText(clock.status), fontSize = 12.sp, color = HudMuted)

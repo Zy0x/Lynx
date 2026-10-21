@@ -46,8 +46,11 @@ internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Floa
             Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 12.sp,
                 color = HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(hudString(R.string.hud_value, battery.text(), battery.unit), fontSize = 12.sp,
-            color = HudMuted, fontFamily = FontFamily.Monospace)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(hudString(R.string.hud_value, battery.text(), battery.unit), fontSize = 11.sp, color = HudMuted, fontFamily = FontFamily.Monospace)
+            val timeStr = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date()) }
+            Text(timeStr, fontSize = 11.sp, color = Color.White.copy(alpha = 0.85f), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+        }
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Default.Close, hudString(R.string.hud_close), Modifier.size(20.dp))
         }

@@ -11,7 +11,7 @@ class ExtremeChargingScriptTest {
             targetMa = 25000,
             highTargetPercent = 100,
             lockoutBypass = true,
-            isUnconstrainedMaxHw = true
+            isUnconstrainedMaxHw = false
         )
 
         assertTrue(script.contains("/sys/devices/platform/charger/pe40"))
@@ -24,5 +24,19 @@ class ExtremeChargingScriptTest {
         assertFalse(script.contains("trip_point_"))
         assertFalse(script.contains("kill -STOP"))
         assertFalse(script.contains("thermalservice override"))
+    }
+
+    @Test
+    fun hyperModeIncludesHardwareUncap() {
+        val script = ExtremeChargingScript.buildUniversalExtremeChargingScript(
+            targetMa = 25000,
+            highTargetPercent = 100,
+            lockoutBypass = true,
+            isUnconstrainedMaxHw = true
+        )
+
+        assertTrue(script.contains("/sys/devices/platform/charger/pe40"))
+        assertTrue(script.contains("sc_ibat_limit"))
+        assertTrue(script.contains("hyper-12000"))
     }
 }

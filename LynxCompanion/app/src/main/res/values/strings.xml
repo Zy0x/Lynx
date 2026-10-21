@@ -2076,4 +2076,9 @@
     <string name="hud_actual_hz">Hz aktual</string>
     <string name="hud_mini_title">Mini HUD</string>
     <string name="hud_session">Sesi HUD</string>
+    <string name="hud_boost_ram">Boost RAM</string>
+    <string name="hud_boost_ram_sub">Bersihkan cache</string>
+    <string name="hud_tools_full">Alat Lengkap</string>
+    <string name="hud_tools_full_sub">Pengaturan OSD</string>
+    <string name="hud_capture_sub">Ambil layar</string>
 </resources>

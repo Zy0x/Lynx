@@ -38,7 +38,7 @@ internal class SliderGestureSession(
     fun cancel() { direction = Direction.Rejected; preview = startValue }
 
     fun releasedValue(): Float? =
-        preview.takeIf { direction == Direction.Horizontal }
+        preview.takeIf { direction == Direction.Horizontal && it != startValue }
 }
 
 internal fun snapSliderValue(value: Float, min: Float, max: Float, steps: Int): Float {

@@ -38,19 +38,16 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
     Text(hudString(R.string.hud_preview), fontSize = 12.sp, color = HudCyan)
     val selected = HudMetric.values().filter { it.key in prefs.selected }
     if (selected.isEmpty()) Text(hudString(R.string.hud_empty_metrics), fontSize = 12.sp, color = HudMuted)
-    val cellWidth = hudLabelWidth(selected.map { hudString(it.label) }) + 8f
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val columns = if (HudLayoutPolicy.fits(maxWidth.value, listOf(cellWidth, cellWidth))) 2 else 1
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            selected.chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { metric ->
-                        Column(Modifier.weight(1f)) {
-                            Text(hudString(metric.label), fontSize = 12.sp, color = HudMuted)
-                            Text("—", fontSize = 16.sp)
-                        }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        selected.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { metric ->
+                    Column(Modifier.weight(1f)) {
+                        Text(hudString(metric.label), fontSize = 12.sp, color = HudMuted, maxLines = 1)
+                        Text("—", fontSize = 16.sp)
                     }
                 }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -62,16 +59,8 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
 
 @Composable
 internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val labelWidth = hudLabelWidth(listOf(label))
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (HudLayoutPolicy.fits(maxWidth.value, listOf(labelWidth, 52f))) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(label, Modifier.weight(1f), fontSize = 12.sp)
-                Switch(checked, onCheckedChange, Modifier.semantics { contentDescription = label })
-            }
-        } else Column(Modifier.fillMaxWidth()) {
-            Text(label, fontSize = 12.sp)
-            Switch(checked, onCheckedChange, Modifier.align(Alignment.End).semantics { contentDescription = label })
-        }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), fontSize = 12.sp, color = HudMuted)
+        Switch(checked, onCheckedChange, Modifier.semantics { contentDescription = label })
     }
 }

@@ -236,7 +236,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 onOpen = { open.value = it }, onDrag = { drag(0f,it) }, onProfile = controller::profile,
                 onHz = { controller.refresh(it,supported,targetDisplay()) { hz.value.value?.toFloat() } },
                 onCapture = { controller.screenshot { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE } },
-                onApp = controller::launch,onStop = { stopSelf() })
+                onApp = controller::launch,onStop = { stopSelf() },onBoostRam = controller::boostRam)
             else FloatingHudContent(telemetry = HudLegacyAdapter.project(sample),hudMode = 1,activeStyle = style,pinMiniFps = pinned,
                 currentRefreshRate = sample[HudMetric.DISPLAY_HZ].value?.roundToInt() ?: 0,isExpanded = expanded,
                 onToggleExpand = { open.value = !open.value },onSelectMode = { activeModeFlow.value = it; open.value = false; pref.edit().putInt("hud_mode",it).apply() },

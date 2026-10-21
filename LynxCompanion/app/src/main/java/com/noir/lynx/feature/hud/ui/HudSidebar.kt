@@ -23,7 +23,8 @@ import kotlinx.coroutines.withContext
 fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, preferences: HudPreferencesStore,
     action: HudActionState, apps: List<HudApp>, rates: List<Float>,
     onOpen: (Boolean) -> Unit, onDrag: (Float) -> Unit, onProfile: (String) -> Unit,
-    onHz: (Float) -> Unit, onCapture: () -> Unit, onApp: (HudApp) -> Unit, onStop: () -> Unit) {
+    onHz: (Float) -> Unit, onCapture: () -> Unit, onApp: (HudApp) -> Unit, onStop: () -> Unit,
+    onBoostRam: () -> Unit = {}) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     var page by remember { mutableStateOf(HudPage.Summary) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -62,7 +63,7 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
                             Column(Modifier.weight(1f, fill = false).verticalScroll(scrolls.getValue(page))
                                 .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 when (page) {
-                                    HudPage.Summary -> HudOverview(snapshot, action, onProfile, onCapture, { page = HudPage.Tools })
+                                    HudPage.Summary -> HudOverview(snapshot, action, onProfile, onCapture, { page = HudPage.Tools }, onBoostRam)
                                     HudPage.Details -> HudDetails(snapshot)
                                     HudPage.Tools -> HudTools(prefs, preferences, rates, snapshot[HudMetric.DISPLAY_HZ], action, onHz, onCapture, onStop)
                                 }
