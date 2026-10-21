@@ -1,3 +1,32 @@
+# Lynx Universal [Authentic LMO-Freeform Architecture & Root Multi-Window Overlay Engine] 7.0.0-RC153
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC153** (Lynx Kernel Manager v3.1.99): **Implementasi Penuh Arsitektur Jendela Mengambang Real-App Terautentikasi (Authentic LMO-Freeform Multi-Window Engine) Berbasis Root Shell & Custom Overlay Decor Frame: Menghadirkan Solusi Multi-Tasking Jendela Mengambang Sejati di Mana Aplikasi Asli Perangkat (WhatsApp, YouTube, Chrome, Discord, Telegram, Kalkulator, dll.) Diluncurkan dan Dijalankan Secara Penuh di Dalam Freeform Window Android dengan Frame Dekorasi Cerdas Kustom Milik Lynx; Dilengkapi Bilah Judul Taktis (Floating Caption Header Bar) dengan Ikon dan Nama Aplikasi Asli, Area Drag Bebas untuk Memindahkan Jendela Aplikasi Asli Secara Mulus ke Seluruh Sudut Layar, Tombol Minimalkan `_` (Minimize ke Dock Gelembung Tepi Layar), Tombol Maksimalkan `▢` (Toggle Layar Penuh/Kembali), Serta Tombol Tutup Bersih `✕` (`cmd activity task kill` & `am force-stop`); Dilengkapi Pegangan Ubah Ukuran Sudut (Interactive Corner Resize Grip) di Sudut Kanan Bawah yang Secara Real-Time Mengubah Ukuran Task Aplikasi Asli Sistem via `cmd activity task resize <taskId>`; Mendukung Multi-App Multitasking Tanpa Batas Secara Simultan (Dapat Menjalankan Lebih dari 1 Aplikasi Mengambang Sekaligus Tanpa Konflik); Serta Menghadirkan Dock Gelembung Samping (Floating Minimized Bubble Dock) yang Ramping dan Dapat Digeser Secara Vertikal untuk Memulihkan Aplikasi Kapan Saja**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC153)
+
+### 1. 🪟 Arsitektur Multi-Window Asli LMO-Freeform (`LynxFreeformManager.kt`)
+- **Aplikasi Asli Sistem (Real Applications)**: Bukan aplikasi tiruan (mock tools) melainkan aplikasi asli yang terpasang di perangkat pengguna (WhatsApp, Chrome, YouTube, Telegram, Discord, dll.) yang dibuka dalam mode *Freeform* (`--windowingMode 5`).
+- **Eksekusi Root Presisi**: Menggunakan pipeline otomatis root:
+  1. `settings put global enable_freeform_support 1` & `force_resizable_activities 1`.
+  2. Resolusi *component target* via `cmd package resolve-activity --brief`.
+  3. Peluncuran instan dengan `--windowingMode 5 --bounds <bounds> -f 0x18000000`.
+  4. Deteksi `taskId` atomik dari `dumpsys activity recents`.
+  5. Penguncian properti `cmd activity task resizeable <taskId> 3` dan pengaturan batas fisik jendela via `cmd activity task resize`.
+
+### 2. 🎨 Frame Dekorasi Khusus Lynx (`FreeformMultiWindowOverlay.kt`)
+- **Bilah Judul Taktis (Interactive Caption Header)**: Berada tepat di atas jendela aplikasi asli dengan visual Cyberpunk Glassmorphism gelap, menampilkan ikon dan nama aplikasi asli, serta berfungsi sebagai area pegangan seret (*drag handle*) untuk memindahkan jendela aplikasi asli ke mana saja.
+- **Pegangan Ubah Ukuran Sudut (Corner Resize Grip)**: Terletak di pojok kanan bawah jendela aplikasi, memungkinkan pemain memperbesar atau memperkecil dimensi aplikasi asli secara *live* dengan kontrol sentuh yang sangat halus dan responsif.
+- **Tiga Kontrol Jendela Mandiri**:
+  - `_` **Minimalkan**: Menyembunyikan jendela aplikasi dan menyimpannya ke dalam tumpukan gelembung mengambang (*dock bubble*) di tepi layar.
+  - `▢` **Maksimalkan**: Mengalihkan tampilan jendela menjadi layar penuh (*fullscreen*) atau mengembalikannya ke ukuran mengambang semula.
+  - `✕` **Tutup Bersih**: Mematikan task aplikasi asli via root `cmd activity task kill` dan membersihkan frame overlay tanpa sisa memori.
+
+### 3. ⚡ Multi-App Multitasking Simultan & Minimized Bubble Dock
+- **Dukungan Banyak Aplikasi Sekaligus**: Pemain dapat membuka lebih dari satu aplikasi mengambang secara bersamaan (misalnya WhatsApp dan Kalkulator sekaligus) dengan koordinat kaskade otomatis agar tidak saling bertumpuk total.
+- **Minimized Bubble Dock Interaktif**: Gelembung aplikasi yang diminimalkan tersusun rapi di tepi kanan layar dengan ikon aplikasi beresolusi tinggi dan border glowing cyan, dapat digeser naik-turun dan diketuk untuk memulihkan jendela seketika (*1-tap restore*).
+
+---
+
 # Lynx Universal [Standalone Overlay Floating Window Studio & Freeform Multi-Engine] 7.0.0-RC152
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC152** (Lynx Kernel Manager v3.1.98): **Implementasi Penuh Arsitektur Jendela Mengambang Mandiri (Standalone Overlay Floating Window Studio) & Penyempurnaan Mesin Peluncuran Ganda (Dual-Engine System): Menghadirkan Jendela Mengambang Mandiri (Standalone Overlay Window) Berbasis `WindowManager` & Jetpack Compose yang Berjalan 100% Imun Terhadap Keterbatasan OEM Freeform Maupun Pembatasan ROM; Dilengkapi Fitur Ubah Ukuran Dinamis (Interactive Corner Resize Grip) di Sudut Kanan Bawah dengan Pembatasan Batas Halus (Smooth Bounds Clamping); Mendukung Gerakan Seret Presisi (Draggable Window Header), Pengatur Transparansi Multi-Tingkat (100%, 80%, 60%, 40% Opacity Cycle), Pengalih Preset Cepat (Kompak, Standar, Lebar), Serta Minimized Bubble Pill yang Ramping di Tepi Layar; Mengintegrasikan 4 Alat Taktis Bawaan (Built-in Power Tools) di Dalam Jendela Mengambang Meliputi In-Game Web Browser & Wiki Interaktif dengan Bookmark Game Cepat, Kalkulator Game & Formula DPS/EHP/CDR, Catatan Taktis Game dengan Penyimpanan Persisten, Serta Countdown Timer Objektif (Turtle, Lord, Dragon, Flash, Cleanse, Ult); Memperbaiki Logika Peluncuran System Freeform Bawaan dengan Eksekusi Langsung Root `cmd package resolve-activity` dan `am start --windowingMode 5` Sesuai Mekanisme Terbukti pada Versi Awal; Serta Menghadirkan Pengalih Mode Mesin (⚡ Standalone Studio vs 🪟 System Freeform) Langsung Pada Header Dock Bilah Samping Maupun Subscreen Game HUD**.

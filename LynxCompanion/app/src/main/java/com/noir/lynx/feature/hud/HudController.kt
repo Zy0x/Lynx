@@ -13,6 +13,7 @@ import com.noir.lynx.R
 import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
+import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
@@ -69,29 +70,14 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             return
         }
 
-        // In Standalone Overlay mode, map relevant apps to built-in tools
-        if (prefs.floatingEngine == "standalone") {
-            when {
-                app.packageName == "com.android.chrome" -> {
-                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://www.google.com")
-                    return
-                }
-                app.packageName.contains("calculator") -> {
-                    LynxFloatingWindowManager.openTool(FloatingToolType.CALCULATOR)
-                    return
-                }
-                app.packageName == "com.google.android.youtube" -> {
-                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://m.youtube.com")
-                    return
-                }
-                app.packageName == "com.discord" -> {
-                    LynxFloatingWindowManager.openTool(FloatingToolType.BROWSER, "https://discord.com/app")
-                    return
-                }
-            }
-        }
-
-        launchFloating(app, prefs.floatingWidthPct, prefs.floatingHeightPct)
+        // Launch the REAL application into Root Freeform Mode with Lynx Decor Overlay
+        LynxFreeformManager.launchRealApp(
+            packageName = app.packageName,
+            label = app.label,
+            icon = app.icon,
+            widthPct = prefs.floatingWidthPct,
+            heightPct = prefs.floatingHeightPct
+        )
     }
 
     fun launchFloating(app: HudApp, widthPct: Int = 70, heightPct: Int = 65) {

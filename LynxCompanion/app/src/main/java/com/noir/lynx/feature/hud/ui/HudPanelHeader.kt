@@ -285,62 +285,28 @@ internal fun HudAppDock(
                 }
             }
 
-            // Tools and Apps Strip in horizontal scroll
+            // Real Installed Apps Strip in horizontal scroll
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Built-in Standalone Power Tools
-                val builtInTools = listOf(
-                    Triple(FloatingToolType.BROWSER, "🌐", Color(0xFF00E5FF)),
-                    Triple(FloatingToolType.CALCULATOR, "🧮", Color(0xFFFF9800)),
-                    Triple(FloatingToolType.NOTES, "📝", Color(0xFF00E676)),
-                    Triple(FloatingToolType.TIMERS, "⏱️", Color(0xFFFF4081))
-                )
-
-                builtInTools.forEach { (tool, emoji, accent) ->
-                    Surface(
-                        onClick = {
-                            LynxFloatingWindowManager.openTool(tool)
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        color = accent.copy(alpha = 0.12f),
-                        border = BorderStroke(0.7.dp, accent.copy(alpha = 0.35f)),
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(emoji, fontSize = 16.sp)
-                        }
-                    }
-                }
-
-                // Vertical separator if apps exist
-                if (apps.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .height(24.dp)
-                            .width(0.8.dp)
-                            .background(HudBorder)
-                    )
-                }
-
-                // Installed quick apps
+                // Installed real quick apps (WhatsApp, Chrome, YouTube, Telegram, Discord, etc.)
                 apps.forEach { app ->
                     Surface(
                         onClick = { onApp(app) },
                         shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.05f),
-                        border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.08f)),
-                        modifier = Modifier.size(36.dp)
+                        color = Color.White.copy(alpha = 0.06f),
+                        border = BorderStroke(0.7.dp, Color(0xFF00E5FF).copy(alpha = 0.35f)),
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
                                 bitmap = app.icon.asImageBitmap(),
                                 contentDescription = app.label,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }

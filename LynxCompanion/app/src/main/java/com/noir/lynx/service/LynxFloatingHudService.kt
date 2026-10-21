@@ -16,6 +16,7 @@ import com.noir.lynx.R
 import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
+import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.hud.HudController
 import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.feature.hud.ui.*
@@ -96,6 +97,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         preferences = HudPreferencesStore(this)
         controller = HudController(this,scope)
         LynxFloatingWindowManager.init(this, windows, scope, this, this)
+        LynxFreeformManager.init(this, windows, scope, this, this)
         val prefs = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
         activeStyleFlow.value = prefs.getInt("hud_style",1).coerceIn(1,6)
         activeModeFlow.value = prefs.getInt("hud_mode",0).coerceIn(0,1)
@@ -286,6 +288,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         scope.cancel()
         if (::controller.isInitialized) CoroutineScope(Dispatchers.IO).launch { controller.restoreDisplay() }
         LynxFloatingWindowManager.destroy()
+        LynxFreeformManager.destroy()
         view?.let { runCatching { windows.removeView(it) }; it.disposeComposition() }
         view = null
         snapshotFlow.value = HudSnapshot()
