@@ -522,6 +522,7 @@ data class LynxUiState(
     // Hysteresis Exit Cooldown & MountX Storage Engine
     val appAutomationCooldownSeconds: Int = 30, // 5, 30, 60, 180, 0 (Persistent in RAM)
     val mountXStorageInfo: MountXStorageInfo = MountXStorageInfo(),
+    val diagnosticHubState: com.noir.lynx.feature.system.model.DiagnosticHubState = com.noir.lynx.feature.system.model.DiagnosticHubState(),
 ) {
     fun resolveCpuTempC(): Int {
         val validZones = thermalZones.filter { it.tempC in 20f..115f }

@@ -47,6 +47,13 @@ enum class ToolsCategory(
         icon = Icons.Default.Troubleshoot,
         accentColor = AccentCyan
     ),
+    LOG_CENTER(
+        id = "log_center",
+        title = "Pusat Log & Forensik Sistem",
+        subtitle = "Kernel Panic, Dropbox Crash, Log Daemon & Ring Buffer Dmesg",
+        icon = Icons.Default.Terminal,
+        accentColor = AccentBlue
+    ),
     PREFERENCES(
         id = "preferences",
         title = "Preferensi & Media Decoder",

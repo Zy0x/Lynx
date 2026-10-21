@@ -73,6 +73,11 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     fun restoreDisplay() = displaySession.restore()
 
+    fun boostRam() = perform {
+        Shell.cmd("sync; echo 3 > /proc/sys/vm/drop_caches").exec()
+        R.string.hud_verified
+    }
+
     fun screenshot(hide: (Boolean) -> Unit) = perform {
         withContext(Dispatchers.Main) { hide(true) }
         try {

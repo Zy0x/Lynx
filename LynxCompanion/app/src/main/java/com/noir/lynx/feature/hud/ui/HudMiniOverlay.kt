@@ -3,6 +3,7 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -40,10 +41,32 @@ internal fun HudMiniOverlay(snapshot: HudSnapshot, prefs: HudPreferences, viewpo
     val miniWidth = min(viewport.widthDp*0.6f, 240f).dp
     Row(Modifier.width(if (showMetrics) miniWidth else 48.dp).heightIn(max = (viewport.heightDp*0.25f).dp), verticalAlignment = Alignment.CenterVertically) {
         val description = hudString(R.string.hud_open)
-        Box(Modifier.size(48.dp).semantics { contentDescription = description }
-            .clickable(onClick = onOpen).pointerInput(Unit) {
-                detectDragGestures { change, amount -> change.consume(); onDrag(amount.y); if (amount.x > 12) onOpen() }
-            }, contentAlignment = Alignment.CenterStart) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .semantics { contentDescription = description }
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onOpen() })
+                }
+                .pointerInput(Unit) {
+                    var accDx = 0f
+                    detectDragGestures(
+                        onDragStart = { accDx = 0f },
+                        onDragEnd = {
+                            if (accDx > 12f) onOpen()
+                            accDx = 0f
+                        },
+                        onDragCancel = { accDx = 0f },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            accDx += amount.x
+                            onDrag(amount.y)
+                            if (accDx > 16f) onOpen()
+                        }
+                    )
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
             Box(Modifier.width(5.dp).height(40.dp).background(HudCyan, RoundedCornerShape(3.dp)))
         }
         if (showMetrics) Surface(Modifier.weight(1f), color = HudBackground, shape = RoundedCornerShape(12.dp)) {

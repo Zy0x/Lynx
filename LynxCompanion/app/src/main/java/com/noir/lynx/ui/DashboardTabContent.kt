@@ -85,6 +85,7 @@ import com.noir.lynx.data.AppProfileRule
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextOverflow
 import com.noir.lynx.feature.cpu.ui.*
 import com.noir.lynx.feature.gpu.ui.*
 import com.noir.lynx.feature.thermal.ui.*
@@ -93,6 +94,8 @@ import com.noir.lynx.feature.battery.ui.*
 import com.noir.lynx.feature.memory.ui.*
 import com.noir.lynx.feature.network.ui.*
 import com.noir.lynx.feature.system.ui.*
+import com.noir.lynx.feature.system.model.LogCategoryTab
+import com.noir.lynx.feature.system.model.KernelPanicDetails
 import com.noir.lynx.feature.navigation.model.TuningCategory
 
 
@@ -119,6 +122,7 @@ fun DashboardTabContent(
     dashboardFling: FlingBehavior,
     onExtremeConfirmRequired: () -> Unit,
     onNavigateToProfilesCatalog: () -> Unit = {},
+    onNavigateToDiagnostics: () -> Unit = {}
 ) {
     val state = uiState.state
     val context = LocalContext.current
@@ -136,6 +140,22 @@ fun DashboardTabContent(
                         onExtremeConfirmRequired = onExtremeConfirmRequired,
                         onNavigateToProfilesCatalog = onNavigateToProfilesCatalog
                     )
+
+                    // ── Smart Crash Alert Banner (Kernel Panic / Watchdog Detection) ──
+                    val panic = uiState.diagnosticHubState.kernelPanic
+                    if (uiState.diagnosticHubState.hasUnreadCrashAlert && panic.isAbnormalReboot) {
+                        item(key = "smart_crash_alert_banner") {
+                            SmartCrashAlertCard(
+                                panic = panic,
+                                onDismiss = { viewModel.dismissCrashAlert() },
+                                onNavigateToDiagnostics = {
+                                    viewModel.selectDiagnosticTab(LogCategoryTab.KERNEL_PANIC)
+                                    onNavigateToDiagnostics()
+                                }
+                            )
+                        }
+                    }
+
                     item(key = "charging_hero_display") {
                         ChargingHeroDisplayCard(
                             battery = uiState.batteryDetails,
@@ -263,4 +283,135 @@ fun DashboardTabContent(
                         Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
                     }
                 }
+}
+
+@Composable
+private fun SmartCrashAlertCard(
+    panic: KernelPanicDetails,
+    onDismiss: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF1E0A0E),
+        border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.65f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentRed.copy(alpha = 0.2f),
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AccentRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = AccentRed,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "BOOT ULANG TIDAK WAJAR",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentRed,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    Text(
+                        text = panic.bootReason.ifBlank { "Reboot Abnormal" },
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup Peringatan",
+                        tint = TextSecondary.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            if (panic.panicSignature.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF120507),
+                    border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = panic.panicSignature,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = AccentRed.copy(alpha = 0.9f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Kernel mencatat kejadian crash/panic sebelum boot ulang. Log forensik telah diarsipkan untuk analisis.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onNavigateToDiagnostics,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentRed.copy(alpha = 0.25f),
+                    contentColor = AccentRed
+                ),
+                border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.6f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BugReport,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Buka Forensik & Analisis Crash",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
 }

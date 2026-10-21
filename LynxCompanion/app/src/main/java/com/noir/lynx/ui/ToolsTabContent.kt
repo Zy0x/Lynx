@@ -240,7 +240,17 @@ fun ToolsTabContent(
                             onClick = { onSelectedCategoryChange(ToolsCategory.SYSTEM_DIAG.id) }
                         )
 
-                        // 5. Preferensi & Media Decoder
+                        // 5. Pusat Log & Forensik Sistem
+                        val panicBadge = if (uiState.diagnosticHubState.kernelPanic.isAbnormalReboot) "PANIC" else "LOGS"
+                        ToolCategoryCard(
+                            category = ToolsCategory.LOG_CENTER,
+                            badgeText = panicBadge,
+                            detailText1 = "Kernel Panic & Last Kmsg",
+                            detailText2 = "Dropbox ANR & Log Daemon",
+                            onClick = { onSelectedCategoryChange(ToolsCategory.LOG_CENTER.id) }
+                        )
+
+                        // 6. Preferensi & Media Decoder
                         ToolCategoryCard(
                             category = ToolsCategory.PREFERENCES,
                             badgeText = "SETELAN",
@@ -255,6 +265,12 @@ fun ToolsTabContent(
                     Spacer(modifier = Modifier.height(115.dp).navigationBarsPadding())
                 }
             }
+        } else if (currentCategory == ToolsCategory.LOG_CENTER.id) {
+            com.noir.lynx.feature.system.ui.LogDiagnosticsSubscreen(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = { onSelectedCategoryChange(null) }
+            )
         } else {
             // ── SUB-PAGE VIEW WITH PERMANENT STICKY PINNED HEADER ─────────
             val cat = ToolsCategory.fromId(currentCategory) ?: ToolsCategory.BATTERY_LAB
@@ -928,6 +944,10 @@ fun ToolsTabContent(
 
                         ToolsCategory.PREFERENCES -> {
                             toolsPreferenceItems()
+                        }
+
+                        ToolsCategory.LOG_CENTER -> {
+                            // Handled at parent level in LogDiagnosticsSubscreen
                         }
                     }
 

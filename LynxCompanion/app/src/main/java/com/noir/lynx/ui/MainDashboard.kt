@@ -227,6 +227,11 @@ fun MainDashboard(
                     selectedCategory = "profiles"
                     viewModel.setSelectedTuningCategory("profiles")
                     viewModel.switchTab(1)
+                },
+                onNavigateToDiagnostics = {
+                    android.util.Log.i("LynxNavigation", "navigating to diagnostics log hub")
+                    selectedToolsCategory = com.noir.lynx.feature.navigation.model.ToolsCategory.LOG_CENTER.id
+                    viewModel.switchTab(2)
                 }
             )
             // ── TAB 1: TUNING HUB ────────────────────────────────────────

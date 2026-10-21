@@ -11,7 +11,7 @@ $env:ANDROID_HOME = "D:\temp\android-sdk"
 $env:ANDROID_SDK_ROOT = "D:\temp\android-sdk"
 $env:ANDROID_USER_HOME = "D:\temp\.build-cache\android-user-home"
 $env:GRADLE_USER_HOME = "D:\temp\.build-cache\gradle"
-$env:GRADLE_OPTS = "-Djava.io.tmpdir=D:\temp -Dorg.gradle.user.home=D:\temp\.build-cache\gradle"
+$env:GRADLE_OPTS = "-Djava.io.tmpdir=D:\temp -Dorg.gradle.user.home=D:\temp\.build-cache\gradle -Xmx3072m -XX:+UseG1GC"
 
 if (-not (Test-Path "D:\temp\.build-cache\gradle")) {
     New-Item -ItemType Directory -Force -Path "D:\temp\.build-cache\gradle" | Out-Null

@@ -221,6 +221,7 @@ class LynxViewModel : ViewModel() {
                         val adbConfig = LynxRepository.readAdbKeepAliveConfig()
                         val adbStatusJson = LynxRepository.getAdbStatus()
                         val isAdbListening = adbStatusJson.contains("\"is_listening\":true")
+                        val panicDetails = com.noir.lynx.feature.system.data.LogDiagnosticsRepository.readKernelPanicDetails()
 
                         _uiState.update {
                             it.copy(
@@ -233,6 +234,10 @@ class LynxViewModel : ViewModel() {
                                 isAdbListening = isAdbListening,
                                 adbPort = adbConfig.second,
                                 adbPortInput = adbConfig.second.toString(),
+                                diagnosticHubState = it.diagnosticHubState.copy(
+                                    kernelPanic = panicDetails,
+                                    hasUnreadCrashAlert = panicDetails.isAbnormalReboot
+                                ),
                                 adbStatus = adbStatusJson,
                             )
                         }

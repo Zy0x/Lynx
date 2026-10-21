@@ -1,3 +1,25 @@
+# Lynx Universal [Integrated Forensic Log Hub & Smart Crash Alert Architecture] 7.0.0-RC148
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC148** (Lynx Kernel Manager v3.1.94): **Implementasi Pusat Log & Forensik Sistem Berkategori Lengkap Serta Smart Crash Alert Banner: Menghadirkan Episentrum Diagnostik Mandiri pada Tab Alat (`LOG_CENTER`) Berbasis Temuan Forensik Kernel Panic Nyata; Terbagi Menjadi 4 Tab Kategori Terstruktur (Tab 1: Kernel Panic & Last Kmsg Mengurai `SYSTEM_LAST_KMSG`, PStore Ramoops, `/proc/last_kmsg`, Serta Ekstraksi Otomatis Faulting PC; Tab 2: Android Crash & ANR Dropbox dengan Kartu Insiden Interaktif dan Modal Bottom Sheet Penampil Stack Trace Lengkap; Tab 3: Lynx Daemon & Engine Watchdog Memantau Transisi AI dan Log Charging; Tab 4: Live Dmesg Ring Buffer Real-Time); Dilengkapi Mesin Ekspor 1-Klik Berkas ZIP Diagnostik Lengkap (`Lynx_Diag_Report.zip`) yang Siap Dibagikan via Android Share Sheet; Tombol Salin Ringkasan Cepat ke Clipboard; Serta Smart Crash Alert Banner Proaktif pada Dashboard Utama yang Seketika Memperingatkan Pengguna Pasca-Reboot Abnormal**.
+
+## Rangkuman Fitur & Arsitektur Diagnostik Baru (7.0.0-RC148)
+
+### 1. 🚨 Smart Crash Alert Banner Proaktif di Dashboard Utama (`DashboardTabContent.kt`)
+- **Deteksi Otomatis Saat Boot**: Saat aplikasi Companion dibuka pasca-reboot, sistem membaca `sys.boot.reason` dan `SYSTEM_LAST_KMSG` secara asinkron. Jika ditemukan tanda *kernel panic, watchdog, oops*, atau *die*, banner peringatan visual bertema *Crimson OLED Alert* otomatis muncul di bawah header dashboard.
+- **Transparansi Hardware**: Banner langsung memaparkan alasan boot abnormal dan fungsi kernel yang mengalami crash (misalnya `pc: shrink_page_list+0x120/0x1810`), dengan tombol 1-sentuh untuk langsung membuka subscreen forensik terkait atau tombol tutup (*dismiss*) tanpa memicu notifikasi berulang.
+
+### 2. 🗂️ 4 Tab Kategori Pusat Log & Forensik Sistem (`LogDiagnosticsSubscreen.kt`)
+- **Tab 1: Kernel Panic & Last Kmsg**: Menganalisis riwayat crash kernel terdahulu melalui rantai prioritas bertingkat (`dumpsys dropbox SYSTEM_LAST_KMSG` $\to$ `/sys/fs/pstore/console-ramoops-0` $\to$ `/proc/last_kmsg`). Dilengkapi status badge (Normal vs Panic) dan terminal viewer teks lengkap dengan tombol salin.
+- **Tab 2: Android Crash & ANR Dropbox**: Memilah entri crash level user-space dari `dumpsys dropbox` (`data_app_crash`, `data_app_anr`, `system_server_crash`). Menampilkan daftar kartu insiden bersih dengan timestamp, nama paket, PID, dan subject crash. Mengetuk kartu membuka *Modal Bottom Sheet* yang menyajikan stack trace lengkap tanpa memotong baris.
+- **Tab 3: Daemon & Engine Lynx**: Menyajikan telemetri operasional daemon Rust `lynxd` (`/data/adb/modules/Lynx/logs/lynxd.log`), mencatat setiap transisi profil AI, event charging bypass, dan status watchdog nirkabel, lengkap dengan chip filter cepat (*Semua, Hanya Error, Profil, Baterai*).
+- **Tab 4: Live Dmesg Ring Buffer**: Menampilkan buffer sirkular kernel Linux terkini dengan filter teks pencarian langsung dan penyegaran instan.
+
+### 3. 📦 Generator Paket Diagnostik 1-Klik & Ringkasan Cepat (`LogDiagnosticsRepository.kt`)
+- **Paket ZIP Forensik Lengkap**: Tombol *"Ekspor Laporan ZIP"* mengompresi 6 berkas esensial (`00_BOOT_SUMMARY.txt`, `01_KERNEL_LAST_KMSG.txt`, `02_ANDROID_DROPBOX_CRASHES.txt`, `03_LYNX_DAEMON_LOG.txt`, `04_DMESG_RING_BUFFER.txt`, dan `05_DEVICE_PROPERTIES.txt`) ke direktori `/sdcard/Lynx/Diagnostics/` dan memicu `Intent.ACTION_SEND` native Android (Share Sheet) untuk kemudahan pengiriman ke pengembang, komunitas Telegram, atau GitHub Issues.
+- **Salin Ringkasan Cepat**: Tombol *"Salin Ringkasan"* memformat intisari krusial perangkat (Model, Chipset, Kernel, Boot Reason, dan Panic Signature) dalam teks ringkas yang rapi ke clipboard sistem dalam satu ketukan.
+
+---
+
 # Lynx Universal [Deep Sleep Sysfs Screen Detection & Persistent ADB Keepalive Architecture] 7.0.0-RC147
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC147** (Lynx Kernel Manager v3.1.93): **Penyelesaian Tuntas & Investigasi Forensik Masalah Random Reboot Saat Perangkat Dibiarkan Diam (Layar Mati >1 Jam): Mengeliminasi Total 7.200 Fork Subproses `/system/bin/dumpsys power` per Jam pada `native/lynxd/src/daemon/screen.rs` yang Terjadi Akibat Sysfs Brightness Bernilai 0 Jatuh ke Fallback Dumpsys; Mengembalikan Nilai `ScreenState::Off` Seketika (0.03ms Zero-Fork Sysfs) Saat Brightness Layar 0; Mengubah Interval Polling Deep Sleep Menjadi 1000ms untuk Menjamin Kernel CPU Masuk ke C-States Penuh; Memperbaiki Persistensi Port ADB Nirkabel (`native/lynxd/src/subsystems/adb.rs`) dari `resetprop -n` Menjadi `resetprop -p` yang Tersimpan Permanen di `/data/property/persistent_properties`; Serta Mengaktifkan `adb_keepalive.enabled = true` Secara Default Agar Port 5555 Tetap Terbuka dan Siaga Pasca-Reboot**.
