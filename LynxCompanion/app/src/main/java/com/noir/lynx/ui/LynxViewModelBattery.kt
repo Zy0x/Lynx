@@ -221,6 +221,13 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
     val isExtreme = normalized == "hyper"
     val isMaxHw = normalized == "hyper"
 
+    // Guard active intents so background telemetry/state readers never revert mode selection
+    recordSettingIntent("charging.charging_mode", normalized)
+    recordSettingIntent("charging.extreme_charging_enabled", isExtreme)
+    recordSettingIntent("charging.limit_current_ma", targetMa)
+    recordSettingIntent("charging.is_unconstrained_max_hw", isMaxHw)
+    recordSettingIntent("charging.bypass_enabled", false)
+
     _uiState.update { current ->
         current.copy(
             state = current.state.copy(
@@ -241,7 +248,6 @@ fun LynxViewModel.setChargingMode(mode: String, customMa: Int = 2000) {
 
     viewModelScope.launch(Dispatchers.IO) {
         recordStateMutation()
-        setKey("charging.bypass_enabled", "false", "bool")
         val ok = LynxRepository.setChargingMode(normalized, targetMa)
         recordStateMutation()
         refreshBatteryDetails()

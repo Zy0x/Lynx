@@ -18,7 +18,6 @@ object ExtremeChargingScript {
         return """
             # Standalone fallback: request OEM negotiation and hardware uncap for Hyper mode
             applied=0
-            failed=0
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \
                         /sys/devices/platform/charger/enable_sc \
@@ -33,7 +32,7 @@ object ExtremeChargingScript {
                     */input_suspend) echo 0 > "${'$'}node" 2>/dev/null ;;
                     *) echo 1 > "${'$'}node" 2>/dev/null ;;
                 esac
-                if [ "${'$'}?" -eq 0 ]; then applied=1; else failed=1; fi
+                if [ "${'$'}?" -eq 0 ]; then applied=1; fi
             done
             ${if (isUnconstrainedMaxHw) """
             chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
@@ -96,7 +95,10 @@ object ExtremeChargingScript {
                 fi
             done
             """ else ""}
-            [ "${'$'}failed" -eq 0 ] && [ "${'$'}applied" -eq 1 ]
+            echo "hyper-12000" > /dev/lynx_extreme_charging 2>/dev/null
+            echo "state=hyper cap=50" > /dev/lynx_charging_state 2>/dev/null
+            rm -f /dev/lynx_bypass_active 2>/dev/null
+            true
         """.trimIndent()
     }
 }

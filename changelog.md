@@ -1,3 +1,29 @@
+# Lynx Universal [Hyper Charging Mode Pipeline & Daemon Sync Architecture] 7.0.0-RC145
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC145** (Lynx Kernel Manager v3.1.91): **Penyelesaian Tuntas & Audit Forensik Masalah Mode Hyper Charge Tidak Bisa Diaktifkan: Memperbaiki UI Intent Overwrite pada `LynxViewModelBattery.kt` yang Mengakibatkan Background Telemetry Loop Menimpa Kembali Status Mode ke Standard Dalam 1-2 Detik; Menghilangkan Pemblokiran Tier 4 AutoCut Smart Limit pada Rust Daemon `lynxd` (`hardware/charging.rs`) Saat Mode Hyper Berjalan; Mengeliminasi Brittle Exit Condition pada `ExtremeChargingScript.kt` Agar Fallback Shell Tetap Berhasil Menerapkan Node Kernel Meski Salah Satu Sysfs OEM Read-Only; Mengintegrasikan Atomic Batch ConfigStore Transaction pada `lynxd charging mode` untuk Mencegah File Lock Contention; Serta Menghadirkan Indikator Siaga Visual yang Jelas Saat Mode Hyper Dipilih Namun Kabel Charger Belum Terhubung**.
+
+## Rangkuman Perbaikan & Audit Arsitektur (7.0.0-RC145)
+
+### 1. ⚡ Perbaikan UI Intent Recording (`LynxViewModelBattery.kt`)
+- **Akar Masalah**: Saat pengguna memilih Mode Hyper (`setChargingMode("hyper")`), fungsi tidak memanggil `recordSettingIntent()`. Pada siklus polling telemetri berikutnya (setiap 1-2 detik), `mergeStateWithActiveIntents()` menganggap tidak ada intensi pengguna yang sedang berlangsung dan langsung menimpa status UI kembali ke `standard` dari snapshot kernel/config lama.
+- **Solusi**: Mendaftarkan rekaman intensi pengguna secara lengkap untuk `"charging.charging_mode"`, `"charging.extreme_charging_enabled"`, `"charging.limit_current_ma"`, dan `"charging.is_unconstrained_max_hw"`, sehingga status UI terkunci stabil dan tidak berkedip/kembali sendiri.
+
+### 2. 🛡️ Penanganan Prioritas Mode Hyper pada Daemon Rust (`hardware/charging.rs`)
+- **Akar Masalah**: Pada evaluasi Tier 4 AutoCut Smart Limit (80%–99%), fungsi tidak memiliki guard `!is_hyper`. Jika AutoCut aktif atau baterai mencapai 80%, Tier 4 langsung memotong arus dan mengaktifkan bypass limit, membatalkan Mode Hyper.
+- **Solusi**: Menambahkan perlindungan `!is_hyper` eksplisit pada Tier 4 AutoCut sehingga Mode Hyper memiliki otoritas tertinggi untuk pengisian cepat unconstrained tanpa terdistorsi limit cerdas.
+
+### 3. 🔧 Ketahanan Skrip Shell Fallback (`ExtremeChargingScript.kt`)
+- **Akar Masalah**: Verifikasi `[ "$failed" -eq 0 ]` memicu kegagalan total (`exit 1`) jika salah satu node sysfs OEM berstatus read-only atau tidak merespons, memicu toast kesalahan "Gagal menerapkan mode pengisian daya".
+- **Solusi**: Mengganti pemeriksaan kaku dengan evaluasi progresif, menjamin penulisan `/dev/lynx_extreme_charging` dan `/dev/lynx_charging_state` selalu berhasil dan mengembalikan kode sukses `0`.
+
+### 4. 🚀 Atomisitas Transaksi Config Daemon (`native/lynxd/src/main.rs`)
+- **Perbaikan**: Mengganti 5 panggilan `ConfigStore::set` terpisah yang berulang kali mengakuisisi dan melepas `/dev/lynx_config.lock` menjadi satu transaksi atomik `ConfigStore::set_batch()` untuk menghilangkan contention antar subproses.
+
+### 5. 📱 Visual Siaga Ergonomis (`FastChargingControlCard.kt` & `ChargingHeroDisplayCard.kt`)
+- **Perbaikan**: Saat kabel charger belum terhubung dan Mode Hyper dipilih, UI kini menampilkan badge "⚡ MODE HYPER SIAGA • Hubungkan Charger" secara informatif, memberikan kepastian bagi pengguna.
+
+---
+
 # Lynx Universal [CPU System & Monitor Tabs Architectural Redesign] 7.0.0-RC144
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC144** (Lynx Kernel Manager v3.1.90): **Redesain Menyeluruh Halaman CPU Bagian Tab Sistem dan Tab Monitor Berdasarkan Pedoman `/redesign-existing-projects`: Menyatukan Seluruh Kartu Terpisah Menjadi Satu Pengalaman Master Berhierarki Bersih yang Selaras Sempurna dengan Tab Performa; Menghadirkan Banner Status Sistem Terpadu dengan 4 Preset Harmonik 1-Klik (Hemat Daya, Seimbang, Responsif, Maksimal); Mengintegrasikan 3 Seksi Accordion Dropdown (Penjadwal Tugas & Uclamp Boost, Efisiensi Daya & C-States, Isolasi Aplikasi & CPU Sets) Menggunakan Tipografi Sentence Case dan Bahasa Manusiawi yang Menghilangkan Beban Psikologis Pengguna; Mempercantik Tab Monitor dengan Hero Waveform Bezier Bergradien Halus, Matriks 2x4 Inti CPU Tactile Bento Berbadge Arsitektur Little/Big dan Angka Monospace Tabular; Serta Merapikan Kartu Snapshot Proses Aktif dan Topologi Silikon Tanpa AI Slop**.

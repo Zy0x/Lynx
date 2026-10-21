@@ -754,35 +754,49 @@ fn handle_charging(args: &[String]) {
         "mode" => {
             let m = args.get(3).map(|s| s.as_str()).unwrap_or("standard");
             let target_ma = args.get(4).and_then(|s| s.parse::<u32>().ok()).unwrap_or(if m == "cool" { 1000 } else { 2000 });
-            let _ = ConfigStore::set("charging.charging_mode", m, "str");
-            let _ = ConfigStore::set("charging.bypass_enabled", "false", "bool");
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
             match m {
                 "cool" => {
-                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-                    let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
-                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    let _ = ConfigStore::set_batch(&[
+                        ("charging.charging_mode".to_string(), "cool".to_string(), Some("str".to_string())),
+                        ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.limit_current_ma".to_string(), target_ma.to_string(), Some("val".to_string())),
+                        ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+                    ]);
                     ChargingRegulator::apply_from_config();
                     println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 "standard" => {
-                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-                    let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
-                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    let _ = ConfigStore::set_batch(&[
+                        ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
+                        ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.limit_current_ma".to_string(), "2000".to_string(), Some("val".to_string())),
+                        ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+                    ]);
                     ChargingRegulator::apply_from_config();
                     println!("[OK] {}: STANDARD ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Adaptif OEM", "OEM Adaptive"));
                 }
                 "hyper" => {
-                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
-                    let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
-                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
+                    let _ = ConfigStore::set_batch(&[
+                        ("charging.charging_mode".to_string(), "hyper".to_string(), Some("str".to_string())),
+                        ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.extreme_charging_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
+                        ("charging.limit_current_ma".to_string(), "12000".to_string(), Some("val".to_string())),
+                        ("charging.is_unconstrained_max_hw".to_string(), "true".to_string(), Some("bool".to_string())),
+                    ]);
                     ChargingRegulator::apply_from_config();
                     println!("[OK] {}: HYPER ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Puncak Tanpa Batas", "Unconstrained Peak"));
                 }
                 "custom" => {
-                    let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-                    let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
-                    let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+                    let _ = ConfigStore::set_batch(&[
+                        ("charging.charging_mode".to_string(), "custom".to_string(), Some("str".to_string())),
+                        ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                        ("charging.limit_current_ma".to_string(), target_ma.to_string(), Some("val".to_string())),
+                        ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+                    ]);
                     ChargingRegulator::apply_from_config();
                     println!("[OK] {}: CUSTOM ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
@@ -793,43 +807,51 @@ fn handle_charging(args: &[String]) {
         }
         "cool" => {
             let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(1000);
-            let _ = ConfigStore::set("charging.charging_mode", "cool", "str");
-            let _ = ConfigStore::set("charging.bypass_enabled", "false", "bool");
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
-            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-            let _ = ConfigStore::set("charging.limit_current_ma", &limit.to_string(), "val");
-            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "cool".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.limit_current_ma".to_string(), limit.to_string(), Some("val".to_string())),
+                ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+            ]);
             ChargingRegulator::apply_from_config();
             println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian", "Charging Mode"), limit);
         }
         "standard" => {
-            let _ = ConfigStore::set("charging.charging_mode", "standard", "str");
-            let _ = ConfigStore::set("charging.bypass_enabled", "false", "bool");
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
-            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-            let _ = ConfigStore::set("charging.limit_current_ma", "2000", "val");
-            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.limit_current_ma".to_string(), "2000".to_string(), Some("val".to_string())),
+                ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+            ]);
             ChargingRegulator::apply_from_config();
             println!("[OK] {}: STANDARD", ui("Mode Pengisian", "Charging Mode"));
         }
         "hyper" => {
-            let _ = ConfigStore::set("charging.charging_mode", "hyper", "str");
-            let _ = ConfigStore::set("charging.bypass_enabled", "false", "bool");
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
-            let _ = ConfigStore::set("charging.extreme_charging_enabled", "true", "bool");
-            let _ = ConfigStore::set("charging.limit_current_ma", "12000", "val");
-            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "true", "bool");
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "hyper".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.extreme_charging_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
+                ("charging.limit_current_ma".to_string(), "12000".to_string(), Some("val".to_string())),
+                ("charging.is_unconstrained_max_hw".to_string(), "true".to_string(), Some("bool".to_string())),
+            ]);
             ChargingRegulator::apply_from_config();
             println!("[OK] {}: HYPER", ui("Mode Pengisian", "Charging Mode"));
         }
         "custom" => {
             let target_ma = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2500);
-            let _ = ConfigStore::set("charging.charging_mode", "custom", "str");
-            let _ = ConfigStore::set("charging.bypass_enabled", "false", "bool");
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
-            let _ = ConfigStore::set("charging.extreme_charging_enabled", "false", "bool");
-            let _ = ConfigStore::set("charging.limit_current_ma", &target_ma.to_string(), "val");
-            let _ = ConfigStore::set("charging.is_unconstrained_max_hw", "false", "bool");
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "custom".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.extreme_charging_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("charging.limit_current_ma".to_string(), target_ma.to_string(), Some("val".to_string())),
+                ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
+            ]);
             ChargingRegulator::apply_from_config();
             println!("[OK] {}: CUSTOM ({} mA)", ui("Mode Pengisian", "Charging Mode"), target_ma);
         }

@@ -653,13 +653,31 @@ fun ChargingHeroDisplayCard(
     // Banner & Theme Configuration
     val modeInfo = remember(isPlugged, isBypass, isCharging, detectedProtocolName, liveWatts, activeChargingMode, isPropsSpoofed) {
         when {
-            !isPlugged -> ChargingDisplayMode(
-                title = "Discharging",
-                description = "Menggunakan daya baterai",
-                badgeColor = TextSecondary,
-                badgeBg = BgSurfaceLowest,
-                icon = Icons.Default.BatteryStd
-            )
+            !isPlugged -> {
+                when (activeChargingMode) {
+                    "hyper" -> ChargingDisplayMode(
+                        title = "⚡ MODE HYPER SIAGA",
+                        description = "Daya penuh aktif saat kabel terhubung",
+                        badgeColor = AccentOrange,
+                        badgeBg = Color(0x33FF6B00),
+                        icon = Icons.Default.Bolt
+                    )
+                    "cool" -> ChargingDisplayMode(
+                        title = "❄️ MODE SEJUK SIAGA",
+                        description = "Regulasi ~1.0A aktif saat terhubung",
+                        badgeColor = AccentCyan,
+                        badgeBg = Color(0x2200E5FF),
+                        icon = Icons.Default.AcUnit
+                    )
+                    else -> ChargingDisplayMode(
+                        title = "Discharging",
+                        description = "Menggunakan daya baterai",
+                        badgeColor = TextSecondary,
+                        badgeBg = BgSurfaceLowest,
+                        icon = Icons.Default.BatteryStd
+                    )
+                }
+            }
             isBypass -> ChargingDisplayMode(
                 title = "⚡ BYPASS CHARGING",
                 description = "Daya ke motherboard (0 mA)",

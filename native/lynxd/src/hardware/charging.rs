@@ -1949,7 +1949,7 @@ impl ChargingRegulator {
         // Tier 4: Smart battery limit (50%–99%).
         // With 3% hysteresis buffer to prevent continuous flapping
         let smart_limit = cfg.max_battery_percent.clamp(0, 100) as u32;
-        if cfg.auto_cut_enabled && smart_limit > 0 && smart_limit < 100 {
+        if !is_hyper && cfg.auto_cut_enabled && smart_limit > 0 && smart_limit < 100 {
             let is_currently_bypassed = Path::new("/dev/lynx_bypass_active").exists();
             let lower_hysteresis_bound = smart_limit.saturating_sub(3);
 

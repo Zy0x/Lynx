@@ -340,17 +340,31 @@ class ChargingRepository(
                 else -> 2000
             }
 
-            repository.writeStateKey("charging.charging_mode", normalizedMode, "str")
-            repository.writeStateKey("charging.extreme_charging_enabled", isExtreme.toString(), "bool")
-            repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
-            repository.writeStateKey("charging.is_unconstrained_max_hw", (normalizedMode == "hyper").toString(), "bool")
-            repository.writeStateKey("charging.bypass_enabled", "false", "bool")
             Shell.cmd("rm -f /dev/lynx_bypass_active").exec()
 
             val nativeCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging mode $normalizedMode $targetMa && echo ok; fi"
             val fastRes = Shell.cmd(nativeCmd).exec()
             if (fastRes.isSuccess && fastRes.out.any { it.trim() == "ok" }) {
                 return@withContext true
+            }
+
+            // Fallback: batch write config state keys when native daemon is not reachable
+            if (repository.isModuleInstalled()) {
+                val batchStateCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' state set charging.charging_mode=$normalizedMode charging.extreme_charging_enabled=$isExtreme charging.limit_current_ma=$targetMa charging.is_unconstrained_max_hw=${normalizedMode == "hyper"} charging.bypass_enabled=false; fi"
+                val res = Shell.cmd(batchStateCmd).exec()
+                if (!res.isSuccess) {
+                    repository.writeStateKey("charging.charging_mode", normalizedMode, "str")
+                    repository.writeStateKey("charging.extreme_charging_enabled", isExtreme.toString(), "bool")
+                    repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+                    repository.writeStateKey("charging.is_unconstrained_max_hw", (normalizedMode == "hyper").toString(), "bool")
+                    repository.writeStateKey("charging.bypass_enabled", "false", "bool")
+                }
+            } else {
+                repository.writeStateKey("charging.charging_mode", normalizedMode, "str")
+                repository.writeStateKey("charging.extreme_charging_enabled", isExtreme.toString(), "bool")
+                repository.writeStateKey("charging.limit_current_ma", targetMa.toString(), "val")
+                repository.writeStateKey("charging.is_unconstrained_max_hw", (normalizedMode == "hyper").toString(), "bool")
+                repository.writeStateKey("charging.bypass_enabled", "false", "bool")
             }
 
             // Fallback shell execution if lynxd daemon is not reachable

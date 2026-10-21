@@ -45,8 +45,11 @@ fun FastChargingControlCard(
 
     val activeMode = remember(state.charging.chargingMode, state.charging.extremeChargingEnabled, state.charging.limitCurrentMa) {
         when {
+            state.charging.chargingMode.equals("hyper", ignoreCase = true) || state.charging.extremeChargingEnabled -> "hyper"
+            state.charging.chargingMode.equals("cool", ignoreCase = true) -> "cool"
+            state.charging.chargingMode.equals("custom", ignoreCase = true) -> "custom"
+            state.charging.chargingMode.equals("standard", ignoreCase = true) -> "standard"
             state.charging.chargingMode.isNotBlank() -> state.charging.chargingMode.lowercase()
-            state.charging.extremeChargingEnabled -> "hyper"
             state.charging.limitCurrentMa in 500..2500 -> "cool"
             state.charging.limitCurrentMa > 2500 && state.charging.limitCurrentMa != 6000 -> "custom"
             else -> "standard"
@@ -192,7 +195,12 @@ fun FastChargingControlCard(
             !detectedProtocol.contains("unknown", ignoreCase = true)
 
         val modePillLabel = when {
-            !isPlugged -> stringResource(R.string.battery_status_disconnected)
+            !isPlugged -> when (activeMode) {
+                "hyper" -> "Mode Hyper Siaga • Hubungkan Charger"
+                "cool" -> "Mode Sejuk Siaga • Hubungkan Charger"
+                "custom" -> "Mode Kustom (${state.charging.limitCurrentMa} mA) • Hubungkan Charger"
+                else -> stringResource(R.string.battery_status_disconnected)
+            }
             isOvernightLatched -> stringResource(R.string.battery_status_full_autocut)
             isLimitLatched -> stringResource(R.string.battery_status_smart_limit_reached, smartLimit, curLevel)
             isLimitUnapplied -> stringResource(R.string.battery_status_smart_limit_unapplied, smartLimit, curLevel)
@@ -207,7 +215,7 @@ fun FastChargingControlCard(
             else -> stringResource(R.string.battery_status_standard_ma, state.charging.limitCurrentMa)
         }
         val modePillColor = when {
-            !isPlugged -> TextSecondary
+            !isPlugged -> if (activeMode == "hyper") AccentOrange else if (activeMode == "cool") AccentCyan else TextSecondary
             isOvernightLatched || isLimitLatched || isManualBypass -> AccentCyan
             isLimitUnapplied -> AccentOrange
             isNightGentle -> AccentPurple
