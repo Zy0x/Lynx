@@ -111,6 +111,36 @@ internal object LynxGraphicsEngineRepository {
             val isVulkan = hasVulkanHardware || isVulkanFromShell
             val isGraphite = (android.os.Build.VERSION.SDK_INT >= 34) && isVulkan
             val isAngle = (android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && isAngleFromShell
+
+            // Read HWUI texture cache size
+            val textureCacheMb = try {
+                Shell.cmd("getprop ro.hwui.texture_cache_size 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 72
+            } catch (_: Exception) { 72 }
+
+            // Read async shader pipeline state
+            val asyncShaderOn = try {
+                Shell.cmd("getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null").exec().out.firstOrNull()?.trim() == "true"
+            } catch (_: Exception) { false }
+
+            // Read pure hardware vsync state
+            val pureHwVsync = try {
+                val v = Shell.cmd("getprop debug.cpurend.vsync 2>/dev/null").exec().out.firstOrNull()?.trim()
+                v == "false" // "false" = pure HW vsync enabled (CPU render vsync disabled)
+            } catch (_: Exception) { false }
+
+            // Read current display resolution for esports scaler
+            val (nativeRes, activeRes, nativeDpi) = try {
+                val wmOut = Shell.cmd("wm size; wm density").exec().out.joinToString("\n")
+                val physicalMatch = Regex("Physical size:\\s*(\\d+x\\d+)").find(wmOut)
+                val overrideMatch = Regex("Override size:\\s*(\\d+x\\d+)").find(wmOut)
+                val physDpi = Regex("Physical density:\\s*(\\d+)").find(wmOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val physical = physicalMatch?.groupValues?.get(1) ?: ""
+                val current = overrideMatch?.groupValues?.get(1) ?: physical
+                Triple(physical, current, physDpi)
+            } catch (_: Exception) { Triple("", "", 0) }
+
+            val isDownscaleActive = nativeRes.isNotEmpty() && activeRes.isNotEmpty() && nativeRes != activeRes
+
             GraphicsHwuiInfo(
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
@@ -125,7 +155,14 @@ internal object LynxGraphicsEngineRepository {
                 isVulkanSupported = isVulkan,
                 isGraphiteSupported = isGraphite,
                 isAngleSupported = isAngle,
-                isEarlyPhaseOffset = earlyPhase
+                isEarlyPhaseOffset = earlyPhase,
+                textureCacheMb = textureCacheMb,
+                asyncShaderPipelineEnabled = asyncShaderOn,
+                pureHwVsyncEnabled = pureHwVsync,
+                isEsportsDownscaleActive = isDownscaleActive,
+                nativeResolution = nativeRes,
+                activeResolution = activeRes,
+                nativeDensity = nativeDpi,
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
     }

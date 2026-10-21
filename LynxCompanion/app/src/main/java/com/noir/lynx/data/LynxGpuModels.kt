@@ -127,6 +127,15 @@ data class GraphicsHwuiInfo(
     val isGraphiteSupported: Boolean = false,
     val isAngleSupported: Boolean = false,
     val isEarlyPhaseOffset: Boolean = false,
+    // Universal Compositor & Memory Pipeline (Android OS Level)
+    val textureCacheMb: Int = 72,                // 48, 72, 96, 128 MB — HWUI VRAM texture cache size
+    val asyncShaderPipelineEnabled: Boolean = false, // debug.hwui.use_gpu_pixel_buffers
+    val pureHwVsyncEnabled: Boolean = false,     // debug.cpurend.vsync=false
+    // Esports Dynamic Render Scaler
+    val isEsportsDownscaleActive: Boolean = false,
+    val nativeResolution: String = "",           // e.g. "1080x2400" (physical display)
+    val activeResolution: String = "",           // e.g. "720x1600" (current render)
+    val nativeDensity: Int = 0,                  // physical DPI
 ) {
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true
@@ -135,6 +144,14 @@ data class GraphicsHwuiInfo(
         "angle" -> isAngleSupported
         else -> true
     }
+
+    /** Texture cache options in MB with display labels */
+    val textureCacheOptions: List<Pair<Int, String>> get() = listOf(
+        48 to "48MB (Hemat RAM)",
+        72 to "72MB (Standar)",
+        96 to "96MB (Tinggi)",
+        128 to "128MB (Maksimum)"
+    )
 }
 
 data class WakelockItem(

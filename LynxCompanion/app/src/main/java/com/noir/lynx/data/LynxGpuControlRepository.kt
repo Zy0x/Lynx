@@ -497,6 +497,94 @@ internal object LynxGpuControlRepository {
 
 
     // ----------------------------------------------------------------
+    //  Universal Compositor & HWUI Texture Cache Tweaks
+    // ----------------------------------------------------------------
+
+    suspend fun setTextureCacheSize(mb: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val validMb = mb.coerceIn(48, 128)
+            val r1 = Shell.cmd("setprop ro.hwui.texture_cache_size $validMb").exec().isSuccess
+            val r2 = Shell.cmd("setprop ro.hwui.layer_cache_size ${(validMb * 0.75).toInt()}").exec().isSuccess
+            val r3 = Shell.cmd("setprop ro.hwui.path_cache_size ${(validMb * 0.5).toInt()}").exec().isSuccess
+            // Runtime override via system_server props (affects running processes after restart)
+            Shell.cmd("service call SurfaceFlinger 1037 2>/dev/null").exec()
+            r1 || r2 || r3
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setAsyncShaderPipeline(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (enabled) "true" else "false"
+            val r1 = Shell.cmd("setprop debug.hwui.use_gpu_pixel_buffers $v").exec().isSuccess
+            val r2 = Shell.cmd("setprop debug.hwui.render_thread $v").exec().isSuccess
+            val r3 = Shell.cmd("setprop debug.hwui.use_buffer_age $v").exec().isSuccess
+            r1 || r2 || r3
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setPureHwVsync(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // debug.cpurend.vsync=false = Pure Hardware VSync (disable CPU rendering vsync)
+            val v = if (enabled) "false" else "true"
+            Shell.cmd("setprop debug.cpurend.vsync $v").exec().isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun readNativeResolution(): Triple<String, String, Int> = withContext(Dispatchers.IO) {
+        try {
+            // Read current wm size and wm density
+            val wmOut = Shell.cmd("wm size; wm density").exec().out.joinToString("\n")
+            val physicalMatch = Regex("Physical size:\\s*(\\d+x\\d+)").find(wmOut)
+            val overrideMatch = Regex("Override size:\\s*(\\d+x\\d+)").find(wmOut)
+            val physicalDensity = Regex("Physical density:\\s*(\\d+)").find(wmOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+
+            val physical = physicalMatch?.groupValues?.get(1) ?: ""
+            val current = overrideMatch?.groupValues?.get(1) ?: physical
+            Triple(physical, current, physicalDensity)
+        } catch (e: Exception) { Triple("", "", 0) }
+    }
+
+    suspend fun setDisplayRenderScale(preset: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            when (preset) {
+                "native" -> {
+                    // Reset to native resolution
+                    val r1 = Shell.cmd("wm size reset").exec().isSuccess
+                    val r2 = Shell.cmd("wm density reset").exec().isSuccess
+                    r1 || r2
+                }
+                "720p_esports" -> {
+                    // Read physical size first to compute correct aspect-ratio scaled 720p
+                    val (physical, _, physDpi) = readNativeResolution()
+                    val parts = physical.split("x")
+                    val physW = parts.getOrNull(0)?.toIntOrNull() ?: 1080
+                    val physH = parts.getOrNull(1)?.toIntOrNull() ?: 2400
+                    // Maintain aspect ratio: scale down to 720p width
+                    val targetW = 720
+                    val targetH = ((physH.toFloat() / physW.toFloat()) * targetW).toInt()
+                    val targetDpi = ((physDpi.toFloat() / physW.toFloat()) * targetW).toInt().coerceAtLeast(200)
+                    val r1 = Shell.cmd("wm size ${targetW}x${targetH}").exec().isSuccess
+                    val r2 = Shell.cmd("wm density $targetDpi").exec().isSuccess
+                    r1 || r2
+                }
+                "900p_balanced" -> {
+                    val (physical, _, physDpi) = readNativeResolution()
+                    val parts = physical.split("x")
+                    val physW = parts.getOrNull(0)?.toIntOrNull() ?: 1080
+                    val physH = parts.getOrNull(1)?.toIntOrNull() ?: 2400
+                    val targetW = 900
+                    val targetH = ((physH.toFloat() / physW.toFloat()) * targetW).toInt()
+                    val targetDpi = ((physDpi.toFloat() / physW.toFloat()) * targetW).toInt().coerceAtLeast(230)
+                    val r1 = Shell.cmd("wm size ${targetW}x${targetH}").exec().isSuccess
+                    val r2 = Shell.cmd("wm density $targetDpi").exec().isSuccess
+                    r1 || r2
+                }
+                else -> false
+            }
+        } catch (e: Exception) { false }
+    }
+
+    // ----------------------------------------------------------------
     //  Phase 1 Quick Wins: KSM (Kernel Same-page Merging)
     // ----------------------------------------------------------------
 
