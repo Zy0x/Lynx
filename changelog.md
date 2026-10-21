@@ -1,3 +1,30 @@
+# Lynx Universal [Universal GPU Silicon Expansion & Compositor Pipeline Studio] 7.0.0-RC157
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC157** (Lynx Kernel Manager v3.2.03): **Ekspansi Arsitektur GPU Silikon Universal & Studio Pipeline Compositor Android: Menghadirkan 2 Hardware Abstraction Layer (HAL) GPU Baru untuk Menjamin Kompatibilitas Menyeluruh pada Seluruh Lini Chipset Android Dunia — Samsung Exynos / Google Tensor / AMD RDNA Xclipse (`SamsungExynosXclipseAdapter.kt`) dengan Kontrol Devfreq Governor, Polling Interval, dan Sysfs OneUI/GKI `/sys/kernel/gpu/`, Serta Unisoc Spreadtrum (`UnisocSprdAdapter.kt`) dengan Scene-Frequency Governor & Scene Boost GPU; Menambahkan 3 Mikro-Tweak Silikon Mendalam pada GPU Qualcomm Adreno (`QualcommAdrenoAdapter.kt`): Adreno Touch-Wake (`wake_on_touch`) untuk Memangkas Latensi Input-to-Display, Supresi KGSL Crash Dumper (`snapshot_crashdumper`) untuk Mencegah Freeze/Stutter Saat Shader Glitch, dan Penguncian Batas Atas Clock (`max_pwrlevel`); Mengintegrasikan Panel Universal Compositor & Pipeline Memory Android pada `GraphicsDriverHwuiCard.kt` dengan Pengatur Alokasi VRAM Texture Cache HWUI (48MB–128MB), Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`), dan Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`); Serta Meluncurkan Esports Dynamic Render Scaler Presisi pada `DisplayRefreshRateTouchCard.kt` (Preset 720p Esports Boost +40% FPS, 900p Balanced +20% FPS, dan Native Full Resolution Reset) dengan Perhitungan Aspek Rasio Otomatis Bebas Distorsi Teks**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC157)
+
+### 1. ⚡ 2 HAL Adapter GPU Baru: Samsung Exynos AMD RDNA Xclipse & Unisoc Spreadtrum
+- **Samsung Exynos & AMD RDNA Xclipse HAL (`SamsungExynosXclipseAdapter.kt`)**: Mendukung penuh chipset Samsung Exynos (Mali tradisional & AMD RDNA Xclipse 920/940 pada Exynos 2200/2400) serta Google Tensor G-series via `/sys/class/devfreq/*sgpu*` dan antarmuka OneUI kernel `/sys/kernel/gpu/` (governor, polling interval, power policy, clock booster, dan thermal throttling bypass).
+- **Unisoc Spreadtrum GPU HAL (`UnisocSprdAdapter.kt`)**: Mendukung lini SoC Unisoc T606, T612, T616, T618, T760, T820, dan SC9863A melalui antarmuka `scene-frequency` (`sprd-governor`, `scene_boost_gpu`) dan GPU platform devfreq.
+
+### 2. 🎮 3 Mikro-Tweak Silikon GPU Adreno Lanjutan (`QualcommAdrenoAdapter.kt`)
+- **Adreno Touch-Wake (`wake_on_touch`)**: Membangunkan GPU Adreno seketika saat digitizer layar mendeteksi sentuhan pertama sebelum frame pertama dirender, memangkas latensi input-to-display secara signifikan.
+- **Supresi KGSL Crash Dumper (`snapshot_crashdumper`)**: Menonaktifkan dump snapshot crash GPU agar tidak memicu freeze 1-2 detik saat game mengalami glitch shader kecil.
+- **Penguncian Batas Atas Clock (`max_pwrlevel`)**: Mengontrol level daya maksimum driver KGSL untuk pembatasan termal presisi atau pelepasan performa penuh.
+
+### 3. 🎨 Panel Universal Compositor & Pipeline Memory Android (`GraphicsDriverHwuiCard.kt`)
+- **Alokasi VRAM Texture Cache HWUI (48MB – 128MB)**: Selektor preset instan untuk `ro.hwui.texture_cache_size`, `ro.hwui.layer_cache_size`, dan `ro.hwui.path_cache_size` guna mengeliminasi stuttering saat scrolling aplikasi dengan gambar banyak.
+- **Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`)**: Kompilasi shader Vulkan/OpenGL secara asinkron di GPU untuk mencegah stutter saat efek grafis baru pertama kali muncul.
+- **Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`)**: Memaksa SurfaceFlinger menggunakan sinyal hardware VSync murni dari panel display dan mematikan fallback CPU rendering VSync.
+
+### 4. 🚀 Esports Dynamic Render Scaler Presisi (`DisplayRefreshRateTouchCard.kt`)
+- **Penskalaan Resolusi Cerdas**: Menyediakan 3 tombol preset instan (Native Full Res, 900p Balanced +20% FPS, dan 720p Esports +40% FPS) via `wm size` dan `wm density` AOSP.
+- **Proteksi Aspek Rasio Otomatis**: Menghitung rasio aspek vertikal secara dinamis berdasarkan resolusi fisik perangkat sehingga tidak terjadi peregangan (*stretching*) atau distorsi tampilan teks.
+- **Info Resolusi Real-time & Reset Aman**: Menampilkan status resolusi fisik vs aktif secara transparan dengan peringatan keamanan dan opsi reset 1-klik ke Native.
+
+---
+
 # Lynx Universal [Advanced Silicon Scheduler Micro-Tweaks & Clean Obsidian Tuning Experience] 7.0.0-RC156
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC156** (Lynx Kernel Manager v3.2.02): **Integrasi Sempurna Mikro-Tweak Penjadwal Kernel Lanjutan dengan Antarmuka Obsidian Clean & Rapi: Menghadirkan 4 Kontrol Penjadwal Silikon Tingkat Tinggi pada Tab Sistem (`CpuUnifiedSystemAccordions.kt`): Rotasi Inti Tugas Berat WALT (`sched_walt_rotate_big_tasks` / `sched_big_task_rotation`) untuk Menghilangkan Hotspot Termal; Bangun Latensi Rendah (`sched_cstate_aware`) untuk Memotong Jeda Bangun C-States; Saklar Sadar Energi (`sched_energy_aware`) untuk Throughput CFS Murni Tanpa Batas; Serta Boost I/O Penyimpanan (`iowait_boost_enable`) pada Driver Schedutil untuk Mempercepat Waktu Loading Game; Seluruh Tweak Dikemas dalam Kartu Kolaps Obsidian yang Rapi Tanpa Membebani Tampilan UI**.

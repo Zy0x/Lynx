@@ -37,6 +37,8 @@ object GpuBackendManager {
     private val adapters = listOf(
         QualcommAdrenoAdapter(),
         MediaTekGedAdapter(),
+        SamsungExynosXclipseAdapter(),
+        UnisocSprdAdapter(),
         MaliKbaseAdapter(),
         GenericDevfreqAdapter()
     )

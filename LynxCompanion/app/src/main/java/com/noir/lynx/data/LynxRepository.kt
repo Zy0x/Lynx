@@ -442,6 +442,11 @@ object LynxRepository {
     suspend fun setGpuPowerPolicy(policy: String): Boolean = LynxGpuControlRepository.setGpuPowerPolicy(policy)
     suspend fun setSurfaceFlingerLatchUnsignaled(enabled: Boolean): Boolean = LynxGpuControlRepository.setSurfaceFlingerLatchUnsignaled(enabled)
     suspend fun setSurfaceFlingerDisableBackpressure(enabled: Boolean): Boolean = LynxGpuControlRepository.setSurfaceFlingerDisableBackpressure(enabled)
+    suspend fun setTextureCacheSize(mb: Int): Boolean = LynxGpuControlRepository.setTextureCacheSize(mb)
+    suspend fun setAsyncShaderPipeline(enabled: Boolean): Boolean = LynxGpuControlRepository.setAsyncShaderPipeline(enabled)
+    suspend fun setPureHwVsync(enabled: Boolean): Boolean = LynxGpuControlRepository.setPureHwVsync(enabled)
+    suspend fun setDisplayRenderScale(preset: String): Boolean = LynxGpuControlRepository.setDisplayRenderScale(preset)
+    suspend fun readNativeResolution(): Triple<String, String, Int> = LynxGpuControlRepository.readNativeResolution()
     suspend fun applyGpuProfile(profile: String, gpu: GpuInfo): Boolean = LynxGpuControlRepository.applyGpuProfile(profile, gpu)
     suspend fun readKsmStats(): KsmStats = LynxSystemTuningRepository.readKsmStats()
 

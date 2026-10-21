@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,9 @@ fun GraphicsDriverHwuiCard(
     onSetDisableBackpressure: (Boolean) -> Unit = {},
     onSetEarlyPhase: (Boolean) -> Unit = {},
     onRefreshShaderCache: () -> Unit = {},
+    onSetTextureCacheSize: ((Int) -> Unit)? = null,
+    onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
+    onSetPureHwVsync: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
@@ -321,6 +325,118 @@ fun GraphicsDriverHwuiCard(
                     Icon(imageVector = Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
                     Text("ROM Bersih: Tidak ditemukan background daemon throttling agresif vendor OEM", color = TextSecondary, fontSize = 11.sp)
                 }
+            }
+        }
+
+        // 7. Universal HWUI Compositor & Memory Pipeline
+        if (onSetTextureCacheSize != null || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null) {
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = androidx.compose.ui.Modifier
+                            .size(width = 3.dp, height = 12.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(cardAccent)
+                    )
+                    Text(
+                        text = "COMPOSITOR & PIPELINE MEMORY",
+                        color = TextSecondary,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentGreen.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        "Universal Android",
+                        color = AccentGreen,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // HWUI Texture Cache Size Selector
+            if (onSetTextureCacheSize != null) {
+                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                    Text(
+                        "Alokasi VRAM Texture Cache (HWUI)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Mengontrol ukuran cache tekstur rendering Android — nilai tinggi menghilangkan stuttering scroll di aplikasi bergambar banyak. Efektif setelah restart app.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        graphics.textureCacheOptions.forEach { (mb, label) ->
+                            val isSelected = graphics.textureCacheMb == mb
+                            Surface(
+                                onClick = { onSetTextureCacheSize(mb) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        "${mb}MB",
+                                        color = if (isSelected) cardAccent else TextPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Text(
+                                        label.substringAfter("(").removeSuffix(")"),
+                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 8.5.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Async Shader & GPU Pixel Buffers
+            if (onSetAsyncShaderPipeline != null) {
+                LynxSwitch(
+                    label = "Async Shader Pre-Caching (GPU Pixel Buffers)",
+                    subLabel = "Kompilasi shader Vulkan/OpenGL secara asinkron di GPU — menghilangkan stutter saat efek grafis baru pertama kali muncul di game",
+                    checked = graphics.asyncShaderPipelineEnabled,
+                    onCheckedChange = { onSetAsyncShaderPipeline(it) }
+                )
+            }
+
+            // Pure Hardware VSync
+            if (onSetPureHwVsync != null) {
+                LynxSwitch(
+                    label = "Pure Hardware VSync Acceleration",
+                    subLabel = "Nonaktifkan CPU rendering VSync fallback — pastikan SurfaceFlinger selalu menggunakan hardware VSync signal murni dari panel display",
+                    checked = graphics.pureHwVsyncEnabled,
+                    onCheckedChange = { onSetPureHwVsync(it) }
+                )
             }
         }
     }

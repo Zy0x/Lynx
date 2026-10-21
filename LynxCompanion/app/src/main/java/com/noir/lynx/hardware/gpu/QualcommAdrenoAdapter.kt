@@ -44,7 +44,10 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
             "$kgslDir/pwrscale/trustzone/target_load",
             "$resolvedDevfreq/adrenoboost",
             "$resolvedDevfreq/adreno_boost",
-            "$resolvedDevfreq/governor"
+            "$resolvedDevfreq/governor",
+            "$kgslDir/wake_on_touch",
+            "$kgslDir/snapshot/snapshot_crashdumper",
+            "$kgslDir/max_pwrlevel"
         )
         if (resolvedGpubw.isNotEmpty()) {
             candidatePaths.add("$resolvedGpubw/governor")
@@ -268,6 +271,68 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
                         accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
                         confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
                         uiType = FeatureUiType.SWITCH,
+                        category = "Proteksi Termal"
+                    )
+                )
+            }
+        }
+
+        // 11. Adreno Touch-Wake (bangunkan GPU saat layar pertama kali disentuh)
+        probeMap["$kgslDir/wake_on_touch"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/wake_on_touch' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_wake_on_touch",
+                        name = "Adreno Touch-Wake (Bangun GPU via Sentuhan)",
+                        description = "Aktifkan GPU Adreno seketika saat jari menyentuh layar, sebelum frame pertama dirender — memangkas input-to-display latency",
+                        nodePath = "$kgslDir/wake_on_touch",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 12. KGSL Snapshot Crash Dumper Suppression (mencegah freeze 1-2 detik saat shader glitch)
+        probeMap["$kgslDir/snapshot/snapshot_crashdumper"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/snapshot/snapshot_crashdumper' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                val isSuppressed = if (NodeWriter.extractActiveValue(rawVal) == "0") "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_crashdumper_suppress",
+                        name = "Supresi KGSL Crash Dumper (Anti-Freeze)",
+                        description = "Matikan crash snapshot dumper GPU agar tidak memicu freeze 1-2 detik saat game mengalami shader glitch kecil",
+                        nodePath = "$kgslDir/snapshot/snapshot_crashdumper",
+                        currentValue = isSuppressed,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 85, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Stabilitas & Anti-Freeze"
+                    )
+                )
+            }
+        }
+
+        // 13. KGSL Max PwrLevel Clamping (mengunci batas teratas clock GPU)
+        probeMap["$kgslDir/max_pwrlevel"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/max_pwrlevel' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_max_pwrlevel",
+                        name = "Kunci Batas Atas Clock GPU (Max PwrLevel)",
+                        description = "Level 0 = clock GPU maksimum penuh. Level tinggi = pembatasan atas frekuensi GPU (hemat daya, batas termal)",
+                        nodePath = "$kgslDir/max_pwrlevel",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 85, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.CHOICE,
+                        options = listOf("0", "1", "2", "3"),
                         category = "Proteksi Termal"
                     )
                 )

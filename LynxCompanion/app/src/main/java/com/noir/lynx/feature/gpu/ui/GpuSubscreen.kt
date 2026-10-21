@@ -96,7 +96,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache)
+            // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache, Universal Compositor)
             item(key = "gpu_graphics_hwui") {
                 GraphicsDriverHwuiCard(
                     graphics = graphics,
@@ -107,7 +107,10 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
-                    onRefreshShaderCache = { viewModel.refreshGraphicsHwui() }
+                    onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
+                    onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
+                    onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
+                    onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) }
                 )
             }
 
@@ -123,7 +126,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 3. Display Refresh Rate & Touch Card (Ground Truth Hardware Supported Modes)
+            // 3. Display Refresh Rate & Touch Card (Ground Truth Hardware Supported Modes + Esports Render Scaler)
             item(key = "gpu_display_refresh") {
                 DisplayRefreshRateTouchCard(
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
@@ -132,9 +135,13 @@ fun LazyListScope.tuningGpuCategoryItems(
                     touchBoost = state.displayTouch.touchboost,
                     dcDimmingSupported = graphics.isDcDimmingSupported,
                     dcDimmingEnabled = graphics.dcDimmingEnabled,
+                    isEsportsDownscaleActive = graphics.isEsportsDownscaleActive,
+                    nativeResolution = graphics.nativeResolution,
+                    activeResolution = graphics.activeResolution,
                     onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
                     onSetTouchBoost = { viewModel.setTouchboost(it) },
-                    onSetDcDimming = { viewModel.setDcDimming(it) }
+                    onSetDcDimming = { viewModel.setDcDimming(it) },
+                    onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) }
                 )
             }
 

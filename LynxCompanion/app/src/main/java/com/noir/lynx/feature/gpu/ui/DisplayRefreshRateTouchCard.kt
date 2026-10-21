@@ -11,6 +11,7 @@ import kotlin.math.roundToInt
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -25,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,10 +46,14 @@ fun DisplayRefreshRateTouchCard(
     touchIrqSteering: Boolean = false,
     dcDimmingSupported: Boolean,
     dcDimmingEnabled: Boolean,
+    isEsportsDownscaleActive: Boolean = false,
+    nativeResolution: String = "",
+    activeResolution: String = "",
     onSetRefreshRate: (hz: Int, isAuto: Boolean) -> Unit,
     onSetTouchBoost: (Boolean) -> Unit,
     onSetTouchIrqSteering: ((Boolean) -> Unit)? = null,
     onSetDcDimming: (Boolean) -> Unit,
+    onSetRenderScale: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentCyan
@@ -235,6 +241,152 @@ fun DisplayRefreshRateTouchCard(
                 checked = dcDimmingEnabled,
                 onCheckedChange = { onSetDcDimming(it) }
             )
+        }
+
+        // Esports Dynamic Render Scaler
+        if (onSetRenderScale != null) {
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 3.dp, height = 12.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(cardAccent)
+                    )
+                    Text(
+                        "ESPORTS RENDER SCALER",
+                        color = TextSecondary,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp
+                    )
+                }
+                if (isEsportsDownscaleActive) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentOrange.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.45f))
+                    ) {
+                        Text(
+                            "AKTIF • ${activeResolution}",
+                            color = AccentOrange,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                "Turunkan resolusi render untuk mendongkrak FPS game berat. Aspek rasio dipertahankan otomatis tanpa distorsi teks.",
+                color = TextSecondary,
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            if (nativeResolution.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Smartphone, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
+                        Text(
+                            "Native: ${nativeResolution}  →  Aktif: ${activeResolution.ifEmpty { nativeResolution }}",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            val scalePresets = listOf(
+                Triple("native", "Native", "Resolusi Penuh"),
+                Triple("900p_balanced", "900p", "Balanced +20% FPS"),
+                Triple("720p_esports", "720p", "Esports +40% FPS")
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                scalePresets.forEach { (preset, title, sub) ->
+                    val isSelected = when (preset) {
+                        "native" -> !isEsportsDownscaleActive || activeResolution == nativeResolution
+                        "720p_esports" -> isEsportsDownscaleActive && activeResolution.startsWith("720")
+                        "900p_balanced" -> isEsportsDownscaleActive && activeResolution.startsWith("900")
+                        else -> false
+                    }
+                    val chipColor = when (preset) {
+                        "native" -> AccentGreen
+                        "900p_balanced" -> AccentCyan
+                        else -> AccentOrange
+                    }
+                    Surface(
+                        onClick = { onSetRenderScale(preset) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) chipColor.copy(alpha = 0.2f) else BgElevated,
+                        border = BorderStroke(1.2.dp, if (isSelected) chipColor else BorderGlass),
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                title,
+                                color = if (isSelected) chipColor else TextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
+                            )
+                            Text(
+                                sub,
+                                color = if (isSelected) chipColor.copy(alpha = 0.8f) else TextSecondary,
+                                fontSize = 8.5.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                lineHeight = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Safety warning
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AccentOrange.copy(alpha = 0.07f),
+                border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(12.dp))
+                    Text(
+                        "Resolusi otomatis dikembalikan ke Native saat reboot. Gunakan tombol Native untuk reset manual kapan saja.",
+                        color = TextSecondary,
+                        fontSize = 9.5.sp,
+                        lineHeight = 13.sp
+                    )
+                }
+            }
         }
     }
 }

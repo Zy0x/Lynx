@@ -516,6 +516,76 @@ fun LynxViewModel.deletePerAppGraphicsRule(packageName: String, context: Context
     }
 }
 
+fun LynxViewModel.setTextureCacheSize(mb: Int) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(textureCacheMb = mb)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setTextureCacheSize(mb)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = "HWUI Texture Cache diatur ke ${mb}MB — restart app untuk efek penuh") }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal mengatur texture cache size") }
+        }
+    }
+}
+
+fun LynxViewModel.setAsyncShaderPipeline(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(asyncShaderPipelineEnabled = enabled)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setAsyncShaderPipeline(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "Asynchronous Shader Pipeline diaktifkan" else "Shader Pipeline dikembalikan ke mode standar") }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal mengatur shader pipeline") }
+        }
+    }
+}
+
+fun LynxViewModel.setPureHwVsync(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(pureHwVsyncEnabled = enabled)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setPureHwVsync(enabled)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = if (enabled) "Pure Hardware VSync diaktifkan" else "VSync dikembalikan ke mode hybrid") }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal mengatur VSync mode") }
+        }
+    }
+}
+
+fun LynxViewModel.setDisplayRenderScale(preset: String) {
+    recordStateMutation()
+    viewModelScope.launch {
+        val isDownscale = preset != "native"
+        _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isEsportsDownscaleActive = isDownscale)) }
+        val ok = LynxRepository.setDisplayRenderScale(preset)
+        if (ok) {
+            // Refresh resolution state
+            val info = LynxRepository.readGraphicsHwuiInfo()
+            _uiState.update { it.copy(
+                graphicsHwui = it.graphicsHwui.copy(
+                    isEsportsDownscaleActive = info.isEsportsDownscaleActive,
+                    nativeResolution = info.nativeResolution,
+                    activeResolution = info.activeResolution
+                ),
+                successMessage = when (preset) {
+                    "native" -> "Resolusi dikembalikan ke Native (${info.nativeResolution})"
+                    "720p_esports" -> "Esports 720p Mode aktif — FPS boost ±40%"
+                    "900p_balanced" -> "Balanced 900p Mode aktif — FPS boost ±20%"
+                    else -> "Render scale diatur"
+                }
+            ) }
+        } else {
+            _uiState.update { it.copy(
+                graphicsHwui = it.graphicsHwui.copy(isEsportsDownscaleActive = false),
+                errorMessage = "Gagal mengatur render scale (wm size/density tidak tersedia)"
+            ) }
+        }
+    }
+}
+
 // ============================================================
 //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
 // ============================================================
