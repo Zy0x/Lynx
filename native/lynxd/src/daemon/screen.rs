@@ -103,10 +103,11 @@ impl ScreenDetector {
                 // If backlight brightness: > 0 is ON, 0 is OFF
                 if node.ends_with("brightness") {
                     if let Ok(b) = val.parse::<u64>() {
-                        if b > 0 {
-                            return ScreenState::On;
-                        }
-                        // Fall through to verify if b == 0 is real or a dummy/unsupported backlight node
+                        return if b > 0 {
+                            ScreenState::On
+                        } else {
+                            ScreenState::Off
+                        };
                     }
                 }
 
@@ -122,6 +123,8 @@ impl ScreenDetector {
                 // If DRM runtime_status
                 if val == "active" {
                     return ScreenState::On;
+                } else if val == "suspended" {
+                    return ScreenState::Off;
                 }
             }
         }

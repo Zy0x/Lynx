@@ -303,14 +303,14 @@ impl DaemonRunner {
                     sleep(Duration::from_millis(500));
                 }
             } else if current_screen == ScreenState::Off {
-                // Deep Sleep Shield: When unplugged and screen is off, sleep in 500ms intervals
-                // checking for instant screen ON edge trigger to break out immediately (<500ms).
-                let total_chunks = (sleep_duration.as_millis() / 500).max(1);
+                // Deep Sleep Shield: When unplugged and screen is off, sleep in 1000ms intervals
+                // checking for instant screen ON edge trigger to break out immediately (<1000ms).
+                let total_chunks = (sleep_duration.as_millis() / 1000).max(1);
                 for _ in 0..total_chunks {
                     if !DaemonLifecycle::is_running() {
                         break;
                     }
-                    sleep(Duration::from_millis(500));
+                    sleep(Duration::from_millis(1000));
                     if screen.detect() == ScreenState::On {
                         // Instant wakeup: Screen turned on! Trigger native wakeup boost and resume immediately!
                         Logger::info(if is_english() {

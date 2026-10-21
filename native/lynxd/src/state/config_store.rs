@@ -144,7 +144,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "wifi_power_save_in_game": false
   },
   "adb_keepalive": {
-    "enabled": false,
+    "enabled": true,
     "port": 5555
   },
   "audio": {

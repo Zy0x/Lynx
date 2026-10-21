@@ -16,11 +16,11 @@ pub struct AdbController;
 
 impl AdbController {
     /// Loads ADB Keepalive configuration from config.json.
-    /// Defaults to enabled: false, port: 5555.
+    /// Defaults to enabled: true, port: 5555.
     pub fn load_config() -> AdbKeepAliveConfig {
         let enabled = ConfigStore::get("adb_keepalive.enabled")
             .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         let port = ConfigStore::get("adb_keepalive.port")
             .and_then(|v| v.parse::<u16>().ok())
@@ -63,7 +63,7 @@ impl AdbController {
         // 1. Direct setprop
         let _ = Command::new("setprop").args([key, val]).status();
 
-        // 2. Magisk/KSU/APatch resetprop to modify persistent_properties and memory
+        // 2. Magisk/KSU/APatch resetprop to modify persistent_properties and memory (use -p for persistent)
         for bin in &[
             "/data/adb/magisk/resetprop",
             "/data/adb/ksu/bin/resetprop",
@@ -71,7 +71,12 @@ impl AdbController {
             "resetprop",
         ] {
             if Path::new(bin).exists() || *bin == "resetprop" {
-                if Command::new(bin).args(["-n", key, val]).status().is_ok() {
+                // Try -p first to ensure persistence into /data/property/persistent_properties
+                if Command::new(bin).args(["-p", key, val]).status().is_ok() {
+                    break;
+                }
+                // Fallback to standard resetprop invocation
+                if Command::new(bin).args([key, val]).status().is_ok() {
                     break;
                 }
             }

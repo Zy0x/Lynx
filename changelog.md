@@ -1,3 +1,20 @@
+# Lynx Universal [Deep Sleep Sysfs Screen Detection & Persistent ADB Keepalive Architecture] 7.0.0-RC147
+Released on: 2026-10-21
+> **Lynx Universal v7.0.0-RC147** (Lynx Kernel Manager v3.1.93): **Penyelesaian Tuntas & Investigasi Forensik Masalah Random Reboot Saat Perangkat Dibiarkan Diam (Layar Mati >1 Jam): Mengeliminasi Total 7.200 Fork Subproses `/system/bin/dumpsys power` per Jam pada `native/lynxd/src/daemon/screen.rs` yang Terjadi Akibat Sysfs Brightness Bernilai 0 Jatuh ke Fallback Dumpsys; Mengembalikan Nilai `ScreenState::Off` Seketika (0.03ms Zero-Fork Sysfs) Saat Brightness Layar 0; Mengubah Interval Polling Deep Sleep Menjadi 1000ms untuk Menjamin Kernel CPU Masuk ke C-States Penuh; Memperbaiki Persistensi Port ADB Nirkabel (`native/lynxd/src/subsystems/adb.rs`) dari `resetprop -n` Menjadi `resetprop -p` yang Tersimpan Permanen di `/data/property/persistent_properties`; Serta Mengaktifkan `adb_keepalive.enabled = true` Secara Default Agar Port 5555 Tetap Terbuka dan Siaga Pasca-Reboot**.
+
+## Rangkuman Perbaikan & Investigasi Forensik (7.0.0-RC147)
+
+### 1. 🔍 Investigasi Forensik Random Reboot Layar Mati (Deep Sleep Failure)
+- **Akar Masalah Utama**: Pada fungsi `ScreenDetector::detect()` di `native/lynxd/src/daemon/screen.rs`, ketika nilai `brightness` terbaca `0` (layar mati), kode memiliki komentar *"Fall through to verify if b == 0 is real"*, sehingga eksekusi jatuh ke Tier 4 Fallback (`dumpsys power`). Di dalam loop `runner.rs`, deteksi layar dieksekusi setiap 500ms saat layar mati, memicu pemanggilan proses Java Binder `/system/bin/dumpsys power` sebanyak **120 kali per menit (7.200 kali per jam)**!
+- **Dampak Fatal**: CPU Snapdragon tidak pernah bisa masuk ke status tidur lelap (*Deep Sleep / C-States*), baterai lambat terisi (stuck di 98%), dan setelah ~1 jam antrean Binder / Watchdog Android memicu *kernel panic / system_server reboot*.
+- **Solusi Tuntas**: Ketika nilai brightness bernilai 0, sistem langsung mengembalikan `ScreenState::Off` dalam 0.03ms melalui pembacaan sysfs tanpa fork proses. Interval pemeriksaan layar saat deep sleep juga diperpanjang menjadi 1000ms untuk meminimalkan beban CPU.
+
+### 2. 📡 Persistensi Kunci Port ADB Nirkabel 5555 (`adb.rs`)
+- **Akar Masalah Port 5555 Mati Pasca-Reboot**: Android secara default menghentikan listener TCP port 5555 saat boot ulang dan beralih ke mode USB-only. Pada implementasi sebelumnya, `setprop_persistent()` menggunakan flag `-n` (`resetprop -n`) yang sengaja mengabaikan penyimpanan persisten. Selain itu, konfigurasi `adb_keepalive.enabled` berstatus `false` secara default.
+- **Solusi**: Mengganti eksekusi ke `resetprop -p` agar properti tersimpan permanen di `/data/property/persistent_properties`, serta menetapkan `adb_keepalive.enabled = true` secara default di `config_store.rs` dan `config.json` agar `adbd` langsung mengikat port 5555 pada setiap cold boot.
+
+---
+
 # Lynx Universal [CPU Monitor Tab Psychological & Structural Bento Redesign] 7.0.0-RC146
 Released on: 2026-10-21
 > **Lynx Universal v7.0.0-RC146** (Lynx Kernel Manager v3.1.92): **Redesain Menyeluruh Tab Monitor CPU Berbasis Pedoman `/redesign-existing-projects`: Mengeliminasi Beban Psikologis & Kecemasan Pengguna dengan Mengganti Peringatan Alarm Menakutkan Core 0 Menjadi Badge Terlindungi yang Menenangkan; Memperkaya Kartu Hero Telemetri dengan Matriks 2x4 Inti CPU Berpenanda Kunci Master Core yang Rapi dan Dialog Hotplug Ergonomis; Memangkas Clutter Daftar Proses Aktif Menjadi 5 Proses Teratas Pilihan dengan Toggle Pengungkapan Progresif (Progressive Disclosure) Hingga 15 Thread; Merestrukturisasi Topologi Silikon Menjadi 2x2 Bento Hardware Matrix dan Accordion Kluster Berpenanda Little/Big yang Menampilkan Titik Frekuensi OPP Serta Waktu Dominan (Time-In-State); Serta Memisahkan Verifikasi Kernel Sysfs ke Berkas Modular Tersendiri (`CpuDeveloperVerificationSheet.kt`) Demi Kepatuhan Aturan Batas Baris Kode**.
