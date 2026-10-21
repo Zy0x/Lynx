@@ -172,7 +172,7 @@ fun GraphicsDriverHwuiCard(
         // 3. Low-Latency SurfaceFlinger Latch
         LynxSwitch(
             label = "SurfaceFlinger Latch Unsignaled",
-            subLabel = "Memangkas antrean render buffer dan memotong input lag touch hingga 1 frame (~8.3ms)",
+            subLabel = "Memangkas input lag sentuh 1 frame. Matikan jika video Twitter/TikTok/browser mengalami freeze atau error hardware decoding",
             checked = graphics.surfaceFlingerLatchUnsignaled,
             onCheckedChange = { onSetLatch(it) }
         )
@@ -180,7 +180,7 @@ fun GraphicsDriverHwuiCard(
         // 3b. Bypass SurfaceFlinger Backpressure
         LynxSwitch(
             label = "Bypass SurfaceFlinger Backpressure",
-            subLabel = "Cegah jeda penundaan antrian buffer grafis untuk respon input instan tanpa stutter",
+            subLabel = "Cegah jeda antrian buffer grafis untuk input instan. Matikan jika video hanya bersuara tanpa gambar",
             checked = graphics.surfaceFlingerDisableBackpressure,
             onCheckedChange = { onSetDisableBackpressure(it) }
         )

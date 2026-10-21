@@ -507,17 +507,17 @@ case "$PROFILE" in
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
         sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
-        setprop debug.sf.latch_unsignaled 1 2>/dev/null
+        # Zero-Risk Video & Compositor Safety: Do not force latch_unsignaled or disable_backpressure
+        # to ensure zero regressions in hardware video decoding (Twitter, TikTok, YouTube).
         if [ "$PROFILE" = "extreme" ]; then
             setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
             setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
-            setprop debug.sf.disable_backpressure 1 2>/dev/null
-            setprop debug.sf.enable_gl_backpressure 0 2>/dev/null
         elif which resetprop >/dev/null 2>&1; then
             resetprop -p --delete debug.sf.early_phase_offset_ns 2>/dev/null
             resetprop -p --delete debug.sf.early_app_phase_offset_ns 2>/dev/null
             resetprop -p --delete debug.sf.disable_backpressure 2>/dev/null
             resetprop -p --delete debug.sf.enable_gl_backpressure 2>/dev/null
+            resetprop -p --delete debug.sf.latch_unsignaled 2>/dev/null
         fi
 
         if which resetprop >/dev/null 2>&1; then
@@ -1275,14 +1275,14 @@ case "$PROFILE" in
 
         sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
 
-        # SurfaceFlinger Low-Latency Frame Latching for butter-smooth scrolling
-        setprop debug.sf.latch_unsignaled 1 2>/dev/null
+        # Video playback & touch safety: Do NOT force latch_unsignaled (prevents Twitter/TikTok video freezes)
         setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
         setprop vendor.perf.gestureflingboost.enable true 2>/dev/null
 
         if which resetprop >/dev/null 2>&1; then
             for p in debug.sf.enable_gl_backpressure \
                      debug.sf.disable_backpressure \
+                     debug.sf.latch_unsignaled \
                      debug.renderengine.backend \
                      debug.hwui.renderer \
                      debug.hwui.use_buffer_age \
