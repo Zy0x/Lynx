@@ -37,6 +37,14 @@ fun LazyListScope.tuningGpuCategoryItems(
     when (targetTab) {
         0 -> {
             // ── TAB 0: TUNING ──
+            // 0. GPU & Display Hero Card (Zen Pulse Telemetry & System Status)
+            item(key = "gpu_hero_card") {
+                GpuHeroCard(
+                    uiState = uiState,
+                    gpu = gpu
+                )
+            }
+
             // 1. One-Click GPU Quick Profiles (Harmonic Presets)
             item(key = "gpu_quick_profiles") {
                 GpuQuickProfilesCard(
@@ -110,7 +118,8 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
                     onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
                     onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
-                    onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) }
+                    onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
+                    onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) }
                 )
             }
 
@@ -138,14 +147,16 @@ fun LazyListScope.tuningGpuCategoryItems(
                     isEsportsDownscaleActive = graphics.isEsportsDownscaleActive,
                     nativeResolution = graphics.nativeResolution,
                     activeResolution = graphics.activeResolution,
+                    forcedFpsUnlockerHz = uiState.forcedFpsUnlockerHz,
                     onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
                     onSetTouchBoost = { viewModel.setTouchboost(it) },
                     onSetDcDimming = { viewModel.setDcDimming(it) },
-                    onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) }
+                    onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) },
+                    onSetForcedFpsUnlocker = { fps -> viewModel.setForcedFpsUnlocker(fps) }
                 )
             }
 
-            // 4. Color Management Card (SurfaceFlinger Matrix 1015, D65 White Point, & KCAL)
+            // 4. Color Management Card (SurfaceFlinger Matrix 1015 & D65 White Point)
             item(key = "gpu_color_management") {
                 ColorManagementCard(
                     displayCalibration = uiState.displayCalibration,
@@ -156,11 +167,20 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onApplyProfile = { viewModel.applyColorProfile(it) },
                     onResetProfile = { viewModel.resetColorProfile() },
                     onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },
-                    onSetKcal = { en, r, g, b, sat, v, c, h ->
-                        viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
-                    },
                     onSetHbm = { viewModel.setHbmEnabled(it) }
                 )
+            }
+
+            // 5. Kernel KCAL Hardware Card (If supported by kernel)
+            if (uiState.displayCalibration.isKcalSupported) {
+                item(key = "gpu_kcal_hardware") {
+                    KcalHardwareCard(
+                        displayCalibration = uiState.displayCalibration,
+                        onSetKcal = { en, r, g, b, sat, v, c, h ->
+                            viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
+                        }
+                    )
+                }
             }
         }
         1 -> {
@@ -211,10 +231,12 @@ fun LazyListScope.tuningGpuCategoryItems(
                 GpuHardwareInfoDashboard(
                     caps = uiState.graphicsCapabilities,
                     pipeline = uiState.displayPipeline,
+                    gpuInfo = uiState.gpuInfo,
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
                     onRefresh = {
                         viewModel.refreshGraphicsCapabilities()
                         viewModel.refreshDisplayPipeline()
+                        viewModel.refreshGpuInfo()
                     }
                 )
             }

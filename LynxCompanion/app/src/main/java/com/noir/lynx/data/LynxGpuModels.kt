@@ -136,6 +136,8 @@ data class GraphicsHwuiInfo(
     val nativeResolution: String = "",           // e.g. "1080x2400" (physical display)
     val activeResolution: String = "",           // e.g. "720x1600" (current render)
     val nativeDensity: Int = 0,                  // physical DPI
+    val shaderCompilerThreads: Int = 0,          // 0 = Auto OS, 2, 4 worker threads
+    val forcedFpsUnlockerHz: Int = 0,            // 0 = Off, 90, 120, 144, 240
 ) {
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true
@@ -151,6 +153,13 @@ data class GraphicsHwuiInfo(
         72 to "72MB (Standar)",
         96 to "96MB (Tinggi)",
         128 to "128MB (Maksimum)"
+    )
+
+    /** Skia compiler thread options with display labels */
+    val shaderCompilerThreadOptions: List<Pair<Int, String>> get() = listOf(
+        0 to "Auto (OS)",
+        2 to "2 Threads (Stabil)",
+        4 to "4 Threads (Esports)"
     )
 }
 
@@ -422,8 +431,9 @@ data class LynxUiState(
     // Dynamic Zero-Hardcoding Capabilities
     val zramCompAlgorithm: String = "lz4",
     val availZramCompAlgorithms: List<String> = emptyList(),
-    val supportedRefreshRates: List<Int> = listOf(60, 90, 120),
+    val supportedRefreshRates: List<Int> = emptyList(),
     val isAutoRefreshRate: Boolean = false,
+    val forcedFpsUnlockerHz: Int = 0,
     val graphicsHwui: GraphicsHwuiInfo = GraphicsHwuiInfo(),
     // GPU & Display Intelligence Framework
     val graphicsCapabilities: com.noir.lynx.hardware.GraphicsCapabilities = com.noir.lynx.hardware.GraphicsCapabilities(),

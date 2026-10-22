@@ -37,6 +37,10 @@ import com.noir.lynx.designsystem.controls.*
 import com.noir.lynx.designsystem.tweak.*
 import com.noir.lynx.designsystem.profile.*
 
+/**
+ * Kartu Refresh Rate & Respon Layar.
+ * Mengontrol kecepatan refresh layar, pembuka batasan FPS, respon sentuh, dan resolusi render game.
+ */
 @Composable
 fun DisplayRefreshRateTouchCard(
     currentHz: Int,
@@ -49,15 +53,17 @@ fun DisplayRefreshRateTouchCard(
     isEsportsDownscaleActive: Boolean = false,
     nativeResolution: String = "",
     activeResolution: String = "",
+    forcedFpsUnlockerHz: Int = 0,
     onSetRefreshRate: (hz: Int, isAuto: Boolean) -> Unit,
     onSetTouchBoost: (Boolean) -> Unit,
     onSetTouchIrqSteering: ((Boolean) -> Unit)? = null,
     onSetDcDimming: (Boolean) -> Unit,
     onSetRenderScale: ((String) -> Unit)? = null,
+    onSetForcedFpsUnlocker: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentCyan
-    val maxHz = supportedRates.maxOrNull() ?: 120
+    val maxHz = supportedRates.maxOrNull() ?: currentHz.coerceAtLeast(60)
 
     val context = LocalContext.current
     val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager }
@@ -97,8 +103,8 @@ fun DisplayRefreshRateTouchCard(
     }
 
     LynxCard(
-        title = "Display Refresh Rate & Touch",
-        subtitle = "Kecepatan refresh layar dinamis, sentuhan touchboost, dan panel",
+        title = "Refresh Rate & Respon Layar",
+        subtitle = "Kelancaran animasi visual dan respon sentuhan panel",
         icon = Icons.Default.Smartphone,
         accentColor = cardAccent,
         modifier = modifier
@@ -111,13 +117,13 @@ fun DisplayRefreshRateTouchCard(
             Column(Modifier.weight(1f).padding(end = 12.dp)) {
                 Text("Kecepatan Refresh Layar", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Text(
-                    if (isAuto) "Mode Auto Dinamis: Panel menyesuaikan clock instan saat layar disentuh"
-                    else "Panel dikunci tetap pada frekuensi stabil",
+                    if (isAuto) "Mode Otomatis: Menyesuaikan sentuhan dan konten secara adaptif"
+                    else "Mode Tetap: Terkunci pada frekuensi pilihan",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
             }
-            // Minimalist Digital Real-Time Metric (Non-Badge)
+            // Minimalist Digital Real-Time Metric
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "REAL-TIME",
@@ -155,7 +161,7 @@ fun DisplayRefreshRateTouchCard(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Text("Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
-                    Text("0 - ${maxHz}Hz", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
+                    Text("Adaptif", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
                 }
             }
 
@@ -181,7 +187,7 @@ fun DisplayRefreshRateTouchCard(
                                 90 -> "Halus"
                                 120 -> "Gaming"
                                 144, 165 -> "Ultra"
-                                240 -> "E-Sport"
+                                240 -> "Esports"
                                 else -> "Tersedia"
                             },
                             color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
@@ -206,7 +212,7 @@ fun DisplayRefreshRateTouchCard(
                 ) {
                     Icon(Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(13.dp))
                     Text(
-                        "Panel Fisik Terverifikasi: ${supportedRates.firstOrNull() ?: 60}Hz Native (Mode Tunggal HWC)",
+                        "Panel Fisik: ${supportedRates.firstOrNull() ?: 60}Hz (Frekuensi Tunggal Layar)",
                         color = TextSecondary,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Medium
@@ -215,10 +221,102 @@ fun DisplayRefreshRateTouchCard(
             }
         }
 
+        // Force Peak FPS Unlocker (Bypass Limit Game/Aplikasi)
+        if (onSetForcedFpsUnlocker != null) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, if (forcedFpsUnlockerHz > 0) AccentOrange.copy(alpha = 0.5f) else BorderGlass),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = if (forcedFpsUnlockerHz > 0) AccentOrange else cardAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "BUKA LIMIT FPS GAME",
+                                color = TextSecondary,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                        if (forcedFpsUnlockerHz > 0) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = AccentOrange.copy(alpha = 0.15f),
+                                border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.45f))
+                            ) {
+                                Text(
+                                    "${forcedFpsUnlockerHz} FPS AKTIF",
+                                    color = AccentOrange,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Izinkan game mendeteksi opsi frame rate tertinggi (90/120/144/240 FPS) tanpa dibatasi oleh sistem Android.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    val fpsOptions = listOf(0, 90, 120, 144, 240)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        fpsOptions.forEach { fps ->
+                            val isSelected = forcedFpsUnlockerHz == fps
+                            val chipAccent = if (fps == 0) AccentGreen else AccentOrange
+                            Surface(
+                                onClick = { onSetForcedFpsUnlocker(fps) },
+                                shape = RoundedCornerShape(9.dp),
+                                color = if (isSelected) chipAccent.copy(alpha = 0.22f) else BgSurfaceLowest,
+                                border = BorderStroke(1.2.dp, if (isSelected) chipAccent else BorderGlass),
+                                modifier = Modifier.defaultMinSize(minWidth = 64.dp, minHeight = 44.dp)
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = if (fps == 0) "Standar" else "${fps} FPS",
+                                        color = if (isSelected) chipAccent else TextPrimary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 11.5.sp
+                                    )
+                                    Text(
+                                        text = if (fps == 0) "Off" else "Terbuka",
+                                        color = if (isSelected) chipAccent.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 8.5.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // TouchBoost Switch
         LynxSwitch(
-            label = "TouchBoost & Responsivitas Sentuh",
-            subLabel = "Prioritaskan sampling rate sentuhan 240Hz+ pada driver input",
+            label = "Respon Sentuhan Cepat (TouchBoost)",
+            subLabel = "Tingkatkan laju pemindaian sentuhan untuk kontrol game yang lebih presisi",
             checked = touchBoost,
             onCheckedChange = { onSetTouchBoost(it) }
         )
@@ -226,8 +324,8 @@ fun DisplayRefreshRateTouchCard(
         // Hardware IRQ Touch Steering
         if (onSetTouchIrqSteering != null) {
             LynxSwitch(
-                label = "Hardware IRQ Touch Steering (Bebaskan CPU0)",
-                subLabel = "Arahkan interrupt digitizer sentuhan ke CPU1 untuk menghilangkan micro-stutter ksoftirqd",
+                label = "Optimasi Inti Khusus Sentuhan",
+                subLabel = "Pindahkan pemrosesan sentuh ke inti CPU sekunder agar game bebas lag",
                 checked = touchIrqSteering,
                 onCheckedChange = { onSetTouchIrqSteering(it) }
             )
@@ -236,8 +334,8 @@ fun DisplayRefreshRateTouchCard(
         // DC Dimming Switch if supported
         if (dcDimmingSupported) {
             LynxSwitch(
-                label = "Anti-Flicker DC Dimming (OLED)",
-                subLabel = "Mengurangi kedipan layar PWM pada tingkat kecerahan rendah demi kesehatan mata",
+                label = "Peredam Kedipan Layar (DC Dimming)",
+                subLabel = "Mengurangi kedipan layar pada kecerahan rendah demi kenyamanan mata",
                 checked = dcDimmingEnabled,
                 onCheckedChange = { onSetDcDimming(it) }
             )
@@ -259,7 +357,7 @@ fun DisplayRefreshRateTouchCard(
                             .background(cardAccent)
                     )
                     Text(
-                        "ESPORTS RENDER SCALER",
+                        "PENURUN RESOLUSI GAME (BOOSTER FPS)",
                         color = TextSecondary,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -284,7 +382,7 @@ fun DisplayRefreshRateTouchCard(
             }
 
             Text(
-                "Turunkan resolusi render untuk mendongkrak FPS game berat. Aspek rasio dipertahankan otomatis tanpa distorsi teks.",
+                "Turunkan resolusi render untuk mendongkrak kelancaran game berat secara instan tanpa merusak proporsi layar.",
                 color = TextSecondary,
                 fontSize = 10.5.sp,
                 lineHeight = 14.sp,
@@ -305,7 +403,7 @@ fun DisplayRefreshRateTouchCard(
                     ) {
                         Icon(Icons.Default.Smartphone, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
                         Text(
-                            "Native: ${nativeResolution}  →  Aktif: ${activeResolution.ifEmpty { nativeResolution }}",
+                            "Resolusi Asli: ${nativeResolution}  →  Aktif: ${activeResolution.ifEmpty { nativeResolution }}",
                             color = TextSecondary,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
@@ -316,7 +414,7 @@ fun DisplayRefreshRateTouchCard(
 
             val scalePresets = listOf(
                 Triple("native", "Native", "Resolusi Penuh"),
-                Triple("900p_balanced", "900p", "Balanced +20% FPS"),
+                Triple("900p_balanced", "900p", "Seimbang +20% FPS"),
                 Triple("720p_esports", "720p", "Esports +40% FPS")
             )
 
@@ -380,7 +478,7 @@ fun DisplayRefreshRateTouchCard(
                 ) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(12.dp))
                     Text(
-                        "Resolusi otomatis dikembalikan ke Native saat reboot. Gunakan tombol Native untuk reset manual kapan saja.",
+                        "Resolusi otomatis dikembalikan ke normal saat reboot. Tekan tombol Native untuk reset kapan saja.",
                         color = TextSecondary,
                         fontSize = 9.5.sp,
                         lineHeight = 13.sp

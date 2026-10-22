@@ -334,6 +334,26 @@ object GpuCapabilityDetector {
             }
         }
 
+        val pmFeatures = try { com.noir.lynx.LynxApp.instance.packageManager.systemAvailableFeatures.mapNotNull { it.name } } catch (_: Exception) { emptyList() }
+        val hasCompute = pmFeatures.contains("android.hardware.vulkan.compute")
+        val hasVk11 = (pmVkVer != null && (pmVkVer.startsWith("1.1") || pmVkVer.startsWith("1.2") || pmVkVer.startsWith("1.3"))) || (vkjsonVer != null && (vkjsonVer.startsWith("1.1") || vkjsonVer.startsWith("1.2") || vkjsonVer.startsWith("1.3")))
+
+        val vkDump = Shell.cmd("cmd gpu vkjson 2>/dev/null | head -n 140").exec().out.joinToString("\n")
+        val hasAstc = vkDump.contains("textureCompressionASTC_LDR\": true") || glesLine.contains("GL_KHR_texture_compression_astc", ignoreCase = true) || (backend == GpuBackend.KGSL || backend == GpuBackend.MTK_GED)
+        val hasFloat16 = vkDump.contains("shaderFloat16\": true") || hasVk11
+        val hasInt8 = vkDump.contains("shaderInt8\": true")
+        val hasDescIndexing = vkDump.contains("descriptorIndexing\": true") || (resolvedVkVer != null && (resolvedVkVer.startsWith("1.2") || resolvedVkVer.startsWith("1.3")))
+        val hasSubgroups = vkDump.contains("subgroup") || hasCompute || hasVk11
+
+        val vulkanFeatures = listOf(
+            "Kompresi Tekstur ASTC (LDR/HDR)" to hasAstc,
+            "Aritmatika Float16 (Half-Precision)" to hasFloat16,
+            "Kuantisasi Int8 / Dot Product" to hasInt8,
+            "Operasi Subgroups / Wave Ops" to hasSubgroups,
+            "Bindless Descriptors (Indexing)" to hasDescIndexing,
+            "Vulkan Compute Pipeline" to (hasCompute || resolvedVkVer != null)
+        )
+
         PartialGpuInfo(
             vendor = vendor,
             model = model,
@@ -350,7 +370,8 @@ object GpuCapabilityDetector {
             spoofedSoc = spoofedSoc,
             groundTruthSoc = groundTruthSoc,
             groundTruthGpu = groundTruthGpu,
-            gpuDriverPath = drvPath
+            gpuDriverPath = drvPath,
+            vulkanFeatures = vulkanFeatures
         )
     }
 
@@ -370,6 +391,7 @@ object GpuCapabilityDetector {
         val spoofedSoc: String?,
         val groundTruthSoc: String,
         val groundTruthGpu: String,
-        val gpuDriverPath: String
+        val gpuDriverPath: String,
+        val vulkanFeatures: List<Pair<String, Boolean>> = emptyList()
     )
 }

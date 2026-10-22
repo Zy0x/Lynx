@@ -616,6 +616,9 @@ object LynxRepository {
     suspend fun setForceMsaa(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setForceMsaa(enabled)
     suspend fun setOemThrottlerShield(oemThrottler: String, disable: Boolean): Boolean = LynxGraphicsEngineRepository.setOemThrottlerShield(oemThrottler, disable)
     suspend fun setDcDimming(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setDcDimming(enabled)
+    suspend fun setShaderCompilerThreads(threads: Int): Boolean = LynxGraphicsEngineRepository.setShaderCompilerThreads(threads)
+    suspend fun setForcedFpsUnlocker(hz: Int): Boolean = LynxDisplayRepository.setForcedFpsUnlocker(hz)
+    suspend fun readForcedFpsUnlocker(): Int = LynxDisplayRepository.readForcedFpsUnlocker()
     suspend fun readSocOverride(): String = LynxSystemTuningRepository.readSocOverride()
 
     suspend fun setSocOverride(soc: String): Boolean = LynxSystemTuningRepository.setSocOverride(soc)

@@ -67,6 +67,25 @@ fun LynxViewModel.setDisplayRefreshRate(hz: Int, isAuto: Boolean = false) {
     }
 }
 
+fun LynxViewModel.setForcedFpsUnlocker(hz: Int) {
+    recordStateMutation()
+    _uiState.update { it.copy(forcedFpsUnlockerHz = hz) }
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.setForcedFpsUnlocker(hz)
+        if (ok) {
+            _uiState.update {
+                it.copy(
+                    forcedFpsUnlockerHz = hz,
+                    successMessage = if (hz > 0) "Force Peak FPS diatur ke ${hz} FPS — batas game dibuka"
+                                     else "Force Peak FPS Unlocker dimatikan (mode standar)"
+                )
+            }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal mengatur Force FPS Unlocker") }
+        }
+    }
+}
+
 fun LynxViewModel.setSocOverride(soc: String) {
     recordStateMutation()
     _uiState.update { it.copy(socOverride = soc) }

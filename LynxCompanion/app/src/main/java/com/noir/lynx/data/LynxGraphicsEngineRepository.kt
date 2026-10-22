@@ -141,6 +141,16 @@ internal object LynxGraphicsEngineRepository {
 
             val isDownscaleActive = nativeRes.isNotEmpty() && activeRes.isNotEmpty() && nativeRes != activeRes
 
+            // Read Skia HWUI compiler threads
+            val compilerThreads = try {
+                Shell.cmd("getprop debug.hwui.compiler_threads 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+            } catch (_: Exception) { 0 }
+
+            val forcedFps = try {
+                val prefs = LynxApp.instance.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+                prefs.getInt("forced_fps_unlocker_hz", 0)
+            } catch (_: Exception) { 0 }
+
             GraphicsHwuiInfo(
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
@@ -163,8 +173,21 @@ internal object LynxGraphicsEngineRepository {
                 nativeResolution = nativeRes,
                 activeResolution = activeRes,
                 nativeDensity = nativeDpi,
+                shaderCompilerThreads = compilerThreads,
+                forcedFpsUnlockerHz = forcedFps,
             )
         } catch (e: Exception) { GraphicsHwuiInfo() }
+    }
+
+    suspend fun setShaderCompilerThreads(threads: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (threads <= 0) {
+                Shell.cmd("setprop debug.hwui.compiler_threads ''").exec().isSuccess
+            } else {
+                val valid = threads.coerceIn(1, 8)
+                Shell.cmd("setprop debug.hwui.compiler_threads $valid").exec().isSuccess
+            }
+        } catch (e: Exception) { false }
     }
 
     suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {

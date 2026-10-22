@@ -1,30 +1,22 @@
 package com.noir.lynx.feature.gpu.ui
 
 import com.noir.lynx.core.locale.localizedUiText
-
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
 import com.noir.lynx.designsystem.tweak.*
 import com.noir.lynx.designsystem.profile.*
 
-import java.util.Locale
-import android.widget.Toast
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
@@ -32,34 +24,17 @@ import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noir.lynx.data.*
-import com.noir.lynx.display.ColorMatrixEngine
+import com.noir.lynx.data.DisplayCalibrationInfo
 import com.noir.lynx.display.ColorMatrixProfile
-import com.noir.lynx.display.DisplayPipelineInfo
-import com.noir.lynx.hardware.DisplayModeInfo
-import com.noir.lynx.hardware.GpuBackend
-import com.noir.lynx.hardware.GraphicsCapabilities
-import com.noir.lynx.hardware.NodeStatus
-import com.noir.lynx.lab.DropCorrelator
-import com.noir.lynx.lab.DropEvent
-import com.noir.lynx.lab.FrameSessionReport
-import java.text.SimpleDateFormat
-import java.util.*
-import com.noir.lynx.ui.*
 
+/**
+ * Kartu Manajemen Warna Layar (Color Engine).
+ * Mengontrol kalibrasi visual SurfaceFlinger ColorMatrix 1015, D65 White Point, dan HBM Sunlight Booster.
+ */
 @Composable
 fun ColorManagementCard(
     displayCalibration: DisplayCalibrationInfo,
@@ -70,7 +45,7 @@ fun ColorManagementCard(
     onApplyProfile: (ColorMatrixProfile) -> Unit,
     onResetProfile: () -> Unit,
     onSetUniversalColor: (Float, Float, Float) -> Unit,
-    onSetKcal: (Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit,
+    onSetKcal: ((Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit)? = null,
     onSetHbm: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,32 +72,9 @@ fun ColorManagementCard(
         }
     }
 
-    // KCAL State
-    var kcalEnabled by remember { mutableStateOf(displayCalibration.kcalEnabled) }
-    var kcalSat by remember { mutableIntStateOf(displayCalibration.saturation) }
-    var kcalCont by remember { mutableIntStateOf(displayCalibration.contrast) }
-    var kcalVal by remember { mutableIntStateOf(displayCalibration.value) }
-    var kcalR by remember { mutableIntStateOf(displayCalibration.red) }
-    var kcalG by remember { mutableIntStateOf(displayCalibration.green) }
-    var kcalB by remember { mutableIntStateOf(displayCalibration.blue) }
-    var lastKcalInteraction by remember { mutableLongStateOf(0L) }
-
-    LaunchedEffect(displayCalibration) {
-        val now = System.currentTimeMillis()
-        if (!isDraggingSlider && (now - lastKcalInteraction > 3500L)) {
-            kcalEnabled = displayCalibration.kcalEnabled
-            kcalSat = displayCalibration.saturation
-            kcalCont = displayCalibration.contrast
-            kcalVal = displayCalibration.value
-            kcalR = displayCalibration.red
-            kcalG = displayCalibration.green
-            kcalB = displayCalibration.blue
-        }
-    }
-
     LynxCard(
-        title = "Manajemen Warna Layar (Color Engine)",
-        subtitle = "SurfaceFlinger Color Matrix 1015, D65 White Point, & KCAL",
+        title = "Kalibrasi Warna Layar",
+        subtitle = "Kenyamanan visual, temperatur warna, dan saturasi tampilan",
         icon = Icons.Default.Palette,
         accentColor = cardAccent,
         modifier = modifier
@@ -194,7 +146,7 @@ fun ColorManagementCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = if (isCalibrationEnabled) "Engine Kalibrasi Aktif" else "Kalibrasi Layar Nonaktif",
+                            text = if (isCalibrationEnabled) "Kalibrasi Layar Aktif" else "Kalibrasi Layar Terkunci",
                             color = TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
@@ -205,7 +157,7 @@ fun ColorManagementCard(
                             border = BorderStroke(0.6.dp, if (isCalibrationEnabled) cardAccent.copy(alpha = 0.5f) else BorderSubtle)
                         ) {
                             Text(
-                                text = if (isCalibrationEnabled) colorProfile.name.uppercase() else "STANDAR OEM",
+                                text = if (isCalibrationEnabled) colorProfile.name.uppercase() else "DEFAULT",
                                 color = if (isCalibrationEnabled) cardAccent else TextTertiary,
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
@@ -216,9 +168,9 @@ fun ColorManagementCard(
                     Spacer(Modifier.height(3.dp))
                     Text(
                         text = if (isCalibrationEnabled)
-                            "Matriks warna aktif diterapkan ke SurfaceFlinger & sistem."
+                            "Profil warna diterapkan langsung ke sistem rendering layar."
                         else
-                            "Profil OEM D65 aktif. Seluruh slider terkunci rapat dari sentuhan tidak sengaja.",
+                            "Profil standar aktif. Pengaturan slider terkunci untuk mencegah perubahan tidak sengaja.",
                         color = TextSecondary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
@@ -250,7 +202,7 @@ fun ColorManagementCard(
             ) {
                 // ── Quick Presets ──
                 Text(
-                    "Preset Profil Warna Universal",
+                    "Pilihan Preset Warna",
                     color = TextPrimary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -321,12 +273,12 @@ fun ColorManagementCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Temperatur Warna (Kelvin)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Suhu Warna Layar", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         Text(
                             text = when {
-                                tempK < 6000 -> "Hangat / Warm (Filter Cahaya Biru)"
-                                tempK in 6000..7000 -> "Standar Netral D65"
-                                else -> "Sejuk / Cool (Tampilan Dingin)"
+                                tempK < 6000 -> "Hangat (Mengurangi Cahaya Biru)"
+                                tempK in 6000..7000 -> "Netral Alami (D65)"
+                                else -> "Sejuk (Karakter Dingin)"
                             },
                             color = TextSecondary,
                             fontSize = 10.5.sp
@@ -382,7 +334,7 @@ fun ColorManagementCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Saturasi Tampilan", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Tingkat Kejenuhan Warna (Saturasi)", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text(String.format(java.util.Locale.US, "%.2fx", sat), color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Slider(
@@ -420,7 +372,7 @@ fun ColorManagementCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Kontras Warna", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Tingkat Kontras Layar", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text(String.format(java.util.Locale.US, "%.2fx", cont), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Slider(
@@ -483,7 +435,7 @@ fun ColorManagementCard(
                     ) {
                         // Red Gain
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Gain Merah", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Keseimbangan Merah (R)", color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             Text(String.format(java.util.Locale.US, "%.2f", rGain), color = AccentRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         Slider(
@@ -515,7 +467,7 @@ fun ColorManagementCard(
 
                         // Green Gain
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Gain Hijau", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Keseimbangan Hijau (G)", color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             Text(String.format(java.util.Locale.US, "%.2f", gGain), color = AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         Slider(
@@ -547,7 +499,7 @@ fun ColorManagementCard(
 
                         // Blue Gain
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Gain Biru", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Keseimbangan Biru (B)", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             Text(String.format(java.util.Locale.US, "%.2f", bGain), color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                         Slider(
@@ -614,7 +566,7 @@ fun ColorManagementCard(
                                 modifier = Modifier.size(15.dp)
                             )
                             Text(
-                                "Reset Standar D65",
+                                "Kembalikan Default",
                                 color = TextSecondary,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium
@@ -629,138 +581,11 @@ fun ColorManagementCard(
         if (displayCalibration.isHbmSupported) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
             LynxSwitch(
-                label = "HBM Sunlight Booster",
-                subLabel = "Tingkatkan batas kecerahan panel display di bawah terik matahari langsung",
+                label = "Mode Kecerahan Maksimal (Matahari)",
+                subLabel = "Tingkatkan kecerahan layar ekstra saat berada di bawah terik matahari langsung",
                 checked = displayCalibration.hbmEnabled,
                 onCheckedChange = { onSetHbm(it) }
             )
         }
-
-        // ── Kernel KCAL Hardware Engine (If kernel supports KCAL) ──
-        if (displayCalibration.isKcalSupported) {
-            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
-            LynxSwitch(
-                label = "Kernel KCAL Hardware Engine",
-                subLabel = "Koreksi warna pada tingkat kernel driver panel fisik",
-                checked = kcalEnabled,
-                onCheckedChange = {
-                    kcalEnabled = it
-                    lastKcalInteraction = System.currentTimeMillis()
-                    onSetKcal(it, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                }
-            )
-
-            if (kcalEnabled) {
-                Spacer(Modifier.height(8.dp))
-                // 1-Click KCAL Presets
-                Text("Preset KCAL Cepat:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val presets = listOf(
-                        Triple("Vivid OLED", Triple(280, 265, 256), Triple(256, 256, 256)),
-                        Triple("Cinematic D65", Triple(256, 256, 256), Triple(256, 248, 240)),
-                        Triple("Outdoor Boost", Triple(270, 280, 280), Triple(256, 256, 256)),
-                        Triple("Default Flat", Triple(256, 256, 256), Triple(256, 256, 256))
-                    )
-                    presets.forEach { (name, satContVal, rgb) ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgElevated,
-                            border = BorderStroke(1.dp, BorderGlass),
-                            modifier = Modifier.clickable {
-                                kcalSat = satContVal.first
-                                kcalCont = satContVal.second
-                                kcalVal = satContVal.third
-                                kcalR = rgb.first
-                                kcalG = rgb.second
-                                kcalB = rgb.third
-                                lastKcalInteraction = System.currentTimeMillis()
-                                onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                            }
-                        ) {
-                            Text(
-                                text = name,
-                                color = cardAccent,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-                // Saturation Slider
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Saturasi Hardware: $kcalSat", color = AccentPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
-                }
-                Slider(
-                    value = kcalSat.toFloat(),
-                    onValueChange = {
-                        isDraggingSlider = true
-                        lastKcalInteraction = System.currentTimeMillis()
-                        kcalSat = it.toInt()
-                    },
-                    onValueChangeFinished = {
-                        isDraggingSlider = false
-                        lastKcalInteraction = System.currentTimeMillis()
-                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                    },
-                    valueRange = 128f..384f,
-                    colors = SliderDefaults.colors(thumbColor = AccentPurple, activeTrackColor = AccentPurple)
-                )
-
-                // Contrast Slider
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kontras Hardware: $kcalCont", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
-                }
-                Slider(
-                    value = kcalCont.toFloat(),
-                    onValueChange = {
-                        isDraggingSlider = true
-                        lastKcalInteraction = System.currentTimeMillis()
-                        kcalCont = it.toInt()
-                    },
-                    onValueChangeFinished = {
-                        isDraggingSlider = false
-                        lastKcalInteraction = System.currentTimeMillis()
-                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                    },
-                    valueRange = 128f..384f,
-                    colors = SliderDefaults.colors(thumbColor = AccentCyan, activeTrackColor = AccentCyan)
-                )
-
-                // Value / Brightness Slider
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Kecerahan Value: $kcalVal", color = AccentBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("Normal: 256", color = TextTertiary, fontSize = 10.sp)
-                }
-                Slider(
-                    value = kcalVal.toFloat(),
-                    onValueChange = {
-                        isDraggingSlider = true
-                        lastKcalInteraction = System.currentTimeMillis()
-                        kcalVal = it.toInt()
-                    },
-                    onValueChangeFinished = {
-                        isDraggingSlider = false
-                        lastKcalInteraction = System.currentTimeMillis()
-                        onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                    },
-                    valueRange = 128f..384f,
-                    colors = SliderDefaults.colors(thumbColor = AccentBlue, activeTrackColor = AccentBlue)
-                )
-            }
-        }
     }
 }
-
-// ============================================================
-//  3. FLOATING GAME HUD OVERLAY CARD (IN-GAME OSD)
-// ============================================================
-

@@ -195,6 +195,7 @@ class LynxViewModel : ViewModel() {
                         val savedColorProf = LynxRepository.readSavedColorProfile()
                         val refreshRate = LynxRepository.readDisplayRefreshRate()
                         val supportedRates = LynxRepository.readSupportedRefreshRates()
+                        val forcedFps = LynxRepository.readForcedFpsUnlocker()
                         val perAppGfxRules = LynxRepository.readPerAppGraphicsRules(appContext)
                         val savedSessions = LynxRepository.listLabSessions(appContext)
 
@@ -207,6 +208,7 @@ class LynxViewModel : ViewModel() {
                                 colorMatrixProfile = savedColorProf,
                                 displayRefreshRate = refreshRate,
                                 supportedRefreshRates = supportedRates,
+                                forcedFpsUnlockerHz = forcedFps,
                                 perAppGraphicsRules = perAppGfxRules,
                                 savedLabSessions = savedSessions
                             )

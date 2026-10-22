@@ -68,6 +68,7 @@ import com.noir.lynx.ui.*
 fun GpuHardwareInfoDashboard(
     caps: GraphicsCapabilities,
     pipeline: DisplayPipelineInfo,
+    gpuInfo: GpuInfo = GpuInfo(),
     currentHz: Int = 0,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
@@ -79,6 +80,11 @@ fun GpuHardwareInfoDashboard(
         GpuSiliconIdentityCard(
             caps = caps,
             onRefresh = onRefresh
+        )
+
+        // 1b. Kernel OPP Frequency & Power Level Table
+        GpuOppTableCard(
+            gpuInfo = gpuInfo
         )
 
         DisplayTelemetryCard(
@@ -340,6 +346,287 @@ fun GpuSiliconIdentityCard(
                         modifier = Modifier.size(14.dp)
                     )
                 }
+            }
+        }
+
+        // Vulkan & Hardware Extensions Capability Matrix
+        if (caps.vulkanFeatures.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "MATRIKS KAPABILITAS VULKAN & HARDWARE",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.6.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    caps.vulkanFeatures.chunked(2).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            row.forEach { (name, supported) ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (supported) AccentGreen.copy(alpha = 0.12f) else BgSurfaceLowest,
+                                    border = BorderStroke(0.6.dp, if (supported) AccentGreen.copy(alpha = 0.35f) else BorderGlass),
+                                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 28.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = name,
+                                            color = if (supported) TextPrimary else TextTertiary,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = if (supported) FontWeight.Medium else FontWeight.Normal,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text(
+                                            text = if (supported) "✓" else "—",
+                                            color = if (supported) AccentGreen else TextTertiary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                            if (row.size == 1) {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── 1b. GPU KERNEL OPP FREQUENCY & POWER LEVEL TABLE CARD ──
+@Composable
+fun GpuOppTableCard(
+    gpuInfo: GpuInfo,
+    modifier: Modifier = Modifier
+) {
+    val cardAccent = AccentCyan
+    val freqs = remember(gpuInfo.availFreqsMhz, gpuInfo.maxFreqMhz, gpuInfo.curFreqMhz) {
+        if (gpuInfo.availFreqsMhz.isNotEmpty()) {
+            gpuInfo.availFreqsMhz.distinct().sortedDescending()
+        } else {
+            listOf(gpuInfo.maxFreqMhz, gpuInfo.curFreqMhz, gpuInfo.minFreqMhz).filter { it > 0 }.distinct().sortedDescending()
+        }
+    }
+
+    if (freqs.isEmpty()) return
+
+    val peakFreq = freqs.first()
+    val minFreq = freqs.last()
+
+    LynxCard(
+        title = "Tabel Frekuensi Kernel OPP (DVFS)",
+        subtitle = "Langkah clock hardware fisik GPU & pemetaan Power Level driver",
+        icon = Icons.Default.Tune,
+        accentColor = cardAccent,
+        modifier = modifier
+    ) {
+        // Summary Stats Row
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    Text("CLOCK AKTIF", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (gpuInfo.curFreqMhz > 0) "${gpuInfo.curFreqMhz} MHz" else "Idle",
+                        color = cardAccent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    Text("LANGKAH OPP", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${freqs.size} Level",
+                        color = AccentBlue,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderGlass),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    Text("GOVERNOR", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        gpuInfo.currentGovernor.ifBlank { "Default" },
+                        color = AccentGreen,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        // OPP Steps Table
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderGlass),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("LEVEL OPP / POWER", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("FREKUENSI CLOCK", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("STATUS / PERFORMA", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
+
+                freqs.forEachIndexed { index, freq ->
+                    val isActive = gpuInfo.curFreqMhz == freq
+                    val isPeak = freq == peakFreq
+                    val isIdle = freq == minFreq
+                    val isClamped = gpuInfo.maxFreqMhz in 1 until freq
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isActive) cardAccent.copy(alpha = 0.16f) else BgSurfaceLowest.copy(alpha = 0.4f),
+                        border = BorderStroke(
+                            if (isActive) 1.2.dp else 0.5.dp,
+                            if (isActive) cardAccent else BorderGlass.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // OPP Level Index
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.width(90.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isActive) cardAccent else if (isPeak) AccentOrange else TextTertiary)
+                                )
+                                Text(
+                                    text = if (gpuInfo.platform == "adreno") "PwrLevel $index" else "OPP $index",
+                                    color = if (isActive) cardAccent else TextPrimary,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+
+                            // Frequency MHz
+                            Text(
+                                text = "$freq MHz",
+                                color = if (isActive) cardAccent else if (isClamped) TextTertiary else TextPrimary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                fontFamily = FontFamily.Monospace
+                            )
+
+                            // Status Pill
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = when {
+                                    isActive -> cardAccent.copy(alpha = 0.25f)
+                                    isClamped -> AccentRed.copy(alpha = 0.12f)
+                                    isPeak -> AccentOrange.copy(alpha = 0.15f)
+                                    isIdle -> TextTertiary.copy(alpha = 0.15f)
+                                    else -> BgElevated
+                                },
+                                border = BorderStroke(
+                                    0.5.dp,
+                                    when {
+                                        isActive -> cardAccent
+                                        isClamped -> AccentRed.copy(alpha = 0.4f)
+                                        isPeak -> AccentOrange.copy(alpha = 0.4f)
+                                        else -> BorderGlass
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    text = when {
+                                        isActive -> "AKTIF"
+                                        isClamped -> "Dibatasi"
+                                        isPeak -> "Turbo Peak"
+                                        isIdle -> "Idle Base"
+                                        else -> "Tersedia"
+                                    },
+                                    color = when {
+                                        isActive -> cardAccent
+                                        isClamped -> AccentRed
+                                        isPeak -> AccentOrange
+                                        isIdle -> TextTertiary
+                                        else -> TextSecondary
+                                    },
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, BorderGlass),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
+                Text(
+                    "Driver GPU melompat secara diskrit antar level OPP di atas. Batas frekuensi maksimum pada Tab Tuning mengunci frekuensi ke salah satu level hardware ini.",
+                    color = TextSecondary,
+                    fontSize = 9.5.sp,
+                    lineHeight = 13.sp
+                )
             }
         }
     }

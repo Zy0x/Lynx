@@ -51,7 +51,8 @@ data class GraphicsCapabilities(
     val displayDpi: Int = 0,
     val displayDensity: Float = 0f,
     val displayColorMode: String = "Standard",
-    val surfaceFlingerHwc: String = "Hardware Composer"
+    val surfaceFlingerHwc: String = "Hardware Composer",
+    val vulkanFeatures: List<Pair<String, Boolean>> = emptyList()
 )
 
 sealed class WriteResult {

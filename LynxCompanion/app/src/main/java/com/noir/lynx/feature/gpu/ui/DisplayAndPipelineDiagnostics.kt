@@ -117,9 +117,9 @@ fun DisplayTelemetryCard(
                     ) {
                         val supportedFrequencies = if (caps.displayModes.isNotEmpty()) {
                             caps.displayModes.map { "${it.fps.toInt()}Hz" }.distinct()
-                        } else listOf("60Hz", "90Hz", "120Hz")
+                        } else listOf("${currentHz.coerceAtLeast(60)}Hz")
 
-                        val maxHz = caps.displayModes.maxOfOrNull { it.fps.toInt() } ?: 120
+                        val maxHz = caps.displayModes.maxOfOrNull { it.fps.toInt() } ?: currentHz.coerceAtLeast(60)
 
                         supportedFrequencies.forEach { hz ->
                             val hzInt = hz.removeSuffix("Hz").toIntOrNull() ?: 60

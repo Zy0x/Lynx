@@ -57,86 +57,10 @@ import com.noir.lynx.designsystem.profile.*
 import com.noir.lynx.feature.navigation.model.TuningCategory
 
 // ============================================================
-//  Live Hardware Telemetry Card — Luxury Bento-Box Layout
+//  ADAPTIVE GPU HARDWARE ACCELERATION CARD (SOC-SPECIFIC)
 // ============================================================
 
 import com.noir.lynx.ui.*
-
-@Composable
-fun GpuQuickProfilesCard(
-    activeProfile: String,
-    onSelectProfile: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val profiles = listOf(
-        Triple("battery", "Hemat Daya", "Batas 60% OPP • Hemat Baterai"),
-        Triple("balanced", "Seimbang", "Skalabilitas Cerdas • Harian"),
-        Triple("esports", "Esports", "Bus On • Low Latency Gaming"),
-        Triple("extreme", "Ekstrem", "Lock 100% Clock • Bypass Thermal")
-    )
-
-    LynxCard(
-        title = "Preset Cepat GPU (One-Click Profiles)",
-        subtitle = "Aplikasi harmonis clock, boost, bus memori, dan pipeline render",
-        icon = Icons.Default.Speed,
-        accentColor = AccentCyan,
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            profiles.forEach { (id, title, sub) ->
-                val isSelected = activeProfile == id
-                val profAccent = when (id) {
-                    "battery" -> AccentGreen
-                    "balanced" -> AccentCyan
-                    "esports" -> AccentOrange
-                    else -> AccentRed
-                }
-                val targetBg = if (isSelected) profAccent.copy(alpha = 0.2f) else BgElevated
-                val targetBorder = if (isSelected) profAccent else BorderGlass
-                val animatedBg by animateColorAsState(targetBg, animationSpec = tween(150), label = "gpu_quick_bg")
-                val animatedBorder by animateColorAsState(targetBorder, animationSpec = tween(150), label = "gpu_quick_border")
-
-                Surface(
-                    onClick = { onSelectProfile(id) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = animatedBg,
-                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, animatedBorder),
-                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 56.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = title,
-                            color = if (isSelected) profAccent else TextPrimary,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                            softWrap = true,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Text(
-                            text = sub,
-                            color = TextSecondary,
-                            fontSize = 8.5.sp,
-                            softWrap = true,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ============================================================
-//  ADAPTIVE GPU HARDWARE ACCELERATION CARD (SOC-SPECIFIC)
-// ============================================================
 
 @Composable
 fun AdaptiveGpuHardwareCard(
@@ -161,11 +85,11 @@ fun AdaptiveGpuHardwareCard(
 
     val title = when {
         gpu.activeBackendName.isNotBlank() -> gpu.activeBackendName
-        isAdreno -> "Akselerasi Qualcomm Adreno (QTI KGSL)"
-        isMtk -> "Akselerasi MediaTek (${gpu.mtkGenType.replaceFirstChar { it.uppercase() }} & FPSGO)"
-        else -> "Akselerasi Hardware GPU (${gpu.subArchitecture})"
+        isAdreno -> "Akselerasi Qualcomm Adreno"
+        isMtk -> "Akselerasi MediaTek (${gpu.mtkGenType.replaceFirstChar { it.uppercase() }})"
+        else -> "Akselerasi Hardware GPU"
     }
-    val subtitle = "Pemeriksaan node kernel langsung, status perizinan, dan kendali clock"
+    val subtitle = "Optimasi silikon hardware GPU & respon sentuhan"
     val cardAccent = AccentOrange
 
     LynxCard(
@@ -194,7 +118,7 @@ fun AdaptiveGpuHardwareCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "KEMAMPUAN HARDWARE TERVERIFIKASI",
+                                text = "KONTROL HARDWARE TERSEDIA",
                                 color = TextTertiary,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,

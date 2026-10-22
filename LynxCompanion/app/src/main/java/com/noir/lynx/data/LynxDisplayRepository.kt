@@ -139,7 +139,8 @@ internal object LynxDisplayRepository {
                 displayDpi = disp.displayDpi,
                 displayDensity = disp.displayDensity,
                 displayColorMode = disp.displayColorMode,
-                surfaceFlingerHwc = disp.surfaceFlingerHwc
+                surfaceFlingerHwc = disp.surfaceFlingerHwc,
+                vulkanFeatures = gpu.vulkanFeatures
             )
         } catch (e: Exception) {
             com.noir.lynx.hardware.GraphicsCapabilities()
@@ -437,5 +438,41 @@ internal object LynxDisplayRepository {
         } catch (e: Exception) {
             DisplayCapabilityInfo()
         }
+    }
+
+    suspend fun setForcedFpsUnlocker(hz: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val prefs = LynxApp.instance.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putInt("forced_fps_unlocker_hz", hz).apply()
+
+            if (hz > 0) {
+                val script = """
+                    settings put system peak_refresh_rate $hz.0 2>/dev/null
+                    settings put system min_refresh_rate $hz.0 2>/dev/null
+                    settings put secure user_refresh_rate $hz 2>/dev/null
+                    settings put global user_refresh_rate $hz 2>/dev/null
+                    setprop ro.surface_flinger.has_wide_color_display true 2>/dev/null
+                    echo ok
+                """.trimIndent()
+                val r = Shell.cmd(script).exec()
+                r.isSuccess
+            } else {
+                val script = """
+                    settings delete system peak_refresh_rate 2>/dev/null
+                    settings delete system min_refresh_rate 2>/dev/null
+                    settings delete secure user_refresh_rate 2>/dev/null
+                    echo ok
+                """.trimIndent()
+                val r = Shell.cmd(script).exec()
+                r.isSuccess
+            }
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun readForcedFpsUnlocker(): Int = withContext(Dispatchers.IO) {
+        try {
+            val prefs = LynxApp.instance.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
+            prefs.getInt("forced_fps_unlocker_hz", 0)
+        } catch (e: Exception) { 0 }
     }
 }

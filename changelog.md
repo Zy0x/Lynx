@@ -1,10 +1,47 @@
-# Lynx Universal [Unrestricted Overclock OPP Unlocking & Qualcomm KGSL PwrLevel Guard] 7.0.0-RC159
+# Lynx Universal [Ground-Truth Display Modes, Force FPS Unlocker & Visual OPP Power Level Matrix] 7.0.0-RC160
 Released on: 2026-10-22
-> **Lynx Universal v7.0.0-RC159** (Lynx Kernel Manager v3.2.05): **Optimasi Driver Hardware GPU Qualcomm Adreno KGSL — Pembukaan Akses Penuh ke Tabel Frekuensi Overclock (750 MHz+) & Eliminasi Pembatasan Power Level Minimum: Memperbarui `QualcommAdrenoAdapter.kt` dan `LynxGpuControlRepository.kt` Agar Secara Bersamaan Menuliskan Frekuensi Target ke Node Devfreq (`devfreq/min_freq`, `devfreq/max_freq`) dan Node Driver Inti KGSL (`min_clock_mhz`, `max_clock_mhz`), Serta Secara Otomatis Mengatur `min_pwrlevel=0` Saat Pengguna Memilih Frekuensi Puncak Kustom (Termasuk 750 MHz Overclock OPP) Agar Penjadwal Hardware Silikon Adreno Tidak Membatasi Power Level 0; Menyempurnakan Responsivitas Dynamic Frequency Selection dan Kunci Frekuensi pada `GpuMasterTunerCard`**.
+> **Lynx Universal v7.0.0-RC160** (Lynx Kernel Manager v3.2.06): **Overhaul Total Subsistem Display & Diagnostik GPU Silikon: Mengeliminasi Pembatasan Hardcoded Refresh Rate (60/90/120Hz) dan Menghadirkan Ground-Truth Hardware Detection Berbasis `Display.supportedModes` Android Framework untuk Mendeteksi 100% Presisi Mode Fisik Panel (Termasuk 60Hz Native Tunggal, 90Hz, 120Hz, 144Hz, 165Hz, hingga 240Hz E-Sports); Menghadirkan Fitur "Force Peak FPS Unlocker" (Bypass Limit Game/Aplikasi: 90, 120, 144, 240 FPS) untuk Membuka Kunci Frame Rate Game Tanpa Batas; Menambahkan Tweak Multithreaded Skia HWUI Shader Compiler (`debug.hwui.compiler_threads` 2/4 Threads) pada Tab Tuning untuk Mengeliminasi Micro-Stutter Saat Kompilasi Shader Grafis 3D; Serta Memperkaya Tab "Info" (Diagnostik Hardware) dengan Tabel Visual Frekuensi Kernel OPP & Pemetaan Driver Power Level (`GpuOppTableCard.kt`) dan Matriks Kapabilitas Ekstensi Vulkan/Hardware (ASTC, Float16, Int8, Subgroups, Descriptor Indexing)**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC160)
+
+### 1. 📱 Ground-Truth Physical Display Mode Detection
+- **Eliminasi Total Fallback 120Hz Palsu**: Menghapus seluruh asumsi `listOf(60, 90, 120)` pada data model UI (`LynxGpuModels.kt`), kartu refresh rate (`DisplayRefreshRateTouchCard.kt`), dan telemetri diagnostik (`DisplayAndPipelineDiagnostics.kt`).
+- **Framework API Ground-Truth**: Memprioritaskan query langsung ke `Display.supportedModes` melalui Android Framework API di `DisplayCapabilityDetector.kt` dan `LynxDisplayRepository.kt`, sehingga panel 60Hz murni (seperti Redmi Note 7) terdeteksi presisi sebagai mode tunggal tanpa chip palsu, sementara ponsel gaming 144Hz/165Hz/240Hz terdeteksi penuh.
+
+### 2. ⚡ Force Peak FPS Unlocker (Bypass Batas Game/Aplikasi)
+- **Bypass Limit Frame Rate Game**: Menyediakan selektor 1-tap Force Peak FPS (`[Standar/Off, 90 FPS, 120 FPS, 144 FPS, 240 FPS]`) pada `DisplayRefreshRateTouchCard.kt`.
+- **Sinkronisasi Framework & SurfaceFlinger**: Mengumumkan peak refresh rate secara paksa ke Android Settings Provider (`peak_refresh_rate`, `min_refresh_rate`, `user_refresh_rate`) sehingga mesin game (PUBG Mobile, Genshin Impact, MLBB, CODM) membuka setelan grafis 90/120/144 FPS tanpa perlu modul bypass terpisah.
+
+### 3. 🧵 Multithreaded Skia HWUI Shader Compiler (`debug.hwui.compiler_threads`)
+- **Anti-Stuttering Kompilasi Shader**: Menambahkan kontrol threads compiler Skia HWUI (Auto, 2 Threads, 4 Threads) pada `GraphicsDriverHwuiCard.kt`.
+- Mengalokasikan thread worker CPU terdedikasi untuk kompilasi shader grafis di latar belakang pada core CPU performa, mengeliminasi micro-stutter saat aset 3D baru pertama kali dipanggil.
+
+### 4. 📊 Tab Info: Tabel Visual Kernel OPP & Matriks Kapabilitas Vulkan
+- **Visual OPP Frequency & Power Level Table (`GpuOppTableCard.kt`)**: Menampilkan seluruh langkah frekuensi diskrit kernel OPP (misal: 750, 647, 588, 465, 370, 266, 160 MHz) bersama indeks Power Level Adreno (`PwrLevel 0` s/d `PwrLevel 6`), badge status real-time `[ AKTIF ]`, penanda Turbo Peak vs Idle Base, dan status pembatasan thermal/governor.
+- **Vulkan & Hardware Extension Matrix**: Menampilkan status dukungan kapabilitas hardware pada `GpuSiliconIdentityCard` (Kompresi Tekstur ASTC, Aritmatika Half-Precision Float16, Kuantisasi Int8, Operasi Subgroups, dan Bindless Descriptor Indexing).
+
+---
+
+# Lynx Universal [Zen Redesign GPU & Display Subscreen, Overclock OPP Unlocking, & KCAL Modularization] 7.0.0-RC159
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC159** (Lynx Kernel Manager v3.2.05): **Redesain Menyeluruh Subscreen GPU & Display Mengikuti Filosofi Zen & Anti-AI Slop: Menghadirkan Zen Reassurance Hero Card (`GpuHeroCard.kt`) dengan Dual-Layer Pulse Indicator, Status Badge Akselerasi Grafis & Layar, Refresh Rate Live, Serta Calm Unified Telemetry Ribbon; Ekstraksi 2x2 Bento Matrix Touch-First (≥48dp) 1-Tap pada `GpuQuickProfilesCard.kt` (Hemat Daya, Seimbang, Esports, Ekstrem); Penggantian Banner Peringatan Merah Menegangkan pada `GpuMasterTunerCard.kt` dengan Reassuring Safety Advisory Shield Berperisai Oranye Tenang; Redesain dan Pembersihan Bahasa Jargon Teknis Berlebih pada `GraphicsDriverHwuiCard.kt` dan `DisplayRefreshRateTouchCard.kt` Mengutamakan Manfaat Nyata Pengguna dan Kenyamanan Psikologis; Modularisasi `ColorManagementCard.kt` dengan Mengekstrak Driver Kernel KCAL ke File Terpisah `KcalHardwareCard.kt` Guna Mematuhi Batas Ketat ≤699 Baris Kode (Rule 14.1); Serta Optimasi Driver Qualcomm Adreno KGSL dengan Sinkronisasi Ganda Devfreq & Direct KGSL dan Power Level 0 Guard untuk Membuka Akses Penuh ke Tabel Frekuensi Overclock (750 MHz+)**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC159)
 
-### 1. ⚡ Unrestricted Overclock OPP Unlocking (Qualcomm Adreno KGSL)
+### 1. 🛡️ Zen Reassurance Hero Card & Telemetry Ribbon Terpadu GPU & Layar
+- **GpuHeroCard (`GpuHeroCard.kt`)**: Zen Hero Card bergradien elegan dengan dual-layer breathing pulse ring, live display refresh rate pill, nama arsitektur GPU terverifikasi, dan pita telemetri tenang terpadu (`Clock: ... • Engine: ... • Layar: ... • Suhu: ...`) serta catatan penenang psikologis pengguna.
+- **Harmonisasi Estetika**: Menyelaraskan halaman GPU & Display dengan standar visual profil performa kernel (`TuningProfilesCategory.kt`), subscreen termal (`ThermalHeroCard.kt`), dan memori (`MemoryHeroCard.kt`).
+
+### 2. ⚡ 2x2 Bento Matrix Touch-First & Modularisasi GPU
+- **GpuQuickProfilesCard (`GpuQuickProfilesCard.kt`)**: Kartu selektor 4 preset GPU harmonis (Hemat Daya, Seimbang, Esports, Ekstrem) dalam format 2x2 bento touch-first dengan target sentuh ≥48dp, umpan balik visual instan, dan label manfaat yang jelas tanpa istilah bertele-tele.
+- **KcalHardwareCard (`KcalHardwareCard.kt`)**: Mengekstrak kontrol kernel hardware KCAL dari `ColorManagementCard.kt` ke modul komponen terdedikasi, menurunkan kompleksitas berkas dan menjamin seluruh berkas UI GPU berada di bawah batas ketat 699 baris kode (Rule 14.1).
+
+### 3. 🕊️ Anti-AI Slop, Penghapusan Jargon Berlebih, & Kenyamanan Psikologis
+- **Reassuring Safety Advisory Shield**: Menggantikan peringatan thermal throttling merah mencolok pada `GpuMasterTunerCard.kt` dengan perisai informasi oranye tenang yang menjelaskan perlindungan kernel tetap aktif.
+- **Bahasa Ramah Pengguna**: Mengganti deskripsi register driver yang membingungkan pada `GraphicsDriverHwuiCard.kt` dan `DisplayRefreshRateTouchCard.kt` dengan istilah manfaat nyata (Driver Game Khusus, Mesin Render Antarmuka, Pra-Pemuatan Efek Visual, Akselerasi VSync Hardware, Buka Limit FPS Game, Penurun Resolusi Game).
+- **Kalibrasi Layar Tenang (`ColorManagementCard.kt`)**: Penyederhanaan tampilan temperatur warna, saturasi, kontras, dan penyesuaian RGB individual dengan perlindungan penguncian sentuhan tak disengaja.
+
+### 4. ⚡ Unrestricted Overclock OPP Unlocking (Qualcomm Adreno KGSL)
 - **Sinkronisasi Ganda Devfreq & Direct KGSL**: Menjamin instruksi pengubahan frekuensi minimum dan maksimum ditulis serentak ke bus devfreq (`devfreq/min_freq`, `devfreq/max_freq`) dan node direct GPU controller (`min_clock_mhz`, `max_clock_mhz`).
 - **Power Level 0 Guard (`min_pwrlevel=0`)**: Memastikan batas atas daya (*lowest power level index*) direset ke 0 saat frekuensi tertinggi atau overclock (seperti 750 MHz pada kernel custom) dipilih, mencegah kernel menjepit frekuensi pada batas stock 647 MHz / 588 MHz.
 

@@ -140,7 +140,40 @@ object DisplayCapabilityDetector {
             }
         }
 
-        val displayModes = parseDisplayModes(displayModesRaw)
+        // 1. Query Android Framework Display.supportedModes (100% accurate physical panel modes)
+        val frameworkModes = try {
+            val ctx = LynxApp.instance
+            val dm = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                ctx.getSystemService(android.content.Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            } else null
+            val display = dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: run {
+                @Suppress("DEPRECATION")
+                (ctx.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager)?.defaultDisplay
+            }
+            display?.supportedModes?.map {
+                DisplayModeInfo(
+                    id = it.modeId,
+                    width = it.physicalWidth,
+                    height = it.physicalHeight,
+                    fps = it.refreshRate
+                )
+            }?.distinctBy { kotlin.math.round(it.fps).toInt() }?.sortedBy { it.fps }
+        } catch (_: Exception) { null }
+
+        val displayModes = if (!frameworkModes.isNullOrEmpty()) {
+            frameworkModes
+        } else {
+            val parsed = parseDisplayModes(displayModesRaw)
+            if (parsed.isNotEmpty()) {
+                parsed
+            } else {
+                val activeHz = try {
+                    val dm = LynxApp.instance.getSystemService(android.content.Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+                    dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)?.refreshRate ?: 60f
+                } catch (_: Exception) { 60f }
+                listOf(DisplayModeInfo(id = 1, width = 1080, height = 2400, fps = activeHz))
+            }
+        }
         val (hdrTypes, maxLum) = parseHdrCaps(hdrCapsRaw)
 
         val dm = try { LynxApp.instance.resources.displayMetrics } catch (_: Exception) { null }

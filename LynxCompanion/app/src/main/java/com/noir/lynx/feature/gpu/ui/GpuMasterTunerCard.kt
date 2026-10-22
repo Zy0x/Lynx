@@ -81,8 +81,8 @@ fun GpuMasterTunerCard(
     var freqPickerTarget by remember { mutableStateOf<Boolean?>(null) } // true = min, false = max
 
     LynxCard(
-        title = "Master GPU Tuner & Telemetri",
-        subtitle = "Kontrol frekuensi dual-pill, lock clock, dan grafik beban OPP",
+        title = "Pengatur Frekuensi GPU",
+        subtitle = "Rentang frekuensi clock dan beban kerja GPU real-time",
         icon = Icons.Default.SportsEsports,
         accentColor = cardAccent,
         modifier = modifier
@@ -165,12 +165,12 @@ fun GpuMasterTunerCard(
             }
         }
 
-        // --- 1b. Throttling Warning Pill ---
+        // --- 1b. Throttling Advisory Pill ---
         if (gpu.isThrottled) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = AccentRed.copy(alpha = 0.16f),
-                border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.5f)),
+                color = AccentOrange.copy(alpha = 0.12f),
+                border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
             ) {
                 Row(
@@ -179,14 +179,13 @@ fun GpuMasterTunerCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Warning,
+                        imageVector = Icons.Default.Shield,
                         contentDescription = null,
-                        tint = AccentRed,
+                        tint = AccentOrange,
                         modifier = Modifier.size(15.dp)
                     )
-                    val warnMsg = if (gpu.thermalThrottleReason?.isNotBlank() == true) gpu.thermalThrottleReason else "Suhu silikon GPU mendekati ambang batas kernel"
                     Text(
-                        text = "Thermal Throttling: $warnMsg",
+                        text = "Penyesuaian Suhu: Frekuensi disesuaikan demi kestabilan perangkat",
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium

@@ -48,26 +48,27 @@ fun GraphicsDriverHwuiCard(
     onSetTextureCacheSize: ((Int) -> Unit)? = null,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
     onSetPureHwVsync: ((Boolean) -> Unit)? = null,
+    onSetShaderCompilerThreads: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
 
     LynxCard(
-        title = "Driver Grafis & HWUI Engine",
-        subtitle = "Optimasi driver produksi game, backend Vulkan, dan latency render",
+        title = "Pengaturan Grafis & Driver Game",
+        subtitle = "Optimalisasi performa game, backend Vulkan, dan respon grafis",
         icon = Icons.Default.Speed,
         accentColor = cardAccent,
         modifier = modifier
     ) {
         // 1. Updatable Game Driver
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-            Text("Production Game Driver (AOSP)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-            Text("Memaksa sistem Android memuat driver GPU terpisah yang dioptimalkan untuk performa game", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Driver Game Khusus", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text("Aktifkan driver GPU terpisah untuk performa gaming yang lebih optimal", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     Pair("default", "Bawaan Sistem"),
-                    Pair("all_apps", "Game Driver (Semua App)")
+                    Pair("all_apps", "Driver Game (Semua App)")
                 ).forEach { (mode, label) ->
                     val isSel = graphics.updatableGameDriver == mode
                     Surface(
@@ -94,14 +95,14 @@ fun GraphicsDriverHwuiCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("UI Rendering Engine (HWUI)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                Text("Mesin Render Antarmuka (HWUI)", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                 Surface(
                     shape = RoundedCornerShape(6.dp),
                     color = BgElevated,
                     border = BorderStroke(0.6.dp, BorderGlass)
                 ) {
                     Text(
-                        text = "5 Engine Pipeline",
+                        text = "5 Pilihan Engine",
                         color = cardAccent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -109,7 +110,7 @@ fun GraphicsDriverHwuiCard(
                     )
                 }
             }
-            Text("Pilih pipeline compositing antarmuka sistem dan render canvas", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Pilih backend pemrosesan grafis untuk antarmuka sistem", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
 
             val backends = listOf(
                 Triple("auto", "Default", "Stabil"),
@@ -171,32 +172,32 @@ fun GraphicsDriverHwuiCard(
 
         // 3. Low-Latency SurfaceFlinger Latch
         LynxSwitch(
-            label = "SurfaceFlinger Latch Unsignaled",
-            subLabel = "Memangkas input lag sentuh 1 frame. Matikan jika video Twitter/TikTok/browser mengalami freeze atau error hardware decoding",
+            label = "Respon Sentuhan Cepat (Latch Unsignaled)",
+            subLabel = "Memangkas jeda respon sentuhan hingga 1 frame untuk interaksi yang lebih instan",
             checked = graphics.surfaceFlingerLatchUnsignaled,
             onCheckedChange = { onSetLatch(it) }
         )
 
         // 3b. Bypass SurfaceFlinger Backpressure
         LynxSwitch(
-            label = "Bypass SurfaceFlinger Backpressure",
-            subLabel = "Cegah jeda antrian buffer grafis untuk input instan. Matikan jika video hanya bersuara tanpa gambar",
+            label = "Bypass Antrean Frame Layar",
+            subLabel = "Mengurangi antrean buffer tampilan untuk respon visual langsung",
             checked = graphics.surfaceFlingerDisableBackpressure,
             onCheckedChange = { onSetDisableBackpressure(it) }
         )
 
         // 3c. Ultra-Low Touch Latency (VSync Early Offset)
         LynxSwitch(
-            label = "Ultra-Low Touch Latency (VSync Early Offset)",
-            subLabel = "Memajukan dispatch buffer grafis SurfaceFlinger untuk memangkas latensi respon sentuhan",
+            label = "Prioritas Sentuhan Instan (Early Phase)",
+            subLabel = "Memajukan sinyal pemrosesan frame sentuhan pada layar",
             checked = graphics.isEarlyPhaseOffset,
             onCheckedChange = { onSetEarlyPhase(it) }
         )
 
         // 4. Force 4x MSAA
         LynxSwitch(
-            label = "Paksa 4x Multisample Anti-Aliasing (MSAA)",
-            subLabel = "Meningkatkan ketajaman tepi 3D pada game & canvas antarmuka grafis",
+            label = "Penghalus Grafis 3D (4x MSAA)",
+            subLabel = "Meningkatkan ketajaman tepi visual pada game 3D",
             checked = graphics.force4xMsaa,
             onCheckedChange = { onSetMsaa(it) }
         )
@@ -305,8 +306,8 @@ fun GraphicsDriverHwuiCard(
         Spacer(Modifier.height(8.dp))
         if (graphics.detectedOemThrottler.isNotBlank()) {
             LynxSwitch(
-                label = "Shield Anti-Throttling OEM (${graphics.detectedOemThrottler})",
-                subLabel = "Bekukan daemon latar belakang OEM agar tidak mencekik limit frame rate game",
+                label = "Perlindungan Throttling Vendor (${graphics.detectedOemThrottler})",
+                subLabel = "Cegah pembatasan frame rate otomatis dari vendor OEM saat bermain game",
                 checked = graphics.isOemThrottlerDisabled,
                 onCheckedChange = { onSetOemShield(it) }
             )
@@ -323,13 +324,13 @@ fun GraphicsDriverHwuiCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(imageVector = Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                    Text("ROM Bersih: Tidak ditemukan background daemon throttling agresif vendor OEM", color = TextSecondary, fontSize = 11.sp)
+                    Text("Sistem Bersih: Tidak ada daemon pembatas performa vendor aktif", color = TextSecondary, fontSize = 11.sp)
                 }
             }
         }
 
         // 7. Universal HWUI Compositor & Memory Pipeline
-        if (onSetTextureCacheSize != null || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null) {
+        if (onSetTextureCacheSize != null || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null || onSetShaderCompilerThreads != null) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -344,7 +345,7 @@ fun GraphicsDriverHwuiCard(
                             .background(cardAccent)
                     )
                     Text(
-                        text = "COMPOSITOR & PIPELINE MEMORY",
+                        text = "MEMORI & PIPELINE RENDER",
                         color = TextSecondary,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -370,13 +371,13 @@ fun GraphicsDriverHwuiCard(
             if (onSetTextureCacheSize != null) {
                 Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
                     Text(
-                        "Alokasi VRAM Texture Cache (HWUI)",
+                        "Alokasi Memori Cache Tekstur",
                         color = TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        "Mengontrol ukuran cache tekstur rendering Android — nilai tinggi menghilangkan stuttering scroll di aplikasi bergambar banyak. Efektif setelah restart app.",
+                        "Ukuran memori grafis untuk kelancaran scrolling aplikasi. Efektif setelah membuka ulang aplikasi.",
                         color = TextSecondary,
                         fontSize = 10.5.sp,
                         lineHeight = 14.sp,
@@ -419,11 +420,64 @@ fun GraphicsDriverHwuiCard(
                 }
             }
 
+            // Skia HWUI Compiler Threads Selector
+            if (onSetShaderCompilerThreads != null) {
+                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                    Text(
+                        "Kompilasi Grafis Multi-Core",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Gunakan inti CPU paralel untuk menyiapkan efek visual di latar belakang tanpa mengganggu jalannya game.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        graphics.shaderCompilerThreadOptions.forEach { (threads, label) ->
+                            val isSelected = graphics.shaderCompilerThreads == threads
+                            Surface(
+                                onClick = { onSetShaderCompilerThreads(threads) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 50.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        if (threads == 0) "Auto" else "${threads} Inti",
+                                        color = if (isSelected) cardAccent else TextPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Text(
+                                        label.substringAfter("(").removeSuffix(")"),
+                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 8.5.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Async Shader & GPU Pixel Buffers
             if (onSetAsyncShaderPipeline != null) {
                 LynxSwitch(
-                    label = "Async Shader Pre-Caching (GPU Pixel Buffers)",
-                    subLabel = "Kompilasi shader Vulkan/OpenGL secara asinkron di GPU — menghilangkan stutter saat efek grafis baru pertama kali muncul di game",
+                    label = "Pra-Pemuatan Efek Visual (Async Shader)",
+                    subLabel = "Siapkan efek grafik baru di latar belakang agar rendering game tetap lancar",
                     checked = graphics.asyncShaderPipelineEnabled,
                     onCheckedChange = { onSetAsyncShaderPipeline(it) }
                 )
@@ -432,8 +486,8 @@ fun GraphicsDriverHwuiCard(
             // Pure Hardware VSync
             if (onSetPureHwVsync != null) {
                 LynxSwitch(
-                    label = "Pure Hardware VSync Acceleration",
-                    subLabel = "Nonaktifkan CPU rendering VSync fallback — pastikan SurfaceFlinger selalu menggunakan hardware VSync signal murni dari panel display",
+                    label = "Akselerasi VSync Hardware Layar",
+                    subLabel = "Sinkronisasi animasi langsung ke panel fisik layar untuk mencegah tampilan patah (tearing)",
                     checked = graphics.pureHwVsyncEnabled,
                     onCheckedChange = { onSetPureHwVsync(it) }
                 )

@@ -529,6 +529,24 @@ fun LynxViewModel.setTextureCacheSize(mb: Int) {
     }
 }
 
+fun LynxViewModel.setShaderCompilerThreads(threads: Int) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(shaderCompilerThreads = threads)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setShaderCompilerThreads(threads)
+        if (ok) {
+            _uiState.update {
+                it.copy(
+                    successMessage = if (threads > 0) "Skia Shader Compiler diatur ke $threads worker threads"
+                                     else "Skia Shader Compiler dikembalikan ke mode Auto OS"
+                )
+            }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal mengatur Skia compiler threads") }
+        }
+    }
+}
+
 fun LynxViewModel.setAsyncShaderPipeline(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(asyncShaderPipelineEnabled = enabled)) }
