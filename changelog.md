@@ -1,3 +1,30 @@
+# Lynx Universal [Airtight Adreno KGSL Ceiling Clamping, Devfreq Sequence & Immediate Telemetry Refresh] 7.0.0-RC162
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC162** (Lynx Kernel Manager v3.2.08): **Perbaikan Presisi Mutlak Batas Atas Frekuensi GPU Qualcomm Adreno KGSL & Anti-EINVAL Devfreq: Menuntaskan Masalah Frekuensi Aktif GPU yang Melompat ke 588 MHz Saat Dibatasi ke 465 MHz Melalui Urutan Clamping 3 Langkah Anti-Violasi Kernel (`min_pwrlevel >= max_pwrlevel`); Mengeliminasi Kernel Error `-EINVAL` pada Devfreq dengan Merelaksasi `min_freq` Terlebih Dahulu Sebelum Menyetel Batas Atas `max_freq`; Mengunci `default_pwrlevel` ke Indeks Power Level Maksimum untuk Mencegah Lonjakan Clock Saat GPU Bangun dari Idle; Menambahkan Telemetry Reader `minpwrlevel` pada `LynxGpuTelemetryRepository.kt` Agar Batas Frekuensi Selalu Terkunci 100% Sesuai Hardware OPP Driver; Serta Menghadirkan Refresh UI Telemetri Instan (150ms) Setelah Perubahan Frekuensi Diterapkan**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC162)
+
+### 1. 🛡️ Urutan Clamping 3 Langkah Adreno KGSL Power Level
+- **Analisis Mendalam Driver Kernel (`kgsl_pwrctrl.c`)**: Driver Qualcomm KGSL memberlakukan batasan `min_pwrlevel >= max_pwrlevel` di mana `max_pwrlevel` adalah ceiling (performa tertinggi / indeks numerik rendah, misal Level 3 = 465 MHz) dan `min_pwrlevel` adalah floor (performa terendah / indeks numerik tinggi, misal Level 5 = 266 MHz).
+- **Protokol 3 Langkah Aman**:
+  1. Relaksasi `min_pwrlevel` ke `lowestIdx` (Level 6 = 160 MHz) agar batasan kernel tidak pernah terlanggar saat menurunkan clock.
+  2. Setel `max_pwrlevel` ke `maxPwrIdx` (Level 3 = 465 MHz) untuk mengunci batas atas fisik hardware.
+  3. Setel `min_pwrlevel` ke `safeMinPwr` (Level 5 = 266 MHz) dan `default_pwrlevel` ke `maxPwrIdx` (Level 3 = 465 MHz).
+  4. Pulsa `pwrscale` (echo 1) agar governor langsung menurunkan clock saat itu juga tanpa menunggu idle timeout.
+
+### 2. ⚡ Eliminasi Trap Devfreq Kernel `-EINVAL`
+- Linux kernel devfreq menolak penulisan `max_freq` jika nilainya lebih kecil dari `min_freq` saat itu (`if (val < df->min_freq) return -EINVAL;`).
+- Diatasi secara mutlak dengan merelaksasi `min_freq` ke 0 sebelum menulis `max_freq`, kemudian menulis `min_freq` yang diinginkan pengguna.
+
+### 3. 🔍 Telemetri Presisi Sinkron OPP Hardware Driver
+- `LynxGpuTelemetryRepository.kt` kini membaca langsung node `min_pwrlevel` dan `max_pwrlevel` fisik KGSL dan memetakannya kembali ke nilai MHz tabel OPP.
+- `safeMax` dan `safeMin` pada telemetri terikat langsung ke batasan fisik driver kernel Qualcomm, mencegah desinkronisasi UI.
+
+### 4. ⚡ Refresh Telemetri UI Instan (150ms)
+- `LynxViewModelGpu.kt` kini langsung memicu pembacaan ulang telemetri hardware 150ms setelah penulisan sysfs frekuensi, sehingga status aktif seketika ter-update pada kartu tanpa jeda loop background.
+
+---
+
 # Lynx Universal [Adreno Inverted Power-Level Clamping & Master GPU Clock Synchronizer] 7.0.0-RC161
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC161** (Lynx Kernel Manager v3.2.07): **Perbaikan Kritis Sistem Clamping Frekuensi GPU Qualcomm Adreno KGSL & Sinkronisasi Presisi Master Tuner UI: Memperbaiki Logika Pemetaan Power Level Kernel Adreno (Di Mana Index 0 Adalah Frekuensi Tertinggi dan Index Terbesar Adalah Frekuensi Terendah) Sehingga Pemilihan Batas Frekuensi Maksimum (Contoh: 465 MHz) Secara Akurat Menyetel `min_pwrlevel` dan `default_pwrlevel` ke Indeks Power Level yang Tepat (Contoh: Level 3), Secara Fisik Memblokir Driver KGSL Kernel & Governor `msm-adreno-tz` Agar Tidak Melompat ke Frekuensi Lebih Tinggi (588 MHz / Level 2, 647 MHz / Level 1, 750 MHz / Level 0); Memperbaiki Resolusi Multi-Path Dinamis Devfreq (`/sys/class/devfreq/*kgsl*` & SoC Platform) Serta Deteksi Otomatis Unit Frekuensi Devfreq (Hz vs kHz vs MHz); Mengoreksi Bug Logika Ternary UI pada Badge Maksimum `GpuMasterTunerCard.kt` yang Sebelumnya Salah Menampilkan Frekuensi Aktif Sebagai Frekuensi Maksimum Saat Frekuensi Aktif Lebih Tinggi dari Target Maksimum; Serta Mengharmonisasi Clamping Power Level pada Native Rust Daemon `lynxd` dan Shell Fallback Repository**.

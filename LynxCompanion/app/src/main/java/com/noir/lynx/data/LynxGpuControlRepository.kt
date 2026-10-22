@@ -89,38 +89,48 @@ internal object LynxGpuControlRepository {
                         if [ "${'$'}tok" -gt 10000 ] 2>/dev/null; then unit_mult=1000; break; fi
                         if [ "${'$'}tok" -gt 0 ] 2>/dev/null; then unit_mult=1; break; fi
                     done
-                    ${if (minMhzVal != null) """
-                        minVal=$(( $minMhzVal * unit_mult ))
-                        chmod 644 "${'$'}D/min_freq" 2>/dev/null; echo "${'$'}minVal" > "${'$'}D/min_freq" 2>/dev/null
-                        echo $minMhzVal > "${'$'}K/min_clock_mhz" 2>/dev/null
-                    """ else ""}
+                    # Anti -EINVAL: Relax min_freq before lowering max_freq
+                    chmod 644 "${'$'}D/min_freq" 2>/dev/null; echo 0 > "${'$'}D/min_freq" 2>/dev/null
                     ${if (maxMhzVal != null) """
                         maxVal=$(( $maxMhzVal * unit_mult ))
                         chmod 644 "${'$'}D/max_freq" 2>/dev/null; echo "${'$'}maxVal" > "${'$'}D/max_freq" 2>/dev/null
                         echo $maxMhzVal > "${'$'}K/max_clock_mhz" 2>/dev/null
                         echo $(( $maxMhzVal * 1000000 )) > "${'$'}K/max_gpuclk" 2>/dev/null
                     """ else ""}
+                    ${if (minMhzVal != null) """
+                        minVal=$(( $minMhzVal * unit_mult ))
+                        chmod 644 "${'$'}D/min_freq" 2>/dev/null; echo "${'$'}minVal" > "${'$'}D/min_freq" 2>/dev/null
+                        echo $minMhzVal > "${'$'}K/min_clock_mhz" 2>/dev/null
+                    """ else ""}
                     pwr_idx=0
-                    min_pwr=""
-                    max_pwr=""
+                    max_pwr_idx=""
+                    min_pwr_idx=""
                     for tok in ${'$'}(echo "${'$'}avail" | tr ' ' '\n' | sort -nru); do
                         mhz=${'$'}tok
                         [ "${'$'}tok" -gt 1000000 ] 2>/dev/null && mhz=$(( tok / 1000000 ))
                         [ "${'$'}tok" -gt 10000 -a "${'$'}tok" -le 1000000 ] 2>/dev/null && mhz=$(( tok / 1000 ))
                         ${if (maxMhzVal != null) """
-                            if [ -z "${'$'}min_pwr" ] && [ "${'$'}mhz" -le $maxMhzVal ] 2>/dev/null; then
-                                min_pwr=${'$'}pwr_idx
+                            if [ -z "${'$'}max_pwr_idx" ] && [ "${'$'}mhz" -le $maxMhzVal ] 2>/dev/null; then
+                                max_pwr_idx=${'$'}pwr_idx
                             fi
                         """ else ""}
                         ${if (minMhzVal != null) """
                             if [ "${'$'}mhz" -ge $minMhzVal ] 2>/dev/null; then
-                                max_pwr=${'$'}pwr_idx
+                                min_pwr_idx=${'$'}pwr_idx
                             fi
                         """ else ""}
                         pwr_idx=$(( pwr_idx + 1 ))
                     done
-                    [ -n "${'$'}min_pwr" ] && { echo "${'$'}min_pwr" > "${'$'}K/min_pwrlevel" 2>/dev/null; echo "${'$'}min_pwr" > "${'$'}K/default_pwrlevel" 2>/dev/null; }
-                    [ -n "${'$'}max_pwr" ] && echo "${'$'}max_pwr" > "${'$'}K/max_pwrlevel" 2>/dev/null
+                    lowest_idx=$(( pwr_idx - 1 ))
+                    [ "${'$'}lowest_idx" -lt 0 ] && lowest_idx=0
+                    chmod 644 "${'$'}K/min_pwrlevel" "${'$'}K/max_pwrlevel" "${'$'}K/default_pwrlevel" 2>/dev/null
+                    echo "${'$'}lowest_idx" > "${'$'}K/min_pwrlevel" 2>/dev/null
+                    [ -n "${'$'}max_pwr_idx" ] && echo "${'$'}max_pwr_idx" > "${'$'}K/max_pwrlevel" 2>/dev/null
+                    safe_min_pwr=${'$'}{min_pwr_idx:-${'$'}lowest_idx}
+                    [ -n "${'$'}max_pwr_idx" ] && [ "${'$'}safe_min_pwr" -lt "${'$'}max_pwr_idx" ] && safe_min_pwr=${'$'}max_pwr_idx
+                    echo "${'$'}safe_min_pwr" > "${'$'}K/min_pwrlevel" 2>/dev/null
+                    [ -n "${'$'}max_pwr_idx" ] && echo "${'$'}max_pwr_idx" > "${'$'}K/default_pwrlevel" 2>/dev/null
+                    echo 1 > "${'$'}K/pwrscale" 2>/dev/null
                     echo ok
                 elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ]; then
                     ${if (isLock && maxMhzVal != null) """

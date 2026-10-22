@@ -93,6 +93,10 @@ fun LynxViewModel.setGpuFreq(minMhz: Int?, maxMhz: Int?) {
         val minHz = minMhz?.let { it.toLong() * 1_000_000L }
         val maxHz = maxMhz?.let { it.toLong() * 1_000_000L }
         LynxRepository.setGpuFreq(minHz, maxHz)
+        delay(150L)
+        val raw = LynxRepository.readGpuInfo()
+        val gpu = mergeGpuInfoWithIntent(raw)
+        _uiState.update { it.copy(gpuInfo = gpu) }
     }
 }
 

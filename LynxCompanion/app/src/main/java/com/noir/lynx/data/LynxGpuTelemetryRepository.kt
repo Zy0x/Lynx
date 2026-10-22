@@ -329,25 +329,36 @@ internal object LynxGpuTelemetryRepository {
                 if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     echo "plat:adreno"
                     echo "subarch:Qualcomm Adreno (KGSL QTI)"
+                    K=/sys/class/kgsl/kgsl-3d0
                     D=/sys/class/kgsl/kgsl-3d0/devfreq
-                    echo "cur:${'$'}(cat ${'$'}D/cur_freq 2>/dev/null | tr -d ' \n')"
-                    echo "min:${'$'}(cat ${'$'}D/min_freq 2>/dev/null | tr -d ' \n')"
-                    echo "max:${'$'}(cat ${'$'}D/max_freq 2>/dev/null | tr -d ' \n')"
-                    echo "avail:${'$'}(cat ${'$'}D/available_frequencies 2>/dev/null | tr '\n' ' ')"
-                    boost=${'$'}(cat ${'$'}D/adrenoboost 2>/dev/null | tr -d ' \n')
+                    [ ! -d "${'$'}D" ] && D=${'$'}(ls -d /sys/class/devfreq/*kgsl-3d0* /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* 2>/dev/null | head -n 1)
+                    cur=${'$'}(cat "${'$'}K/gpuclk" 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}cur" -o "${'$'}cur" = "0" ] && cur=${'$'}(cat "${'$'}D/cur_freq" 2>/dev/null | tr -d ' \n')
+                    echo "cur:${'$'}cur"
+                    min_val=${'$'}(cat "${'$'}D/min_freq" 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}min_val" -o "${'$'}min_val" = "0" ] && min_val=${'$'}(cat "${'$'}K/min_clock_mhz" 2>/dev/null | tr -d ' \n')
+                    echo "min:${'$'}min_val"
+                    max_val=${'$'}(cat "${'$'}D/max_freq" 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}max_val" -o "${'$'}max_val" = "0" ] && max_val=${'$'}(cat "${'$'}K/max_gpuclk" "${'$'}K/max_clock_mhz" 2>/dev/null | head -n 1 | tr -d ' \n')
+                    echo "max:${'$'}max_val"
+                    avail_str=${'$'}(cat "${'$'}K/gpu_available_frequencies" 2>/dev/null | tr '\n' ' ')
+                    [ -z "${'$'}avail_str" ] && avail_str=${'$'}(cat "${'$'}D/available_frequencies" 2>/dev/null | tr '\n' ' ')
+                    echo "avail:${'$'}avail_str"
+                    boost=${'$'}(cat "${'$'}D/adrenoboost" 2>/dev/null | tr -d ' \n')
                     [ -z "${'$'}boost" ] && boost=${'$'}(cat /sys/class/devfreq/*kgsl*/adrenoboost 2>/dev/null | head -n 1 | tr -d ' \n')
                     echo "boost:${'$'}boost"
-                    echo "gov:${'$'}(cat ${'$'}D/governor 2>/dev/null | tr -d ' \n')"
-                    echo "availgov:${'$'}(cat ${'$'}D/available_governors 2>/dev/null | tr '\n' ' ')"
-                    echo "bus:${'$'}(cat /sys/class/kgsl/kgsl-3d0/force_bus_on 2>/dev/null | tr -d ' \n')"
-                    echo "thrm:${'$'}(cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel 2>/dev/null | tr -d ' \n')"
-                    echo "idle:${'$'}(cat /sys/class/kgsl/kgsl-3d0/idle_timer 2>/dev/null | tr -d ' \n')"
-                    echo "pwrlevel:${'$'}(cat /sys/class/kgsl/kgsl-3d0/default_pwrlevel 2>/dev/null | tr -d ' \n')"
-                    echo "maxpwrlevel:${'$'}(cat /sys/class/kgsl/kgsl-3d0/num_pwrlevels 2>/dev/null | tr -d ' \n')"
-                    echo "tztarget:${'$'}(cat /sys/class/kgsl/kgsl-3d0/pwrscale/trustzone/target_load 2>/dev/null | tr -d ' \n')"
-                    echo "forcerail:${'$'}(cat /sys/class/kgsl/kgsl-3d0/force_rail_on 2>/dev/null | tr -d ' \n')"
-                    busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null | tr -d ' %')
-                    [ -z "${'$'}busy" ] && busy=${'$'}(cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
+                    echo "gov:${'$'}(cat "${'$'}D/governor" 2>/dev/null | tr -d ' \n')"
+                    echo "availgov:${'$'}(cat "${'$'}D/available_governors" 2>/dev/null | tr '\n' ' ')"
+                    echo "bus:${'$'}(cat "${'$'}K/force_bus_on" 2>/dev/null | tr -d ' \n')"
+                    echo "thrm:${'$'}(cat "${'$'}K/thermal_pwrlevel" 2>/dev/null | tr -d ' \n')"
+                    echo "idle:${'$'}(cat "${'$'}K/idle_timer" 2>/dev/null | tr -d ' \n')"
+                    echo "pwrlevel:${'$'}(cat "${'$'}K/max_pwrlevel" 2>/dev/null | tr -d ' \n')"
+                    echo "minpwrlevel:${'$'}(cat "${'$'}K/min_pwrlevel" 2>/dev/null | tr -d ' \n')"
+                    echo "maxpwrlevel:${'$'}(cat "${'$'}K/num_pwrlevels" 2>/dev/null | tr -d ' \n')"
+                    echo "tztarget:${'$'}(cat "${'$'}K/pwrscale/trustzone/target_load" 2>/dev/null | tr -d ' \n')"
+                    echo "forcerail:${'$'}(cat "${'$'}K/force_rail_on" 2>/dev/null | tr -d ' \n')"
+                    busy=${'$'}(cat "${'$'}K/gpu_busy_percentage" 2>/dev/null | tr -d ' %')
+                    [ -z "${'$'}busy" ] && busy=${'$'}(cat "${'$'}K/gpubusy" 2>/dev/null | awk '{if ($2>0) printf "%d", ($1*100)/$2; else print 0}')
                     echo "load:${'$'}busy"
                 elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ] || [ -d /proc/ppm ]; then
                     echo "plat:mali_ged"
@@ -519,7 +530,7 @@ internal object LynxGpuTelemetryRepository {
             var gov = ""; var availGovs = emptyList<String>()
             var busOn = false; var framePacing = false; var thrmBypass = false; var idleTimer = 64
             var rawGpuTemp = 0f; var maliMargin = 0
-            var adPwr = -1; var adMaxPwr = -1; var adTzTarget = 80; var adForceRail = false
+            var adPwr = -1; var adMinPwr = -1; var adMaxPwr = -1; var adTzTarget = 80; var adForceRail = false
             var mtkGen = "dimensity"; var fpsgoRescue = false
             var coreMask = ""; var maliPol = "always_on"
             var latch = false; var disableBackpressure = false
@@ -553,6 +564,7 @@ internal object LynxGpuTelemetryRepository {
                     }
                     t.startsWith("idle:") -> idleTimer = t.removePrefix("idle:").toIntOrNull() ?: 64
                     t.startsWith("pwrlevel:") -> adPwr = t.removePrefix("pwrlevel:").toIntOrNull() ?: -1
+                    t.startsWith("minpwrlevel:") -> adMinPwr = t.removePrefix("minpwrlevel:").toIntOrNull() ?: -1
                     t.startsWith("maxpwrlevel:") -> adMaxPwr = t.removePrefix("maxpwrlevel:").toIntOrNull() ?: -1
                     t.startsWith("tztarget:") -> adTzTarget = t.removePrefix("tztarget:").toIntOrNull() ?: 80
                     t.startsWith("forcerail:") -> adForceRail = t.removePrefix("forcerail:").trim() == "1"
@@ -575,6 +587,20 @@ internal object LynxGpuTelemetryRepository {
             val rawMaxMhz = if (maxHz > 0) toMhz(maxHz) else maxAvailVal
             var safeMin = if (minAvailVal > 0 && (rawMinMhz < minAvailVal || rawMinMhz > maxAvailVal)) minAvailVal else rawMinMhz
             var safeMax = if (maxAvailVal > 0 && (rawMaxMhz < minAvailVal || rawMaxMhz > maxAvailVal)) maxAvailVal else rawMaxMhz
+
+            // On Qualcomm Adreno KGSL, max_pwrlevel and min_pwrlevel explicitly bound the physical driver
+            if (platform == "adreno" && availFreqs.isNotEmpty()) {
+                val freqsDesc = availFreqs.sortedDescending()
+                if (adPwr in freqsDesc.indices) {
+                    val kgslCeilingMhz = freqsDesc[adPwr]
+                    safeMax = if (safeMax > 0) minOf(safeMax, kgslCeilingMhz) else kgslCeilingMhz
+                }
+                if (adMinPwr in freqsDesc.indices) {
+                    val kgslFloorMhz = freqsDesc[adMinPwr]
+                    safeMin = if (safeMin > 0) maxOf(safeMin, kgslFloorMhz) else kgslFloorMhz
+                }
+            }
+
             if (safeMin > safeMax && safeMax > 0) {
                 val t = safeMin
                 safeMin = safeMax

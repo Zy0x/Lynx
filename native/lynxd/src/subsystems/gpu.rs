@@ -123,22 +123,28 @@ impl GpuController {
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", target_max.to_string());
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", target_min.to_string());
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_gpuclk", (target_max * 1_000_000).to_string());
-                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (target_min * 1_000_000).to_string());
+                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", "0");
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (target_max * 1_000_000).to_string());
+                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (target_min * 1_000_000).to_string());
 
-                // Clamp KGSL power level indices (inverted: index 0 is highest MHz)
+                // Clamp KGSL power level indices:
+                // max_pwrlevel is the ceiling (maximum performance / lower index)
+                // min_pwrlevel is the floor (minimum performance / higher index)
                 let mut freqs_desc = gpu.available_freqs_mhz.clone();
                 freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
                 freqs_desc.dedup();
 
                 if !freqs_desc.is_empty() {
-                    if let Some(max_pwr_idx) = freqs_desc.iter().position(|&f| f <= target_max) {
-                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", max_pwr_idx.to_string());
-                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", max_pwr_idx.to_string());
-                    }
-                    if let Some(min_pwr_idx) = freqs_desc.iter().rposition(|&f| f >= target_min) {
-                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", min_pwr_idx.to_string());
-                    }
+                    let lowest_idx = freqs_desc.len() - 1;
+                    let max_pwr_idx = freqs_desc.iter().position(|&f| f <= target_max).unwrap_or(0);
+                    let min_pwr_idx = freqs_desc.iter().rposition(|&f| f >= target_min).unwrap_or(lowest_idx);
+                    let safe_min_pwr = min_pwr_idx.max(max_pwr_idx);
+
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", lowest_idx.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", max_pwr_idx.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", safe_min_pwr.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", max_pwr_idx.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/pwrscale", "1");
                 }
                 format!("Adreno GPU clock set to {} - {} MHz.", target_min, target_max)
             }

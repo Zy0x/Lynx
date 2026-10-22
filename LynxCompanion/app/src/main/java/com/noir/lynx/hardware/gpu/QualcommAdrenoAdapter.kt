@@ -387,24 +387,34 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
 
         var res: WriteResult = WriteResult.Applied
 
-        if (minMhz != null && minMhz > 0) {
-            val minValStr = when {
-                isDevfreqHz -> (minMhz * 1_000_000L).toString()
-                isDevfreqKhz -> (minMhz * 1_000L).toString()
-                else -> minMhz.toString()
-            }
-            val r1 = NodeWriter.writeVerified("$activeDevfreq/min_freq", minValStr)
-            NodeWriter.writeVerified("$kgslDir/min_clock_mhz", minMhz.toString())
-            if (freqsDesc.isNotEmpty()) {
-                // max_pwrlevel clamps the FLOOR (cannot drop to lower frequency / higher pwrlevel index)
-                val minPwrIdx = freqsDesc.indexOfLast { it >= minMhz }
-                if (minPwrIdx >= 0) {
-                    NodeWriter.writeVerified("$kgslDir/max_pwrlevel", minPwrIdx.toString())
-                }
-            }
-            if (r1 is WriteResult.Rejected) res = r1
-        }
+        // 1. Calculate OPP Power Level indices
+        // In Qualcomm KGSL driver architecture:
+        // Index 0 = highest clock (e.g. 750 MHz)
+        // Highest index = lowest clock (e.g. 160 MHz)
+        // max_pwrlevel = MAXIMUM PERFORMANCE / CEILING clock (lower numerical index)
+        // min_pwrlevel = MINIMUM PERFORMANCE / FLOOR clock (higher numerical index)
+        val lowestIdx = (freqsDesc.size - 1).coerceAtLeast(0)
+        val maxPwrIdx = if (maxMhz != null && maxMhz > 0 && freqsDesc.isNotEmpty()) {
+            val idx = freqsDesc.indexOfFirst { it <= maxMhz }
+            if (idx >= 0) idx else 0
+        } else 0
 
+        val minPwrIdx = if (minMhz != null && minMhz > 0 && freqsDesc.isNotEmpty()) {
+            val idx = freqsDesc.indexOfLast { it >= minMhz }
+            if (idx >= 0) idx else lowestIdx
+        } else lowestIdx
+
+        // 2. Write Devfreq and direct KGSL clock limits with safe ordering (anti -EINVAL)
+        val lowestMhz = freqsDesc.lastOrNull() ?: 160
+        val lowestValStr = when {
+            isDevfreqHz -> (lowestMhz * 1_000_000L).toString()
+            isDevfreqKhz -> (lowestMhz * 1_000L).toString()
+            else -> lowestMhz.toString()
+        }
+        // Step A: Relax min_freq first to prevent kernel -EINVAL when lowering max_freq
+        NodeWriter.writeVerified("$activeDevfreq/min_freq", lowestValStr)
+
+        // Step B: Set max_freq ceiling
         if (maxMhz != null && maxMhz > 0) {
             val maxValStr = when {
                 isDevfreqHz -> (maxMhz * 1_000_000L).toString()
@@ -414,18 +424,38 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
             val r2 = NodeWriter.writeVerified("$activeDevfreq/max_freq", maxValStr)
             NodeWriter.writeVerified("$kgslDir/max_clock_mhz", maxMhz.toString())
             NodeWriter.writeVerified("$kgslDir/max_gpuclk", (maxMhz * 1_000_000L).toString())
-
-            if (freqsDesc.isNotEmpty()) {
-                // In Adreno KGSL, Level 0 is highest clock, higher index = lower clock.
-                // min_pwrlevel clamps the CEILING: the driver is strictly prohibited from entering
-                // any power level with an index lower than maxPwrIdx.
-                val maxPwrIdx = freqsDesc.indexOfFirst { it <= maxMhz }
-                if (maxPwrIdx >= 0) {
-                    NodeWriter.writeVerified("$kgslDir/min_pwrlevel", maxPwrIdx.toString())
-                    NodeWriter.writeVerified("$kgslDir/default_pwrlevel", maxPwrIdx.toString())
-                }
-            }
             if (r2 is WriteResult.Rejected) res = r2
+        }
+
+        // Step C: Set min_freq floor
+        if (minMhz != null && minMhz > 0) {
+            val minValStr = when {
+                isDevfreqHz -> (minMhz * 1_000_000L).toString()
+                isDevfreqKhz -> (minMhz * 1_000L).toString()
+                else -> minMhz.toString()
+            }
+            val r1 = NodeWriter.writeVerified("$activeDevfreq/min_freq", minValStr)
+            NodeWriter.writeVerified("$kgslDir/min_clock_mhz", minMhz.toString())
+            if (r1 is WriteResult.Rejected) res = r1
+        }
+
+        // 3. Apply KGSL Power Levels with 3-step safety sequence:
+        // The Linux kernel enforces `min_pwrlevel >= max_pwrlevel` at all times.
+        // Step A: Relax min_pwrlevel to lowestIdx so min_pwrlevel is at maximum numerical index.
+        // Step B: Set max_pwrlevel to maxPwrIdx (safely <= lowestIdx).
+        // Step C: Set min_pwrlevel to safeMinPwr (safely >= maxPwrIdx).
+        // Step D: Set default_pwrlevel to maxPwrIdx to prevent idle wake upsurge.
+        if (freqsDesc.isNotEmpty()) {
+            val safeMinPwr = minPwrIdx.coerceAtLeast(maxPwrIdx)
+            val clampScript = """
+                chmod 644 '$kgslDir/min_pwrlevel' '$kgslDir/max_pwrlevel' '$kgslDir/default_pwrlevel' 2>/dev/null
+                echo $lowestIdx > '$kgslDir/min_pwrlevel' 2>/dev/null
+                echo $maxPwrIdx > '$kgslDir/max_pwrlevel' 2>/dev/null
+                echo $safeMinPwr > '$kgslDir/min_pwrlevel' 2>/dev/null
+                echo $maxPwrIdx > '$kgslDir/default_pwrlevel' 2>/dev/null
+                echo 1 > '$kgslDir/pwrscale' 2>/dev/null
+            """.trimIndent()
+            Shell.cmd(clampScript).exec()
         }
 
         res
