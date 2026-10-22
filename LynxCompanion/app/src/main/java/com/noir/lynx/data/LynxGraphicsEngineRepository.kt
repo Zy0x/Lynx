@@ -62,6 +62,8 @@ internal object LynxGraphicsEngineRepository {
                 echo "async_shader:${'$'}(getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null | tr -d ' \n')"
                 echo "pure_vsync:${'$'}(getprop debug.cpurend.vsync 2>/dev/null | tr -d ' \n')"
                 echo "compiler_threads:${'$'}(getprop debug.hwui.compiler_threads 2>/dev/null | tr -d ' \n')"
+                echo "blob_cache:${'$'}(getprop persist.sys.lynx.blob_cache_mb 2>/dev/null | tr -d ' \n')"
+                echo "swapchain:${'$'}(getprop persist.sys.lynx.swapchain_mode 2>/dev/null | tr -d ' \n')"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var driver = "default"; var renderer = "auto"; var latch = false; var disableBackpressure = false; var msaa = false
@@ -74,6 +76,8 @@ internal object LynxGraphicsEngineRepository {
             var asyncShaderOn = false
             var pureHwVsync = false
             var compilerThreads = 0
+            var shaderBlobMb = 128
+            var swapchainMode = "triple"
 
             for (line in res.out) {
                 val t = line.trim()
@@ -109,6 +113,14 @@ internal object LynxGraphicsEngineRepository {
                     t.startsWith("async_shader:") -> asyncShaderOn = t.removePrefix("async_shader:") == "true"
                     t.startsWith("pure_vsync:") -> pureHwVsync = t.removePrefix("pure_vsync:") == "false"
                     t.startsWith("compiler_threads:") -> compilerThreads = t.removePrefix("compiler_threads:").toIntOrNull() ?: 0
+                    t.startsWith("blob_cache:") -> {
+                        val b = t.removePrefix("blob_cache:").toIntOrNull()
+                        if (b != null && b > 0) shaderBlobMb = b
+                    }
+                    t.startsWith("swapchain:") -> {
+                        val s = t.removePrefix("swapchain:").trim()
+                        if (s.isNotBlank()) swapchainMode = s
+                    }
                 }
             }
 
@@ -176,6 +188,8 @@ internal object LynxGraphicsEngineRepository {
                 nativeDensity = nativeDpi,
                 shaderCompilerThreads = compilerThreads,
                 forcedFpsUnlockerHz = forcedFps,
+                shaderBlobCacheMb = shaderBlobMb,
+                swapchainBufferMode = swapchainMode,
             )
         } catch (e: Exception) {
             Log.e("LynxGraphicsEngine", "readGraphicsHwuiInfo failed", e)
@@ -451,6 +465,44 @@ internal object LynxGraphicsEngineRepository {
                 if [ "${'$'}found" = "1" ]; then echo ok; else echo unsupported; fi
             """.trimIndent()
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setShaderBlobCacheSize(mb: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                setprop persist.sys.lynx.blob_cache_mb $mb
+                setprop ro.egl.blobcache.multithread_limit 4
+                setprop debug.hwui.blob_cache_size_mb $mb
+                setprop ro.hwui.layer_cache_size ${mb / 2}
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().isSuccess
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun setSwapchainBufferMode(mode: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val isDouble = mode == "double"
+            val script = if (isDouble) {
+                """
+                    setprop persist.sys.lynx.swapchain_mode double
+                    setprop debug.sf.latch_unsignaled 1
+                    setprop debug.sf.enable_gl_backpressure 0
+                    setprop debug.sf.max_acquired_buffers 2
+                    echo ok
+                """.trimIndent()
+            } else {
+                """
+                    setprop persist.sys.lynx.swapchain_mode triple
+                    setprop persist.sys.lynx.swapchain_mode triple
+                    setprop debug.sf.latch_unsignaled 0
+                    setprop debug.sf.enable_gl_backpressure 1
+                    setprop debug.sf.max_acquired_buffers 3
+                    echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().isSuccess
         } catch (e: Exception) { false }
     }
 

@@ -1,3 +1,29 @@
+# Lynx Universal [Deep Silicon GPU Tuning, Swapchain Latency & Advanced Telemetry] 7.0.0-RC169
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC169** (Lynx Kernel Manager v3.2.15): **Ekspansi Besar GPU Subscreen & Studio Pipeline Grafis Generasi Baru: Menghadirkan 3 Tweak Silikon Mendalam Tingkat Kernel Qualcomm Adreno KGSL (In-Frame Power Collapse / IFPC Anti-Stutter, Hardware Preemption Mode untuk Memangkas Latensi Input Sentuhan, Serta Devfreq Polling Interval Scaler 10ms–100ms); Mengintegrasikan Panel Kontrol Swapchain Buffer Mode (Double Buffering 2 Buffers untuk Respon Input Instan vs Triple Buffering 3 Buffers Bebas Tearing); Meluncurkan Fitur Alokasi Disk Shader Blob Cache Ekstra (64MB s/d 512MB) Guna Mengeliminasi Stuttering Kompilasi Shader pada Game Open-World Berat; Menambahkan Ribbon Telemetri Analitik Real-Time Lanjutan pada `GpuHeroCard` (Estimasi Daya Watt GPU Silikon, Analisis Bottleneck CPU vs GPU, Alokasi VRAM, Serta Persentase Beban Komputasi); Serta Refaktor Modularisasi Arsitektur Data `SchedulerModels.kt` untuk Mematuhi Batas Ketat ≤699 Baris Kode**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC169)
+
+### 1. ⚡ Optimasi Silikon Mendalam Driver Kernel GPU (Deep Silicon Tuning)
+- **In-Frame Power Collapse (IFPC) Anti-Stutter** (`/sys/class/kgsl/kgsl-3d0/ifpc`):
+  Menonaktifkan siklus tidur mikro GPU antar jeda frame render sehingga GPU selalu dalam status siap (*ready-to-render*), mengeliminasi *micro-stutter* saat game 3D kompetitif mengalami adegan berat.
+- **Hardware Preemption Mode** (`/sys/class/kgsl/kgsl-3d0/preemption`):
+  Mengizinkan SurfaceFlinger dan thread sentuhan layar memotong antrean instruksi komputasi GPU yang sedang berjalan, memangkas *touch-to-display latency* secara signifikan.
+- **Devfreq Polling Interval Scaler** (`/sys/class/kgsl/kgsl-3d0/devfreq/polling_interval`):
+  Pilihan interval sampling beban GPU devfreq (10ms, 20ms, 50ms, 100ms) untuk responsivitas akselerasi clock instan tanpa jeda drop FPS.
+
+### 2. 🎮 Swapchain Buffer Mode & Disk Shader Blob Cache Expansion
+- **Swapchain Frame Latency Mode**:
+  Menyediakan opsi peralihan instan antara *Double Buffering (2 Buffers)* untuk respon input kompetitif ultra-rendah dan *Triple Buffering (3 Buffers)* untuk stabilitas visual bebas tearing.
+- **Kapasitas Disk Shader Blob Cache (256MB / 512MB)**:
+  Memperbesar batas disk cache kompilasi shader grafis OpenGL & Vulkan hingga 512MB untuk mencegah stuttering kompilasi ulang pada game open-world modern (*Genshin Impact, Honkai Star Rail, PUBG, COD: Mobile*).
+
+### 3. 📊 Ribbon Telemetri Lanjutan & Diagnostik Pintar (`GpuHeroCard.kt`)
+- Menampilkan estimasi konsumsi daya GPU secara real-time (Watt / mW) menggunakan formula dinamis silikon ($P \approx C \cdot V^2 \cdot f \cdot \text{Load}\%$).
+- Menampilkan indikator status *Pipeline Bottleneck* (GPU-Bound / CPU-Bound / Seimbang) dan estimasi VRAM teralokasi.
+
+---
+
 # Lynx Universal [HWUI Rendering Engine Pipeline & Multi-Tier Vulkan Detection] 7.0.0-RC168
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC168** (Lynx Kernel Manager v3.2.14): **Pemulihan & Optimasi Penuh Pilihan Mesin Render Antarmuka (HWUI Rendering Pipeline): Memperbaiki Kegagalan Deteksi Vulkan Hardware dan Graphite pada Custom ROM Android 15 Melalui Arsitektur Probing Berlapis (In-Memory `systemAvailableFeatures`, Driver Device Node `/dev/kgsl-3d0` & `/dev/mali0`, Serta Pustaka Vendor Khronos); Mengeliminasi Ketergantungan Shell Fork Lambat (`pm list packages` & `pm list features`) Menjadi Pengecekan In-Process Cepat (<50ms) Sehingga Pilihan Backend SkiaVK dan Skia Graphite Terbuka Penuh dan Siap Digunakan Secara Stabil; Menyatukan Query Properti HWUI dalam 1 Siklus Eksekusi Tunggal; Serta Memverifikasi Hasil Penerapan Secara Langsung pada Perangkat Fisik Qualcomm Snapdragon**.

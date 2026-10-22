@@ -222,7 +222,7 @@ fun LynxViewModel.setGpuFeature(feature: GpuHardwareFeature, targetValue: String
         }
 
         val actualNodeValue = when (feature.id) {
-            "adreno_thermal_bypass", "adreno_bus_split_disable" -> if (boolVal) "0" else "1"
+            "adreno_thermal_bypass", "adreno_bus_split_disable", "adreno_ifpc" -> if (boolVal) "0" else "1"
             "mali_core_mask" -> if (boolVal) "0xFF" else "0x0F"
             else -> targetValue
         }

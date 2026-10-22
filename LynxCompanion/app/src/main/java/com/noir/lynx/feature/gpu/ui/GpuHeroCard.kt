@@ -238,6 +238,48 @@ fun GpuHeroCard(
                 }
             }
 
+            // ── 3b. Advanced Efficiency & Pipeline Analytics Ribbon ──────
+            Spacer(Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF0A0D14),
+                border = BorderStroke(0.5.dp, Color(0x12FFFFFF)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val wattage = gpu.dynamicWattage
+                    val wattText = String.format(java.util.Locale.US, "%.2f W", wattage)
+                    val bottleneck = gpu.dynamicBottleneck
+                    val vramMb = if (gpu.vramUsageMb > 0) "${gpu.vramUsageMb} MB" else "Dinamis"
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Daya GPU", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text(wattText, color = if (wattage > 2.0f) AccentOrange else AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Pipeline", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text(bottleneck, color = if (bottleneck == "GPU-Bound") AccentOrange else AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("VRAM", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text(vramMb, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Beban", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text("${gpu.gpuLoadPercent}%", color = if (gpu.gpuLoadPercent >= 80) AccentOrange else AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
             // ── 4. Psychological Reassurance Footer ──────────────
             Spacer(Modifier.height(9.dp))
             Row(

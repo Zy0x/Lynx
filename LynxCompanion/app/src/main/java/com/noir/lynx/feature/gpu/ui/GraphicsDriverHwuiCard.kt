@@ -49,6 +49,8 @@ fun GraphicsDriverHwuiCard(
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
     onSetPureHwVsync: ((Boolean) -> Unit)? = null,
     onSetShaderCompilerThreads: ((Int) -> Unit)? = null,
+    onSetShaderBlobCache: ((Int) -> Unit)? = null,
+    onSetSwapchainBufferMode: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
@@ -169,6 +171,30 @@ fun GraphicsDriverHwuiCard(
         }
 
         HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+
+        // 2b. Swapchain Buffer Mode (Double vs Triple Buffering)
+        if (onSetSwapchainBufferMode != null) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                Text("Mode Antrean Frame Swapchain", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text("Double (2 Buffers) untuk respon input kompetitif instan, Triple (3 Buffers) untuk kestabilan visual", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("double" to "Double (2 Buffers)", "triple" to "Triple (3 Buffers)").forEach { (mode, label) ->
+                        val isSel = graphics.swapchainBufferMode == mode
+                        Surface(
+                            onClick = { onSetSwapchainBufferMode(mode) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                            border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass)
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 9.dp)) {
+                                Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 3. Low-Latency SurfaceFlinger Latch
         LynxSwitch(
@@ -391,6 +417,59 @@ fun GraphicsDriverHwuiCard(
                             val isSelected = graphics.textureCacheMb == mb
                             Surface(
                                 onClick = { onSetTextureCacheSize(mb) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
+                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
+                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        "${mb}MB",
+                                        color = if (isSelected) cardAccent else TextPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Text(
+                                        label.substringAfter("(").removeSuffix(")"),
+                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 8.5.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Disk Shader Blob Cache Size Selector
+            if (onSetShaderBlobCache != null) {
+                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                    Text(
+                        "Kapasitas Disk Shader Blob Cache",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Menyimpan kompilasi shader grafis di disk untuk mencegah freeze/stutter pada game open-world.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        graphics.shaderBlobCacheOptions.forEach { (mb, label) ->
+                            val isSelected = graphics.shaderBlobCacheMb == mb
+                            Surface(
+                                onClick = { onSetShaderBlobCache(mb) },
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
                                 border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),

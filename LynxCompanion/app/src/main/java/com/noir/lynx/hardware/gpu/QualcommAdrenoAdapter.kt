@@ -52,7 +52,10 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
             "$resolvedDevfreq/governor",
             "$kgslDir/wake_on_touch",
             "$kgslDir/snapshot/snapshot_crashdumper",
-            "$kgslDir/max_pwrlevel"
+            "$kgslDir/max_pwrlevel",
+            "$kgslDir/ifpc",
+            "$kgslDir/preemption",
+            "$resolvedDevfreq/polling_interval"
         )
         if (resolvedGpubw.isNotEmpty()) {
             candidatePaths.add("$resolvedGpubw/governor")
@@ -339,6 +342,68 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
                         uiType = FeatureUiType.CHOICE,
                         options = listOf("0", "1", "2", "3"),
                         category = "Proteksi Termal"
+                    )
+                )
+            }
+        }
+
+        // 14. In-Frame Power Collapse (IFPC) Anti-Stutter
+        probeMap["$kgslDir/ifpc"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/ifpc' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                val isAntiStutterActive = if (NodeWriter.extractActiveValue(rawVal) == "0") "1" else "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_ifpc",
+                        name = "In-Frame Power Collapse (Anti-Stutter)",
+                        description = "Matikan siklus tidur mikro (IFPC) di sela render frame agar GPU selalu aktif dan bebas drop frame saat adegan game berat",
+                        nodePath = "$kgslDir/ifpc",
+                        currentValue = isAntiStutterActive,
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 15. GPU Hardware Preemption
+        probeMap["$kgslDir/preemption"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/preemption' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_preemption",
+                        name = "Hardware Preemption GPU",
+                        description = "Prioritaskan antrean rendering SurfaceFlinger dan sentuhan layar di atas komputasi berat untuk memangkas latensi input sentuh",
+                        nodePath = "$kgslDir/preemption",
+                        currentValue = NodeWriter.extractActiveValue(rawVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 16. Devfreq Polling Interval (Sampling Latency)
+        probeMap["$resolvedDevfreq/polling_interval"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$resolvedDevfreq/polling_interval' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "50"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_polling_interval",
+                        name = "Devfreq Polling Interval (Sampling Latency)",
+                        description = "Interval waktu sampling beban devfreq. 10ms-20ms membuat GPU melompat seketika ke clock tinggi saat aksi visual mendadak",
+                        nodePath = "$resolvedDevfreq/polling_interval",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("10", "20", "50", "100"),
+                        category = "Responsivitas Clock"
                     )
                 )
             }

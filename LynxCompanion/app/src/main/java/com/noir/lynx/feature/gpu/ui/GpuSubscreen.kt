@@ -119,7 +119,9 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
                     onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
                     onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
-                    onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) }
+                    onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) },
+                    onSetShaderBlobCache = { mb -> viewModel.setShaderBlobCacheSize(mb) },
+                    onSetSwapchainBufferMode = { mode -> viewModel.setSwapchainBufferMode(mode) }
                 )
             }
 
