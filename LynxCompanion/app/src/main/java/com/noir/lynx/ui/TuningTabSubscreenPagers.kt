@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -79,6 +80,19 @@ fun GpuSwipeableSubscreen(
     val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshGpuInfo()
+        viewModel.refreshGraphicsHwui()
+        viewModel.refreshDisplayRefreshRate()
+        viewModel.refreshDisplayCalibration()
+        viewModel.refreshGraphicsCapabilities()
+        viewModel.refreshDisplayPipeline()
+        viewModel.refreshColorConflict()
+        viewModel.refreshSavedLabSessions(context)
+        viewModel.loadPerAppGraphicsRules(context)
+        viewModel.refreshInstalledApps()
+    }
 
     LynxTabPager(
         pageCount = 3,

@@ -11,6 +11,18 @@ import org.json.JSONObject
 internal object LynxGraphicsEngineRepository {
     suspend fun readGraphicsHwuiInfo(): GraphicsHwuiInfo = withContext(Dispatchers.IO) {
         try {
+            val pm = try { LynxApp.instance.packageManager } catch (_: Exception) { null }
+            val systemFeatures = try { pm?.systemAvailableFeatures?.mapNotNull { it.name } } catch (_: Exception) { null } ?: emptyList()
+
+            // In-process fast detection of OEM game throttler
+            var oem = ""
+            if (pm != null) {
+                if (try { pm.getPackageInfo("com.xiaomi.joyose", 0) != null } catch (_: Exception) { false }) oem = "Xiaomi Joyose"
+                else if (try { pm.getPackageInfo("com.samsung.android.game.gos", 0) != null } catch (_: Exception) { false }) oem = "Samsung GOS"
+                else if (try { pm.getPackageInfo("com.transsion.darwin", 0) != null } catch (_: Exception) { false }) oem = "Transsion Darwin Engine"
+                else if (try { pm.getPackageInfo("com.oplus.performance", 0) != null } catch (_: Exception) { false }) oem = "BBK GPA / GuardElf"
+            }
+
             val script = """
                 echo "driver:${'$'}(settings get global updatable_driver_all_apps 2>/dev/null | tr -d ' \n')"
                 echo "renderer:${'$'}(getprop debug.hwui.renderer 2>/dev/null | tr -d ' \n')"
@@ -20,17 +32,6 @@ internal object LynxGraphicsEngineRepository {
                 msaa=${'$'}(getprop debug.egl.force_msaa 2>/dev/null | tr -d ' \n')
                 [ -z "${'$'}msaa" ] && msaa=${'$'}(settings get global force_msaa 2>/dev/null | tr -d ' \n')
                 echo "msaa:${'$'}msaa"
-                throttler=""
-                if pm list packages 2>/dev/null | grep -q "com.xiaomi.joyose"; then
-                    throttler="Xiaomi Joyose"
-                elif pm list packages 2>/dev/null | grep -q "com.samsung.android.game.gos"; then
-                    throttler="Samsung GOS"
-                elif pm list packages 2>/dev/null | grep -q "com.transsion.darwin"; then
-                    throttler="Transsion Darwin Engine"
-                elif pm list packages 2>/dev/null | grep -q "com.oplus.performance"; then
-                    throttler="BBK GPA / GuardElf"
-                fi
-                echo "oem:${'$'}throttler"
                 dc=""
                 for d in /sys/devices/virtual/graphics/fb0/dc_dimming /sys/class/drm/card0-DSI-1/dc_dimming /sys/kernel/display/dc_dimming; do
                     if [ -f "${'$'}d" ]; then dc="${'$'}d"; break; fi
@@ -43,31 +44,37 @@ internal object LynxGraphicsEngineRepository {
 
                 # Vulkan support probe
                 vk_probe=0
-                if pm list features 2>/dev/null | grep -q "android.hardware.vulkan"; then
-                    vk_probe=1
-                elif [ -f "/vendor/lib64/hw/vulkan.mali.so" ] || [ -f "/vendor/lib64/hw/vulkan.adreno.so" ] || [ -c "/dev/mali0" ] || [ -c "/dev/kgsl-3d0" ]; then
+                if [ -c "/dev/kgsl-3d0" ] || [ -c "/dev/mali0" ] || [ -f "/vendor/lib64/hw/vulkan.mali.so" ] || [ -f "/vendor/lib64/hw/vulkan.adreno.so" ] || [ -f "/vendor/lib/hw/vulkan.adreno.so" ]; then
                     vk_probe=1
                 fi
                 echo "vk:${'$'}vk_probe"
 
                 # ANGLE support probe
                 angle_probe=0
-                if pm list features 2>/dev/null | grep -q "android.software.angle"; then
-                    angle_probe=1
-                elif [ -d "/apex/com.android.angle" ] || [ -d "/system/apex/com.android.angle" ] || [ -f "/vendor/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib/egl/libGLESv2_angle.so" ]; then
+                if [ -d "/apex/com.android.angle" ] || [ -d "/system/apex/com.android.angle" ] || [ -f "/vendor/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib64/egl/libGLESv2_angle.so" ] || [ -f "/system/lib/egl/libGLESv2_angle.so" ]; then
                     angle_probe=1
                 elif settings list global 2>/dev/null | grep -qi "angle"; then
                     angle_probe=1
                 fi
                 echo "angle:${'$'}angle_probe"
+
+                echo "tex_cache:${'$'}(getprop ro.hwui.texture_cache_size 2>/dev/null | tr -d ' \n')"
+                echo "async_shader:${'$'}(getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null | tr -d ' \n')"
+                echo "pure_vsync:${'$'}(getprop debug.cpurend.vsync 2>/dev/null | tr -d ' \n')"
+                echo "compiler_threads:${'$'}(getprop debug.hwui.compiler_threads 2>/dev/null | tr -d ' \n')"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
             var driver = "default"; var renderer = "auto"; var latch = false; var disableBackpressure = false; var msaa = false
-            var oem = ""; var isDcSupported = false; var dcEnabled = false
+            var isDcSupported = false; var dcEnabled = false
             var shaderBytes = 0L; var shaderCount = 0
             var isVulkanFromShell = false
             var isAngleFromShell = false
             var earlyPhase = false
+            var textureCacheMb = 72
+            var asyncShaderOn = false
+            var pureHwVsync = false
+            var compilerThreads = 0
+
             for (line in res.out) {
                 val t = line.trim()
                 when {
@@ -83,7 +90,6 @@ internal object LynxGraphicsEngineRepository {
                     t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:") == "1"
                     t.startsWith("early_phase:") -> earlyPhase = t.removePrefix("early_phase:").isNotBlank()
                     t.startsWith("msaa:") -> msaa = t.removePrefix("msaa:") == "1"
-                    t.startsWith("oem:") -> oem = t.removePrefix("oem:")
                     t.startsWith("dc:") -> {
                         val dcPath = t.removePrefix("dc:")
                         if (dcPath.isNotBlank()) {
@@ -99,34 +105,34 @@ internal object LynxGraphicsEngineRepository {
                     }
                     t.startsWith("vk:") -> isVulkanFromShell = t.removePrefix("vk:") == "1"
                     t.startsWith("angle:") -> isAngleFromShell = t.removePrefix("angle:") == "1"
+                    t.startsWith("tex_cache:") -> textureCacheMb = t.removePrefix("tex_cache:").toIntOrNull() ?: 72
+                    t.startsWith("async_shader:") -> asyncShaderOn = t.removePrefix("async_shader:") == "true"
+                    t.startsWith("pure_vsync:") -> pureHwVsync = t.removePrefix("pure_vsync:") == "false"
+                    t.startsWith("compiler_threads:") -> compilerThreads = t.removePrefix("compiler_threads:").toIntOrNull() ?: 0
                 }
             }
-            val hasVulkanHardware = try {
-                val pm = LynxApp.instance.packageManager
-                pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_VERSION) ||
-                pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL)
-            } catch (e: Exception) {
-                false
-            }
+
+            val hasVulkanHardware = systemFeatures.any { it.contains("vulkan", ignoreCase = true) } ||
+                File("/dev/kgsl-3d0").exists() ||
+                File("/dev/mali0").exists() ||
+                File("/vendor/lib64/hw/vulkan.adreno.so").exists() ||
+                File("/vendor/lib/hw/vulkan.adreno.so").exists() ||
+                File("/vendor/lib64/hw/vulkan.mali.so").exists() ||
+                File("/vendor/lib/hw/vulkan.mali.so").exists() ||
+                File("/vendor/lib64/hw/vulkan.qcom.so").exists()
+
             val isVulkan = hasVulkanHardware || isVulkanFromShell
             val isGraphite = (android.os.Build.VERSION.SDK_INT >= 34) && isVulkan
-            val isAngle = (android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && isAngleFromShell
 
-            // Read HWUI texture cache size
-            val textureCacheMb = try {
-                Shell.cmd("getprop ro.hwui.texture_cache_size 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 72
-            } catch (_: Exception) { 72 }
-
-            // Read async shader pipeline state
-            val asyncShaderOn = try {
-                Shell.cmd("getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null").exec().out.firstOrNull()?.trim() == "true"
-            } catch (_: Exception) { false }
-
-            // Read pure hardware vsync state
-            val pureHwVsync = try {
-                val v = Shell.cmd("getprop debug.cpurend.vsync 2>/dev/null").exec().out.firstOrNull()?.trim()
-                v == "false" // "false" = pure HW vsync enabled (CPU render vsync disabled)
-            } catch (_: Exception) { false }
+            val hasAngleHardware = (android.os.Build.VERSION.SDK_INT >= 29) && (
+                systemFeatures.any { it.contains("angle", ignoreCase = true) } ||
+                File("/apex/com.android.angle").exists() ||
+                File("/system/apex/com.android.angle").exists() ||
+                File("/vendor/lib64/egl/libGLESv2_angle.so").exists() ||
+                File("/system/lib64/egl/libGLESv2_angle.so").exists() ||
+                File("/system/lib/egl/libGLESv2_angle.so").exists()
+            )
+            val isAngle = (android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && (hasAngleHardware || isAngleFromShell)
 
             // Read current display resolution for esports scaler
             val (nativeRes, activeRes, nativeDpi) = try {
@@ -140,11 +146,6 @@ internal object LynxGraphicsEngineRepository {
             } catch (_: Exception) { Triple("", "", 0) }
 
             val isDownscaleActive = nativeRes.isNotEmpty() && activeRes.isNotEmpty() && nativeRes != activeRes
-
-            // Read Skia HWUI compiler threads
-            val compilerThreads = try {
-                Shell.cmd("getprop debug.hwui.compiler_threads 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
-            } catch (_: Exception) { 0 }
 
             val forcedFps = try {
                 val prefs = LynxApp.instance.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
@@ -176,7 +177,10 @@ internal object LynxGraphicsEngineRepository {
                 shaderCompilerThreads = compilerThreads,
                 forcedFpsUnlockerHz = forcedFps,
             )
-        } catch (e: Exception) { GraphicsHwuiInfo() }
+        } catch (e: Exception) {
+            Log.e("LynxGraphicsEngine", "readGraphicsHwuiInfo failed", e)
+            GraphicsHwuiInfo()
+        }
     }
 
     suspend fun setShaderCompilerThreads(threads: Int): Boolean = withContext(Dispatchers.IO) {

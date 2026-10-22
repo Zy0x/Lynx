@@ -61,8 +61,11 @@ fun LynxViewModel.setSelectedTuningCategory(category: String?) {
                 "system" -> loadSystemSubsystemData()
                 "gpu" -> {
                     refreshGpuInfo()
+                    refreshGraphicsHwui()
                     refreshGraphicsCapabilities()
                     refreshDisplayRefreshRate()
+                    refreshDisplayPipeline()
+                    refreshDisplayCalibration()
                 }
             }
         }
