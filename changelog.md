@@ -1,4 +1,34 @@
-# Lynx Universal [Universal GPU Silicon Expansion & Compositor Pipeline Studio] 7.0.0-RC157
+# Lynx Universal [Zen Bento Subscreen Redesign & Unified Design Language System] 7.0.0-RC158
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC158** (Lynx Kernel Manager v3.2.04): **Harmonisasi Estetika Menyeluruh Seluruh Subscreen Mengikuti Standar Emas Profil Performa Kernel: Menghadirkan Zen Reassurance Hero Card dengan Dual-Layer Pulse Indicator, Status Badge Reassuring, dan Calm Unified Telemetry Ribbon pada Subscreen Termal (`ThermalHeroCard.kt`), Memori & ZRAM (`MemoryHeroCard.kt`), Serta Subsystem Kernel (`SystemSubscreen.kt`); Menerapkan 2x2 Bento Matrix Touch-First (≥48dp) 1-Tap pada Subscreen Termal Sehingga Mengeliminasi Total Duplikasi Preset di Bawah Layar; Mengganti Banner Peringatan Merah Menegangkan dengan Reassuring Safety Advisory Card Berperisai Oranye Tenang; Menghapus Total Kartu Notifikasi Relokasi Usang (AI Slop) pada Subsystem; Mengatasi Slider Fatigue dengan Progressive Disclosure pada Parameter Virtual Memory Lanjutan di `MemorySubscreen.kt`; Serta Menyelaraskan Selektor Mode Pengisian Daya (`FastChargingControlCard.kt`) dan Mode Game HUD (`GameHudSubscreen.kt`) ke Format 2-Column Bento Modern Beranimasi**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC158)
+
+### 1. 🛡️ Zen Reassurance Hero Cards & Telemetry Ribbon Terpadu
+- **Thermal Hero Card (`ThermalHeroCard.kt`)**: Menggantikan tabel 6-baris dan chip terpecah dengan Zen Hero Card berbingkai gradient subtle (`#10141F`), Zen pulse indicator dwi-lingkaran, chip status menenangkan, dan pita telemetri terpadu (`Batas Trip: ... • CPU Floor: ... • Anti-OEM: ... • Sensor: ... RW`).
+- **Memory & ZRAM Hero Card (`MemoryHeroCard.kt`)**: Memberikan visualisasi ringkas dan tenang atas kapasitas RAM aktif (`ramUsedMb / ramTotalMb`), ZRAM terkompresi, algoritma kompresi, nilai swappiness, dan status KSM.
+- **Kernel Subsystem Hero Card (`SystemHeroCard.kt`)**: Menghilangkan kartu relokasi usang dan menghadirkan identitas platform SoC & kernel Linux yang terverifikasi root dengan status scanner adaptif dinamis.
+
+### 2. ⚡ 2x2 Bento Matrix Touch-First & Eliminasi Duplikasi
+- **4 Mode Termal 1-Tap Langsung di Atas (`ThermalSubscreen.kt`)**: Menempatkan Default OEM, Thermal Stabil, Performa, dan Hardware Safety Dominant langsung di bawah kartu Hero dengan target sentuh ergonomis $\ge 48\text{ dp}$ dan status `AKTIF` dinamis.
+- **Eliminasi Redundansi**: Menghapus total komponen kartu preset ganda di bagian bawah layar yang sebelumnya menduplikasi fungsionalitas mode termal.
+- **Normalisasi Sensor Termal Hardware**: Memetakan string nama sensor raw yang membingungkan (`tsens_tz_sensor`, `mtkts_AP`) menjadi label yang manusiawi dan ramah pengguna ("SoC Sensor", "AP Core", "Baterai", "Charger PMIC").
+
+### 3. 🕊️ Psychological Safety & Anti-Anxiety UI
+- **Reassuring Safety Advisory Card**: Menghilangkan banner merah mencolok yang memicu stres pengguna saat mode bypass termal aktif, menggantikannya dengan kartu advisory perisai oranye elegan yang menjelaskan bahwa proteksi termal silikon kernel dan cutoff pengisian daya tetap siaga melindungi perangkat.
+- **Pembersihan AI Slop Relokasi**: Menghapus dua kartu teks statis pemberitahuan relokasi ("Fitur X kini dipusatkan di sub-halaman Y") pada `SystemSubscreen.kt` yang mengotori tampilan.
+
+### 4. 🎛️ Progressive Disclosure & Pencegahan Slider Fatigue (`MemorySubscreen.kt`)
+- **Tampilan Utama Bersih & Tenang**: Memprioritaskan 3 preset Virtual Memory (Gaming, Balanced, Battery), selektor algoritma ZRAM (LZ4, ZSTD, LZO), dan slider alokasi ZRAM fisik.
+- **Accordion Konfigurasi VM Lanjutan**: Membungkus 5 slider kernel writeback (Dirty Ratio, Background Ratio, VFS Cache Pressure, Expire Centisecs, Writeback Interval) ke dalam wadah pengungkapan progresif (*progressive disclosure*) yang dapat dibuka/tutup secara elegan sesuai kebutuhan pengguna tingkat lanjut.
+
+### 5. 🔋 Harmonisasi Bento Pengisian Daya & Game HUD
+- **Fast Charging Bento Matrix (`FastChargingControlCard.kt`)**: Memperbarui kartu selektor 4 mode pengisian daya (Cool, Standard, Hyper, Custom) dengan rounded corners 14dp, transisi warna halus `animateColorAsState`, dan indikator status aktif.
+- **Game HUD Format Selector (`GameHudSubscreen.kt`)**: Mengubah kartu pemilihan mode Bilah Samping XBOOST vs Floating OSD menjadi 2-Column Bento card yang ringkas dan modern.
+
+---
+
+
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC157** (Lynx Kernel Manager v3.2.03): **Ekspansi Arsitektur GPU Silikon Universal & Studio Pipeline Compositor Android: Menghadirkan 2 Hardware Abstraction Layer (HAL) GPU Baru untuk Menjamin Kompatibilitas Menyeluruh pada Seluruh Lini Chipset Android Dunia — Samsung Exynos / Google Tensor / AMD RDNA Xclipse (`SamsungExynosXclipseAdapter.kt`) dengan Kontrol Devfreq Governor, Polling Interval, dan Sysfs OneUI/GKI `/sys/kernel/gpu/`, Serta Unisoc Spreadtrum (`UnisocSprdAdapter.kt`) dengan Scene-Frequency Governor & Scene Boost GPU; Menambahkan 3 Mikro-Tweak Silikon Mendalam pada GPU Qualcomm Adreno (`QualcommAdrenoAdapter.kt`): Adreno Touch-Wake (`wake_on_touch`) untuk Memangkas Latensi Input-to-Display, Supresi KGSL Crash Dumper (`snapshot_crashdumper`) untuk Mencegah Freeze/Stutter Saat Shader Glitch, dan Penguncian Batas Atas Clock (`max_pwrlevel`); Mengintegrasikan Panel Universal Compositor & Pipeline Memory Android pada `GraphicsDriverHwuiCard.kt` dengan Pengatur Alokasi VRAM Texture Cache HWUI (48MB–128MB), Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`), dan Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`); Serta Meluncurkan Esports Dynamic Render Scaler Presisi pada `DisplayRefreshRateTouchCard.kt` (Preset 720p Esports Boost +40% FPS, 900p Balanced +20% FPS, dan Native Full Resolution Reset) dengan Perhitungan Aspek Rasio Otomatis Bebas Distorsi Teks**.
 

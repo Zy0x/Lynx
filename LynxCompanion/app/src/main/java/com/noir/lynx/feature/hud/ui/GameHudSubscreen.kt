@@ -159,97 +159,91 @@ fun GameHudSubscreen(
             accentColor = AccentOrange
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Mode 0: Bilah Samping (Edge Drawer)
                 val isMode0 = uiState.hudMode == 0
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isMode0) AccentCyan.copy(alpha = 0.12f) else BgElevated,
-                    border = BorderStroke(if (isMode0) 1.dp else 0.8.dp, if (isMode0) AccentCyan else BorderSubtle),
-                    modifier = Modifier.fillMaxWidth().clickable { viewModel.setHudMode(context, 0) }
+                val isMode1 = uiState.hudMode == 1
+
+                // 2-Column Bento: Mode 0 (Bilah Samping) vs Mode 1 (Floating OSD)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isMode0) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(if (isMode0) 1.dp else 0.8.dp, if (isMode0) AccentCyan else BorderSubtle),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 64.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { viewModel.setHudMode(context, 0) }
                     ) {
-                        Box(
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (isMode0) AccentCyan.copy(alpha = 0.2f) else Color(0xFF1E222B)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.ViewSidebar, contentDescription = null, tint = if (isMode0) AccentCyan else TextSecondary, modifier = Modifier.size(22.dp))
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = localizedUiText("Bilah Samping (Edge Drawer)"),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isMode0) Color.White else TextPrimary
-                                )
-                                Surface(shape = RoundedCornerShape(4.dp), color = AccentCyan.copy(alpha = 0.2f)) {
-                                    Text(localizedUiText("XBOOST"), modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isMode0) AccentCyan.copy(alpha = 0.20f) else Color(0x10FFFFFF),
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.ViewSidebar, null, tint = if (isMode0) AccentCyan else TextSecondary, modifier = Modifier.size(18.dp))
                                 }
                             }
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = localizedUiText("Bilah samping modern bergaya konsol gaming Infinix XBOOST dengan Dual Circular Gauges CPU/GPU, selektor profil, dan pintasan alat cepat."),
-                                fontSize = 11.sp,
-                                color = TextSecondary,
-                                lineHeight = 15.sp
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Bilah Samping",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isMode0) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = if (isMode0) AccentCyan else TextPrimary,
+                                    maxLines = 1
+                                )
+                                Text("XBOOST Konsol", fontSize = 10.sp, color = if (isMode0) AccentCyan.copy(alpha = 0.85f) else TextSecondary, maxLines = 1)
+                            }
                         }
-                        RadioButton(
-                            selected = isMode0,
-                            onClick = { viewModel.setHudMode(context, 0) },
-                            colors = RadioButtonDefaults.colors(selectedColor = AccentCyan)
-                        )
                     }
-                }
 
-                // Mode 1: Floating Window Klasik
-                val isMode1 = uiState.hudMode == 1
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isMode1) AccentOrange.copy(alpha = 0.12f) else BgElevated,
-                    border = BorderStroke(if (isMode1) 1.dp else 0.8.dp, if (isMode1) AccentOrange else BorderSubtle),
-                    modifier = Modifier.fillMaxWidth().clickable { viewModel.setHudMode(context, 1) }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isMode1) AccentOrange.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(if (isMode1) 1.dp else 0.8.dp, if (isMode1) AccentOrange else BorderSubtle),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 64.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { viewModel.setHudMode(context, 1) }
                     ) {
-                        Box(
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(if (isMode1) AccentOrange.copy(alpha = 0.2f) else Color(0xFF1E222B)),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.PictureInPicture, contentDescription = null, tint = if (isMode1) AccentOrange else TextSecondary, modifier = Modifier.size(22.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isMode1) AccentOrange.copy(alpha = 0.20f) else Color(0x10FFFFFF),
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.PictureInPicture, null, tint = if (isMode1) AccentOrange else TextSecondary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Floating OSD",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isMode1) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = if (isMode1) AccentOrange else TextPrimary,
+                                    maxLines = 1
+                                )
+                                Text("OSD Mengambang", fontSize = 10.sp, color = if (isMode1) AccentOrange.copy(alpha = 0.85f) else TextSecondary, maxLines = 1)
+                            }
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = localizedUiText("Floating Window (OSD Klasik)"),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isMode1) Color.White else TextPrimary
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                text = localizedUiText("Kotak OSD mengambang bebas di layar dengan pilihan 6 layout (RTSS Pillar, Ribbon, Esports, Steam Deck, dll)."),
-                                fontSize = 11.sp,
-                                color = TextSecondary,
-                                lineHeight = 15.sp
-                            )
-                        }
-                        RadioButton(
-                            selected = isMode1,
-                            onClick = { viewModel.setHudMode(context, 1) },
-                            colors = RadioButtonDefaults.colors(selectedColor = AccentOrange)
-                        )
                     }
                 }
 
                 // Sub-styles for Floating Window
-                if (isMode1) {
+                if (uiState.hudMode == 1) {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = localizedUiText("Pilihan Gaya Layout Floating:"),

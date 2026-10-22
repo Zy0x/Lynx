@@ -1,9 +1,14 @@
 package com.noir.lynx.feature.memory.ui
 import com.noir.lynx.ui.*
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,9 +17,13 @@ import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.noir.lynx.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.LynxUiState
@@ -26,6 +35,7 @@ import com.noir.lynx.ui.LynxViewModel
 
 /**
  * Subscreen 5: Memory & Storage I/O Composable
+ * Redesigned for Zen calm, anti AI slop, progressive disclosure, and zero slider fatigue.
  */
 @Composable
 fun MemorySubscreen(
@@ -37,18 +47,21 @@ fun MemorySubscreen(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ── Memory & Swappiness Cache Card ──────────────────────
+        // ── 1. Hero Card: Zen Memory & Swap ─────────────────────
+        MemoryHeroCard(uiState, viewModel)
+
+        // ── 2. Memory & Swappiness Cache Card ───────────────────
         LynxCard(
-            title = "Memory & Swappiness Cache",
+            title = "Alokasi Virtual Memory & ZRAM",
             icon = Icons.Default.Storage,
             accentColor = AccentBlue
         ) {
             // Dynamic ZRAM Compression Algorithm Selection
             Text(
                 "Algoritma Kompresi ZRAM (Kernel Swap)",
-                color = TextPrimary, fontSize = 13.sp,
+                color = TextPrimary, fontSize = 12.5.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp)
             )
             val algos = uiState.availZramCompAlgorithms.ifEmpty { listOf("lz4", "lzo", "zstd") }
@@ -64,7 +77,7 @@ fun MemorySubscreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
+                        border = BorderStroke(if (isSelected) 1.2.dp else 0.8.dp, if (isSelected) AccentBlue else BorderSubtle)
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -84,7 +97,7 @@ fun MemorySubscreen(
                                     "lzo-rle" -> "Hemat"
                                     else -> "Kompresi"
                                 },
-                                color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else TextSecondary,
+                                color = if (isSelected) AccentBlue.copy(alpha = 0.85f) else TextSecondary,
                                 fontSize = 9.sp
                             )
                         }
@@ -110,7 +123,7 @@ fun MemorySubscreen(
             }
 
             LynxSlider(
-                label = "Ukuran Alokasi ZRAM (Skala RAM Fisik: ${ramTotal.toInt()} MB)",
+                label = "Ukuran Alokasi ZRAM (RAM Fisik: ${ramTotal.toInt()} MB)",
                 value = zramValue,
                 onValueChange = {
                     isInteractingZram = true
@@ -131,17 +144,17 @@ fun MemorySubscreen(
             // ── VM Tuning Presets ─────────────────────────────
             Text(
                 "Preset Rekomendasi Virtual Memory",
-                color = TextPrimary, fontSize = 12.5.sp,
-                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+                color = TextPrimary, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
             )
             val vmPresets = listOf(
                 Triple("gaming", "Gaming", "Zero-stutter I/O"),
-                Triple("balanced", "Balanced", "OEM Default"),
+                Triple("balanced", "Balanced", "Standar Harian"),
                 Triple("battery", "Battery", "Low Writeback")
             )
             val activeVmPreset = uiState.vmAdvanced.activePreset
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 vmPresets.forEach { (presetKey, title, subtitle) ->
@@ -151,7 +164,7 @@ fun MemorySubscreen(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(1.2.dp, if (isSelected) AccentBlue else BorderGlass)
+                        border = BorderStroke(if (isSelected) 1.2.dp else 0.8.dp, if (isSelected) AccentBlue else BorderSubtle)
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -165,7 +178,7 @@ fun MemorySubscreen(
                             )
                             Text(
                                 subtitle,
-                                color = if (isSelected) AccentBlue.copy(alpha = 0.8f) else TextSecondary,
+                                color = if (isSelected) AccentBlue.copy(alpha = 0.85f) else TextSecondary,
                                 fontSize = 9.sp,
                                 maxLines = 1
                             )
@@ -175,25 +188,12 @@ fun MemorySubscreen(
             }
 
             var swapValue by remember { mutableFloatStateOf(uiState.vmAdvanced.swappiness.toFloat()) }
-            var dirtyValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyRatio.toFloat()) }
-            var dirtyBgValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()) }
-            var vfsValue by remember { mutableFloatStateOf(uiState.vmAdvanced.vfsCachePressure.toFloat()) }
-            var expireValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat()) }
-            var writebackValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat()) }
-            var statValue by remember { mutableFloatStateOf(uiState.vmAdvanced.statInterval.toFloat()) }
-
             var isInteractingVm by remember { mutableStateOf(false) }
             var lastVmInteraction by remember { mutableLongStateOf(0L) }
 
-            LaunchedEffect(uiState.vmAdvanced) {
+            LaunchedEffect(uiState.vmAdvanced.swappiness) {
                 if (!isInteractingVm && (System.currentTimeMillis() - lastVmInteraction > 3500L)) {
                     swapValue = uiState.vmAdvanced.swappiness.toFloat()
-                    dirtyValue = uiState.vmAdvanced.dirtyRatio.toFloat()
-                    dirtyBgValue = uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()
-                    vfsValue = uiState.vmAdvanced.vfsCachePressure.toFloat()
-                    expireValue = (uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat()
-                    writebackValue = (uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat()
-                    statValue = uiState.vmAdvanced.statInterval.toFloat()
                 }
             }
 
@@ -216,123 +216,126 @@ fun MemorySubscreen(
                 accentColor = AccentBlue
             )
 
-            LynxSlider(
-                label = "VM Dirty Ratio (Batas Writeback)",
-                value = dirtyValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    dirtyValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setDirtyRatio(dirtyValue.toInt())
-                },
-                valueRange = 5f..60f,
-                steps = 10,
-                displayValue = "${dirtyValue.toInt()}%",
-                accentColor = AccentBlue
-            )
+            // ── Progressive Disclosure: Parameter Lanjutan VM ─
+            var showAdvancedVm by remember { mutableStateOf(false) }
+            Spacer(Modifier.height(4.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.7.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showAdvancedVm = !showAdvancedVm }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Konfigurasi Virtual Memory Lanjutan",
+                                color = TextPrimary,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (showAdvancedVm) "Sembunyikan parameter writeback & VFS" else "Dirty Ratio, VFS Cache Pressure, Writeback Interval",
+                                color = TextSecondary,
+                                fontSize = 9.5.sp
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = if (showAdvancedVm) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
 
-            LynxSlider(
-                label = "VM Dirty Background Ratio",
-                value = dirtyBgValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    dirtyBgValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setDirtyBackgroundRatio(dirtyBgValue.toInt())
-                },
-                valueRange = 1f..30f,
-                steps = 28,
-                displayValue = "${dirtyBgValue.toInt()}%",
-                accentColor = AccentBlue
-            )
+            AnimatedVisibility(visible = showAdvancedVm) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    var dirtyValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyRatio.toFloat()) }
+                    var dirtyBgValue by remember { mutableFloatStateOf(uiState.vmAdvanced.dirtyBackgroundRatio.toFloat()) }
+                    var vfsValue by remember { mutableFloatStateOf(uiState.vmAdvanced.vfsCachePressure.toFloat()) }
+                    var expireValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat()) }
+                    var writebackValue by remember { mutableFloatStateOf((uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat()) }
 
-            LynxSlider(
-                label = "VFS Cache Pressure (Reclaim Rate)",
-                value = vfsValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    vfsValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setVfsCachePressure(vfsValue.toInt())
-                },
-                valueRange = 50f..200f,
-                steps = 14,
-                displayValue = "${vfsValue.toInt()}",
-                accentColor = AccentBlue
-            )
+                    LynxSlider(
+                        label = "VM Dirty Ratio (Batas Writeback)",
+                        value = dirtyValue,
+                        onValueChange = { dirtyValue = it },
+                        onValueChangeFinished = { viewModel.setDirtyRatio(dirtyValue.toInt()) },
+                        valueRange = 5f..60f,
+                        steps = 10,
+                        displayValue = "${dirtyValue.toInt()}%",
+                        accentColor = AccentBlue
+                    )
 
-            LynxSlider(
-                label = "VM Dirty Expire Time",
-                value = expireValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    expireValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setDirtyExpireCentisecs((expireValue * 100).toInt())
-                },
-                valueRange = 10f..60f,
-                steps = 9,
-                displayValue = "${expireValue.toInt()}s",
-                accentColor = AccentBlue
-            )
+                    LynxSlider(
+                        label = "VM Dirty Background Ratio",
+                        value = dirtyBgValue,
+                        onValueChange = { dirtyBgValue = it },
+                        onValueChangeFinished = { viewModel.setDirtyBackgroundRatio(dirtyBgValue.toInt()) },
+                        valueRange = 1f..30f,
+                        steps = 28,
+                        displayValue = "${dirtyBgValue.toInt()}%",
+                        accentColor = AccentBlue
+                    )
 
-            LynxSlider(
-                label = "VM Dirty Writeback Interval",
-                value = writebackValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    writebackValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setDirtyWritebackCentisecs((writebackValue * 100).toInt())
-                },
-                valueRange = 1f..15f,
-                steps = 13,
-                displayValue = "${writebackValue.toInt()}s",
-                accentColor = AccentBlue
-            )
+                    LynxSlider(
+                        label = "VFS Cache Pressure (Reclaim Rate)",
+                        value = vfsValue,
+                        onValueChange = { vfsValue = it },
+                        onValueChangeFinished = { viewModel.setVfsCachePressure(vfsValue.toInt()) },
+                        valueRange = 50f..200f,
+                        steps = 14,
+                        displayValue = "${vfsValue.toInt()}",
+                        accentColor = AccentBlue
+                    )
 
-            LynxSlider(
-                label = "VM Stat Interval (Pembaruan Statistik)",
-                value = statValue,
-                onValueChange = {
-                    isInteractingVm = true
-                    lastVmInteraction = System.currentTimeMillis()
-                    statValue = it
-                },
-                onValueChangeFinished = {
-                    isInteractingVm = false
-                    lastVmInteraction = System.currentTimeMillis()
-                    viewModel.setVmStatInterval(statValue.toInt())
-                },
-                valueRange = 1f..10f,
-                steps = 8,
-                displayValue = "${statValue.toInt()}s",
-                accentColor = AccentBlue
-            )
+                    LynxSlider(
+                        label = "VM Dirty Expire Time",
+                        value = expireValue,
+                        onValueChange = { expireValue = it },
+                        onValueChangeFinished = { viewModel.setDirtyExpireCentisecs((expireValue * 100).toInt()) },
+                        valueRange = 10f..60f,
+                        steps = 9,
+                        displayValue = "${expireValue.toInt()}s",
+                        accentColor = AccentBlue
+                    )
+
+                    LynxSlider(
+                        label = "VM Dirty Writeback Interval",
+                        value = writebackValue,
+                        onValueChange = { writebackValue = it },
+                        onValueChangeFinished = { viewModel.setDirtyWritebackCentisecs((writebackValue * 100).toInt()) },
+                        valueRange = 1f..15f,
+                        steps = 13,
+                        displayValue = "${writebackValue.toInt()}s",
+                        accentColor = AccentBlue
+                    )
+                }
+            }
 
             Spacer(Modifier.height(8.dp))
             LynxActionButton(
-                text = "Bersihkan Proses Latar Aman",
+                text = "Bersihkan Proses Latar & Buffer RAM",
                 icon = Icons.Default.CleaningServices,
                 onClick = { viewModel.cleanRam() },
                 accentColor = AccentCyan,
@@ -340,7 +343,7 @@ fun MemorySubscreen(
             )
         }
 
-        // ── KSM (Kernel Same-page Merging) Card ──────────────────
+        // ── 3. KSM (Kernel Same-page Merging) Card ───────────────
         LaunchedEffect(Unit) { viewModel.refreshKsmStats() }
         val ksm = uiState.ksmStats
         LynxCard(
@@ -362,8 +365,10 @@ fun MemorySubscreen(
                 Switch(
                     checked = ksm.enabled,
                     onCheckedChange = { viewModel.setKsmEnabled(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = AccentBlue,
-                        checkedTrackColor = AccentBlue.copy(alpha = 0.4f))
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = AccentBlue,
+                        checkedTrackColor = AccentBlue.copy(alpha = 0.4f)
+                    )
                 )
             }
             if (ksm.enabled) {
@@ -372,12 +377,12 @@ fun MemorySubscreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("${ksm.pagesSharing}", color = AccentBlue,
                             fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Halaman Sharing", color = TextSecondary, fontSize = 10.sp)
+                        Text("Sharing", color = TextSecondary, fontSize = 10.sp)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("${ksm.pagesShared}", color = AccentCyan,
                             fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Halaman Shared", color = TextSecondary, fontSize = 10.sp)
+                        Text("Shared", color = TextSecondary, fontSize = 10.sp)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(String.format("%.1f MB", ksm.savedMb), color = AccentOrange,
@@ -385,30 +390,13 @@ fun MemorySubscreen(
                         Text("RAM Hemat", color = TextSecondary, fontSize = 10.sp)
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 var scanValue by remember { mutableFloatStateOf(ksm.pagesToScan.toFloat()) }
-                var isInteractingKsm by remember { mutableStateOf(false) }
-                var lastKsmInteraction by remember { mutableLongStateOf(0L) }
-
-                LaunchedEffect(ksm.pagesToScan) {
-                    if (!isInteractingKsm && (System.currentTimeMillis() - lastKsmInteraction > 3500L)) {
-                        scanValue = ksm.pagesToScan.toFloat()
-                    }
-                }
-
                 LynxSlider(
                     label = "Pages to Scan per Cycle",
                     value = scanValue,
-                    onValueChange = {
-                        isInteractingKsm = true
-                        lastKsmInteraction = System.currentTimeMillis()
-                        scanValue = it
-                    },
-                    onValueChangeFinished = {
-                        isInteractingKsm = false
-                        lastKsmInteraction = System.currentTimeMillis()
-                        viewModel.setKsmTunables(scanValue.toInt(), ksm.sleepMs)
-                    },
+                    onValueChange = { scanValue = it },
+                    onValueChangeFinished = { viewModel.setKsmTunables(scanValue.toInt(), ksm.sleepMs) },
                     valueRange = 50f..500f,
                     steps = 8,
                     displayValue = "${scanValue.toInt()} pages",
@@ -417,7 +405,7 @@ fun MemorySubscreen(
             }
         }
 
-        // ── LMK Minfree Preset Card ──────────────────────────────
+        // ── 4. LMK Minfree Preset Card ───────────────────────────
         LynxCard(
             title = "LMK — Low Memory Killer",
             icon = Icons.Default.DeleteSweep,
@@ -425,7 +413,7 @@ fun MemorySubscreen(
         ) {
             Text(
                 "Atur seberapa agresif sistem Android mengakhiri aplikasi latar belakang untuk membebaskan RAM.",
-                color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp,
+                color = TextSecondary, fontSize = 11.5.sp, lineHeight = 16.sp,
                 modifier = Modifier.padding(bottom = 10.dp)
             )
             val lmkPresets = listOf(
@@ -438,9 +426,9 @@ fun MemorySubscreen(
                 Surface(
                     onClick = { viewModel.applyLmkPreset(id) },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = BgElevated,
-                    border = BorderStroke(1.dp, BorderGlass)
+                    border = BorderStroke(0.8.dp, BorderSubtle)
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(12.dp),
@@ -448,20 +436,16 @@ fun MemorySubscreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(label, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(desc, color = TextSecondary, fontSize = 11.sp)
+                            Text(label, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp)
+                            Text(desc, color = TextSecondary, fontSize = 10.5.sp)
                         }
-                        Icon(Icons.Default.ChevronRight, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.ChevronRight, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
-            Text(
-                "Catatan: LMK Kernel hanya efektif pada Android 10 ke bawah. Android 11+ menggunakan LMKD userspace.",
-                color = TextSecondary.copy(alpha = 0.7f), fontSize = 10.sp, lineHeight = 14.sp
-            )
         }
 
-        // ── Memory LMK & Entropy Tuner Card ──────────────────────
+        // ── 5. Memory LMK & Entropy Tuner Card ───────────────────
         MemoryEntropyCard(
             memoryEntropy = uiState.memoryEntropy,
             onSetEntropy = { r, w ->
@@ -469,10 +453,10 @@ fun MemorySubscreen(
             }
         )
 
-        // ── Adaptive SD I/O Policy ──────────────────────────────
+        // ── 6. Adaptive SD I/O Policy ───────────────────────────
         MountXStorageCard(uiState = uiState, viewModel = viewModel)
 
-        // ── I/O Scheduler Card ───────────────────────────────────
+        // ── 7. I/O Scheduler Card ────────────────────────────────
         if (uiState.ioDevices.isNotEmpty()) {
             LynxCard(
                 title = "I/O Scheduler Manager",
@@ -483,10 +467,8 @@ fun MemorySubscreen(
                     Text(
                         "/dev/${dev.device}",
                         color = AccentPurple, fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                        modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                     )
-                    Text("Scheduler", color = TextSecondary, fontSize = 11.sp,
-                        modifier = Modifier.padding(bottom = 4.dp))
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -499,47 +481,33 @@ fun MemorySubscreen(
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (isActive) AccentPurple.copy(alpha = 0.2f) else BgElevated,
                                 border = BorderStroke(
-                                    1.dp, if (isActive) AccentPurple else BorderGlass
+                                    0.8.dp, if (isActive) AccentPurple else BorderSubtle
                                 )
                             ) {
-                                Text(sched,
+                                Text(
+                                    sched,
                                     color = if (isActive) AccentPurple else TextSecondary,
-                                    fontSize = 11.sp, fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     var raValue by remember(dev.device) { mutableFloatStateOf(dev.readAheadKb.toFloat()) }
-                    var isInteractingRa by remember(dev.device) { mutableStateOf(false) }
-                    var lastRaInteraction by remember(dev.device) { mutableLongStateOf(0L) }
-
-                    LaunchedEffect(dev.device, dev.readAheadKb) {
-                        if (!isInteractingRa && (System.currentTimeMillis() - lastRaInteraction > 3500L)) {
-                            raValue = dev.readAheadKb.toFloat()
-                        }
-                    }
-
                     LynxSlider(
                         label = "Read-Ahead Buffer",
                         value = raValue,
-                        onValueChange = {
-                            isInteractingRa = true
-                            lastRaInteraction = System.currentTimeMillis()
-                            raValue = it
-                        },
-                        onValueChangeFinished = {
-                            isInteractingRa = false
-                            lastRaInteraction = System.currentTimeMillis()
-                            viewModel.setReadAheadKb(dev.device, raValue.toInt())
-                        },
+                        onValueChange = { raValue = it },
+                        onValueChangeFinished = { viewModel.setReadAheadKb(dev.device, raValue.toInt()) },
                         valueRange = 128f..4096f,
                         steps = 7,
                         displayValue = "${raValue.toInt()} KB",
                         accentColor = AccentPurple
                     )
-                    HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(top = 8.dp))
+                    HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(top = 8.dp))
                 }
             }
         }

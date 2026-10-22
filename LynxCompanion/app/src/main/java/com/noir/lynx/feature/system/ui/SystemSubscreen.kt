@@ -1,11 +1,14 @@
 package com.noir.lynx.feature.system.ui
 import com.noir.lynx.ui.*
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,23 +18,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.AppProfileRule
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.ui.AppIconImage
 import com.noir.lynx.ui.LynxViewModel
 
 /**
  * Subscreen 7: Subsystem & Deep Tunables Composable
+ * Redesigned for visual calm, zero redundant relocation notices, and strict hierarchy.
  */
 @Composable
 fun SystemSubscreen(
@@ -45,71 +49,12 @@ fun SystemSubscreen(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ── Per-App Profile Automation Relocation Notice ────────────
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SportsEsports,
-                    contentDescription = null,
-                    tint = AccentGreen,
-                    modifier = Modifier.size(18.dp)
-                )
-                Column {
-                    Text(
-                        "Otomasi Profil Per-Aplikasi",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        "Pengaturan profil per-aplikasi dan game kini dipusatkan di sub-halaman Profil Performa Kernel.",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                }
-            }
-        }
+        // ── 1. Hero Card: Zen Kernel Safety & Subsystem ──────────
+        SystemHeroCard(uiState)
 
-        // ── OEM Anti-Throttling Relocation Notice ───────────────────
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
-            border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = AccentCyan,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    "Pengaturan Anti-Throttling OEM (Joyose/GOS) kini dipusatkan pada modul Thermal & Anti-Throttling.",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-            }
-        }
-
-        // ── Deep Kernel & System Tunables Card ──────────────────
+        // ── 2. Deep Kernel & System Tunables Card ───────────────
         var manualNodePath by remember { mutableStateOf("") }
         var maxVisibleItems by remember { mutableStateOf(20) }
         var deepSearchQuery by remember { mutableStateOf("") }
@@ -120,14 +65,14 @@ fun SystemSubscreen(
             accentColor = AccentCyan
         ) {
             Text(
-                "Mesin pemindai adaptif universal. Membaca seluruh file konfigurasi kernel, OEM, CPU, GPU, & ROM. Petunjuk internal (#) dikonversi otomatis menjadi widget interaktif (toggle, slider, dropdown pilihan).",
+                "Mesin pemindai adaptif universal. Membaca seluruh file konfigurasi kernel, OEM, CPU, GPU, & ROM. Petunjuk internal (#) dikonversi otomatis menjadi widget interaktif.",
                 color = TextSecondary,
                 fontSize = 11.5.sp,
                 lineHeight = 16.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Action Bar: Scan button + Auto-Discovery status + Count info
+            // Action Bar: Scan button + Count info
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -155,7 +100,11 @@ fun SystemSubscreen(
                     } else {
                         Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(if (uiState.deepTunables.isEmpty()) "Pindai Kernel" else "Pindai Ulang", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (uiState.deepTunables.isEmpty()) "Pindai Kernel" else "Pindai Ulang",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
 
@@ -164,7 +113,7 @@ fun SystemSubscreen(
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = AccentCyan.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.3f))
+                            border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f))
                         ) {
                             Text(
                                 "${uiState.deepTunables.size} Node",
@@ -178,7 +127,7 @@ fun SystemSubscreen(
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = BgElevated,
-                        border = BorderStroke(1.dp, BorderGlass)
+                        border = BorderStroke(0.6.dp, BorderSubtle)
                     ) {
                         Text(
                             if (uiState.isDeepScanning) "Memindai Sysfs..." else "Zero Hardcoding",
@@ -211,7 +160,7 @@ fun SystemSubscreen(
                     ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentCyan,
-                        unfocusedBorderColor = BorderGlass,
+                        unfocusedBorderColor = BorderSubtle,
                         focusedContainerColor = BgElevated,
                         unfocusedContainerColor = BgElevated
                     )
@@ -259,7 +208,7 @@ fun SystemSubscreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentCyan,
-                        unfocusedBorderColor = BorderGlass,
+                        unfocusedBorderColor = BorderSubtle,
                         focusedContainerColor = BgElevated,
                         unfocusedContainerColor = BgElevated
                     )
@@ -281,7 +230,7 @@ fun SystemSubscreen(
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (isCatSel) AccentCyan.copy(alpha = 0.22f) else BgElevated,
-                            border = BorderStroke(1.dp, if (isCatSel) AccentCyan else BorderGlass),
+                            border = BorderStroke(0.8.dp, if (isCatSel) AccentCyan else BorderSubtle),
                             modifier = Modifier.clickable {
                                 activeCategoryFilter = catName
                                 maxVisibleItems = 20
@@ -317,7 +266,7 @@ fun SystemSubscreen(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = BgElevated,
-                        border = BorderStroke(1.dp, BorderGlass),
+                        border = BorderStroke(0.8.dp, BorderSubtle),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
                     ) {
                         Column(
@@ -353,7 +302,7 @@ fun SystemSubscreen(
                                 containerColor = BgElevated,
                                 contentColor = AccentCyan
                             ),
-                            border = BorderStroke(1.dp, BorderGlass)
+                            border = BorderStroke(0.8.dp, BorderSubtle)
                         ) {
                             Text("Muat Lebih Banyak (${displayedTunables.size - maxVisibleItems} tersisa)", fontSize = 11.5.sp)
                         }
@@ -363,7 +312,7 @@ fun SystemSubscreen(
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = BgElevated,
-                    border = BorderStroke(1.dp, BorderGlass),
+                    border = BorderStroke(0.8.dp, BorderSubtle),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
                 ) {
                     Column(
@@ -386,6 +335,158 @@ fun SystemSubscreen(
                             textAlign = TextAlign.Center,
                             lineHeight = 16.sp
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * SystemHeroCard — Zen Reassurance Hero Card for Kernel Subsystems & Deep Tunables.
+ */
+@Composable
+private fun SystemHeroCard(uiState: LynxUiState) {
+    val platformName = when (uiState.gpuInfo.platform) {
+        "adreno" -> "Qualcomm Snapdragon"
+        "mali_ged", "mali_kbase" -> "MediaTek Dimensity/Helio"
+        else -> "Universal Linux Kernel"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    AccentCyan.copy(alpha = 0.28f),
+                    Color(0x15FFFFFF)
+                )
+            )
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row: Zen Reassurance Status Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(
+                            shape = CircleShape,
+                            color = AccentCyan.copy(alpha = 0.18f),
+                            modifier = Modifier.size(12.dp)
+                        ) {}
+                        Surface(
+                            shape = CircleShape,
+                            color = AccentCyan,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                    }
+                    Text(
+                        text = "Subsystem & Deep Kernel Tunables",
+                        color = TextSecondary.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        text = "Root Verified",
+                        color = AccentCyan,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(13.dp))
+
+            // Main Row: Icon + Title & Desc
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentCyan.copy(alpha = 0.10f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.25f)),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Terminal,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = platformName,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.2).sp
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Pemindai adaptif sysfs dinamis • Guardrail 100% aman",
+                        color = TextSecondary.copy(alpha = 0.75f),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Subsystem telemetry specs (Calm unified ribbon)
+            Spacer(Modifier.height(13.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF0C0F17),
+                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val nodeCount = uiState.deepTunables.size
+                    val scanStatus = if (uiState.isDeepScanning) "Memindai..." else "Siap"
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Node Aktif", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text("$nodeCount Node", color = AccentCyan.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Status", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text(scanStatus, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Proteksi", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                        Text("Guardrails Aktif", color = AccentGreen.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

@@ -503,26 +503,35 @@ private fun ChargingModeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardBg = if (isSelected) item.accent.copy(alpha = 0.16f) else BgElevated.copy(alpha = 0.5f)
-    val borderStroke = if (isSelected) BorderStroke(1.2.dp, item.accent) else BorderStroke(0.8.dp, BorderSubtle)
-    val titleColor = if (isSelected) item.accent else TextPrimary
+    val cardBg by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isSelected) item.accent.copy(alpha = 0.12f) else BgElevated,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+        label = "charging_card_bg_${item.id}"
+    )
+    val borderStroke by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isSelected) item.accent.copy(alpha = 0.7f) else BorderSubtle,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+        label = "charging_card_border_${item.id}"
+    )
 
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(14.dp),
         color = cardBg,
-        border = borderStroke,
+        border = BorderStroke(if (isSelected) 1.dp else 0.8.dp, borderStroke),
         modifier = modifier
-            .heightIn(min = 54.dp)
+            .heightIn(min = 58.dp)
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isSelected) item.accent.copy(alpha = 0.22f) else BgElevated,
-                modifier = Modifier.size(34.dp)
+                shape = RoundedCornerShape(10.dp),
+                color = if (isSelected) item.accent.copy(alpha = 0.20f) else Color(0x10FFFFFF),
+                border = BorderStroke(0.5.dp, if (isSelected) item.accent.copy(alpha = 0.3f) else Color(0x15FFFFFF)),
+                modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -538,20 +547,40 @@ private fun ChargingModeCard(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontSize = 12.5.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = titleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = item.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isSelected) item.accent else TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (isSelected) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = item.accent.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                "AKTIF",
+                                color = item.accent,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(1.dp))
                 Text(
                     text = item.sub,
                     style = MaterialTheme.typography.labelSmall,
                     fontSize = 10.sp,
-                    color = if (isSelected) titleColor.copy(alpha = 0.85f) else TextSecondary,
+                    color = if (isSelected) item.accent.copy(alpha = 0.85f) else TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
