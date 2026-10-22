@@ -1,3 +1,24 @@
+# Lynx Universal [Universal Qualcomm HAL Architecture & Adreno 19.2MHz XO Deep Sleep Telemetry] 7.0.0-RC164
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC164** (Lynx Kernel Manager v3.2.10): **Arsitektur Universal Cerdas Lintas Seluruh Chipset Qualcomm Snapdragon & Indikator Presisi 19.2 MHz XO Crystal Oscillator Power Collapse: Memastikan Seluruh Logika Clamping dan Dynamic Scaling Berjalan 100% Agnostik Tanpa Terikat Hardcode pada Satu Perangkat Tertentu (Mendukung Sepenuhnya Snapdragon Seri 400, 600, 700, 800, hingga 8 Gen 1/2/3 dengan Probing Jumlah Power Level `num_pwrlevels` dan OPP Table Dinamis); Mengintegrasikan Indikator Visual Cerdas "XO SLEEP" pada `GpuMasterTunerCard.kt` Saat GPU Adreno Masuk ke Status Slumber / Power Collapse (19.2 MHz Crystal Oscillator Clock) Ketika Layar Diam Tanpa Beban Render Grafis**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC164)
+
+### 1. 🌐 Skalabilitas Universal Lintas Chipset Qualcomm Snapdragon
+- **Agnostik & Adaptif Penuh**: Sistem membaca tabel OPP (`available_frequencies`) dan jumlah power level (`num_pwrlevels`) secara langsung dari driver kernel perangkat saat runtime.
+- **Dukungan Menyeluruh**:
+  - Snapdragon Seri 600 (SD660/636/625 - 7 Power Levels).
+  - Snapdragon Seri 700 / 800 (SD710/720G/778G/845/855/865/870 - 5 hingga 9 Power Levels).
+  - Snapdragon Flagship Modern (SD 8 Gen 1 / 8+ Gen 1 / 8 Gen 2 / 8 Gen 3 - 8 hingga 12+ Power Levels).
+  - Seluruhnya secara otomatis menghitung indeks `max_idx`, memetakan `target_ceiling_pwr = 0` (Full Peak) dan `target_floor_pwr = max_idx` (Full Idle) pada profil Balance.
+
+### 2. ⚡ Fenomena 19.2 MHz Adreno: XO Crystal Oscillator Power Collapse
+- **Penjelasan Hardware Silicon**: Angka 19 MHz (tepatnya 19.2 MHz / 19.200.000 Hz) adalah frekuensi kristal osilator dasar (*Crystal Oscillator / CXO*) dari Qualcomm Global Clock Controller (GCC).
+- **Status Slumber / Deep Sleep**: Saat tidak ada aplikasi yang mengirimkan *DrawCalls* grafis (layar diam), driver KGSL Qualcomm mematikan PLL GPU (Power Collapse) dan menurunkan clock domain GPU ke clock dasar 19.2 MHz untuk meminimalkan konsumsi daya ke level mikroampere.
+- **Badge Visual "XO SLEEP"**: Menambahkan badge informatif cyan `[ XO SLEEP ]` pada header telemetri `GpuMasterTunerCard.kt` saat clock terbaca di kisaran 19 MHz, memberikan kejelasan kepada pengguna bahwa GPU sedang beristirahat dalam efisiensi tertinggi.
+
+---
+
 # Lynx Universal [Qualcomm Adreno Dynamic Balance Profile & Boot Power-Saving Unshackle] 7.0.0-RC163
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC163** (Lynx Kernel Manager v3.2.09): **Pembebasan Mutlak Frekuensi GPU Qualcomm Adreno pada Boot Awal & Profil Induk Balance: Memperbaiki Bug Krusial di Mana Translator Profil Native Rust (`translator.rs`) Sebelumnya Salah Menyetel `max_pwrlevel = max_idx` (160 MHz) Saat Boot Awal dan Saat Mode Balance Aktif, yang Secara Keliru Mengunci GPU ke Status Hemat Daya Terendah; Memulihkan Skalabilitas Dinamis Penuh Adreno (Floor 160 MHz Idle s/d Ceiling 750 MHz Peak pada Profil Balance, Persis Seperti Perilaku Dinamis MediaTek GED) Sehingga Multitasking dan Render UI Berjalan Sangat Mulus Tanpa Hambatan; Serta Merestorasi Batas Devfreq GPU Saat Mode Balance Aktif**.

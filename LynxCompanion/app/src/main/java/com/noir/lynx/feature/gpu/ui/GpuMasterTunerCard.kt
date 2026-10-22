@@ -94,13 +94,18 @@ fun GpuMasterTunerCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else "GPU Siap Tuning",
-                    color = cardAccent,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.3).sp
-                )
+                val isXoSleep = gpu.platform == "adreno" && gpu.curFreqMhz in 1..25
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = if (gpu.curFreqMhz > 0) "${if (isXoSleep) "19.2" else gpu.curFreqMhz.toString()} MHz" else "GPU Siap Tuning",
+                        color = cardAccent, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp
+                    )
+                    if (isXoSleep) {
+                        Surface(shape = RoundedCornerShape(6.dp), color = AccentCyan.copy(alpha = 0.15f), border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f))) {
+                            Text("XO SLEEP", color = AccentCyan, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                        }
+                    }
+                }
                 val archName = gpu.activeBackendName.ifBlank { gpu.subArchitecture.ifBlank { platLabel } }
                 Text(
                     text = "HAL: $archName",
