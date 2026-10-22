@@ -78,11 +78,49 @@ internal object LynxGpuControlRepository {
 
             val isLock = minMhzVal != null && maxMhzVal != null && minMhzVal == maxMhzVal
             val script = """
-                if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
-                    D="/sys/class/kgsl/kgsl-3d0/devfreq"
+                if [ -d /sys/class/kgsl/kgsl-3d0 ]; then
                     K="/sys/class/kgsl/kgsl-3d0"
-                    ${if (minHz != null) "chmod 644 \$D/min_freq 2>/dev/null; echo $minHz > \$D/min_freq 2>/dev/null; echo ${toMhz(minHz)} > \$K/min_clock_mhz 2>/dev/null;" else ""}
-                    ${if (maxHz != null) "chmod 644 \$D/max_freq 2>/dev/null; echo $maxHz > \$D/max_freq 2>/dev/null; echo ${toMhz(maxHz)} > \$K/max_clock_mhz 2>/dev/null; echo 0 > \$K/min_pwrlevel 2>/dev/null;" else ""}
+                    D="/sys/class/kgsl/kgsl-3d0/devfreq"
+                    [ ! -d "${'$'}D" ] && D=${'$'}(ls -d /sys/class/devfreq/*kgsl-3d0* /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* 2>/dev/null | head -n 1)
+                    avail=${'$'}(cat "${'$'}K/gpu_available_frequencies" 2>/dev/null || cat "${'$'}D/available_frequencies" 2>/dev/null)
+                    unit_mult=1000000
+                    for tok in ${'$'}avail; do
+                        if [ "${'$'}tok" -gt 10000000 ] 2>/dev/null; then unit_mult=1000000; break; fi
+                        if [ "${'$'}tok" -gt 10000 ] 2>/dev/null; then unit_mult=1000; break; fi
+                        if [ "${'$'}tok" -gt 0 ] 2>/dev/null; then unit_mult=1; break; fi
+                    done
+                    ${if (minMhzVal != null) """
+                        minVal=$(( $minMhzVal * unit_mult ))
+                        chmod 644 "${'$'}D/min_freq" 2>/dev/null; echo "${'$'}minVal" > "${'$'}D/min_freq" 2>/dev/null
+                        echo $minMhzVal > "${'$'}K/min_clock_mhz" 2>/dev/null
+                    """ else ""}
+                    ${if (maxMhzVal != null) """
+                        maxVal=$(( $maxMhzVal * unit_mult ))
+                        chmod 644 "${'$'}D/max_freq" 2>/dev/null; echo "${'$'}maxVal" > "${'$'}D/max_freq" 2>/dev/null
+                        echo $maxMhzVal > "${'$'}K/max_clock_mhz" 2>/dev/null
+                        echo $(( $maxMhzVal * 1000000 )) > "${'$'}K/max_gpuclk" 2>/dev/null
+                    """ else ""}
+                    pwr_idx=0
+                    min_pwr=""
+                    max_pwr=""
+                    for tok in ${'$'}(echo "${'$'}avail" | tr ' ' '\n' | sort -nru); do
+                        mhz=${'$'}tok
+                        [ "${'$'}tok" -gt 1000000 ] 2>/dev/null && mhz=$(( tok / 1000000 ))
+                        [ "${'$'}tok" -gt 10000 -a "${'$'}tok" -le 1000000 ] 2>/dev/null && mhz=$(( tok / 1000 ))
+                        ${if (maxMhzVal != null) """
+                            if [ -z "${'$'}min_pwr" ] && [ "${'$'}mhz" -le $maxMhzVal ] 2>/dev/null; then
+                                min_pwr=${'$'}pwr_idx
+                            fi
+                        """ else ""}
+                        ${if (minMhzVal != null) """
+                            if [ "${'$'}mhz" -ge $minMhzVal ] 2>/dev/null; then
+                                max_pwr=${'$'}pwr_idx
+                            fi
+                        """ else ""}
+                        pwr_idx=$(( pwr_idx + 1 ))
+                    done
+                    [ -n "${'$'}min_pwr" ] && { echo "${'$'}min_pwr" > "${'$'}K/min_pwrlevel" 2>/dev/null; echo "${'$'}min_pwr" > "${'$'}K/default_pwrlevel" 2>/dev/null; }
+                    [ -n "${'$'}max_pwr" ] && echo "${'$'}max_pwr" > "${'$'}K/max_pwrlevel" 2>/dev/null
                     echo ok
                 elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ]; then
                     ${if (isLock && maxMhzVal != null) """

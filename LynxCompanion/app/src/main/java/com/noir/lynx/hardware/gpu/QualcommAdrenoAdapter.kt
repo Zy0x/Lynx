@@ -19,14 +19,19 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
     private val kgslDir = "/sys/class/kgsl/kgsl-3d0"
     private val devfreqDir = "$kgslDir/devfreq"
 
+    private fun resolveActiveDevfreq(): String {
+        val found = Shell.cmd(
+            "for d in '$devfreqDir' /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* /sys/class/devfreq/*kgsl-3d0*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
+        ).exec().out.firstOrNull()?.trim()
+        return if (!found.isNullOrBlank()) found else devfreqDir
+    }
+
     override suspend fun isSupported(): Boolean = withContext(Dispatchers.IO) {
         Shell.cmd("[ -d '$kgslDir' ]").exec().isSuccess
     }
 
     override suspend fun scanFeatures(): List<GpuHardwareFeature> = withContext(Dispatchers.IO) {
-        val resolvedDevfreq = Shell.cmd(
-            "for d in '$devfreqDir' /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* /sys/class/devfreq/*kgsl-3d0*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
-        ).exec().out.firstOrNull()?.trim().takeUnless { it.isNullOrBlank() } ?: devfreqDir
+        val resolvedDevfreq = resolveActiveDevfreq()
 
         val resolvedGpubw = Shell.cmd(
             "for d in /sys/class/devfreq/*gpubw* /sys/devices/platform/soc/soc:qcom,gpubw/devfreq/*; do [ -d \"\$d\" ] && echo \"\$d\" && break; done"
@@ -353,31 +358,82 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
     }
 
     override suspend fun setBoost(level: Int): WriteResult = withContext(Dispatchers.IO) {
+        val activeDevfreq = resolveActiveDevfreq()
         val target = level.coerceIn(0, 3).toString()
-        val r1 = NodeWriter.writeVerified("$devfreqDir/adrenoboost", target)
+        val r1 = NodeWriter.writeVerified("$activeDevfreq/adrenoboost", target)
         if (r1 is WriteResult.Applied) return@withContext r1
-        NodeWriter.writeVerified("$devfreqDir/adreno_boost", target)
+        NodeWriter.writeVerified("$activeDevfreq/adreno_boost", target)
     }
 
     override suspend fun setFrequencyRange(minMhz: Int?, maxMhz: Int?): WriteResult = withContext(Dispatchers.IO) {
+        val activeDevfreq = resolveActiveDevfreq()
+
+        // Read available frequencies to build descending OPP table (Index 0 = Highest Clock in KGSL)
+        val availRaw = Shell.cmd(
+            "cat $kgslDir/gpu_available_frequencies 2>/dev/null || cat $activeDevfreq/available_frequencies 2>/dev/null"
+        ).exec().out.joinToString(" ").trim()
+
+        val freqsDesc = availRaw.split(Regex("\\s+"))
+            .mapNotNull { it.toLongOrNull() }
+            .map { if (it > 1_000_000L) (it / 1_000_000L).toInt() else if (it > 10_000L) (it / 1000L).toInt() else it.toInt() }
+            .filter { it > 0 }
+            .distinct()
+            .sortedDescending()
+
+        // Detect devfreq unit
+        val rawTokens = availRaw.split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
+        val isDevfreqHz = rawTokens.any { it > 10_000_000L }
+        val isDevfreqKhz = !isDevfreqHz && rawTokens.any { it > 10_000L }
+
         var res: WriteResult = WriteResult.Applied
+
         if (minMhz != null && minMhz > 0) {
-            val r1 = NodeWriter.writeVerified("$devfreqDir/min_freq", (minMhz * 1000000L).toString())
+            val minValStr = when {
+                isDevfreqHz -> (minMhz * 1_000_000L).toString()
+                isDevfreqKhz -> (minMhz * 1_000L).toString()
+                else -> minMhz.toString()
+            }
+            val r1 = NodeWriter.writeVerified("$activeDevfreq/min_freq", minValStr)
             NodeWriter.writeVerified("$kgslDir/min_clock_mhz", minMhz.toString())
+            if (freqsDesc.isNotEmpty()) {
+                // max_pwrlevel clamps the FLOOR (cannot drop to lower frequency / higher pwrlevel index)
+                val minPwrIdx = freqsDesc.indexOfLast { it >= minMhz }
+                if (minPwrIdx >= 0) {
+                    NodeWriter.writeVerified("$kgslDir/max_pwrlevel", minPwrIdx.toString())
+                }
+            }
             if (r1 is WriteResult.Rejected) res = r1
         }
+
         if (maxMhz != null && maxMhz > 0) {
-            val r2 = NodeWriter.writeVerified("$devfreqDir/max_freq", (maxMhz * 1000000L).toString())
+            val maxValStr = when {
+                isDevfreqHz -> (maxMhz * 1_000_000L).toString()
+                isDevfreqKhz -> (maxMhz * 1_000L).toString()
+                else -> maxMhz.toString()
+            }
+            val r2 = NodeWriter.writeVerified("$activeDevfreq/max_freq", maxValStr)
             NodeWriter.writeVerified("$kgslDir/max_clock_mhz", maxMhz.toString())
-            // Pastikan min_pwrlevel diset ke 0 agar Power Level 0 (clock overclock tertinggi seperti 750 MHz) tidak dibatasi
-            NodeWriter.writeVerified("$kgslDir/min_pwrlevel", "0")
+            NodeWriter.writeVerified("$kgslDir/max_gpuclk", (maxMhz * 1_000_000L).toString())
+
+            if (freqsDesc.isNotEmpty()) {
+                // In Adreno KGSL, Level 0 is highest clock, higher index = lower clock.
+                // min_pwrlevel clamps the CEILING: the driver is strictly prohibited from entering
+                // any power level with an index lower than maxPwrIdx.
+                val maxPwrIdx = freqsDesc.indexOfFirst { it <= maxMhz }
+                if (maxPwrIdx >= 0) {
+                    NodeWriter.writeVerified("$kgslDir/min_pwrlevel", maxPwrIdx.toString())
+                    NodeWriter.writeVerified("$kgslDir/default_pwrlevel", maxPwrIdx.toString())
+                }
+            }
             if (r2 is WriteResult.Rejected) res = r2
         }
+
         res
     }
 
     override suspend fun setGovernor(governor: String): WriteResult = withContext(Dispatchers.IO) {
-        NodeWriter.writeVerified("$devfreqDir/governor", governor)
+        val activeDevfreq = resolveActiveDevfreq()
+        NodeWriter.writeVerified("$activeDevfreq/governor", governor)
     }
 
     override suspend fun setThermalBypass(enabled: Boolean): WriteResult = withContext(Dispatchers.IO) {

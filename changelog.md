@@ -1,3 +1,25 @@
+# Lynx Universal [Adreno Inverted Power-Level Clamping & Master GPU Clock Synchronizer] 7.0.0-RC161
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC161** (Lynx Kernel Manager v3.2.07): **Perbaikan Kritis Sistem Clamping Frekuensi GPU Qualcomm Adreno KGSL & Sinkronisasi Presisi Master Tuner UI: Memperbaiki Logika Pemetaan Power Level Kernel Adreno (Di Mana Index 0 Adalah Frekuensi Tertinggi dan Index Terbesar Adalah Frekuensi Terendah) Sehingga Pemilihan Batas Frekuensi Maksimum (Contoh: 465 MHz) Secara Akurat Menyetel `min_pwrlevel` dan `default_pwrlevel` ke Indeks Power Level yang Tepat (Contoh: Level 3), Secara Fisik Memblokir Driver KGSL Kernel & Governor `msm-adreno-tz` Agar Tidak Melompat ke Frekuensi Lebih Tinggi (588 MHz / Level 2, 647 MHz / Level 1, 750 MHz / Level 0); Memperbaiki Resolusi Multi-Path Dinamis Devfreq (`/sys/class/devfreq/*kgsl*` & SoC Platform) Serta Deteksi Otomatis Unit Frekuensi Devfreq (Hz vs kHz vs MHz); Mengoreksi Bug Logika Ternary UI pada Badge Maksimum `GpuMasterTunerCard.kt` yang Sebelumnya Salah Menampilkan Frekuensi Aktif Sebagai Frekuensi Maksimum Saat Frekuensi Aktif Lebih Tinggi dari Target Maksimum; Serta Mengharmonisasi Clamping Power Level pada Native Rust Daemon `lynxd` dan Shell Fallback Repository**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC161)
+
+### 1. ⚡ Perbaikan Kritis Clamping Power Level Adreno KGSL (`min_pwrlevel` & `max_pwrlevel`)
+- **Masalah Teridentifikasi**: Pada arsitektur driver GPU Qualcomm KGSL, urutan Power Level bersifat *inverted* (terbalik): `Level 0 = 750 MHz (Overclock Peak)`, `Level 1 = 647 MHz`, `Level 2 = 588 MHz`, `Level 3 = 465 MHz`, `Level 4 = 370 MHz`, `Level 5 = 266 MHz`, `Level 6 = 160 MHz`. Parameter `min_pwrlevel` adalah *ceiling bound* (indeks level minimum yang diizinkan, alias batas atas frekuensi). Sebelumnya, kode menuliskan `echo 0 > min_pwrlevel` yang membuka izin bagi kernel untuk melompat ke Level 0 (750 MHz). Akibatnya, saat pengguna memilih batas maksimum 465 MHz, governor hardware tetap melompat ke Level 2 (588 MHz) saat rendering UI.
+- **Solusi Tepat**: Memetakan target frekuensi maksimum (`maxMhz`) ke indeks level yang tepat (misal: 465 MHz -> Level 3) dan menulis `min_pwrlevel = 3` serta `default_pwrlevel = 3`. Ini secara fisik mengunci kernel driver agar dilarang keras memasuki Level 0, 1, dan 2. Untuk batas minimum (`minMhz`), sistem menyetel `max_pwrlevel` ke indeks level terkait sehingga GPU tidak turun di bawah batas tersebut.
+
+### 2. 🔍 Dynamic Multi-Path Devfreq & Auto-Detect Frequency Units
+- **Resolusi Jalur Devfreq**: Menggantikan path devfreq statis dengan pemindai multi-jalur dinamis (`/sys/class/kgsl/kgsl-3d0/devfreq`, `/sys/class/devfreq/*kgsl-3d0*`, dan `/sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/*`).
+- **Deteksi Unit Frekuensi Otomatis**: Mendeteksi secara dinamis apakah kernel mengharapkan unit Hz (`freq * 1.000.000`), kHz (`freq * 1.000`), atau MHz murni dari token `available_frequencies`.
+
+### 3. 🎯 Perbaikan Bug Logika Badge UI Maksimum (`GpuMasterTunerCard.kt`)
+- **Akurasi Badge Maksimum**: Mengeliminasi logika `if (gpu.curFreqMhz > gpu.maxFreqMhz) gpu.curFreqMhz else gpu.maxFreqMhz` yang sebelumnya salah menimpa badge "Maks:" menjadi 588 MHz saat frekuensi aktif sesaat terbaca lebih tinggi, mengembalikan sinkronisasi 100% dengan dropdown "Frekuensi Max: 465 MHz".
+
+### 4. 🦀 Sinkronisasi Native Engine Rust (`lynxd`) & Shell Fallback
+- **Penyelarasan Algoritma**: Mengimplementasikan pemetaan indeks Power Level yang sama persis pada modul native Rust `lynxd` (`GpuController::set_freq`) dan shell fallback di `LynxGpuControlRepository.kt`.
+
+---
+
 # Lynx Universal [Ground-Truth Display Modes, Force FPS Unlocker & Visual OPP Power Level Matrix] 7.0.0-RC160
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC160** (Lynx Kernel Manager v3.2.06): **Overhaul Total Subsistem Display & Diagnostik GPU Silikon: Mengeliminasi Pembatasan Hardcoded Refresh Rate (60/90/120Hz) dan Menghadirkan Ground-Truth Hardware Detection Berbasis `Display.supportedModes` Android Framework untuk Mendeteksi 100% Presisi Mode Fisik Panel (Termasuk 60Hz Native Tunggal, 90Hz, 120Hz, 144Hz, 165Hz, hingga 240Hz E-Sports); Menghadirkan Fitur "Force Peak FPS Unlocker" (Bypass Limit Game/Aplikasi: 90, 120, 144, 240 FPS) untuk Membuka Kunci Frame Rate Game Tanpa Batas; Menambahkan Tweak Multithreaded Skia HWUI Shader Compiler (`debug.hwui.compiler_threads` 2/4 Threads) pada Tab Tuning untuk Mengeliminasi Micro-Stutter Saat Kompilasi Shader Grafis 3D; Serta Memperkaya Tab "Info" (Diagnostik Hardware) dengan Tabel Visual Frekuensi Kernel OPP & Pemetaan Driver Power Level (`GpuOppTableCard.kt`) dan Matriks Kapabilitas Ekstensi Vulkan/Hardware (ASTC, Float16, Int8, Subgroups, Descriptor Indexing)**.

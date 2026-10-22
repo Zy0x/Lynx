@@ -151,9 +151,7 @@ fun GpuMasterTunerCard(
                     color = cardAccent.copy(alpha = 0.15f),
                     border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
                 ) {
-                    val displayMax = if (gpu.maxFreqMhz > 0) {
-                        if (gpu.curFreqMhz > gpu.maxFreqMhz) gpu.curFreqMhz else gpu.maxFreqMhz
-                    } else (gpu.availFreqsMhz.maxOrNull() ?: 0)
+                    val displayMax = if (gpu.maxFreqMhz > 0) gpu.maxFreqMhz else (gpu.availFreqsMhz.maxOrNull() ?: 0)
                     Text(
                         text = if (displayMax > 0) "Maks: $displayMax MHz" else "Dynamic Clock",
                         color = cardAccent,
