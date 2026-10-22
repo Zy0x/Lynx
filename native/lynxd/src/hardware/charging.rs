@@ -884,11 +884,11 @@ impl ChargingRegulator {
                 let effective_usb_str = target_usb_ua.to_string();
                 let effective_ma_str = effective_ma.to_string();
 
-                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-                Self::write_node(&format!("{}/current_max", USB_DIR), &effective_usb_str);
-                Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+                Self::write_node_lock(&format!("{}/current_max", USB_DIR), &effective_usb_str);
+                Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+                Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
 
                 if is_qcom {
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
@@ -909,11 +909,11 @@ impl ChargingRegulator {
             if cur_fcc > 0 && cur_fcc < (target_ua - 200_000) {
                 let target_ua_str = target_ua.to_string();
                 let target_usb_str = target_usb_ua.to_string();
-                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &target_ua_str);
-                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &target_ua_str);
-                Self::write_node(&format!("{}/current_max", USB_DIR), &target_usb_str);
-                Self::write_node(&format!("{}/current_max", MAIN_DIR), &target_ua_str);
-                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &target_usb_str);
+                Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &target_ua_str);
+                Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &target_ua_str);
+                Self::write_node_lock(&format!("{}/current_max", USB_DIR), &target_usb_str);
+                Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &target_ua_str);
+                Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &target_usb_str);
             }
         }
     }

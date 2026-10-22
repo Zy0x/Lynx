@@ -395,6 +395,7 @@ class LynxViewModel : ViewModel() {
         val gedBoost: Int? = null,
         val minMhz: Int? = null,
         val maxMhz: Int? = null,
+        val isLocked: Boolean? = null,
         val timestamp: Long = System.currentTimeMillis()
     )
     @Volatile internal var activeGpuIntent: GpuIntent? = null
@@ -589,11 +590,15 @@ class LynxViewModel : ViewModel() {
         val intent = activeGpuIntent ?: return rawGpu
         val now = System.currentTimeMillis()
         return if (now - intent.timestamp < 3500L) {
+            val effMin = intent.minMhz ?: rawGpu.minFreqMhz
+            val effMax = intent.maxMhz ?: rawGpu.maxFreqMhz
+            val effLocked = intent.isLocked ?: (effMin > 0 && effMin == effMax)
             rawGpu.copy(
                 adrenoBoostLevel = if (rawGpu.platform == "adreno" && intent.adrenoBoost != null) intent.adrenoBoost else rawGpu.adrenoBoostLevel,
                 gedBoostLevel = if (rawGpu.platform == "mali_ged" && intent.gedBoost != null) intent.gedBoost else rawGpu.gedBoostLevel,
-                minFreqMhz = intent.minMhz ?: rawGpu.minFreqMhz,
-                maxFreqMhz = intent.maxMhz ?: rawGpu.maxFreqMhz
+                minFreqMhz = effMin,
+                maxFreqMhz = effMax,
+                isLocked = effLocked
             )
         } else {
             activeGpuIntent = null

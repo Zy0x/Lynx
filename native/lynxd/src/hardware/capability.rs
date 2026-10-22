@@ -351,6 +351,26 @@ impl HardwareCapability {
             available_freqs_mhz.sort_unstable();
             available_freqs_mhz.dedup();
 
+            let mut freqs_desc = available_freqs_mhz.clone();
+            freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
+            freqs_desc.dedup();
+
+            let pwr_max = SysfsReader::read_int::<usize>("/sys/class/kgsl/kgsl-3d0/max_pwrlevel").ok();
+            let pwr_min = SysfsReader::read_int::<usize>("/sys/class/kgsl/kgsl-3d0/min_pwrlevel").ok();
+
+            if let Some(idx) = pwr_max {
+                if let Some(&ceiling_mhz) = freqs_desc.get(idx) {
+                    max_freq_mhz = ceiling_mhz;
+                }
+            }
+            if let Some(idx) = pwr_min {
+                if let Some(&floor_mhz) = freqs_desc.get(idx) {
+                    if min_freq_mhz == 0 || min_freq_mhz < floor_mhz {
+                        min_freq_mhz = floor_mhz;
+                    }
+                }
+            }
+
             if min_freq_mhz == 0 {
                 min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
             }
@@ -359,6 +379,24 @@ impl HardwareCapability {
             }
             if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
+
+            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            if is_cfg_locked && locked_f > 0 {
+                min_freq_mhz = locked_f;
+                max_freq_mhz = locked_f;
+            }
+
+            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            if is_cfg_locked && locked_f > 0 {
+                min_freq_mhz = locked_f;
+                max_freq_mhz = locked_f;
             }
 
             let mut available_governors = Vec::new();
@@ -441,6 +479,15 @@ impl HardwareCapability {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
 
+            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            if is_cfg_locked && locked_f > 0 {
+                min_freq_mhz = locked_f;
+                max_freq_mhz = locked_f;
+            }
+
             let cur_governor = SysfsReader::read_trimmed("/sys/kernel/ged/hal/dvfs_loading_mode")
                 .or_else(|_| SysfsReader::read_trimmed("/sys/module/ged/parameters/cpu_boost_policy"))
                 .unwrap_or_else(|_| "ged".to_string());
@@ -499,6 +546,15 @@ impl HardwareCapability {
                 .unwrap_or(0);
             if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
+
+            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            if is_cfg_locked && locked_f > 0 {
+                min_freq_mhz = locked_f;
+                max_freq_mhz = locked_f;
             }
             let cur_governor = SysfsReader::read_trimmed(devpath.join("governor"))
                 .unwrap_or_else(|_| "simple_ondemand".to_string());

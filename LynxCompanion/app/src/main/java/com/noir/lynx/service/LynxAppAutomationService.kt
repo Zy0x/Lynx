@@ -80,6 +80,11 @@ class LynxAppAutomationService : Service() {
                             LynxRepository.setProfile(base, caller = "watcher")
                         }
                     }
+                    serviceScope.launch(Dispatchers.IO) {
+                        try {
+                            LynxRepository.applySavedChargingConfig()
+                        } catch (_: Exception) {}
+                    }
                     // NEVER FORCE POWERSAVE ON SCREEN OFF!
                     // Keeping baselineProfile allows kernel cpuidle/C-states to sleep at 0mA
                     // without throttling frequencies or parking Big cores upon wakeup.
@@ -93,6 +98,9 @@ class LynxAppAutomationService : Service() {
                         if (LynxRepository.lastActiveProfile == "powersave") {
                             LynxRepository.setProfile(base, caller = "watcher")
                         }
+                        try {
+                            LynxRepository.applySavedChargingConfig()
+                        } catch (_: Exception) {}
                         triggerWakeupBoost()
                         val (pct, tempC) = getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {

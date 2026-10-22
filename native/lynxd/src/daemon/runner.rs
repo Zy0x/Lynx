@@ -89,9 +89,11 @@ impl DaemonRunner {
                 match current_screen {
                     ScreenState::Off => {
                         Logger::info(ui("[DAEMON] Layar MATI terdeteksi. Perlindungan tidur dalam aktif (interval loop 20 dtk).", "[DAEMON] Screen OFF detected. Activating Deep Sleep Shield (loop throttled to 20s)."));
+                        ChargingRegulator::apply_from_config();
                     }
                     ScreenState::On => {
                         Logger::info(ui("[DAEMON] Layar MENYALA terdeteksi. Pemantauan aktif dilanjutkan (interval: 5 dtk).", "[DAEMON] Screen ON detected. Resuming active monitoring (interval: 5s)."));
+                        ChargingRegulator::apply_from_config();
                     }
                     ScreenState::Unknown => {}
                 }

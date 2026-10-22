@@ -1,3 +1,24 @@
+# Lynx Universal [GPU Frequency Ceiling Accuracy & Persistent Hardware Lock Synchronization] 7.0.0-RC167
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC167** (Lynx Kernel Manager v3.2.13): **Penyempurnaan Total Akurasi Frekuensi GPU & Sinkronisasi Penguncian Frekuensi Hardware (Hardware Lock Synchronization): Mengeliminasi Cacat Kritis Mutating Override (`curMhz > safeMax`) yang Sebelumnya Menghapus Pilihan Batas Maksimal Pengguna Secara Sepihak Saat GPU Mengalami Lonjakan Beban Sesaat; Menyatukan Logika Penguncian Frekuensi Hardware Antara Daemon Native Rust `lynxd` dan Lapisan Telemetri Android Jetpack Compose (`GpuMasterTunerCard`); Memperkuat Ketahanan Pengisian Daya Cepat Saat Layar Mati / Lock Screen Melalui Re-Applikasi Otomatis dan Proteksi Sysfs `0444`; Serta Memastikan Pengujian Langsung Berhasil 100% pada Perangkat Fisik Qualcomm Snapdragon**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC167)
+
+### 1. 🎯 Eliminasi Cacat Mutating Override Frekuensi GPU (`safeMax = curMhz`)
+- **Akar Masalah Teridentifikasi**: Pada implementasi sebelumnya di `native/lynxd/src/hardware/capability.rs` dan `LynxGpuTelemetryRepository.kt` (Tier 0 & Tier 1), terdapat invarian keliru: `if (curMhz > safeMax) safeMax = curMhz`. Ketika pengguna memilih batas frekuensi maksimal yang lebih rendah (misalnya 266 MHz atau 430 MHz), setiap kali GPU sesaat melonjak ke 588 MHz saat transisi layar atau touch-event, sistem justru menimpa `safeMax` menjadi 588 MHz. Hal ini menghapus preferensi pengguna, membatalkan status lock (`isLocked` menjadi false karena `min != max`), dan mengembalikan badge UI ke clock tertinggi.
+- **Solusi Tuntas**: Invarian yang bermutasi tersebut telah dihapus secara menyeluruh. Pilihan batas frekuensi pengguna kini berstatus *immutable* dan dihormati sepenuhnya oleh kernel dan repositori telemetri.
+
+### 2. 🔒 Sinkronisasi Penguncian Frekuensi Hardware (Hardware Lock Synchronization)
+- Daemon native `lynxd` (`capability.rs` dan `gpu.rs`) kini secara aktif membaca status `gpu.is_locked` dan `gpu.locked_freq_mhz` dari `ConfigStore`.
+- Jika penguncian aktif, driver Qualcomm Adreno, MediaTek Mali, dan Generic Devfreq secara tegas mengunci `min_freq_mhz` dan `max_freq_mhz` ke nilai yang sama, sekaligus menuliskan limit ke seluruh simpul devfreq terkait (`/sys/class/kgsl/kgsl-3d0/devfreq` dan `/sys/class/devfreq/*kgsl*`).
+- Komponen UI `LynxViewModelGpu.kt` secara instan memperbarui status `isLocked` berdasarkan kesamaan frekuensi min dan max (`minMhz == maxMhz`).
+
+### 3. ⚡ Ketahanan Pengisian Daya Cepat Saat Layar Mati / Lock Screen
+- Pada transisi layar mati (`ScreenState::Off`) dan layar menyala (`ScreenState::On`), daemon `lynxd` dan `LynxAppAutomationService` langsung mengeksekusi ulang konfigurasi pengisian daya tersimpan (`applySavedChargingConfig`).
+- Mengamankan simpul sysfs baterai dengan izin `0444` (`write_node_lock`), mencegah daemon termal OEM (`thermal-engine` / `mi_thermald`) mencekik arus kembali ke 500 mA saat ponsel terkunci.
+
+---
+
 # Lynx Universal [Autonomous Screen-Off Charging Lock & Deep Sleep Kernel WakeLock Shield] 7.0.0-RC165
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC165** (Lynx Kernel Manager v3.2.11): **Penyempurnaan Total Ketahanan Pengisian Daya Cepat & Skrip Latar Belakang Saat Layar Mati / Lock / Deep Sleep: Mengintegrasikan Manajemen Kernel WakeLock Mandiri (`/sys/power/wake_lock`), Penjagaan Invarian Hardware Real-Time (`enforce_live_charging_invariants`), dan Netralisasi Otomatis Cooling Device Baterai (`neutralise_battery_cooling_devices`); Memperbaiki Cacat Kritis di Mana Daemon `lynxd` dan Kernel Sebelumnya Melakukan Early-Return Pasif Sehingga Driver OEM (Qualcomm `thermal-engine`, `pm660_charger`, dsb.) Mencekik Arus Pengisian Daya Kembali ke 500–666 mA Saat Layar Mati atau Aplikasi Lynx Ditutup; Serta Memastikan Profil Performa Tetap Terjaga Utuh Saat Perangkat Terhubung ke Pengisi Daya Tanpa Terdegradasi**.

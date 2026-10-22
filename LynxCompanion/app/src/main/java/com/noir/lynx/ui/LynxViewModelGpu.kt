@@ -74,17 +74,22 @@ fun LynxViewModel.setGpuBoostLevel(level: Int) {
 
 fun LynxViewModel.setGpuFreq(minMhz: Int?, maxMhz: Int?) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.GPU)
+    val nextMin = minMhz ?: activeGpuIntent?.minMhz ?: _uiState.value.gpuInfo.minFreqMhz
+    val nextMax = maxMhz ?: activeGpuIntent?.maxMhz ?: _uiState.value.gpuInfo.maxFreqMhz
+    val isLockNow = if (minMhz != null && maxMhz != null) minMhz == maxMhz else (nextMin > 0 && nextMin == nextMax)
     activeGpuIntent = LynxViewModel.GpuIntent(
         adrenoBoost = activeGpuIntent?.adrenoBoost,
         gedBoost = activeGpuIntent?.gedBoost,
-        minMhz = minMhz ?: activeGpuIntent?.minMhz ?: _uiState.value.gpuInfo.minFreqMhz,
-        maxMhz = maxMhz ?: activeGpuIntent?.maxMhz ?: _uiState.value.gpuInfo.maxFreqMhz,
+        minMhz = nextMin,
+        maxMhz = nextMax,
+        isLocked = isLockNow,
         timestamp = System.currentTimeMillis()
     )
     _uiState.update { current ->
         current.copy(gpuInfo = current.gpuInfo.copy(
-            minFreqMhz = minMhz ?: current.gpuInfo.minFreqMhz,
-            maxFreqMhz = maxMhz ?: current.gpuInfo.maxFreqMhz,
+            minFreqMhz = nextMin,
+            maxFreqMhz = nextMax,
+            isLocked = isLockNow
         ))
     }
     gpuFreqDebounceJob?.cancel()
@@ -104,14 +109,26 @@ fun LynxViewModel.setGpuLock(locked: Boolean) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.GPU)
     val curGpu = _uiState.value.gpuInfo
     if (locked) {
-        val targetFreq = if (curGpu.maxFreqMhz > 0) curGpu.maxFreqMhz else (curGpu.availFreqsMhz.maxOrNull() ?: 850)
+        val targetFreq = if (curGpu.maxFreqMhz > 0) curGpu.maxFreqMhz else (curGpu.availFreqsMhz.maxOrNull() ?: 588)
+        activeGpuIntent = LynxViewModel.GpuIntent(
+            minMhz = targetFreq,
+            maxMhz = targetFreq,
+            isLocked = true,
+            timestamp = System.currentTimeMillis()
+        )
         setGpuFreq(targetFreq, targetFreq)
-        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isLocked = true)) }
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(minFreqMhz = targetFreq, maxFreqMhz = targetFreq, isLocked = true)) }
     } else {
-        val minF = curGpu.availFreqsMhz.minOrNull() ?: 300
+        val minF = curGpu.availFreqsMhz.minOrNull() ?: 160
         val maxF = curGpu.availFreqsMhz.maxOrNull() ?: curGpu.maxFreqMhz
+        activeGpuIntent = LynxViewModel.GpuIntent(
+            minMhz = minF,
+            maxMhz = maxF,
+            isLocked = false,
+            timestamp = System.currentTimeMillis()
+        )
         setGpuFreq(minF, maxF)
-        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(isLocked = false)) }
+        _uiState.update { it.copy(gpuInfo = it.gpuInfo.copy(minFreqMhz = minF, maxFreqMhz = maxF, isLocked = false)) }
     }
 }
 

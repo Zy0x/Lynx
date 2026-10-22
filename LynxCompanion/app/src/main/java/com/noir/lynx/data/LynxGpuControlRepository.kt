@@ -73,6 +73,13 @@ internal object LynxGpuControlRepository {
             }
             val minMhzVal = toMhz(minHz)
             val maxMhzVal = toMhz(maxHz)
+
+            // Tier 0: Direct Native lynxd invocation (Updates config.json + KGSL pwrlevels + devfreq atomics)
+            val lynxdPath = LynxRepository.getLynxdPath()
+            val minArg = minMhzVal ?: 0
+            val maxArg = maxMhzVal ?: 0
+            Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu set-freq $minArg $maxArg").exec()
+
             val adapterRes = GpuBackendManager.getActiveAdapter().setFrequencyRange(minMhzVal, maxMhzVal)
             if (adapterRes !is WriteResult.Rejected) return@withContext true
 

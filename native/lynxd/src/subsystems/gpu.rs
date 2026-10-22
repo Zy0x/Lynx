@@ -3,7 +3,8 @@ use std::path::Path;
 
 use crate::hardware::capability::{GpuDriver, HardwareCapability};
 use crate::hardware::detector::ScoreBoard;
-use crate::sysfs::{SysfsWriter, WriteMode};
+use crate::state::ConfigStore;
+use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 pub struct GpuController;
 
@@ -23,22 +24,36 @@ impl GpuController {
         let freqs_str: Vec<String> = gpu.available_freqs_mhz.iter().map(|f| f.to_string()).collect();
         let govs_str: Vec<String> = gpu.available_governors.iter().map(|g| format!("\"{}\"", g)).collect();
 
+        let cfg_locked = ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+        let locked_freq: u64 = ConfigStore::get("gpu.locked_freq_mhz")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+
+        let (final_min, final_max, is_locked) = if cfg_locked && locked_freq > 0 {
+            (locked_freq, locked_freq, true)
+        } else if gpu.min_freq_mhz > 0 && gpu.min_freq_mhz == gpu.max_freq_mhz {
+            (gpu.min_freq_mhz, gpu.max_freq_mhz, true)
+        } else {
+            (gpu.min_freq_mhz, gpu.max_freq_mhz, false)
+        };
+
         let mut out = String::new();
         let _ = write!(
             out,
-            "{{\"vendor\":\"{}\",\"platform\":\"{}\",\"cur_freq\":{},\"cur_mhz\":{},\"min_freq\":{},\"min_mhz\":{},\"max_freq\":{},\"max_mhz\":{},\"cur_gov\":\"{}\",\"load\":{},\"busy\":{},\"boost\":{},\"avail_freqs\":[{}],\"avail_govs\":[{}]}}",
+            "{{\"vendor\":\"{}\",\"platform\":\"{}\",\"cur_freq\":{},\"cur_mhz\":{},\"min_freq\":{},\"min_mhz\":{},\"max_freq\":{},\"max_mhz\":{},\"cur_gov\":\"{}\",\"load\":{},\"busy\":{},\"boost\":{},\"is_locked\":{},\"avail_freqs\":[{}],\"avail_govs\":[{}]}}",
             gpu.vendor_name,
             gpu.platform_tag,
             gpu.cur_freq_mhz,
             gpu.cur_freq_mhz,
-            gpu.min_freq_mhz,
-            gpu.min_freq_mhz,
-            gpu.max_freq_mhz,
-            gpu.max_freq_mhz,
+            final_min,
+            final_min,
+            final_max,
+            final_max,
             gpu.cur_governor,
             gpu.load_pct,
             gpu.load_pct,
             gpu.boost_level,
+            is_locked,
             freqs_str.join(","),
             govs_str.join(",")
         );
@@ -55,15 +70,40 @@ impl GpuController {
         let (vendor, _) = ScoreBoard::evaluate();
         let gpu = HardwareCapability::resolve_gpu(vendor);
 
+        let unit_mult: u64 = if let Ok(avail_str) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies")
+            .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")) {
+            if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000_000) {
+                1_000_000
+            } else if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000) {
+                1_000
+            } else {
+                1
+            }
+        } else {
+            1_000_000
+        };
+
         if target_min == 0 && target_max == 0 {
+            let _ = ConfigStore::set_batch(&[
+                ("gpu.is_locked".to_string(), "false".to_string(), Some("bool".to_string())),
+                ("gpu.locked_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+                ("gpu.min_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+                ("gpu.max_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+            ]);
+
             match gpu.driver {
                 GpuDriver::QcomKgsl => {
                     let min_f = gpu.available_freqs_mhz.first().copied().unwrap_or(160);
                     let max_f = gpu.available_freqs_mhz.last().copied().unwrap_or(710);
+                    let lowest_idx = gpu.num_pwrlevels.saturating_sub(1);
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", lowest_idx.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", "0");
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", "0");
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/pwrscale", "1");
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", min_f.to_string());
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", max_f.to_string());
-                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (min_f * 1_000_000).to_string());
-                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (max_f * 1_000_000).to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", "0");
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (max_f * unit_mult).to_string());
                     return "Adreno GPU clock reset to Auto DVFS.".to_string();
                 }
                 GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
@@ -118,14 +158,33 @@ impl GpuController {
             }
         }
 
+        let is_locked = target_min == target_max;
+        let _ = ConfigStore::set_batch(&[
+            ("gpu.is_locked".to_string(), is_locked.to_string(), Some("bool".to_string())),
+            ("gpu.locked_freq_mhz".to_string(), if is_locked { target_max.to_string() } else { "0".to_string() }, Some("val".to_string())),
+            ("gpu.min_freq_mhz".to_string(), target_min.to_string(), Some("val".to_string())),
+            ("gpu.max_freq_mhz".to_string(), target_max.to_string(), Some("val".to_string())),
+        ]);
+
         match gpu.driver {
             GpuDriver::QcomKgsl => {
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", target_max.to_string());
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", target_min.to_string());
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_gpuclk", (target_max * 1_000_000).to_string());
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", "0");
-                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (target_max * 1_000_000).to_string());
-                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (target_min * 1_000_000).to_string());
+                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (target_max * unit_mult).to_string());
+                Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (target_min * unit_mult).to_string());
+
+                if let Ok(entries) = std::fs::read_dir("/sys/class/devfreq") {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.to_string_lossy().contains("kgsl") {
+                            Self::write_opt(path.join("min_freq"), "0");
+                            Self::write_opt(path.join("max_freq"), (target_max * unit_mult).to_string());
+                            Self::write_opt(path.join("min_freq"), (target_min * unit_mult).to_string());
+                        }
+                    }
+                }
 
                 // Clamp KGSL power level indices:
                 // max_pwrlevel is the ceiling (maximum performance / lower index)

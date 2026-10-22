@@ -159,22 +159,22 @@ internal object LynxGpuTelemetryRepository {
     suspend fun readGpuInfo(): GpuInfo = withContext(Dispatchers.IO) {
         try {
             // Tier 0: lynxd Native Fast-Path (<1ms, single native binary call)
-            if (LynxRepository.isModuleInstalled()) {
-                val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-                val gpuRes = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu info 2>/dev/null").exec()
-                if (gpuRes.isSuccess && gpuRes.out.isNotEmpty()) {
-                    val raw = gpuRes.out.joinToString("\n").trim()
-                    if (raw.startsWith("{")) {
-                        try {
-                            val j = JSONObject(raw)
-                            val plat = j.optString("platform", "generic")
-                            val vendor = j.optString("vendor", "")
-                            val curMhz = j.optInt("cur_mhz", j.optInt("cur_freq", 0))
-                            val minMhz = j.optInt("min_mhz", j.optInt("min_freq", 0))
-                            val maxMhz = j.optInt("max_mhz", j.optInt("max_freq", 0))
-                            val curGov = j.optString("cur_gov", "")
-                            val loadPct = j.optInt("load", j.optInt("busy", 0))
-                            val boost = j.optInt("boost", 0)
+            val lynxdPath = LynxRepository.getLynxdPath()
+            val gpuRes = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu info 2>/dev/null").exec()
+            if (gpuRes.isSuccess && gpuRes.out.isNotEmpty()) {
+                val raw = gpuRes.out.joinToString("\n").trim()
+                if (raw.startsWith("{")) {
+                    try {
+                        val j = JSONObject(raw)
+                        val plat = j.optString("platform", "generic")
+                        val vendor = j.optString("vendor", "")
+                        val curMhz = j.optInt("cur_mhz", j.optInt("cur_freq", 0))
+                        val minMhz = j.optInt("min_mhz", j.optInt("min_freq", 0))
+                        val maxMhz = j.optInt("max_mhz", j.optInt("max_freq", 0))
+                        val isLocked = j.optBoolean("is_locked", false)
+                        val curGov = j.optString("cur_gov", "")
+                        val loadPct = j.optInt("load", j.optInt("busy", 0))
+                        val boost = j.optInt("boost", 0)
 
                             val freqs = mutableListOf<Int>()
                             val fArr = j.optJSONArray("avail_freqs")
@@ -202,7 +202,7 @@ internal object LynxGpuTelemetryRepository {
 
                             val adrenoBoost = if (plat == "adreno") boost else 0
                             val gedBoost = if (plat == "mali_ged") boost else 0
-                            val isLocked = minMhz > 0 && minMhz == maxMhz
+                            val isLockedResolved = isLocked || (minMhz > 0 && minMhz == maxMhz)
 
                             synchronized(LynxRepository.gpuLoadRingBuffer) {
                                 LynxRepository.gpuLoadRingBuffer.add(loadPct)
@@ -280,10 +280,9 @@ internal object LynxGpuTelemetryRepository {
                             var safeMin = minMhz
                             var safeMax = maxMhz
                             if (safeMin > safeMax && safeMax > 0) {
-                                val t = safeMin
-                                safeMin = safeMax
-                                safeMax = t
+                                val t = safeMin; safeMin = safeMax; safeMax = t
                             }
+                            val finalLocked = isLocked || (safeMin > 0 && safeMin == safeMax && freqs.size > 1)
 
                             return@withContext GpuInfo(
                                 minFreqMhz = safeMin,
@@ -297,7 +296,7 @@ internal object LynxGpuTelemetryRepository {
                                 currentGovernor = curGov,
                                 availableGovernors = govs,
                                 subArchitecture = subArch,
-                                isLocked = isLocked,
+                                isLocked = finalLocked,
                                 powerPolicy = "always_on",
                                 isThrottlingBypassed = thrmBypass,
                                 isBusAlwaysOn = busOn,
@@ -322,7 +321,6 @@ internal object LynxGpuTelemetryRepository {
                         }
                     }
                 }
-            }
 
             // Tier 1: Fallback Standalone / Legacy Shell Script
             val script = """
@@ -591,21 +589,17 @@ internal object LynxGpuTelemetryRepository {
             // On Qualcomm Adreno KGSL, max_pwrlevel and min_pwrlevel explicitly bound the physical driver
             if (platform == "adreno" && availFreqs.isNotEmpty()) {
                 val freqsDesc = availFreqs.sortedDescending()
-                if (adPwr in freqsDesc.indices) {
-                    val kgslCeilingMhz = freqsDesc[adPwr]
-                    safeMax = if (safeMax > 0) minOf(safeMax, kgslCeilingMhz) else kgslCeilingMhz
-                }
+                if (adPwr in freqsDesc.indices) safeMax = freqsDesc[adPwr]
                 if (adMinPwr in freqsDesc.indices) {
-                    val kgslFloorMhz = freqsDesc[adMinPwr]
-                    safeMin = if (safeMin > 0) maxOf(safeMin, kgslFloorMhz) else kgslFloorMhz
+                    val kgslFloor = freqsDesc[adMinPwr]
+                    safeMin = if (rawMinMhz > kgslFloor) rawMinMhz else kgslFloor
                 }
             }
 
             if (safeMin > safeMax && safeMax > 0) {
-                val t = safeMin
-                safeMin = safeMax
-                safeMax = t
+                val t = safeMin; safeMin = safeMax; safeMax = t
             }
+            val curMhzVal = toMhz(curHz)
             val finalMin = safeMin
             val finalMax = safeMax
             val isLocked = (finalMin > 0 && finalMin == finalMax)
