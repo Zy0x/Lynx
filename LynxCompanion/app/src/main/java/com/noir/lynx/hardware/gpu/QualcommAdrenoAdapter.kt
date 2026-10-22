@@ -362,12 +362,16 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
     override suspend fun setFrequencyRange(minMhz: Int?, maxMhz: Int?): WriteResult = withContext(Dispatchers.IO) {
         var res: WriteResult = WriteResult.Applied
         if (minMhz != null && minMhz > 0) {
-            val r = NodeWriter.writeVerified("$devfreqDir/min_freq", (minMhz * 1000000L).toString())
-            if (r is WriteResult.Rejected) res = r
+            val r1 = NodeWriter.writeVerified("$devfreqDir/min_freq", (minMhz * 1000000L).toString())
+            NodeWriter.writeVerified("$kgslDir/min_clock_mhz", minMhz.toString())
+            if (r1 is WriteResult.Rejected) res = r1
         }
         if (maxMhz != null && maxMhz > 0) {
-            val r = NodeWriter.writeVerified("$devfreqDir/max_freq", (maxMhz * 1000000L).toString())
-            if (r is WriteResult.Rejected) res = r
+            val r2 = NodeWriter.writeVerified("$devfreqDir/max_freq", (maxMhz * 1000000L).toString())
+            NodeWriter.writeVerified("$kgslDir/max_clock_mhz", maxMhz.toString())
+            // Pastikan min_pwrlevel diset ke 0 agar Power Level 0 (clock overclock tertinggi seperti 750 MHz) tidak dibatasi
+            NodeWriter.writeVerified("$kgslDir/min_pwrlevel", "0")
+            if (r2 is WriteResult.Rejected) res = r2
         }
         res
     }

@@ -80,8 +80,9 @@ internal object LynxGpuControlRepository {
             val script = """
                 if [ -d /sys/class/kgsl/kgsl-3d0/devfreq ]; then
                     D="/sys/class/kgsl/kgsl-3d0/devfreq"
-                    ${if (minHz != null) "chmod 644 \$D/min_freq 2>/dev/null; echo $minHz > \$D/min_freq 2>/dev/null;" else ""}
-                    ${if (maxHz != null) "chmod 644 \$D/max_freq 2>/dev/null; echo $maxHz > \$D/max_freq 2>/dev/null;" else ""}
+                    K="/sys/class/kgsl/kgsl-3d0"
+                    ${if (minHz != null) "chmod 644 \$D/min_freq 2>/dev/null; echo $minHz > \$D/min_freq 2>/dev/null; echo ${toMhz(minHz)} > \$K/min_clock_mhz 2>/dev/null;" else ""}
+                    ${if (maxHz != null) "chmod 644 \$D/max_freq 2>/dev/null; echo $maxHz > \$D/max_freq 2>/dev/null; echo ${toMhz(maxHz)} > \$K/max_clock_mhz 2>/dev/null; echo 0 > \$K/min_pwrlevel 2>/dev/null;" else ""}
                     echo ok
                 elif [ -d /proc/gpufreq ] || [ -d /sys/module/ged ] || [ -d /sys/kernel/ged/hal ]; then
                     ${if (isLock && maxMhzVal != null) """

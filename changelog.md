@@ -1,3 +1,15 @@
+# Lynx Universal [Unrestricted Overclock OPP Unlocking & Qualcomm KGSL PwrLevel Guard] 7.0.0-RC159
+Released on: 2026-10-22
+> **Lynx Universal v7.0.0-RC159** (Lynx Kernel Manager v3.2.05): **Optimasi Driver Hardware GPU Qualcomm Adreno KGSL — Pembukaan Akses Penuh ke Tabel Frekuensi Overclock (750 MHz+) & Eliminasi Pembatasan Power Level Minimum: Memperbarui `QualcommAdrenoAdapter.kt` dan `LynxGpuControlRepository.kt` Agar Secara Bersamaan Menuliskan Frekuensi Target ke Node Devfreq (`devfreq/min_freq`, `devfreq/max_freq`) dan Node Driver Inti KGSL (`min_clock_mhz`, `max_clock_mhz`), Serta Secara Otomatis Mengatur `min_pwrlevel=0` Saat Pengguna Memilih Frekuensi Puncak Kustom (Termasuk 750 MHz Overclock OPP) Agar Penjadwal Hardware Silikon Adreno Tidak Membatasi Power Level 0; Menyempurnakan Responsivitas Dynamic Frequency Selection dan Kunci Frekuensi pada `GpuMasterTunerCard`**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC159)
+
+### 1. ⚡ Unrestricted Overclock OPP Unlocking (Qualcomm Adreno KGSL)
+- **Sinkronisasi Ganda Devfreq & Direct KGSL**: Menjamin instruksi pengubahan frekuensi minimum dan maksimum ditulis serentak ke bus devfreq (`devfreq/min_freq`, `devfreq/max_freq`) dan node direct GPU controller (`min_clock_mhz`, `max_clock_mhz`).
+- **Power Level 0 Guard (`min_pwrlevel=0`)**: Memastikan batas atas daya (*lowest power level index*) direset ke 0 saat frekuensi tertinggi atau overclock (seperti 750 MHz pada kernel custom) dipilih, mencegah kernel menjepit frekuensi pada batas stock 647 MHz / 588 MHz.
+
+---
+
 # Lynx Universal [Zen Bento Subscreen Redesign & Unified Design Language System] 7.0.0-RC158
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC158** (Lynx Kernel Manager v3.2.04): **Harmonisasi Estetika Menyeluruh Seluruh Subscreen Mengikuti Standar Emas Profil Performa Kernel: Menghadirkan Zen Reassurance Hero Card dengan Dual-Layer Pulse Indicator, Status Badge Reassuring, dan Calm Unified Telemetry Ribbon pada Subscreen Termal (`ThermalHeroCard.kt`), Memori & ZRAM (`MemoryHeroCard.kt`), Serta Subsystem Kernel (`SystemSubscreen.kt`); Menerapkan 2x2 Bento Matrix Touch-First (≥48dp) 1-Tap pada Subscreen Termal Sehingga Mengeliminasi Total Duplikasi Preset di Bawah Layar; Mengganti Banner Peringatan Merah Menegangkan dengan Reassuring Safety Advisory Card Berperisai Oranye Tenang; Menghapus Total Kartu Notifikasi Relokasi Usang (AI Slop) pada Subsystem; Mengatasi Slider Fatigue dengan Progressive Disclosure pada Parameter Virtual Memory Lanjutan di `MemorySubscreen.kt`; Serta Menyelaraskan Selektor Mode Pengisian Daya (`FastChargingControlCard.kt`) dan Mode Game HUD (`GameHudSubscreen.kt`) ke Format 2-Column Bento Modern Beranimasi**.
