@@ -228,11 +228,33 @@ internal object LynxGraphicsEngineRepository {
     suspend fun setHwuiRenderer(backend: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = when (backend) {
-                "auto" -> "setprop debug.hwui.renderer ''; setprop debug.angle.backend ''"
-                "skiagl" -> "setprop debug.hwui.renderer skiagl; setprop debug.angle.backend ''"
-                "skiavk" -> "setprop debug.hwui.renderer skiavk; setprop debug.angle.backend ''"
-                "skiagraphite" -> "setprop debug.hwui.renderer skiagraphite; setprop debug.angle.backend ''"
-                "angle" -> "setprop debug.hwui.renderer angle; setprop debug.angle.backend vulkan"
+                "auto" -> """
+                    setprop debug.hwui.renderer ''
+                    setprop debug.angle.backend ''
+                    setprop renderthread.skia.pipeline ''
+                    setprop debug.renderengine.backend ''
+                """.trimIndent()
+                "skiagl" -> """
+                    setprop debug.hwui.renderer skiagl
+                    setprop debug.angle.backend ''
+                    setprop renderthread.skia.pipeline OpenGL
+                    setprop debug.renderengine.backend skiagl
+                """.trimIndent()
+                "skiavk" -> """
+                    setprop debug.hwui.renderer skiavk
+                    setprop debug.angle.backend ''
+                    setprop renderthread.skia.pipeline Vulkan
+                    setprop debug.renderengine.backend skiavk
+                """.trimIndent()
+                "skiagraphite" -> """
+                    setprop debug.hwui.renderer skiagraphite
+                    setprop debug.angle.backend ''
+                    setprop renderthread.skia.pipeline Graphite
+                """.trimIndent()
+                "angle" -> """
+                    setprop debug.hwui.renderer angle
+                    setprop debug.angle.backend vulkan
+                """.trimIndent()
                 else -> "setprop debug.hwui.renderer '$backend'"
             }
             Shell.cmd(script).exec().isSuccess

@@ -429,7 +429,17 @@ fun LynxViewModel.setHwuiRenderer(backend: String) {
     recordStateMutation()
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(hwuiRenderer = backend)) }
     viewModelScope.launch {
-        LynxRepository.setHwuiRenderer(backend)
+        val ok = LynxRepository.setHwuiRenderer(backend)
+        if (ok) {
+            val label = when (backend) {
+                "skiavk" -> "SkiaVK (Vulkan)"
+                "skiagl" -> "SkiaGL (OpenGL ES)"
+                "skiagraphite" -> "Skia Graphite"
+                "angle" -> "ANGLE (Vulkan)"
+                else -> "Standar Auto"
+            }
+            _uiState.update { it.copy(successMessage = "HWUI Renderer diatur ke $label — restart aplikasi/sistem untuk menerapkan") }
+        }
     }
 }
 
