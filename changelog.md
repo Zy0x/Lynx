@@ -1,3 +1,29 @@
+# Lynx Universal [Autonomous Screen-Off Charging Lock & Deep Sleep Kernel WakeLock Shield] 7.0.0-RC165
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC165** (Lynx Kernel Manager v3.2.11): **Penyempurnaan Total Ketahanan Pengisian Daya Cepat & Skrip Latar Belakang Saat Layar Mati / Lock / Deep Sleep: Mengintegrasikan Manajemen Kernel WakeLock Mandiri (`/sys/power/wake_lock`), Penjagaan Invarian Hardware Real-Time (`enforce_live_charging_invariants`), dan Netralisasi Otomatis Cooling Device Baterai (`neutralise_battery_cooling_devices`); Memperbaiki Cacat Kritis di Mana Daemon `lynxd` dan Kernel Sebelumnya Melakukan Early-Return Pasif Sehingga Driver OEM (Qualcomm `thermal-engine`, `pm660_charger`, dsb.) Mencekik Arus Pengisian Daya Kembali ke 500–666 mA Saat Layar Mati atau Aplikasi Lynx Ditutup; Serta Memastikan Profil Performa Tetap Terjaga Utuh Saat Perangkat Terhubung ke Pengisi Daya Tanpa Terdegradasi**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC165)
+
+### 1. ⚡ Penguncian Arus Pengisian Daya Tanpa Reversi (Screen-Off & Lock Screen Persistence)
+- **Akar Masalah Teridentifikasi**: Saat pengguna membuka aplikasi Lynx Companion, pengaturan pengisian daya (Hyper / Custom / Cool) diaplikasikan secara instan ke sysfs kernel. Namun, begitu aplikasi ditutup atau layar dimatikan (lock screen / deep sleep), `thermal-engine` milik OEM Qualcomm dan workqueue kernel secara berkala menuliskan limit baru ke `constant_charge_current_max` (menurunkannya ke 500–666 mA) serta mengaktifkan cooling device baterai ke status pembatasan.
+- **Bug Early-Return Pasif**: Sebelumnya, fungsi evaluasi `apply_from_config()` di `charging.rs` hanya memeriksa apakah file marker `/dev/` ada dan apakah `input_suspend=0` serta `charging_enabled=1`. Daemon berasumsi bahwa pengisian daya sudah berjalan normal sehingga tidak mengecek nilai riil register arus kernel, membiarkan arus terkunci di kecepatan rendah OEM.
+- **Solusi Invarian Aktif**: `enforce_live_charging_invariants()` kini berjalan pada setiap siklus `tick()`, langsung membaca register hardware riil (`constant_charge_current_max`, `current_max`, `input_current_limit`). Jika terdeteksi penurunan di bawah target pengguna, daemon seketika menuliskan ulang batas puncak pengguna (<1 detik).
+
+### 2. 🛡️ Netralisasi Cooling Device Baterai & Throttling `thermal-engine`
+- Fungsi `neutralise_battery_cooling_devices()` secara proaktif memindai seluruh `/sys/class/thermal/cooling_device*` bertipe `battery`, `batt`, `charger`, atau `pm660`.
+- Jika ditemukan `cur_state > 0` (pembatasan aktif yang dipicu oleh sensor termal OEM `quiet-therm-adc`), daemon seketika me-reset ke `0` dan menguncinya dengan izin `0444`, mencegah `thermal-engine` mencekik arus ke baterai.
+
+### 3. 🔋 Kernel WakeLock Shield Saat Terhubung ke Pengisi Daya
+- Saat perangkat terhubung ke charger dan sedang mengisi daya secara aktif, `lynxd` mengakuisisi kernel wakelock melalui `/sys/power/wake_lock` (`lynx_charging`).
+- Hal ini mencegah kernel Linux masuk ke status *Suspend-to-RAM* (deep sleep) yang membekukan proses latar belakang (`lynxd`), sehingga loop pemantau pengisian daya tetap aktif 100% dengan layar mati (layar tetap padam total, panel unpowered).
+- Begitu kabel dicabut atau fitur AutoCut / baterai mencapai 100%, wakelock segera dilepas via `/sys/power/wake_unlock`, membiarkan perangkat masuk ke deep sleep sejati tanpa menguras baterai.
+
+### 4. 🚀 Preservasi Profil Performa Latar Belakang Saat Mengisi Daya
+- Memperbaiki logika `decision.rs` di mana sebelumnya layar mati selalu memaksa profil turun ke *Balance*.
+- Sekarang, jika perangkat terhubung ke charger (`is_hardware_plugged()`), profil performa tinggi (Performance / Extreme) dipertahankan penuh sehingga proses latar belakang, unduhan, dan kompilasi tidak mengalami perlambatan performa.
+
+---
+
 # Lynx Universal [Universal Qualcomm HAL Architecture & Adreno 19.2MHz XO Deep Sleep Telemetry] 7.0.0-RC164
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC164** (Lynx Kernel Manager v3.2.10): **Arsitektur Universal Cerdas Lintas Seluruh Chipset Qualcomm Snapdragon & Indikator Presisi 19.2 MHz XO Crystal Oscillator Power Collapse: Memastikan Seluruh Logika Clamping dan Dynamic Scaling Berjalan 100% Agnostik Tanpa Terikat Hardcode pada Satu Perangkat Tertentu (Mendukung Sepenuhnya Snapdragon Seri 400, 600, 700, 800, hingga 8 Gen 1/2/3 dengan Probing Jumlah Power Level `num_pwrlevels` dan OPP Table Dinamis); Mengintegrasikan Indikator Visual Cerdas "XO SLEEP" pada `GpuMasterTunerCard.kt` Saat GPU Adreno Masuk ke Status Slumber / Power Collapse (19.2 MHz Crystal Oscillator Clock) Ketika Layar Diam Tanpa Beban Render Grafis**.

@@ -262,7 +262,7 @@ impl DaemonRunner {
             let is_plugged = ChargingRegulator::is_hardware_plugged();
             let sleep_duration = if is_plugged {
                 match current_screen {
-                    ScreenState::Off => Duration::from_secs(15), // Screen off while charging: battery & thermal friendly
+                    ScreenState::Off => Duration::from_secs(4), // Screen off while charging: active 1s ticks in 500ms chunks
                     _ => Duration::from_secs(1),                // Screen active while charging: responsive yet zero churn
                 }
             } else {

@@ -780,9 +780,148 @@ impl ChargingRegulator {
         }
     }
 
+    /// Acquires a Linux kernel wake_lock to prevent userspace execution from being
+    /// frozen in Suspend-to-RAM while cable is plugged in and active charging is underway.
+    pub fn acquire_charging_wake_lock() {
+        if Path::new("/sys/power/wake_lock").exists() {
+            let _ = fs::write("/sys/power/wake_lock", "lynx_charging\n");
+        }
+    }
+
+    /// Releases the Linux kernel wake_lock so device can enter deep sleep when unplugged or full.
+    pub fn release_charging_wake_lock() {
+        if Path::new("/sys/power/wake_unlock").exists() {
+            let _ = fs::write("/sys/power/wake_unlock", "lynx_charging\n");
+        }
+    }
+
+    /// Proactively scans all thermal cooling devices and forces battery / charger cooling
+    /// devices to cur_state 0 (locked via 0444) to neutralize OEM thermal-engine throttling.
+    pub fn neutralise_battery_cooling_devices() {
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("cooling_device") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("battery") || t_lower == "battery" || t_lower.contains("batt")
+                            || t_lower.contains("charger") || t_lower.contains("pm660") || t_lower.contains("smb")
+                        {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            if let Some(cur) = Self::read_i64(&cur_path) {
+                                if cur > 0 {
+                                    Self::write_node_lock(&cur_path, "0");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Continuous live hardware invariant enforcer called on every tick.
+    /// Defends charging current ceilings and battery cooling state against background OEM resets
+    /// (e.g. thermal-engine, kernel workqueues, and screen-off power save routines).
+    pub fn enforce_live_charging_invariants() {
+        if !Self::is_hardware_plugged() {
+            Self::release_charging_wake_lock();
+            return;
+        }
+
+        let cfg = ConfigStore::load_charging_config();
+        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+        let is_bypass_active = Path::new("/dev/lynx_bypass_active").exists() || cfg.bypass_enabled;
+
+        // AutoCut or full battery reached: release wake lock so phone enters complete deep sleep!
+        if is_bypass_active || (cfg.auto_cut_enabled && cur_cap >= 100) {
+            Self::release_charging_wake_lock();
+            return;
+        }
+
+        // Active charging is in progress: hold wake lock so daemon loop runs smoothly even when screen is off!
+        Self::acquire_charging_wake_lock();
+
+        // Neutralize battery cooling devices from thermal-engine throttling
+        Self::neutralise_battery_cooling_devices();
+
+        let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
+        let is_qcom = Self::is_qualcomm_soc();
+
+        if is_hyper {
+            let target_peak_ma = if is_qcom && !Path::new("/sys/class/power_supply/smb1390").exists() && !Path::new("/sys/class/power_supply/charge_pump").exists() {
+                3500
+            } else if cfg.limit_current_ma >= 2000 {
+                (cfg.limit_current_ma as u32).max(Self::probe_hardware_ceiling_ma())
+            } else {
+                Self::probe_hardware_ceiling_ma().max(12000)
+            };
+
+            let effective_ma = if Self::is_laptop_port() {
+                1500
+            } else if cur_cap >= 99 {
+                1500
+            } else {
+                target_peak_ma
+            };
+
+            let target_ua = effective_ma as i64 * 1000;
+            let target_usb_ua = if is_qcom { 3_000_000 } else { target_ua.max(5_000_000) };
+
+            // Check if kernel or thermal-engine lowered the hardware registers
+            let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
+            let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
+            let cur_in_lim = Self::read_i64(&format!("{}/input_current_limit", BATT_DIR)).unwrap_or(0);
+
+            let fcc_needs_reapply = cur_fcc > 0 && cur_fcc < (target_ua - 400_000);
+            let usb_needs_reapply = cur_usb > 0 && cur_usb < (target_usb_ua - 400_000);
+            let in_lim_needs_reapply = cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000);
+
+            if fcc_needs_reapply || usb_needs_reapply || in_lim_needs_reapply {
+                let effective_ua_str = target_ua.to_string();
+                let effective_usb_str = target_usb_ua.to_string();
+                let effective_ma_str = effective_ma.to_string();
+
+                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+                Self::write_node(&format!("{}/current_max", USB_DIR), &effective_usb_str);
+                Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+
+                if is_qcom {
+                    Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+                    Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                }
+            }
+        } else if cfg.charging_mode == "custom" {
+            let target_ma = cfg.custom_limit_current_ma.clamp(500, 25000) as u32;
+            let target_ua = target_ma as i64 * 1000;
+            let target_usb_ua = if is_qcom { (target_ma as i64 * 1000).min(3_000_000) } else { target_ua };
+
+            let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
+            if cur_fcc > 0 && cur_fcc < (target_ua - 200_000) {
+                let target_ua_str = target_ua.to_string();
+                let target_usb_str = target_usb_ua.to_string();
+                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &target_ua_str);
+                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &target_ua_str);
+                Self::write_node(&format!("{}/current_max", USB_DIR), &target_usb_str);
+                Self::write_node(&format!("{}/current_max", MAIN_DIR), &target_ua_str);
+                Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &target_usb_str);
+            }
+        }
+    }
+
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
     /// Mode 1: True Hardware Bypass / Anti-Flapping Single-Path Float (Zero Battery Degradation, Vsys powered by Adapter)
     pub fn apply_bypass_charging() {
+        Self::release_charging_wake_lock();
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::write("/dev/lynx_bypass_active", "1");
@@ -2064,7 +2203,11 @@ impl ChargingRegulator {
                 } else {
                     true
                 };
-                susp == "0" && en == "1" && direct_ok
+                let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
+                let fcc_ok = cur_fcc == 0 || cur_fcc >= 2_800_000;
+                let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
+                let usb_ok = cur_usb == 0 || cur_usb >= 2_500_000;
+                susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 
             // If hyper mode is already active and critical invariants are intact, skip heavy re-init
@@ -2084,8 +2227,10 @@ impl ChargingRegulator {
                 } else {
                     1000
                 };
+                let target_ua = limit as i64 * 1000;
+                let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
                 let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
-                if marker.trim() == format!("regulated-{}", limit) {
+                if marker.trim() == format!("regulated-{}", limit) && (cur_fcc == 0 || cur_fcc <= target_ua + 200_000) {
                     return;
                 }
                 Self::apply_cool_mode(limit);
@@ -2095,12 +2240,14 @@ impl ChargingRegulator {
             }
             "custom" => {
                 let target = cfg.custom_limit_current_ma.clamp(500, 25000) as u32;
+                let target_ua = target as i64 * 1000;
+                let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
                 let marker_extreme = Self::read_node("/dev/lynx_extreme_charging").unwrap_or_default();
                 let marker_reg = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
-                if target >= 5000 && marker_extreme.trim() == format!("hyper-{}", target) {
+                if target >= 5000 && marker_extreme.trim() == format!("hyper-{}", target) && (cur_fcc == 0 || cur_fcc >= target_ua - 400_000) {
                     return;
                 }
-                if target < 5000 && marker_reg.trim() == format!("regulated-{}", target) {
+                if target < 5000 && marker_reg.trim() == format!("regulated-{}", target) && (cur_fcc == 0 || cur_fcc >= target_ua - 200_000) {
                     return;
                 }
                 Self::apply_custom_mode(target);
@@ -2208,6 +2355,7 @@ impl ChargingRegulator {
     }
 
     pub fn handle_disconnect() {
+        Self::release_charging_wake_lock();
         // Charging protocol requests are session-scoped. Clear those requests on unplug,
         // but leave thermal zones, cooling devices, and Thermal Lynx profile nodes untouched.
         let previous_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
@@ -2517,6 +2665,7 @@ impl ChargingRegulator {
             let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         }
 
+        Self::enforce_live_charging_invariants();
         Self::apply_from_config();
     }
 
@@ -2993,6 +3142,15 @@ mod tests {
         assert!(json.contains("\"detected_hardware_chips\":"));
         assert!(json.contains("\"dynamic_scanned_nodes_count\":"));
         assert!(json.contains("\"active_ic\":"));
+    }
+
+    #[test]
+    fn test_charging_wake_lock_and_live_invariants() {
+        // Must not panic on host test environments
+        ChargingRegulator::acquire_charging_wake_lock();
+        ChargingRegulator::release_charging_wake_lock();
+        ChargingRegulator::neutralise_battery_cooling_devices();
+        ChargingRegulator::enforce_live_charging_invariants();
     }
 }
 

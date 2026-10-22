@@ -93,7 +93,9 @@ impl DecisionEngine {
             self.cooldown.on_game_active();
             self.last_target_app = None;
             // If screen turned off while in performance or extreme, cleanly revert to balance (or powersave) to save battery
-            if self.current_profile == "performance" || self.current_profile == "extreme" {
+            // BUT if the device is plugged into power and baseline_profile is high performance, keep performance active!
+            let is_plugged = crate::hardware::ChargingRegulator::is_hardware_plugged();
+            if !is_plugged && (self.current_profile == "performance" || self.current_profile == "extreme") {
                 let fallback = match self.baseline_profile.as_str() {
                     "powersave" => "powersave",
                     _ => "balance",
