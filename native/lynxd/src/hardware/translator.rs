@@ -6,6 +6,7 @@ use crate::hardware::storage::StoragePolicy;
 use crate::hardware::detector::Vendor;
 use crate::hardware::{MtkHardware, QcomHardware};
 use crate::profile::profile::Profile;
+use crate::profile::GpuMode;
 use crate::state::ConfigStore;
 use crate::sysfs::SysfsReader;
 
@@ -563,42 +564,111 @@ impl HardwareTranslator {
                 // ── E. Qualcomm Adreno KGSL GPU Acceleration ────────────────
                 if cap.gpu.driver == GpuDriver::QcomKgsl {
                     let max_idx = cap.gpu.num_pwrlevels.saturating_sub(1);
-                    let target_max_pwr = match profile.name {
-                        "extreme" => 0,
-                        "performance" => (max_idx / 2).max(0),
-                        _ => max_idx,
+                    // In Qualcomm Adreno KGSL driver architecture:
+                    // OPP Index 0 = Highest Clock (Peak Performance, e.g. 750 MHz)
+                    // OPP Index max_idx = Lowest Clock (Idle / Power Saving, e.g. 160 MHz)
+                    // max_pwrlevel = MAXIMUM PERFORMANCE CEILING (lower numerical index)
+                    // min_pwrlevel = MINIMUM PERFORMANCE FLOOR (higher numerical index)
+                    // Kernel invariant: min_pwrlevel >= max_pwrlevel
+                    let target_ceiling_pwr = match profile.gpu.mode {
+                        GpuMode::Maximum => 0,
+                        GpuMode::High => 0,
+                        GpuMode::PowerEfficient => (max_idx * 2 / 3).max(1),
+                        GpuMode::Balanced => 0, // Full dynamic headroom (Level 0 = peak clock)
                     };
-                    let target_min_pwr = if is_powersave && max_idx > 0 { 1 } else { 0 };
+                    let target_floor_pwr = match profile.gpu.mode {
+                        GpuMode::Maximum => 0, // Locked at peak
+                        GpuMode::High => (max_idx * 2 / 3).max(1), // Raised floor prevents stutter in gaming
+                        GpuMode::Balanced | GpuMode::PowerEfficient => max_idx, // Downclock fully to idle floor
+                    };
+                    let target_default_pwr = match profile.gpu.mode {
+                        GpuMode::Maximum => 0,
+                        GpuMode::High => (max_idx / 2).max(0),
+                        GpuMode::PowerEfficient => max_idx,
+                        GpuMode::Balanced => (max_idx * 2 / 3).max(0),
+                    };
                     let target_adrenoboost = match profile.name {
                         "extreme" => "3",
                         "performance" => "2",
-                        _ => "0",
+                        "powersave" => "0",
+                        _ => "1", // Balance: Touch boost active so UI scrolling ramps GPU clock instantaneously
                     };
                     let target_throttling = if is_perf_or_ext { "0" } else { "1" };
                     let target_thermal_pwr = if is_extreme { "0" } else { "1" };
                     let target_idle_timer = match profile.name {
                         "extreme" => "250",
                         "performance" => "120",
-                        "powersave" => "64",
+                        "powersave" => "40",
                         _ => "80",
                     };
 
+                    // Step 1: Relax min_pwrlevel to max_idx first so min_pwrlevel >= max_pwrlevel is NEVER violated
                     Self::push_op(
                         &mut ops,
                         "GPU",
-                        "Adreno KGSL max_pwrlevel (lowest clock bound)",
-                        QcomHardware::KGSL_MAX_PWRLEVEL,
-                        target_max_pwr.to_string(),
-                        false,
-                    );
-                    Self::push_op(
-                        &mut ops,
-                        "GPU",
-                        "Adreno KGSL min_pwrlevel (highest clock bound)",
+                        "Adreno KGSL relax floor (min_pwrlevel)",
                         QcomHardware::KGSL_MIN_PWRLEVEL,
-                        target_min_pwr.to_string(),
+                        max_idx.to_string(),
                         false,
                     );
+                    // Step 2: Set ceiling bound (max_pwrlevel)
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "Adreno KGSL ceiling bound (max_pwrlevel)",
+                        QcomHardware::KGSL_MAX_PWRLEVEL,
+                        target_ceiling_pwr.to_string(),
+                        false,
+                    );
+                    // Step 3: Set actual floor bound (min_pwrlevel)
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "Adreno KGSL floor bound (min_pwrlevel)",
+                        QcomHardware::KGSL_MIN_PWRLEVEL,
+                        target_floor_pwr.to_string(),
+                        false,
+                    );
+                    // Step 4: Set default resume pwrlevel
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "Adreno KGSL default wake pwrlevel",
+                        QcomHardware::KGSL_DEFAULT_PWRLEVEL,
+                        target_default_pwr.to_string(),
+                        false,
+                    );
+                    // Step 5: Pulse pwrscale to immediately trigger driver OPP update
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "Adreno KGSL pulse pwrscale",
+                        QcomHardware::KGSL_PWRSCALE,
+                        "1",
+                        false,
+                    );
+
+                    // Ensure Devfreq frequency bounds allow full dynamic range on balance
+                    if profile.name == "balance" || profile.name == "auto" {
+                        Self::push_op(
+                            &mut ops,
+                            "GPU",
+                            "Adreno devfreq relax min_freq",
+                            QcomHardware::KGSL_DEVFREQ_MIN,
+                            "0",
+                            false,
+                        );
+                        if let Some(&highest_mhz) = cap.gpu.available_freqs_mhz.first() {
+                            Self::push_op(
+                                &mut ops,
+                                "GPU",
+                                "Adreno devfreq restore max_freq",
+                                QcomHardware::KGSL_DEVFREQ_MAX,
+                                (highest_mhz as u64 * 1_000_000).to_string(),
+                                false,
+                            );
+                        }
+                    }
                     Self::push_op(
                         &mut ops,
                         "GPU",

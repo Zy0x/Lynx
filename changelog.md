@@ -1,3 +1,23 @@
+# Lynx Universal [Qualcomm Adreno Dynamic Balance Profile & Boot Power-Saving Unshackle] 7.0.0-RC163
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC163** (Lynx Kernel Manager v3.2.09): **Pembebasan Mutlak Frekuensi GPU Qualcomm Adreno pada Boot Awal & Profil Induk Balance: Memperbaiki Bug Krusial di Mana Translator Profil Native Rust (`translator.rs`) Sebelumnya Salah Menyetel `max_pwrlevel = max_idx` (160 MHz) Saat Boot Awal dan Saat Mode Balance Aktif, yang Secara Keliru Mengunci GPU ke Status Hemat Daya Terendah; Memulihkan Skalabilitas Dinamis Penuh Adreno (Floor 160 MHz Idle s/d Ceiling 750 MHz Peak pada Profil Balance, Persis Seperti Perilaku Dinamis MediaTek GED) Sehingga Multitasking dan Render UI Berjalan Sangat Mulus Tanpa Hambatan; Serta Merestorasi Batas Devfreq GPU Saat Mode Balance Aktif**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC163)
+
+### 1. 🔍 Diagnosis Mendalam & Penyebab GPU Qualcomm Tertahan di Hemat Daya
+- **Investigasi Masalah**: Pada perangkat Snapdragon Qualcomm, driver KGSL memperlakukan `max_pwrlevel` sebagai batas atas clock (ceiling / performa tertinggi dengan indeks numerik terkecil, misal Index 0 = 750 MHz). Pada versi sebelumnya di `translator.rs`, profil `"balance"` dan mode default memetakan `target_max_pwr = max_idx` (indeks numerik terbesar, misal Index 6 = 160 MHz) karena asumsi terbalik bahwa `max_pwrlevel` adalah "lowest clock bound".
+- **Dampak Nyata**: Setiap kali perangkat cold boot (via `lynxd boot`) atau setiap kali daemon beralih kembali ke profil `"balance"` pasca keluar dari game, `lynxd` menuliskan Index 6 ke `/sys/class/kgsl/kgsl-3d0/max_pwrlevel`. Hal ini mengunci batas tertinggi clock GPU Adreno secara permanen ke 160 MHz (idle), menyebabkan rendering SurfaceFlinger, scroll feed, dan multitasking terasa berat dan tertahan seolah-olah baterai sedang sekarat.
+
+### 2. ⚡ Restorasi Skalabilitas Dinamis Penuh Adreno pada Profil Balance
+- **Harmonisasi dengan Perilaku MediaTek GED**: Pada profil `"balance"`, GPU Qualcomm kini dipetakan ke:
+  - `target_ceiling_pwr = 0`: GPU bebas melompat hingga frekuensi puncak tertinggi (misal 750 MHz) secara instan saat rendering UI atau beban multitasking membutuhkan daya komputasi grafis.
+  - `target_floor_pwr = max_idx`: GPU dapat turun sepenuhnya ke frekuensi idle terendah (160 MHz) saat layar statis demi penghematan daya baterai yang optimal.
+  - `target_default_pwr = (max_idx * 2 / 3)`: Level resume yang responsif saat GPU bangun dari status idle/nap tanpa lonjakan daya berlebih.
+  - `target_adrenoboost = "1"`: Touch boost aktif sehingga governor merespons sentuhan jari seketika.
+- **Relaksasi Otomatis Devfreq**: Node `/sys/class/kgsl/kgsl-3d0/devfreq/min_freq` direlaksasi ke 0 dan `max_freq` dipulihkan ke nilai maksimum tabel OPP saat profil balance aktif, memastikan tidak ada sisa penguncian manual yang membatasi GPU.
+
+---
+
 # Lynx Universal [Airtight Adreno KGSL Ceiling Clamping, Devfreq Sequence & Immediate Telemetry Refresh] 7.0.0-RC162
 Released on: 2026-10-22
 > **Lynx Universal v7.0.0-RC162** (Lynx Kernel Manager v3.2.08): **Perbaikan Presisi Mutlak Batas Atas Frekuensi GPU Qualcomm Adreno KGSL & Anti-EINVAL Devfreq: Menuntaskan Masalah Frekuensi Aktif GPU yang Melompat ke 588 MHz Saat Dibatasi ke 465 MHz Melalui Urutan Clamping 3 Langkah Anti-Violasi Kernel (`min_pwrlevel >= max_pwrlevel`); Mengeliminasi Kernel Error `-EINVAL` pada Devfreq dengan Merelaksasi `min_freq` Terlebih Dahulu Sebelum Menyetel Batas Atas `max_freq`; Mengunci `default_pwrlevel` ke Indeks Power Level Maksimum untuk Mencegah Lonjakan Clock Saat GPU Bangun dari Idle; Menambahkan Telemetry Reader `minpwrlevel` pada `LynxGpuTelemetryRepository.kt` Agar Batas Frekuensi Selalu Terkunci 100% Sesuai Hardware OPP Driver; Serta Menghadirkan Refresh UI Telemetri Instan (150ms) Setelah Perubahan Frekuensi Diterapkan**.
