@@ -1,3 +1,34 @@
+# Lynx Universal [Interactive Custom Number Tuning & Deep Interconnect Silicon GPU Tweaks] 7.0.0-RC170
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC170** (Lynx Kernel Manager v3.2.16): **Transformasi Sistem Parameter Bebas & Input Angka Kustom Manual (Custom Numeric Input Modal): Menghilangkan Batasan Preset Konstan Kaku Melalui Dialog Input Angka & Slider Presisi 1-Jari (`GpuCustomNumberDialog.kt`) Sehingga Pengguna Bebas Memasukkan Angka Manual pada Adreno Idle Timer (1–500ms), Devfreq Polling Interval (5–500ms), Alokasi Cache Tekstur (16–512MB), serta Disk Shader Blob Cache (32–2048MB); Menambahkan 4 Tweak Silikon Hardware GPU Lanjutan pada Kernel Qualcomm Adreno KGSL (PM-QoS Active Latency Interconnect 0µs Zero-Wakeup, Anti-Lag Clock Gating / Matikan HWCG, Paksa Clock GPU Tetap Aktif / Force Clk, Serta Toleransi Timeout Hang Shader / Long IB Detect 1000–8000ms); Serta Mempertahankan Standar Kode Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC170)
+
+### 1. 🎛️ Input Angka Kustom Bebas (Custom Numeric Modal & Slider)
+- **Dialog Kustom Angka Modern (`GpuCustomNumberDialog.kt`)**:
+  Menghadirkan antarmuka modal OLED Dark Cyberpunk interaktif yang dilengkapi slider geser halus serta field input teks numerik langsung dengan validasi batas aman rentang nilai dan satuan otomatis.
+- **Dukungan Parameter Angka Kustom**:
+  - *Adreno Idle Timer*: Bebas ketik nilai dari `1` s/d `500` ms (tidak lagi terpaku pada preset 20/40/64/80/100).
+  - *Devfreq Polling Interval*: Bebas ketik nilai dari `5` s/d `500` ms.
+  - *Alokasi Cache Tekstur*: Bebas ketik nilai dari `16` s/d `512` MB.
+  - *Kapasitas Disk Shader Blob Cache*: Bebas ketik nilai dari `32` s/d `2048` MB.
+  - *PM-QoS Active Latency*: Bebas ketik nilai dari `0` s/d `5000` µs.
+  - *Toleransi Timeout Long IB*: Bebas ketik nilai dari `500` s/d `10000` ms.
+- **Deteksi Cerdas Status Chip**:
+  Jika pengguna menerapkan angka non-preset, chip otomatis menyala dengan label dinamis: `[ ✎ <nilai> <satuan> ]` (misal `[ ✎ 35 ms ]` atau `[ ✎ 1024MB ]`).
+
+### 2. ⚡ 4 Fitur Silikon GPU Mendalam Baru (Qualcomm Adreno KGSL)
+- **PM-QoS Active Latency** (`/sys/class/kgsl/kgsl-3d0/pmqos_active_latency`):
+  Mengatur batas jeda bangun interconnect GPU. Nilai `0 µs` memaksa bus interconnect siap seketika (*zero-latency interconnect wakeup*).
+- **Anti-Lag Clock Gating (Matikan HWCG)** (`/sys/class/kgsl/kgsl-3d0/hwcg`):
+  Mematikan dynamic clock gating internal ALU saat gaming agar gerbang komputasi grafis selalu terbuka tanpa delay pensaklaran silikon.
+- **Paksa Clock GPU Tetap Aktif (Force Clk)** (`/sys/class/kgsl/kgsl-3d0/force_clk_on`):
+  Memaksa generator detak clock GPU terus aktif berdenyut mencegah clock drop ke 0 MHz di sela pergantian scene game.
+- **Toleransi Timeout Hang Shader (Long IB Detect)** (`/sys/class/kgsl/kgsl-3d0/ft_long_ib_detect`):
+  Mengatur toleransi batas waktu pemulihan shader hang (1000–8000ms), krusial untuk mencegah emulator (Switch/Winlator/Mobox) force close saat kompilasi shader berat.
+
+---
+
 # Lynx Universal [Deep Silicon GPU Tuning, Swapchain Latency & Advanced Telemetry] 7.0.0-RC169
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC169** (Lynx Kernel Manager v3.2.15): **Ekspansi Besar GPU Subscreen & Studio Pipeline Grafis Generasi Baru: Menghadirkan 3 Tweak Silikon Mendalam Tingkat Kernel Qualcomm Adreno KGSL (In-Frame Power Collapse / IFPC Anti-Stutter, Hardware Preemption Mode untuk Memangkas Latensi Input Sentuhan, Serta Devfreq Polling Interval Scaler 10ms–100ms); Mengintegrasikan Panel Kontrol Swapchain Buffer Mode (Double Buffering 2 Buffers untuk Respon Input Instan vs Triple Buffering 3 Buffers Bebas Tearing); Meluncurkan Fitur Alokasi Disk Shader Blob Cache Ekstra (64MB s/d 512MB) Guna Mengeliminasi Stuttering Kompilasi Shader pada Game Open-World Berat; Menambahkan Ribbon Telemetri Analitik Real-Time Lanjutan pada `GpuHeroCard` (Estimasi Daya Watt GPU Silikon, Analisis Bottleneck CPU vs GPU, Alokasi VRAM, Serta Persentase Beban Komputasi); Serta Refaktor Modularisasi Arsitektur Data `SchedulerModels.kt` untuk Mematuhi Batas Ketat ≤699 Baris Kode**.

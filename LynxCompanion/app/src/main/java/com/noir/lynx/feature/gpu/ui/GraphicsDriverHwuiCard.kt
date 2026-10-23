@@ -54,6 +54,8 @@ fun GraphicsDriverHwuiCard(
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
+    var showCustomTextureDialog by remember { mutableStateOf(false) }
+    var showCustomShaderBlobDialog by remember { mutableStateOf(false) }
 
     LynxCard(
         title = "Pengaturan Grafis & Driver Game",
@@ -410,7 +412,7 @@ fun GraphicsDriverHwuiCard(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         graphics.textureCacheOptions.forEach { (mb, label) ->
@@ -420,7 +422,7 @@ fun GraphicsDriverHwuiCard(
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
                                 border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)
+                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
@@ -440,6 +442,35 @@ fun GraphicsDriverHwuiCard(
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
                                 }
+                            }
+                        }
+
+                        val isPresetTexture = graphics.textureCacheOptions.any { it.first == graphics.textureCacheMb }
+                        val isCustomTexture = !isPresetTexture && graphics.textureCacheMb > 0
+                        Surface(
+                            onClick = { showCustomTextureDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isCustomTexture) cardAccent.copy(alpha = 0.25f) else BgElevated,
+                            border = BorderStroke(1.2.dp, if (isCustomTexture) cardAccent else BorderGlass),
+                            modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    if (isCustomTexture) "${graphics.textureCacheMb}MB" else "✎ Kustom",
+                                    color = if (isCustomTexture) cardAccent else TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isCustomTexture) FontWeight.Bold else FontWeight.Medium
+                                )
+                                Text(
+                                    if (isCustomTexture) "Kustom" else "Bebas",
+                                    color = if (isCustomTexture) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                    fontSize = 8.5.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
                             }
                         }
                     }
@@ -463,7 +494,7 @@ fun GraphicsDriverHwuiCard(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         graphics.shaderBlobCacheOptions.forEach { (mb, label) ->
@@ -473,7 +504,7 @@ fun GraphicsDriverHwuiCard(
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
                                 border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 52.dp)
+                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
                             ) {
                                 Column(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
@@ -493,6 +524,35 @@ fun GraphicsDriverHwuiCard(
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
                                 }
+                            }
+                        }
+
+                        val isPresetBlob = graphics.shaderBlobCacheOptions.any { it.first == graphics.shaderBlobCacheMb }
+                        val isCustomBlob = !isPresetBlob && graphics.shaderBlobCacheMb > 0
+                        Surface(
+                            onClick = { showCustomShaderBlobDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isCustomBlob) cardAccent.copy(alpha = 0.25f) else BgElevated,
+                            border = BorderStroke(1.2.dp, if (isCustomBlob) cardAccent else BorderGlass),
+                            modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    if (isCustomBlob) "${graphics.shaderBlobCacheMb}MB" else "✎ Kustom",
+                                    color = if (isCustomBlob) cardAccent else TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isCustomBlob) FontWeight.Bold else FontWeight.Medium
+                                )
+                                Text(
+                                    if (isCustomBlob) "Kustom" else "Bebas",
+                                    color = if (isCustomBlob) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                    fontSize = 8.5.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
                             }
                         }
                     }
@@ -572,5 +632,35 @@ fun GraphicsDriverHwuiCard(
                 )
             }
         }
+    }
+
+    if (showCustomTextureDialog && onSetTextureCacheSize != null) {
+        GpuCustomNumberDialog(
+            title = "Alokasi Cache Tekstur",
+            description = "Atur ukuran memori cache grafis untuk rendering antarmuka dan kelancaran scrolling aplikasi.",
+            currentValue = graphics.textureCacheMb.coerceIn(16, 512),
+            unit = "MB",
+            minVal = 16,
+            maxVal = 512,
+            step = 8,
+            accentColor = cardAccent,
+            onConfirm = { newVal -> onSetTextureCacheSize(newVal) },
+            onDismiss = { showCustomTextureDialog = false }
+        )
+    }
+
+    if (showCustomShaderBlobDialog && onSetShaderBlobCache != null) {
+        GpuCustomNumberDialog(
+            title = "Kapasitas Disk Shader Blob Cache",
+            description = "Menyimpan kompilasi shader grafis di penyimpanan flash disk untuk mencegah freeze/stutter saat game open-world.",
+            currentValue = graphics.shaderBlobCacheMb.coerceIn(32, 2048),
+            unit = "MB",
+            minVal = 32,
+            maxVal = 2048,
+            step = 32,
+            accentColor = cardAccent,
+            onConfirm = { newVal -> onSetShaderBlobCache(newVal) },
+            onDismiss = { showCustomShaderBlobDialog = false }
+        )
     }
 }

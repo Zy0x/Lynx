@@ -55,7 +55,11 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
             "$kgslDir/max_pwrlevel",
             "$kgslDir/ifpc",
             "$kgslDir/preemption",
-            "$resolvedDevfreq/polling_interval"
+            "$resolvedDevfreq/polling_interval",
+            "$kgslDir/pmqos_active_latency",
+            "$kgslDir/hwcg",
+            "$kgslDir/force_clk_on",
+            "$kgslDir/ft_long_ib_detect"
         )
         if (resolvedGpubw.isNotEmpty()) {
             candidatePaths.add("$resolvedGpubw/governor")
@@ -404,6 +408,89 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
                         uiType = FeatureUiType.STEPPER,
                         options = listOf("10", "20", "50", "100"),
                         category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 17. PM-QoS Active Latency (Interconnect Zero Wakeup)
+        probeMap["$kgslDir/pmqos_active_latency"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/pmqos_active_latency' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "33"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_pmqos_latency",
+                        name = "PM-QoS Active Latency",
+                        description = "Toleransi jeda respon interconnect GPU saat bangun dari idle. 0 µs untuk respon frame instan tanpa lag",
+                        nodePath = "$kgslDir/pmqos_active_latency",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("0", "33", "100", "300"),
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 18. Hardware Clock Gating (HWCG Anti-Lag)
+        probeMap["$kgslDir/hwcg"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/hwcg' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1"
+                val isAntiLag = rawVal == "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_hwcg",
+                        name = "Anti-Lag Clock Gating (Matikan HWCG)",
+                        description = "Matikan clock gating dinamis internal ALU saat gaming agar gerbang komputasi grafis selalu terbuka tanpa jeda switching",
+                        nodePath = "$kgslDir/hwcg",
+                        currentValue = if (isAntiLag) "1" else "0",
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Responsivitas Clock"
+                    )
+                )
+            }
+        }
+
+        // 19. Paksa Clock GPU Tetap Berdetak (Force Clk)
+        probeMap["$kgslDir/force_clk_on"]?.let { access ->
+            if (access.exists) {
+                val rawVal = Shell.cmd("cat '$kgslDir/force_clk_on' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "0"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_force_clk",
+                        name = "Paksa Clock GPU Tetap Aktif",
+                        description = "Memaksa osilator clock GPU terus aktif berdenyut mencegah clock drop ke 0 MHz di sela pergantian frame",
+                        nodePath = "$kgslDir/force_clk_on",
+                        currentValue = NodeWriter.extractActiveValue(rawVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 95, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.SWITCH,
+                        category = "Bus Memori & Power"
+                    )
+                )
+            }
+        }
+
+        // 20. Toleransi Timeout Hang Shader (Long IB Detect)
+        probeMap["$kgslDir/ft_long_ib_detect"]?.let { access ->
+            if (access.exists) {
+                val curVal = Shell.cmd("cat '$kgslDir/ft_long_ib_detect' 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "2000"
+                features.add(
+                    GpuHardwareFeature(
+                        id = "adreno_ft_long_ib",
+                        name = "Toleransi Timeout Hang Shader (Long IB)",
+                        description = "Ambang batas timeout pemulihan shader hang. Mencegah force close emulator berat saat kompilasi shader panjang",
+                        nodePath = "$kgslDir/ft_long_ib_detect",
+                        currentValue = NodeWriter.extractActiveValue(curVal),
+                        accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,
+                        confidence = HardwareConfidence(100, if (access.writable) 100 else 0, 90, if (access.writable) ConfidenceRating.HIGH_CONFIDENCE else ConfidenceRating.READ_ONLY_LOCK),
+                        uiType = FeatureUiType.STEPPER,
+                        options = listOf("1000", "2000", "4000", "8000"),
+                        category = "Stabilitas & Anti-Freeze"
                     )
                 )
             }

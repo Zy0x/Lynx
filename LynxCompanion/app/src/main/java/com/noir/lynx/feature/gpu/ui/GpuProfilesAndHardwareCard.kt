@@ -62,6 +62,14 @@ import com.noir.lynx.feature.navigation.model.TuningCategory
 
 import com.noir.lynx.ui.*
 
+private data class GpuCustomParamConfig(
+    val feat: GpuHardwareFeature,
+    val unit: String,
+    val min: Int,
+    val max: Int,
+    val step: Int = 1
+)
+
 @Composable
 fun AdaptiveGpuHardwareCard(
     gpu: GpuInfo,
@@ -82,6 +90,7 @@ fun AdaptiveGpuHardwareCard(
 ) {
     val isAdreno = gpu.platform == "adreno"
     val isMtk = gpu.platform == "mali_ged"
+    var customDialogConfig by remember { mutableStateOf<GpuCustomParamConfig?>(null) }
 
     val title = when {
         gpu.activeBackendName.isNotBlank() -> gpu.activeBackendName
@@ -219,6 +228,18 @@ fun AdaptiveGpuHardwareCard(
                                 )
                             }
                             FeatureUiType.STEPPER, FeatureUiType.CHOICE -> {
+                                val customNumConfig = when (feat.id) {
+                                    "adreno_idle_timer" -> GpuCustomParamConfig(feat, "ms", 1, 500, 5)
+                                    "adreno_polling_interval", "devfreq_polling_interval" -> GpuCustomParamConfig(feat, "ms", 5, 500, 5)
+                                    "adreno_pmqos_latency" -> GpuCustomParamConfig(feat, "µs", 0, 5000, 10)
+                                    "adreno_ft_long_ib" -> GpuCustomParamConfig(feat, "ms", 500, 10000, 250)
+                                    "mali_dvfs_period" -> GpuCustomParamConfig(feat, "ms", 5, 250, 5)
+                                    "adreno_tz_target_load" -> GpuCustomParamConfig(feat, "%", 10, 95, 5)
+                                    else -> null
+                                }
+                                val totalCount = feat.options.size + (if (customNumConfig != null) 1 else 0)
+                                val useFullWidth = totalCount <= 4
+
                                 Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -231,7 +252,6 @@ fun AdaptiveGpuHardwareCard(
                                         }
                                     }
                                     Text(feat.description, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                                    val useFullWidth = feat.options.size <= 4
                                     Row(
                                         modifier = if (useFullWidth) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -266,7 +286,9 @@ fun AdaptiveGpuHardwareCard(
                                                     "80" -> "80% (Std)"
                                                     else -> "$opt%"
                                                 }
-                                                "mali_dvfs_period", "devfreq_polling_interval", "adreno_idle_timer" -> "$opt ms"
+                                                "adreno_pmqos_latency" -> if (opt == "0") "0 µs (Instan)" else "$opt µs"
+                                                "adreno_ft_long_ib" -> "${opt.toIntOrNull()?.div(1000) ?: opt}s"
+                                                "mali_dvfs_period", "devfreq_polling_interval", "adreno_idle_timer", "adreno_polling_interval" -> "$opt ms"
                                                 else -> opt
                                             }
                                             Surface(
@@ -287,6 +309,35 @@ fun AdaptiveGpuHardwareCard(
                                                         color = if (isSel) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
                                                         fontSize = 10.sp,
                                                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (customNumConfig != null) {
+                                            val isPresetMatched = feat.options.contains(feat.currentValue)
+                                            val isCustomActive = !isPresetMatched && feat.currentValue.isNotEmpty()
+                                            val customText = if (isCustomActive) "✎ ${feat.currentValue} ${customNumConfig.unit}" else "✎ Kustom"
+
+                                            Surface(
+                                                onClick = {
+                                                    if (isWritable) {
+                                                        customDialogConfig = customNumConfig
+                                                    }
+                                                },
+                                                enabled = isWritable,
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isCustomActive) cardAccent.copy(alpha = 0.25f) else BgElevated,
+                                                border = BorderStroke(1.dp, if (isCustomActive) cardAccent else BorderGlass),
+                                                modifier = (if (useFullWidth) Modifier.weight(1f) else Modifier).defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                                    Text(
+                                                        text = customText,
+                                                        color = if (isCustomActive) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
+                                                        fontSize = 10.sp,
+                                                        fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Normal,
                                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                     )
                                                 }
@@ -498,6 +549,23 @@ fun AdaptiveGpuHardwareCard(
                 }
             }
         }
+    }
+
+    customDialogConfig?.let { cfg ->
+        GpuCustomNumberDialog(
+            title = cfg.feat.name,
+            description = cfg.feat.description,
+            currentValue = cfg.feat.currentValue.toIntOrNull() ?: cfg.min,
+            unit = cfg.unit,
+            minVal = cfg.min,
+            maxVal = cfg.max,
+            step = cfg.step,
+            accentColor = cardAccent,
+            onConfirm = { newVal ->
+                onSetFeature(cfg.feat, newVal.toString())
+            },
+            onDismiss = { customDialogConfig = null }
+        )
     }
 }
 
