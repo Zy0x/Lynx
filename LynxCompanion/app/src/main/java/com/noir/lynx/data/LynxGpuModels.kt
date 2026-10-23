@@ -450,6 +450,7 @@ data class LynxUiState(
     val isCleaningRam: Boolean = false,
     // Phase 1 & 2 Feature Additions
     val gpuInfo: GpuInfo = GpuInfo(),
+    val gpuSilicon: GpuSiliconInfo = GpuSiliconInfo(),
     val ksmStats: KsmStats = KsmStats(),
     val ioDevices: List<IoDeviceInfo> = emptyList(),
     val governorTunables: Map<Int, List<GovernorTunable>> = emptyMap(),

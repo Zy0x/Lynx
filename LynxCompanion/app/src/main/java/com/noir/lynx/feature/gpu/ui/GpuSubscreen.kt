@@ -15,6 +15,7 @@ import com.noir.lynx.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.theme.rememberFluidFlingBehavior
 import com.noir.lynx.ui.*
@@ -26,7 +27,8 @@ fun LazyListScope.tuningGpuCategoryItems(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
     context: Context,
-    targetTab: Int = uiState.selectedGpuTab
+    targetTab: Int = uiState.selectedGpuTab,
+    onOpenStressTest: () -> Unit = {}
 ) {
     val state = uiState.state
     val gpu = uiState.gpuInfo
@@ -101,6 +103,29 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetMaliCoreMask = { viewModel.setMaliCoreMask(it) },
                     onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
                     onSetGovernor = { viewModel.setGpuGovernor(it) }
+                )
+            }
+
+            // 2c. Deep Silicon Kernel GPU Tuner (SPTP PC, SkipSaveRestore, Preempt, Wake Nice, Min PwrLevel, LLC)
+            item(key = "gpu_deep_silicon") {
+                GpuDeepSiliconCard(
+                    silicon = uiState.gpuSilicon,
+                    onSetSptpPc = { viewModel.setGpuSptpPc(it) },
+                    onSetSkipSaveRestore = { viewModel.setGpuSkipSaveRestore(it) },
+                    onSetPreemptLevel = { viewModel.setGpuPreemptLevel(it) },
+                    onSetWakeNice = { viewModel.setGpuWakeNice(it) },
+                    onSetMinPwrLevel = { viewModel.setGpuMinPwrLevel(it) },
+                    onSetGpuLlcSlice = { viewModel.setGpuLlcSlice(it) }
+                )
+            }
+
+            // 2d. SurfaceFlinger & Pipeline Precision Card (Phase Offset, TouchBoost, VSync Swap Bypass)
+            item(key = "gpu_surfaceflinger_phase") {
+                SurfaceFlingerPhaseCard(
+                    silicon = uiState.gpuSilicon,
+                    onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
+                    onSetTouchBoostDuration = { viewModel.setTouchBoostDuration(it) },
+                    onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) }
                 )
             }
 
@@ -187,6 +212,47 @@ fun LazyListScope.tuningGpuCategoryItems(
         }
         1 -> {
             // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+            item(key = "gpu_stress_test_trigger") {
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                    color = com.noir.lynx.designsystem.theme.BgSurfaceLowest,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, com.noir.lynx.designsystem.theme.BorderGlass),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = "GPU Stability Stress Test",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = com.noir.lynx.designsystem.theme.TextPrimary
+                            )
+                            Text(
+                                text = "Uji siklus beban GPU 30s/60s untuk mengukur thermal throttling & stabilitas clock",
+                                fontSize = 11.sp,
+                                color = com.noir.lynx.designsystem.theme.TextSecondary
+                            )
+                        }
+                        Button(
+                            onClick = onOpenStressTest,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = com.noir.lynx.designsystem.theme.AccentOrange)
+                        ) {
+                            Text(
+                                "Uji Beban",
+                                color = androidx.compose.ui.graphics.Color.Black,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
             item(key = "gpu_hud_card") {
                 FloatingGameHudCard(
                     isHudRunning = uiState.isGameHudActive,
@@ -256,10 +322,12 @@ fun GpuSubscreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showStressDialog by remember { mutableStateOf(false) }
 
     // Auto refresh data on load
     LaunchedEffect(Unit) {
         viewModel.refreshGpuInfo()
+        viewModel.refreshGpuSilicon()
         viewModel.refreshGraphicsHwui()
         viewModel.refreshDisplayRefreshRate()
         viewModel.refreshDisplayCalibration()
@@ -279,7 +347,25 @@ fun GpuSubscreen(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        tuningGpuCategoryItems(uiState, viewModel, context)
+        tuningGpuCategoryItems(
+            uiState = uiState,
+            viewModel = viewModel,
+            context = context,
+            onOpenStressTest = { showStressDialog = true }
+        )
+    }
+
+    if (showStressDialog) {
+        GpuStabilityStressDialog(
+            silicon = uiState.gpuSilicon,
+            onStartStressTest = { dur, onComplete ->
+                viewModel.startGpuStabilityBenchmark(dur, onComplete)
+            },
+            onStopStressTest = {
+                viewModel.stopGpuStabilityBenchmark()
+            },
+            onDismiss = { showStressDialog = false }
+        )
     }
 }
 
