@@ -1,3 +1,37 @@
+# Lynx Universal [Unified GPU Live Telemetry & Frequency Master, Panel Redundancy Elimination] 7.0.0-RC179
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC179** (Lynx Kernel Manager v3.2.25): **Konsolidasi Arsitektural Tab GPU Berdasarkan Sesi /grill-me & Konsensus UX: Mengeliminasi Panel Hero Atas yang Redundan dan Menyatukan Seluruh Telemetri Performa ke Dalam Satu Kartu Tunggal 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard`); Menerapkan Alur Logis Macro-to-Micro di Mana 4 Tombol Preset Cepat (`GpuQuickProfilesCard`) Memimpin di Posisi Atas, Diikuti Langsung oleh Kartu Live Grafis yang Diperkaya dengan 1-Baris 4-Kolom Micro-Tiles (Engine GL/VK, Governor Silikon, Daya Dinamis Watt, VRAM) Serta Lencana Profil Adaptif Semantik; Mengekstraksi Bottom Sheet Pemilih Frekuensi ke `GpuFrequencyPickerSheet` (`GpuHeroCard.kt`) Demi Mempertahankan Batas Arsitektural Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC179)
+
+### 1. 🎯 Konsolidasi Panel Redundan Menjadi 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard.kt`)
+- **Pembersihan Data Ganda (Clock, HAL, Suhu, Beban)**:
+  - Mengeliminasi kartu `GpuHeroCard` terpisah yang sebelumnya menduplikasi pembacaan clock frekuensi, nama vendor HAL, suhu silikon, dan persentase beban yang sudah tersedia pada Live Grafis.
+  - Memperbarui judul kartu utama menjadi **"Pusat Telemetri & Frekuensi GPU"** dengan lencana profil aktif semantik adaptif (`[⚡ SEIMBANG]`, `[🔋 HEMAT DAYA]`, `[🎮 ESPORTS]`, `[🔥 EKSTREM]`) beraksen warna dinamis di samping pembacaan suhu dan frekuensi clock maksimum silikon.
+
+### 2. ⚡ Integrasi 1-Baris 4-Kolom Micro-Tiles Esensial (`GpuHeroCard.kt`)
+- **Telemetri Esensial Padat Informasi**:
+  - Menghadirkan komponen `GpuTelemetryStrip` setinggi ~42dp yang diletakkan tepat di bawah header clock utama dan sebelum kurva grafik beban:
+    - **Engine**: Indikator backend perender aktif (`GL` / `VK` / `SkiaVK` / `ANGLE`).
+    - **Governor**: Algoritma devfreq silikon aktif (`Adreno-TZ`, `Performance`, `Schedutil`).
+    - **Daya**: Estimasi daya silikon dinamis dalam satuan Watt (`0.52 W`) berbasis frekuensi clock dan rasio beban.
+    - **VRAM**: Konsumsi memori video grafis (`Dinamis` atau alokasi MB).
+
+### 3. 📐 Alur Tata Letak Macro-to-Micro yang Harmonis (`GpuSubscreen.kt`)
+- **Hierarki Navigasi Alami**:
+  - Bagian atas langsung dibuka oleh **Section 1: Profil & Clock OPP** dengan 4 Tombol Preset Cepat sebagai penentu orientasi makro (Hemat Daya, Seimbang, Esports, Ekstrem).
+  - Tepat di bawahnya, kartu tunggal **Pusat Telemetri & Frekuensi GPU** menyajikan telemetri real-time komprehensif, grafik beban komputasi bezier, proses render aktif, pemilih frekuensi min/max, dan pengunci clock.
+  - Diikuti oleh 3 Section Accordion Collapsible (`Driver Hardware Kernel`, `Compositor & Pipeline HWUI`, `Pengaturan Per-Aplikasi`).
+
+### 4. 🧩 Pemecahan Modular & Kepatuhan Batas Kode (≤699 Baris)
+- Mengekstraksi modal bottom sheet pemilih frekuensi ke `GpuFrequencyPickerSheet` di dalam `GpuHeroCard.kt`.
+- Hasil audit baris kode seluruh berkas Kotlin terkait:
+  - `GpuMasterTunerCard.kt`: 642 baris (turun dari 691 baris, aman di bawah 699).
+  - `GpuHeroCard.kt`: 248 baris (turun dari 370 baris, aman di bawah 699).
+  - `GpuSubscreen.kt`: 678 baris (turun dari 684 baris, aman di bawah 699).
+
+---
+
 # Lynx Universal [Collapsible Accordion Bento Sections, HUD Redundancy Cleanup & Clock Inhibitor Clarification] 7.0.0-RC178
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC178** (Lynx Kernel Manager v3.2.24): **Penyempurnaan Arsitektur Tab GPU & Display Berbasis Accordion Bento Dinamis Sesuai Rekomendasi UX Anti-Fatigue & Eliminasi Redundansi: Mengubah 3 Section Kompleks pada Tab GPU (Driver Hardware Kernel HAL, Compositor & Pipeline HWUI, Pengaturan Per-Aplikasi) Menjadi Kartu Accordion Collapsible (`GpuCollapsibleSection`) Beranimasi Halus dan Berumpan Balik Taktil yang Mewujudkan Pengalaman *Zero-Scroll Dashboard* Saat Pertama Kali Dibuka; Mengeliminasi Duplikasi Pemilih Gaya OSD pada Tab Lab Menjadi Kartu Integrasi Ringkas (`FloatingGameHudCard`) dengan Switch Cepat Tanpa Menimbun Ruang Layar; Menggantikan Metrik Redundan Layar pada `GpuHeroCard` Menjadi Telemetri Internal GPU Murni (Governor Dinamis & Lencana Clock Silikon); Serta Memperjelas Nomenklatur Switch `adreno_force_clk` Menjadi *Inhibitor Sleep Clock Osilator* Demi Menghilangkan Ambiguitas Terhadap Pengunci Frekuensi OPP, dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.

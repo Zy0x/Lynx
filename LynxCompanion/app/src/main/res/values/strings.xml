@@ -2084,8 +2084,8 @@
     <string name="hud_actual_hz">Hz aktual</string>
     <string name="hud_mini_title">Mini HUD</string>
     <string name="hud_session">Sesi HUD</string>
-    <string name="hud_boost_ram">Boost RAM</string>
-    <string name="hud_boost_ram_sub">Bersihkan cache</string>
+    <string name="hud_boost_ram">Lepas cache</string>
+    <string name="hud_boost_ram_sub">Permintaan kernel</string>
     <string name="hud_tools_full">Alat Lengkap</string>
     <string name="hud_tools_full_sub">Pengaturan OSD</string>
     <string name="hud_capture_sub">Ambil layar</string>
@@ -2113,4 +2113,5 @@
     <string name="floating_engine_rom">Freeform ROM</string>
     <string name="floating_engine_rom_desc">Memerlukan dukungan freeform dari sistem atau LMO terpasang.</string>
     <string name="floating_engine_note">Lynx Virtual memakai root tanpa mengubah setelan freeform global. LSPosed bukan prasyarat; sistem yang memblokir display atau input dilaporkan sebagai tidak didukung.</string>
+    <string name="hud_cache_requested">Pelepasan cache diminta; tidak menjamin tambahan RAM.</string>
 </resources>

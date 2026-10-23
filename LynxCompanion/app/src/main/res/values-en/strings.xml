@@ -2073,4 +2073,21 @@
     <string name="floating_engine_rom">ROM freeform</string>
     <string name="floating_engine_rom_desc">Requires system freeform support or installed LMO.</string>
     <string name="floating_engine_note">Lynx Virtual uses root without changing global freeform settings. LSPosed is not a prerequisite; systems blocking display or input are reported as unsupported.</string>
+    <string name="hud_boost_ram">Release cache</string>
+    <string name="hud_boost_ram_sub">Kernel request</string>
+    <string name="hud_capture_sub">Save a screenshot</string>
+    <string name="hud_floating_compact">Compact</string>
+    <string name="hud_floating_custom">Custom</string>
+    <string name="hud_floating_enable_root">Enable global freeform (root)</string>
+    <string name="hud_floating_fullscreen">Fullscreen</string>
+    <string name="hud_floating_height">Window height</string>
+    <string name="hud_floating_large">Large</string>
+    <string name="hud_floating_size_title">Floating window size</string>
+    <string name="hud_floating_standard">Standard</string>
+    <string name="hud_floating_width">Window width</string>
+    <string name="hud_floating_window_sub">Open dock apps in floating windows while gaming</string>
+    <string name="hud_floating_window_title">Floating app window</string>
+    <string name="hud_tools_full">Tools</string>
+    <string name="hud_tools_full_sub">Open HUD tools</string>
+    <string name="hud_cache_requested">Cache release requested; no RAM gain is implied.</string>
 </resources>

@@ -55,14 +55,6 @@ fun LazyListScope.tuningGpuCategoryItems(
     when (targetTab) {
         0 -> {
             // ── TAB 0: TUNING ──
-            // 0. GPU & Display Hero Card (Zen Pulse Telemetry & System Status)
-            item(key = "gpu_hero_card") {
-                GpuHeroCard(
-                    uiState = uiState,
-                    gpu = gpu
-                )
-            }
-
             // ── SECTION 1: PROFIL & CLOCK OPP ──
             item(key = "section_header_profiles_clock") {
                 GpuSectionHeader(
@@ -112,10 +104,12 @@ fun LazyListScope.tuningGpuCategoryItems(
                 }
             }
 
-            // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Lock, & Waveform)
+            // 2. Master GPU Tuner & Telemetri Card (Dual-Pill Clock, Lock, Waveform, & Micro-Tiles)
             item(key = "gpu_master_tuner") {
+                val renderer = graphics.hwuiRenderer.replace("skia", "").uppercase()
                 GpuMasterTunerCard(
                     gpu = gpu,
+                    renderer = renderer,
                     onSetFreq = { minMhz, maxMhz -> viewModel.setGpuFreq(minMhz, maxMhz) },
                     onSetLock = { locked -> viewModel.setGpuLock(locked) }
                 )

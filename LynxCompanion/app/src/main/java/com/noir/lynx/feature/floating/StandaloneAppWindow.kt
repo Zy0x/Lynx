@@ -14,6 +14,8 @@ import com.noir.lynx.feature.floating.root.FloatingDisplayPolicy
 import com.noir.lynx.feature.floating.root.IFloatingRoot
 import kotlinx.coroutines.*
 
+private const val APP_WINDOW_TITLE = "LynxAppWindow"
+
 /** A real app rendered into Lynx's bounded TextureView, independently of ROM freeform chrome. */
 @SuppressLint("ClickableViewAccessibility")
 internal class StandaloneAppWindow(
@@ -34,7 +36,7 @@ internal class StandaloneAppWindow(
     private val params = WindowManager.LayoutParams(1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT).apply {
-        gravity = Gravity.TOP or Gravity.START; title = "LynxAppWindow"
+        gravity = Gravity.TOP or Gravity.START; title = APP_WINDOW_TITLE
     }
     private val owner = Binder()
     private var displayId = -1
@@ -48,6 +50,8 @@ internal class StandaloneAppWindow(
     private var renderHeight = 0
     private var input: FloatingInputQueue? = null
     private var resizeJob: Job? = null
+    private var appliedBox: FloatingDisplayPolicy.Box? = null
+    private var actionBusy = false
 
     init {
         root.clipChildren = true
@@ -109,7 +113,10 @@ internal class StandaloneAppWindow(
         params.x = safe.left + (safe.width() - params.width) / 2
         params.y = safe.top + (safe.height() - params.height) / 3
         clampToViewport(false)
-        try { wm.addView(root, params); attached = true } catch (e: Exception) { close(); throw e }
+        try {
+            wm.addView(root, params); attached = true
+            appliedBox = FloatingDisplayPolicy.Box(params.x, params.y, params.width, params.height)
+        } catch (e: Exception) { close(); throw e }
     }
 
     fun clampToViewport(update: Boolean = true) {
@@ -117,7 +124,9 @@ internal class StandaloneAppWindow(
         val b = FloatingDisplayPolicy.clamp(FloatingDisplayPolicy.Box(params.x, params.y, params.width, params.height),
             safe.left, safe.top, safe.width(), safe.height())
         params.x = b.x; params.y = b.y; params.width = b.width; params.height = b.height
-        if (update && attached && !closed) runCatching { wm.updateViewLayout(root, params) }.onFailure { close() }
+        if (update && attached && !closed && b != appliedBox) {
+            runCatching { wm.updateViewLayout(root, params); appliedBox = b }.onFailure { close() }
+        }
     }
 
     private fun drag(view: View, resize: Boolean) {
@@ -170,7 +179,9 @@ internal class StandaloneAppWindow(
         }
     }
 
-    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) { hasFrame = true; updateTitle() }
+    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+        if (!hasFrame) { hasFrame = true; updateTitle() }
+    }
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { close(); return true }
     private fun updateTitle() {
@@ -178,10 +189,13 @@ internal class StandaloneAppWindow(
     }
 
     private fun action(operation: () -> Boolean, success: () -> Unit = {}) {
-        if (displayId < 0 || closed) return
+        if (displayId < 0 || closed || actionBusy) return
+        actionBusy = true
         scope.launch {
-            val ok = withContext(Dispatchers.IO) { runCatching(operation).getOrDefault(false) }
-            if (!closed) { if (ok) success() else fail() }
+            try {
+                val ok = withContext(Dispatchers.IO) { runCatching(operation).getOrDefault(false) }
+                if (!closed) { if (ok) success() else fail() }
+            } finally { actionBusy = false }
         }
     }
 

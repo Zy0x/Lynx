@@ -1127,6 +1127,7 @@ fn main() {
             handle_status(json);
         }
         "hud" if args.get(2).map(String::as_str) == Some("stream") => hud::run(),
+        "hud" if args.get(2).map(String::as_str) == Some("release-cache") => hud::release_cache(),
         "telemetry" => {
             let pretty = args.iter().any(|a| a == "--pretty");
             handle_telemetry(pretty);

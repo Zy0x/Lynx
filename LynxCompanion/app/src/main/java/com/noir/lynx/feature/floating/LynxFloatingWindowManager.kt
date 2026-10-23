@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+private const val TOOL_WINDOW_TITLE = "LynxStandaloneFloatingWindow"
+
 @SuppressLint("StaticFieldLeak")
 object LynxFloatingWindowManager {
     private val mutableState = MutableStateFlow(FloatingWindowState())
@@ -170,7 +172,7 @@ object LynxFloatingWindowManager {
                 gravity = Gravity.TOP or Gravity.START
                 x = mutableState.value.xPx
                 y = mutableState.value.yPx
-                title = "LynxStandaloneFloatingWindow"
+                title = TOOL_WINDOW_TITLE
                 softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             }
 
@@ -194,7 +196,9 @@ object LynxFloatingWindowManager {
             }
 
             floatingView = composeView
-            runCatching { wm.addView(composeView, layoutParams) }.onFailure {
+            runCatching { wm.addView(composeView, layoutParams) }.onSuccess {
+                updateWindowDimensionsForExpanded()
+            }.onFailure {
                 composeView.disposeComposition()
                 floatingView = null
                 layoutParams = null

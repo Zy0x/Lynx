@@ -110,8 +110,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     fun restoreDisplay() = displaySession.restore()
 
     fun boostRam() = perform {
-        Shell.cmd("sync; echo 3 > /proc/sys/vm/drop_caches").exec()
-        R.string.hud_verified
+        val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
+        val result = Shell.cmd("'$path' hud release-cache").exec()
+        val accepted = runCatching { JSONObject(result.out.joinToString("\n")).getBoolean("accepted") }.getOrDefault(false)
+        if (result.isSuccess && accepted) R.string.hud_cache_requested else R.string.hud_failed
     }
 
     fun screenshot(hide: (Boolean) -> Unit) = perform {

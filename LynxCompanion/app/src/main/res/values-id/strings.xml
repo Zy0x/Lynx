@@ -2097,4 +2097,21 @@
     <string name="floating_engine_rom">Freeform ROM</string>
     <string name="floating_engine_rom_desc">Memerlukan dukungan freeform dari sistem atau LMO terpasang.</string>
     <string name="floating_engine_note">Lynx Virtual memakai root tanpa mengubah setelan freeform global. LSPosed bukan prasyarat; sistem yang memblokir display atau input dilaporkan sebagai tidak didukung.</string>
+    <string name="hud_boost_ram">Lepas cache</string>
+    <string name="hud_boost_ram_sub">Permintaan kernel</string>
+    <string name="hud_capture_sub">Ambil layar</string>
+    <string name="hud_floating_compact">Kompak</string>
+    <string name="hud_floating_custom">Kustom</string>
+    <string name="hud_floating_enable_root">Aktifkan Freeform Global (Root)</string>
+    <string name="hud_floating_fullscreen">Layar Penuh</string>
+    <string name="hud_floating_height">Tinggi jendela</string>
+    <string name="hud_floating_large">Lebar</string>
+    <string name="hud_floating_size_title">Ukuran Jendela Mengambang</string>
+    <string name="hud_floating_standard">Standar</string>
+    <string name="hud_floating_width">Lebar jendela</string>
+    <string name="hud_floating_window_sub">Buka aplikasi dock sebagai jendela mengambang saat game aktif</string>
+    <string name="hud_floating_window_title">Jendela Mengambang (Floating Window)</string>
+    <string name="hud_tools_full">Alat Lengkap</string>
+    <string name="hud_tools_full_sub">Pengaturan OSD</string>
+    <string name="hud_cache_requested">Pelepasan cache diminta; tidak menjamin tambahan RAM.</string>
 </resources>

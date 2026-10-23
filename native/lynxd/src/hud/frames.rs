@@ -43,6 +43,14 @@ pub fn timestamps(raw: &str) -> Vec<u64> {
     values
 }
 
+/// A producing SurfaceView outranks its activity container; multiple content producers are ambiguous.
+pub fn unique_content_candidate(candidates: &[(u64, String, Vec<u64>)]) -> Option<&(u64, String, Vec<u64>)> {
+    let has_surface = candidates.iter().any(|c| c.1.contains("SurfaceView"));
+    let mut selected = candidates.iter().filter(|c| !has_surface || c.1.contains("SurfaceView"));
+    let first = selected.next()?;
+    if selected.next().is_some() { None } else { Some(first) }
+}
+
 #[derive(Default)]
 pub struct Frames {
     last: u64,
@@ -129,6 +137,15 @@ pub fn belongs_to(layer: &str, pkg: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ambiguous_producing_layers_never_guess_the_newest() {
+        let activity = (100, "com.game/.Main".into(), vec![100]);
+        let surface = (101, "SurfaceView[com.game/.Main]#1".into(), vec![101]);
+        let other = (102, "SurfaceView[com.game/.Main]#2".into(), vec![102]);
+        assert!(unique_content_candidate(&[]).is_none());
+        assert_eq!(unique_content_candidate(&[activity, surface.clone()]).unwrap().1, surface.1);
+        assert!(unique_content_candidate(&[surface, other]).is_none());
+    }
     #[test]
     fn parses_only_actual_unique_resolved_frames() {
         assert_eq!(timestamps("8333333\n1 22 8\n2 22 9\n0 0 0\n1 9223372036854775807 3\n"), vec![22]);

@@ -2,7 +2,7 @@ use std::io::{BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
-use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to, clean_layer_name, refresh_rate}};
+use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to, clean_layer_name, refresh_rate, unique_content_candidate}};
 use crate::utils::json::quote;
 
 /// Resolves the current active performance profile with standalone fallback.
@@ -118,10 +118,7 @@ pub fn run() {
                     display_hz = refresh_rate(&raw);
                 }
             }
-            candidates.sort_by(|a,b| b.0.cmp(&a.0));
-            // A SurfaceView with submitted frames takes precedence over its activity container.
-            if candidates.iter().any(|c|c.1.contains("SurfaceView")) { candidates.retain(|c|c.1.contains("SurfaceView")); }
-            if let Some((_,name,ts)) = candidates.first() {
+            if let Some((_,name,ts)) = unique_content_candidate(&candidates) {
                 if *name != layer { frames.reset(); layer = name.clone(); }
                 frames.ingest(ts,frame_now_ns());
                 frame_status = if frames.gap { "warming_up" } else { "valid" };

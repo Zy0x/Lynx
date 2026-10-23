@@ -65,6 +65,7 @@ import com.noir.lynx.ui.*
 @Composable
 fun GpuMasterTunerCard(
     gpu: GpuInfo,
+    renderer: String = "",
     onSetFreq: (minMhz: Int?, maxMhz: Int?) -> Unit,
     onSetLock: (Boolean) -> Unit,
     modifier: Modifier = Modifier
@@ -81,7 +82,7 @@ fun GpuMasterTunerCard(
     var freqPickerTarget by remember { mutableStateOf<Boolean?>(null) } // true = min, false = max
 
     LynxCard(
-        title = "Pengatur Frekuensi GPU",
+        title = "Pusat Telemetri & Frekuensi GPU",
         subtitle = "Rentang frekuensi clock dan beban kerja GPU real-time",
         icon = Icons.Default.SportsEsports,
         accentColor = cardAccent,
@@ -117,6 +118,47 @@ fun GpuMasterTunerCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Adaptive Active Profile Badge
+                val activeProfile = gpu.activeProfile.lowercase()
+                val profileBadgeText = when (activeProfile) {
+                    "battery" -> "HEMAT DAYA"
+                    "balanced" -> "SEIMBANG"
+                    "esports" -> "ESPORTS"
+                    "extreme" -> "EKSTREM"
+                    else -> if (activeProfile.isNotBlank()) activeProfile.uppercase() else "AUTO"
+                }
+                val profileColor = when (activeProfile) {
+                    "battery" -> AccentGreen
+                    "balanced" -> AccentCyan
+                    "esports" -> AccentOrange
+                    "extreme" -> AccentRed
+                    else -> AccentCyan
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = profileColor.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, profileColor.copy(alpha = 0.45f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = profileColor,
+                            modifier = Modifier.size(5.dp)
+                        ) {}
+                        Text(
+                            text = profileBadgeText,
+                            color = profileColor,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 // Live GPU Temperature Badge
                 if (gpu.gpuTempC > 0f) {
                     val tempColor = when {
@@ -168,7 +210,14 @@ fun GpuMasterTunerCard(
             }
         }
 
-        // --- 1b. Throttling Advisory Pill ---
+        // --- 1b. 1-Row 4-Column Micro-Tiles (Engine, Governor, Daya, VRAM) ---
+        GpuTelemetryStrip(
+            gpu = gpu,
+            renderer = renderer,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // --- 1c. Throttling Advisory Pill ---
         if (gpu.isThrottled) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -576,112 +625,14 @@ fun GpuMasterTunerCard(
         }
     }
 
-    // Modal Bottom Sheet Frequency Picker
+    // Modal Bottom Sheet Frequency Picker (Extracted to GpuFrequencyPickerSheet)
     if (freqPickerTarget != null) {
-        val isMinPicker = freqPickerTarget == true
-        val freqs = gpu.availFreqsMhz.sorted()
-        val curFreq = if (isMinPicker) gpu.minFreqMhz else gpu.maxFreqMhz
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-        ModalBottomSheet(
-            onDismissRequest = { freqPickerTarget = null },
-            sheetState = sheetState,
-            containerColor = Color(0xFA0D1017),
-            scrimColor = Color.Black.copy(alpha = 0.65f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            dragHandle = {
-                Surface(
-                    color = Color(0x33FFFFFF),
-                    shape = CircleShape,
-                    modifier = Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 38.dp, height = 4.dp)
-                ) {}
-            }
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = if (isMinPicker) "Pilih Frekuensi Minimum GPU" else "Pilih Frekuensi Maksimum GPU",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "Tersedia ${freqs.size} step frekuensi clock OPP",
-                            fontSize = 11.5.sp,
-                            color = TextSecondary
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = cardAccent.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = "$curFreq MHz",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = cardAccent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 12.dp))
-
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    freqs.forEach { f ->
-                        val isSelected = f == curFreq
-                        Surface(
-                            onClick = {
-                                if (isMinPicker) {
-                                    val newMax = if (f > gpu.maxFreqMhz) f else gpu.maxFreqMhz
-                                    onSetFreq(f, newMax)
-                                } else {
-                                    val newMin = if (f < gpu.minFreqMhz) f else gpu.minFreqMhz
-                                    onSetFreq(newMin, f)
-                                }
-                                freqPickerTarget = null
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) cardAccent.copy(alpha = 0.22f) else Color(0xFF141722),
-                            border = BorderStroke(1.dp, if (isSelected) cardAccent else BorderGlass),
-                            modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "$f MHz",
-                                    color = if (isSelected) cardAccent else TextPrimary,
-                                    fontSize = 13.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = cardAccent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        GpuFrequencyPickerSheet(
+            targetIsMin = freqPickerTarget == true,
+            gpu = gpu,
+            onDismiss = { freqPickerTarget = null },
+            onSetFreq = onSetFreq
+        )
     }
 }
 

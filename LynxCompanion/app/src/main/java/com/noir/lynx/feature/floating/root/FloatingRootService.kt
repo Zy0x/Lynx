@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 class FloatingRootService : RootService() {
     private data class Session(val display: VirtualDisplay, val surface: Surface, val owner: IBinder,
                                val death: IBinder.DeathRecipient)
-    private val sessions = mutableMapOf<Int, Session>()
+    private val sessions = java.util.concurrent.ConcurrentHashMap<Int, Session>()
     private val lock = Any()
     private lateinit var access: RootAndroidAccess
     private var clientUid = -1
@@ -27,10 +27,11 @@ class FloatingRootService : RootService() {
         access = RootAndroidAccess(this)
     }
 
-    private fun <T> privileged(block: () -> T): T {
+    private fun <T> privileged(serialized: Boolean = true, block: () -> T): T {
         check(Binder.getCallingUid() == clientUid) { "Unexpected client UID" }
         val token = Binder.clearCallingIdentity()
-        return try { synchronized(lock, block) } finally { Binder.restoreCallingIdentity(token) }
+        return try { if (serialized) synchronized(lock, block) else block() }
+        finally { Binder.restoreCallingIdentity(token) }
     }
 
     private fun release(id: Int) {
@@ -71,9 +72,8 @@ class FloatingRootService : RootService() {
                 try {
                     owner.linkToDeath(death, 0)
                     access.configureIme(id)
-                    val child = ProcessBuilder("/system/bin/am", "start", "--user", userId.toString(),
-                        "--display", id.toString(), "--windowingMode", "1", "--activity-new-task",
-                        "--activity-multiple-task", "-n", component).redirectErrorStream(true).start()
+                    val child = ProcessBuilder(RootLaunchCommand.create(component, userId, id))
+                        .redirectErrorStream(true).start()
                     try {
                         check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
                         check(child.exitValue() == 0)
@@ -107,12 +107,12 @@ class FloatingRootService : RootService() {
             }
         }
 
-        override fun touch(displayId: Int, event: MotionEvent): Boolean = privileged {
+        override fun touch(displayId: Int, event: MotionEvent): Boolean = privileged(false) {
             try { sessions.containsKey(displayId) && access.inject(event, displayId) }
             catch (_: Exception) { false } finally { event.recycle() }
         }
 
-        override fun back(displayId: Int): Boolean = privileged {
+        override fun back(displayId: Int): Boolean = privileged(false) {
             if (!sessions.containsKey(displayId)) return@privileged false
             runCatching {
                 val now = SystemClock.uptimeMillis()

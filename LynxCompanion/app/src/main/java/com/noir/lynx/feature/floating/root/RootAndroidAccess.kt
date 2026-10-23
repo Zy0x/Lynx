@@ -21,6 +21,9 @@ internal class RootAndroidAccess(context: Context) {
 
     fun tasks(displayId: Int): List<ActivityManager.RunningTaskInfo> {
         val method = atmType.methods.single { it.name == "getTasks" }
+        check(method.parameterTypes.map { it.name } in listOf(
+            listOf("int"), listOf("int", "boolean", "boolean"), listOf("int", "boolean", "boolean", "int")
+        )) { "Unsupported getTasks signature" }
         val args = method.parameterTypes.mapIndexed { index, type ->
             when (type) {
                 Int::class.javaPrimitiveType -> if (index == 0) 100 else displayId
@@ -32,7 +35,7 @@ internal class RootAndroidAccess(context: Context) {
         return (method.invoke(atm, *args) as List<ActivityManager.RunningTaskInfo>).filter {
             val taskDisplayId = runCatching {
                 it.javaClass.getField("displayId").getInt(it)
-            }.getOrDefault(0)
+            }.getOrNull()
             taskDisplayId == displayId
         }
     }

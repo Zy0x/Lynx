@@ -1,8 +1,10 @@
 mod frames;
 mod hardware;
 mod stream;
+mod actions;
 
 pub use stream::run;
+pub use actions::release_cache;
 
 use crate::utils::json::quote;
 
