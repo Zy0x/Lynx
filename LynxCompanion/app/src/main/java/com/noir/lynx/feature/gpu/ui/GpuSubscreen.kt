@@ -188,6 +188,16 @@ fun LazyListScope.tuningGpuCategoryItems(
                 GpuShaderRebuilderCard()
             }
 
+            // ── SECTION 4: PENGATURAN PER-APLIKASI ──
+            item(key = "section_header_per_app_hub") {
+                GpuSectionHeader(
+                    title = "Pengaturan Per-Aplikasi",
+                    subtitle = "Konfigurasi driver grafis & refresh rate spesifik per-paket",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
+                    badge = "GAME & EMULATOR HUB"
+                )
+            }
+
             // Per-App Rendering Management (Game Driver Hub)
             item(key = "gpu_per_app_hub") {
                 PerAppGraphicsHubCard(
@@ -199,14 +209,20 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
                 )
             }
+        }
+        1 -> {
+            // ── TAB 1: LAYAR (DISPLAY & KALIBRASI PANEL) ──
+            item(key = "display_hero_card") {
+                DisplayHeroCard(uiState = uiState)
+            }
 
-            // ── SECTION 4: DISPLAY & KALIBRASI LAYAR ──
-            item(key = "section_header_display_panel") {
+            // ── SECTION 1: REFRESH RATE & RESPON SENTUH ──
+            item(key = "section_header_display_refresh") {
                 GpuSectionHeader(
-                    title = "Display & Kalibrasi Layar",
-                    subtitle = "Refresh rate, touchboost, resolusi render, dan kalibrasi warna",
+                    title = "Refresh Rate & Respon Sentuh",
+                    subtitle = "Mode fisik panel HWC, Auto Dynamic, TouchBoost & Render Scale",
                     accentColor = com.noir.lynx.designsystem.theme.AccentGreen,
-                    badge = "PANEL & OUTPUT"
+                    badge = "OUTPUT & TOUCH"
                 )
             }
 
@@ -230,6 +246,16 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetDcDimming = { viewModel.setDcDimming(it) },
                     onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) },
                     onSetForcedFpsUnlocker = { fps -> viewModel.setForcedFpsUnlocker(fps) }
+                )
+            }
+
+            // ── SECTION 2: KALIBRASI WARNA & VISUAL ──
+            item(key = "section_header_color_management") {
+                GpuSectionHeader(
+                    title = "Kalibrasi Warna & Visual",
+                    subtitle = "SurfaceFlinger Matrix 1015, D65 White Point, KCAL hardware & HBM",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
+                    badge = "COLOR & D65"
                 )
             }
 
@@ -260,8 +286,18 @@ fun LazyListScope.tuningGpuCategoryItems(
                 }
             }
         }
-        1 -> {
-            // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+        2 -> {
+            // ── TAB 2: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
+            // ── SECTION 1: BENCHMARK & OVERLAY ──
+            item(key = "section_header_lab_benchmark") {
+                GpuSectionHeader(
+                    title = "Benchmark & Overlay",
+                    subtitle = "Uji kestabilan GPU 30s/60s & floating telemetry in-game HUD",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
+                    badge = "REAL-TIME TOOLS"
+                )
+            }
+
             item(key = "gpu_stress_test_trigger") {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -342,6 +378,16 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
+            // ── SECTION 2: ANALISIS FRAME SURFACEFLINGER ──
+            item(key = "section_header_blast_recorder") {
+                GpuSectionHeader(
+                    title = "Analisis Frame SurfaceFlinger",
+                    subtitle = "Perekam frame BLAST, kalkulasi jank 1% low & log sesi",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
+                    badge = "BLAST RECORDER"
+                )
+            }
+
             item(key = "gpu_lab_record") {
                 LabRecordCard(
                     isRecording = uiState.isLabRecording,
@@ -371,8 +417,8 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
         }
-        2 -> {
-            // ── TAB 2: INFO (UNIFIED HARDWARE & COMPOSITOR DIAGNOSTICS) ──
+        3 -> {
+            // ── TAB 3: INFO (UNIFIED HARDWARE & COMPOSITOR DIAGNOSTICS) ──
             item(key = "gpu_hardware_info") {
                 GpuHardwareInfoDashboard(
                     caps = uiState.graphicsCapabilities,

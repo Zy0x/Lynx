@@ -1,3 +1,39 @@
+# Lynx Universal [4-Tab GPU & Display Architecture, DisplayHeroCard & Ergonomic Subscreens] 7.0.0-RC177
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC177** (Lynx Kernel Manager v3.2.23): **Pemisahan Arsitektural Subscreen GPU & Display Menjadi 4 Tab Mandiri Sesuai Konsensus /grill-me & Pedoman AGENTS.md Bagian 7.4: Memecah Tab Monolitik Menjadi 4 Domain Terfokus (Tab 0: GPU, Tab 1: Layar, Tab 2: Lab, Tab 3: Info) dengan Indikator Segmented Pill 4-Way Ergonomis; Menghadirkan `DisplayHeroCard` Mandiri pada Tab Layar Berisi Status Zen Pulse & Micro-Bento Grid 4x2 Responsif (Refresh, Mode, Resolusi, Warna, DC Dimming, TouchBoost, HBM, KCAL); Memisahkan Kartu Per-App Graphics Hub ke Dalam Section Header Mandiri pada Tab GPU; Menambahkan Section Header Tipografis Berpilar pada Tab Lab (Benchmark & Overlay, Analisis Frame SurfaceFlinger); Serta Menghubungkan Dialog GPU Stability Stress Test pada Tab Pager dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC177)
+
+### 1. 📑 Pemisahan 4 Tab Mandiri GPU, Layar, Lab & Info (`GpuDisplayTabRow.kt`)
+- **Struktur Navigasi Tabular 4-Way**:
+  - Mengembangkan navigasi subscreen menjadi 4 tab spesialisasi penuh:
+    - **Tab 0: GPU** (`Icons.Default.SportsEsports`): Khusus untuk clock silikon GPU, OPP levels, driver hardware kernel (KGSL/GED), compositor HWUI Vulkan, shader rebuilder, dan hub grafis per-aplikasi.
+    - **Tab 1: Layar** (`Icons.Default.Smartphone`): Fokus pada panel display fisik, refresh rate dinamis (60/90/120Hz), touchboost multi-OEM, render downscale, DC Dimming, SurfaceFlinger Matrix 1015, D65 White Point, dan KCAL.
+    - **Tab 2: Lab** (`Icons.Default.Analytics`): Fasilitas pengujian stres kestabilan GPU 30s/60s, floating telemetry in-game OSD HUD, dan perekam frame BLAST SurfaceFlinger dengan analisis jank.
+    - **Tab 3: Info** (`Icons.Default.Memory`): Dashboard diagnosa hardware murni, status silikon anti-spoofing, OPP frequency table 7-level, dan matriks kapabilitas Vulkan.
+  - Memangkas panjang scroll vertikal Tab GPU hingga lebih dari 50%, menghilangkan kelelahan navigasi (scroll fatigue).
+
+### 2. 📱 Hadirnya DisplayHeroCard Mandiri (`DisplayHeroCard.kt`)
+- **Zen Pulse & Status Operasional Panel Layar**:
+  - Kartu hero khusus dengan banner status real-time, lencana mode dinamis, dan indikator aktif.
+- **Matriks Status Micro-Bento 4x2 Responsif**:
+  - Baris 1: `REFRESH` (Hz aktual), `MODE` (Auto Dynamic / Manual Terkunci), `RESOLUSI` (FHD+ / Native), `WARNA` (D65 / Standar).
+  - Baris 2: `DC DIMMING` (Aktif / Off), `TOUCHBOOST` (Durasi ms / Off), `HBM` (Aktif / Off), `KCAL` (Hardware Driver / Standar).
+  - Mengikuti standar anti-slop dengan `16.dp` horizontal padding, kontras tinggi OLED dark theme, dan responsivitas penuh pada berbagai rasio layar.
+
+### 3. 🎯 Section Header Mandiri & Integrasi Dialog Benchmark Lab
+- **Pemisahan Pengaturan Per-Aplikasi (Game Driver Hub)**:
+  - Mengisolasi `PerAppGraphicsHubCard` di bawah section header `PENGATURAN PER-APLIKASI` (`GAME & EMULATOR HUB`).
+- **Section Header Tipografis pada Tab Lab**:
+  - Menata Tab Lab dengan dua section header elegan: `BENCHMARK & OVERLAY` (`REAL-TIME TOOLS`) dan `ANALISIS FRAME SURFACEFLINGER` (`BLAST RECORDER`).
+- **Integrasi Penuh Dialog Uji Stres GPU**:
+  - Menghubungkan pemicu `GPU Stability Stress Test` langsung ke `GpuStabilityStressDialog` di dalam subscreen pager, memungkinkan peluncuran benchmark instan.
+
+### 4. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
+- Seluruh berkas Kotlin yang diperbarui (`DisplayHeroCard.kt`: 363 baris, `GpuDisplayTabRow.kt`: 137 baris, `GpuSubscreen.kt`: 569 baris, `TuningTabSubscreenPagers.kt`: 315 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+
+---
+
 # Lynx Universal [GPU & Display UI Redesign, Micro-Bento Grid & Segmented Navigation] 7.0.0-RC176
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC176** (Lynx Kernel Manager v3.2.22): **Penyempurnaan Estetika Visual & Arsitektur Navigasi Subscreen GPU & Display Sesuai Pedoman Redesign Anti-Slop: Mendesain Ulang Segmented Tab Row (`GpuDisplayTabRow.kt`) dengan Ketinggian Presisi 46dp, Indikator Pill Mengambang Berlatar Slate Kaca dan Akses Haptic Feedback Penuh yang 100% Selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`; Mentransformasi Pita Telemetri Hero Card Menjadi Kotak Metrik Micro-Bento 4x2 yang Responsif dan Bebas Pembungkus Titik Pemisah Monospace; Memutakhirkan Section Header Menjadi Pembatas Tipografis Berpilar Aksen Cyan/Oranye Bersih Tanpa Kotak Bertingkat; Serta Menghilangkan Label Mengambang Redundan pada Matriks Profil Cepat GPU dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.

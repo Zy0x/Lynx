@@ -5,8 +5,7 @@ import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +20,7 @@ import com.noir.lynx.feature.battery.ui.batteryInformationItems
 import com.noir.lynx.feature.cpu.ui.CpuTabRow
 import com.noir.lynx.feature.cpu.ui.tuningCpuCategoryItems
 import com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow
+import com.noir.lynx.feature.gpu.ui.GpuStabilityStressDialog
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems
 import com.noir.lynx.feature.network.ui.NetworkAudioTabRow
 import com.noir.lynx.feature.network.ui.TuningNetworkCategory
@@ -81,6 +81,8 @@ fun GpuSwipeableSubscreen(
     val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page3State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    var showStressDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshGpuInfo()
@@ -96,7 +98,7 @@ fun GpuSwipeableSubscreen(
     }
 
     LynxTabPager(
-        pageCount = 3,
+        pageCount = 4,
         selectedPage = uiState.selectedGpuTab,
         onPageSelected = { viewModel.selectGpuTab(it) },
         tabRow = { curPage, onSelect ->
@@ -113,7 +115,8 @@ fun GpuSwipeableSubscreen(
         val listState = when (page) {
             0 -> page0State
             1 -> page1State
-            else -> page2State
+            2 -> page2State
+            else -> page3State
         }
         LazyColumn(
             state = listState,
@@ -122,9 +125,28 @@ fun GpuSwipeableSubscreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item(key = "gpu_p${page}_top") { Spacer(Modifier.height(8.dp)) }
-            tuningGpuCategoryItems(uiState, viewModel, context, targetTab = page)
+            tuningGpuCategoryItems(
+                uiState = uiState,
+                viewModel = viewModel,
+                context = context,
+                targetTab = page,
+                onOpenStressTest = { showStressDialog = true }
+            )
             item(key = "gpu_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
         }
+    }
+
+    if (showStressDialog) {
+        GpuStabilityStressDialog(
+            silicon = uiState.gpuSilicon,
+            onStartStressTest = { dur, onComplete ->
+                viewModel.startGpuStabilityBenchmark(dur, onComplete)
+            },
+            onStopStressTest = {
+                viewModel.stopGpuStabilityBenchmark()
+            },
+            onDismiss = { showStressDialog = false }
+        )
     }
 }
 

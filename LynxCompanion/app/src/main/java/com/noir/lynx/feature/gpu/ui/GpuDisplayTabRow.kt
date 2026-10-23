@@ -8,7 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.core.locale.localizedUiText
@@ -37,9 +38,10 @@ fun GpuDisplayTabRow(
 ) {
     val haptic = LocalHapticFeedback.current
     val tabs = listOf(
-        Triple(0, "Tuning", Icons.Default.Tune),
-        Triple(1, "Lab", Icons.Default.Analytics),
-        Triple(2, "Info", Icons.Default.Memory)
+        Triple(0, "GPU", Icons.Default.SportsEsports),
+        Triple(1, "Layar", Icons.Default.Smartphone),
+        Triple(2, "Lab", Icons.Default.Analytics),
+        Triple(3, "Info", Icons.Default.Memory)
     )
 
     Surface(
