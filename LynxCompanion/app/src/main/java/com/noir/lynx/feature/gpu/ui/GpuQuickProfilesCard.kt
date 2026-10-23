@@ -68,7 +68,11 @@ fun GpuQuickProfilesCard(
         )
     )
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
         // 2x2 Bento Matrix: Row 1 (Battery & Balanced)
         Row(
             modifier = Modifier.fillMaxWidth(),

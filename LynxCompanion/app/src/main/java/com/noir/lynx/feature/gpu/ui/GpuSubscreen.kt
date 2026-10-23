@@ -77,7 +77,10 @@ fun LazyListScope.tuningGpuCategoryItems(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFF10141E),
-                        border = BorderStroke(0.6.dp, Color(0x18FFFFFF))
+                        border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -264,7 +267,9 @@ fun LazyListScope.tuningGpuCategoryItems(
                     shape = RoundedCornerShape(16.dp),
                     color = Color(0xFF10141E),
                     border = BorderStroke(0.6.dp, Color(0x1AFFFFFF)),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -469,7 +474,7 @@ fun GpuSectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

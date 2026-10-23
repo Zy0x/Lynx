@@ -89,7 +89,9 @@ fun GpuHeroCard(
                 )
             )
         ),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // ── 1. Top Row: Zen Reassurance Status Bar ───────────

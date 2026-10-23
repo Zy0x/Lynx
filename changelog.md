@@ -23,6 +23,9 @@ Released on: 2026-10-24
   - Mengubah `GpuSectionHeader` dari kontainer kotak berat menjadi pembatas tipografis elegan dengan pilar aksen 3x18dp dan micro-badge semantik.
   - Mengeliminasi teks mengambang `PILIHAN PROFIL GPU` yang redundan di atas 4 tombol profil bento.
   - Menyempurnakan kartu pemicu `GPU Stability Stress Test` pada Tab Lab dengan ikon `Speed` terpadu.
+- **Konsistensi Grid Padding Horizontal 16dp (Anti-Stretching)**:
+  - Mengunci seluruh komponen (`GpuHeroCard`, `GpuSectionHeader`, `GpuQuickProfilesCard`, `gpu_profile_override_status`, dan `gpu_stress_test_trigger`) pada margin horizontal standar **16dp**.
+  - Mengeliminasi distorsi kotak section yang sebelumnya melebar ke tepi layar (0–4dp margin) sehingga seluruh kartu berbagi baseline vertikal yang 100% simetris dengan `LynxCard`.
 
 ### 4. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
 - Seluruh berkas Kotlin yang dimodifikasi (`GpuDisplayTabRow.kt`: 117 baris, `GpuHeroCard.kt`: 360 baris, `GpuQuickProfilesCard.kt`: 217 baris, `GpuSubscreen.kt`: 518 baris, `LynxGpuDisplayComponents.kt`: 624 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
