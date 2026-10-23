@@ -14,6 +14,7 @@
         tools:ignore="ScopedStorage" />
     <!-- Network status display for Wi-Fi ping stabilizer -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Haptic feedback on profile switches -->
     <uses-permission android:name="android.permission.VIBRATE" />

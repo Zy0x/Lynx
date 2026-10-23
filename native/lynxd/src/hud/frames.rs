@@ -90,7 +90,7 @@ impl Frames {
         if self.intervals.is_empty() { None } else { Some(self.intervals.iter().sum::<f64>() / self.intervals.len() as f64) }
     }
     pub fn low(&self) -> Option<f64> {
-        if self.intervals.len() < 15 || self.gap { return None; }
+        if self.intervals.len() < 100 || self.gap { return None; }
         let mut sorted: Vec<_> = self.intervals.iter().copied().collect();
         sorted.sort_by(|a,b| b.total_cmp(a));
         let n = (sorted.len() as f64 * 0.01).ceil() as usize;
@@ -177,6 +177,16 @@ mod tests {
         assert!(f.gap);
         assert_eq!(f.fps(2_010_000_000), None);
         assert!(!f.active(4_000_000_000));
+    }
+    #[test]
+    fn low_requires_one_hundred_real_intervals() {
+        let mut f = Frames::default();
+        let times: Vec<_> = (1..=100).map(|i| i * 16_666_667).collect();
+        f.ingest(&times, *times.last().unwrap());
+        assert_eq!(f.low(), None);
+        let next = 101 * 16_666_667;
+        f.ingest(&[times[99], next], next);
+        assert!((f.low().unwrap() - 60.0).abs() < 0.001);
     }
     #[test]
     fn low_uses_slowest_one_percent_not_fps_percentiles() {

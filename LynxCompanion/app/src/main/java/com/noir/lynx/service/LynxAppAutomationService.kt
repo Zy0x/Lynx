@@ -552,6 +552,9 @@ class LynxAppAutomationService : Service() {
     }
 
     private suspend fun handleForegroundPackage(pkg: String) {
+        // 0. Dynamic Media & Browser Safeguard (Protect Codec2 & WebViews from VSync swap bypass / latching)
+        com.noir.lynx.safety.LynxMediaSafeguardManager.onForegroundChanged(this@LynxAppAutomationService, pkg)
+
         if (rulesCache.isEmpty()) {
             rulesCache = LynxRepository.readAppProfileRules()
         }

@@ -256,6 +256,14 @@ fun FloatingBrowserTool(
                     loadUrl(initialUrl)
                 }
             },
+            onRelease = { view ->
+                webViewInstance = null
+                view.stopLoading()
+                view.webChromeClient = null
+                view.webViewClient = WebViewClient()
+                view.removeAllViews()
+                view.destroy()
+            },
             update = { view ->
                 webViewInstance = view
             }

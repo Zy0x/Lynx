@@ -16,6 +16,7 @@ import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.feature.media.ui.MediaDecoderCard
+import com.noir.lynx.feature.media.ui.MediaCodecDiagnosticCard
 
 fun LazyListScope.toolsPreferenceItems() {
     item(key = "language_settings") {
@@ -53,4 +54,5 @@ fun LazyListScope.toolsPreferenceItems() {
         }
     }
     item(key = "media_decoder_settings") { MediaDecoderCard() }
+    item(key = "media_codec_diagnostic") { MediaCodecDiagnosticCard() }
 }

@@ -266,6 +266,67 @@ fun GpuDeepSiliconCard(
                 onCheckedChange = onSetGpuLlcSlice,
                 accentColor = AccentGreen
             )
+
+            HorizontalDivider(color = BorderGlass)
+
+            // ── 7. DAMPAK & RISIKO ACCORDION (TRANSPARANSI TWEAK) ──
+            var showImpactDetails by remember { mutableStateOf(false) }
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, if (showImpactDetails) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showImpactDetails = !showImpactDetails }
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("🛡️", fontSize = 14.sp)
+                            Text(
+                                text = "Dampak & Analisis Risiko Silikon",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+                        Text(
+                            text = if (showImpactDetails) "Tutup ▲" else "Lihat Detail ▼",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentCyan
+                        )
+                    }
+
+                    if (showImpactDetails) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        ImpactRow(
+                            title = "SPTP Power Collapse (sptp_pc)",
+                            pro = "OFF: Menghilangkan jeda bangun shader (zero wakeup latency). ON: Hemat daya ALU saat scene idle.",
+                            con = "Mematikan SPTP PC (OFF) dapat menaikkan suhu idle GPU sekitar 1-2°C."
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ImpactRow(
+                            title = "Skip Save / Restore (skipsaverestore)",
+                            pro = "Pangkas 2-4ms frame spike saat transisi beban idle cepat.",
+                            con = "Dibutuhkan stabilitas driver GPU stock/OEM. Pada kernel yang tidak stabil dapat memicu visual glitch minor."
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ImpactRow(
+                            title = "GPU Wake Nice Priority (-20 s/d 19)",
+                            pro = "Thread kernel kgsl_worker diprioritaskan di atas background tasks saat render frame berat.",
+                            con = "Nilai ekstrem (-20) dapat sedikit menahan tugas background CPU jika seluruh core sedang tersaturasi 100%."
+                        )
+                    }
+                }
+            }
         }
     }
 

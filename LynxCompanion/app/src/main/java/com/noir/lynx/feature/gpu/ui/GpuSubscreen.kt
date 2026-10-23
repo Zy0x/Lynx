@@ -150,6 +150,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
+            // 3b. GPU Shader Cache & Integrity Rebuilder
+            item(key = "gpu_shader_rebuilder") {
+                GpuShaderRebuilderCard()
+            }
+
             // 2b. Per-App Rendering Management (Game Driver Hub)
             item(key = "gpu_per_app_hub") {
                 PerAppGraphicsHubCard(

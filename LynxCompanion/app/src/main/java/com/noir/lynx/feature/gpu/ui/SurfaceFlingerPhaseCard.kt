@@ -215,6 +215,67 @@ fun SurfaceFlingerPhaseCard(
                     )
                 )
             }
+
+            HorizontalDivider(color = BorderGlass)
+
+            // ── 4. DAMPAK & RISIKO ACCORDION (TRANSPARANSI TWEAK) ──
+            var showImpactDetails by remember { mutableStateOf(false) }
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(1.dp, if (showImpactDetails) AccentBlue.copy(alpha = 0.5f) else BorderGlass),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showImpactDetails = !showImpactDetails }
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("🛡️", fontSize = 14.sp)
+                            Text(
+                                text = "Dampak & Analisis Risiko Pipeline",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
+                        Text(
+                            text = if (showImpactDetails) "Tutup ▲" else "Lihat Detail ▼",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentBlue
+                        )
+                    }
+
+                    if (showImpactDetails) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        ImpactRow(
+                            title = "VSync Swap Bypass (swapinterval=0)",
+                            pro = "Respon input instan dan zero frame latency.",
+                            con = "Dapat memicu 'Playback Error' video (Twitter/ExoPlayer) & tearing WebView jika dipaksakan. Lynx Dynamic Safeguard otomatis menetralkannya saat aplikasi media aktif."
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ImpactRow(
+                            title = "Early Phase Offset (ns/ms)",
+                            pro = "SurfaceFlinger render frame lebih awal sebelum VSync, memangkas input-to-display latency.",
+                            con = "Offset terlalu besar (>12ms) dapat memicu frame drop pada beban multi-layer kompleks."
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ImpactRow(
+                            title = "TouchBoost Duration",
+                            pro = "Mencegah frame drop saat jari terangkat dari layar kontrol game.",
+                            con = "Durasi >1000ms menahan clock CPU/GPU lebih lama, konsumsi baterai sedikit meningkat."
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -252,5 +313,30 @@ fun SurfaceFlingerPhaseCard(
             onConfirm = onSetTouchBoostDuration,
             onDismiss = { showTouchBoostDialog = false }
         )
+    }
+}
+
+@Composable
+internal fun ImpactRow(
+    title: String,
+    pro: String,
+    con: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BgSurfaceLowest, RoundedCornerShape(8.dp))
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(text = title, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("✅", fontSize = 10.sp)
+            Text(text = pro, fontSize = 10.5.sp, color = AccentGreen, modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("⚠️", fontSize = 10.sp)
+            Text(text = con, fontSize = 10.5.sp, color = AccentOrange, modifier = Modifier.weight(1f))
+        }
     }
 }
