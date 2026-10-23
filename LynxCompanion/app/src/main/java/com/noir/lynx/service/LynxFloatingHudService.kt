@@ -74,7 +74,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             interactive.value = intent?.action != Intent.ACTION_SCREEN_OFF && (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
-            if (!interactive.value) open.value = false
+            if (!interactive.value) {
+                open.value = false
+                com.noir.lynx.feature.floating.StandaloneApps.closeWindows()
+                LynxFloatingWindowManager.close()
+            }
         }
     }
     private val displayListener = object : DisplayManager.DisplayListener {
@@ -98,6 +102,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         controller = HudController(this,scope)
         LynxFloatingWindowManager.init(this, windows, scope, this, this)
         LynxFreeformManager.init(this, windows, scope, this, this)
+        com.noir.lynx.feature.floating.StandaloneApps.init(this, windows, scope)
         val prefs = getSharedPreferences("lynx_hud_prefs",MODE_PRIVATE)
         activeStyleFlow.value = prefs.getInt("hud_style",1).coerceIn(1,6)
         activeModeFlow.value = prefs.getInt("hud_mode",0).coerceIn(0,1)
@@ -202,6 +207,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             safeHeight = metrics.heightPixels-safeTop-(insets?.stableInsetBottom ?: 0)
         }
         viewport.value = HudViewport(safeWidth/density,safeHeight/density)
+        com.noir.lynx.feature.floating.StandaloneApps.viewportChanged()
         clamp()
     }
 
@@ -302,6 +308,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     override fun onDestroy() {
         if (registered) unregisterReceiver(screenReceiver)
         if (::displays.isInitialized) displays.unregisterDisplayListener(displayListener)
+        com.noir.lynx.feature.floating.StandaloneApps.destroy()
         scope.cancel()
         if (::controller.isInitialized) CoroutineScope(Dispatchers.IO).launch { controller.restoreDisplay() }
         LynxFloatingWindowManager.destroy()

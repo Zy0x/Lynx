@@ -1,3 +1,39 @@
+# Lynx Universal [Schedutil Rate-Limit Precision Tuner & Sched Load Boost Anti-Inversion] 7.0.0-RC174
+Released on: 2026-10-23
+> **Lynx Universal v7.0.0-RC174** (Lynx Kernel Manager v3.2.20): **Penyempurnaan Domain CPU Subsystem Tingkat Lanjut: Menghadirkan Schedutil Rate-Limit Precision Tuner Berlatensi Mikrodetik (µs) dengan 5 Profil Terkalibrasi Per-Kluster Little vs Big Serta Dialog Input Kustom Presisi (`SchedutilCustomRateDialog.kt`); Mengintegrasikan Pengontrol Bias Kapasitas Tugas (Task Capacity Bias & Anti-Capacity Inversion Controller) Berbasis Kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` (`CpuSchedLoadBoostCard.kt`) untuk Mengeliminasi Fenomena Thread Stalling pada Render Thread; Serta Melakukan Pembersihan Kode Mati Menyeluruh Melalui Penghapusan Berkas Yatim `CpuClusterItemCard.kt` dan Konsolidasi `QuickTunablesBottomSheet.kt` pada `CompactClusterRow` Sehingga Mengurangi 97 Baris Kode Bersih dengan Seluruh Berkas Tetap Mematuhi Batas Ketat ≤699 Baris**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC174)
+
+### 1. ⏱️ Schedutil Rate-Limit Precision Tuner (Microsecond Latency Engine)
+- **Kontrol Latensi Kenaikan & Penurunan Frekuensi CPU**:
+  Mengatur parameter kernel schedutil `up_rate_limit_us` (jeda evaluasi kenaikan frekuensi saat beban melonjak) dan `down_rate_limit_us` (durasi penahanan clock tinggi saat beban kerja mereda guna mengeliminasi micro-stutter).
+- **5 Profil Presisi Terkalibrasi Arsitektur Per-Kluster**:
+  - *Esports (Ultra Latensi Rendah)*: Little 0µs / 5ms, Big 0µs / 2ms (akselerasi instan seketika).
+  - *Responsif (Agresif)*: Little 0µs / 10ms, Big 0µs / 5ms.
+  - *Seimbang (Standar)*: Little 1ms / 20ms, Big 0µs / 10ms.
+  - *Hemat Daya (Efisiensi)*: Little 10ms / 1ms, Big 20ms / 0.5ms.
+  - *Bawaan OEM*: 0µs / 30ms.
+- **Dialog Kustom Angka Mikrodetik Presisi (`SchedutilCustomRateDialog.kt`)**:
+  Dilengkapi field input numerik langsung dan chip bantuan cepat (0µs Instan, 500µs, 1ms, 5ms; 2ms, 5ms, 10ms, 20ms) dengan validasi batas aman kernel.
+
+### 2. ⚖️ Sched Load Boost Per-Kluster (Koreksi Kapasitas Tugas / Anti-Capacity Inversion)
+- **Pengontrol Bias Kapasitas Tugas Hardware (`CpuSchedLoadBoostCard.kt`)**:
+  Mengelola node sysfs kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` secara terpisah antara kluster Little (cpu0..3) dan kluster Big (cpu4..7).
+- **Solusi Anti-Capacity Inversion**:
+  Mencegah render thread game/UI terjebak di core Little yang lambat dengan mendiskon kapasitas core Little dan meningkatkan daya tarik beban ke core Big.
+- **4 Preset Terkalibrasi**:
+  - *Anti-Inversi (-10 Little / +20 Big)*: Penempatan optimal render thread berat ke kluster Big.
+  - *Performa Big (-6 Little / +15 Big)*: Bias performa sedang untuk multitasking responsif.
+  - *Seimbang (0 Little / 0 Big)*: Distribusi netral scheduler Linux CFS/EAS standar.
+  - *Hemat Daya (-6 Little / -6 Big)*: Efisiensi daya harian.
+
+### 3. 🧹 Konsolidasi UI, Pembersihan Kode Mati, & Kepatuhan Arsitektur
+- **Eliminasi Kode Mati**: Menghapus berkas redundan `CpuClusterItemCard.kt` (-280 baris) dan mereduksi `CpuClusterTunerCard.kt` (-121 baris).
+- **Konsolidasi Bottom Sheet**: Seluruh alur konfigurasi governor schedutil dan tunables didelegasikan langsung ke `QuickTunablesBottomSheet.kt`.
+- **Kepatuhan Batas Kode**: Penurunan -97 baris bersih di codebase dengan seluruh berkas `.kt` mematuhi batas ketat ≤699 baris kode.
+
+---
+
 # Lynx Universal [Interactive Custom Number Tuning & Deep Interconnect Silicon GPU Tweaks] 7.0.0-RC170
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC170** (Lynx Kernel Manager v3.2.16): **Transformasi Sistem Parameter Bebas & Input Angka Kustom Manual (Custom Numeric Input Modal): Menghilangkan Batasan Preset Konstan Kaku Melalui Dialog Input Angka & Slider Presisi 1-Jari (`GpuCustomNumberDialog.kt`) Sehingga Pengguna Bebas Memasukkan Angka Manual pada Adreno Idle Timer (1–500ms), Devfreq Polling Interval (5–500ms), Alokasi Cache Tekstur (16–512MB), serta Disk Shader Blob Cache (32–2048MB); Menambahkan 4 Tweak Silikon Hardware GPU Lanjutan pada Kernel Qualcomm Adreno KGSL (PM-QoS Active Latency Interconnect 0µs Zero-Wakeup, Anti-Lag Clock Gating / Matikan HWCG, Paksa Clock GPU Tetap Aktif / Force Clk, Serta Toleransi Timeout Hang Shader / Long IB Detect 1000–8000ms); Serta Mempertahankan Standar Kode Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.

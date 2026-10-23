@@ -472,6 +472,9 @@ object LynxRepository {
 
     suspend fun applyGovernorPreset(preset: String, policyId: Int? = null): Boolean = LynxSystemTuningRepository.applyGovernorPreset(preset, policyId)
 
+    suspend fun setSchedutilRateLimits(policyId: Int?, upRateUs: Long, downRateUs: Long): Boolean =
+        LynxSystemTuningRepository.setSchedutilRateLimits(policyId, upRateUs, downRateUs)
+
     suspend fun applyLmkPreset(preset: String): Boolean = LynxSystemTuningRepository.applyLmkPreset(preset)
 
     suspend fun backupBoot(): String = LynxKernelPackageRepository.backupBoot()
@@ -1004,6 +1007,7 @@ object LynxRepository {
     suspend fun setUniversalAntiThrottlingGuard(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setUniversalAntiThrottlingGuard(enabled, context)
     suspend fun setMtkInterconnectBusBoost(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setMtkInterconnectBusBoost(enabled, context)
     suspend fun setMtkCpuPowerMode(mode: Int, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setMtkCpuPowerMode(mode, context)
+    suspend fun setSchedLoadBoost(littleBoost: Int, bigBoost: Int, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setSchedLoadBoost(littleBoost, bigBoost, context)
     suspend fun setMtkDlptImaxBypass(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setMtkDlptImaxBypass(enabled, context)
     suspend fun setQcomDevfreqBusBoost(enabled: Boolean, context: Context? = null): Boolean = LynxCpuSchedulerControlRepository.setQcomDevfreqBusBoost(enabled, context)
     suspend fun readProcessDetail(pid: Int, fallbackName: String = "", fallbackPkg: String = ""): CpuProcessDetail = LynxCpuSchedulerControlRepository.readProcessDetail(pid, fallbackName, fallbackPkg)

@@ -151,7 +151,10 @@ fun CpuSubscreen(
                     onQcomDevfreqBusBoostChange = { en -> viewModel.setQcomDevfreqBusBoost(en, context) },
                     onUniversalBusProfileChange = { prof -> viewModel.setUniversalBusBandwidthProfile(prof, context) },
                     onUniversalTouchBoostChange = { en -> viewModel.setUniversalTouchBoost(en, context) },
-                    onUniversalAntiThrottlingGuardChange = { en -> viewModel.setUniversalAntiThrottlingGuard(en, context) }
+                    onUniversalAntiThrottlingGuardChange = { en -> viewModel.setUniversalAntiThrottlingGuard(en, context) },
+                    onApplyGovernorPreset = { policyId, preset -> viewModel.applyGovernorPreset(preset, policyId) },
+                    onSetCustomRateLimits = { policyId, upUs, downUs -> viewModel.setSchedutilRateLimits(policyId, upUs, downUs) },
+                    onSetSchedLoadBoost = { lit, big -> viewModel.setSchedLoadBoost(lit, big, context) }
                 )
             }
             1 -> {
@@ -365,7 +368,10 @@ fun androidx.compose.foundation.lazy.LazyListScope.tuningCpuCategoryItems(
                         onQcomDevfreqBusBoostChange = { en -> viewModel.setQcomDevfreqBusBoost(en, context) },
                         onUniversalBusProfileChange = { prof -> viewModel.setUniversalBusBandwidthProfile(prof, context) },
                         onUniversalTouchBoostChange = { en -> viewModel.setUniversalTouchBoost(en, context) },
-                        onUniversalAntiThrottlingGuardChange = { en -> viewModel.setUniversalAntiThrottlingGuard(en, context) }
+                        onUniversalAntiThrottlingGuardChange = { en -> viewModel.setUniversalAntiThrottlingGuard(en, context) },
+                        onApplyGovernorPreset = { policyId, preset -> viewModel.applyGovernorPreset(preset, policyId) },
+                        onSetCustomRateLimits = { policyId, upUs, downUs -> viewModel.setSchedutilRateLimits(policyId, upUs, downUs) },
+                        onSetSchedLoadBoost = { lit, big -> viewModel.setSchedLoadBoost(lit, big, context) }
                     )
                 }
             }

@@ -54,6 +54,7 @@ fun PlatformHardwareEngineCard(
     onUniversalBusProfileChange: (String) -> Unit = {},
     onUniversalTouchBoostChange: (Boolean) -> Unit = {},
     onUniversalAntiThrottlingGuardChange: (Boolean) -> Unit = {},
+    onSetSchedLoadBoost: (littleBoost: Int, bigBoost: Int) -> Unit = { _, _ -> },
     onShowSwitchInfo: ((SwitchTweakInfo) -> Unit)? = null,
     onOpenDeveloperVerification: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -266,6 +267,14 @@ fun PlatformHardwareEngineCard(
                                 }
                             }
                         }
+                    }
+
+                    // ── Sub-section 1.5: Sched Load Boost & Capacity Inversion Guard ──
+                    if (schedInfo.isSchedLoadBoostSupported || isQcom) {
+                        CpuSchedLoadBoostCard(
+                            schedInfo = schedInfo,
+                            onSetSchedLoadBoost = onSetSchedLoadBoost
+                        )
                     }
 
                     // ── Sub-section 2: Memory Bus & Interconnect (CCI + DRAM / Devfreq) ──

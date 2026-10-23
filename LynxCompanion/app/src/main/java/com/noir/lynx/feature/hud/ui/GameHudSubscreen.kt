@@ -336,8 +336,8 @@ fun GameHudSubscreen(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val engines = listOf(
-                            "standalone" to ("⚡ Standalone Studio" to "Overlay mandiri (Browser, Calc, Notes, Timer)"),
-                            "system_freeform" to ("🪟 System Freeform" to "Root windowingMode 5 sistem ROM")
+                            "standalone" to (androidx.compose.ui.res.stringResource(R.string.floating_engine_root) to androidx.compose.ui.res.stringResource(R.string.floating_engine_root_desc)),
+                            "system_freeform" to (androidx.compose.ui.res.stringResource(R.string.floating_engine_rom) to androidx.compose.ui.res.stringResource(R.string.floating_engine_rom_desc))
                         )
                         engines.forEach { (engineKey, pair) ->
                             val (title, desc) = pair
@@ -489,34 +489,11 @@ fun GameHudSubscreen(
                         }
                     }
 
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.8.dp, BorderSubtle),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(localizedUiText("Paksa Dukungan Freeform Global"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                Text(localizedUiText("Mengizinkan semua aplikasi dibuka dalam jendela mengambang"), fontSize = 10.sp, color = TextSecondary)
-                            }
-                            Button(
-                                onClick = {
-                                    com.topjohnwu.superuser.Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
-                                    android.widget.Toast.makeText(context, "Dukungan Freeform Global Diaktifkan", android.widget.Toast.LENGTH_SHORT).show()
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text("Aktifkan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(R.string.floating_engine_note),
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
                 }
             }
         }

@@ -1,0 +1,141 @@
+package com.noir.lynx.feature.floating.root
+
+import android.content.ComponentName
+import android.content.Intent
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.os.*
+import android.view.InputDevice
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.Surface
+import com.topjohnwu.superuser.ipc.RootService
+import java.util.concurrent.TimeUnit
+
+/** APK-owned, non-daemon root service. It neither installs a module nor edits global settings. */
+class FloatingRootService : RootService() {
+    private data class Session(val display: VirtualDisplay, val surface: Surface, val owner: IBinder,
+                               val death: IBinder.DeathRecipient)
+    private val sessions = mutableMapOf<Int, Session>()
+    private val lock = Any()
+    private lateinit var access: RootAndroidAccess
+    private var clientUid = -1
+
+    override fun onCreate() {
+        super.onCreate()
+        clientUid = applicationInfo.uid
+        access = RootAndroidAccess(this)
+    }
+
+    private fun <T> privileged(block: () -> T): T {
+        check(Binder.getCallingUid() == clientUid) { "Unexpected client UID" }
+        val token = Binder.clearCallingIdentity()
+        return try { synchronized(lock, block) } finally { Binder.restoreCallingIdentity(token) }
+    }
+
+    private fun release(id: Int) {
+        val session = sessions.remove(id) ?: return
+        runCatching { session.owner.unlinkToDeath(session.death, 0) }
+        runCatching { access.tasks(id).forEach { access.remove(it.taskId) } }
+        try { session.display.release() } finally { session.surface.release() }
+    }
+
+    private fun result(block: () -> Bundle): Bundle = try { block() } catch (e: Exception) {
+        android.util.Log.w("LynxFloatingRoot", "Privileged operation failed", e)
+        Bundle().apply { putBoolean("ok", false); putString("reason", "capability_unavailable") }
+    }
+
+    private val binder = object : IFloatingRoot.Stub() {
+        override fun open(owner: IBinder, surface: Surface, component: String, userId: Int,
+                          width: Int, height: Int, density: Int): Bundle = privileged {
+            result {
+                check(Build.VERSION.SDK_INT >= 29 && Process.myUid() == 0)
+                check(userId == clientUid / 100000 && owner.isBinderAlive && surface.isValid)
+                check(sessions.size < 4)
+                check(FloatingDisplayPolicy.validSize(width, height, density))
+                val target = ComponentName.unflattenFromString(component) ?: error("Invalid component")
+                check(packageManager.getActivityInfo(target, 0).exported)
+                var flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or (1 shl 6) or (1 shl 8)
+                if (Build.VERSION.SDK_INT >= 33) flags = flags or (1 shl 10)
+                if (Build.VERSION.SDK_INT >= 34) flags = flags or (1 shl 14)
+                val ctor = DisplayManager::class.java.getDeclaredConstructor(android.content.Context::class.java)
+                ctor.isAccessible = true
+                val dm = ctor.newInstance(this@FloatingRootService)
+                val vd = dm.createVirtualDisplay("LynxApp:${target.packageName}", width, height, density, surface, flags)
+                    ?: error("Display creation rejected")
+                val id = vd.display.displayId
+                val death = IBinder.DeathRecipient { synchronized(lock) { release(id) } }
+                sessions[id] = Session(vd, surface, owner, death)
+                try {
+                    owner.linkToDeath(death, 0)
+                    access.configureIme(id)
+                    val child = ProcessBuilder("/system/bin/am", "start", "--user", userId.toString(),
+                        "--display", id.toString(), "--windowingMode", "1", "--activity-new-task",
+                        "--activity-multiple-task", "-n", component).redirectErrorStream(true).start()
+                    try {
+                        check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
+                        check(child.exitValue() == 0)
+                    } finally { child.destroy(); child.inputStream.close() }
+                    val deadline = SystemClock.uptimeMillis() + 2000
+                    var task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
+                    while (task == null && SystemClock.uptimeMillis() < deadline) {
+                        Thread.sleep(100)
+                        task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
+                    }
+                    check(task != null) { "No task on requested display" }
+                    Bundle().apply { putBoolean("ok", true); putInt("displayId", id); putInt("taskId", task.taskId) }
+                } catch (e: Exception) { release(id); throw e }
+            }.also { if (!it.getBoolean("ok")) surface.release() }
+        }
+
+        override fun resize(displayId: Int, width: Int, height: Int, density: Int): Bundle = privileged {
+            result {
+                check(FloatingDisplayPolicy.validSize(width, height, density))
+                val s = sessions[displayId] ?: error("Unknown session")
+                s.display.resize(width, height, density)
+                val metrics = android.util.DisplayMetrics()
+                val deadline = SystemClock.uptimeMillis() + 700
+                do {
+                    @Suppress("DEPRECATION")
+                    s.display.display.getRealMetrics(metrics)
+                    if (metrics.widthPixels == width && metrics.heightPixels == height) break
+                    Thread.sleep(50)
+                } while (SystemClock.uptimeMillis() < deadline)
+                Bundle().apply { putBoolean("ok", metrics.widthPixels == width && metrics.heightPixels == height) }
+            }
+        }
+
+        override fun touch(displayId: Int, event: MotionEvent): Boolean = privileged {
+            try { sessions.containsKey(displayId) && access.inject(event, displayId) }
+            catch (_: Exception) { false } finally { event.recycle() }
+        }
+
+        override fun back(displayId: Int): Boolean = privileged {
+            if (!sessions.containsKey(displayId)) return@privileged false
+            runCatching {
+                val now = SystemClock.uptimeMillis()
+                val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0).apply { source = InputDevice.SOURCE_KEYBOARD }
+                val up = KeyEvent.changeAction(down, KeyEvent.ACTION_UP)
+                access.inject(down, displayId) && access.inject(up, displayId)
+            }.getOrDefault(false)
+        }
+
+        override fun visible(displayId: Int, visible: Boolean): Boolean = privileged {
+            runCatching {
+                val s = sessions[displayId] ?: return@runCatching false
+                s.display.surface = if (visible) s.surface else null
+                true
+            }.getOrDefault(false)
+        }
+
+        override fun close(displayId: Int) = privileged { release(displayId) }
+    }
+
+    override fun onBind(intent: Intent): IBinder = binder
+    override fun onDestroy() {
+        synchronized(lock) { sessions.keys.toList().forEach(::release) }
+        super.onDestroy()
+    }
+}

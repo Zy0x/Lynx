@@ -166,6 +166,7 @@ import kotlinx.coroutines.flow.update
             val ok = LynxRepository.applyGovernorPreset(preset, policyId)
             if (ok) {
                 val label = when (preset) {
+                    "esports" -> "Esports (Ultra Latensi Rendah)"
                     "responsive" -> "Responsif (Agresif)"
                     "powersave" -> "Hemat Daya (Efisiensi)"
                     "oem" -> "Bawaan OEM"
@@ -178,14 +179,33 @@ import kotlinx.coroutines.flow.update
                         successMessage = "Preset Governor $targetDesc disetel ke: $label"
                     )
                 }
-                val targetPolicies = if (policyId != null) listOf(policyId) else _uiState.value.governorTunables.keys
-                targetPolicies.forEach { pId ->
-                    val gov = _uiState.value.clusters.find { it.id == pId }?.curGov ?: "schedutil"
-                    val updated = LynxRepository.readGovernorTunables(pId, gov)
-                    _uiState.update { state ->
-                        state.copy(governorTunables = state.governorTunables + (pId to updated))
-                    }
+                if (policyId != null) {
+                    loadGovernorTunables(policyId, "schedutil")
+                } else {
+                    _uiState.value.clusters.forEach { loadGovernorTunables(it.id, "schedutil") }
                 }
+            }
+        }
+    }
+
+    fun LynxViewModel.setSchedutilRateLimits(policyId: Int?, upRateUs: Long, downRateUs: Long) {
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.setSchedutilRateLimits(policyId, upRateUs, downRateUs)
+            if (ok) {
+                val targetDesc = if (policyId != null) "Policy $policyId" else "Semua Kluster"
+                _uiState.update {
+                    it.copy(
+                        activeGovernorPreset = "custom",
+                        successMessage = "Latensi Schedutil $targetDesc disetel: Up ${upRateUs}µs / Down ${downRateUs}µs"
+                    )
+                }
+                if (policyId != null) {
+                    loadGovernorTunables(policyId, "schedutil")
+                } else {
+                    _uiState.value.clusters.forEach { loadGovernorTunables(it.id, "schedutil") }
+                }
+                refreshSchedulerInfo(LynxRepository.appContext)
             }
         }
     }

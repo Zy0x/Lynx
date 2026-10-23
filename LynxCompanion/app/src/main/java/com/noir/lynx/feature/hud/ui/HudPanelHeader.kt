@@ -235,7 +235,7 @@ internal fun HudAppDock(
                                 horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Text(
-                                    text = if (isStandalone) "⚡ Overlay" else "🪟 Freeform",
+                                    text = androidx.compose.ui.res.stringResource(if (isStandalone) R.string.floating_engine_root else R.string.floating_engine_rom),
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isStandalone) HudCyan else Color(0xFFFFB300)

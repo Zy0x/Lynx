@@ -166,3 +166,33 @@ fun LynxViewModel.setClusterLock(policyId: Int, lock: Boolean, minFreq: Long? = 
         }
     }
 }
+
+fun LynxViewModel.setSchedLoadBoost(littleBoost: Int, bigBoost: Int, context: Context? = null) {
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
+    _uiState.update {
+        it.copy(
+            schedulerInfo = it.schedulerInfo.copy(
+                littleSchedLoadBoost = littleBoost,
+                bigSchedLoadBoost = bigBoost
+            ),
+            isCpuModified = true
+        )
+    }
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.setSchedLoadBoost(littleBoost, bigBoost, context)
+        if (ok) {
+            LynxSchedulerInfoRepository.updateCache {
+                it.copy(
+                    littleSchedLoadBoost = littleBoost,
+                    bigSchedLoadBoost = bigBoost
+                )
+            }
+            _uiState.update {
+                it.copy(successMessage = "Bias Kapasitas Tugas: Little $littleBoost / Big $bigBoost")
+            }
+            refreshSchedulerInfo(context ?: LynxRepository.appContext)
+        } else {
+            _uiState.update { it.copy(errorMessage = "Gagal menyetel Bias Kapasitas Tugas") }
+        }
+    }
+}

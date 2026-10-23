@@ -29,8 +29,8 @@ android {
         applicationId = "com.noir.lynx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20261263
-        versionName = "3.2.19"
+        versionCode = 20261264
+        versionName = "3.2.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -61,6 +61,7 @@ android {
         jvmTarget = "17"
     }
     buildFeatures {
+        aidl = true
         compose = true
         buildConfig = true
     }
@@ -100,6 +101,7 @@ dependencies {
     // TopJohnWu LibSU - Universal Root Bridge (Magisk, KernelSU, APatch)
     implementation("com.github.topjohnwu.libsu:core:5.2.2")
     implementation("com.github.topjohnwu.libsu:io:5.2.2")
+    implementation("com.github.topjohnwu.libsu:service:5.2.2")
 
     // JSON parsing (lightweight)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

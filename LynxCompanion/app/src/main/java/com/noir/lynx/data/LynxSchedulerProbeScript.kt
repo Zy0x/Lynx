@@ -485,6 +485,17 @@ internal object LynxSchedulerProbeScript {
                 echo "qcom_devfreq_boost:${'$'}qcom_devfreq_boost"
                 echo "univ_touch_sup:${'$'}univ_touch_sup"
                 echo "univ_touch_en:${'$'}univ_touch_en"
+                has_sched_lb="0"
+                lb_lit="0"
+                lb_big="0"
+                if [ -f /sys/devices/system/cpu/cpu0/sched_load_boost ]; then
+                    has_sched_lb="1"
+                    lb_lit=${'$'}(cat /sys/devices/system/cpu/cpu0/sched_load_boost 2>/dev/null || echo "0")
+                    lb_big=${'$'}(cat /sys/devices/system/cpu/cpu4/sched_load_boost 2>/dev/null || cat /sys/devices/system/cpu/cpu1/sched_load_boost 2>/dev/null || echo "${'$'}lb_lit")
+                fi
+                echo "has_sched_lb:${'$'}has_sched_lb"
+                echo "lb_lit:${'$'}lb_lit"
+                echo "lb_big:${'$'}lb_big"
                 echo "anti_throttling_guard:${'$'}anti_throttling_guard"
                 echo "wq_pwr_eff:${'$'}wq_pwr_eff"
             """.trimIndent()

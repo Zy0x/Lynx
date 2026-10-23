@@ -41,6 +41,7 @@ fun QuickTunablesBottomSheet(
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit,
     onLoadTunables: (policyId: Int, gov: String) -> Unit,
     onApplyGovernorPreset: ((policyId: Int, preset: String) -> Unit)?,
+    onSetCustomRateLimits: ((policyId: Int, upUs: Long, downUs: Long) -> Unit)? = null,
     onOpenEditTunable: (policyId: Int, gov: String, tunable: GovernorTunable) -> Unit
 ) {
     val clusterAccent = if (cluster.id > 0) AccentOrange else AccentCyan
@@ -73,19 +74,20 @@ fun QuickTunablesBottomSheet(
 
     val detectedPreset = if (isLittle) {
         when {
+            currentUp == 0L && currentDown != null && currentDown in 4000L..6000L -> "esports"
             currentUp == 0L && currentDown != null && currentDown in 8000L..12000L -> "responsive"
             currentUp != null && currentUp in 800L..1200L && currentDown != null && currentDown in 18000L..22000L -> "balanced"
             currentUp != null && currentUp in 8000L..12000L && currentDown != null && currentDown in 800L..1500L -> "powersave"
             (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 28000L..32000L -> "oem"
             // Transitional fallbacks
-            currentUp == 0L && currentDown != null && currentDown in 4000L..6000L -> "responsive"
             currentUp != null && currentUp in 800L..1200L && currentDown != null && currentDown in 9000L..11000L -> "balanced"
             currentUp != null && currentUp in 3500L..4500L && currentDown != null && currentDown in 18000L..22000L -> "powersave"
             else -> "custom"
         }
     } else {
         when {
-            currentUp == 0L && currentDown != null && currentDown in 1500L..6000L -> "responsive"
+            currentUp == 0L && currentDown != null && currentDown in 1500L..3500L -> "esports"
+            currentUp == 0L && currentDown != null && currentDown in 4000L..6000L -> "responsive"
             (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 9000L..11000L -> "balanced"
             currentUp != null && currentUp in 18000L..22000L && currentDown != null && currentDown in 300L..800L -> "powersave"
             (currentUp == 0L || (currentUp != null && currentUp in 800L..1200L)) && currentDown != null && currentDown in 28000L..32000L -> "oem"
@@ -230,7 +232,10 @@ fun QuickTunablesBottomSheet(
                     detectedPreset = detectedPreset,
                     clusterAccent = clusterAccent,
                     isLittle = isLittle,
+                    currentUpRateUs = currentUp,
+                    currentDownRateUs = currentDown,
                     onApplyGovernorPreset = onApplyGovernorPreset,
+                    onSetCustomRateLimits = onSetCustomRateLimits,
                     onLoadTunables = onLoadTunables
                 )
             }

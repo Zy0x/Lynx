@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.noir.lynx.data.*
 import com.noir.lynx.feature.cpu.ui.CpuSetsTaskShieldCard
+import com.noir.lynx.feature.cpu.ui.cluster.dialogs.QuickTunablesBottomSheet
 
 import com.noir.lynx.ui.*
 
@@ -70,6 +71,8 @@ fun CompactClusterRow(
     onLoadTunables: (policyId: Int, gov: String) -> Unit,
     onTunableChange: (policyId: Int, gov: String, key: String, value: String) -> Unit,
     onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit,
+    onApplyGovernorPreset: ((policyId: Int, preset: String) -> Unit)? = null,
+    onSetCustomRateLimits: ((policyId: Int, upUs: Long, downUs: Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -509,76 +512,22 @@ fun CompactClusterRow(
         }
     }
 
-    // Modal Bottom Sheet: Governor Tunables
-    if (tunablesTarget != null) {
-        val targetCluster = tunablesTarget!!
+    // Modal Bottom Sheet: Governor Tunables (QuickTunablesBottomSheet with Schedutil Presets & Custom µs)
+    tunablesTarget?.let { targetCluster ->
         val tunables = governorTunables[targetCluster.id] ?: emptyList()
-        ModalBottomSheet(
-            onDismissRequest = { tunablesTarget = null },
-            containerColor = Color(0xFF141824),
-            dragHandle = { BottomSheetDefaults.DragHandle(color = Color(0x30FFFFFF)) }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp)
-                    .navigationBarsPadding()
-            ) {
-                Text(
-                    text = "Parameter Lanjutan: ${targetCluster.curGov}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "Policy ${targetCluster.id} (${tunables.size} tunables ditemukan)",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-                Spacer(Modifier.height(10.dp))
-
-                if (tunables.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
-                        Text("Tidak ada tunable yang diekspos kernel.", fontSize = 11.sp, color = TextSecondary)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        items(tunables) { t ->
-                            Surface(
-                                onClick = {
-                                    editingTunable = Triple(targetCluster.id, targetCluster.curGov, t)
-                                    editValueText = t.currentValue
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgSurfaceLowest,
-                                border = BorderStroke(0.8.dp, BorderSubtle),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                        Text(t.displayName, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                                        Text(t.key, fontSize = 9.sp, color = TextTertiary, fontFamily = FontFamily.Monospace)
-                                    }
-                                    Text(
-                                        text = "${t.currentValue} ${t.unit}".trim(),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentCyan
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        QuickTunablesBottomSheet(
+            cluster = targetCluster,
+            tunables = tunables,
+            onDismiss = { tunablesTarget = null },
+            onTunableChange = onTunableChange,
+            onLoadTunables = onLoadTunables,
+            onApplyGovernorPreset = onApplyGovernorPreset,
+            onSetCustomRateLimits = onSetCustomRateLimits,
+            onOpenEditTunable = { pId, gov, t ->
+                editingTunable = Triple(pId, gov, t)
+                editValueText = t.currentValue
             }
-        }
+        )
     }
 
     // Edit Single Tunable Dialog

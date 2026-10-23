@@ -544,4 +544,34 @@ internal object LynxCpuSchedulerControlRepository {
     suspend fun applySchedulerPreset(preset: String, context: Context? = null): Boolean =
         LynxCpuSchedulerProfilesRepository.applySchedulerPreset(preset, context)
 
+    suspend fun setSchedLoadBoost(littleBoost: Int, bigBoost: Int, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
+        val safeLit = littleBoost.coerceIn(-100, 100)
+        val safeBig = bigBoost.coerceIn(-100, 100)
+        val script = """
+            little_cores=${'$'}(cat /sys/devices/system/cpu/cpufreq/policy0/related_cpus 2>/dev/null | tr -s '[:space:]' ' ')
+            [ -z "${'$'}little_cores" ] && little_cores="0 1 2 3"
+            big_cores=${'$'}(cat /sys/devices/system/cpu/cpufreq/policy[1-9]*/related_cpus 2>/dev/null | tr -s '[:space:]' ' ')
+            [ -z "${'$'}big_cores" ] && big_cores="4 5 6 7"
+            for c in ${'$'}little_cores; do
+                [ -w "/sys/devices/system/cpu/cpu${'$'}c/sched_load_boost" ] && echo "$safeLit" > "/sys/devices/system/cpu/cpu${'$'}c/sched_load_boost" 2>/dev/null
+            done
+            for c in ${'$'}big_cores; do
+                [ -w "/sys/devices/system/cpu/cpu${'$'}c/sched_load_boost" ] && echo "$safeBig" > "/sys/devices/system/cpu/cpu${'$'}c/sched_load_boost" 2>/dev/null
+            done
+            echo "ok"
+        """.trimIndent()
+        try {
+            val res = Shell.cmd(script).exec()
+            val ok = res.isSuccess && res.out.any { it.trim() == "ok" }
+            if (ok && context != null) {
+                context.getSharedPreferences("lynx_scheduler_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("sched_load_boost_little", safeLit)
+                    .putInt("sched_load_boost_big", safeBig)
+                    .apply()
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
 }

@@ -111,6 +111,9 @@ internal object LynxSchedulerInfoRepository {
             var wqPwrEff = true
             var hasIowaitBoost = false
             var iowaitBoost = 0
+            var hasSchedLb = false
+            var lbLit = -6
+            var lbBig = -6
 
             res.out.forEach { line ->
                 val parts = line.split(":", limit = 2)
@@ -210,6 +213,9 @@ internal object LynxSchedulerInfoRepository {
                         "wq_pwr_eff" -> wqPwrEff = v == "1"
                         "has_iowait_boost" -> hasIowaitBoost = v == "1"
                         "iowait_boost" -> iowaitBoost = v.toIntOrNull() ?: 0
+                        "has_sched_lb" -> hasSchedLb = v == "1"
+                        "lb_lit" -> lbLit = v.toIntOrNull() ?: -6
+                        "lb_big" -> lbBig = v.toIntOrNull() ?: -6
                     }
                 }
             }
@@ -347,6 +353,9 @@ internal object LynxSchedulerInfoRepository {
                 universalTouchBoostSupported = univTouchSup,
                 universalTouchBoostEnabled = univTouchEn,
                 antiThrottlingGuardEnabled = antiThrottlingGuard,
+                isSchedLoadBoostSupported = hasSchedLb,
+                littleSchedLoadBoost = lbLit,
+                bigSchedLoadBoost = lbBig,
                 isEasSwitchSupported = isModeSwitchSupported,
                 easMode = easModeInt,
                 workqueuePowerEfficient = wqPwrEff,

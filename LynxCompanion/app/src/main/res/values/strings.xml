@@ -267,6 +267,8 @@
     <string name="cpu_cluster_fallback_num">angka</string>
 
     <!-- CPU Tunable Presets -->
+    <string name="cpu_cluster_preset_esports_active">Esports Aktif</string>
+    <string name="cpu_cluster_preset_esports">Esports</string>
     <string name="cpu_cluster_preset_responsive_active">Responsif Aktif</string>
     <string name="cpu_cluster_preset_balanced_active">Seimbang Aktif</string>
     <string name="cpu_cluster_preset_powersave_active">Hemat Aktif</string>
@@ -276,6 +278,12 @@
     <string name="cpu_cluster_preset_balanced">Seimbang</string>
     <string name="cpu_cluster_preset_powersave">Hemat</string>
     <string name="cpu_cluster_preset_oem">OEM</string>
+    <string name="cpu_schedutil_custom_rate_title">Kustom Latensi Schedutil</string>
+    <string name="cpu_schedutil_custom_rate_desc">Atur batas latensi kenaikan (Up Rate Limit) dan penurunan (Down Rate Limit) frekuensi CPU secara presisi dalam satuan mikrodetik (µs).</string>
+    <string name="cpu_schedutil_up_label">Up Rate Limit (µs)</string>
+    <string name="cpu_schedutil_down_label">Down Rate Limit (µs)</string>
+    <string name="cpu_sched_load_boost_title">Bias Kapasitas Tugas (Sched Load Boost)</string>
+    <string name="cpu_sched_load_boost_desc">Mengatur proyeksi beban thread antara core Little dan core Big guna mencegah capacity inversion pada render thread.</string>
 
     <!-- CPU Governor Descriptions & Tags -->
     <string name="cpu_gov_schedutil_desc">EAS energy-aware scheduler bawaan kernel Linux modern</string>
@@ -2092,4 +2100,17 @@
     <string name="hud_floating_height">Tinggi jendela</string>
     <string name="hud_floating_enable_root">Aktifkan Freeform Global (Root)</string>
     <string name="hud_floating_fullscreen">Layar Penuh</string>
+    <string name="floating_root_unavailable">Sistem menolak jendela atau input virtual. Root diperlukan; beberapa ROM memerlukan bantuan LSPosed.</string>
+    <string name="floating_waiting">%1$s · Menunggu frame</string>
+    <string name="floating_running">%1$s · Virtual display</string>
+    <string name="floating_minimize">Minimalkan aplikasi</string>
+    <string name="floating_close">Tutup jendela aplikasi</string>
+    <string name="floating_back">Kembali dalam aplikasi</string>
+    <string name="floating_maximize">Maksimalkan atau pulihkan ukuran</string>
+    <string name="floating_resize">Ubah ukuran jendela</string>
+    <string name="floating_engine_root">Lynx Virtual</string>
+    <string name="floating_engine_root_desc">Aplikasi asli lewat virtual display + root. Tanpa dependensi LMO.</string>
+    <string name="floating_engine_rom">Freeform ROM</string>
+    <string name="floating_engine_rom_desc">Memerlukan dukungan freeform dari sistem atau LMO terpasang.</string>
+    <string name="floating_engine_note">Lynx Virtual memakai root tanpa mengubah setelan freeform global. LSPosed bukan prasyarat; sistem yang memblokir display atau input dilaporkan sebagai tidak didukung.</string>
 </resources>

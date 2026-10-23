@@ -28,6 +28,11 @@ data class SchedulerInfo(
     val upRateLimitUs: Long = 500L,
     val downRateLimitUs: Long = 20000L,
 
+    // Sched Load Boost & Capacity Inversion Guard
+    val littleSchedLoadBoost: Int = -6,
+    val bigSchedLoadBoost: Int = -6,
+    val isSchedLoadBoostSupported: Boolean = false,
+
     // EAS & WALT Tunables
     val schedEnergyAware: Boolean = true,
     val schedBoost: Int = 0, // 0: None, 1: All to Big, 2: ON_ALL, 3: ON_MIGRATE

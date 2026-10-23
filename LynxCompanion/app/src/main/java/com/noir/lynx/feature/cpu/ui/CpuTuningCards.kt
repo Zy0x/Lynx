@@ -67,6 +67,9 @@ fun CpuUnifiedPerformanceCard(
     onUniversalBusProfileChange: (String) -> Unit = {},
     onUniversalTouchBoostChange: (Boolean) -> Unit = {},
     onUniversalAntiThrottlingGuardChange: (Boolean) -> Unit = {},
+    onApplyGovernorPreset: ((policyId: Int, preset: String) -> Unit)? = null,
+    onSetCustomRateLimits: ((policyId: Int, upUs: Long, downUs: Long) -> Unit)? = null,
+    onSetSchedLoadBoost: (littleBoost: Int, bigBoost: Int) -> Unit = { _, _ -> },
     onShowSwitchInfo: ((SwitchTweakInfo) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -342,7 +345,9 @@ fun CpuUnifiedPerformanceCard(
                     onGovChange = onGovChange,
                     onLoadTunables = onLoadTunables,
                     onTunableChange = onTunableChange,
-                    onLockToggle = onLockToggle
+                    onLockToggle = onLockToggle,
+                    onApplyGovernorPreset = onApplyGovernorPreset,
+                    onSetCustomRateLimits = onSetCustomRateLimits
                 )
             }
         }
@@ -360,6 +365,7 @@ fun CpuUnifiedPerformanceCard(
             onUniversalBusProfileChange = onUniversalBusProfileChange,
             onUniversalTouchBoostChange = onUniversalTouchBoostChange,
             onUniversalAntiThrottlingGuardChange = onUniversalAntiThrottlingGuardChange,
+            onSetSchedLoadBoost = onSetSchedLoadBoost,
             onShowSwitchInfo = onShowSwitchInfo,
             onOpenDeveloperVerification = { showDeveloperDrawer = true }
         )

@@ -10,7 +10,7 @@ $env:ANDROID_HOME = "F:\AutoGram\.toolchains\android-sdk"
 $env:Path = "$env:JAVA_HOME\bin;" + $env:Path
 
 Write-Host "Building LynxCompanion APK ($Target)..." -ForegroundColor Cyan
-& .\gradlew.bat $Target
+& .\gradlew.bat $Target --no-configuration-cache
 if ($LASTEXITCODE -eq 0) {
     if ($Target -eq "assembleRelease") {
         $apkSource = ".\app\build\outputs\apk\release\app-release.apk"

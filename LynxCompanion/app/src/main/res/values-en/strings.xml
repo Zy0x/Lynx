@@ -249,6 +249,8 @@
     <string name="cpu_cluster_recommended_quick_options" formatted="false">Recommended Quick Options:</string>
     <string name="cpu_cluster_input_val_label">Value (%1$s)</string>
     <string name="cpu_cluster_fallback_num" formatted="false">number</string>
+    <string name="cpu_cluster_preset_esports_active" formatted="false">Esports Active</string>
+    <string name="cpu_cluster_preset_esports" formatted="false">Esports</string>
     <string name="cpu_cluster_preset_responsive_active" formatted="false">Responsive Active</string>
     <string name="cpu_cluster_preset_balanced_active" formatted="false">Balanced Active</string>
     <string name="cpu_cluster_preset_powersave_active" formatted="false">Power Saver Active</string>
@@ -258,6 +260,12 @@
     <string name="cpu_cluster_preset_balanced" formatted="false">Balanced</string>
     <string name="cpu_cluster_preset_powersave" formatted="false">Power Saver</string>
     <string name="cpu_cluster_preset_oem" formatted="false">OEM</string>
+    <string name="cpu_schedutil_custom_rate_title" formatted="false">Custom Schedutil Latency</string>
+    <string name="cpu_schedutil_custom_rate_desc" formatted="false">Set CPU frequency ramping limits (Up and Down Rate Limits) precisely in microseconds (µs).</string>
+    <string name="cpu_schedutil_up_label" formatted="false">Up Rate Limit (µs)</string>
+    <string name="cpu_schedutil_down_label" formatted="false">Down Rate Limit (µs)</string>
+    <string name="cpu_sched_load_boost_title" formatted="false">Task Capacity Bias (Sched Load Boost)</string>
+    <string name="cpu_sched_load_boost_desc" formatted="false">Control task placement projection between Little and Big cores to prevent capacity inversion on render threads.</string>
     <string name="cpu_gov_schedutil_desc" formatted="false">The Linux kernel\'s built-in energy-aware scheduler (EAS)</string>
     <string name="cpu_gov_performance_desc" formatted="false">Keeps the CPU at its highest frequency at all times without throttling</string>
     <string name="cpu_gov_powersave_desc" formatted="false">Keeps the clock at its lowest frequency to maximize battery life</string>
@@ -2052,4 +2060,17 @@
     <string name="hud_actual_hz">Actual Hz</string>
     <string name="hud_mini_title">Mini HUD</string>
     <string name="hud_session">HUD session</string>
+    <string name="floating_root_unavailable">The system rejected the virtual window or input. Root is required; some ROMs need LSPosed assistance.</string>
+    <string name="floating_waiting">%1$s · Waiting for frames</string>
+    <string name="floating_running">%1$s · Virtual display</string>
+    <string name="floating_minimize">Minimize app</string>
+    <string name="floating_close">Close app window</string>
+    <string name="floating_back">Back in app</string>
+    <string name="floating_maximize">Maximize or restore size</string>
+    <string name="floating_resize">Resize window</string>
+    <string name="floating_engine_root">Lynx Virtual</string>
+    <string name="floating_engine_root_desc">Real apps through a virtual display + root. No LMO dependency.</string>
+    <string name="floating_engine_rom">ROM freeform</string>
+    <string name="floating_engine_rom_desc">Requires system freeform support or installed LMO.</string>
+    <string name="floating_engine_note">Lynx Virtual uses root without changing global freeform settings. LSPosed is not a prerequisite; systems blocking display or input are reported as unsupported.</string>
 </resources>

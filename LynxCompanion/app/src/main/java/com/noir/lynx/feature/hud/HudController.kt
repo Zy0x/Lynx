@@ -1,10 +1,8 @@
 package com.noir.lynx.feature.hud
 
-import android.app.ActivityOptions
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.graphics.Rect
 import android.os.Build
 import android.provider.MediaStore
 import android.view.Display
@@ -14,6 +12,7 @@ import com.noir.lynx.data.LynxRepository
 import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
+import com.noir.lynx.feature.floating.StandaloneApps
 import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
@@ -70,7 +69,11 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             return
         }
 
-        // Launch the REAL application into Root Freeform Mode with Lynx Decor Overlay
+        if (prefs.floatingEngine == "standalone") {
+            StandaloneApps.launch(app, prefs.floatingWidthPct, prefs.floatingHeightPct)
+            return
+        }
+        // The ROM backend is selected explicitly; it is never a silent standalone fallback.
         LynxFreeformManager.launchRealApp(
             packageName = app.packageName,
             label = app.label,
@@ -82,68 +85,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun launchFloating(app: HudApp, widthPct: Int = 70, heightPct: Int = 65) {
-        scope.launch(Dispatchers.IO) {
-            val dm = context.resources.displayMetrics
-            val screenW = dm.widthPixels
-            val screenH = dm.heightPixels
-
-            val w = (screenW * (widthPct.coerceIn(35, 95) / 100f)).toInt()
-            val h = (screenH * (heightPct.coerceIn(35, 90) / 100f)).toInt()
-
-            val left = ((screenW - w) / 2).coerceAtLeast(0)
-            val top = ((screenH - h) * 0.35f).toInt().coerceAtLeast(60)
-            val right = left + w
-            val bottom = top + h
-            val bounds = Rect(left, top, right, bottom)
-
-            // Auto-enable freeform support and force resizable activities via root
-            Shell.cmd("settings put global enable_freeform_support 1; settings put global force_resizable_activities 1").exec()
-
-            // Resolve target activity via root cmd package (the proven mechanism from early version)
-            val resolveCmd = "cmd package resolve-activity --brief ${app.packageName} 2>/dev/null | tail -n 1"
-            val resolved = Shell.cmd(resolveCmd).exec().out.joinToString("").trim()
-            val targetCmp = if (resolved.isNotEmpty() && resolved.contains("/")) resolved else {
-                val pm = context.packageManager
-                val intent = pm.getLaunchIntentForPackage(app.packageName)
-                intent?.component?.flattenToShortString() ?: app.packageName
-            }
-
-            val boundsStr = "${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}"
-            var res = Shell.cmd("am start -n '$targetCmp' --windowingMode 5 --bounds '$boundsStr'").exec()
-            var launched = res.isSuccess
-
-            if (!launched) {
-                // Secondary root fallback without bounds
-                res = Shell.cmd("am start -n '$targetCmp' --windowingMode 5").exec()
-                launched = res.isSuccess
-            }
-
-            if (!launched) {
-                // Application context fallback
-                val pm = context.packageManager
-                val intent = pm.getLaunchIntentForPackage(app.packageName)
-                if (intent != null) {
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-                    try {
-                        val options = ActivityOptions.makeBasic()
-                        options.setLaunchBounds(bounds)
-                        try {
-                            val setWindowingMode = ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
-                            setWindowingMode.invoke(options, 5)
-                        } catch (_: Exception) {}
-                        withContext(Dispatchers.Main) {
-                            context.startActivity(intent, options.toBundle())
-                        }
-                        launched = true
-                    } catch (_: Exception) {}
-                }
-            }
-
-            if (!launched) {
-                mutable.value = HudActionState(message = R.string.hud_app_failed)
-            }
-        }
+        StandaloneApps.launch(app, widthPct, heightPct)
     }
 
     fun profile(profile: String) = perform {

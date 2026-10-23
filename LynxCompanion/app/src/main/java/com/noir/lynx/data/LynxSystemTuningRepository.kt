@@ -386,6 +386,13 @@ internal object LynxSystemTuningRepository {
                 val d = "/sys/devices/system/cpu/cpufreq/policy$policyId/schedutil"
                 val isLittle = policyId == 0
                 when (preset) {
+                    "esports" -> """
+                        [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                        echo 0 > "$d/up_rate_limit_us" 2>/dev/null
+                        echo ${if (isLittle) 5000 else 2000} > "$d/down_rate_limit_us" 2>/dev/null
+                        echo 0 > "$d/rate_limit_us" 2>/dev/null
+                        echo ok
+                    """.trimIndent()
                     "responsive" -> """
                         [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
                         echo 0 > "$d/up_rate_limit_us" 2>/dev/null
@@ -414,6 +421,22 @@ internal object LynxSystemTuningRepository {
                 }
             } else {
                 when (preset) {
+                    "esports" -> """
+                        for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d "${'$'}d" ] || continue
+                            chmod 644 "${'$'}d"/* 2>/dev/null
+                            pol_id=${'$'}(echo "${'$'}d" | tr -dc '0-9')
+                            if [ "${'$'}pol_id" = "0" ]; then
+                                echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 5000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            else
+                                echo 0 > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                                echo 2000 > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                            fi
+                            echo 0 > "${'$'}d/rate_limit_us" 2>/dev/null
+                        done
+                        echo ok
+                    """.trimIndent()
                     "responsive" -> """
                         for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
                             [ -d "${'$'}d" ] || continue
@@ -473,6 +496,35 @@ internal object LynxSystemTuningRepository {
             }
             Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
         } catch (e: Exception) { false }
+    }
+
+    suspend fun setSchedutilRateLimits(policyId: Int?, upRateUs: Long, downRateUs: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val safeUp = upRateUs.coerceIn(0L, 50000L)
+            val safeDown = downRateUs.coerceIn(100L, 100000L)
+            val script = if (policyId != null) {
+                val d = "/sys/devices/system/cpu/cpufreq/policy$policyId/schedutil"
+                """
+                    [ -d "$d" ] && chmod 644 "$d"/* 2>/dev/null
+                    echo $safeUp > "$d/up_rate_limit_us" 2>/dev/null
+                    echo $safeDown > "$d/down_rate_limit_us" 2>/dev/null
+                    echo 0 > "$d/rate_limit_us" 2>/dev/null
+                    echo ok
+                """.trimIndent()
+            } else {
+                """
+                    for d in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                        [ -d "${'$'}d" ] || continue
+                        chmod 644 "${'$'}d"/* 2>/dev/null
+                        echo $safeUp > "${'$'}d/up_rate_limit_us" 2>/dev/null
+                        echo $safeDown > "${'$'}d/down_rate_limit_us" 2>/dev/null
+                        echo 0 > "${'$'}d/rate_limit_us" 2>/dev/null
+                    done
+                    echo ok
+                """.trimIndent()
+            }
+            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
+        } catch (_: Exception) { false }
     }
 
     // ----------------------------------------------------------------

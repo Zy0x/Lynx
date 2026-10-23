@@ -78,6 +78,10 @@ object LynxFloatingWindowManager {
     }
 
     fun close() {
+        floatingView?.let { v ->
+            (appContext?.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager)
+                ?.hideSoftInputFromWindow(v.windowToken, 0)
+        }
         mutableState.value = mutableState.value.copy(isOpen = false, isMinimized = false)
         floatingView?.visibility = View.GONE
     }
@@ -122,8 +126,9 @@ object LynxFloatingWindowManager {
         val v = floatingView ?: return
         val wm = windowManager ?: return
 
-        p.x = (p.x + dx.toInt()).coerceAtLeast(0)
-        p.y = (p.y + dy.toInt()).coerceAtLeast(0)
+        val safe = floatingSafeArea(wm, v)
+        p.x = (p.x + dx.toInt()).coerceIn(safe.left, (safe.right-p.width).coerceAtLeast(safe.left))
+        p.y = (p.y + dy.toInt()).coerceIn(safe.top, (safe.bottom-p.height).coerceAtLeast(safe.top))
         runCatching { wm.updateViewLayout(v, p) }
     }
 
@@ -151,11 +156,9 @@ object LynxFloatingWindowManager {
             val widthPx = (mutableState.value.widthDp * density).toInt()
             val heightPx = (mutableState.value.heightDp * density).toInt()
 
-            val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-                WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
 
             layoutParams = WindowManager.LayoutParams(
                 widthPx,
@@ -168,6 +171,7 @@ object LynxFloatingWindowManager {
                 x = mutableState.value.xPx
                 y = mutableState.value.yPx
                 title = "LynxStandaloneFloatingWindow"
+                softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
             }
 
             val composeView = ComposeView(ctx).apply {
@@ -190,7 +194,12 @@ object LynxFloatingWindowManager {
             }
 
             floatingView = composeView
-            runCatching { wm.addView(composeView, layoutParams) }
+            runCatching { wm.addView(composeView, layoutParams) }.onFailure {
+                composeView.disposeComposition()
+                floatingView = null
+                layoutParams = null
+                mutableState.value = mutableState.value.copy(isOpen = false)
+            }
         } else {
             floatingView?.visibility = View.VISIBLE
             if (mutableState.value.isMinimized) {
@@ -210,6 +219,12 @@ object LynxFloatingWindowManager {
         val density = ctx.resources.displayMetrics.density
         p.width = (mutableState.value.widthDp * density).toInt()
         p.height = (mutableState.value.heightDp * density).toInt()
+        p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        val safe = floatingSafeArea(wm, v)
+        p.width = p.width.coerceAtMost(safe.width().coerceAtLeast(1))
+        p.height = p.height.coerceAtMost(safe.height().coerceAtLeast(1))
+        p.x = p.x.coerceIn(safe.left, (safe.right-p.width).coerceAtLeast(safe.left))
+        p.y = p.y.coerceIn(safe.top, (safe.bottom-p.height).coerceAtLeast(safe.top))
         runCatching { wm.updateViewLayout(v, p) }
     }
 
@@ -222,6 +237,7 @@ object LynxFloatingWindowManager {
         val density = ctx.resources.displayMetrics.density
         p.width = (56 * density).toInt()
         p.height = (56 * density).toInt()
+        p.flags = p.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         runCatching { wm.updateViewLayout(v, p) }
     }
 }
