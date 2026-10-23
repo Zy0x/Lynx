@@ -95,11 +95,15 @@ object LynxMediaSafeguardManager {
 
                 Log.i(TAG, "[Shield Engage] $packageName foreground -> applying safe VSync & latch")
 
-                // Enforce safety: swapinterval=1, latch_unsignaled=0, backpressure=0
+                // Enforce safety: swapinterval=1, latch_unsignaled=0, backpressure=0, allow Codec2 software fallback
                 Shell.cmd(
                     "setprop debug.egl.swapinterval 1",
                     "setprop debug.sf.latch_unsignaled 0",
-                    "setprop debug.sf.disable_backpressure 0"
+                    "setprop debug.sf.disable_backpressure 0",
+                    "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
+                    "setprop media.stagefright.thumbnail.prefer_hw_codecs false",
+                    "resetprop -d debug.stagefright.ccodec 2>/dev/null",
+                    "setprop debug.stagefright.ccodec 1"
                 ).submit()
 
                 _isSafeguardEngaged.value = true

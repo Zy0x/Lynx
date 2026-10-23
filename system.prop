@@ -27,11 +27,7 @@ dalvik.vm.heapminfree=8m
 dalvik.vm.heapmaxfree=32m
 dalvik.vm.heaptargetutilization=0.75
 
-# ── 4. Universal Media Stagefright Hardware Acceleration ───────────────────────
-media.stagefright.enable-player=true
-media.stagefright.enable-meta=true
-media.stagefright.enable-scan=true
-media.stagefright.enable-http=true
-media.stagefright.enable-record=true
-media.stagefright.thumbnail.prefer_hw_codecs=true
+# ── 4. Universal Media & Image Quality ─────────────────────────────────────────
+# Note: Legacy media.stagefright.* and thumbnail.prefer_hw_codecs are omitted to
+# preserve modern Android Codec2 software fallback (e.g., 10-bit Hi10P in Twitter/Chrome)
 ro.media.enc.jpeg.quality=100

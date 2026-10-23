@@ -235,6 +235,8 @@ fun MediaCodecDiagnosticCard(
                             "resetprop -d debug.stagefright.ccodec 2>/dev/null",
                             "resetprop -d debug.stagefright.omx_default_rank 2>/dev/null",
                             "resetprop -d debug.stagefright.omx_default_rank.sw-other 2>/dev/null",
+                            "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
+                            "setprop media.stagefright.thumbnail.prefer_hw_codecs false",
                             "setprop debug.stagefright.ccodec 1",
                             "setprop debug.egl.swapinterval 1",
                             "pkill -f mediaserver 2>/dev/null",
