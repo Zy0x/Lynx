@@ -51,18 +51,14 @@ fun GraphicsDriverHwuiCard(
     onSetShaderCompilerThreads: ((Int) -> Unit)? = null,
     onSetShaderBlobCache: ((Int) -> Unit)? = null,
     onSetSwapchainBufferMode: ((String) -> Unit)? = null,
+    wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
     var showPhaseDialog by remember { mutableStateOf(false) }
 
-    LynxCard(
-        title = "Pengaturan Grafis & Driver Game",
-        subtitle = "Optimalisasi performa game, backend Vulkan, dan respon grafis",
-        icon = Icons.Default.Speed,
-        accentColor = cardAccent,
-        modifier = modifier
-    ) {
+    val cardContent = @Composable {
+        Column(Modifier.fillMaxWidth()) {
         // ── 1. UPDATABLE GAME DRIVER ──
         Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
             Text("Driver Game Khusus", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
@@ -362,6 +358,23 @@ fun GraphicsDriverHwuiCard(
                     }
                 }
             }
+        }
+    }
+    }
+
+    if (wrapInCard) {
+        LynxCard(
+            title = "Pengaturan Grafis & Driver Game",
+            subtitle = "Optimalisasi performa game, backend Vulkan, dan respon grafis",
+            icon = Icons.Default.Speed,
+            accentColor = cardAccent,
+            modifier = modifier
+        ) {
+            cardContent()
+        }
+    } else {
+        Box(modifier = modifier.fillMaxWidth()) {
+            cardContent()
         }
     }
 

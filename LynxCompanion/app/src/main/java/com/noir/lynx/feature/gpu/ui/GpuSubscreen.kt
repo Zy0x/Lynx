@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -117,9 +118,15 @@ fun LazyListScope.tuningGpuCategoryItems(
 
             // ── SECTION 2: DRIVER HARDWARE KERNEL (COLLAPSIBLE ACCORDION) ──
             item(key = "gpu_accordion_kernel_hardware") {
+                val kernelSub = when {
+                    gpu.activeBackendName.isNotBlank() -> "${gpu.activeBackendName} • Preemption & Power Collapse"
+                    gpu.platform == "adreno" -> "Qualcomm Adreno KGSL • Preemption & Power Collapse"
+                    gpu.platform == "mali_ged" -> "MediaTek GED • DVFS & Frame Pacing"
+                    else -> "Akselerasi silikon SoC, preemption, power collapse & scheduling"
+                }
                 GpuCollapsibleSection(
                     title = "Driver Hardware Kernel",
-                    subtitle = "Akselerasi silikon SoC, preemption, power collapse & scheduling",
+                    subtitle = kernelSub,
                     accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
                     badge = "KERNEL HAL",
                     defaultExpanded = false
@@ -127,6 +134,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                     AdaptiveGpuHardwareCard(
                         gpu = gpu,
                         silicon = uiState.gpuSilicon,
+                        wrapInCard = false,
                         onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
                         onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
                         onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
@@ -443,17 +451,11 @@ fun GpuSubscreen(
 
     // Auto refresh data on load
     LaunchedEffect(Unit) {
-        viewModel.refreshGpuInfo()
-        viewModel.refreshGpuSilicon()
-        viewModel.refreshGraphicsHwui()
-        viewModel.refreshDisplayRefreshRate()
-        viewModel.refreshDisplayCalibration()
-        viewModel.refreshGraphicsCapabilities()
-        viewModel.refreshDisplayPipeline()
-        viewModel.refreshColorConflict()
-        viewModel.refreshSavedLabSessions(context)
-        viewModel.loadPerAppGraphicsRules(context)
-        viewModel.refreshInstalledApps()
+        viewModel.refreshGpuInfo(); viewModel.refreshGpuSilicon(); viewModel.refreshGraphicsHwui()
+        viewModel.refreshDisplayRefreshRate(); viewModel.refreshDisplayCalibration()
+        viewModel.refreshGraphicsCapabilities(); viewModel.refreshDisplayPipeline()
+        viewModel.refreshColorConflict(); viewModel.refreshSavedLabSessions(context)
+        viewModel.loadPerAppGraphicsRules(context); viewModel.refreshInstalledApps()
     }
 
     val lazyState = rememberLazyListState()
@@ -574,23 +576,26 @@ fun GpuCollapsibleSection(
         label = "accordion_chevron"
     )
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Surface(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                isExpanded = !isExpanded
-            },
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFF10141E),
-            border = BorderStroke(0.7.dp, if (isExpanded) accentColor.copy(alpha = 0.35f) else Color(0x18FFFFFF)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFF10141E),
+        border = BorderStroke(
+            0.8.dp,
+            if (isExpanded) accentColor.copy(alpha = 0.45f) else Color(0x18FFFFFF)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        isExpanded = !isExpanded
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -659,19 +664,26 @@ fun GpuCollapsibleSection(
                     }
                 }
             }
-        }
 
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(180)),
-            exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(180)),
+                exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
             ) {
-                Spacer(Modifier.height(2.dp))
-                content()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .padding(bottom = 16.dp, top = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HorizontalDivider(
+                        color = Color(0x18FFFFFF),
+                        thickness = 0.6.dp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    content()
+                }
             }
         }
     }

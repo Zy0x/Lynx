@@ -127,13 +127,13 @@ fun PwrLevelFloorCeilingRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Braket Power Level (Lantai & Plafon)",
+                    text = "Ambang Batas Power Level (Min & Max)",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
                 Text(
-                    text = "Lantai (Min) mencegah underclock, Plafon (Max) membatasi puncak clock",
+                    text = "Batas bawah (Min) cegah underclock, batas atas (Max) batasi clock puncak",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
@@ -152,7 +152,7 @@ fun PwrLevelFloorCeilingRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Max PwrLevel (Ceiling / Plafon)
+            // Max PwrLevel (Ceiling / Batas Atas)
             Surface(
                 onClick = onOpenMaxPwrDialog,
                 shape = RoundedCornerShape(10.dp),
@@ -166,14 +166,14 @@ fun PwrLevelFloorCeilingRow(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text("Plafon (Max)", fontSize = 9.5.sp, color = TextSecondary)
+                        Text("Batas Atas (Max)", fontSize = 9.5.sp, color = TextSecondary)
                         Text("Level $maxPwrLevel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
                     }
                     Icon(Icons.Default.Tune, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(16.dp))
                 }
             }
 
-            // Min PwrLevel (Floor / Lantai)
+            // Min PwrLevel (Floor / Batas Bawah)
             Surface(
                 onClick = onOpenMinPwrDialog,
                 shape = RoundedCornerShape(10.dp),
@@ -187,7 +187,7 @@ fun PwrLevelFloorCeilingRow(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text("Lantai (Min)", fontSize = 9.5.sp, color = TextSecondary)
+                        Text("Batas Bawah (Min)", fontSize = 9.5.sp, color = TextSecondary)
                         Text("Level $minPwrLevel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
                     }
                     Icon(Icons.Default.Tune, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
@@ -327,7 +327,7 @@ fun SiliconImpactAccordion() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 ImpactDetailItem(
-                    title = "PwrLevel Floor (Lantai Clock)",
+                    title = "Power Level Floor (Batas Bawah Clock)",
                     pro = "Mencegah GPU drop ke frekuensi terendah saat scene game dinamis.",
                     con = "Suhu perangkat dapat meningkat jika digunakan tanpa pendingin eksternal pada iklim panas."
                 )
@@ -389,8 +389,8 @@ fun SiliconCustomDialogs(
     if (showMinPwrDialog && silicon != null) {
         val maxLevel = if (silicon.numPwrLevels > 0) silicon.numPwrLevels - 1 else 10
         GpuCustomNumberDialog(
-            title = "Min PwrLevel (Lantai Clock)",
-            description = "Batas bawah power level agar GPU tidak downclock berlebih saat beban dinamis (0 = Puncak Clock, $maxLevel = Idle Rendah).",
+            title = "Batas Bawah Power Level (Min)",
+            description = "Batas bawah power level agar GPU tidak downclock berlebih saat beban dinamis (0 = Frekuensi Puncak, $maxLevel = Idle Efisien).",
             currentValue = silicon.minPwrLevel.coerceIn(0, maxLevel),
             unit = "Lvl",
             minVal = 0,
@@ -408,8 +408,8 @@ fun SiliconCustomDialogs(
     if (showMaxPwrDialog && silicon != null) {
         val maxLevel = if (silicon.numPwrLevels > 0) silicon.numPwrLevels - 1 else 10
         GpuCustomNumberDialog(
-            title = "Max PwrLevel (Plafon Clock)",
-            description = "Batas atas power level untuk membatasi frekuensi puncak GPU (0 = Puncak Clock, $maxLevel = Idle Rendah).",
+            title = "Batas Atas Power Level (Max)",
+            description = "Batas atas power level untuk membatasi frekuensi maksimal GPU (0 = Frekuensi Puncak, $maxLevel = Idle Efisien).",
             currentValue = silicon.maxPwrLevel.coerceIn(0, maxLevel),
             unit = "Lvl",
             minVal = 0,

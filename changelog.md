@@ -1,3 +1,36 @@
+# Lynx Universal [Unified Collapsible Accordion & Anti-AI Slop Hardware Terminology] 7.0.0-RC181
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC181** (Lynx Kernel Manager v3.2.27): **Penyatuan Visual Kartu Akordeon Collapsible 'Driver Hardware Kernel' & Eliminasi Terminologi Hardware Abal-Abal (Anti-AI Slop): Mengintegrasikan Header dan Konten Akordeon Menjadi Satu Kontainer Surface Tunggal yang Mulus Tanpa Kotak Bertingkat (*No Box-in-Box / Detached Cards*), Menghapus Bungkus `LynxCard` Eksternal yang Memicu Header Ganda, Serta Mengaudit dan Menghapus Seluruh Istilah Terjemahan Literal Konyol Seperti 'Lantai & Plafon' Menjadi Terminologi Resmi Rekayasa Kernel Linux / SoC ('Ambang Batas Power Level Min & Max', 'Batas Bawah Clock (Floor)', 'Batas Atas (Max)') Demi Menghadirkan Tampilan dan Bahasa Teknis yang Bersih, Presisi, dan Profesional**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC181)
+
+### 1. 🎛️ Penyatuan Visual Akordeon Collapsible (`GpuCollapsibleSection` & `AdaptiveGpuHardwareCard`)
+- **Single Enclosing Surface**:
+  - Mengubah arsitektur `GpuCollapsibleSection` di `GpuSubscreen.kt` dari sebelumnya berupa baris toggle mengambang terpisah di atas konten menjadi satu kesatuan kartu `Surface` (`RoundedCornerShape(16.dp)`, `Color(0xFF10141E)`).
+  - Saat di-expand, kontainer kartu membuka secara mulus dengan pembatas halus `HorizontalDivider(0.6.dp)` antara header dan isi, tanpa celah aneh atau keterpisahan visual.
+- **Eliminasi Kotak Bertingkat & Header Ganda (`wrapInCard = false`)**:
+  - Menghapus pembungkus `LynxCard` redundan dari `AdaptiveGpuHardwareCard`, `GraphicsDriverHwuiCard`, dan `PerAppGraphicsHubCard`.
+  - Kontrol driver silikon langsung mengalir secara alami di dalam satu kontainer kartu utama dengan banner identitas chipset & HAL terverifikasi yang rapi.
+
+### 2. 🛡️ Pembersihan Terminologi AI Slop (Anti-AI Slop Terminology Audit)
+- **Mengganti Terjemahan Harfiah Konyol ('Lantai & Plafon')**:
+  - Mengganti istilah "Braket Power Level (Lantai & Plafon)" dengan istilah teknis standar: **"Ambang Batas Power Level (Min & Max)"**.
+  - Mengganti "Lantai (Min) mencegah underclock, Plafon (Max) membatasi puncak clock" dengan: **"Batas bawah (Min) cegah underclock, batas atas (Max) batasi clock puncak"**.
+  - Mengganti label pill "Plafon (Max)" dan "Lantai (Min)" menjadi: **"Batas Atas (Max)"** dan **"Batas Bawah (Min)"**.
+  - Mengganti "PwrLevel Floor (Lantai Clock)" menjadi: **"Power Level Floor (Batas Bawah Clock)"**.
+  - Mengganti deskripsi modal dialog agar menggunakan istilah teknis resmi frekuensi dan efisiensi daya alih-alih metafora bangunan rumah.
+
+### 3. 📏 Kepatuhan Batas Baris Kode Ketat (≤699 Baris)
+- Seluruh berkas Kotlin terverifikasi mematuhi batas arsitektural:
+  - `GpuSubscreen.kt`: 689 baris (≤699)
+  - `GpuProfilesAndHardwareCard.kt`: 654 baris (≤699)
+  - `AdaptiveGpuSiliconControls.kt`: 427 baris (≤699)
+  - `GpuDeepSiliconCard.kt`: 407 baris (≤699)
+  - `GraphicsDriverHwuiCard.kt`: 399 baris (≤699)
+  - `LynxGpuDisplayComponents.kt`: 636 baris (≤699)
+
+---
+
 # Lynx Universal [Clean Header Redesign & Anti-Badge Pile Refinement] 7.0.0-RC180
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC180** (Lynx Kernel Manager v3.2.26): **Penyempurnaan Estetika Visual & Eliminasi Penumpukan Badge Sesuai Panduan /redesign-existing-projects: Menghilangkan Penumpukan Badge/Pill Ganda yang Sesak pada Header Live Grafis GPU (`GpuMasterTunerCard`) dengan Menghapus Duplikasi Pill Profil dan Maks Clock, Menjadikan Indikator Suhu `[🌡️ 44.6°C]` Sebagai Focal Point Tunggal yang Bersih di Sebelah Clock Utama; Serta Mentransformasi Micro-Tiles Menjadi Baris Telemetri Terpadu Minimalis (`GpuTelemetryStrip`) dengan Pembatas Hairline Vertikal Halus Tanpa Kotak Bertingkat (*Cards-Inside-Cards*) Demi Keterbacaan Optimal & Estetika Cyberpunk OLED yang Rapi**.

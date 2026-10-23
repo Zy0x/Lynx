@@ -88,6 +88,7 @@ fun PerAppGraphicsHubCard(
     isAngleSupported: Boolean = true,
     onSaveRule: (PerAppGraphicsRule) -> Unit,
     onDeleteRule: (String) -> Unit,
+    wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentGreen
@@ -95,13 +96,8 @@ fun PerAppGraphicsHubCard(
     var editingRule by remember { mutableStateOf<PerAppGraphicsRule?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
-    LynxCard(
-        title = "Manajemen Rendering Per-Aplikasi",
-        subtitle = "Konfigurasi Game Driver (ANGLE & Refresh Rate) khusus per judul game",
-        icon = Icons.Default.SportsEsports,
-        accentColor = cardAccent,
-        modifier = modifier
-    ) {
+    val cardContent = @Composable {
+        Column(modifier = Modifier.fillMaxWidth()) {
         // --- 1. Rules List or Empty State ---
         if (rules.isEmpty()) {
             Surface(
@@ -305,6 +301,23 @@ fun PerAppGraphicsHubCard(
                     color = cardAccent
                 )
             }
+        }
+    }
+    }
+
+    if (wrapInCard) {
+        LynxCard(
+            title = "Manajemen Rendering Per-Aplikasi",
+            subtitle = "Konfigurasi Game Driver (ANGLE & Refresh Rate) khusus per judul game",
+            icon = Icons.Default.SportsEsports,
+            accentColor = cardAccent,
+            modifier = modifier
+        ) {
+            cardContent()
+        }
+    } else {
+        Box(modifier = modifier.fillMaxWidth()) {
+            cardContent()
         }
     }
 

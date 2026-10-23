@@ -229,7 +229,7 @@ fun GpuDeepSiliconCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Min PwrLevel Floor", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                     Text(
-                        text = "Kunci lantai power level agar tidak downclock berlebih saat beban dinamis",
+                        text = "Kunci batas bawah power level agar tidak downclock berlebih saat beban dinamis",
                         fontSize = 11.sp,
                         color = TextSecondary
                     )
@@ -351,7 +351,7 @@ fun GpuDeepSiliconCard(
         val maxFloor = (silicon.numPwrLevels - 1).coerceAtLeast(5)
         GpuCustomNumberDialog(
             title = "Min PwrLevel Floor",
-            description = "Tentukan lantai power level minimum (0 = Clock Maksimum, $maxFloor = Hemat Daya). Nilai rendah mencegah downclock.",
+            description = "Tentukan batas bawah power level minimum (0 = Frekuensi Tertinggi, $maxFloor = Hemat Daya). Nilai rendah mencegah downclock agresif.",
             currentValue = silicon.minPwrLevel,
             unit = "lvl",
             minVal = 0,

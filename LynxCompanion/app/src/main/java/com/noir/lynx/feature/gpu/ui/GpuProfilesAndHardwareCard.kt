@@ -1,65 +1,31 @@
 package com.noir.lynx.feature.gpu.ui
 
-import java.util.Locale
-import android.content.Context
-import android.hardware.display.DisplayManager
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.view.WindowManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.noir.lynx.R
-import kotlin.math.roundToInt
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
-import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.R
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.designsystem.card.*
-import com.noir.lynx.designsystem.controls.*
-import com.noir.lynx.designsystem.tweak.*
-import com.noir.lynx.designsystem.profile.*
-import com.noir.lynx.feature.navigation.model.TuningCategory
-
-// ============================================================
-//  ADAPTIVE GPU HARDWARE ACCELERATION CARD (SOC-SPECIFIC)
-// ============================================================
-
+import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.ui.*
 
 private data class GpuCustomParamConfig(
@@ -93,6 +59,7 @@ fun AdaptiveGpuHardwareCard(
     onSetWakeNice: (Int) -> Unit = {},
     onSetMinPwrLevel: (Int) -> Unit = {},
     onSetGpuLlcSlice: (Boolean) -> Unit = {},
+    wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isAdreno = gpu.platform == "adreno"
@@ -111,13 +78,7 @@ fun AdaptiveGpuHardwareCard(
     val subtitle = "Optimasi silikon hardware GPU & respon sentuhan"
     val cardAccent = AccentOrange
 
-    LynxCard(
-        title = title,
-        subtitle = subtitle,
-        icon = Icons.Default.Memory,
-        accentColor = cardAccent,
-        modifier = modifier
-    ) {
+    val cardContent = @Composable {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -131,25 +92,37 @@ fun AdaptiveGpuHardwareCard(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "KONTROL HARDWARE TERSEDIA",
-                                color = TextTertiary,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Memory,
+                                    contentDescription = null,
+                                    tint = cardAccent,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = title.uppercase(),
+                                    color = TextPrimary,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.4.sp
+                                )
+                            }
+                            Spacer(Modifier.height(2.dp))
                             val workingCount = gpu.hardwareFeatures.count { it.accessState == FeatureAccessState.VERIFIED_WORKING }
                             val totalCount = gpu.hardwareFeatures.size
                             Text(
                                 text = stringResource(R.string.gpu_configurable_parameters, workingCount, totalCount),
                                 color = AccentGreen,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                         val ratingColor = when (gpu.backendConfidence.rating) {
@@ -172,9 +145,9 @@ fun AdaptiveGpuHardwareCard(
                             Text(
                                 text = ratingLabel,
                                 color = ratingColor,
-                                fontSize = 9.5.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
                             )
                         }
                     }
@@ -630,6 +603,22 @@ fun AdaptiveGpuHardwareCard(
                     }
                 }
             }
+        }
+    }
+
+    if (wrapInCard) {
+        LynxCard(
+            title = title,
+            subtitle = subtitle,
+            icon = Icons.Default.Memory,
+            accentColor = cardAccent,
+            modifier = modifier
+        ) {
+            cardContent()
+        }
+    } else {
+        Box(modifier = modifier.fillMaxWidth()) {
+            cardContent()
         }
     }
 
