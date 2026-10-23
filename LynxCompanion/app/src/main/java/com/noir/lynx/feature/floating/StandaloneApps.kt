@@ -32,7 +32,7 @@ object StandaloneApps {
     }
 
     private suspend fun connect(ctx: Context): IFloatingRoot {
-        pending?.let { return withTimeout(12000) { it.await() } }
+        pending?.let { return withTimeoutOrNull(12000) { it.await() } ?: error("Root bind timed out") }
         val ready = CompletableDeferred<IFloatingRoot>()
         pending = ready
         val conn = object : ServiceConnection {
@@ -49,7 +49,7 @@ object StandaloneApps {
         }
         connection = conn
         RootService.bind(Intent(ctx, FloatingRootService::class.java), conn)
-        return try { withTimeout(12000) { ready.await() } } catch (e: Exception) {
+        return try { withTimeoutOrNull(12000) { ready.await() } ?: error("Root bind timed out") } catch (e: Exception) {
             runCatching { RootService.unbind(conn) }
             if (pending === ready) { pending = null; connection = null }
             throw e

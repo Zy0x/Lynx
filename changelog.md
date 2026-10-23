@@ -1,3 +1,29 @@
+# Lynx Universal [Clean Header Redesign & Anti-Badge Pile Refinement] 7.0.0-RC180
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC180** (Lynx Kernel Manager v3.2.26): **Penyempurnaan Estetika Visual & Eliminasi Penumpukan Badge Sesuai Panduan /redesign-existing-projects: Menghilangkan Penumpukan Badge/Pill Ganda yang Sesak pada Header Live Grafis GPU (`GpuMasterTunerCard`) dengan Menghapus Duplikasi Pill Profil dan Maks Clock, Menjadikan Indikator Suhu `[🌡️ 44.6°C]` Sebagai Focal Point Tunggal yang Bersih di Sebelah Clock Utama; Serta Mentransformasi Micro-Tiles Menjadi Baris Telemetri Terpadu Minimalis (`GpuTelemetryStrip`) dengan Pembatas Hairline Vertikal Halus Tanpa Kotak Bertingkat (*Cards-Inside-Cards*) Demi Keterbacaan Optimal & Estetika Cyberpunk OLED yang Rapi**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC180)
+
+### 1. 🧹 Eliminasi Penumpukan Badge (Anti-Badge Pile & Visual De-Cluttering)
+- **Pembersihan Header Live Grafis GPU (`GpuMasterTunerCard.kt`)**:
+  - Menghapus badge profil aktif ganda (`[• SEIMBANG]`) yang sebelumnya menumpuk di baris clock, karena status profil aktif sudah sangat jelas tersorot pada tombol makro `GpuQuickProfilesCard` tepat di atasnya.
+  - Menghapus pill `[Maks: 647 MHz]` yang redundan dengan dropdown pemilih frekuensi maksimum di bawahnya.
+  - Menyisakan lencana tunggal terfokus: **Live GPU Temperature Badge** (`[🌡️ 44.6°C]`) dengan ikon termostat dan warna semantik dinamis, memberikan ruang bernapas visual (*breathing room*) yang lapang.
+
+### 2. ✨ Redesain Telemetry Strip Minimalis (`GpuHeroCard.kt`)
+- **Penghapusan Pola "Cards-Inside-Cards"**:
+  - Menghapus kotak-kotak border ganda pada setiap metrik.
+  - Menyajikan 4 metrik esensial (`ENGINE`, `GOVERNOR`, `DAYA`, `VRAM`) dalam satu permukaan terpadu yang elegan, dipisahkan oleh pembatas hairline vertikal tipis (`VerticalDivider` 0.6dp).
+  - Tipografi berkontras tinggi dan padding yang proporsional menghasilkan pembacaan telemetri yang sangat bersih, profesional, dan nyaman di mata (*readability first*).
+
+### 3. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
+- Seluruh berkas Kotlin terkait terverifikasi mematuhi batas arsitektural:
+  - `GpuHeroCard.kt`: 265 baris (≤699)
+  - `GpuMasterTunerCard.kt`: 580 baris (≤699)
+  - `GpuSubscreen.kt`: 678 baris (≤699)
+
+---
+
 # Lynx Universal [Unified GPU Live Telemetry & Frequency Master, Panel Redundancy Elimination] 7.0.0-RC179
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC179** (Lynx Kernel Manager v3.2.25): **Konsolidasi Arsitektural Tab GPU Berdasarkan Sesi /grill-me & Konsensus UX: Mengeliminasi Panel Hero Atas yang Redundan dan Menyatukan Seluruh Telemetri Performa ke Dalam Satu Kartu Tunggal 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard`); Menerapkan Alur Logis Macro-to-Micro di Mana 4 Tombol Preset Cepat (`GpuQuickProfilesCard`) Memimpin di Posisi Atas, Diikuti Langsung oleh Kartu Live Grafis yang Diperkaya dengan 1-Baris 4-Kolom Micro-Tiles (Engine GL/VK, Governor Silikon, Daya Dinamis Watt, VRAM) Serta Lencana Profil Adaptif Semantik; Mengekstraksi Bottom Sheet Pemilih Frekuensi ke `GpuFrequencyPickerSheet` (`GpuHeroCard.kt`) Demi Mempertahankan Batas Arsitektural Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.

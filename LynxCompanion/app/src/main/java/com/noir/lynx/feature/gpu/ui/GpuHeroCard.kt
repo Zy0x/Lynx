@@ -22,9 +22,9 @@ import com.noir.lynx.data.GpuInfo
 import com.noir.lynx.designsystem.theme.*
 
 /**
- * GpuTelemetryStrip — Compact 1-Row 4-Column Micro-Tiles for GPU Subscreen.
- * Integrated directly inside the unified GpuMasterTunerCard to present essential
- * hardware metrics (Engine, Governor, Dynamic Power Wattage, VRAM) without layout bloat.
+ * GpuTelemetryStrip — Minimalist, Clean 1-Row Telemetry Bar for GPU Subscreen.
+ * Replaces heavy nested boxes with an integrated, airy telemetry strip
+ * separated by subtle hairline dividers (Anti AI-Slop / Anti-Badge Pile).
  */
 @Composable
 fun GpuTelemetryStrip(
@@ -47,36 +47,47 @@ fun GpuTelemetryStrip(
 
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFF0C0F17),
-        border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
+        color = Color(0xFF0E121B),
+        border = BorderStroke(0.6.dp, Color(0x14FFFFFF)),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(vertical = 7.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            GpuMetricTile(
+            GpuMetricItem(
                 label = "Engine",
                 value = displayEngine,
                 valueColor = TextPrimary.copy(alpha = 0.95f),
                 modifier = Modifier.weight(1f)
             )
-            GpuMetricTile(
+            VerticalDivider(
+                color = Color(0x14FFFFFF),
+                modifier = Modifier.height(20.dp).width(0.6.dp)
+            )
+            GpuMetricItem(
                 label = "Governor",
                 value = govShort,
                 valueColor = AccentCyan.copy(alpha = 0.95f),
                 modifier = Modifier.weight(1f)
             )
-            GpuMetricTile(
+            VerticalDivider(
+                color = Color(0x14FFFFFF),
+                modifier = Modifier.height(20.dp).width(0.6.dp)
+            )
+            GpuMetricItem(
                 label = "Daya",
                 value = wattText,
                 valueColor = if (wattage > 2.0f) AccentOrange else AccentGreen,
                 modifier = Modifier.weight(1f)
             )
-            GpuMetricTile(
+            VerticalDivider(
+                color = Color(0x14FFFFFF),
+                modifier = Modifier.height(20.dp).width(0.6.dp)
+            )
+            GpuMetricItem(
                 label = "VRAM",
                 value = vramText,
                 valueColor = TextPrimary.copy(alpha = 0.95f),
@@ -87,48 +98,39 @@ fun GpuTelemetryStrip(
 }
 
 /**
- * Micro-bento metric tile with high-contrast typography and anti-wrap bounds.
+ * Minimalist metric item with clean typography and no enclosing sub-boxes.
  */
 @Composable
-fun GpuMetricTile(
+private fun GpuMetricItem(
     label: String,
     value: String,
     valueColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF121622),
-        border = BorderStroke(0.5.dp, Color(0x12FFFFFF)),
-        modifier = modifier
+    Column(
+        modifier = modifier.padding(horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 5.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label.uppercase(),
-                color = TextSecondary.copy(alpha = 0.65f),
-                fontSize = 8.5.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.3.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(1.5.dp))
-            Text(
-                text = value,
-                color = valueColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.1).sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Text(
+            text = label.uppercase(),
+            color = TextSecondary.copy(alpha = 0.6f),
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.4.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            color = valueColor,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.1).sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

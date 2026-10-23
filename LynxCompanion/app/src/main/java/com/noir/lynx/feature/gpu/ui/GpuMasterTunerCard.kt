@@ -114,98 +114,36 @@ fun GpuMasterTunerCard(
                     fontSize = 11.sp
                 )
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Adaptive Active Profile Badge
-                val activeProfile = gpu.activeProfile.lowercase()
-                val profileBadgeText = when (activeProfile) {
-                    "battery" -> "HEMAT DAYA"
-                    "balanced" -> "SEIMBANG"
-                    "esports" -> "ESPORTS"
-                    "extreme" -> "EKSTREM"
-                    else -> if (activeProfile.isNotBlank()) activeProfile.uppercase() else "AUTO"
+            // Clean, Single-Focus Temperature Badge (No Crowded Badge Piling)
+            if (gpu.gpuTempC > 0f) {
+                val tempColor = when {
+                    gpu.gpuTempC >= 65f -> AccentRed
+                    gpu.gpuTempC >= 50f -> AccentOrange
+                    else -> AccentGreen
                 }
-                val profileColor = when (activeProfile) {
-                    "battery" -> AccentGreen
-                    "balanced" -> AccentCyan
-                    "esports" -> AccentOrange
-                    "extreme" -> AccentRed
-                    else -> AccentCyan
-                }
-
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = profileColor.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, profileColor.copy(alpha = 0.45f))
+                    color = tempColor.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, tempColor.copy(alpha = 0.4f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = profileColor,
-                            modifier = Modifier.size(5.dp)
-                        ) {}
+                        Icon(
+                            imageVector = Icons.Default.Thermostat,
+                            contentDescription = null,
+                            tint = tempColor,
+                            modifier = Modifier.size(13.dp)
+                        )
                         Text(
-                            text = profileBadgeText,
-                            color = profileColor,
-                            fontSize = 10.5.sp,
+                            text = String.format(Locale.US, "%.1f°C", gpu.gpuTempC),
+                            color = tempColor,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                }
-
-                // Live GPU Temperature Badge
-                if (gpu.gpuTempC > 0f) {
-                    val tempColor = when {
-                        gpu.gpuTempC >= 65f -> AccentRed
-                        gpu.gpuTempC >= 50f -> AccentOrange
-                        else -> AccentGreen
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = tempColor.copy(alpha = 0.15f),
-                        border = BorderStroke(1.dp, tempColor.copy(alpha = 0.45f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Thermostat,
-                                contentDescription = null,
-                                tint = tempColor,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.1f°C", gpu.gpuTempC),
-                                color = tempColor,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Max Clock Pill
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = cardAccent.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.4f))
-                ) {
-                    val displayMax = if (gpu.maxFreqMhz > 0) gpu.maxFreqMhz else (gpu.availFreqsMhz.maxOrNull() ?: 0)
-                    Text(
-                        text = if (displayMax > 0) "Maks: $displayMax MHz" else "Dynamic Clock",
-                        color = cardAccent,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                    )
                 }
             }
         }

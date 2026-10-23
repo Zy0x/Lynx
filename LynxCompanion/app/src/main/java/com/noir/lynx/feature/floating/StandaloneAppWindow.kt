@@ -27,14 +27,20 @@ internal class StandaloneAppWindow(
     private fun dp(v: Int) = (v * density).toInt()
     private val root = FrameLayout(context)
     private val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(10, 15, 22)) }
-    private val title = TextView(context).apply { setTextColor(Color.CYAN); textSize = 12f; maxLines = 2 }
+    private val title = TextView(context).apply {
+        setTextColor(Color.CYAN); textSize = 12f; maxLines = 1
+        ellipsize = android.text.TextUtils.TruncateAt.END
+    }
     private val texture = TextureView(context).apply { surfaceTextureListener = this@StandaloneAppWindow }
     private val bubble = TextView(context).apply {
         text = label.take(2); textSize = 16f; gravity = Gravity.CENTER; setTextColor(Color.CYAN)
+        contentDescription = label
         setBackgroundColor(Color.rgb(10, 15, 22)); visibility = View.GONE
     }
     private val params = WindowManager.LayoutParams(1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            // The remote app owns the editor; keep its host Surface behind the physical-display IME.
+            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT).apply {
         gravity = Gravity.TOP or Gravity.START; title = APP_WINDOW_TITLE
     }
@@ -182,7 +188,9 @@ internal class StandaloneAppWindow(
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
         if (!hasFrame) { hasFrame = true; updateTitle() }
     }
-    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
+    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+        if (width > 0 && height > 0) resizeDisplay()
+    }
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { close(); return true }
     private fun updateTitle() {
         title.text = context.getString(if (hasFrame && displayId >= 0) R.string.floating_running else R.string.floating_waiting, label)
