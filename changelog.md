@@ -1,3 +1,33 @@
+# Lynx Universal [GPU & Display Architecture Reorganization & Redundancy Consolidation] 7.0.0-RC175
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC175** (Lynx Kernel Manager v3.2.21): **Restrukturisasi Arsitektural Menyeluruh Subscreen GPU & Display Sesuai Pedoman AGENTS.md Bagian 7.4: Mengonsolidasi 12 Kartu Terfragmentasi Menjadi 4 Domain Kategori Bersih Berbasis Section Header Cyberpunk (1. Profil & Clock OPP, 2. Driver Hardware Kernel, 3. Compositor & Pipeline HWUI, 4. Display & Kalibrasi Layar); Mengeliminasi Seluruh Redundansi Tweak Kernel & Pipeline (Hapus Switch Hardware Preemption Duplikat dengan Segmented Button 3-Way yang Sinkron ke Node Driver, Satukan Min & Max PwrLevel ke Dalam Braket Frekuensi Tunggal, Gabungkan VSync Swap Interval Bypass ke Dalam Antrean Frame Swapchain Buffering, serta Satukan Durasi TouchBoost ke Kartu Display); Modularisasi Kode Menyeluruh (`AdaptiveGpuSiliconControls.kt`, `GraphicsMemoryPipelineSection.kt`) dengan Seluruh Berkas .kt Tetap Mematuhi Batas Ketat ≤699 Baris**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC175)
+
+### 1. 🏛️ Restrukturisasi 4 Domain Kategori GPU & Display (Anti Card-Fatigue)
+- **Pengelompokan 4 Section Header Modern**:
+  - *Domain 1: Profil & Clock OPP (`PRESET & TUNER`)*: Menyajikan `GpuQuickProfilesCard` (4 profil harmonik) dan `GpuMasterTunerCard` (pemilih clock OPP, pengunci frekuensi, grafik waveform beban real-time, dan pemantau proses render aktif).
+  - *Domain 2: Driver Hardware Kernel (`KERNEL HAL`)*: Menyajikan `AdaptiveGpuHardwareCard` terpadu yang memadukan kontrol driver hardware SoC (Adreno KGSL & MTK GED/FPSGO) dan fitur register silikon tingkat rendah.
+  - *Domain 3: Compositor & Pipeline HWUI (`RENDER ENGINE`)*: Mengonsolidasi `GraphicsDriverHwuiCard`, `GpuShaderRebuilderCard`, dan `PerAppGraphicsHubCard`.
+  - *Domain 4: Display & Kalibrasi Layar (`PANEL & OUTPUT`)*: Mengelompokkan `DisplayRefreshRateTouchCard`, `ColorManagementCard` (ColorMatrix 1015 & D65 White Point), serta `KcalHardwareCard`.
+- **Pengurangan Kelelahan Navigasi**: Memangkas jumlah kartu dari 12 kartu terfragmentasi menjadi 7 kartu terkonsolidasi, mereduksi kebutuhan scroll dari 7 kali swipe menjadi hanya 3 kali swipe ergonomis.
+
+### 2. ⚡ Eliminasi Redundansi Driver Kernel & Pipeline Compositor
+- **Unifikasi Hardware Preemption**:
+  Mengeliminasi switch boolean duplikat pada driver KGSL dan menggantikannya secara permanen dengan tombol segmented 3-way (`0 • Off`, `1 • Cmd Buffer`, `2 • Drawcall`) yang menyelaraskan node `/sys/class/kgsl/kgsl-3d0/preempt_level` dan `/sys/class/kgsl/kgsl-3d0/preemption`.
+- **Braket Power Level Terpadu (Lantai & Plafon)**:
+  Menyatukan Max PwrLevel (plafon clock atas) dan Min PwrLevel (lantai clock bawah) ke dalam satu baris kartu terpadu dengan dialog penyesuaian kustom cepat.
+- **Konsolidasi Pipeline VSync & Swapchain**:
+  Meleburkan `VSync Swap Interval Bypass` (`debug.egl.swapinterval 0/1`) langsung berdampingan dengan `Mode Antrean Frame Swapchain` (Double vs Triple Buffering) dalam kartu HWUI.
+- **Integrasi Presisi Sentuh TouchBoost**:
+  Memindahkan durasi TouchBoost (`debug.sf.touch_boost_duration_ms`) ke dalam `DisplayRefreshRateTouchCard` dengan pill interaktif (50–2000 ms) tepat di sebelah switch TouchBoost.
+
+### 3. 🧩 Modularisasi & Kepatuhan Batas Kode Ketat (≤699 Baris)
+- Pemisahan sub-komponen ke dalam `AdaptiveGpuSiliconControls.kt` (409 baris) dan `GraphicsMemoryPipelineSection.kt` (453 baris).
+- Seluruh 22 berkas Kotlin pada domain GPU & Display terverifikasi mematuhi batas arsitektural ≤699 baris kode tanpa pengecualian.
+
+---
+
 # Lynx Universal [Schedutil Rate-Limit Precision Tuner & Sched Load Boost Anti-Inversion] 7.0.0-RC174
 Released on: 2026-10-23
 > **Lynx Universal v7.0.0-RC174** (Lynx Kernel Manager v3.2.20): **Penyempurnaan Domain CPU Subsystem Tingkat Lanjut: Menghadirkan Schedutil Rate-Limit Precision Tuner Berlatensi Mikrodetik (µs) dengan 5 Profil Terkalibrasi Per-Kluster Little vs Big Serta Dialog Input Kustom Presisi (`SchedutilCustomRateDialog.kt`); Mengintegrasikan Pengontrol Bias Kapasitas Tugas (Task Capacity Bias & Anti-Capacity Inversion Controller) Berbasis Kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` (`CpuSchedLoadBoostCard.kt`) untuk Mengeliminasi Fenomena Thread Stalling pada Render Thread; Serta Melakukan Pembersihan Kode Mati Menyeluruh Melalui Penghapusan Berkas Yatim `CpuClusterItemCard.kt` dan Konsolidasi `QuickTunablesBottomSheet.kt` pada `CompactClusterRow` Sehingga Mengurangi 97 Baris Kode Bersih dengan Seluruh Berkas Tetap Mematuhi Batas Ketat ≤699 Baris**.

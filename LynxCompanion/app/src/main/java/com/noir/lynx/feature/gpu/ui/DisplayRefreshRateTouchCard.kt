@@ -47,6 +47,7 @@ fun DisplayRefreshRateTouchCard(
     isAuto: Boolean,
     supportedRates: List<Int>,
     touchBoost: Boolean,
+    touchBoostDurationMs: Int = 500,
     touchIrqSteering: Boolean = false,
     dcDimmingSupported: Boolean,
     dcDimmingEnabled: Boolean,
@@ -56,6 +57,7 @@ fun DisplayRefreshRateTouchCard(
     forcedFpsUnlockerHz: Int = 0,
     onSetRefreshRate: (hz: Int, isAuto: Boolean) -> Unit,
     onSetTouchBoost: (Boolean) -> Unit,
+    onSetTouchBoostDuration: ((Int) -> Unit)? = null,
     onSetTouchIrqSteering: ((Boolean) -> Unit)? = null,
     onSetDcDimming: (Boolean) -> Unit,
     onSetRenderScale: ((String) -> Unit)? = null,
@@ -68,6 +70,7 @@ fun DisplayRefreshRateTouchCard(
     val context = LocalContext.current
     val displayManager = remember { context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager }
     var liveHz by remember { mutableIntStateOf(if (currentHz > 0) currentHz else 60) }
+    var showTouchDurationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentHz, isAuto) {
         if (!isAuto && currentHz > 0) {
@@ -313,13 +316,65 @@ fun DisplayRefreshRateTouchCard(
             }
         }
 
-        // TouchBoost Switch
-        LynxSwitch(
-            label = "Respon Sentuhan Cepat (TouchBoost)",
-            subLabel = "Tingkatkan laju pemindaian sentuhan untuk kontrol game yang lebih presisi",
-            checked = touchBoost,
-            onCheckedChange = { onSetTouchBoost(it) }
-        )
+        // TouchBoost Switch & Duration Tuning
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    text = "Respon Sentuhan Cepat (TouchBoost)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = if (touchBoost) "Penguncian clock saat sentuhan aktif (${touchBoostDurationMs}ms)" else "Tingkatkan laju pemindaian sentuhan untuk kontrol game yang lebih presisi",
+                    fontSize = 10.sp,
+                    color = TextSecondary
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (touchBoost && onSetTouchBoostDuration != null) {
+                    Surface(
+                        onClick = { showTouchDurationDialog = true },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.TouchApp, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
+                            Text(
+                                text = "${touchBoostDurationMs}ms",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = cardAccent
+                            )
+                        }
+                    }
+                }
+
+                Switch(
+                    checked = touchBoost,
+                    onCheckedChange = { onSetTouchBoost(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = androidx.compose.ui.graphics.Color.Black,
+                        checkedTrackColor = cardAccent,
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgElevated
+                    )
+                )
+            }
+        }
 
         // Hardware IRQ Touch Steering
         if (onSetTouchIrqSteering != null) {
@@ -486,5 +541,23 @@ fun DisplayRefreshRateTouchCard(
                 }
             }
         }
+    }
+
+    if (showTouchDurationDialog && onSetTouchBoostDuration != null) {
+        GpuCustomNumberDialog(
+            title = "Durasi Respon TouchBoost",
+            description = "Lama waktu penguncian clock performa tinggi saat jari menyentuh layar (50 - 2000 ms).",
+            currentValue = touchBoostDurationMs.coerceIn(50, 2000),
+            unit = "ms",
+            minVal = 50,
+            maxVal = 2000,
+            step = 50,
+            accentColor = cardAccent,
+            onConfirm = { newVal ->
+                onSetTouchBoostDuration(newVal)
+                showTouchDurationDialog = false
+            },
+            onDismiss = { showTouchDurationDialog = false }
+        )
     }
 }

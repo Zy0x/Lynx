@@ -73,6 +73,7 @@ private data class GpuCustomParamConfig(
 @Composable
 fun AdaptiveGpuHardwareCard(
     gpu: GpuInfo,
+    silicon: GpuSiliconInfo? = null,
     onSetFeature: (GpuHardwareFeature, String) -> Unit = { _, _ -> },
     onSetBusAlwaysOn: (Boolean) -> Unit = {},
     onSetIdleTimer: (Int) -> Unit = {},
@@ -86,11 +87,20 @@ fun AdaptiveGpuHardwareCard(
     onSetMaliCoreMask: (Boolean) -> Unit = {},
     onSetMaliPowerPolicy: (String) -> Unit = {},
     onSetGovernor: (String) -> Unit = {},
+    onSetSptpPc: (Boolean) -> Unit = {},
+    onSetSkipSaveRestore: (Boolean) -> Unit = {},
+    onSetPreemptLevel: (Int) -> Unit = {},
+    onSetWakeNice: (Int) -> Unit = {},
+    onSetMinPwrLevel: (Int) -> Unit = {},
+    onSetGpuLlcSlice: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isAdreno = gpu.platform == "adreno"
     val isMtk = gpu.platform == "mali_ged"
     var customDialogConfig by remember { mutableStateOf<GpuCustomParamConfig?>(null) }
+    var showWakeNiceDialog by remember { mutableStateOf(false) }
+    var showMinPwrDialog by remember { mutableStateOf(false) }
+    var showMaxPwrDialog by remember { mutableStateOf(false) }
 
     val title = when {
         gpu.activeBackendName.isNotBlank() -> gpu.activeBackendName
@@ -170,8 +180,80 @@ fun AdaptiveGpuHardwareCard(
                     }
                 }
 
-                // Dynamically Render Scanned Features Grouped by Category
-                val grouped = gpu.hardwareFeatures.groupBy { it.category }.entries.toList()
+                // Dedicated Adreno Silicon Kernel Controls (Consolidated from GpuDeepSiliconCard)
+                if (isAdreno && silicon != null) {
+                    HorizontalDivider(
+                        color = BorderSubtle.copy(alpha = 0.45f),
+                        thickness = 0.7.dp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 3.dp, height = 11.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(cardAccent)
+                            )
+                            Text(
+                                text = "SCHEDULING & POWER COLLAPSE",
+                                color = TextSecondary,
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+                        Text(
+                            text = "Silicon Direct",
+                            color = AccentCyan,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // 1. Preemption Granularity (Level 0, 1, 2)
+                    PreemptionLevelSelector(
+                        preemptLevel = silicon.preemptLevel,
+                        isSupported = silicon.isPreemptLevelSupported,
+                        onSetPreemptLevel = onSetPreemptLevel
+                    )
+
+                    // 2. Power Level Bracket (Ceiling & Floor)
+                    PwrLevelFloorCeilingRow(
+                        minPwrLevel = silicon.minPwrLevel,
+                        maxPwrLevel = silicon.maxPwrLevel,
+                        numPwrLevels = silicon.numPwrLevels,
+                        onOpenMinPwrDialog = { showMinPwrDialog = true },
+                        onOpenMaxPwrDialog = { showMaxPwrDialog = true }
+                    )
+
+                    // 3. Sleep States, SPTP PC, Skip Save/Restore, LLC, Wake Nice
+                    SiliconSleepAndRegistersSection(
+                        silicon = silicon,
+                        onSetSptpPc = onSetSptpPc,
+                        onSetSkipSaveRestore = onSetSkipSaveRestore,
+                        onSetWakeNice = onSetWakeNice,
+                        onSetGpuLlcSlice = onSetGpuLlcSlice,
+                        onOpenWakeNiceDialog = { showWakeNiceDialog = true }
+                    )
+
+                    // 4. Silicon Impact & Safeguard Accordion
+                    SiliconImpactAccordion()
+                }
+
+                // Dynamically Render Scanned Features Grouped by Category (Filtered from Duplicates)
+                val grouped = gpu.hardwareFeatures
+                    .filterNot { it.id == "adreno_preemption" || it.id == "adreno_max_pwrlevel" }
+                    .groupBy { it.category }
+                    .entries
+                    .toList()
                 grouped.forEachIndexed { catIdx, (category, features) ->
                     if (catIdx > 0) {
                         HorizontalDivider(
@@ -567,9 +649,18 @@ fun AdaptiveGpuHardwareCard(
             onDismiss = { customDialogConfig = null }
         )
     }
-}
 
-// ============================================================
-//  DISPLAY CALIBRATION CARD (UNIVERSAL RGB & KCAL)
-// ============================================================
+    SiliconCustomDialogs(
+        silicon = silicon,
+        showWakeNiceDialog = showWakeNiceDialog,
+        showMinPwrDialog = showMinPwrDialog,
+        showMaxPwrDialog = showMaxPwrDialog,
+        onSetWakeNice = onSetWakeNice,
+        onSetMinPwrLevel = onSetMinPwrLevel,
+        onSetAdrenoPwrLevel = onSetAdrenoPwrLevel,
+        onDismissWakeNice = { showWakeNiceDialog = false },
+        onDismissMinPwr = { showMinPwrDialog = false },
+        onDismissMaxPwr = { showMaxPwrDialog = false }
+    )
+}
 

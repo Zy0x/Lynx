@@ -29,7 +29,12 @@ internal class RootAndroidAccess(context: Context) {
             }
         }.toTypedArray()
         @Suppress("UNCHECKED_CAST")
-        return (method.invoke(atm, *args) as List<ActivityManager.RunningTaskInfo>).filter { it.displayId == displayId }
+        return (method.invoke(atm, *args) as List<ActivityManager.RunningTaskInfo>).filter {
+            val taskDisplayId = runCatching {
+                it.javaClass.getField("displayId").getInt(it)
+            }.getOrDefault(0)
+            taskDisplayId == displayId
+        }
     }
 
     fun remove(taskId: Int) {

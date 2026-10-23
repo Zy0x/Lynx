@@ -70,7 +70,7 @@ internal class StandaloneAppWindow(
         val back = TextView(context).apply {
             text = "‹"; textSize = 24f; gravity = Gravity.CENTER; setTextColor(Color.CYAN)
             contentDescription = context.getString(R.string.floating_back)
-            setOnClickListener { action { remote.back(displayId) } }
+            setOnClickListener { action({ remote.back(displayId) }) }
         }
         footer.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
         val maximize = TextView(context).apply {

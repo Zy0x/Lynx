@@ -30,7 +30,14 @@ object QualcommAdrenoSiliconExt {
 
         val sptpVal = readIntNode("$KGSL_DIR/sptp_pc", default = 1)
         val skipVal = readIntNode("$KGSL_DIR/skipsaverestore", default = 0)
-        val preemptVal = readIntNode("$KGSL_DIR/preempt_level", default = 1)
+        val preemptLevelVal = readIntNode("$KGSL_DIR/preempt_level", default = -1)
+        val preemptionVal = readIntNode("$KGSL_DIR/preemption", default = -1)
+        val finalPreempt = when {
+            preemptLevelVal in 0..2 -> preemptLevelVal
+            preemptionVal == 1 -> 1
+            preemptionVal == 0 -> 0
+            else -> 1
+        }
         val wakeNiceVal = readIntNode("$KGSL_DIR/wake_nice", default = 0)
         val minPwrVal = readIntNode("$KGSL_DIR/min_pwrlevel", default = 0)
         val maxPwrVal = readIntNode("$KGSL_DIR/max_pwrlevel", default = 0)
@@ -46,7 +53,7 @@ object QualcommAdrenoSiliconExt {
         GpuSiliconInfo(
             sptpPcEnabled = sptpVal != 0,
             skipSaveRestore = skipVal != 0,
-            preemptLevel = preemptVal.coerceIn(0, 2),
+            preemptLevel = finalPreempt.coerceIn(0, 2),
             wakeNice = wakeNiceVal.coerceIn(-20, 19),
             minPwrLevel = minPwrVal,
             maxPwrLevel = maxPwrVal,
@@ -83,7 +90,10 @@ object QualcommAdrenoSiliconExt {
 
     suspend fun setPreemptLevel(level: Int): Boolean = withContext(Dispatchers.IO) {
         val safeLevel = level.coerceIn(0, 2).toString()
-        NodeWriter.writeVerified("$KGSL_DIR/preempt_level", safeLevel) is WriteResult.Applied
+        val success1 = NodeWriter.writeVerified("$KGSL_DIR/preempt_level", safeLevel) is WriteResult.Applied
+        val preemptionVal = if (level > 0) "1" else "0"
+        val success2 = NodeWriter.writeVerified("$KGSL_DIR/preemption", preemptionVal) is WriteResult.Applied
+        success1 || success2
     }
 
     suspend fun setWakeNice(nice: Int): Boolean = withContext(Dispatchers.IO) {

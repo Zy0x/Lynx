@@ -1,14 +1,19 @@
 package com.noir.lynx.feature.gpu.ui
 
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.noir.lynx.R
@@ -44,6 +49,16 @@ fun LazyListScope.tuningGpuCategoryItems(
                 GpuHeroCard(
                     uiState = uiState,
                     gpu = gpu
+                )
+            }
+
+            // ── SECTION 1: PROFIL & CLOCK OPP ──
+            item(key = "section_header_profiles_clock") {
+                GpuSectionHeader(
+                    title = "Profil & Clock OPP",
+                    subtitle = "Harmoni preset performa & kontrol frekuensi clock fisik",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
+                    badge = "PRESET & TUNER"
                 )
             }
 
@@ -86,10 +101,21 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 2b. Adaptive Hardware Acceleration Card (SoC-Specific Engine)
+            // ── SECTION 2: DRIVER HARDWARE KERNEL ──
+            item(key = "section_header_kernel_hardware") {
+                GpuSectionHeader(
+                    title = "Driver Hardware Kernel",
+                    subtitle = "Akselerasi silikon SoC, preemption, power collapse & scheduling",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
+                    badge = "KERNEL HAL"
+                )
+            }
+
+            // Unified Adaptive Hardware Acceleration Card (SoC-Specific Engine + Deep Silicon)
             item(key = "gpu_adaptive_hw") {
                 AdaptiveGpuHardwareCard(
                     gpu = gpu,
+                    silicon = uiState.gpuSilicon,
                     onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
                     onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
                     onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
@@ -102,14 +128,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetMaliDvfsMargin = { viewModel.setMaliDvfsMargin(it) },
                     onSetMaliCoreMask = { viewModel.setMaliCoreMask(it) },
                     onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
-                    onSetGovernor = { viewModel.setGpuGovernor(it) }
-                )
-            }
-
-            // 2c. Deep Silicon Kernel GPU Tuner (SPTP PC, SkipSaveRestore, Preempt, Wake Nice, Min PwrLevel, LLC)
-            item(key = "gpu_deep_silicon") {
-                GpuDeepSiliconCard(
-                    silicon = uiState.gpuSilicon,
+                    onSetGovernor = { viewModel.setGpuGovernor(it) },
                     onSetSptpPc = { viewModel.setGpuSptpPc(it) },
                     onSetSkipSaveRestore = { viewModel.setGpuSkipSaveRestore(it) },
                     onSetPreemptLevel = { viewModel.setGpuPreemptLevel(it) },
@@ -119,25 +138,28 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 2d. SurfaceFlinger & Pipeline Precision Card (Phase Offset, TouchBoost, VSync Swap Bypass)
-            item(key = "gpu_surfaceflinger_phase") {
-                SurfaceFlingerPhaseCard(
-                    silicon = uiState.gpuSilicon,
-                    onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
-                    onSetTouchBoostDuration = { viewModel.setTouchBoostDuration(it) },
-                    onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) }
+            // ── SECTION 3: COMPOSITOR & PIPELINE HWUI ──
+            item(key = "section_header_compositor_pipeline") {
+                GpuSectionHeader(
+                    title = "Compositor & Pipeline HWUI",
+                    subtitle = "Backend render Vulkan, buffer swapchain, offset fase & shader cache",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
+                    badge = "RENDER ENGINE"
                 )
             }
 
-            // 3. Graphics Driver & HWUI Engine Card (Game Driver, SkiaVK, Latch, Backpressure, Shader Cache, Universal Compositor)
+            // Unified Graphics Driver & HWUI Engine Card
             item(key = "gpu_graphics_hwui") {
                 GraphicsDriverHwuiCard(
                     graphics = graphics,
+                    silicon = uiState.gpuSilicon,
                     onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
                     onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
                     onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
                     onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
                     onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
+                    onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
+                    onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) },
                     onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                     onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
                     onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
@@ -150,12 +172,12 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 3b. GPU Shader Cache & Integrity Rebuilder
+            // GPU Shader Cache & Integrity Rebuilder
             item(key = "gpu_shader_rebuilder") {
                 GpuShaderRebuilderCard()
             }
 
-            // 2b. Per-App Rendering Management (Game Driver Hub)
+            // Per-App Rendering Management (Game Driver Hub)
             item(key = "gpu_per_app_hub") {
                 PerAppGraphicsHubCard(
                     rules = uiState.perAppGraphicsRules,
@@ -167,13 +189,24 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 3. Display Refresh Rate & Touch Card (Ground Truth Hardware Supported Modes + Esports Render Scaler)
+            // ── SECTION 4: DISPLAY & KALIBRASI LAYAR ──
+            item(key = "section_header_display_panel") {
+                GpuSectionHeader(
+                    title = "Display & Kalibrasi Layar",
+                    subtitle = "Refresh rate, touchboost, resolusi render, dan kalibrasi warna",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentGreen,
+                    badge = "PANEL & OUTPUT"
+                )
+            }
+
+            // Display Refresh Rate & Touch Card
             item(key = "gpu_display_refresh") {
                 DisplayRefreshRateTouchCard(
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
                     isAuto = uiState.isAutoRefreshRate,
                     supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
                     touchBoost = state.displayTouch.touchboost,
+                    touchBoostDurationMs = uiState.gpuSilicon.touchBoostDurationMs,
                     dcDimmingSupported = graphics.isDcDimmingSupported,
                     dcDimmingEnabled = graphics.dcDimmingEnabled,
                     isEsportsDownscaleActive = graphics.isEsportsDownscaleActive,
@@ -182,13 +215,14 @@ fun LazyListScope.tuningGpuCategoryItems(
                     forcedFpsUnlockerHz = uiState.forcedFpsUnlockerHz,
                     onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
                     onSetTouchBoost = { viewModel.setTouchboost(it) },
+                    onSetTouchBoostDuration = { viewModel.setTouchBoostDuration(it) },
                     onSetDcDimming = { viewModel.setDcDimming(it) },
                     onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) },
                     onSetForcedFpsUnlocker = { fps -> viewModel.setForcedFpsUnlocker(fps) }
                 )
             }
 
-            // 4. Color Management Card (SurfaceFlinger Matrix 1015 & D65 White Point)
+            // Color Management Card (SurfaceFlinger Matrix 1015 & D65 White Point)
             item(key = "gpu_color_management") {
                 ColorManagementCard(
                     displayCalibration = uiState.displayCalibration,
@@ -203,7 +237,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // 5. Kernel KCAL Hardware Card (If supported by kernel)
+            // Kernel KCAL Hardware Card (If supported by kernel)
             if (uiState.displayCalibration.isKcalSupported) {
                 item(key = "gpu_kcal_hardware") {
                     KcalHardwareCard(
@@ -384,4 +418,72 @@ fun TuningGpuCategory(
     modifier: Modifier = Modifier
 ) {
     GpuSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
+}
+
+/**
+ * Clean Cyberpunk section header for GPU & Display architecture domains.
+ */
+@Composable
+fun GpuSectionHeader(
+    title: String,
+    subtitle: String,
+    accentColor: Color,
+    badge: String? = null
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = com.noir.lynx.designsystem.theme.BgSurfaceLowest,
+        border = BorderStroke(0.6.dp, com.noir.lynx.designsystem.theme.BorderGlass),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 3.dp, height = 18.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(accentColor)
+                )
+                Column {
+                    Text(
+                        text = title.uppercase(),
+                        color = com.noir.lynx.designsystem.theme.TextPrimary,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = subtitle,
+                        color = com.noir.lynx.designsystem.theme.TextSecondary,
+                        fontSize = 9.5.sp
+                    )
+                }
+            }
+            if (badge != null) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = accentColor.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        text = badge,
+                        color = accentColor,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
 }

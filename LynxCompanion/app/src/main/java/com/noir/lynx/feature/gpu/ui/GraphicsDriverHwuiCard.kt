@@ -1,29 +1,23 @@
 package com.noir.lynx.feature.gpu.ui
 
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.pluralStringResource
-import com.noir.lynx.R
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,12 +25,16 @@ import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
 import com.noir.lynx.designsystem.controls.*
-import com.noir.lynx.designsystem.tweak.*
-import com.noir.lynx.designsystem.profile.*
 
+/**
+ * Unified Graphics Driver, HWUI Compositor, and Render Pipeline Card.
+ * Consolidates Updatable Game Driver, HWUI 5-Engine Backend, Swapchain Buffering,
+ * SurfaceFlinger Latch & Early Phase, and VSync Bypass into a single pipeline source of truth.
+ */
 @Composable
 fun GraphicsDriverHwuiCard(
     graphics: GraphicsHwuiInfo,
+    silicon: GpuSiliconInfo? = null,
     onSetGameDriver: (String) -> Unit,
     onSetRenderer: (String) -> Unit,
     onSetLatch: (Boolean) -> Unit,
@@ -44,6 +42,8 @@ fun GraphicsDriverHwuiCard(
     onSetOemShield: (Boolean) -> Unit,
     onSetDisableBackpressure: (Boolean) -> Unit = {},
     onSetEarlyPhase: (Boolean) -> Unit = {},
+    onSetPhaseOffset: ((earlyNs: Long, earlyGlNs: Long) -> Unit)? = null,
+    onSetVsyncSwapBypass: ((Boolean) -> Unit)? = null,
     onRefreshShaderCache: () -> Unit = {},
     onSetTextureCacheSize: ((Int) -> Unit)? = null,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
@@ -54,8 +54,7 @@ fun GraphicsDriverHwuiCard(
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
-    var showCustomTextureDialog by remember { mutableStateOf(false) }
-    var showCustomShaderBlobDialog by remember { mutableStateOf(false) }
+    var showPhaseDialog by remember { mutableStateOf(false) }
 
     LynxCard(
         title = "Pengaturan Grafis & Driver Game",
@@ -64,10 +63,10 @@ fun GraphicsDriverHwuiCard(
         accentColor = cardAccent,
         modifier = modifier
     ) {
-        // 1. Updatable Game Driver
-        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        // ── 1. UPDATABLE GAME DRIVER ──
+        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
             Text("Driver Game Khusus", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-            Text("Aktifkan driver GPU terpisah untuk performa gaming yang lebih optimal", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Aktifkan driver GPU terpisah untuk performa gaming yang lebih optimal", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
@@ -90,10 +89,10 @@ fun GraphicsDriverHwuiCard(
             }
         }
 
-        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 8.dp))
 
-        // 2. UI Rendering Engine (HWUI) — 5-Engine Pipeline
-        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        // ── 2. UI RENDERING ENGINE (HWUI) — 5-ENGINE PIPELINE ──
+        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -114,7 +113,7 @@ fun GraphicsDriverHwuiCard(
                     )
                 }
             }
-            Text("Pilih backend pemrosesan grafis untuk antarmuka sistem", color = TextSecondary, fontSize = 10.5.sp, modifier = Modifier.padding(bottom = 6.dp))
+            Text("Pilih backend pemrosesan grafis untuk antarmuka sistem", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
 
             val backends = listOf(
                 Triple("auto", "Default", "Stabil"),
@@ -138,11 +137,11 @@ fun GraphicsDriverHwuiCard(
                         color = if (isSel) cardAccent.copy(alpha = 0.22f) else if (!isSupported) BgElevated.copy(alpha = 0.35f) else BgElevated,
                         border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass),
                         modifier = Modifier
-                            .defaultMinSize(minWidth = 100.dp, minHeight = 48.dp)
+                            .defaultMinSize(minWidth = 96.dp, minHeight = 46.dp)
                             .alpha(if (isSupported) 1f else 0.45f)
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
@@ -152,7 +151,7 @@ fun GraphicsDriverHwuiCard(
                                 fontSize = 11.sp,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
                             )
-                            Spacer(Modifier.height(3.dp))
+                            Spacer(Modifier.height(2.dp))
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = if (isSel) cardAccent.copy(alpha = 0.25f) else BgSurfaceLowest,
@@ -172,11 +171,11 @@ fun GraphicsDriverHwuiCard(
             }
         }
 
-        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 10.dp))
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 8.dp))
 
-        // 2b. Swapchain Buffer Mode (Double vs Triple Buffering)
+        // ── 3. SWAPCHAIN BUFFER MODE & VSYNC INTERVAL BYPASS ──
         if (onSetSwapchainBufferMode != null) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                 Text("Mode Antrean Frame Swapchain", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Text("Double (2 Buffers) untuk respon input kompetitif instan, Triple (3 Buffers) untuk kestabilan visual", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -198,15 +197,26 @@ fun GraphicsDriverHwuiCard(
             }
         }
 
-        // 3. Low-Latency SurfaceFlinger Latch
+        // VSync Swap Interval Bypass (Consolidated from SurfaceFlingerPhaseCard)
+        if (onSetVsyncSwapBypass != null && silicon != null) {
+            LynxSwitch(
+                label = "Bypass VSync Swap Interval",
+                subLabel = if (silicon.isVsyncSwapBypass) "Bypass (swapinterval=0): Respon input instan tanpa jeda VSync" else "Sync (swapinterval=1): Presentasi frame terikat VSync",
+                checked = silicon.isVsyncSwapBypass,
+                onCheckedChange = { onSetVsyncSwapBypass(it) }
+            )
+        }
+
+        // ── 4. SURFACEFLINGER LATENCY & EARLY PHASE OFFSET ──
+        // Latch Unsignaled
         LynxSwitch(
             label = "Respon Sentuhan Cepat (Latch Unsignaled)",
-            subLabel = "Memangkas jeda respon sentuhan hingga 1 frame untuk interaksi yang lebih instan",
+            subLabel = "Memangkas jeda respon sentuhan hingga 1 frame untuk interaksi langsung",
             checked = graphics.surfaceFlingerLatchUnsignaled,
             onCheckedChange = { onSetLatch(it) }
         )
 
-        // 3b. Bypass SurfaceFlinger Backpressure
+        // Bypass Backpressure
         LynxSwitch(
             label = "Bypass Antrean Frame Layar",
             subLabel = "Mengurangi antrean buffer tampilan untuk respon visual langsung",
@@ -214,15 +224,68 @@ fun GraphicsDriverHwuiCard(
             onCheckedChange = { onSetDisableBackpressure(it) }
         )
 
-        // 3c. Ultra-Low Touch Latency (VSync Early Offset)
-        LynxSwitch(
-            label = "Prioritas Sentuhan Instan (Early Phase)",
-            subLabel = "Memajukan sinyal pemrosesan frame sentuhan pada layar",
-            checked = graphics.isEarlyPhaseOffset,
-            onCheckedChange = { onSetEarlyPhase(it) }
-        )
+        // Early Phase Offset (Consolidated with Fine-Tune Dialog)
+        val phaseMs = ((silicon?.sfEarlyPhaseOffsetNs ?: 0L) / 1_000_000L).toInt()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(
+                    text = "Prioritas Sentuhan Instan (Early Phase)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = if (graphics.isEarlyPhaseOffset) "Render frame lebih awal sebelum VSync pulse (${if (phaseMs > 0) "${phaseMs}ms" else "Auto Offset"})" else "Sinyal pemrosesan frame sentuhan standar",
+                    fontSize = 10.sp,
+                    color = TextSecondary
+                )
+            }
 
-        // 4. Force 4x MSAA
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (graphics.isEarlyPhaseOffset && onSetPhaseOffset != null) {
+                    Surface(
+                        onClick = { showPhaseDialog = true },
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
+                            Text(
+                                text = if (phaseMs > 0) "${phaseMs}ms" else "0ms",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = cardAccent
+                            )
+                        }
+                    }
+                }
+
+                Switch(
+                    checked = graphics.isEarlyPhaseOffset,
+                    onCheckedChange = { onSetEarlyPhase(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        checkedTrackColor = cardAccent,
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgElevated
+                    )
+                )
+            }
+        }
+
+        // Force 4x MSAA
         LynxSwitch(
             label = "Penghalus Grafis 3D (4x MSAA)",
             subLabel = "Meningkatkan ketajaman tepi visual pada game 3D",
@@ -230,13 +293,29 @@ fun GraphicsDriverHwuiCard(
             onCheckedChange = { onSetMsaa(it) }
         )
 
-        // 5. Shader & Pipeline Cache Manager
-        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
+        // ── 5. MEMORY & SHADER PIPELINE DELEGATION ──
+        GraphicsMemoryPipelineSection(
+            graphics = graphics,
+            cardAccent = cardAccent,
+            onRefreshShaderCache = onRefreshShaderCache,
+            onSetOemShield = onSetOemShield,
+            onSetTextureCacheSize = onSetTextureCacheSize,
+            onSetShaderBlobCache = onSetShaderBlobCache,
+            onSetShaderCompilerThreads = onSetShaderCompilerThreads,
+            onSetAsyncShaderPipeline = onSetAsyncShaderPipeline,
+            onSetPureHwVsync = onSetPureHwVsync
+        )
+
+        // ── 6. DAMPAK & RISIKO PIPELINE ACCORDION ──
+        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
+        var showPipelineImpact by remember { mutableStateOf(false) }
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             color = BgElevated,
-            border = BorderStroke(1.dp, BorderGlass),
-            modifier = Modifier.fillMaxWidth()
+            border = BorderStroke(1.dp, if (showPipelineImpact) cardAccent.copy(alpha = 0.5f) else BorderGlass),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showPipelineImpact = !showPipelineImpact }
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Row(
@@ -246,421 +325,63 @@ fun GraphicsDriverHwuiCard(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = cardAccent.copy(alpha = 0.15f),
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = null,
-                                    tint = cardAccent,
-                                    modifier = Modifier.size(17.dp)
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                stringResource(R.string.shader_cache_title),
-                                color = TextPrimary,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            val cacheMb = graphics.shaderCacheSizeBytes / (1024f * 1024f)
-                            Text(
-                                text = if (graphics.shaderCacheSizeBytes > 0) {
-                                    pluralStringResource(
-                                        R.plurals.shader_cache_inventory,
-                                        graphics.shaderCacheCount,
-                                        cacheMb,
-                                        graphics.shaderCacheCount
-                                    )
-                                } else {
-                                    stringResource(R.string.shader_cache_not_detected)
-                                },
-                                color = TextSecondary,
-                                fontSize = 10.5.sp
-                            )
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = onRefreshShaderCache,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = cardAccent.copy(alpha = 0.22f),
-                            contentColor = cardAccent
-                        ),
-                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f)),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.weight(1.2f).defaultMinSize(minHeight = 48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
+                        Text("🛡️", fontSize = 13.sp)
                         Text(
-                            stringResource(R.string.shader_cache_refresh),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Dampak & Analisis Risiko Pipeline",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                     }
-                }
-
-                Text(
-                    text = stringResource(R.string.shader_cache_guidance),
-                    color = TextTertiary,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        }
-
-        // 6. OEM Throttler Shield
-        Spacer(Modifier.height(8.dp))
-        if (graphics.detectedOemThrottler.isNotBlank()) {
-            LynxSwitch(
-                label = "Perlindungan Throttling Vendor (${graphics.detectedOemThrottler})",
-                subLabel = "Cegah pembatasan frame rate otomatis dari vendor OEM saat bermain game",
-                checked = graphics.isOemThrottlerDisabled,
-                onCheckedChange = { onSetOemShield(it) }
-            )
-        } else {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = BgElevated,
-                border = BorderStroke(1.dp, BorderGlass),
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.Verified, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                    Text("Sistem Bersih: Tidak ada daemon pembatas performa vendor aktif", color = TextSecondary, fontSize = 11.sp)
-                }
-            }
-        }
-
-        // 7. Universal HWUI Compositor & Memory Pipeline
-        if (onSetTextureCacheSize != null || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null || onSetShaderCompilerThreads != null) {
-            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = androidx.compose.ui.Modifier
-                            .size(width = 3.dp, height = 12.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(cardAccent)
-                    )
                     Text(
-                        text = "MEMORI & PIPELINE RENDER",
-                        color = TextSecondary,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = AccentGreen.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        "Universal Android",
-                        color = AccentGreen,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            // HWUI Texture Cache Size Selector
-            if (onSetTextureCacheSize != null) {
-                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-                    Text(
-                        "Alokasi Memori Cache Tekstur",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Ukuran memori grafis untuk kelancaran scrolling aplikasi. Efektif setelah membuka ulang aplikasi.",
-                        color = TextSecondary,
+                        text = if (showPipelineImpact) "Tutup ▲" else "Lihat Detail ▼",
                         fontSize = 10.5.sp,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        fontWeight = FontWeight.SemiBold,
+                        color = cardAccent
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        graphics.textureCacheOptions.forEach { (mb, label) ->
-                            val isSelected = graphics.textureCacheMb == mb
-                            Surface(
-                                onClick = { onSetTextureCacheSize(mb) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        "${mb}MB",
-                                        color = if (isSelected) cardAccent else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        label.substringAfter("(").removeSuffix(")"),
-                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
+                }
 
-                        val isPresetTexture = graphics.textureCacheOptions.any { it.first == graphics.textureCacheMb }
-                        val isCustomTexture = !isPresetTexture && graphics.textureCacheMb > 0
-                        Surface(
-                            onClick = { showCustomTextureDialog = true },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isCustomTexture) cardAccent.copy(alpha = 0.25f) else BgElevated,
-                            border = BorderStroke(1.2.dp, if (isCustomTexture) cardAccent else BorderGlass),
-                            modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    if (isCustomTexture) "${graphics.textureCacheMb}MB" else "✎ Kustom",
-                                    color = if (isCustomTexture) cardAccent else TextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isCustomTexture) FontWeight.Bold else FontWeight.Medium
-                                )
-                                Text(
-                                    if (isCustomTexture) "Kustom" else "Bebas",
-                                    color = if (isCustomTexture) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                    fontSize = 8.5.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            }
-                        }
+                if (showPipelineImpact) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(BgSurfaceLowest, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("VSync Swap Interval Bypass (swapinterval=0)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("• Respon: Input instan dan zero frame latency saat gaming.", fontSize = 10.sp, color = AccentGreen)
+                        Text("• Safeguard: Lynx Dynamic Safeguard otomatis menetralkannya saat aplikasi media (video/streaming) aktif untuk mencegah playback error.", fontSize = 10.sp, color = AccentOrange)
+                        Spacer(Modifier.height(2.dp))
+                        Text("Early Phase Offset", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("• Respon: Memajukan sinyal sentuh SurfaceFlinger sebelum VSync.", fontSize = 10.sp, color = AccentGreen)
+                        Text("• Catatan: Nilai 3-7ms ideal untuk touch-first gaming tanpa resiko frame-skip.", fontSize = 10.sp, color = TextSecondary)
                     }
                 }
-            }
-
-            // Disk Shader Blob Cache Size Selector
-            if (onSetShaderBlobCache != null) {
-                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-                    Text(
-                        "Kapasitas Disk Shader Blob Cache",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Menyimpan kompilasi shader grafis di disk untuk mencegah freeze/stutter pada game open-world.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        graphics.shaderBlobCacheOptions.forEach { (mb, label) ->
-                            val isSelected = graphics.shaderBlobCacheMb == mb
-                            Surface(
-                                onClick = { onSetShaderBlobCache(mb) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        "${mb}MB",
-                                        color = if (isSelected) cardAccent else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        label.substringAfter("(").removeSuffix(")"),
-                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-
-                        val isPresetBlob = graphics.shaderBlobCacheOptions.any { it.first == graphics.shaderBlobCacheMb }
-                        val isCustomBlob = !isPresetBlob && graphics.shaderBlobCacheMb > 0
-                        Surface(
-                            onClick = { showCustomShaderBlobDialog = true },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isCustomBlob) cardAccent.copy(alpha = 0.25f) else BgElevated,
-                            border = BorderStroke(1.2.dp, if (isCustomBlob) cardAccent else BorderGlass),
-                            modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 52.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    if (isCustomBlob) "${graphics.shaderBlobCacheMb}MB" else "✎ Kustom",
-                                    color = if (isCustomBlob) cardAccent else TextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isCustomBlob) FontWeight.Bold else FontWeight.Medium
-                                )
-                                Text(
-                                    if (isCustomBlob) "Kustom" else "Bebas",
-                                    color = if (isCustomBlob) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                    fontSize = 8.5.sp,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Skia HWUI Compiler Threads Selector
-            if (onSetShaderCompilerThreads != null) {
-                Column(Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
-                    Text(
-                        "Kompilasi Grafis Multi-Core",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Gunakan inti CPU paralel untuk menyiapkan efek visual di latar belakang tanpa mengganggu jalannya game.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        graphics.shaderCompilerThreadOptions.forEach { (threads, label) ->
-                            val isSelected = graphics.shaderCompilerThreads == threads
-                            Surface(
-                                onClick = { onSetShaderCompilerThreads(threads) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 50.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        if (threads == 0) "Auto" else "${threads} Inti",
-                                        color = if (isSelected) cardAccent else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        label.substringAfter("(").removeSuffix(")"),
-                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Async Shader & GPU Pixel Buffers
-            if (onSetAsyncShaderPipeline != null) {
-                LynxSwitch(
-                    label = "Pra-Pemuatan Efek Visual (Async Shader)",
-                    subLabel = "Siapkan efek grafik baru di latar belakang agar rendering game tetap lancar",
-                    checked = graphics.asyncShaderPipelineEnabled,
-                    onCheckedChange = { onSetAsyncShaderPipeline(it) }
-                )
-            }
-
-            // Pure Hardware VSync
-            if (onSetPureHwVsync != null) {
-                LynxSwitch(
-                    label = "Akselerasi VSync Hardware Layar",
-                    subLabel = "Sinkronisasi animasi langsung ke panel fisik layar untuk mencegah tampilan patah (tearing)",
-                    checked = graphics.pureHwVsyncEnabled,
-                    onCheckedChange = { onSetPureHwVsync(it) }
-                )
             }
         }
     }
 
-    if (showCustomTextureDialog && onSetTextureCacheSize != null) {
+    if (showPhaseDialog && onSetPhaseOffset != null && silicon != null) {
+        val currentMs = ((silicon.sfEarlyPhaseOffsetNs) / 1_000_000L).toInt().coerceIn(0, 15)
         GpuCustomNumberDialog(
-            title = "Alokasi Cache Tekstur",
-            description = "Atur ukuran memori cache grafis untuk rendering antarmuka dan kelancaran scrolling aplikasi.",
-            currentValue = graphics.textureCacheMb.coerceIn(16, 512),
-            unit = "MB",
-            minVal = 16,
-            maxVal = 512,
-            step = 8,
+            title = "SurfaceFlinger Early Phase Offset",
+            description = "Offset waktu awal render SurfaceFlinger sebelum pulsa VSync (0 - 15ms).",
+            currentValue = currentMs,
+            unit = "ms",
+            minVal = 0,
+            maxVal = 15,
+            step = 1,
             accentColor = cardAccent,
-            onConfirm = { newVal -> onSetTextureCacheSize(newVal) },
-            onDismiss = { showCustomTextureDialog = false }
-        )
-    }
-
-    if (showCustomShaderBlobDialog && onSetShaderBlobCache != null) {
-        GpuCustomNumberDialog(
-            title = "Kapasitas Disk Shader Blob Cache",
-            description = "Menyimpan kompilasi shader grafis di penyimpanan flash disk untuk mencegah freeze/stutter saat game open-world.",
-            currentValue = graphics.shaderBlobCacheMb.coerceIn(32, 2048),
-            unit = "MB",
-            minVal = 32,
-            maxVal = 2048,
-            step = 32,
-            accentColor = cardAccent,
-            onConfirm = { newVal -> onSetShaderBlobCache(newVal) },
-            onDismiss = { showCustomShaderBlobDialog = false }
+            onConfirm = { newVal ->
+                val ns = newVal.toLong() * 1_000_000L
+                onSetPhaseOffset(ns, ns)
+                showPhaseDialog = false
+            },
+            onDismiss = { showPhaseDialog = false }
         )
     }
 }
