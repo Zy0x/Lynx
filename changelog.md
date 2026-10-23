@@ -1,3 +1,36 @@
+# Lynx Universal [Collapsible Accordion Bento Sections, HUD Redundancy Cleanup & Clock Inhibitor Clarification] 7.0.0-RC178
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC178** (Lynx Kernel Manager v3.2.24): **Penyempurnaan Arsitektur Tab GPU & Display Berbasis Accordion Bento Dinamis Sesuai Rekomendasi UX Anti-Fatigue & Eliminasi Redundansi: Mengubah 3 Section Kompleks pada Tab GPU (Driver Hardware Kernel HAL, Compositor & Pipeline HWUI, Pengaturan Per-Aplikasi) Menjadi Kartu Accordion Collapsible (`GpuCollapsibleSection`) Beranimasi Halus dan Berumpan Balik Taktil yang Mewujudkan Pengalaman *Zero-Scroll Dashboard* Saat Pertama Kali Dibuka; Mengeliminasi Duplikasi Pemilih Gaya OSD pada Tab Lab Menjadi Kartu Integrasi Ringkas (`FloatingGameHudCard`) dengan Switch Cepat Tanpa Menimbun Ruang Layar; Menggantikan Metrik Redundan Layar pada `GpuHeroCard` Menjadi Telemetri Internal GPU Murni (Governor Dinamis & Lencana Clock Silikon); Serta Memperjelas Nomenklatur Switch `adreno_force_clk` Menjadi *Inhibitor Sleep Clock Osilator* Demi Menghilangkan Ambiguitas Terhadap Pengunci Frekuensi OPP, dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC178)
+
+### 1. 🎛️ Collapsible Accordion Bento Sections pada Tab GPU (`GpuSubscreen.kt`)
+- **Struktur Halaman Zero-Scroll Tanpa Kelelahan Navigasi**:
+  - Mengintegrasikan komponen baru `GpuCollapsibleSection` dengan indikator panah berputar dinamis (`chevronRotation`), umpan balik sentuh (*haptic feedback*), dan transisi vertikal mulus (`expandVertically + fadeIn`).
+  - Section 1 (*Profil & Clock OPP*) tetap terbuka penuh sebagai pusat kendali frekuensi harian.
+  - Section 2 (*Driver Hardware Kernel*), Section 3 (*Compositor & Pipeline HWUI*), dan Section 4 (*Pengaturan Per-Aplikasi*) kini tersaji dalam bentuk accordion bento yang rapi:
+    - Saat tertutup, hanya memakan ruang ~50dp per bagian dengan micro-badge informatif (`KERNEL HAL`, `RENDER ENGINE`, `GAME & EMULATOR HUB`).
+    - Satu ketukan pengguna akan memekarkan (*expand*) seluruh kontrol parameter tingkat lanjut secara instan tanpa perlu berpindah layar (*no navigation depth / no back button fatigue*).
+
+### 2. 🧹 Eliminasi Duplikasi Kontrol OSD Game HUD pada Tab Lab (`GpuSessionCards.kt`)
+- **Pembersihan Kartu Berat yang Redundan**:
+  - Menghapus deretan tombol pemilih gaya OSD (RTSS Pillar, Nano-Ribbon, Dual Esport, Quad Tiles, Steam Deck) yang sebelumnya menduplikasi fungsionalitas subscreen utama `Floating Game HUD` (`GameHudSubscreen.kt`).
+  - Mentransformasi `FloatingGameHudCard` di Tab Lab menjadi kartu integrasi performa ringkas setinggi ~60dp dengan switch aktivasi instan dan lencana gaya OSD aktif, membebaskan lebih dari 150dp ruang vertikal untuk fokus utama pengujian benchmark dan perekam frame BLAST.
+
+### 3. 🎯 Telemetri GPU Murni pada GpuHeroCard (`GpuHeroCard.kt`)
+- **Pembersihan Metrik Layar yang Tumpang Tindih**:
+  - Menggantikan tile `Layar: 60Hz` pada kotak micro-bento Row 1 menjadi pemantau **Governor Silikon Aktif** (`Adreno-TZ`, `Performance`, `Schedutil`, `Dynamic`) yang 100% relevan dengan domain GPU.
+  - Memperbarui lencana pojok kanan atas dari indikator Hz menjadi pembacaan frekuensi aktif real-time silikon GPU (`${gpu.curFreqMhz} MHz` / `${gpu.maxFreqMhz} MHz`).
+
+### 4. ⚡ Klarifikasi Nomenklatur Bus Clock Sleep Inhibitor (`QualcommAdrenoAdapter.kt`)
+- **Pemisahan Tegas Konsep Clock Oscillator vs Clock Frequency**:
+  - Mengubah penamaan sysfs `force_clk_on` dari *"Paksa Clock GPU Tetap Aktif"* menjadi *"Inhibitor Sleep Clock Osilator (Anti-Zero Drop)"* dengan deskripsi teknis eksplisit untuk mencegah kerancuan pengguna terhadap pengunci frekuensi OPP (*GPU Clock Lock*) di Tuner Card.
+
+### 5. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
+- Seluruh berkas Kotlin yang diperbarui (`GpuSubscreen.kt`: 684 baris, `GpuHeroCard.kt`: 371 baris, `GpuSessionCards.kt`: 311 baris, `QualcommAdrenoAdapter.kt`: 637 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+
+---
+
 # Lynx Universal [4-Tab GPU & Display Architecture, DisplayHeroCard & Ergonomic Subscreens] 7.0.0-RC177
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC177** (Lynx Kernel Manager v3.2.23): **Pemisahan Arsitektural Subscreen GPU & Display Menjadi 4 Tab Mandiri Sesuai Konsensus /grill-me & Pedoman AGENTS.md Bagian 7.4: Memecah Tab Monolitik Menjadi 4 Domain Terfokus (Tab 0: GPU, Tab 1: Layar, Tab 2: Lab, Tab 3: Info) dengan Indikator Segmented Pill 4-Way Ergonomis; Menghadirkan `DisplayHeroCard` Mandiri pada Tab Layar Berisi Status Zen Pulse & Micro-Bento Grid 4x2 Responsif (Refresh, Mode, Resolusi, Warna, DC Dimming, TouchBoost, HBM, KCAL); Memisahkan Kartu Per-App Graphics Hub ke Dalam Section Header Mandiri pada Tab GPU; Menambahkan Section Header Tipografis Berpilar pada Tab Lab (Benchmark & Overlay, Analisis Frame SurfaceFlinger); Serta Menghubungkan Dialog GPU Stability Stress Test pada Tab Pager dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.

@@ -37,7 +37,6 @@ fun GpuHeroCard(
     modifier: Modifier = Modifier
 ) {
     val activeProfile = gpu.activeProfile.lowercase()
-    val curHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60
 
     val heroAccent = when (activeProfile) {
         "battery" -> AccentGreen
@@ -183,18 +182,19 @@ fun GpuHeroCard(
 
                 Spacer(Modifier.width(8.dp))
 
-                // Refresh Rate Pill
+                // Dynamic Frequency / Profile Pill
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = animatedAccent.copy(alpha = 0.12f),
                     border = BorderStroke(0.6.dp, animatedAccent.copy(alpha = 0.35f))
                 ) {
+                    val topFreqBadge = if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else if (gpu.maxFreqMhz > 0) "${gpu.maxFreqMhz} MHz" else activeProfile.uppercase()
                     Text(
-                        text = "${curHz}Hz",
+                        text = topFreqBadge,
                         color = animatedAccent,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
                     )
                 }
             }
@@ -220,8 +220,16 @@ fun GpuHeroCard(
                     val wattText = String.format(java.util.Locale.US, "%.2f W", wattage)
                     val bottleneck = gpu.dynamicBottleneck
                     val vramMb = if (gpu.vramUsageMb > 0) "${gpu.vramUsageMb} MB" else "Dinamis"
+                    val govShort = when {
+                        gpu.currentGovernor.contains("adreno-tz", ignoreCase = true) -> "Adreno-TZ"
+                        gpu.currentGovernor.contains("performance", ignoreCase = true) -> "Performance"
+                        gpu.currentGovernor.contains("powersave", ignoreCase = true) -> "Powersave"
+                        gpu.currentGovernor.contains("schedutil", ignoreCase = true) -> "Schedutil"
+                        gpu.currentGovernor.isNotBlank() -> gpu.currentGovernor.take(9)
+                        else -> "Dynamic"
+                    }
 
-                    // Row 1: Clock, Engine, Layar, Suhu
+                    // Row 1: Clock, Engine, Governor, Suhu
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -240,8 +248,8 @@ fun GpuHeroCard(
                             modifier = Modifier.weight(1f)
                         )
                         GpuMetricTile(
-                            label = "Layar",
-                            value = "${curHz}Hz",
+                            label = "Governor",
+                            value = govShort,
                             valueColor = AccentCyan.copy(alpha = 0.95f),
                             modifier = Modifier.weight(1f)
                         )

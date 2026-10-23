@@ -462,8 +462,8 @@ class QualcommAdrenoAdapter : GpuBackendAdapter {
                 features.add(
                     GpuHardwareFeature(
                         id = "adreno_force_clk",
-                        name = "Paksa Clock GPU Tetap Aktif",
-                        description = "Memaksa osilator clock GPU terus aktif berdenyut mencegah clock drop ke 0 MHz di sela pergantian frame",
+                        name = "Inhibitor Sleep Clock Osilator (Anti-Zero Drop)",
+                        description = "Memaksa osilator gerbang clock GPU tetap aktif (force_clk_on) mencegah clock drop ke 0 MHz di sela pergantian frame (bukan pengunci MHz frekuensi)",
                         nodePath = "$kgslDir/force_clk_on",
                         currentValue = NodeWriter.extractActiveValue(rawVal),
                         accessState = if (access.writable) FeatureAccessState.VERIFIED_WORKING else FeatureAccessState.READ_ONLY_LOCKED,

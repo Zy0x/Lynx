@@ -1,22 +1,31 @@
 package com.noir.lynx.feature.gpu.ui
 
 import android.content.Context
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import com.noir.lynx.R
 import androidx.compose.ui.unit.dp
@@ -112,102 +121,92 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
-            // ── SECTION 2: DRIVER HARDWARE KERNEL ──
-            item(key = "section_header_kernel_hardware") {
-                GpuSectionHeader(
+            // ── SECTION 2: DRIVER HARDWARE KERNEL (COLLAPSIBLE ACCORDION) ──
+            item(key = "gpu_accordion_kernel_hardware") {
+                GpuCollapsibleSection(
                     title = "Driver Hardware Kernel",
                     subtitle = "Akselerasi silikon SoC, preemption, power collapse & scheduling",
                     accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
-                    badge = "KERNEL HAL"
-                )
+                    badge = "KERNEL HAL",
+                    defaultExpanded = false
+                ) {
+                    AdaptiveGpuHardwareCard(
+                        gpu = gpu,
+                        silicon = uiState.gpuSilicon,
+                        onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
+                        onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
+                        onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
+                        onSetThermalBypass = { viewModel.setGpuThermalBypass(it) },
+                        onSetAdrenoPwrLevel = { viewModel.setAdrenoPwrLevel(it) },
+                        onSetAdrenoTzTargetLoad = { viewModel.setAdrenoTzTargetLoad(it) },
+                        onSetAdrenoForceRail = { viewModel.setAdrenoForceRail(it) },
+                        onSetFramePacing = { viewModel.setGpuFramePacing(it) },
+                        onSetFpsgoUltraRescue = { viewModel.setFpsgoUltraRescue(it) },
+                        onSetMaliDvfsMargin = { viewModel.setMaliDvfsMargin(it) },
+                        onSetMaliCoreMask = { viewModel.setMaliCoreMask(it) },
+                        onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
+                        onSetGovernor = { viewModel.setGpuGovernor(it) },
+                        onSetSptpPc = { viewModel.setGpuSptpPc(it) },
+                        onSetSkipSaveRestore = { viewModel.setGpuSkipSaveRestore(it) },
+                        onSetPreemptLevel = { viewModel.setGpuPreemptLevel(it) },
+                        onSetWakeNice = { viewModel.setGpuWakeNice(it) },
+                        onSetMinPwrLevel = { viewModel.setGpuMinPwrLevel(it) },
+                        onSetGpuLlcSlice = { viewModel.setGpuLlcSlice(it) }
+                    )
+                }
             }
 
-            // Unified Adaptive Hardware Acceleration Card (SoC-Specific Engine + Deep Silicon)
-            item(key = "gpu_adaptive_hw") {
-                AdaptiveGpuHardwareCard(
-                    gpu = gpu,
-                    silicon = uiState.gpuSilicon,
-                    onSetFeature = { feature, targetVal -> viewModel.setGpuFeature(feature, targetVal) },
-                    onSetBusAlwaysOn = { viewModel.setGpuBusAlwaysOn(it) },
-                    onSetIdleTimer = { viewModel.setGpuIdleTimer(it) },
-                    onSetThermalBypass = { viewModel.setGpuThermalBypass(it) },
-                    onSetAdrenoPwrLevel = { viewModel.setAdrenoPwrLevel(it) },
-                    onSetAdrenoTzTargetLoad = { viewModel.setAdrenoTzTargetLoad(it) },
-                    onSetAdrenoForceRail = { viewModel.setAdrenoForceRail(it) },
-                    onSetFramePacing = { viewModel.setGpuFramePacing(it) },
-                    onSetFpsgoUltraRescue = { viewModel.setFpsgoUltraRescue(it) },
-                    onSetMaliDvfsMargin = { viewModel.setMaliDvfsMargin(it) },
-                    onSetMaliCoreMask = { viewModel.setMaliCoreMask(it) },
-                    onSetMaliPowerPolicy = { viewModel.setMaliPowerPolicy(it) },
-                    onSetGovernor = { viewModel.setGpuGovernor(it) },
-                    onSetSptpPc = { viewModel.setGpuSptpPc(it) },
-                    onSetSkipSaveRestore = { viewModel.setGpuSkipSaveRestore(it) },
-                    onSetPreemptLevel = { viewModel.setGpuPreemptLevel(it) },
-                    onSetWakeNice = { viewModel.setGpuWakeNice(it) },
-                    onSetMinPwrLevel = { viewModel.setGpuMinPwrLevel(it) },
-                    onSetGpuLlcSlice = { viewModel.setGpuLlcSlice(it) }
-                )
-            }
-
-            // ── SECTION 3: COMPOSITOR & PIPELINE HWUI ──
-            item(key = "section_header_compositor_pipeline") {
-                GpuSectionHeader(
+            // ── SECTION 3: COMPOSITOR & PIPELINE HWUI (COLLAPSIBLE ACCORDION) ──
+            item(key = "gpu_accordion_compositor_pipeline") {
+                GpuCollapsibleSection(
                     title = "Compositor & Pipeline HWUI",
                     subtitle = "Backend render Vulkan, buffer swapchain, offset fase & shader cache",
                     accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
-                    badge = "RENDER ENGINE"
-                )
+                    badge = "RENDER ENGINE",
+                    defaultExpanded = false
+                ) {
+                    GraphicsDriverHwuiCard(
+                        graphics = graphics,
+                        silicon = uiState.gpuSilicon,
+                        onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
+                        onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
+                        onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
+                        onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
+                        onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
+                        onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
+                        onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) },
+                        onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
+                        onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
+                        onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
+                        onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
+                        onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
+                        onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
+                        onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) },
+                        onSetShaderBlobCache = { mb -> viewModel.setShaderBlobCacheSize(mb) },
+                        onSetSwapchainBufferMode = { mode -> viewModel.setSwapchainBufferMode(mode) }
+                    )
+                    GpuShaderRebuilderCard()
+                }
             }
 
-            // Unified Graphics Driver & HWUI Engine Card
-            item(key = "gpu_graphics_hwui") {
-                GraphicsDriverHwuiCard(
-                    graphics = graphics,
-                    silicon = uiState.gpuSilicon,
-                    onSetGameDriver = { mode -> viewModel.setUpdatableGameDriver(mode) },
-                    onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
-                    onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
-                    onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
-                    onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
-                    onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
-                    onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) },
-                    onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
-                    onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
-                    onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
-                    onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
-                    onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
-                    onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
-                    onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) },
-                    onSetShaderBlobCache = { mb -> viewModel.setShaderBlobCacheSize(mb) },
-                    onSetSwapchainBufferMode = { mode -> viewModel.setSwapchainBufferMode(mode) }
-                )
-            }
-
-            // GPU Shader Cache & Integrity Rebuilder
-            item(key = "gpu_shader_rebuilder") {
-                GpuShaderRebuilderCard()
-            }
-
-            // ── SECTION 4: PENGATURAN PER-APLIKASI ──
-            item(key = "section_header_per_app_hub") {
-                GpuSectionHeader(
+            // ── SECTION 4: PENGATURAN PER-APLIKASI (COLLAPSIBLE ACCORDION) ──
+            item(key = "gpu_accordion_per_app_hub") {
+                GpuCollapsibleSection(
                     title = "Pengaturan Per-Aplikasi",
                     subtitle = "Konfigurasi driver grafis & refresh rate spesifik per-paket",
                     accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
-                    badge = "GAME & EMULATOR HUB"
-                )
-            }
-
-            // Per-App Rendering Management (Game Driver Hub)
-            item(key = "gpu_per_app_hub") {
-                PerAppGraphicsHubCard(
-                    rules = uiState.perAppGraphicsRules,
-                    installedApps = uiState.installedAppList,
-                    supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
-                    isAngleSupported = graphics.isAngleSupported,
-                    onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
-                    onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
-                )
+                    badge = "GAME & EMULATOR HUB",
+                    defaultExpanded = false
+                ) {
+                    PerAppGraphicsHubCard(
+                        rules = uiState.perAppGraphicsRules,
+                        installedApps = uiState.installedAppList,
+                        supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
+                        isAngleSupported = graphics.isAngleSupported,
+                        onSaveRule = { rule -> viewModel.savePerAppGraphicsRule(rule, context) },
+                        onDeleteRule = { pkg -> viewModel.deletePerAppGraphicsRule(pkg, context) }
+                    )
+                }
             }
         }
         1 -> {
@@ -482,12 +481,8 @@ fun GpuSubscreen(
     if (showStressDialog) {
         GpuStabilityStressDialog(
             silicon = uiState.gpuSilicon,
-            onStartStressTest = { dur, onComplete ->
-                viewModel.startGpuStabilityBenchmark(dur, onComplete)
-            },
-            onStopStressTest = {
-                viewModel.stopGpuStabilityBenchmark()
-            },
+            onStartStressTest = { dur, onComplete -> viewModel.startGpuStabilityBenchmark(dur, onComplete) },
+            onStopStressTest = { viewModel.stopGpuStabilityBenchmark() },
             onDismiss = { showStressDialog = false }
         )
     }
@@ -497,13 +492,8 @@ fun GpuSubscreen(
  * Backward compatibility alias for legacy call sites.
  */
 @Composable
-fun TuningGpuCategory(
-    uiState: LynxUiState,
-    viewModel: LynxViewModel,
-    modifier: Modifier = Modifier
-) {
+fun TuningGpuCategory(uiState: LynxUiState, viewModel: LynxViewModel, modifier: Modifier = Modifier) =
     GpuSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
-}
 
 /**
  * Clean Cyberpunk section header for GPU & Display architecture domains.
@@ -563,6 +553,131 @@ fun GpuSectionHeader(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Interactive Collapsible Accordion Section Card for GPU Architecture Domains.
+ * Minimizes visual clutter & scroll fatigue with smooth vertical expand/collapse.
+ */
+@Composable
+fun GpuCollapsibleSection(
+    title: String,
+    subtitle: String,
+    accentColor: Color,
+    badge: String? = null,
+    defaultExpanded: Boolean = false,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(defaultExpanded) }
+    val haptic = LocalHapticFeedback.current
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (isExpanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 220),
+        label = "accordion_chevron"
+    )
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                isExpanded = !isExpanded
+            },
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF10141E),
+            border = BorderStroke(0.7.dp, if (isExpanded) accentColor.copy(alpha = 0.35f) else Color(0x18FFFFFF)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 3.dp, height = 20.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(accentColor)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title.uppercase(),
+                            color = com.noir.lynx.designsystem.theme.TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp
+                        )
+                        Text(
+                            text = if (isExpanded) subtitle else "Ketuk untuk membuka panel pengaturan",
+                            color = com.noir.lynx.designsystem.theme.TextSecondary.copy(alpha = 0.75f),
+                            fontSize = 9.5.sp,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (badge != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = accentColor.copy(alpha = 0.12f),
+                            border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = badge,
+                                color = accentColor,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0x15FFFFFF),
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) "Tutup" else "Buka",
+                                tint = if (isExpanded) accentColor else com.noir.lynx.designsystem.theme.TextSecondary,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .rotate(chevronRotation)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(180)),
+            exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Spacer(Modifier.height(2.dp))
+                content()
             }
         }
     }
