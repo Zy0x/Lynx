@@ -197,85 +197,90 @@ fun GpuHeroCard(
                 }
             }
 
-            // ── 3. Calm Unified Telemetry Ribbon ─────────────────
+            // ── 3. Calm Unified Micro-Bento Telemetry Grid ─────────────
             Spacer(Modifier.height(13.dp))
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = Color(0xFF0C0F17),
-                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
+                border = BorderStroke(0.6.dp, Color(0x18FFFFFF)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val freqText = if (gpu.curFreqMhz > 0) "${gpu.curFreqMhz} MHz" else "Otomatis"
                     val renderer = uiState.graphicsHwui.hwuiRenderer.replace("skia", "").uppercase()
-                    val tempText = if (gpu.gpuTempC > 0f) String.format("%.0f°C", gpu.gpuTempC) else "Aman"
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Clock", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(freqText, color = animatedAccent.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Engine", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(if (renderer.isNotBlank()) renderer else "DEFAULT", color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Layar", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text("${curHz}Hz", color = AccentCyan.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Suhu", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(tempText, color = if (gpu.gpuTempC >= 60f) AccentOrange else AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            // ── 3b. Advanced Efficiency & Pipeline Analytics Ribbon ──────
-            Spacer(Modifier.height(6.dp))
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF0A0D14),
-                border = BorderStroke(0.5.dp, Color(0x12FFFFFF)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    val tempText = if (gpu.gpuTempC > 0f) String.format(java.util.Locale.US, "%.0f°C", gpu.gpuTempC) else "Aman"
                     val wattage = gpu.dynamicWattage
                     val wattText = String.format(java.util.Locale.US, "%.2f W", wattage)
                     val bottleneck = gpu.dynamicBottleneck
                     val vramMb = if (gpu.vramUsageMb > 0) "${gpu.vramUsageMb} MB" else "Dinamis"
 
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Daya GPU", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(wattText, color = if (wattage > 2.0f) AccentOrange else AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    // Row 1: Clock, Engine, Layar, Suhu
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GpuMetricTile(
+                            label = "Clock",
+                            value = freqText,
+                            valueColor = animatedAccent.copy(alpha = 0.95f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "Engine",
+                            value = if (renderer.isNotBlank()) renderer else "DEFAULT",
+                            valueColor = TextPrimary.copy(alpha = 0.9f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "Layar",
+                            value = "${curHz}Hz",
+                            valueColor = AccentCyan.copy(alpha = 0.95f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "Suhu",
+                            value = tempText,
+                            valueColor = if (gpu.gpuTempC >= 60f) AccentOrange else AccentGreen,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Pipeline", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(bottleneck, color = if (bottleneck == "GPU-Bound") AccentOrange else AccentGreen, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("VRAM", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(vramMb, color = TextPrimary.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Beban", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text("${gpu.gpuLoadPercent}%", color = if (gpu.gpuLoadPercent >= 80) AccentOrange else AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+
+                    // Row 2: Daya GPU, Pipeline, VRAM, Beban
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GpuMetricTile(
+                            label = "Daya",
+                            value = wattText,
+                            valueColor = if (wattage > 2.0f) AccentOrange else AccentCyan,
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "Pipeline",
+                            value = bottleneck,
+                            valueColor = if (bottleneck == "GPU-Bound") AccentOrange else AccentGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "VRAM",
+                            value = vramMb,
+                            valueColor = TextPrimary.copy(alpha = 0.9f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        GpuMetricTile(
+                            label = "Beban",
+                            value = "${gpu.gpuLoadPercent}%",
+                            valueColor = if (gpu.gpuLoadPercent >= 80) AccentOrange else AccentCyan,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -304,6 +309,52 @@ fun GpuHeroCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+/**
+ * Micro-bento metric pill with high-contrast typography and anti-wrap bounds.
+ */
+@Composable
+private fun GpuMetricTile(
+    label: String,
+    value: String,
+    valueColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF121622),
+        border = BorderStroke(0.5.dp, Color(0x12FFFFFF)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 5.5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = label.uppercase(),
+                color = TextSecondary.copy(alpha = 0.6f),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.3.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(1.5.dp))
+            Text(
+                text = value,
+                color = valueColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.1).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

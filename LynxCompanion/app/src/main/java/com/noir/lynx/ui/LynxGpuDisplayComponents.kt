@@ -35,10 +35,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -70,71 +73,7 @@ fun GpuDisplayTabRow(
     selectedTab: Int,
     onSelectTab: (Int) -> Unit,
     modifier: Modifier = Modifier
-) {
-    val tabs = listOf(
-        Triple(0, "Tuning", Icons.Default.Tune),
-        Triple(1, "Lab", Icons.Default.Analytics),
-        Triple(2, "Info", Icons.Default.Memory)
-    )
-
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            tabs.forEach { (index, title, icon) ->
-                val isSelected = selectedTab == index
-                val tabAccent = when (index) {
-                    0 -> AccentOrange
-                    1 -> AccentCyan
-                    else -> AccentBlue
-                }
-
-                Surface(
-                    onClick = { onSelectTab(index) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) tabAccent.copy(alpha = 0.15f) else Color.Transparent,
-                    border = if (isSelected) BorderStroke(1.dp, tabAccent.copy(alpha = 0.5f)) else null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 6.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = localizedUiText(title),
-                            tint = if (isSelected) tabAccent else TextSecondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = title,
-                            color = if (isSelected) TextPrimary else TextSecondary,
-                            fontSize = 12.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+) = com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow(selectedTab, onSelectTab, modifier)
 
 // ============================================================
 //  2. COLOR MANAGEMENT CARD (SURFACEFLINGER MATRIX + KCAL)

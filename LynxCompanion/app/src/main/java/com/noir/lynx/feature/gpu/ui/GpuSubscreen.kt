@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
@@ -72,20 +74,26 @@ fun LazyListScope.tuningGpuCategoryItems(
 
             gpuOverride?.let { overrideProfile ->
                 item(key = "gpu_profile_override_status") {
-                    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), color = com.noir.lynx.designsystem.theme.BgSurfaceLowest) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF10141E),
+                        border = BorderStroke(0.6.dp, Color(0x18FFFFFF))
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = stringResource(R.string.profile_override_status, "GPU", overrideProfile.uppercase(), state.activeProfile.uppercase()),
-                                color = com.noir.lynx.designsystem.theme.TextSecondary,
-                                fontSize = 10.sp,
+                                color = com.noir.lynx.designsystem.theme.TextSecondary.copy(alpha = 0.85f),
+                                fontSize = 10.5.sp,
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = { viewModel.resetGpuProfileToMaster(context) }) {
-                                Text("Ikuti Global", fontSize = 10.sp)
+                                Text("Ikuti Global", fontSize = 10.5.sp, color = com.noir.lynx.designsystem.theme.AccentCyan)
                             }
                         }
                     }
@@ -253,38 +261,64 @@ fun LazyListScope.tuningGpuCategoryItems(
             // ── TAB 1: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
             item(key = "gpu_stress_test_trigger") {
                 Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    color = com.noir.lynx.designsystem.theme.BgSurfaceLowest,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, com.noir.lynx.designsystem.theme.BorderGlass),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF10141E),
+                    border = BorderStroke(0.6.dp, Color(0x1AFFFFFF)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(
-                                text = "GPU Stability Stress Test",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = com.noir.lynx.designsystem.theme.TextPrimary
-                            )
-                            Text(
-                                text = "Uji siklus beban GPU 30s/60s untuk mengukur thermal throttling & stabilitas clock",
-                                fontSize = 11.sp,
-                                color = com.noir.lynx.designsystem.theme.TextSecondary
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = com.noir.lynx.designsystem.theme.AccentOrange.copy(alpha = 0.12f),
+                                border = BorderStroke(0.6.dp, com.noir.lynx.designsystem.theme.AccentOrange.copy(alpha = 0.3f)),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Speed,
+                                        contentDescription = null,
+                                        tint = com.noir.lynx.designsystem.theme.AccentOrange,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "GPU Stability Stress Test",
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = com.noir.lynx.designsystem.theme.TextPrimary
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Uji siklus beban GPU 30s/60s untuk mengukur thermal throttling & stabilitas clock",
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 14.sp,
+                                    color = com.noir.lynx.designsystem.theme.TextSecondary.copy(alpha = 0.75f)
+                                )
+                            }
                         }
                         Button(
                             onClick = onOpenStressTest,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = com.noir.lynx.designsystem.theme.AccentOrange)
+                            shape = RoundedCornerShape(9.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = com.noir.lynx.designsystem.theme.AccentOrange),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Text(
                                 "Uji Beban",
-                                color = androidx.compose.ui.graphics.Color.Black,
-                                fontSize = 12.sp,
+                                color = Color.Black,
+                                fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -422,67 +456,62 @@ fun TuningGpuCategory(
 
 /**
  * Clean Cyberpunk section header for GPU & Display architecture domains.
+ * Typographic anchor with accent pillar and category badge.
  */
 @Composable
 fun GpuSectionHeader(
     title: String,
     subtitle: String,
     accentColor: Color,
-    badge: String? = null
+    badge: String? = null,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = com.noir.lynx.designsystem.theme.BgSurfaceLowest,
-        border = BorderStroke(0.6.dp, com.noir.lynx.designsystem.theme.BorderGlass),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 3.dp, height = 18.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(accentColor)
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(accentColor)
+            )
+            Column {
+                Text(
+                    text = title.uppercase(),
+                    color = com.noir.lynx.designsystem.theme.TextPrimary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
                 )
-                Column {
-                    Text(
-                        text = title.uppercase(),
-                        color = com.noir.lynx.designsystem.theme.TextPrimary,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp
-                    )
-                    Text(
-                        text = subtitle,
-                        color = com.noir.lynx.designsystem.theme.TextSecondary,
-                        fontSize = 9.5.sp
-                    )
-                }
+                Text(
+                    text = subtitle,
+                    color = com.noir.lynx.designsystem.theme.TextSecondary.copy(alpha = 0.75f),
+                    fontSize = 9.5.sp
+                )
             }
-            if (badge != null) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = accentColor.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = badge,
-                        color = accentColor,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
+        }
+        if (badge != null) {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = accentColor.copy(alpha = 0.12f),
+                border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
+            ) {
+                Text(
+                    text = badge,
+                    color = accentColor,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                )
             }
         }
     }

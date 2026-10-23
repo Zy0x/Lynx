@@ -1,3 +1,34 @@
+# Lynx Universal [GPU & Display UI Redesign, Micro-Bento Grid & Segmented Navigation] 7.0.0-RC176
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC176** (Lynx Kernel Manager v3.2.22): **Penyempurnaan Estetika Visual & Arsitektur Navigasi Subscreen GPU & Display Sesuai Pedoman Redesign Anti-Slop: Mendesain Ulang Segmented Tab Row (`GpuDisplayTabRow.kt`) dengan Ketinggian Presisi 46dp, Indikator Pill Mengambang Berlatar Slate Kaca dan Akses Haptic Feedback Penuh yang 100% Selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`; Mentransformasi Pita Telemetri Hero Card Menjadi Kotak Metrik Micro-Bento 4x2 yang Responsif dan Bebas Pembungkus Titik Pemisah Monospace; Memutakhirkan Section Header Menjadi Pembatas Tipografis Berpilar Aksen Cyan/Oranye Bersih Tanpa Kotak Bertingkat; Serta Menghilangkan Label Mengambang Redundan pada Matriks Profil Cepat GPU dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC176)
+
+### 1. 🎛️ Unifikasi Segmented Tab Row GPU & Display (`GpuDisplayTabRow.kt`)
+- **Desain Segmented Pill Berlatar Kaca Elegan**:
+  - Mengurangi ketinggian tab bar dari 52dp menjadi 46dp ergonomis, selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`.
+  - Mengeliminasi garis tepi oranye 1dp yang mencolok pada tab Tuning dan menggantikannya dengan pill terangkat (`Color(0xFF1E2638)`) bergradien halus dan ikon Cyan responsif.
+  - Mengintegrasikan tactile haptic feedback (`HapticFeedbackType.TextHandleMove`) pada setiap perpindahan tab.
+  - Memisahkan komponen ke dalam berkas mandiri `GpuDisplayTabRow.kt` (117 baris) untuk memangkas `LynxGpuDisplayComponents.kt` dari 711 baris menjadi 624 baris.
+
+### 2. 📊 4x2 Micro-Bento Telemetry Grid pada GpuHeroCard (`GpuHeroCard.kt`)
+- **Matriks Metrik Terstruktur & Tabular**:
+  - Menggantikan baris teks lama yang disatukan bullet dot (`•`) menjadi 8 micro-tile bento berkolom seimbang (`weight(1f)`):
+    - Baris 1: `Clock` (MHz dinamis), `Engine` (GL / Vulkan), `Layar` (Hz), dan `Suhu` (°C).
+    - Baris 2: `Daya` (Watt dinamis), `Pipeline` (Bottleneck state), `VRAM` (MB), dan `Beban` (%).
+  - Memastikan keterbacaan sempurna tanpa risiko teks terpotong atau wrap acak pada berbagai DPI layar perangkat.
+
+### 3. 🎨 Penyelarasan Section Header & Matriks Profil Cepat (`GpuSubscreen.kt` & `GpuQuickProfilesCard.kt`)
+- **Pembatas Tipografis Berpilar Aksen**:
+  - Mengubah `GpuSectionHeader` dari kontainer kotak berat menjadi pembatas tipografis elegan dengan pilar aksen 3x18dp dan micro-badge semantik.
+  - Mengeliminasi teks mengambang `PILIHAN PROFIL GPU` yang redundan di atas 4 tombol profil bento.
+  - Menyempurnakan kartu pemicu `GPU Stability Stress Test` pada Tab Lab dengan ikon `Speed` terpadu.
+
+### 4. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
+- Seluruh berkas Kotlin yang dimodifikasi (`GpuDisplayTabRow.kt`: 117 baris, `GpuHeroCard.kt`: 360 baris, `GpuQuickProfilesCard.kt`: 217 baris, `GpuSubscreen.kt`: 518 baris, `LynxGpuDisplayComponents.kt`: 624 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+
+---
+
 # Lynx Universal [GPU & Display Architecture Reorganization & Redundancy Consolidation] 7.0.0-RC175
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC175** (Lynx Kernel Manager v3.2.21): **Restrukturisasi Arsitektural Menyeluruh Subscreen GPU & Display Sesuai Pedoman AGENTS.md Bagian 7.4: Mengonsolidasi 12 Kartu Terfragmentasi Menjadi 4 Domain Kategori Bersih Berbasis Section Header Cyberpunk (1. Profil & Clock OPP, 2. Driver Hardware Kernel, 3. Compositor & Pipeline HWUI, 4. Display & Kalibrasi Layar); Mengeliminasi Seluruh Redundansi Tweak Kernel & Pipeline (Hapus Switch Hardware Preemption Duplikat dengan Segmented Button 3-Way yang Sinkron ke Node Driver, Satukan Min & Max PwrLevel ke Dalam Braket Frekuensi Tunggal, Gabungkan VSync Swap Interval Bypass ke Dalam Antrean Frame Swapchain Buffering, serta Satukan Durasi TouchBoost ke Kartu Display); Modularisasi Kode Menyeluruh (`AdaptiveGpuSiliconControls.kt`, `GraphicsMemoryPipelineSection.kt`) dengan Seluruh Berkas .kt Tetap Mematuhi Batas Ketat ≤699 Baris**.

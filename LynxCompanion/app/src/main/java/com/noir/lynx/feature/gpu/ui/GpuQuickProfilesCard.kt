@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,15 +69,6 @@ fun GpuQuickProfilesCard(
     )
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "PILIHAN PROFIL GPU",
-            style = MaterialTheme.typography.labelSmall,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
-        )
-
         // 2x2 Bento Matrix: Row 1 (Battery & Balanced)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -133,6 +126,7 @@ private fun GpuBentoProfileCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val cardBg by animateColorAsState(
         targetValue = if (isSelected) item.accent.copy(alpha = 0.12f) else BgElevated,
         animationSpec = tween(durationMillis = 180),
@@ -151,7 +145,12 @@ private fun GpuBentoProfileCard(
         modifier = modifier
             .heightIn(min = 60.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .clickable {
+                if (!isSelected) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                onClick()
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

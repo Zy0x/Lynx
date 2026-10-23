@@ -20,6 +20,7 @@ import com.noir.lynx.feature.battery.ui.FastChargingControlCard
 import com.noir.lynx.feature.battery.ui.batteryInformationItems
 import com.noir.lynx.feature.cpu.ui.CpuTabRow
 import com.noir.lynx.feature.cpu.ui.tuningCpuCategoryItems
+import com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems
 import com.noir.lynx.feature.network.ui.NetworkAudioTabRow
 import com.noir.lynx.feature.network.ui.TuningNetworkCategory
