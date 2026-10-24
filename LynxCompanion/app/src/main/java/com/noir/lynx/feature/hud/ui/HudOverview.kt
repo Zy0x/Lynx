@@ -1,13 +1,21 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -24,82 +32,187 @@ internal fun HudOverview(
     onTools: () -> Unit,
     onBoostRam: () -> Unit = {}
 ) {
-    HudSection(hudString(R.string.hud_group_frame)) {
+    val fps = snapshot[HudMetric.FPS]
+    val frameTime = snapshot[HudMetric.FRAME_TIME]
+    val displayHz = snapshot[HudMetric.DISPLAY_HZ]
+    val fpsLow = snapshot[HudMetric.FPS_LOW]
+
+    // 1. Sidekick Main Hero Card (Play Games "Selamat datang di Sidekick" Card Style)
+    HudSection(
+        title = hudString(R.string.hud_group_frame),
+        badge = if (displayHz.status == "valid") "${displayHz.text()} ${displayHz.unit}" else null,
+        accentColor = HudCyan
+    ) {
         Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            HudValue(snapshot[HudMetric.FPS], large = true)
-            Text(
-                text = hudString(R.string.hud_metric_fps),
-                fontSize = 12.sp,
-                color = HudMuted,
-                modifier = Modifier.padding(bottom = 3.dp)
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "${fps.text()} FPS",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    if (frameTime.status == "valid") {
+                        Text(
+                            text = "• ${frameTime.text()} ${frameTime.unit}",
+                            fontSize = 13.sp,
+                            color = HudMuted,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = if (fpsLow.status == "valid") {
+                        "${hudString(HudMetric.FPS_LOW.label)}: ${fpsLow.text()} FPS"
+                    } else {
+                        hudString(R.string.hud_metric_fps)
+                    },
+                    fontSize = 12.sp,
+                    color = HudBlue,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
-        HudReadingLine(
-            label = hudString(HudMetric.FRAME_TIME.label),
-            reading = snapshot[HudMetric.FRAME_TIME]
-        )
-        HudReadingLine(
-            label = hudString(HudMetric.DISPLAY_HZ.label),
-            reading = snapshot[HudMetric.DISPLAY_HZ]
-        )
     }
 
-    HudSection(hudString(R.string.hud_group_processor)) {
-        HudProcessorBar(
-            label = hudString(R.string.hud_cpu),
+    // 2. Sidekick Section Header ("Performa & Suhu" + Circular Arrow Button ->)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = hudString(R.string.hud_group_processor),
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFFE8EAED)
+        )
+        Surface(
+            onClick = onTools,
+            color = HudCard,
+            shape = CircleShape,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = hudString(R.string.hud_details),
+                    tint = Color(0xFFE8EAED),
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+    }
+
+    // 3. Sidekick 2 Side-by-Side Circular Ring Bento Cards (CPU & GPU)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        SidekickRingCard(
+            title = hudString(R.string.hud_cpu),
             load = snapshot[HudMetric.CPU_LOAD],
-            clock = snapshot[HudMetric.CPU_CLOCK]
+            clock = snapshot[HudMetric.CPU_CLOCK],
+            temp = snapshot[HudMetric.CPU_TEMP].takeIf { it.status == "valid" } ?: snapshot[HudMetric.SOC_TEMP],
+            ringColor = HudBlue,
+            modifier = Modifier.weight(1f)
         )
-        HorizontalDivider(color = HudBorder, thickness = 0.6.dp)
-        HudProcessorBar(
-            label = hudString(R.string.hud_gpu),
+        SidekickRingCard(
+            title = hudString(R.string.hud_gpu),
             load = snapshot[HudMetric.GPU_LOAD],
-            clock = snapshot[HudMetric.GPU_CLOCK]
+            clock = snapshot[HudMetric.GPU_CLOCK],
+            temp = snapshot[HudMetric.GPU_TEMP],
+            ringColor = HudCyan,
+            modifier = Modifier.weight(1f)
         )
     }
 
+    // 4. Sidekick Profile Switcher Card
     HudProfiles(
         current = snapshot.profile,
         busy = action.busy,
         onProfile = onProfile
     )
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        HudAction(
-            label = hudString(R.string.hud_capture_short),
-            enabled = !action.busy,
-            onClick = onCapture,
-            modifier = Modifier.weight(1f)
-        )
-        HudAction(
-            label = hudString(R.string.hud_tools),
-            enabled = !action.busy,
-            onClick = onTools,
-            modifier = Modifier.weight(1f)
-        )
-    }
 }
 
 @Composable
-private fun HudProcessorBar(label: String, load: HudReading, clock: HudReading) {
-    val progress = ((load.value?.takeIf { load.status == "valid" } ?: 0.0) / 100.0).toFloat().coerceIn(0f, 1f)
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HudReadingLine(label, load)
-        HudReadingLine(hudString(R.string.hud_clock_short), clock)
-        LinearProgressIndicator(
-            progress = progress,
+private fun SidekickRingCard(
+    title: String,
+    load: HudReading,
+    clock: HudReading,
+    temp: HudReading,
+    ringColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val pct = ((load.value?.takeIf { load.status == "valid" } ?: 0.0) / 100.0).toFloat().coerceIn(0f, 1f)
+    Surface(
+        modifier = modifier,
+        color = HudCard,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(3.5.dp)
-                .clip(RoundedCornerShape(2.dp)),
-            color = HudCyan,
-            trackColor = HudElevated
-        )
+                .padding(vertical = 12.dp, horizontal = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(54.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 4.dp.toPx()
+                    drawArc(
+                        color = Color(0xFF2B303C),
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * pct,
+                        useCenter = false,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    )
+                }
+                Text(
+                    text = if (load.status == "valid") "${load.text()}%" else "—",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+            Text(
+                text = if (clock.status == "valid") "$title • ${clock.text()} MHz" else title,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFE8EAED),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (temp.status == "valid") {
+                Text(
+                    text = "${temp.text()}°C",
+                    fontSize = 10.5.sp,
+                    color = HudMuted,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }

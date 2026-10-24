@@ -2,7 +2,6 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
@@ -41,7 +40,7 @@ internal fun HudTopTabBar(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = HudCard,
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -55,14 +54,9 @@ internal fun HudTopTabBar(
                 val active = selected == page
                 val title = hudString(page.label)
                 val background by animateColorAsState(
-                    targetValue = if (active) HudCyan.copy(alpha = 0.14f) else Color.Transparent,
+                    targetValue = if (active) HudElevated else Color.Transparent,
                     animationSpec = tween(160),
                     label = "tab_bg_$title"
-                )
-                val borderColor by animateColorAsState(
-                    targetValue = if (active) HudCyan.copy(alpha = 0.45f) else Color.Transparent,
-                    animationSpec = tween(160),
-                    label = "tab_border_$title"
                 )
                 val icon = when (page) {
                     HudPage.Summary -> Icons.Default.Speed
@@ -72,12 +66,11 @@ internal fun HudTopTabBar(
 
                 Surface(
                     onClick = { onSelect(page) },
-                    shape = RoundedCornerShape(9.dp),
+                    shape = RoundedCornerShape(13.dp),
                     color = background,
-                    border = BorderStroke(0.8.dp, borderColor),
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 36.dp)
+                        .heightIn(min = 34.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -90,14 +83,14 @@ internal fun HudTopTabBar(
                             imageVector = icon,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = if (active) HudCyan else HudMuted
+                            tint = if (active) HudBlue else HudMuted
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = title,
                             fontSize = 11.5.sp,
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (active) HudCyan else HudMuted,
+                            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                            color = if (active) Color.White else HudMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -122,21 +115,14 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
             val active = selected == page
             val title = hudString(page.label)
             val background by animateColorAsState(
-                if (active) HudCyan.copy(alpha = 0.14f) else Color.Transparent,
+                if (active) HudElevated else Color.Transparent,
                 tween(160),
                 label = "bg_$title"
             )
-            val borderColor by animateColorAsState(
-                if (active) HudCyan.copy(alpha = 0.45f) else Color.Transparent,
-                tween(160),
-                label = "border_$title"
-            )
-
             Surface(
                 onClick = { onSelect(page) },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = background,
-                border = BorderStroke(0.8.dp, borderColor),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 2.dp)
@@ -158,13 +144,13 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
                         imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
-                        tint = if (active) HudCyan else HudMuted
+                        tint = if (active) HudBlue else HudMuted
                     )
                     Text(
                         text = title,
                         fontSize = 11.5.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (active) HudCyan else HudMuted,
+                        fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                        color = if (active) Color.White else HudMuted,
                         softWrap = false
                     )
                 }

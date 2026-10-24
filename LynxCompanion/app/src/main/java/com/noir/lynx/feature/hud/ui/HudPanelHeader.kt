@@ -1,14 +1,14 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,6 +36,7 @@ internal fun HudPanelHeader(
     onDrag: (Float) -> Unit,
     onDrag2D: ((Float, Float) -> Unit)? = null,
     onDragEnd: () -> Unit = {},
+    onMore: () -> Unit = {},
     onClose: () -> Unit
 ) {
     val description = hudString(R.string.hud_drag)
@@ -45,47 +45,140 @@ internal fun HudPanelHeader(
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = description }
-            .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = hudString(R.string.hud_title),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = HudCyan
-        )
+        // Sidekick Avatar Emblem Circle
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF282D3A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.SportsEsports,
+                contentDescription = null,
+                tint = HudCyan,
+                modifier = Modifier.size(17.dp)
+            )
+        }
+
+        // Sidekick Cobalt Blue Status Pill Badge (Battery + Temp)
+        Surface(
+            color = HudBlueBadge,
+            shape = RoundedCornerShape(50)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = if (charging == true) Icons.Default.Bolt else Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
+                Text(
+                    text = buildString {
+                        append(hudString(R.string.hud_value, battery.text(), battery.unit))
+                        if (batteryTemp != null && batteryTemp.status == "valid") {
+                            append(" • ")
+                            append(batteryTemp.text())
+                            append("°")
+                        }
+                    },
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+        }
+
+        // Active Game / App Name
         Text(
             text = appLabel.ifBlank { hudString(R.string.hud_unknown_app) },
             modifier = Modifier.weight(1f),
             fontSize = 12.sp,
-            color = HudMuted,
+            fontWeight = FontWeight.Medium,
+            color = Color.White.copy(alpha = 0.78f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Text(
-            text = buildString {
-                append(hudString(R.string.hud_value, battery.text(), battery.unit))
-                if (batteryTemp != null && batteryTemp.status == "valid") {
-                    append(" • ")
-                    append(batteryTemp.text())
-                    append("°C")
-                }
-            },
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
-            color = if (charging == true) HudCyan else HudMuted
-        )
+
+        // Sidekick More (⋮) Button
+        IconButton(
+            onClick = onMore,
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = hudString(R.string.hud_tools),
+                modifier = Modifier.size(18.dp),
+                tint = Color(0xFFE8EAED)
+            )
+        }
+
+        // Sidekick Close (✕) Button
         IconButton(
             onClick = onClose,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(32.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = hudString(R.string.hud_close),
                 modifier = Modifier.size(18.dp),
-                tint = Color.White
+                tint = Color(0xFFE8EAED)
             )
+        }
+    }
+}
+
+/** Google Play Games Sidekick 4-tile quick action bar. */
+@Composable
+internal fun HudQuickTileRow(
+    pinned: Boolean,
+    busy: Boolean,
+    onCapture: () -> Unit,
+    onBoostRam: () -> Unit,
+    onTogglePin: () -> Unit,
+    onOpenTools: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val tiles = listOf(
+            Triple(Icons.Default.Screenshot, hudString(R.string.hud_capture_short), onCapture),
+            Triple(Icons.Default.CleaningServices, hudString(R.string.hud_boost_ram), onBoostRam),
+            Triple(Icons.Default.Speed, hudString(R.string.hud_pin), onTogglePin),
+            Triple(Icons.Default.Tune, hudString(R.string.hud_tools), onOpenTools)
+        )
+        tiles.forEachIndexed { index, (icon, desc, action) ->
+            val highlighted = index == 2 && pinned
+            Surface(
+                onClick = action,
+                enabled = !busy,
+                color = if (highlighted) HudBlueBadge else HudCard,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = desc,
+                        tint = if (highlighted) Color.White else Color(0xFFE8EAED),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -95,7 +188,7 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -110,8 +203,7 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
                 Surface(
                     onClick = { onApp(app) },
                     color = HudCard,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(0.8.dp, HudBorder),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.size(38.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -119,7 +211,7 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
                             bitmap = app.icon.asImageBitmap(),
                             contentDescription = app.label,
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(22.dp)
                                 .clip(RoundedCornerShape(6.dp))
                         )
                     }
@@ -128,8 +220,7 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
             Surface(
                 onClick = onManage,
                 color = HudCard,
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(0.8.dp, HudBorder),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.size(38.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -137,7 +228,7 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
                         imageVector = Icons.Default.Add,
                         contentDescription = hudString(R.string.hud_apps_manage),
                         modifier = Modifier.size(18.dp),
-                        tint = HudCyan
+                        tint = Color(0xFFE8EAED)
                     )
                 }
             }

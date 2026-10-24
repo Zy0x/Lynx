@@ -57,7 +57,6 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
             addView(ImageView(context).apply { setImageDrawable(appIcon); setPadding(dp(4), dp(4), dp(4), dp(4)) },
                 LinearLayout.LayoutParams(dp(32), dp(32)))
             addView(title, LinearLayout.LayoutParams(0, -1, 1f))
-            addView(resize, LinearLayout.LayoutParams(dp(48), dp(48)))
             addView(more, LinearLayout.LayoutParams(dp(48), dp(48)))
             addView(close, LinearLayout.LayoutParams(dp(48), dp(48)))
         }
@@ -69,6 +68,7 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
         footer.addView(View(context), LinearLayout.LayoutParams(0, 1, 1f))
         column.addView(footer, LinearLayout.LayoutParams(-1, dp(48)))
         root.addView(progress, FrameLayout.LayoutParams(-1, dp(2)).apply { topMargin = headerHeight - dp(2) })
+        root.addView(resize, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.BOTTOM or Gravity.RIGHT))
         root.addView(bubble, FrameLayout.LayoutParams(-1, -1))
         placeResizeHandle()
         more.setOnClickListener { toggleMenu() }
@@ -81,9 +81,12 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
 
     private fun placeResizeHandle() {
         footer.visibility = if (toolbarShown) View.VISIBLE else View.GONE
-        resize.setPadding(dp(16), dp(16), dp(16), dp(16))
-        // The 16dp glyph has a dedicated 48dp header target, never covering app content.
+        // Reserve the physical corner in both LTR and RTL toolbar layouts.
+        footer.setPadding(0, 0, dp(48), 0)
+        resize.setPadding(dp(24), dp(24), dp(8), dp(8))
+        // Keep the small glyph near the physical bottom-right corner, also in RTL layouts.
         resize.visibility = if (minimized) View.GONE else View.VISIBLE
+        resize.bringToFront()
         bubble.bringToFront()
     }
 

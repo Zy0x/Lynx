@@ -349,8 +349,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     childCancelled = false
 
                     if (isExpanded) {
-                        val inHeaderArea = downLocalY <= 44f * density && downLocalX < (width - 48f * density)
-                        gestureMode = if (inHeaderArea) GestureMode.UNDECIDED else GestureMode.PASS_THROUGH
+                        val earWidthPx = 22f * density
+                        val onInnerEar = if (dockRight.value) downLocalX <= earWidthPx else downLocalX >= (width - earWidthPx)
+                        val inHeaderArea = downLocalY <= 48f * density && downLocalX < (width - 76f * density)
+                        gestureMode = if (onInnerEar || inHeaderArea) GestureMode.UNDECIDED else GestureMode.PASS_THROUGH
                     } else {
                         gestureMode = GestureMode.UNDECIDED
                         mainHandler.postDelayed(holdToDragRunnable, 170L)
@@ -371,6 +373,13 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
                     if (gestureMode == GestureMode.UNDECIDED) {
                         if (isExpanded) {
+                            val outwardDx = if (dockRight.value) dx else -dx
+                            if (outwardDx >= swipeOpenThresholdPx && absDx > absDy * 1.2f) {
+                                gestureMode = GestureMode.SWIPE_OPEN
+                                cancelChildTouch()
+                                open.value = false
+                                return true
+                            }
                             if (hypot(dx, dy) >= dragSlopPx) {
                                 gestureMode = GestureMode.DRAG_MOVE
                                 cancelChildTouch()

@@ -72,7 +72,7 @@ internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChang
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 42.dp)
+            .heightIn(min = 40.dp)
             .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -80,15 +80,15 @@ internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChang
         Text(
             text = label,
             modifier = Modifier.weight(1f),
-            fontSize = 12.sp,
-            color = Color.White
+            fontSize = 12.5.sp,
+            color = Color(0xFFE8EAED)
         )
         Switch(
             checked = checked,
             onCheckedChange = null,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = HudCyan,
+                checkedThumbColor = Color.White,
+                checkedTrackColor = HudBlueBadge,
                 uncheckedThumbColor = HudMuted,
                 uncheckedTrackColor = HudElevated
             )

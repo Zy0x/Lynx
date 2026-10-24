@@ -133,23 +133,31 @@ internal class StandaloneAppWindow(
     private fun drag(view: View, resize: Boolean) {
         val slop = ViewConfiguration.get(context).scaledTouchSlop
         var startX = 0f; var startY = 0f; var moved = false; var original = box()
+        var safe = floatingSafeArea(wm, root)
+        fun update(event: MotionEvent) {
+            val dx = event.rawX - startX; val dy = event.rawY - startY
+            if (!moved && kotlin.math.abs(dx) + kotlin.math.abs(dy) <= slop) return
+            moved = true
+            if (resize) {
+                savedBox = null
+                use(FloatingDisplayPolicy.resize(original, dx.toInt(), dy.toInt(),
+                    safe.left, safe.top, safe.width(), safe.height(), dp(240)))
+            }
+            else { params.x = original.x + dx.toInt(); params.y = original.y + dy.toInt() }
+            clampToViewport()
+        }
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX; startY = event.rawY; moved = false; original = box()
-                    if (resize) { resizingGesture = true; chrome.showResizeHint(hold = true); cancelGesture() }
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.rawX - startX; val dy = event.rawY - startY
-                    if (!moved && kotlin.math.abs(dx) + kotlin.math.abs(dy) <= slop) return@setOnTouchListener true
-                    moved = true
                     if (resize) {
-                        params.width = (original.width + dx.toInt()).coerceAtLeast(dp(240))
-                        params.height = (original.height + dy.toInt()).coerceAtLeast(dp(240))
-                    } else { params.x = original.x + dx.toInt(); params.y = original.y + dy.toInt() }
-                    clampToViewport()
+                        safe = floatingSafeArea(wm, root)
+                        resizingGesture = true; chrome.showResizeHint(hold = true); cancelGesture()
+                    }
                 }
+                MotionEvent.ACTION_MOVE -> update(event)
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (resize && event.actionMasked == MotionEvent.ACTION_UP) update(event)
                     if (resize) { resizingGesture = false; chrome.finishResize() }
                     if (resize && moved) resizeDisplay()
                     if (!moved && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()

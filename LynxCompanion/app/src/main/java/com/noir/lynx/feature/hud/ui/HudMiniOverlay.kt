@@ -1,21 +1,21 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,6 +29,36 @@ data class HudViewport(val widthDp: Float = 360f, val heightDp: Float = 720f) {
     val landscape get() = widthDp > heightDp
     val panelWidth get() = min(widthDp * if (landscape) 0.44f else 0.85f, if (landscape) 384f else 336f)
     val panelHeight get() = heightDp * if (landscape) 1f else 0.7f
+}
+
+/** Google Play Games Sidekick semi-oval translucent edge handle tab. */
+@Composable
+internal fun SidekickEdgeTab(
+    dockRight: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val tabShape = if (dockRight) {
+        RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp)
+    } else {
+        RoundedCornerShape(topEnd = 18.dp, bottomEnd = 18.dp)
+    }
+    Surface(
+        shape = tabShape,
+        color = HudHandleSurface,
+        modifier = modifier
+            .width(15.dp)
+            .height(54.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .width(2.5.dp)
+                    .height(22.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.88f))
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -51,46 +81,31 @@ internal fun HudMiniOverlay(
     val pager = rememberPagerState(pageCount = { pages.size.coerceAtLeast(1) })
     val showMetrics = prefs.pinned && selected.isNotEmpty()
     val colsOnPage = min(selected.size.coerceAtLeast(1), count)
-    val capsuleWidth = if (colsOnPage == 1) 96.dp else 168.dp
-    val totalWidth = if (showMetrics) capsuleWidth + 12.dp else 32.dp
+    val capsuleWidth = if (colsOnPage == 1) 92.dp else 162.dp
+    val totalWidth = if (showMetrics) capsuleWidth + 20.dp else 32.dp
     val openDescription = hudString(R.string.hud_open)
-
-    val handleShape = if (dockRight) {
-        RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)
-    } else {
-        RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp)
-    }
 
     val edgeBar: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .width(if (showMetrics) 6.dp else 32.dp)
+                .width(if (showMetrics) 16.dp else 32.dp)
                 .height(72.dp),
             contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
         ) {
-            Surface(
-                shape = handleShape,
-                color = HudCyan,
-                shadowElevation = 3.dp,
-                modifier = Modifier
-                    .width(4.5.dp)
-                    .height(42.dp)
-            ) {}
+            SidekickEdgeTab(dockRight = dockRight)
         }
     }
 
     val metricsCapsule: @Composable () -> Unit = {
         Surface(
             modifier = Modifier.width(capsuleWidth),
-            color = HudCard.copy(alpha = 0.94f),
-            shape = RoundedCornerShape(11.dp),
-            border = BorderStroke(0.8.dp, HudBorder),
-            shadowElevation = 4.dp
+            color = HudBackground,
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
                 modifier = Modifier.padding(
-                    horizontal = 8.dp,
-                    vertical = if (compactHeight) 2.dp else 5.dp
+                    horizontal = 10.dp,
+                    vertical = if (compactHeight) 3.dp else 6.dp
                 )
             ) {
                 HorizontalPager(
@@ -101,7 +116,7 @@ internal fun HudMiniOverlay(
                     val pageMetrics = pages.getOrNull(page).orEmpty()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         pageMetrics.forEachIndexed { idx, metric ->
@@ -109,7 +124,7 @@ internal fun HudMiniOverlay(
                                 Box(
                                     modifier = Modifier
                                         .width(0.8.dp)
-                                        .height(24.dp)
+                                        .height(22.dp)
                                         .background(HudBorder)
                                 )
                             }
@@ -135,7 +150,6 @@ internal fun HudMiniOverlay(
                                 Text(
                                     text = combined,
                                     fontSize = 12.sp,
-                                    fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (metric == HudMetric.FPS) HudCyan else Color.White,
                                     maxLines = 1,
@@ -163,7 +177,7 @@ internal fun HudMiniOverlay(
                                         height = 2.5.dp
                                     )
                                     .background(
-                                        if (i == pager.currentPage) HudCyan else HudMuted.copy(alpha = 0.3f),
+                                        if (i == pager.currentPage) HudBlue else HudMuted.copy(alpha = 0.3f),
                                         RoundedCornerShape(1.5.dp)
                                     )
                             )

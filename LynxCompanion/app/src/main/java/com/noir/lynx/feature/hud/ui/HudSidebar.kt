@@ -1,14 +1,14 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -78,109 +78,149 @@ fun HudSidebar(
             )
         } else {
             val panelShape = if (dockRight) {
-                RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+                RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp)
             } else {
-                RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp)
+                RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             }
-            Surface(
-                modifier = Modifier
-                    .width(viewport.panelWidth.dp)
-                    .heightIn(max = viewport.panelHeight.dp),
-                shape = panelShape,
-                color = HudBackground,
-                border = BorderStroke(1.dp, HudBorder)
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HudPanelHeader(
-                        appLabel = appLabel,
-                        battery = snapshot[HudMetric.BATTERY_LEVEL],
-                        batteryTemp = snapshot[HudMetric.BATTERY_TEMP],
-                        charging = snapshot.charging,
-                        onDrag = onDrag,
-                        onDrag2D = onDrag2D,
-                        onDragEnd = onDragEnd,
-                        onClose = { onOpen(false) }
-                    )
+            val drawerWidth = (viewport.panelWidth - 15f).coerceAtLeast(240f).dp
 
-                    HudAppDock(
-                        apps = apps,
-                        onManage = { manageApps = !manageApps },
-                        onApp = {
-                            onOpen(false)
-                            onApp(it)
-                        }
-                    )
+            val drawerSurface: @Composable () -> Unit = {
+                Surface(
+                    modifier = Modifier
+                        .width(drawerWidth)
+                        .heightIn(max = viewport.panelHeight.dp),
+                    shape = panelShape,
+                    color = HudBackground
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        HudPanelHeader(
+                            appLabel = appLabel,
+                            battery = snapshot[HudMetric.BATTERY_LEVEL],
+                            batteryTemp = snapshot[HudMetric.BATTERY_TEMP],
+                            charging = snapshot.charging,
+                            onDrag = onDrag,
+                            onDrag2D = onDrag2D,
+                            onDragEnd = onDragEnd,
+                            onMore = {
+                                page = when (page) {
+                                    HudPage.Summary -> HudPage.Details
+                                    HudPage.Details -> HudPage.Tools
+                                    HudPage.Tools -> HudPage.Summary
+                                }
+                            },
+                            onClose = { onOpen(false) }
+                        )
 
-                    HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
+                        // Google Play Games Sidekick 4 Quick-Action Squircle Tiles
+                        HudQuickTileRow(
+                            pinned = prefs.pinned,
+                            busy = action.busy,
+                            onCapture = onCapture,
+                            onBoostRam = onBoostRam,
+                            onTogglePin = { preferences.pin(!prefs.pinned) },
+                            onOpenTools = {
+                                page = if (page == HudPage.Tools) HudPage.Summary else HudPage.Tools
+                            }
+                        )
 
-                    if (manageApps) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f, fill = false)
-                                .verticalScroll(rememberScrollState())
-                                .padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            HudAction(
-                                label = hudString(R.string.hud_apps_done),
-                                onClick = { manageApps = false },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            HudAppManager(prefs, preferences)
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            HudTopTabBar(
-                                selected = page,
-                                onSelect = { page = it }
-                            )
-                        }
+                        HudAppDock(
+                            apps = apps,
+                            onManage = { manageApps = !manageApps },
+                            onApp = {
+                                onOpen(false)
+                                onApp(it)
+                            }
+                        )
 
-                        pageState.SaveableStateProvider(page.name) {
+                        if (manageApps) {
                             Column(
                                 modifier = Modifier
                                     .weight(1f, fill = false)
-                                    .verticalScroll(scrolls.getValue(page))
-                                    .padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                when (page) {
-                                    HudPage.Summary -> HudOverview(
-                                        snapshot = snapshot,
-                                        action = action,
-                                        onProfile = onProfile,
-                                        onCapture = onCapture,
-                                        onTools = { page = HudPage.Tools },
-                                        onBoostRam = onBoostRam
-                                    )
-                                    HudPage.Details -> HudDetails(snapshot = snapshot)
-                                    HudPage.Tools -> HudTools(
-                                        prefs = prefs,
-                                        store = preferences,
-                                        rates = rates,
-                                        activeHz = snapshot[HudMetric.DISPLAY_HZ],
-                                        action = action,
-                                        onHz = onHz,
-                                        onCapture = onCapture,
-                                        onStop = onStop,
-                                        onBoostRam = onBoostRam
-                                    )
-                                }
-                                action.message?.let { msgRes ->
-                                    Text(
-                                        text = hudString(msgRes),
-                                        fontSize = 11.5.sp,
-                                        color = HudCyan,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                    )
+                                HudAction(
+                                    label = hudString(R.string.hud_apps_done),
+                                    onClick = { manageApps = false },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                HudAppManager(prefs, preferences)
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                HudTopTabBar(
+                                    selected = page,
+                                    onSelect = { page = it }
+                                )
+                            }
+
+                            pageState.SaveableStateProvider(page.name) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .verticalScroll(scrolls.getValue(page))
+                                        .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    when (page) {
+                                        HudPage.Summary -> HudOverview(
+                                            snapshot = snapshot,
+                                            action = action,
+                                            onProfile = onProfile,
+                                            onCapture = onCapture,
+                                            onTools = { page = HudPage.Details },
+                                            onBoostRam = onBoostRam
+                                        )
+                                        HudPage.Details -> HudDetails(snapshot = snapshot)
+                                        HudPage.Tools -> HudTools(
+                                            prefs = prefs,
+                                            store = preferences,
+                                            rates = rates,
+                                            activeHz = snapshot[HudMetric.DISPLAY_HZ],
+                                            action = action,
+                                            onHz = onHz,
+                                            onCapture = onCapture,
+                                            onStop = onStop,
+                                            onBoostRam = onBoostRam
+                                        )
+                                    }
+                                    action.message?.let { msgRes ->
+                                        Text(
+                                            text = hudString(msgRes),
+                                            fontSize = 11.5.sp,
+                                            color = HudBlue,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            // Protruding Sidekick Handle Ear attached to the inner edge of the open drawer
+            Row(
+                modifier = Modifier.width(viewport.panelWidth.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (dockRight) {
+                    SidekickEdgeTab(
+                        dockRight = true,
+                        modifier = Modifier.clickable { onOpen(false) }
+                    )
+                    drawerSurface()
+                } else {
+                    drawerSurface()
+                    SidekickEdgeTab(
+                        dockRight = false,
+                        modifier = Modifier.clickable { onOpen(false) }
+                    )
                 }
             }
         }

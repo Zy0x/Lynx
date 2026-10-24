@@ -1,7 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -11,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -22,17 +20,20 @@ import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
-internal val HudCyan = Color(0xFF00F5A0)
-internal val HudBlue = Color(0xFF38BDF8)
-internal val HudOrange = Color(0xFFF59E0B)
-internal val HudRed = Color(0xFFF43F5E)
-internal val HudPurple = Color(0xFFA855F7)
-internal val HudBackground = Color(0xF50B0F17)
-internal val HudCard = Color(0xFF131924)
-internal val HudElevated = Color(0xFF1A2232)
-internal val HudBorder = Color(0x1EFFFFFF)
-internal val HudAccentBorder = Color(0x3800F5A0)
-internal val HudMuted = Color(0xFF94A3B8)
+// Google Play Games Sidekick Translucent Material 3 Dark Palette
+internal val HudCyan = Color(0xFF00E676) // Play Games Emerald Mint
+internal val HudBlue = Color(0xFF8AB4F8) // Sidekick Sky Blue Link/Accent
+internal val HudBlueBadge = Color(0xFF0B57D0) // Sidekick Top Pill Cobalt Blue
+internal val HudOrange = Color(0xFFFBBF24)
+internal val HudRed = Color(0xFFF87171)
+internal val HudPurple = Color(0xFFC084FC)
+internal val HudBackground = Color(0xCC0D0F13) // 80% Translucent Obsidian Drawer
+internal val HudCard = Color(0xD91B1E24) // 85% Translucent Matte Bento Card
+internal val HudElevated = Color(0xE6252932) // 90% Elevated Pill Surface
+internal val HudHandleSurface = Color(0x6612151B) // 40% Frosted Edge Handle Tab
+internal val HudBorder = Color(0x14FFFFFF) // Ultra-subtle 8% divider hairline
+internal val HudAccentBorder = Color(0x338AB4F8)
+internal val HudMuted = Color(0xFF9AA0A6) // Material 3 Neutral Slate
 
 @Composable
 internal fun hudString(@StringRes id: Int, vararg args: Any): String =
@@ -42,11 +43,11 @@ internal fun hudString(@StringRes id: Int, vararg args: Any): String =
 internal fun HudTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = HudCyan,
+            primary = HudBlue,
             onPrimary = Color.Black,
             background = HudBackground,
             surface = HudBackground,
-            onSurface = Color.White,
+            onSurface = Color(0xFFE8EAED),
             surfaceVariant = HudCard,
             onSurfaceVariant = HudMuted
         ),
@@ -64,9 +65,8 @@ internal fun HudTheme(content: @Composable () -> Unit) {
 internal fun HudValue(reading: HudReading, large: Boolean = false) {
     Text(
         text = reading.text(),
-        fontSize = if (large) 26.sp else 16.sp,
-        fontFamily = FontFamily.Monospace,
-        fontWeight = FontWeight.Bold,
+        fontSize = if (large) 22.sp else 14.sp,
+        fontWeight = FontWeight.SemiBold,
         color = if (reading.value != null && reading.status == "valid") Color.White else HudMuted,
         maxLines = 1
     )
@@ -79,51 +79,46 @@ internal fun HudAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    accentColor: Color = HudCyan,
+    accentColor: Color = HudBlue,
     isDanger: Boolean = false
 ) {
-    val containerColor = if (isDanger) HudRed.copy(alpha = 0.10f) else HudElevated
-    val borderColor = when {
-        !enabled -> HudBorder.copy(alpha = 0.08f)
-        isDanger -> HudRed.copy(alpha = 0.38f)
-        else -> HudBorder
+    val containerColor = when {
+        !enabled -> HudCard.copy(alpha = 0.45f)
+        isDanger -> HudRed.copy(alpha = 0.16f)
+        else -> HudElevated
     }
     val textColor = when {
         !enabled -> HudMuted.copy(alpha = 0.4f)
         isDanger -> HudRed
-        else -> Color.White
+        else -> Color(0xFFE8EAED)
     }
 
-    OutlinedButton(
+    Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = containerColor,
-            contentColor = textColor,
-            disabledContainerColor = HudCard.copy(alpha = 0.5f),
-            disabledContentColor = HudMuted.copy(alpha = 0.4f)
-        ),
-        modifier = modifier.heightIn(min = 44.dp),
-        border = BorderStroke(0.8.dp, borderColor),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        modifier = modifier.heightIn(min = 42.dp)
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.Center
         ) {
             if (icon != null) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(16.dp),
                     tint = if (!enabled) HudMuted.copy(alpha = 0.4f) else if (isDanger) HudRed else accentColor
                 )
+                Spacer(Modifier.width(6.dp))
             }
             Text(
                 text = label,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
+                color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

@@ -1,6 +1,5 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,27 +64,23 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 Surface(
                     onClick = { more = !more },
                     enabled = !busy,
-                    color = if (more || current in setOf("auto", "extreme")) HudCyan.copy(alpha = 0.16f) else HudElevated,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(
-                        0.8.dp,
-                        if (more || current in setOf("auto", "extreme")) HudCyan.copy(alpha = 0.55f) else HudBorder
-                    ),
-                    modifier = Modifier.size(42.dp)
+                    color = if (more || current in setOf("auto", "extreme")) HudBlueBadge else HudElevated,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (busy) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(15.dp),
+                                modifier = Modifier.size(14.dp),
                                 strokeWidth = 2.dp,
-                                color = HudCyan
+                                color = Color.White
                             )
                         } else {
                             Icon(
                                 imageVector = Icons.Default.MoreHoriz,
                                 contentDescription = hudString(R.string.hud_more),
                                 modifier = Modifier.size(18.dp),
-                                tint = if (more || current in setOf("auto", "extreme")) HudCyan else HudMuted
+                                tint = if (more || current in setOf("auto", "extreme")) Color.White else HudMuted
                             )
                         }
                     }
@@ -131,19 +127,18 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 Text(
                     text = hudString(R.string.hud_applying),
                     fontSize = 11.5.sp,
-                    color = HudCyan
+                    color = HudBlue
                 )
             }
 
             if (extreme) {
                 Surface(
-                    color = HudCard,
-                    shape = RoundedCornerShape(11.dp),
-                    border = BorderStroke(0.8.dp, HudOrange),
+                    color = HudElevated,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
@@ -174,7 +169,8 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                                     extreme = false
                                     onProfile("extreme")
                                 },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                isDanger = true
                             )
                         }
                     }

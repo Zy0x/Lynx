@@ -1,7 +1,7 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -50,15 +50,14 @@ internal fun HudExpandableSection(
     title: String,
     detail: String = "",
     initiallyOpen: Boolean = false,
-    accentColor: Color = HudCyan,
+    accentColor: Color = Color(0xFFE8EAED),
     content: @Composable ColumnScope.() -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(initiallyOpen) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = HudCard,
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(0.8.dp, HudBorder)
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column {
             Surface(
@@ -66,10 +65,10 @@ internal fun HudExpandableSection(
                 color = Color.Transparent,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 46.dp)
+                    .heightIn(min = 48.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -79,8 +78,8 @@ internal fun HudExpandableSection(
                     ) {
                         Text(
                             text = title,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
                             color = accentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -88,26 +87,34 @@ internal fun HudExpandableSection(
                         if (detail.isNotBlank()) {
                             Text(
                                 text = detail,
-                                fontSize = 11.sp,
-                                color = HudMuted,
+                                fontSize = 11.5.sp,
+                                color = HudBlue,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
-                    Icon(
-                        imageVector = if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = hudString(if (open) R.string.hud_expanded else R.string.hud_collapsed),
-                        modifier = Modifier.size(18.dp),
-                        tint = HudMuted
-                    )
+                    Surface(
+                        color = HudElevated,
+                        shape = CircleShape,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = hudString(if (open) R.string.hud_expanded else R.string.hud_collapsed),
+                                modifier = Modifier.size(16.dp),
+                                tint = Color(0xFFE8EAED)
+                            )
+                        }
+                    }
                 }
             }
             if (open) {
-                HorizontalDivider(color = HudBorder, thickness = 0.6.dp)
+                HorizontalDivider(color = HudBorder, thickness = 0.5.dp)
                 Column(
-                    modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     content = content
                 )
             }
