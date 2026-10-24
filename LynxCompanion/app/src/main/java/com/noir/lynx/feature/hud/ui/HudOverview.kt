@@ -37,47 +37,41 @@ internal fun HudOverview(
     val displayHz = snapshot[HudMetric.DISPLAY_HZ]
     val fpsLow = snapshot[HudMetric.FPS_LOW]
 
-    // 1. Sidekick Main Hero Card (Play Games "Selamat datang di Sidekick" Card Style)
+    // 1. Sidekick Main Hero Card (Clean, zero duplicate "FPS game" subtitle)
     HudSection(
         title = hudString(R.string.hud_group_frame),
         badge = if (displayHz.status == "valid") "${displayHz.text()} ${displayHz.unit}" else null,
-        accentColor = HudCyan
+        accentColor = HudCyan,
+        showPlayIcon = true
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "${fps.text()} FPS",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                    if (frameTime.status == "valid") {
-                        Text(
-                            text = "• ${frameTime.text()} ${frameTime.unit}",
-                            fontSize = 13.sp,
-                            color = HudMuted,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        )
-                    }
-                }
                 Text(
-                    text = if (fpsLow.status == "valid") {
-                        "${hudString(HudMetric.FPS_LOW.label)}: ${fpsLow.text()} FPS"
-                    } else {
-                        hudString(R.string.hud_metric_fps)
-                    },
-                    fontSize = 12.sp,
+                    text = "${fps.text()} FPS",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                if (frameTime.status == "valid") {
+                    Text(
+                        text = "• ${frameTime.text()} ${frameTime.unit}",
+                        fontSize = 13.sp,
+                        color = HudMuted,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+                }
+            }
+            if (fpsLow.status == "valid") {
+                Text(
+                    text = "1% Low: ${fpsLow.text()}",
+                    fontSize = 11.5.sp,
                     color = HudBlue,
                     fontWeight = FontWeight.Medium
                 )
@@ -85,7 +79,7 @@ internal fun HudOverview(
         }
     }
 
-    // 2. Sidekick Section Header ("Performa & Suhu" + Circular Arrow Button ->)
+    // 2. Sidekick Section Header ("CPU dan GPU" + Circular Arrow Button -> to Detail)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -95,7 +89,7 @@ internal fun HudOverview(
     ) {
         Text(
             text = hudString(R.string.hud_group_processor),
-            fontSize = 13.5.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = Color(0xFFE8EAED)
         )
@@ -127,6 +121,7 @@ internal fun HudOverview(
             clock = snapshot[HudMetric.CPU_CLOCK],
             temp = snapshot[HudMetric.CPU_TEMP].takeIf { it.status == "valid" } ?: snapshot[HudMetric.SOC_TEMP],
             ringColor = HudBlue,
+            onClick = onTools,
             modifier = Modifier.weight(1f)
         )
         SidekickRingCard(
@@ -135,6 +130,7 @@ internal fun HudOverview(
             clock = snapshot[HudMetric.GPU_CLOCK],
             temp = snapshot[HudMetric.GPU_TEMP],
             ringColor = HudCyan,
+            onClick = onTools,
             modifier = Modifier.weight(1f)
         )
     }
@@ -154,10 +150,12 @@ private fun SidekickRingCard(
     clock: HudReading,
     temp: HudReading,
     ringColor: Color,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pct = ((load.value?.takeIf { load.status == "valid" } ?: 0.0) / 100.0).toFloat().coerceIn(0f, 1f)
     Surface(
+        onClick = onClick,
         modifier = modifier,
         color = HudCard,
         shape = RoundedCornerShape(20.dp)
@@ -170,13 +168,13 @@ private fun SidekickRingCard(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Box(
-                modifier = Modifier.size(54.dp),
+                modifier = Modifier.size(52.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val stroke = 4.dp.toPx()
                     drawArc(
-                        color = Color(0xFF2B303C),
+                        color = Color(0xFF282E3A),
                         startAngle = 0f,
                         sweepAngle = 360f,
                         useCenter = false,

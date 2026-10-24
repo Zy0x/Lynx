@@ -83,6 +83,7 @@ fun HudSidebar(
                 RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             }
             val drawerWidth = (viewport.panelWidth - 15f).coerceAtLeast(240f).dp
+            val inSubscreen = manageApps || page != HudPage.Summary
 
             val drawerSurface: @Composable () -> Unit = {
                 Surface(
@@ -94,19 +95,19 @@ fun HudSidebar(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         HudPanelHeader(
-                            appLabel = appLabel,
+                            appLabel = when {
+                                manageApps -> hudString(R.string.hud_apps_manage)
+                                page == HudPage.Details -> hudString(R.string.hud_details)
+                                page == HudPage.Tools -> hudString(R.string.hud_tools)
+                                else -> appLabel
+                            },
                             battery = snapshot[HudMetric.BATTERY_LEVEL],
                             batteryTemp = snapshot[HudMetric.BATTERY_TEMP],
                             charging = snapshot.charging,
-                            onDrag = onDrag,
-                            onDrag2D = onDrag2D,
-                            onDragEnd = onDragEnd,
-                            onMore = {
-                                page = when (page) {
-                                    HudPage.Summary -> HudPage.Details
-                                    HudPage.Details -> HudPage.Tools
-                                    HudPage.Tools -> HudPage.Summary
-                                }
+                            canNavigateBack = inSubscreen,
+                            onBack = {
+                                manageApps = false
+                                page = HudPage.Summary
                             },
                             onClose = { onOpen(false) }
                         )
@@ -114,17 +115,20 @@ fun HudSidebar(
                         // Google Play Games Sidekick 4 Quick-Action Squircle Tiles
                         HudQuickTileRow(
                             pinned = prefs.pinned,
+                            toolsActive = page == HudPage.Tools && !manageApps,
                             busy = action.busy,
                             onCapture = onCapture,
                             onBoostRam = onBoostRam,
                             onTogglePin = { preferences.pin(!prefs.pinned) },
                             onOpenTools = {
+                                manageApps = false
                                 page = if (page == HudPage.Tools) HudPage.Summary else HudPage.Tools
                             }
                         )
 
                         HudAppDock(
                             apps = apps,
+                            managing = manageApps,
                             onManage = { manageApps = !manageApps },
                             onApp = {
                                 onOpen(false)
@@ -140,31 +144,15 @@ fun HudSidebar(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                HudAction(
-                                    label = hudString(R.string.hud_apps_done),
-                                    onClick = { manageApps = false },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                                 HudAppManager(prefs, preferences)
                             }
                         } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                            ) {
-                                HudTopTabBar(
-                                    selected = page,
-                                    onSelect = { page = it }
-                                )
-                            }
-
                             pageState.SaveableStateProvider(page.name) {
                                 Column(
                                     modifier = Modifier
                                         .weight(1f, fill = false)
                                         .verticalScroll(scrolls.getValue(page))
-                                        .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp),
+                                        .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     when (page) {

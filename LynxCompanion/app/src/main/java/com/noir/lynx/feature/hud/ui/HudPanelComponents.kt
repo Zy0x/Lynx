@@ -57,6 +57,7 @@ internal fun HudSection(
     title: String,
     badge: String? = null,
     accentColor: Color = HudCyan,
+    showPlayIcon: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
@@ -78,24 +79,26 @@ internal fun HudSection(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(11.dp)
-                        )
+                    if (showPlayIcon) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
                     }
                     Text(
                         text = title,
                         color = Color(0xFFE8EAED),
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -143,7 +146,7 @@ internal fun HudChoice(
             }
     ) {
         Box(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -153,7 +156,7 @@ internal fun HudChoice(
                     selected -> Color.White
                     else -> Color(0xFFE8EAED)
                 },
-                fontSize = 11.5.sp,
+                fontSize = 11.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
                 maxLines = 1,

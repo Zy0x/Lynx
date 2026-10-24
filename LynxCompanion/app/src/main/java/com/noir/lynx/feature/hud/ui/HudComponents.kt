@@ -20,20 +20,20 @@ import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
-// Google Play Games Sidekick Translucent Material 3 Dark Palette
-internal val HudCyan = Color(0xFF00E676) // Play Games Emerald Mint
-internal val HudBlue = Color(0xFF8AB4F8) // Sidekick Sky Blue Link/Accent
-internal val HudBlueBadge = Color(0xFF0B57D0) // Sidekick Top Pill Cobalt Blue
+// Google Play Games Sidekick Material 3 Dark Palette (High-Readability Tonal Contrast)
+internal val HudCyan = Color(0xFF00E676)            // Play Games Emerald Mint
+internal val HudBlue = Color(0xFF8AB4F8)            // Sidekick Sky Blue Link/Accent
+internal val HudBlueBadge = Color(0xFF0B57D0)       // Sidekick Top Pill Cobalt Blue
 internal val HudOrange = Color(0xFFFBBF24)
 internal val HudRed = Color(0xFFF87171)
 internal val HudPurple = Color(0xFFC084FC)
-internal val HudBackground = Color(0xCC0D0F13) // 80% Translucent Obsidian Drawer
-internal val HudCard = Color(0xD91B1E24) // 85% Translucent Matte Bento Card
-internal val HudElevated = Color(0xE6252932) // 90% Elevated Pill Surface
-internal val HudHandleSurface = Color(0x6612151B) // 40% Frosted Edge Handle Tab
-internal val HudBorder = Color(0x14FFFFFF) // Ultra-subtle 8% divider hairline
+internal val HudBackground = Color(0xEE0D0F14)      // 93% Deep Obsidian Drawer (prevents background text bleed-through)
+internal val HudCard = Color(0xF51A1E26)            // 96% Matte Bento Card Surface
+internal val HudElevated = Color(0xFF252A34)        // Elevated Pill Surface
+internal val HudHandleSurface = Color(0x6612151B)   // 40% Frosted Edge Handle Tab
+internal val HudBorder = Color(0x18FFFFFF)          // Subtle 9% divider hairline
 internal val HudAccentBorder = Color(0x338AB4F8)
-internal val HudMuted = Color(0xFF9AA0A6) // Material 3 Neutral Slate
+internal val HudMuted = Color(0xFF9AA0A6)           // Material 3 Neutral Slate
 
 @Composable
 internal fun hudString(@StringRes id: Int, vararg args: Any): String =

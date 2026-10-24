@@ -2,7 +2,6 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,29 +23,7 @@ internal fun HudTools(
     onStop: () -> Unit,
     onBoostRam: () -> Unit
 ) {
-    var configure by rememberSaveable { mutableStateOf(false) }
-
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        HudSection(hudString(R.string.hud_quick_actions)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                HudAction(
-                    label = hudString(R.string.hud_capture_short),
-                    enabled = !action.busy,
-                    onClick = onCapture,
-                    modifier = Modifier.weight(1f)
-                )
-                HudAction(
-                    label = hudString(R.string.hud_boost_ram),
-                    enabled = !action.busy,
-                    onClick = onBoostRam,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
         HudExpandableSection(
             title = hudString(R.string.hud_refresh),
             detail = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
@@ -85,27 +62,20 @@ internal fun HudTools(
             }
         }
 
-        HudSection(hudString(R.string.hud_mini_title)) {
-            HudPreferenceToggle(
-                label = hudString(R.string.hud_pin),
-                checked = prefs.pinned,
-                onCheckedChange = store::pin
-            )
-            HudDisclosure(
-                label = hudString(R.string.hud_configure),
-                expanded = configure,
-                onClick = { configure = !configure }
-            )
-            if (configure) {
-                HudMetricSelection(prefs, store, showPin = false)
-            }
+        HudExpandableSection(
+            title = hudString(R.string.hud_mini_title),
+            detail = hudString(R.string.hud_selected_count, prefs.selected.size),
+            initiallyOpen = false
+        ) {
+            HudMetricSelection(prefs, store, showPin = false)
         }
 
         HudExpandableSection(
             title = hudString(R.string.hud_floating_short),
             detail = hudString(
                 if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
-            )
+            ),
+            initiallyOpen = false
         ) {
             HudFloatingSettings(prefs, store)
         }
@@ -113,7 +83,8 @@ internal fun HudTools(
         HudAction(
             label = hudString(R.string.hud_stop),
             onClick = onStop,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            isDanger = true
         )
     }
 }
