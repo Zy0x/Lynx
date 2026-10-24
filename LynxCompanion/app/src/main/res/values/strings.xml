@@ -2072,7 +2072,7 @@
     <string name="hud_style_ghost">Ghost</string>
     <string name="hud_expanded">Diperluas</string>
     <string name="hud_collapsed">Diciutkan</string>
-    <string name="hud_capture_short">Tangkap layar</string>
+    <string name="hud_capture_short">Screenshot</string>
     <string name="hud_applying">Menerapkan profil…</string>
     <string name="hud_group_frame">Frame dan display</string>
     <string name="hud_group_processor">CPU dan GPU</string>
@@ -2084,7 +2084,7 @@
     <string name="hud_actual_hz">Hz aktual</string>
     <string name="hud_mini_title">Mini HUD</string>
     <string name="hud_session">Sesi HUD</string>
-    <string name="hud_boost_ram">Lepas cache</string>
+    <string name="hud_boost_ram">Bersih RAM</string>
     <string name="hud_boost_ram_sub">Permintaan kernel</string>
     <string name="hud_tools_full">Alat Lengkap</string>
     <string name="hud_tools_full_sub">Pengaturan OSD</string>

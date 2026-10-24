@@ -1,11 +1,7 @@
 package com.noir.lynx.feature.floating.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -20,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
@@ -47,33 +42,22 @@ fun FloatingWindowFrame(
     if (!state.isOpen) return
 
     if (state.isMinimized) {
-        // Minimized floating orb
         FloatingMinimizedBubble(
             tool = state.activeTool,
             onTap = onRestore,
             onDrag = onDrag
         )
     } else {
-        // Full Standalone Floating Window Frame
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF0C1017).copy(alpha = state.alpha),
-            border = BorderStroke(
-                1.dp,
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF00E5FF).copy(alpha = 0.7f),
-                        Color(0xFF1E293B).copy(alpha = 0.5f),
-                        Color(0xFF00E5FF).copy(alpha = 0.3f)
-                    )
-                )
-            ),
+            shape = RoundedCornerShape(22.dp),
+            color = Color(0xF211141B).copy(alpha = state.alpha),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+            shadowElevation = 12.dp,
             modifier = modifier
                 .size(state.widthDp.dp, state.heightDp.dp)
                 .alpha(state.alpha)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Window Header Bar with Drag Handle and Action Controls
                 FloatingWindowHeader(
                     state = state,
                     onDrag = onDrag,
@@ -84,7 +68,6 @@ fun FloatingWindowFrame(
                     onClose = onClose
                 )
 
-                // Window Content Area
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -97,7 +80,6 @@ fun FloatingWindowFrame(
                         FloatingToolType.TIMERS -> FloatingTimersTool()
                     }
 
-                    // Bottom-Right Corner Resize Grip Handle
                     FloatingResizeHandle(onResize = onResize)
                 }
             }
@@ -118,9 +100,23 @@ private fun FloatingWindowHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF141C29).copy(alpha = 0.95f))
+            .background(Color(0xF5171A22))
     ) {
-        // Top drag title bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(30.dp)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.25f))
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -130,38 +126,43 @@ private fun FloatingWindowHeader(
                         onDrag(dragAmount.x, dragAmount.y)
                     }
                 }
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Drag handle with tool title
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(state.activeTool.iconLabel, fontSize = 14.sp)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(Color(0xFF252A36)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(state.activeTool.iconLabel, fontSize = 13.sp)
+                }
                 Column {
                     Text(
                         text = state.activeTool.title,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFF1F3F4)
                     )
                     Text(
                         text = "Lynx Floating Studio",
-                        fontSize = 8.5.sp,
-                        color = Color(0xFF00E5FF).copy(alpha = 0.8f),
-                        fontWeight = FontWeight.SemiBold
+                        fontSize = 9.sp,
+                        color = Color(0xFF8AB4F8),
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            // Window Controls: Opacity, Preset Size, Minimize, Close
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Opacity pill
                 val opacityLabel = when {
                     state.alpha >= 0.9f -> "100%"
                     state.alpha >= 0.75f -> "80%"
@@ -170,104 +171,98 @@ private fun FloatingWindowHeader(
                 }
                 Surface(
                     onClick = onCycleOpacity,
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF1E2838),
-                    modifier = Modifier.height(22.dp)
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF0B57D0),
+                    modifier = Modifier.height(24.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 5.dp)) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text(
                             text = opacityLabel,
-                            fontSize = 8.5.sp,
+                            fontSize = 9.5.sp,
                             fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF00E5FF)
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
                         )
                     }
                 }
 
-                // Preset size button
                 Surface(
                     onClick = onCyclePresetSize,
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF1E2838),
-                    modifier = Modifier.size(22.dp)
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.09f),
+                    modifier = Modifier.size(26.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.AspectRatio,
                             contentDescription = "Resize Preset",
-                            tint = Color(0xFF00E5FF),
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
-                }
-
-                // Minimize
-                Surface(
-                    onClick = onMinimize,
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF1E2838),
-                    modifier = Modifier.size(22.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Remove,
-                            contentDescription = "Minimize",
-                            tint = Color(0xFFCBD5E1),
+                            tint = Color(0xFFE8EAED),
                             modifier = Modifier.size(13.dp)
                         )
                     }
                 }
 
-                // Close
+                Surface(
+                    onClick = onMinimize,
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.09f),
+                    modifier = Modifier.size(26.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Remove,
+                            contentDescription = "Minimize",
+                            tint = Color(0xFFE8EAED),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
                 Surface(
                     onClick = onClose,
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF2B1818),
-                    border = BorderStroke(0.6.dp, Color(0xFF4C2222)),
-                    modifier = Modifier.size(22.dp)
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.09f),
+                    modifier = Modifier.size(26.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color(0xFFFF5252),
-                            modifier = Modifier.size(12.dp)
+                            tint = Color(0xFFE8EAED),
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
             }
         }
 
-        // Secondary strip: Quick tool tabs
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             FloatingToolType.values().forEach { tool ->
                 val isSelected = state.activeTool == tool
                 Surface(
                     onClick = { onSelectTool(tool) },
-                    shape = RoundedCornerShape(5.dp),
-                    color = if (isSelected) Color(0xFF00E5FF).copy(alpha = 0.2f) else Color.Transparent,
-                    border = BorderStroke(0.5.dp, if (isSelected) Color(0xFF00E5FF) else Color(0xFF223147)),
-                    modifier = Modifier.height(20.dp)
+                    shape = RoundedCornerShape(50),
+                    color = if (isSelected) Color(0xFF0B57D0) else Color(0xFF252A36),
+                    modifier = Modifier.height(24.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 6.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(tool.iconLabel, fontSize = 9.sp)
+                        Text(tool.iconLabel, fontSize = 9.5.sp)
                         Text(
                             text = tool.title.substringBefore(" &"),
-                            fontSize = 8.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Color(0xFF00E5FF) else Color(0xFF8899AC)
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isSelected) Color.White else Color(0xFFC4C7C5)
                         )
                     }
                 }
@@ -281,9 +276,8 @@ private fun BoxScope.FloatingResizeHandle(
     onResize: (Float, Float) -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(topStart = 8.dp),
-        color = Color(0xFF141C29).copy(alpha = 0.9f),
-        border = BorderStroke(0.6.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(topStart = 12.dp),
+        color = Color(0xFF252A36).copy(alpha = 0.85f),
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .size(28.dp)
@@ -296,9 +290,9 @@ private fun BoxScope.FloatingResizeHandle(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Default.FilterFrames,
+                imageVector = Icons.Default.OpenInFull,
                 contentDescription = "Resize Handle",
-                tint = Color(0xFF00E5FF),
+                tint = Color(0xFFC4C7C5),
                 modifier = Modifier.size(13.dp)
             )
         }
@@ -314,11 +308,11 @@ private fun FloatingMinimizedBubble(
     Surface(
         onClick = onTap,
         shape = CircleShape,
-        color = Color(0xFF0D141F),
-        border = BorderStroke(1.2.dp, Color(0xFF00E5FF)),
-        shadowElevation = 8.dp,
+        color = Color(0xF51B1E26),
+        border = BorderStroke(1.dp, Color(0x338AB4F8)),
+        shadowElevation = 10.dp,
         modifier = Modifier
-            .size(52.dp)
+            .size(54.dp)
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()

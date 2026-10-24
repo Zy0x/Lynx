@@ -3,16 +3,23 @@ package com.noir.lynx.freeform
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.*
 
-/** Compact single-row chrome. Extra actions stay in the bounded in-panel menu. */
-internal class FloatingWindowChrome(private val context: Context, label: String, appIcon: Drawable?, private val appearance: FreeformAppearance) {
+/** Material 3 compact single-row chrome. Extra actions live in the Material 3 menu sheet. */
+internal class FloatingWindowChrome(
+    private val context: Context,
+    label: String,
+    appIcon: Drawable?,
+    private val appearance: FreeformAppearance
+) {
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Int) = kotlin.math.ceil(v * density.toDouble()).toInt()
     private val headerHeight = dp(FloatingChromePolicy.headerHeight(context.resources.configuration.fontScale, appearance.titleSizeSp))
@@ -22,45 +29,95 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
     val root = FrameLayout(context)
     val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     val title = TextView(context).apply {
-        text = label; textSize = appearance.titleSizeSp; setTextColor(Color.WHITE)
-        maxLines = 1; ellipsize = TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL
+        text = label
+        textSize = appearance.titleSizeSp
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setTextColor(0xFFF1F3F4.toInt())
+        maxLines = 1
+        ellipsize = TextUtils.TruncateAt.END
+        gravity = Gravity.CENTER_VERTICAL
     }
     val dragHandle: View = title
     val texture = android.view.TextureView(context)
     private var state: CharSequence = context.getString(R.string.lynx_freeform_state_starting)
     private val progress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
-        isIndeterminate = true; indeterminateTintList = ColorStateList.valueOf(appearance.accentColor)
+        isIndeterminate = true
+        indeterminateTintList = ColorStateList.valueOf(appearance.accentColor)
     }
     val bubble = FrameLayout(context).apply {
-        visibility = View.GONE; contentDescription = label; background = panel(dp(28).toFloat())
-        addView(ImageView(context).apply { setImageDrawable(appIcon) }, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER))
+        visibility = View.GONE
+        contentDescription = label
+        elevation = dp(10).toFloat()
+        background = GradientDrawable().apply {
+            setColor(0xF51B1E26.toInt())
+            cornerRadius = dp(28).toFloat()
+            setStroke(dp(1).coerceAtLeast(1), 0x338AB4F8)
+        }
+        addView(
+            ImageView(context).apply { setImageDrawable(appIcon) },
+            FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER)
+        )
     }
     val minimize = button(context, FloatingGlyph.MINIMIZE, R.string.lynx_freeform_minimize)
     val close = button(context, FloatingGlyph.CLOSE, R.string.lynx_freeform_close)
     val back = button(context, FloatingGlyph.BACK, R.string.lynx_freeform_back)
     val rotate = button(context, FloatingGlyph.ROTATE, R.string.lynx_freeform_rotate)
     val maximize = button(context, FloatingGlyph.MAXIMIZE, R.string.lynx_freeform_maximize)
-    val resize = button(context, FloatingGlyph.RESIZE, R.string.lynx_freeform_resize)
+    val resize = button(context, FloatingGlyph.RESIZE, R.string.lynx_freeform_resize, circularPill = false)
     private val more = button(context, FloatingGlyph.MORE, R.string.lynx_freeform_window_actions)
-    private val footer = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
+    private val footer = LinearLayout(context).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        setBackgroundColor(0xF5171A22.toInt())
+    }
     private var menu: FloatingActionMenu? = null
     private val hideResizeHint = Runnable {
-        resize.animate().alpha(.18f).setDuration(200).start()
+        resize.animate().alpha(.28f).setDuration(200).start()
     }
 
     init {
-        root.background = panel(dp(appearance.cornerRadiusDp).toFloat()); root.clipToOutline = true
-        root.elevation = dp(4).toFloat()
+        root.background = panel(dp(appearance.cornerRadiusDp).toFloat())
+        root.clipToOutline = true
+        root.elevation = dp(12).toFloat()
         root.addView(column, FrameLayout.LayoutParams(-1, -1))
-        val header = LinearLayout(context).apply {
-            gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), 0, 0, 0)
-            addView(ImageView(context).apply { setImageDrawable(appIcon); setPadding(dp(4), dp(4), dp(4), dp(4)) },
-                LinearLayout.LayoutParams(dp(32), dp(32)))
-            addView(title, LinearLayout.LayoutParams(0, -1, 1f))
-            addView(more, LinearLayout.LayoutParams(dp(48), dp(48)))
-            addView(close, LinearLayout.LayoutParams(dp(48), dp(48)))
+
+        val headerContainer = FrameLayout(context).apply {
+            setBackgroundColor(0xF5171A22.toInt())
         }
-        column.addView(header, LinearLayout.LayoutParams(-1, headerHeight))
+        // Subtle Android 14/15 Material 3 top center window handle pill
+        val topHandlePill = View(context).apply {
+            background = GradientDrawable().apply {
+                setColor(0x40FFFFFF)
+                cornerRadius = dp(4).toFloat()
+            }
+        }
+        headerContainer.addView(
+            topHandlePill,
+            FrameLayout.LayoutParams(dp(30), dp(3).coerceAtLeast(2), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                topMargin = dp(4)
+            }
+        )
+
+        val header = LinearLayout(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), 0, dp(4), 0)
+            val iconHolder = FrameLayout(context).apply {
+                background = GradientDrawable().apply {
+                    setColor(0xFF252A36.toInt())
+                    cornerRadius = dp(9).toFloat()
+                }
+                addView(
+                    ImageView(context).apply { setImageDrawable(appIcon) },
+                    FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
+                )
+            }
+            addView(iconHolder, LinearLayout.LayoutParams(dp(30), dp(30)).apply { rightMargin = dp(10) })
+            addView(title, LinearLayout.LayoutParams(0, -1, 1f))
+            addView(more, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }
+        headerContainer.addView(header, FrameLayout.LayoutParams(-1, -1))
+
+        column.addView(headerContainer, LinearLayout.LayoutParams(-1, headerHeight))
         column.addView(texture, LinearLayout.LayoutParams(-1, 0, 1f))
         footer.addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
         footer.addView(rotate, LinearLayout.LayoutParams(dp(48), dp(48)))
@@ -81,10 +138,8 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
 
     private fun placeResizeHandle() {
         footer.visibility = if (toolbarShown) View.VISIBLE else View.GONE
-        // Reserve the physical corner in both LTR and RTL toolbar layouts.
-        footer.setPadding(0, 0, dp(48), 0)
-        resize.setPadding(dp(24), dp(24), dp(8), dp(8))
-        // Keep the small glyph near the physical bottom-right corner, also in RTL layouts.
+        footer.setPadding(dp(4), 0, dp(48), 0)
+        resize.setPadding(dp(22), dp(22), dp(8), dp(8))
         resize.visibility = if (minimized) View.GONE else View.VISIBLE
         resize.bringToFront()
         bubble.bringToFront()
@@ -93,15 +148,28 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
     private fun toggleMenu() {
         if (menu != null) { dismissMenu(); return }
         placeResizeHandle()
-        fun action(id: Int, view: View) = context.getString(id) to { if (view.isEnabled) view.performClick(); Unit }
-        menu = FloatingActionMenu(root, headerHeight, appearance, state, listOf(
-            action(R.string.lynx_freeform_back, back), action(R.string.lynx_freeform_minimize, minimize),
-            action(R.string.lynx_freeform_maximize, maximize), action(R.string.lynx_freeform_rotate, rotate),
-            context.getString(R.string.lynx_freeform_resize) to { showResizeHint() },
-            context.getString(if (toolbarShown) R.string.lynx_freeform_hide_toolbar else R.string.lynx_freeform_show_toolbar) to {
-                toolbarShown = !toolbarShown; placeResizeHandle()
-            }
-        )) { menu = null }
+        fun action(glyph: FloatingGlyph, id: Int, view: View) =
+            Triple(glyph, context.getString(id)) { if (view.isEnabled) view.performClick(); Unit }
+        menu = FloatingActionMenu(
+            root = root,
+            top = headerHeight,
+            appearance = appearance,
+            status = state,
+            actions = listOf(
+                action(FloatingGlyph.BACK, R.string.lynx_freeform_back, back),
+                action(FloatingGlyph.MINIMIZE, R.string.lynx_freeform_minimize, minimize),
+                action(FloatingGlyph.MAXIMIZE, R.string.lynx_freeform_maximize, maximize),
+                action(FloatingGlyph.ROTATE, R.string.lynx_freeform_rotate, rotate),
+                Triple(FloatingGlyph.RESIZE, context.getString(R.string.lynx_freeform_resize)) { showResizeHint() },
+                Triple(
+                    FloatingGlyph.TOOLBAR,
+                    context.getString(if (toolbarShown) R.string.lynx_freeform_hide_toolbar else R.string.lynx_freeform_show_toolbar)
+                ) {
+                    toolbarShown = !toolbarShown
+                    placeResizeHandle()
+                }
+            )
+        ) { menu = null }
     }
 
     fun dismissMenu() { menu?.close(); menu = null }
@@ -124,15 +192,44 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
         if (value) root.removeCallbacks(hideResizeHint) else showResizeHint()
         progress.visibility = if (value) View.GONE else progress.visibility
     }
+
     private fun panel(radius: Float) = GradientDrawable().apply {
-        setColor(appearance.surfaceColor); cornerRadius = radius
-        setStroke(dp(1).coerceAtLeast(1), Color.argb(65, Color.red(appearance.accentColor), Color.green(appearance.accentColor), Color.blue(appearance.accentColor)))
+        setColor(appearance.surfaceColor)
+        cornerRadius = radius
+        setStroke(dp(1).coerceAtLeast(1), 0x1FFFFFFF)
     }
-    private fun button(context: Context, glyph: FloatingGlyph, description: Int) = ImageView(context).apply {
-        setImageDrawable(FloatingLineIcon(glyph, appearance.accentColor)); scaleType = ImageView.ScaleType.FIT_CENTER
-        setPadding(dp(14), dp(14), dp(14), dp(14))
-        contentDescription = context.getString(description); tooltipText = contentDescription
-        isClickable = true; isFocusable = true
-        background = RippleDrawable(ColorStateList.valueOf(0x3359e0d6), null, panel(dp(10).toFloat()))
+
+    private fun button(
+        context: Context,
+        glyph: FloatingGlyph,
+        description: Int,
+        circularPill: Boolean = true
+    ) = ImageView(context).apply {
+        val iconColor = if (glyph == FloatingGlyph.RESIZE) 0xFFC4C7C5.toInt() else 0xFFE8EAED.toInt()
+        setImageDrawable(FloatingLineIcon(glyph, iconColor))
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setPadding(dp(13), dp(13), dp(13), dp(13))
+        contentDescription = context.getString(description)
+        tooltipText = contentDescription
+        isClickable = true
+        isFocusable = true
+        background = if (circularPill) {
+            val circle = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x16FFFFFF)
+            }
+            val mask = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.WHITE)
+            }
+            val inset = dp(7)
+            RippleDrawable(
+                ColorStateList.valueOf(0x338AB4F8),
+                InsetDrawable(circle, inset, inset, inset, inset),
+                InsetDrawable(mask, inset, inset, inset, inset)
+            )
+        } else {
+            null
+        }
     }
 }

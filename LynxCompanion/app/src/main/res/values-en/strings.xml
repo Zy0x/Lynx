@@ -2073,7 +2073,7 @@
     <string name="floating_engine_rom">ROM freeform</string>
     <string name="floating_engine_rom_desc">Requires system freeform support or installed LMO.</string>
     <string name="floating_engine_note">Lynx Virtual uses root without changing global freeform settings. LSPosed is not a prerequisite; systems blocking display or input are reported as unsupported.</string>
-    <string name="hud_boost_ram">Release cache</string>
+    <string name="hud_boost_ram">Boost RAM</string>
     <string name="hud_boost_ram_sub">Kernel request</string>
     <string name="hud_capture_sub">Save a screenshot</string>
     <string name="hud_floating_compact">Compact</string>

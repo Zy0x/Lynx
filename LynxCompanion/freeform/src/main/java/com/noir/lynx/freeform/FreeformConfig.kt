@@ -10,9 +10,9 @@ data class FreeformConfig(
 }
 
 data class FreeformAppearance(
-    val accentColor: Int = 0xff59e0d6.toInt(),
-    val surfaceColor: Int = 0xff0a0f14.toInt(),
-    val cornerRadiusDp: Int = 12,
+    val accentColor: Int = 0xff8ab4f8.toInt(),
+    val surfaceColor: Int = 0xf211141b.toInt(),
+    val cornerRadiusDp: Int = 22,
     val titleSizeSp: Float = 12f,
     val showToolbar: Boolean = false
 ) {

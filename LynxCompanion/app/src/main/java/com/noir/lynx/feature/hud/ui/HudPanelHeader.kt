@@ -136,7 +136,7 @@ internal fun HudPanelHeader(
     }
 }
 
-/** Google Play Games Sidekick 4-tile quick action bar. */
+/** Google Play Games Sidekick 4-tile quick action bar with clear small labels. */
 @Composable
 internal fun HudQuickTileRow(
     pinned: Boolean,
@@ -156,10 +156,10 @@ internal fun HudQuickTileRow(
         val tiles = listOf(
             Triple(Icons.Default.Screenshot, hudString(R.string.hud_capture_short), onCapture),
             Triple(Icons.Default.CleaningServices, hudString(R.string.hud_boost_ram), onBoostRam),
-            Triple(Icons.Default.Speed, hudString(R.string.hud_pin), onTogglePin),
+            Triple(Icons.Default.Speed, hudString(R.string.hud_mini_title), onTogglePin),
             Triple(Icons.Default.Tune, hudString(R.string.hud_tools), onOpenTools)
         )
-        tiles.forEachIndexed { index, (icon, desc, action) ->
+        tiles.forEachIndexed { index, (icon, label, action) ->
             val highlighted = index == 2 && pinned
             Surface(
                 onClick = action,
@@ -168,14 +168,28 @@ internal fun HudQuickTileRow(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .heightIn(min = 54.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 7.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
+                ) {
                     Icon(
                         imageVector = icon,
-                        contentDescription = desc,
+                        contentDescription = label,
                         tint = if (highlighted) Color.White else Color(0xFFE8EAED),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = label,
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (highlighted) Color.White else Color(0xFFC4C7C5),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -200,37 +214,63 @@ internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp
             verticalAlignment = Alignment.CenterVertically
         ) {
             apps.forEach { app ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.width(48.dp)
+                ) {
+                    Surface(
+                        onClick = { onApp(app) },
+                        color = HudCard,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Image(
+                                bitmap = app.icon.asImageBitmap(),
+                                contentDescription = app.label,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                            )
+                        }
+                    }
+                    Text(
+                        text = app.label,
+                        fontSize = 9.sp,
+                        color = Color(0xFFC4C7C5),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.width(48.dp)
+            ) {
                 Surface(
-                    onClick = { onApp(app) },
+                    onClick = onManage,
                     color = HudCard,
                     shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Image(
-                            bitmap = app.icon.asImageBitmap(),
-                            contentDescription = app.label,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = hudString(R.string.hud_apps_manage),
+                            modifier = Modifier.size(18.dp),
+                            tint = Color(0xFFE8EAED)
                         )
                     }
                 }
-            }
-            Surface(
-                onClick = onManage,
-                color = HudCard,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.size(38.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = hudString(R.string.hud_apps_manage),
-                        modifier = Modifier.size(18.dp),
-                        tint = Color(0xFFE8EAED)
-                    )
-                }
+                Text(
+                    text = hudString(R.string.hud_apps),
+                    fontSize = 9.sp,
+                    color = Color(0xFFC4C7C5),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

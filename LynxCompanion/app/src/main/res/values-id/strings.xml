@@ -2072,7 +2072,7 @@
     <string name="hud_style_ghost">Ghost</string>
     <string name="hud_expanded">Diperluas</string>
     <string name="hud_collapsed">Diciutkan</string>
-    <string name="hud_capture_short">Tangkap layar</string>
+    <string name="hud_capture_short">Screenshot</string>
     <string name="hud_applying">Menerapkan profil…</string>
     <string name="hud_group_frame">Frame dan display</string>
     <string name="hud_group_processor">CPU dan GPU</string>
@@ -2097,7 +2097,7 @@
     <string name="floating_engine_rom">Freeform ROM</string>
     <string name="floating_engine_rom_desc">Memerlukan dukungan freeform dari sistem atau LMO terpasang.</string>
     <string name="floating_engine_note">Lynx Virtual memakai root tanpa mengubah setelan freeform global. LSPosed bukan prasyarat; sistem yang memblokir display atau input dilaporkan sebagai tidak didukung.</string>
-    <string name="hud_boost_ram">Lepas cache</string>
+    <string name="hud_boost_ram">Bersih RAM</string>
     <string name="hud_boost_ram_sub">Permintaan kernel</string>
     <string name="hud_capture_sub">Ambil layar</string>
     <string name="hud_floating_compact">Kompak</string>
