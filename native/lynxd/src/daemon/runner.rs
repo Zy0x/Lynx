@@ -224,6 +224,11 @@ impl DaemonRunner {
             // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick
             crate::subsystems::AdbController::tick();
 
+            // Autonomous VMA Shield Watchdog tick (Monitors system_server VMA every ~60 cycles)
+            if daemon_state.cycle_count % 60 == 0 {
+                crate::subsystems::MemoryController::check_vma_health();
+            }
+
             // Native Daily Maintenance Scheduler (replaces legacy crond & core/cron/root)
             if current_screen == ScreenState::Off && now.saturating_sub(last_maintenance_ts) >= 86400 {
                 Logger::info(ui("[DAEMON] Menjalankan pemeliharaan penyimpanan dan memori terjadwal 24 jam...", "[DAEMON] Executing scheduled 24h storage and memory maintenance..."));

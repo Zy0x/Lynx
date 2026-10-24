@@ -276,4 +276,39 @@ impl MemoryController {
             }),
         }
     }
+
+    /// Autonomous VMA Watchdog: Monitors system_server VMA mapping count.
+    /// If mappings exceed safe limits (> 40,000 VMAs), triggers gentle memory compaction
+    /// to defragment virtual memory areas and reclaim secondary allocations.
+    pub fn check_vma_health() {
+        let pid_str = match std::fs::read_to_string("/dev/lynx_system_server_pid") {
+            Ok(p) => p.trim().to_string(),
+            Err(_) => {
+                if let Ok(out) = Command::new("pidof").arg("system_server").output() {
+                    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if let Some(first_pid) = s.split_whitespace().next() {
+                        let _ = std::fs::write("/dev/lynx_system_server_pid", first_pid);
+                        first_pid.to_string()
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
+        };
+
+        let maps_path = format!("/proc/{}/maps", pid_str);
+        if let Ok(file) = std::fs::File::open(&maps_path) {
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(file);
+            let vma_count = reader.lines().count();
+
+            if vma_count >= 40000 {
+                Self::write_opt("/proc/sys/vm/compact_memory", "1");
+            }
+        } else {
+            let _ = std::fs::remove_file("/dev/lynx_system_server_pid");
+        }
+    }
 }
