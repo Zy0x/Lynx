@@ -86,8 +86,17 @@ object LynxSystemControlRepository {
                     echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
                 fi
                 if [ -f /proc/net/wlan/dbgLevel ]; then
-                    echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
+                    echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
                 fi
+                if [ -f /proc/net/wlan/cfg ]; then
+                    for kv in "PowerSave 0" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
+                        echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                    done
+                fi
+                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread/ {print ${'$'}1}'); do
+                    renice -n -20 -p "${'$'}t" 2>/dev/null
+                    chrt -f -p 50 "${'$'}t" 2>/dev/null || true
+                done
 
                 # Qualcomm Snapdragon WCNSS / QCACLD Low-Latency STA Hooks
                 if [ -d /sys/module/wlan/parameters ]; then
@@ -364,8 +373,17 @@ object LynxSystemControlRepository {
                     echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
                 fi
                 if [ -f /proc/net/wlan/dbgLevel ]; then
-                    echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
+                    echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
                 fi
+                if [ -f /proc/net/wlan/cfg ]; then
+                    for kv in "PowerSave 0" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
+                        echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                    done
+                fi
+                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread/ {print ${'$'}1}'); do
+                    renice -n -20 -p "${'$'}t" 2>/dev/null
+                    chrt -f -p 50 "${'$'}t" 2>/dev/null || true
+                done
 
                 # 2. Qualcomm Snapdragon WCNSS / QCACLD Direct Hooks
                 if [ -d /sys/module/wlan/parameters ]; then

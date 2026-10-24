@@ -58,6 +58,10 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/core/wmem_max", "16777216");
         Self::write_opt("/proc/sys/net/core/rmem_default", "262144");
         Self::write_opt("/proc/sys/net/core/wmem_default", "262144");
+        Self::write_opt("/proc/sys/net/core/netdev_max_backlog", "16384");
+        Self::write_opt("/proc/sys/net/core/netdev_budget", "600");
+        Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "8000");
+        Self::write_opt("/proc/sys/net/core/rps_sock_flow_entries", "32768");
         Self::write_opt("/proc/sys/net/ipv4/tcp_rmem", "4096 87380 16777216");
         Self::write_opt("/proc/sys/net/ipv4/tcp_wmem", "4096 65536 16777216");
         Self::write_opt("/proc/sys/net/ipv4/tcp_ecn", "1");
@@ -65,6 +69,24 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/ipv4/tcp_timestamps", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_tw_reuse", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_fin_timeout", "15");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_slow_start_after_idle", "0");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_mtu_probing", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "16384");
+
+        // Silence MediaTek Gen4m per-packet INFO printk spinlock overhead
+        Self::write_opt("/proc/net/wlan/dbgLevel", "0xff:0x03");
+        if Path::new("/proc/net/wlan/cfg").exists() {
+            for entry in &[
+                "Sta2gBw 1",
+                "TxopPsTx 0",
+                "VhtAmsduInAmpduTx 1",
+                "HtAmsduInAmpduTx 1",
+                "VhtAmsduInAmpduRx 1",
+                "HtAmsduInAmpduRx 1",
+            ] {
+                Self::write_opt("/proc/net/wlan/cfg", entry);
+            }
+        }
 
         format!("Universal network stack optimized (TCP Congestion: {}).", net.best_tcp_algo)
     }
@@ -78,9 +100,29 @@ impl NetworkController {
         for node in &[
             "/sys/module/wlan/parameters/power_save",
             "/sys/module/bcmdhd/parameters/op_mode",
-            "/sys/class/net/wlan0/queues/rx-0/rps_cpus",
         ] {
             Self::write_opt(node, "0");
+        }
+
+        // Enable multi-core Receive/Transmit Packet Steering (RPS/XPS) on wlan0
+        for q in 0..4 {
+            Self::write_opt(format!("/sys/class/net/wlan0/queues/rx-{}/rps_cpus", q), "ff");
+            Self::write_opt(format!("/sys/class/net/wlan0/queues/rx-{}/rps_flow_cnt", q), "4096");
+            Self::write_opt(format!("/sys/class/net/wlan0/queues/tx-{}/xps_cpus", q), "ff");
+        }
+
+        // MediaTek Gen4m Hardware CAM, Performance Monitor & Zero-Sleep Driver Config
+        Self::write_opt("/proc/net/wlan/autoPerfCfg", "ForceEnable:1");
+        Self::write_opt("/proc/net/wlan/setCAM", "1");
+        if Path::new("/proc/net/wlan/cfg").exists() {
+            for entry in &[
+                "PowerSave 0",
+                "AdvPws 0",
+                "DisOnlineScan 1",
+                "ThreadSched 1",
+            ] {
+                Self::write_opt("/proc/net/wlan/cfg", entry);
+            }
         }
 
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "1");
