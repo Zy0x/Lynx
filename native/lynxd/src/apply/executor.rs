@@ -240,13 +240,26 @@ impl ProfileExecutor {
         let _ = fs::create_dir_all("/data/adb/lynx");
         let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
 
-        // ── Phase 7 & 8: Asynchronous Post-Commit Persistence & Verification (Zero-Latency Fast Path) ──
+        // ── Phase 7 & 8: Post-Commit Persistence & Verification ──
         let prof_name_p8 = plan.profile_name.clone();
         let vendor_str_p8 = vendor_str.clone();
         let plan_profile_name = plan.profile_name.clone();
         let plan_base_profile = plan.base_profile;
         let plan_ops = plan.operations.clone();
         let elapsed = start.elapsed().as_micros();
+
+        if let Err(e) = ProfileStateManager::record_post_commit(&prof_name_p8, &vendor_str_p8) {
+            Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
+        }
+
+        let desc = match plan_base_profile {
+            "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",
+            "performance" => "[ Performance Mode Active ] Deity Hybrid Architecture",
+            "powersave" => "[ Powersave Mode Active ] Deity Hybrid Architecture",
+            "balanced" | "balance" => "[ Balance Mode Active ] Deity Hybrid Architecture",
+            _ => "[ Active Profile ] Deity Hybrid Architecture",
+        };
+        crate::utils::update_module_prop_description(desc);
 
         std::thread::spawn(move || {
             let mut verify_mismatches = 0;
@@ -267,19 +280,6 @@ impl ProfileExecutor {
                     }
                 }
             }
-
-            if let Err(e) = ProfileStateManager::record_post_commit(&prof_name_p8, &vendor_str_p8) {
-                Logger::warn(if is_english() { format!("Failed to record post-commit state: {}", e) } else { format!("Gagal merekam status setelah commit: {}", e) });
-            }
-
-            let desc = match plan_base_profile {
-                "extreme" => "[ Extreme Mode Active ] Deity Hybrid Architecture",
-                "performance" => "[ Performance Mode Active ] Deity Hybrid Architecture",
-                "powersave" => "[ Powersave Mode Active ] Deity Hybrid Architecture",
-                "balanced" | "balance" => "[ Balance Mode Active ] Deity Hybrid Architecture",
-                _ => "[ Active Profile ] Deity Hybrid Architecture",
-            };
-            crate::utils::update_module_prop_description(desc);
 
             if verify_mismatches == 0 {
                 Logger::info(if is_english() {
