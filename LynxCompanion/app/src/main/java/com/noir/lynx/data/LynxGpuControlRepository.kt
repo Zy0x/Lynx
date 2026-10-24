@@ -597,8 +597,7 @@ internal object LynxGpuControlRepository {
             val r1 = Shell.cmd("setprop ro.hwui.texture_cache_size $validMb").exec().isSuccess
             val r2 = Shell.cmd("setprop ro.hwui.layer_cache_size ${(validMb * 0.75).toInt()}").exec().isSuccess
             val r3 = Shell.cmd("setprop ro.hwui.path_cache_size ${(validMb * 0.5).toInt()}").exec().isSuccess
-            // Runtime override via system_server props (affects running processes after restart)
-            Shell.cmd("service call SurfaceFlinger 1037 2>/dev/null").exec()
+            // Runtime properties for HWUI caching
             r1 || r2 || r3
         } catch (e: Exception) { false }
     }
