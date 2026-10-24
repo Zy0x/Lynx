@@ -487,6 +487,10 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setSkipSaveRestore(false)
                     QualcommAdrenoSiliconExt.setWakeNice(0)
                     setAsyncShaderPipeline(false)
+                    setTextureCacheSize(48)
+                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(64)
+                    LynxGraphicsEngineRepository.setShaderCompilerThreads(0)
+                    setPureHwVsync(false)
                 }
                 "balanced" -> {
                     setGpuFreq(minAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -510,6 +514,10 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setSkipSaveRestore(false)
                     QualcommAdrenoSiliconExt.setWakeNice(0)
                     setAsyncShaderPipeline(false)
+                    setTextureCacheSize(72)
+                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(128)
+                    LynxGraphicsEngineRepository.setShaderCompilerThreads(0)
+                    setPureHwVsync(false)
                 }
                 "esports" -> {
                     val floor = freqs.filter { it >= (maxAvail * 0.65).toInt() }.firstOrNull() ?: minAvail
@@ -537,6 +545,10 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setWakeNice(-10)
                     QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
                     setAsyncShaderPipeline(true)
+                    setTextureCacheSize(96)
+                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(256)
+                    LynxGraphicsEngineRepository.setShaderCompilerThreads(4)
+                    setPureHwVsync(true)
                 }
                 "extreme" -> {
                     setGpuFreq(maxAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -564,6 +576,10 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setWakeNice(-20)
                     QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
                     setAsyncShaderPipeline(true)
+                    setTextureCacheSize(128)
+                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(512)
+                    LynxGraphicsEngineRepository.setShaderCompilerThreads(4)
+                    setPureHwVsync(true)
                 }
             }
             true

@@ -366,6 +366,21 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
     }
     val targetThermalBypass = profile == "extreme"
     val isGaming = profile == "esports" || profile == "extreme"
+    val targetTextureCache = when (profile) {
+        "battery" -> 48
+        "balanced" -> 72
+        "esports" -> 96
+        else -> 128
+    }
+    val targetBlobCache = when (profile) {
+        "battery" -> 64
+        "balanced" -> 128
+        "esports" -> 256
+        else -> 512
+    }
+    val targetCompilerThreads = if (isGaming) 4 else 0
+    val targetAsync = isGaming
+    val targetPureHwVsync = isGaming
     activeGpuIntent = LynxViewModel.GpuIntent(
         adrenoBoost = if (curGpu.platform == "adreno") targetBoost else null,
         gedBoost = if (curGpu.platform == "mali_ged") targetBoost else null,
@@ -393,6 +408,13 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
                 },
                 maliPowerPolicy = if (isGaming) "always_on" else "coarse_demand",
                 isFpsgoUltraRescue = isGaming
+            ),
+            graphicsHwui = it.graphicsHwui.copy(
+                textureCacheMb = targetTextureCache,
+                shaderBlobCacheMb = targetBlobCache,
+                shaderCompilerThreads = targetCompilerThreads,
+                asyncShaderPipelineEnabled = targetAsync,
+                pureHwVsyncEnabled = targetPureHwVsync
             )
         )
     }

@@ -62,7 +62,9 @@ internal object LynxGraphicsEngineRepository {
                 echo "async_shader:${'$'}(getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null | tr -d ' \n')"
                 echo "pure_vsync:${'$'}(getprop debug.cpurend.vsync 2>/dev/null | tr -d ' \n')"
                 echo "compiler_threads:${'$'}(getprop debug.hwui.compiler_threads 2>/dev/null | tr -d ' \n')"
-                echo "blob_cache:${'$'}(getprop persist.sys.lynx.blob_cache_mb 2>/dev/null | tr -d ' \n')"
+                b_blob=${'$'}(getprop debug.hwui.blob_cache_size_mb 2>/dev/null | tr -d ' \n')
+                [ -z "${'$'}b_blob" ] && b_blob=${'$'}(getprop persist.sys.lynx.blob_cache_mb 2>/dev/null | tr -d ' \n')
+                echo "blob_cache:${'$'}b_blob"
                 echo "swapchain:${'$'}(getprop persist.sys.lynx.swapchain_mode 2>/dev/null | tr -d ' \n')"
             """.trimIndent()
             val res = Shell.cmd(script).exec()
