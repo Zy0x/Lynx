@@ -149,7 +149,10 @@ impl DaemonRunner {
                                 });
                                 decision_engine.notify_applied(target_profile);
                                 if target_profile == "performance" || target_profile == "extreme" {
-                                    crate::subsystems::GameController::game_on(None);
+                                    let game_pid = fg_app.as_ref().and_then(|app| {
+                                        crate::subsystems::GameController::find_pid_for_package(&app.package)
+                                    });
+                                    crate::subsystems::GameController::game_on(game_pid);
                                 } else {
                                     crate::subsystems::GameController::game_off();
                                 }

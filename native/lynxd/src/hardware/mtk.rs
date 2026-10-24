@@ -38,6 +38,10 @@ impl MtkHardware {
     pub const GED_GPU_CUST_BOOST_FREQ: &'static str = "/sys/module/ged/parameters/gpu_cust_boost_freq";
     pub const GED_GPU_CUST_UPBOUND_FREQ: &'static str = "/sys/module/ged/parameters/gpu_cust_upbound_freq";
     pub const GED_MONITOR_3D_FENCE_DISABLE: &'static str = "/sys/module/ged/parameters/ged_monitor_3D_fence_disable";
+    pub const GED_FB_DVFS_THRESHOLD: &'static str = "/sys/module/ged/parameters/g_fb_dvfs_threshold";
+    pub const GED_BOOST_EXTRA: &'static str = "/sys/module/ged/parameters/boost_extra";
+    pub const GED_BOOST_GPU_ENABLE: &'static str = "/sys/module/ged/parameters/boost_gpu_enable";
+    pub const GED_GPU_IDLE: &'static str = "/sys/module/ged/parameters/gpu_idle";
 
     // ── MediaTek GPUFreq v1 & v2 ────────────────────────────────────────────
     pub const GPUFREQ_VAR_DUMP: &'static str = "/proc/gpufreq/gpufreq_var_dump";
@@ -48,6 +52,12 @@ impl MtkHardware {
     pub const FPSGO_ENABLE: &'static str = "/sys/kernel/fpsgo/common/fpsgo_enable";
     pub const FPSGO_BOOST_TA: &'static str = "/sys/kernel/fpsgo/fbt/boost_ta";
     pub const FPSGO_ULTRA_RESCUE: &'static str = "/sys/kernel/fpsgo/fbt/ultra_rescue";
+    pub const FPSGO_FBT_THRM_TEMP_TH: &'static str = "/sys/kernel/fpsgo/fbt/thrm_temp_th";
+    pub const FPSGO_FBT_THRM_LIMIT_CPU: &'static str = "/sys/kernel/fpsgo/fbt/thrm_limit_cpu";
+    pub const FBT_CPU_RESCUE_SECOND: &'static str = "/sys/module/fbt_cpu/parameters/rescue_second_enable";
+    pub const FBT_CPU_RESCUE_PERCENT: &'static str = "/sys/module/fbt_cpu/parameters/rescue_percent";
+    pub const FBT_CPU_BHR_OPP: &'static str = "/sys/module/fbt_cpu/parameters/bhr_opp";
+    pub const FBT_CPU_GCC_ENABLE: &'static str = "/sys/module/fbt_cpu/parameters/gcc_enable";
 
     pub fn is_ppm_available() -> bool {
         Path::new(Self::PPM_ENABLED).exists() || Path::new(Self::PPM_POLICY_STATUS).exists()

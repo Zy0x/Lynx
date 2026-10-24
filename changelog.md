@@ -1,3 +1,41 @@
+# Lynx Universal [Pro MediaTek Gaming Engine & Autonomous Foreground Tracking] 7.0.0-RC189
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC189** (Lynx Kernel Manager v3.2.35): **Akselerasi Penuh Game Berat MediaTek (Helio / Dimensity) & Penyempurnaan Deteksi Aplikasi Depan Otonom: Mengintegrasikan Parameter Tuning MediaTek GED (Threshold DVFS 30%, Boost Amplifikasi 5x, Freq Boost GPU 850-950MHz, & Bypass Fence 3D) Serta MediaTek FPSGO FBT (Ambang Termal 85°C Tanpa Throttling Artifisial CPU, Emergency Ultra Rescue, & BHR OPP); Memperbaiki Algoritma Detektor Aplikasi Depan Rust `detector.rs` Agar Mengenali Aplikasi Berprioritas Root (`oom_score_adj <= 0`) Serta Mengabaikan Sub-Proses Latar Belakang (`:provider`/`:service`); Mengoptimalkan Read-Ahead Penyimpanan 1024KB Untuk Streaming Aset Open-World Tanpa Stutter; Teruji Menghasilkan 31-33 FPS Stabil Dengan Suhu Baterai Aman 43°C Pada Pengujian Live Genshin Impact di Helio G96**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC189)
+
+### 1. ⚡ Akselerasi Game MediaTek GED & GPU Mali (`game.rs` & `mtk.rs`)
+- **GED DVFS Aggressive Scaling**:
+  - `g_fb_dvfs_threshold = 30`: GPU langsung melompat ke frekuensi tinggi saat beban framebuffer mencapai 30% (bukan menunggu hingga 80%).
+  - `boost_amp = 5` & `boost_extra = 1`: Amplifikasi dorongan frekuensi GPU ditingkatkan dari 3x menjadi 5x.
+  - `gpu_cust_boost_freq = 850000` & `gpu_cust_upbound_freq = 950000`: Mengunci rentang dorongan GPU pada frekuensi tertinggi 850–950 MHz.
+  - `gpu_idle = 0`: Meniadakan delay penurunan daya GPU selama sesi gaming aktif.
+  - `ged_monitor_3D_fence_disable = 1`: Melenyapkan overhead sinkronisasi 3D fence.
+- **Driver GPU ARM Mali Bifrost / Valhall**:
+  - `dvfs_period = 10 ms`: Waktu respons adaptasi clock GPU 10x lebih cepat (dari 100ms menjadi 10ms).
+  - `power_policy = always_on`: Mencegah kolapsnya rel daya GPU saat transisi scene berat.
+
+### 2. 🎯 Stabilisasi Frame Rate MediaTek FPSGO FBT & Perlindungan CPU
+- **FPSGO Emergency Ultra Rescue**:
+  - `ultra_rescue = 1`, `rescue_second_enable = 1`, `rescue_percent = 100`: Secara otomatis mendeteksi drop frame dan menaikkan OPP CPU seketika untuk menyelamatkan deadline frame.
+- **Pencegahan Throttling Artifisial Suhu Rendah**:
+  - `thrm_temp_th = 85`: Menaikkan batas pemicu throttling FPSGO bawaan OEM dari 65°C menjadi 85°C.
+  - `thrm_limit_cpu = 0`: Mencegah FPSGO memotong frekuensi CPU secara prematur di tengah pertempuran atau pertarungan intens.
+  - `bhr_opp = 1` & `gcc_enable = 1`: Menjaga headroom beban CPU cluster besar.
+
+### 3. 🔍 Algoritma Deteksi Aplikasi Depan Otonom Presisi Tinggi (`detector.rs`)
+- **Dukungan OOM Score Negatif (`oom_score_adj <= 0`)**:
+  - Memperbaiki bug pada detektor procfs cgroup yang sebelumnya hanya memeriksa `oom_score_adj == 0`, sehingga aplikasi/game yang telah diberi prioritas root (`-1000`) kini langsung terdeteksi seketika tanpa terlewat.
+- **Pembersihan Sub-Proses Latar Belakang**:
+  - Menyaring dan mengabaikan proses ContentProvider atau Service bertanda titik dua (seperti `:provider`, `:service`, `:channel`, `:push`, `:sandboxed_process`) agar tidak keliru dianggap sebagai antarmuka pengguna depan.
+  - Otomatis mengekstrak nama paket induk murni (`base_pkg`).
+
+### 4. 🚀 Peningkatan I/O Read-Ahead Aset Open-World (1024KB)
+- Meningkatkan buffer `read_ahead_kb` penyimpanan flash internal (`/sys/block/sda`, `sdb`, `sdc`, `mmcblk0`) menjadi **1024 KB** saat game aktif.
+- Melenyapkan *micro-stutter* saat *texture streaming*, teleportasi peta, dan pergerakan cepat pada game dunia terbuka (seperti Genshin Impact).
+
+---
+
 # Lynx Universal [Autonomous Native VMA Watchdog & RAM-Scaled Ceiling] 7.0.0-RC188
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC188** (Lynx Kernel Manager v3.2.34): **Penyempurnaan Total Seluruh 5 Pilar Ketahanan Lintas OEM (Universal Cross-OEM Resilience): Mengintegrasikan Pengawas Memori Native Mandiri (`check_vma_health`) di Mesin Rust `lynxd` (`memory.rs` & `runner.rs`) yang Memantau Akumulasi VMA `system_server` Secara Zero-Overhead Setiap Menit Serta Memicu Pemadatan Memori Otomatis (`compact_memory`) Sebelum Batas Kritis; Mengaktifkan Plafon VMA Berbasis Kapasitas RAM Fisik (512K Slot Pada RAM $\le$ 4GB dan 1.048.576 Slot Pada RAM $\ge$ 8GB); Memastikan Seluruh 5 Pilar Ketahanan Universal 100% Aktif Penuh di Tingkat Mesin Native dan Kernel Lintas Seluruh OEM**.

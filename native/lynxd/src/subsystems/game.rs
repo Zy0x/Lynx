@@ -98,14 +98,30 @@ impl GameController {
             Self::write_opt(node, "1");
         }
 
-        // 7. MediaTek Platform Game Boost (GED, FPSGO, PPM, Perfmgr)
+        // 7. MediaTek Platform Game Boost (GED, FPSGO, PPM, Perfmgr, Mali)
         Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "1");
         Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "1");
         Self::write_opt(MtkHardware::GED_GX_FORCE_CPU_BOOST, "1");
+        Self::write_opt(MtkHardware::GED_FB_DVFS_THRESHOLD, "30");
+        Self::write_opt(MtkHardware::GED_BOOST_AMP, "5");
+        Self::write_opt(MtkHardware::GED_BOOST_EXTRA, "1");
+        Self::write_opt(MtkHardware::GED_BOOST_GPU_ENABLE, "1");
+        Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, "850000");
+        Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, "950000");
+        Self::write_opt(MtkHardware::GED_GPU_IDLE, "0");
+        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "1");
         Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", "4166666");
+
         Self::write_opt(MtkHardware::FPSGO_ENABLE, "1");
         Self::write_opt(MtkHardware::FPSGO_BOOST_TA, "1");
         Self::write_opt(MtkHardware::FPSGO_ULTRA_RESCUE, "1");
+        Self::write_opt(MtkHardware::FPSGO_FBT_THRM_TEMP_TH, "85");
+        Self::write_opt(MtkHardware::FPSGO_FBT_THRM_LIMIT_CPU, "0");
+        Self::write_opt(MtkHardware::FBT_CPU_RESCUE_SECOND, "1");
+        Self::write_opt(MtkHardware::FBT_CPU_RESCUE_PERCENT, "100");
+        Self::write_opt(MtkHardware::FBT_CPU_BHR_OPP, "1");
+        Self::write_opt(MtkHardware::FBT_CPU_GCC_ENABLE, "1");
+
         Self::write_opt("/sys/kernel/fpsgo/fbt/switch_idleprefer", "0");
         Self::write_opt("/sys/kernel/fpsgo/fbt/enable_switch_down_throttle", "0");
         Self::write_opt("/sys/kernel/fpsgo/common/gpu_block_boost", "1 1 -1");
@@ -113,6 +129,19 @@ impl GameController {
         Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 1");
         Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "50");
         Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
+
+        // Dynamic Mali Bifrost/Valhall GPU Driver Tuning
+        for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
+            Self::write_opt(format!("{}/dvfs_period", entry), "10");
+            Self::write_opt(format!("{}/power_policy", entry), "always_on");
+        }
+
+        // Storage Read-Ahead Boosting (1024KB for open-world streaming)
+        for b in &["/sys/block/sda", "/sys/block/sdb", "/sys/block/sdc", "/sys/block/mmcblk0"] {
+            Self::write_opt(format!("{}/queue/read_ahead_kb", b), "1024");
+            Self::write_opt(format!("{}/queue/nomerges", b), "0");
+            Self::write_opt(format!("{}/queue/rq_affinity", b), "2");
+        }
 
         // 8. Qualcomm Snapdragon Platform Game Boost (KGSL, WALT, Core Control, CPU Boost)
         Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "120");
@@ -125,7 +154,6 @@ impl GameController {
         Self::write_opt(QcomHardware::KGSL_SKIPSAVERESTORE, "1");
         Self::write_opt(QcomHardware::KGSL_WAKE_NICE, "-20");
         Self::write_opt(QcomHardware::KGSL_GPU_LLC_SLICE, "1");
-        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "1");
 
         // Qualcomm WALT Scheduler Gaming Latency (downmigrate first to comply with kernel down < up rule)
         Self::write_opt(QcomHardware::SCHED_BOOST, "1");
@@ -215,9 +243,29 @@ impl GameController {
         Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "0");
         Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "0");
         Self::write_opt(MtkHardware::GED_GX_FORCE_CPU_BOOST, "0");
+        Self::write_opt(MtkHardware::GED_FB_DVFS_THRESHOLD, "80");
+        Self::write_opt(MtkHardware::GED_BOOST_AMP, "3");
+        Self::write_opt(MtkHardware::GED_BOOST_EXTRA, "0");
+        Self::write_opt(MtkHardware::GED_GPU_IDLE, "100");
+        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "0");
+
+        Self::write_opt(MtkHardware::FPSGO_FBT_THRM_TEMP_TH, "65");
+        Self::write_opt(MtkHardware::FPSGO_FBT_THRM_LIMIT_CPU, "1");
+        Self::write_opt(MtkHardware::FBT_CPU_RESCUE_SECOND, "0");
+        Self::write_opt(MtkHardware::FBT_CPU_GCC_ENABLE, "0");
+
         Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 0");
         Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "0");
         Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "0");
+
+        for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
+            Self::write_opt(format!("{}/dvfs_period", entry), "20");
+            Self::write_opt(format!("{}/power_policy", entry), "coarse_demand");
+        }
+
+        for b in &["/sys/block/sda", "/sys/block/sdb", "/sys/block/sdc", "/sys/block/mmcblk0"] {
+            Self::write_opt(format!("{}/queue/read_ahead_kb", b), "512");
+        }
 
         // 7. Reset Qualcomm Snapdragon KGSL, WALT, and Core Control Hooks
         Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "80");
@@ -228,7 +276,6 @@ impl GameController {
         Self::write_opt(QcomHardware::KGSL_SPTP_PC, "1");
         Self::write_opt(QcomHardware::KGSL_SKIPSAVERESTORE, "0");
         Self::write_opt(QcomHardware::KGSL_WAKE_NICE, "0");
-        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "0");
 
         // Qualcomm WALT Scheduler Balanced Baseline (upmigrate first when raising thresholds)
         Self::write_opt(QcomHardware::SCHED_UPMIGRATE, "85 95");
@@ -324,6 +371,31 @@ impl GameController {
                 }
             }
         }
+    }
+
+    /// Locates the primary process ID (PID) for a given package name by scanning /proc cmdlines.
+    pub fn find_pid_for_package(pkg: &str) -> Option<u32> {
+        let pkg_clean = pkg.split(':').next().unwrap_or(pkg).trim();
+        if pkg_clean.is_empty() {
+            return None;
+        }
+        if let Ok(entries) = fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                if let Ok(file_name) = entry.file_name().into_string() {
+                    if let Ok(pid) = file_name.parse::<u32>() {
+                        let cmd_path = entry.path().join("cmdline");
+                        if let Ok(bytes) = fs::read(&cmd_path) {
+                            let cmd_str = String::from_utf8_lossy(&bytes);
+                            let first = cmd_str.split('\0').next().unwrap_or("").trim();
+                            if first == pkg_clean || first.starts_with(&format!("{}:", pkg_clean)) {
+                                return Some(pid);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
     }
 
     /// Emits JSON status of the game optimizer.

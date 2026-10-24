@@ -67,19 +67,21 @@ impl ForegroundDetector {
                         let first_token = cmd_str.split('\0').next().unwrap_or("").trim();
 
                         if Self::is_valid_user_package(first_token) {
-                            // Check /proc/{pid}/oom_score_adj (Android sets TOP_APP_ADJ = 0 for focused activity)
+                            // Check /proc/{pid}/oom_score_adj (Android sets TOP_APP_ADJ = 0 for focused activity; root boosts can be <= 0)
                             let oom_adj_path = format!("/proc/{}/oom_score_adj", pid_str);
                             let oom_adj = fs::read_to_string(&oom_adj_path)
                                 .ok()
                                 .and_then(|s| s.trim().parse::<i32>().ok())
                                 .unwrap_or(999);
 
-                            if oom_adj == 0 {
-                                // Direct match for active top-app foreground activity
-                                return Some(first_token.to_string());
-                            } else if oom_adj > 0 && oom_adj < 200 {
+                            let clean_pkg = first_token.split(':').next().unwrap_or(first_token).to_string();
+
+                            if oom_adj <= 0 {
+                                // Direct match for active top-app foreground activity (including negative oom_score_adj)
+                                return Some(clean_pkg);
+                            } else if oom_adj < 200 {
                                 if best_candidate.as_ref().map_or(true, |(score, _)| oom_adj < *score) {
-                                    best_candidate = Some((oom_adj, first_token.to_string()));
+                                    best_candidate = Some((oom_adj, clean_pkg));
                                 }
                             }
                         }
@@ -161,7 +163,7 @@ impl ForegroundDetector {
             return false;
         }
 
-        // Ignore common system daemons, HAL services, input methods, and helper services
+        // Ignore background provider/service processes and common system daemons
         let lower = cmd.to_lowercase();
         if lower.starts_with("surfaceflinger")
             || lower.starts_with("android.hardware")
@@ -172,6 +174,11 @@ impl ForegroundDetector {
             || lower.contains("inputmethod")
             || lower.contains("keyboard")
             || lower.ends_with(".tts")
+            || lower.ends_with(":provider")
+            || lower.ends_with(":push")
+            || lower.ends_with(":channel")
+            || lower.ends_with(":sandboxed_process")
+            || lower.ends_with(":isolated_process")
             || lower == "system_server"
         {
             return false;
