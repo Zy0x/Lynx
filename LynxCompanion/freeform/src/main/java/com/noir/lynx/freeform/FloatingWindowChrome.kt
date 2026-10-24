@@ -38,6 +38,26 @@ internal class FloatingWindowChrome(
         gravity = Gravity.CENTER_VERTICAL
     }
     val dragHandle: View = title
+    val appIconButton = FrameLayout(context).apply {
+        contentDescription = context.getString(R.string.lynx_freeform_minimize)
+        tooltipText = contentDescription
+        isClickable = true
+        isFocusable = true
+        val bg = GradientDrawable().apply {
+            setColor(0xFF252A36.toInt())
+            cornerRadius = dp(10).toFloat()
+            setStroke(dp(1).coerceAtLeast(1), 0x268AB4F8)
+        }
+        val mask = GradientDrawable().apply {
+            setColor(Color.WHITE)
+            cornerRadius = dp(10).toFloat()
+        }
+        background = RippleDrawable(ColorStateList.valueOf(0x338AB4F8), bg, mask)
+        addView(
+            ImageView(context).apply { setImageDrawable(appIcon) },
+            FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
+        )
+    }
     val texture = android.view.TextureView(context)
     private var state: CharSequence = context.getString(R.string.lynx_freeform_state_starting)
     private val progress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -83,7 +103,6 @@ internal class FloatingWindowChrome(
         val headerContainer = FrameLayout(context).apply {
             setBackgroundColor(0xF5171A22.toInt())
         }
-        // Subtle Android 14/15 Material 3 top center window handle pill
         val topHandlePill = View(context).apply {
             background = GradientDrawable().apply {
                 setColor(0x40FFFFFF)
@@ -100,17 +119,7 @@ internal class FloatingWindowChrome(
         val header = LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), 0, dp(4), 0)
-            val iconHolder = FrameLayout(context).apply {
-                background = GradientDrawable().apply {
-                    setColor(0xFF252A36.toInt())
-                    cornerRadius = dp(9).toFloat()
-                }
-                addView(
-                    ImageView(context).apply { setImageDrawable(appIcon) },
-                    FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER)
-                )
-            }
-            addView(iconHolder, LinearLayout.LayoutParams(dp(30), dp(30)).apply { rightMargin = dp(10) })
+            addView(appIconButton, LinearLayout.LayoutParams(dp(32), dp(32)).apply { rightMargin = dp(10) })
             addView(title, LinearLayout.LayoutParams(0, -1, 1f))
             addView(more, LinearLayout.LayoutParams(dp(44), dp(44)))
             addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
@@ -184,7 +193,7 @@ internal class FloatingWindowChrome(
         progress.visibility = if (busy) View.VISIBLE else View.GONE
     }
     fun busy(value: Boolean) {
-        listOf(back, rotate, maximize, minimize).forEach { it.isEnabled = !value; it.alpha = if (value) .45f else 1f }
+        listOf(back, rotate, maximize, minimize, appIconButton).forEach { it.isEnabled = !value; it.alpha = if (value) .45f else 1f }
     }
     fun minimized(value: Boolean) {
         minimized = value

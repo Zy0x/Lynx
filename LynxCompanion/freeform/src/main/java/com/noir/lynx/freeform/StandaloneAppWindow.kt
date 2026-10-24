@@ -2,6 +2,7 @@ package com.noir.lynx.freeform
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Matrix
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.os.Binder
@@ -18,24 +19,40 @@ private const val APP_WINDOW_TITLE = "LynxAppWindow"
 /** APK-owned app Surface; geometry, rendering and IPC resizing have separate ownership. */
 @SuppressLint("ClickableViewAccessibility")
 internal class StandaloneAppWindow(
-    private val context: Context, private val wm: WindowManager, private val scope: CoroutineScope,
-    private val remote: IFloatingRoot, label: String, private val component: String,
-    private val widthPct: Int, private val heightPct: Int, private val config: FreeformConfig,
-    private val event: (FreeformEvent) -> Unit, private val removed: () -> Unit
+    private val context: Context,
+    private val wm: WindowManager,
+    private val scope: CoroutineScope,
+    private val remote: IFloatingRoot,
+    private val label: String,
+    private val component: String,
+    private val widthPct: Int,
+    private val heightPct: Int,
+    private val config: FreeformConfig,
+    private val bubbleDock: FloatingBubbleDock,
+    private val event: (FreeformEvent) -> Unit,
+    private val removed: () -> Unit
 ) : TextureView.SurfaceTextureListener {
+    private val packageName = component.substringBefore('/')
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Int) = (v * density).toInt()
     private val icon = runCatching {
-        context.packageManager.getApplicationIcon(component.substringBefore('/'))
+        context.packageManager.getApplicationIcon(packageName)
     }.getOrNull()
     private val chrome = FloatingWindowChrome(context, label, icon, config.appearance)
     private val root = chrome.root
     private val texture = chrome.texture
-    private val params = WindowManager.LayoutParams(1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-        PixelFormat.TRANSLUCENT).apply {
-        gravity = Gravity.TOP or Gravity.START; title = APP_WINDOW_TITLE
+    private val baseFlags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+        WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM or
+        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+    private val params = WindowManager.LayoutParams(
+        1, 1,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        baseFlags,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        title = APP_WINDOW_TITLE
         windowAnimations = 0
     }
     private val owner = Binder()
@@ -60,20 +77,31 @@ internal class StandaloneAppWindow(
     private var lastEvent: FreeformEvent? = null
 
     private fun emit(stage: FreeformStage, reason: String? = null) {
-        val next = FreeformEvent(component.substringBefore('/'), stage, reason,
-            displayId.takeIf { it > 0 }, compatibilityProfile)
-        if (next != lastEvent) { lastEvent = next; event(next) }
+        val next = FreeformEvent(
+            packageName,
+            stage,
+            reason,
+            displayId.takeIf { it > 0 },
+            compatibilityProfile
+        )
+        if (next != lastEvent) {
+            lastEvent = next
+            event(next)
+        }
     }
 
     init {
         texture.surfaceTextureListener = this
         chrome.minimize.setOnClickListener { minimize() }
+        chrome.appIconButton.setOnClickListener { minimize() }
         chrome.close.setOnClickListener { close() }
         chrome.back.setOnClickListener { action { remote.back(displayId) } }
         chrome.maximize.setOnClickListener { maximize() }
         chrome.rotate.setOnClickListener { rotate() }
         chrome.bubble.setOnClickListener { restore() }
-        drag(chrome.dragHandle, false); drag(chrome.resize, true); drag(chrome.bubble, false)
+        drag(chrome.dragHandle, false)
+        drag(chrome.resize, true)
+        drag(chrome.bubble, false)
         chrome.busy(true)
         texture.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_DOWN && resizes?.busy != true) discardGesture = false
@@ -81,13 +109,13 @@ internal class StandaloneAppWindow(
             val spec = render ?: return@setOnTouchListener true
             if (texture.width <= 0 || texture.height <= 0) return@setOnTouchListener true
             val copy = MotionEvent.obtain(event)
-            copy.transform(android.graphics.Matrix().apply {
+            copy.transform(Matrix().apply {
                 setScale(spec.width.toFloat() / texture.width, spec.height.toFloat() / texture.height)
             })
             val accepted = input?.offer(copy) == true
             lastTouch?.recycle()
             lastTouch = if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) null
-                else MotionEvent.obtain(copy)
+            else MotionEvent.obtain(copy)
             copy.recycle()
             if (!accepted) fail("input_rejected")
             true
@@ -102,8 +130,14 @@ internal class StandaloneAppWindow(
         params.x = safe.left + (safe.width() - params.width) / 2
         params.y = safe.top + (safe.height() - params.height) / 3
         clampToViewport(false)
-        try { wm.addView(root, params); attached = true; appliedBox = box() }
-        catch (e: Exception) { close(); throw e }
+        try {
+            wm.addView(root, params)
+            attached = true
+            appliedBox = box()
+        } catch (e: Exception) {
+            close()
+            throw e
+        }
     }
 
     fun reveal() {
@@ -112,53 +146,93 @@ internal class StandaloneAppWindow(
         chrome.showResizeHint()
     }
 
+    fun toggleMinimizeOrReveal() {
+        if (closed) return
+        if (minimized) {
+            restore()
+        } else {
+            minimize()
+        }
+    }
+
     private fun box() = FloatingDisplayPolicy.Box(params.x, params.y, params.width, params.height)
     private fun use(box: FloatingDisplayPolicy.Box) {
-        params.x = box.x; params.y = box.y; params.width = box.width; params.height = box.height
+        params.x = box.x
+        params.y = box.y
+        params.width = box.width
+        params.height = box.height
     }
 
     fun clampToViewport(update: Boolean = true) {
+        if (minimized) return
         val safe = floatingSafeArea(wm, root)
         use(FloatingDisplayPolicy.clamp(box(), safe.left, safe.top, safe.width(), safe.height()))
         if (!update || !attached || closed || layoutQueued || box() == appliedBox) return
         layoutQueued = true
         root.postOnAnimation {
             layoutQueued = false
-            if (attached && !closed && box() != appliedBox) {
-                runCatching { wm.updateViewLayout(root, params); appliedBox = box() }.onFailure { close() }
+            if (attached && !closed && !minimized && box() != appliedBox) {
+                runCatching {
+                    wm.updateViewLayout(root, params)
+                    appliedBox = box()
+                }.onFailure { close() }
             }
         }
     }
 
     private fun drag(view: View, resize: Boolean) {
         val slop = ViewConfiguration.get(context).scaledTouchSlop
-        var startX = 0f; var startY = 0f; var moved = false; var original = box()
+        var startX = 0f
+        var startY = 0f
+        var moved = false
+        var original = box()
         var safe = floatingSafeArea(wm, root)
         fun update(event: MotionEvent) {
-            val dx = event.rawX - startX; val dy = event.rawY - startY
+            val dx = event.rawX - startX
+            val dy = event.rawY - startY
             if (!moved && kotlin.math.abs(dx) + kotlin.math.abs(dy) <= slop) return
             moved = true
             if (resize) {
                 savedBox = null
-                use(FloatingDisplayPolicy.resize(original, dx.toInt(), dy.toInt(),
-                    safe.left, safe.top, safe.width(), safe.height(), dp(240)))
+                use(
+                    FloatingDisplayPolicy.resize(
+                        original,
+                        dx.toInt(),
+                        dy.toInt(),
+                        safe.left,
+                        safe.top,
+                        safe.width(),
+                        safe.height(),
+                        dp(240)
+                    )
+                )
+            } else {
+                params.x = original.x + dx.toInt()
+                params.y = original.y + dy.toInt()
             }
-            else { params.x = original.x + dx.toInt(); params.y = original.y + dy.toInt() }
             clampToViewport()
         }
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    startX = event.rawX; startY = event.rawY; moved = false; original = box()
+                    startX = event.rawX
+                    startY = event.rawY
+                    moved = false
+                    original = box()
                     if (resize) {
                         safe = floatingSafeArea(wm, root)
-                        resizingGesture = true; chrome.showResizeHint(hold = true); cancelGesture()
+                        resizingGesture = true
+                        chrome.showResizeHint(hold = true)
+                        cancelGesture()
                     }
                 }
                 MotionEvent.ACTION_MOVE -> update(event)
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (resize && event.actionMasked == MotionEvent.ACTION_UP) update(event)
-                    if (resize) { resizingGesture = false; chrome.finishResize() }
+                    if (resize) {
+                        resizingGesture = false
+                        chrome.finishResize()
+                    }
                     if (resize && moved) resizeDisplay()
                     if (!moved && event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
                 }
@@ -167,8 +241,32 @@ internal class StandaloneAppWindow(
         }
     }
 
-    private fun viewportSpec() = FloatingRenderPolicy.fit(texture.width.coerceAtLeast(64),
-        texture.height.coerceAtLeast(64), context.resources.displayMetrics.densityDpi, config.renderBudget)
+    private fun viewportSpec() = FloatingRenderPolicy.fit(
+        texture.width.coerceAtLeast(64),
+        texture.height.coerceAtLeast(64),
+        context.resources.displayMetrics.densityDpi,
+        config.renderBudget
+    )
+
+    /**
+     * Prevents non-uniform rubber stretching while the VirtualDisplay adapts to a new aspect ratio.
+     * Anchors the current buffer at top-left with uniform aspect scale until settled() commits the new buffer.
+     */
+    private fun updateTextureTransform(viewWidth: Int = texture.width, viewHeight: Int = texture.height) {
+        val spec = render ?: return
+        if (viewWidth <= 0 || viewHeight <= 0 || spec.width <= 0 || spec.height <= 0) return
+        val targetAspect = viewWidth.toFloat() / viewHeight.toFloat()
+        val renderAspect = spec.width.toFloat() / spec.height.toFloat()
+        if (kotlin.math.abs(targetAspect - renderAspect) < 0.03f) {
+            texture.setTransform(null)
+            return
+        }
+        val matrix = Matrix()
+        // Keep uniform scale relative to width so UI elements don't warp horizontally/vertically during drag
+        val scaleY = (viewWidth.toFloat() / spec.width.toFloat()) / (viewHeight.toFloat() / spec.height.toFloat())
+        matrix.setScale(1f, scaleY, 0f, 0f)
+        texture.setTransform(matrix)
+    }
 
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
         if (closed || render != null) return
@@ -178,8 +276,17 @@ internal class StandaloneAppWindow(
         val output = Surface(surface)
         scope.launch(NonCancellable) {
             val result = withContext(NonCancellable + Dispatchers.IO) {
-                runCatching { remote.open(owner, output, component, Process.myUid() / 100000,
-                    initial.width, initial.height, initial.density) }.getOrNull()
+                runCatching {
+                    remote.open(
+                        owner,
+                        output,
+                        component,
+                        Process.myUid() / 100000,
+                        initial.width,
+                        initial.height,
+                        initial.density
+                    )
+                }.getOrNull()
             }
             output.release()
             val id = result?.takeIf { it.getBoolean("ok") }?.getInt("displayId", -1) ?: -1
@@ -187,55 +294,82 @@ internal class StandaloneAppWindow(
                 if (id >= 0) withContext(NonCancellable + Dispatchers.IO) { runCatching { remote.close(id) } }
                 return@launch
             }
-            if (id < 0) { fail(result?.getString("reason")); return@launch }
+            if (id < 0) {
+                fail(result?.getString("reason"))
+                return@launch
+            }
             displayId = id
             compatibilityProfile = result?.getString("compatibilityProfile")
             imePolicyConfigured = result?.getBoolean("imeConfigured", true) ?: true
             input = FloatingInputQueue(scope, { remote.touch(id, it) }, { fail("input_rejected") })
-            resizes = FloatingResizeQueue(scope, initial, apply = { target ->
-                texture.surfaceTexture?.setDefaultBufferSize(target.width, target.height)
-                withContext(Dispatchers.IO) {
-                    remote.resize(id, target.width, target.height, target.density).getBoolean("ok")
+            resizes = FloatingResizeQueue(
+                scope = scope,
+                initial = initial,
+                apply = { target ->
+                    withContext(Dispatchers.IO) {
+                        remote.resize(id, target.width, target.height, target.density).getBoolean("ok")
+                    }
+                },
+                settled = { target, ok ->
+                    if (!closed) {
+                        if (ok) {
+                            render = target
+                            texture.surfaceTexture?.setDefaultBufferSize(target.width, target.height)
+                            texture.setTransform(null)
+                            updateStatus()
+                        } else fail("resize_rejected")
+                    }
+                },
+                debounceMs = 55L,
+                busyChanged = { busy ->
+                    if (busy) cancelGesture()
+                    updateStatus()
                 }
-            }, settled = { target, ok ->
-                if (!closed) {
-                    if (ok) {
-                        render = target
-                        texture.surfaceTexture?.setDefaultBufferSize(target.width, target.height)
-                        updateStatus()
-                    } else fail("resize_rejected")
-                }
-            }, busyChanged = { busy ->
-                if (busy) cancelGesture()
-                updateStatus()
-            })
-            resizeDisplay(); updateStatus()
+            )
+            resizeDisplay()
+            updateStatus()
             delay(5000)
             if (!closed && !hasFrame) fail("frame_timeout")
         }
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-        if (!hasFrame) { hasFrame = true; updateStatus() }
+        if (!hasFrame) {
+            hasFrame = true
+            updateStatus()
+        }
     }
+
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-        if (width > 0 && height > 0 && !resizingGesture) resizeDisplay()
+        if (width > 0 && height > 0 && !minimized) {
+            updateTextureTransform(width, height)
+            resizeDisplay()
+        }
     }
-    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean { close(); return true }
+
+    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        close()
+        return true
+    }
 
     private fun updateStatus() {
         val resizing = resizes?.busy == true
-        chrome.state(when {
-            resizes?.busy == true -> R.string.lynx_freeform_state_resizing
-            hasFrame && displayId >= 0 -> if (imePolicyConfigured) R.string.lynx_freeform_state_ready else R.string.lynx_freeform_state_keyboard_limited
-            else -> R.string.lynx_freeform_state_starting
-        }, !hasFrame || resizing || actionBusy)
-        emit(when {
-            minimized -> FreeformStage.MINIMIZED
-            resizing -> FreeformStage.RESIZING
-            hasFrame && displayId > 0 -> FreeformStage.READY
-            else -> FreeformStage.OPENING
-        })
+        chrome.state(
+            when {
+                resizes?.busy == true -> R.string.lynx_freeform_state_resizing
+                hasFrame && displayId >= 0 -> if (imePolicyConfigured) R.string.lynx_freeform_state_ready else R.string.lynx_freeform_state_keyboard_limited
+                else -> R.string.lynx_freeform_state_starting
+            },
+            !hasFrame || resizing || actionBusy
+        )
+        emit(
+            when {
+                minimized -> FreeformStage.MINIMIZED
+                resizing -> FreeformStage.RESIZING
+                hasFrame && displayId > 0 -> FreeformStage.READY
+                else -> FreeformStage.OPENING
+            }
+        )
         chrome.busy(actionBusy || resizes?.busy == true || displayId < 0 || !hasFrame)
     }
 
@@ -251,32 +385,61 @@ internal class StandaloneAppWindow(
 
     private fun action(success: () -> Unit = {}, operation: () -> Boolean) {
         if (displayId < 0 || closed || actionBusy || resizes?.busy == true) return
-        actionBusy = true; updateStatus()
+        actionBusy = true
+        updateStatus()
         scope.launch {
             try {
                 val ok = withContext(Dispatchers.IO) { runCatching(operation).getOrDefault(false) }
-                if (!closed) { if (ok) success() else fail(null) }
-            } finally { actionBusy = false; if (!closed) updateStatus() }
+                if (!closed) {
+                    if (ok) success() else fail(null)
+                }
+            } finally {
+                actionBusy = false
+                if (!closed) updateStatus()
+            }
         }
     }
 
     private fun minimize() {
+        if (minimized) return
         cancelGesture()
+        chrome.dismissMenu()
         action(success = {
-            expandedBox = box(); minimized = true
+            expandedBox = box()
+            minimized = true
             chrome.minimized(true)
-            // Preserve the TextureView allocation while the overlay becomes a small bubble.
+            // Preserve the TextureView allocation while delegating the visual bubble to FloatingBubbleDock
             chrome.column.layoutParams = android.widget.FrameLayout.LayoutParams(params.width, params.height)
-            chrome.column.alpha = 0f; chrome.bubble.visibility = View.VISIBLE
-            params.width = dp(56); params.height = dp(56); clampToViewport()
+            root.alpha = 0f
+            params.width = 1
+            params.height = 1
+            params.flags = baseFlags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            if (attached && !closed) {
+                runCatching { wm.updateViewLayout(root, params) }
+            }
+            bubbleDock.put(
+                FloatingBubbleDock.Entry(
+                    packageName = packageName,
+                    label = label,
+                    icon = icon,
+                    onRestore = { restore() },
+                    onClose = { close() }
+                )
+            )
         }) { remote.visible(displayId, false) }
     }
 
     private fun restore() = action(success = {
-        minimized = false; chrome.column.alpha = 1f; chrome.bubble.visibility = View.GONE
+        bubbleDock.remove(packageName)
+        minimized = false
+        params.flags = baseFlags
+        root.alpha = 1f
+        chrome.bubble.visibility = View.GONE
         chrome.minimized(false)
         chrome.column.layoutParams = android.widget.FrameLayout.LayoutParams(-1, -1)
-        expandedBox?.let(::use); clampToViewport()
+        expandedBox?.let(::use)
+        appliedBox = null
+        clampToViewport()
         root.post { resizeDisplay() }
     }) { remote.visible(displayId, true) }
 
@@ -286,16 +449,22 @@ internal class StandaloneAppWindow(
             savedBox = box()
             val safe = floatingSafeArea(wm, root)
             use(FloatingDisplayPolicy.Box(safe.left, safe.top, safe.width(), safe.height()))
-        } else { savedBox?.let(::use); savedBox = null }
+        } else {
+            savedBox?.let(::use)
+            savedBox = null
+        }
         clampToViewport()
     }
 
     private fun rotate() {
         if (displayId < 0 || resizes?.busy == true) return
         savedBox = null
-        val w = params.height - chrome.controlsHeight; val h = params.width + chrome.controlsHeight
-        params.x += (params.width - w) / 2; params.y += (params.height - h) / 2
-        params.width = w.coerceAtLeast(dp(240)); params.height = h.coerceAtLeast(dp(240))
+        val w = params.height - chrome.controlsHeight
+        val h = params.width + chrome.controlsHeight
+        params.x += (params.width - w) / 2
+        params.y += (params.height - h) / 2
+        params.width = w.coerceAtLeast(dp(240))
+        params.height = h.coerceAtLeast(dp(240))
         clampToViewport()
     }
 
@@ -314,11 +483,20 @@ internal class StandaloneAppWindow(
 
     fun close() {
         if (closed) return
-        closed = true; chrome.dismissMenu(); resizes?.close(); input?.close()
+        closed = true
+        bubbleDock.remove(packageName)
+        chrome.dismissMenu()
+        resizes?.close()
+        input?.close()
         emit(FreeformStage.CLOSED)
-        lastTouch?.recycle(); lastTouch = null
-        if (attached) { attached = false; runCatching { wm.removeView(root) } }
-        val id = displayId; displayId = -1
+        lastTouch?.recycle()
+        lastTouch = null
+        if (attached) {
+            attached = false
+            runCatching { wm.removeView(root) }
+        }
+        val id = displayId
+        displayId = -1
         if (id >= 0) scope.launch(NonCancellable + Dispatchers.IO) { runCatching { remote.close(id) } }
         removed()
     }

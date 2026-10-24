@@ -133,12 +133,12 @@ class FloatingRootService : RootService() {
                 val s = sessions[displayId] ?: error("Unknown session")
                 s.display.resize(width, height, density)
                 val metrics = android.util.DisplayMetrics()
-                val deadline = SystemClock.uptimeMillis() + 700
+                val deadline = SystemClock.uptimeMillis() + 500
                 do {
                     @Suppress("DEPRECATION")
                     s.display.display.getRealMetrics(metrics)
                     if (metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density) break
-                    Thread.sleep(50)
+                    Thread.sleep(10)
                 } while (SystemClock.uptimeMillis() < deadline)
                 Bundle().apply {
                     putBoolean("ok", metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density)
