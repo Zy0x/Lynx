@@ -319,14 +319,19 @@ impl HardwareTranslator {
                 if !cap.gpu.opp_table.is_empty() {
                     let lowest_opp = cap.gpu.opp_table.last().unwrap();
                     let highest_opp = cap.gpu.opp_table.first().unwrap();
+                    let peak_mhz = highest_opp.freq_mhz;
+                    let target_95_pct = (peak_mhz * 95) / 100;
+
+                    // Dynamic >= 95% OPP floor for Performance profile (bans hardcoding, respects OC):
+                    let opp_95 = cap.gpu.opp_table
+                        .iter()
+                        .filter(|e| e.freq_mhz >= target_95_pct && e.freq_mhz <= peak_mhz)
+                        .min_by_key(|e| e.freq_mhz)
+                        .unwrap_or(highest_opp);
 
                     let (target_min_opp, target_max_opp) = match profile.name {
                         "extreme" => (highest_opp, highest_opp),
-                        "performance" => {
-                            let mid_idx = cap.gpu.opp_table.len() / 3;
-                            let floor_opp = cap.gpu.opp_table.get(mid_idx).unwrap_or(lowest_opp);
-                            (floor_opp, highest_opp)
-                        }
+                        "performance" => (opp_95, highest_opp),
                         "powersave" => {
                             let cap_idx = cap.gpu.opp_table.len() / 3;
                             let ceil_opp = cap.gpu.opp_table.get(cap_idx).unwrap_or(highest_opp);
@@ -628,7 +633,15 @@ impl HardwareTranslator {
                         };
                         let target_floor_pwr = match profile.gpu.mode {
                             GpuMode::Maximum => 0, // Locked at peak
-                            GpuMode::High => (max_idx * 2 / 3).max(1), // Raised floor prevents stutter in gaming
+                            GpuMode::High => {
+                                // Dynamic >= 95% OPP floor for Adreno GPU (never drops to low power levels, respects OC):
+                                let mut freqs_desc = cap.gpu.available_freqs_mhz.clone();
+                                freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
+                                freqs_desc.dedup();
+                                let peak_mhz = freqs_desc.first().copied().unwrap_or(cap.gpu.max_freq_mhz);
+                                let target_95_pct = (peak_mhz * 95) / 100;
+                                freqs_desc.iter().rposition(|&f| f >= target_95_pct).unwrap_or(0)
+                            }
                             GpuMode::Balanced | GpuMode::PowerEfficient => max_idx, // Downclock fully to idle floor
                         };
                         let target_default_pwr = match profile.gpu.mode {

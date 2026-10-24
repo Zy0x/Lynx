@@ -229,7 +229,11 @@ impl GpuController {
 
                 Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
                 Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
-                Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
+
+                // Guard against capping live OC kernel: preserve existing upbound if higher
+                let live_upbound = SysfsReader::read_int::<u64>("/sys/module/ged/parameters/gpu_cust_upbound_freq").unwrap_or(0);
+                let safe_upbound = max_khz.max(live_upbound);
+                Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", safe_upbound.to_string());
                 format!("MediaTek Mali GPU clock set to {} - {} MHz.", target_min, target_max)
             }
             GpuDriver::GenericDevfreq => {

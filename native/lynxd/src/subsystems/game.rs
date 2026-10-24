@@ -117,28 +117,45 @@ impl GameController {
         // to prevent premature downclocking and ensure rock-solid frame rates.
         let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
         let gpu = HardwareCapability::resolve_gpu(vendor);
-        let max_mhz = gpu.available_freqs_mhz.last().copied().unwrap_or(gpu.max_freq_mhz);
 
-        if max_mhz > 0 {
-            // Target floor: strictly >= 95% of peak hardware capability
-            let target_95_pct = (max_mhz * 95) / 100;
-            let gaming_floor_mhz = gpu.available_freqs_mhz
-                .iter()
-                .copied()
-                .filter(|&f| f >= target_95_pct && f <= max_mhz)
-                .min()
-                .unwrap_or(max_mhz);
+        // Probe live kernel hardware nodes directly to detect any Overclock (OC) kernel or KPM in real-time
+        let live_upbound_mhz = SysfsReader::read_int::<u64>(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ)
+            .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_clock_mhz"))
+            .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_gpuclk"))
+            .map(HardwareCapability::normalize_freq_to_mhz)
+            .unwrap_or(0);
 
-            let max_khz = max_mhz * 1000;
-            let floor_khz = gaming_floor_mhz * 1000;
+        let live_cur_mhz = gpu.cur_freq_mhz;
+        let table_max_mhz = gpu.available_freqs_mhz.last().copied().unwrap_or(gpu.max_freq_mhz);
 
-            // Apply universal GPU frequency boost (floor >= 95%, ceiling = 100% max)
-            crate::subsystems::GpuController::set_freq(gaming_floor_mhz, Some(max_mhz));
+        // Peak frequency: takes the highest between hardware table, sysfs ceiling, and active clock (never capping an OC)
+        let peak_mhz = table_max_mhz.max(live_upbound_mhz).max(live_cur_mhz);
 
-            // Specialized MediaTek GED parameter bindings (Dynamic kHz)
-            Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, max_khz.to_string());
-            Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, floor_khz.to_string());
-            Self::write_opt(MtkHardware::GED_GPU_BOTTOM_FREQ, floor_khz.to_string());
+        if peak_mhz > 0 {
+            // Lock GPU frequency strictly to peak hardware/OC capability (titik tertingginya)
+            // Completely bans hardcoded numbers and eliminates gaming frame drops & microstutters.
+            let peak_khz = peak_mhz * 1000;
+
+            // Apply universal GPU frequency boost: locks strictly to peak hardware/OC frequency
+            crate::subsystems::GpuController::set_freq(peak_mhz, Some(peak_mhz));
+
+            // Specialized MediaTek GED parameter bindings (Dynamic kHz & respects live OC ceiling)
+            let existing_ged_upbound = SysfsReader::read_int::<u64>(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ).unwrap_or(0);
+            let final_upbound_khz = peak_khz.max(existing_ged_upbound);
+
+            Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, final_upbound_khz.to_string());
+            Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, peak_khz.to_string());
+            Self::write_opt(MtkHardware::GED_GPU_BOTTOM_FREQ, peak_khz.to_string());
+
+            // GED HAL upbound and boost: '0' points to topmost OPP table index (even if extended by OC)
+            Self::write_opt("/sys/kernel/ged/hal/custom_upbound_gpu_freq", "0");
+            Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", "0");
+            Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "100");
+            Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", "1");
+
+            // MediaTek GPU Hardware Throttling Bypass (Disable THERMAL ID 3 & PBM ID 7)
+            Self::write_opt("/proc/gpufreq/gpufreq_limit_table", "3 0 0");
+            Self::write_opt("/proc/gpufreq/gpufreq_limit_table", "7 0 0");
         }
 
         Self::write_opt(MtkHardware::FPSGO_ENABLE, "1");
@@ -269,6 +286,12 @@ impl GameController {
 
         // 6. Universal GPU Clock Restore to Auto DVFS
         crate::subsystems::GpuController::set_freq(0, Some(0));
+
+        // Restore MediaTek GPU limit table (Re-enable THERMAL ID 3 & PBM ID 7)
+        Self::write_opt("/proc/gpufreq/gpufreq_limit_table", "3 1 1");
+        Self::write_opt("/proc/gpufreq/gpufreq_limit_table", "7 1 1");
+        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "0");
+        Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", "0");
 
         // Reset MediaTek GED, FPSGO, and PPM Hooks
         Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", "0");

@@ -313,12 +313,12 @@ impl HardwareCapability {
                 .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_clock_mhz"))
                 .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq"))
                 .unwrap_or(0);
-            let mut max_freq_mhz = Self::normalize_freq_to_mhz(max_raw);
+            let max_raw_mhz = Self::normalize_freq_to_mhz(max_raw);
 
             let min_raw = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/min_clock_mhz")
                 .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq"))
                 .unwrap_or(0);
-            let mut min_freq_mhz = Self::normalize_freq_to_mhz(min_raw);
+            let min_raw_mhz = Self::normalize_freq_to_mhz(min_raw);
 
             let cur_governor = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/governor")
                 .unwrap_or_else(|_| "msm-adreno-tz".to_string());
@@ -355,28 +355,26 @@ impl HardwareCapability {
             freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
             freqs_desc.dedup();
 
-            let pwr_max = SysfsReader::read_int::<usize>("/sys/class/kgsl/kgsl-3d0/max_pwrlevel").ok();
-            let pwr_min = SysfsReader::read_int::<usize>("/sys/class/kgsl/kgsl-3d0/min_pwrlevel").ok();
+            let mut hw_max_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
+            let live_gpuclk = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_gpuclk")
+                .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_clock_mhz"))
+                .map(Self::normalize_freq_to_mhz)
+                .unwrap_or(0);
+            hw_max_mhz = hw_max_mhz.max(live_gpuclk).max(cur_freq_mhz).max(max_raw_mhz);
 
-            if let Some(idx) = pwr_max {
-                if let Some(&ceiling_mhz) = freqs_desc.get(idx) {
-                    max_freq_mhz = ceiling_mhz;
-                }
-            }
-            if let Some(idx) = pwr_min {
-                if let Some(&floor_mhz) = freqs_desc.get(idx) {
-                    if min_freq_mhz == 0 || min_freq_mhz < floor_mhz {
-                        min_freq_mhz = floor_mhz;
-                    }
-                }
+            if hw_max_mhz > available_freqs_mhz.last().copied().unwrap_or(0) {
+                opp_table.insert(0, GpuOppEntry {
+                    index: 0,
+                    freq_khz: hw_max_mhz * 1000,
+                    freq_mhz: hw_max_mhz,
+                });
+                available_freqs_mhz.push(hw_max_mhz);
+                available_freqs_mhz.sort_unstable();
+                available_freqs_mhz.dedup();
             }
 
-            if min_freq_mhz == 0 {
-                min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
-            }
-            if max_freq_mhz == 0 {
-                max_freq_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
-            }
+            let mut max_freq_mhz = hw_max_mhz;
+            let mut min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(min_raw_mhz);
             if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
@@ -442,39 +440,35 @@ impl HardwareCapability {
             || Path::new("/proc/gpufreqv2").is_dir()
             || Path::new("/sys/module/ged").is_dir()
         {
-            let opp_table = Self::parse_mtk_gpu_opp_table();
+            let mut opp_table = Self::parse_mtk_gpu_opp_table();
             let mut available_freqs_mhz: Vec<u64> = opp_table.iter().map(|e| e.freq_mhz).collect();
             available_freqs_mhz.sort_unstable();
             available_freqs_mhz.dedup();
 
             let cur_freq_mhz = Self::read_mtk_gpu_cur_mhz();
-            let mut min_freq_mhz = 0u64;
-            let mut max_freq_mhz = 0u64;
 
-            for node in &[
-                "/sys/module/ged/parameters/gpu_bottom_freq",
-                "/sys/module/ged/parameters/gpu_cust_boost_freq",
-            ] {
-                if let Ok(v) = SysfsReader::read_int::<u64>(node) {
-                    let mhz = Self::normalize_freq_to_mhz(v);
-                    if mhz > min_freq_mhz {
-                        min_freq_mhz = mhz;
-                    }
-                }
-            }
-            if let Ok(v) = SysfsReader::read_int::<u64>("/sys/module/ged/parameters/gpu_cust_upbound_freq") {
-                let mhz = Self::normalize_freq_to_mhz(v);
-                if mhz > 0 {
-                    max_freq_mhz = mhz;
-                }
+            // Probe live kernel hardware nodes directly for potential Overclock (OC) kernels (e.g. KPM lynx_oc)
+            let live_upbound_mhz = SysfsReader::read_int::<u64>("/sys/module/ged/parameters/gpu_cust_upbound_freq")
+                .map(Self::normalize_freq_to_mhz)
+                .unwrap_or(0);
+
+            let hw_opp_max = available_freqs_mhz.last().copied().unwrap_or(0);
+            let true_max_mhz = hw_opp_max.max(live_upbound_mhz).max(cur_freq_mhz);
+
+            if true_max_mhz > hw_opp_max && true_max_mhz > 0 {
+                opp_table.insert(0, GpuOppEntry {
+                    index: 0,
+                    freq_khz: true_max_mhz * 1000,
+                    freq_mhz: true_max_mhz,
+                });
+                available_freqs_mhz.push(true_max_mhz);
+                available_freqs_mhz.sort_unstable();
+                available_freqs_mhz.dedup();
             }
 
-            if min_freq_mhz == 0 {
-                min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
-            }
-            if max_freq_mhz == 0 {
-                max_freq_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
-            }
+            let mut min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
+            let mut max_freq_mhz = true_max_mhz;
+
             if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
@@ -538,27 +532,6 @@ impl HardwareCapability {
             let cur_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("cur_freq"))
                 .map(Self::normalize_freq_to_mhz)
                 .unwrap_or(0);
-            let mut min_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("min_freq"))
-                .map(Self::normalize_freq_to_mhz)
-                .unwrap_or(0);
-            let mut max_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("max_freq"))
-                .map(Self::normalize_freq_to_mhz)
-                .unwrap_or(0);
-            if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
-                std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
-            }
-
-            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
-            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(0);
-            if is_cfg_locked && locked_f > 0 {
-                min_freq_mhz = locked_f;
-                max_freq_mhz = locked_f;
-            }
-            let cur_governor = SysfsReader::read_trimmed(devpath.join("governor"))
-                .unwrap_or_else(|_| "simple_ondemand".to_string());
-            let load_pct = SysfsReader::read_int::<u32>(devpath.join("load")).unwrap_or(0);
 
             let mut available_freqs_mhz = Vec::new();
             let mut opp_table = Vec::new();
@@ -579,6 +552,46 @@ impl HardwareCapability {
             }
             available_freqs_mhz.sort_unstable();
             available_freqs_mhz.dedup();
+
+            let mut min_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("min_freq"))
+                .map(Self::normalize_freq_to_mhz)
+                .unwrap_or(0);
+            let mut max_freq_mhz = SysfsReader::read_int::<u64>(devpath.join("max_freq"))
+                .map(Self::normalize_freq_to_mhz)
+                .unwrap_or(0);
+
+            let hw_devfreq_max = available_freqs_mhz.last().copied().unwrap_or(0);
+            max_freq_mhz = max_freq_mhz.max(hw_devfreq_max).max(cur_freq_mhz);
+
+            if max_freq_mhz > hw_devfreq_max && max_freq_mhz > 0 {
+                opp_table.insert(0, GpuOppEntry {
+                    index: 0,
+                    freq_khz: max_freq_mhz * 1000,
+                    freq_mhz: max_freq_mhz,
+                });
+                available_freqs_mhz.push(max_freq_mhz);
+                available_freqs_mhz.sort_unstable();
+                available_freqs_mhz.dedup();
+            }
+
+            if min_freq_mhz == 0 {
+                min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
+            }
+            if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
+                std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
+            }
+
+            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            if is_cfg_locked && locked_f > 0 {
+                min_freq_mhz = locked_f;
+                max_freq_mhz = locked_f;
+            }
+            let cur_governor = SysfsReader::read_trimmed(devpath.join("governor"))
+                .unwrap_or_else(|_| "simple_ondemand".to_string());
+            let load_pct = SysfsReader::read_int::<u32>(devpath.join("load")).unwrap_or(0);
 
             let mut available_governors = Vec::new();
             if let Ok(govs_raw) = SysfsReader::read_trimmed(devpath.join("available_governors")) {
