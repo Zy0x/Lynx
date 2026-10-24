@@ -53,11 +53,6 @@ object LynxMediaSafeguardManager {
     private val _activeProtectedPackage = MutableStateFlow<String?>(null)
     val activeProtectedPackage: StateFlow<String?> = _activeProtectedPackage.asStateFlow()
 
-    // Cached user desires before safeguard suspension
-    private var savedUserSwapInterval: String? = null
-    private var savedUserLatchUnsignaled: String? = null
-    private var savedUserDisableBackpressure: String? = null
-
     fun isMediaOrBrowserApp(context: Context, packageName: String): Boolean {
         if (MEDIA_AND_BROWSER_PACKAGES.contains(packageName.lowercase())) return true
 
@@ -88,18 +83,17 @@ object LynxMediaSafeguardManager {
 
         if (isMedia) {
             if (!_isSafeguardEngaged.value) {
-                // Entering media app: capture active properties before enforcing safety
-                savedUserSwapInterval = Shell.cmd("getprop debug.egl.swapinterval").exec().out.firstOrNull()?.trim()
-                savedUserLatchUnsignaled = Shell.cmd("getprop debug.sf.latch_unsignaled").exec().out.firstOrNull()?.trim()
-                savedUserDisableBackpressure = Shell.cmd("getprop debug.sf.disable_backpressure").exec().out.firstOrNull()?.trim()
+                // Entering media app: preserve video stability while maintaining fluid compositor latching
+                Log.i(TAG, "[Shield Engage] $packageName foreground -> applying safe VSync & fluid compositor latch")
 
-                Log.i(TAG, "[Shield Engage] $packageName foreground -> applying safe VSync & latch")
-
-                // Enforce safety: swapinterval=1, latch_unsignaled=0, backpressure=0, allow Codec2 software fallback
+                // Enforce safety: swapinterval=1 (prevents ExoPlayer drift), but latch_unsignaled=1 and disable_backpressure=1
+                // to completely eliminate UI stutter and dropped frames during scrolling feeds
                 Shell.cmd(
                     "setprop debug.egl.swapinterval 1",
-                    "setprop debug.sf.latch_unsignaled 0",
-                    "setprop debug.sf.disable_backpressure 0",
+                    "setprop debug.sf.latch_unsignaled 1",
+                    "setprop debug.sf.disable_backpressure 1",
+                    "setprop debug.sf.disable_client_composition_cache 0",
+                    "setprop debug.hwui.target_cpu_time_percent 70",
                     "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
                     "setprop media.stagefright.thumbnail.prefer_hw_codecs false",
                     "resetprop -d debug.stagefright.ccodec 2>/dev/null",
@@ -111,18 +105,7 @@ object LynxMediaSafeguardManager {
             }
         } else {
             if (_isSafeguardEngaged.value) {
-                Log.i(TAG, "[Shield Disengage] Returning to non-media app: $packageName -> restoring settings")
-
-                // Restore user's custom settings
-                val restoreSwap = savedUserSwapInterval?.takeIf { it.isNotBlank() } ?: "1"
-                val restoreLatch = savedUserLatchUnsignaled?.takeIf { it.isNotBlank() } ?: "0"
-                val restoreBackpressure = savedUserDisableBackpressure?.takeIf { it.isNotBlank() } ?: "0"
-
-                Shell.cmd(
-                    "setprop debug.egl.swapinterval $restoreSwap",
-                    "setprop debug.sf.latch_unsignaled $restoreLatch",
-                    "setprop debug.sf.disable_backpressure $restoreBackpressure"
-                ).submit()
+                Log.i(TAG, "[Shield Disengage] Returning to non-media app: $packageName")
 
                 _isSafeguardEngaged.value = false
                 _activeProtectedPackage.value = null

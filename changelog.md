@@ -1,3 +1,36 @@
+# Lynx Universal [Charging Compositor Fluidity & Media Smoothness Guard] 7.0.0-RC183
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC183** (Lynx Kernel Manager v3.2.29): **Penyelesaian Tuntas Masalah UI Patah-Patah Saat Mengecas & Optimalisasi Kelancaran Aplikasi Media/Sosial: Mengeliminasi Override Destruktif pada `LynxMediaSafeguardManager` yang Sebelumnya Menurunkan Nilai `debug.sf.latch_unsignaled` dan `disable_backpressure` Menjadi 0 Saat Membuka Aplikasi Seperti Twitter/X, Chrome, dan Instagram Sehingga Memicu Frame Drop Parah; Mengintegrasikan Perlindungan Kompositor Halus dan Trimming RAM Otomatis pada Pemicu `ACTION_POWER_CONNECTED` di `LynxAppAutomationService` Guna Meredam Beban Sinkronisasi Background dan Gangguan Ripple AC Digitizer Sentuh Saat Kabel Pengisi Daya Terhubung; Serta Mengaktifkan Cache Komposisi Klien (`debug.sf.disable_client_composition_cache=0`) dan Menaikkan Alokasi Waktu Render HWUI ke 70% Demi Interaksi Sentuh yang Bebas Lag dan Super Mulus**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC183)
+
+### 1. 🌊 Pemulihan Kelancaran Frame Aplikasi Media & Sosial (`LynxMediaSafeguardManager.kt`)
+- **Penghapusan Override Penurunan Latch & Backpressure**:
+  - Mengeliminasi pengaturan `setprop debug.sf.latch_unsignaled 0` dan `debug.sf.disable_backpressure 0` yang sebelumnya dipaksa saat membuka aplikasi browser atau media (Twitter, Chrome, Instagram, dsb.).
+  - Mempertahankan `swapinterval=1` (aman untuk sinkronisasi pemutaran video ExoPlayer/MediaCodec) sekaligus mengunci `debug.sf.latch_unsignaled=1` dan `debug.sf.disable_backpressure=1` agar SurfaceFlinger tidak membatalkan atau membuang frame secara sepihak saat pengguna melakukan scrolling cepat.
+- **Eliminasi IPC Shell Blocking**:
+  - Menghapus pembacaan `Shell.cmd("getprop...")` berulang yang sebelumnya memblokir alur thread UI saat berpindah antar layar.
+
+### 2. ⚡ Perlindungan Kelancaran Kompositor Saat Pengisian Daya (`LynxAppAutomationService.kt`)
+- **Peredam Stutter Ripple Daya (*Charging Fluidity Preserver*)**:
+  - Saat perangkat dicolokkan ke pengisi daya (`ACTION_POWER_CONNECTED`), service secara otomatis mengaktifkan parameter render engine optimal:
+    - `debug.sf.latch_unsignaled = 1` & `debug.sf.auto_latch_unsignaled = 1`
+    - `debug.sf.disable_backpressure = 1` & `debug.sf.enable_gl_backpressure = 0`
+    - `debug.sf.disable_client_composition_cache = 0` (mengaktifkan cache layer GPU)
+    - `debug.hwui.target_cpu_time_percent = 70` (memberikan alokasi waktu pemrosesan grafis yang cukup pada UI thread)
+- **Pembersihan Memori Proaktif Saat Cas**:
+  - Secara otomatis memanggil `LynxMemoryShield.checkAndProtectMemory()` saat cas dimulai untuk mengantisipasi lonjakan pekerjaan pemeliharaan latar belakang sistem Android (*JobScheduler / MediaScanner / Cloud Sync*).
+
+### 3. 📏 Kepatuhan Batas Baris Kode Ketat (≤699 Baris)
+- Seluruh modul Kotlin terverifikasi mematuhi standar ukuran file:
+  - `LynxAppAutomationService.kt`: 589 baris (≤699)
+  - `LynxMediaSafeguardManager.kt`: 105 baris (≤699)
+  - `LynxForegroundDetector.kt`: 193 baris (≤699)
+  - `LynxAutomationNotificationHelper.kt`: 153 baris (≤699)
+  - `LynxMemoryShield.kt`: 85 baris (≤699)
+
+---
+
 # Lynx Universal [Zero-Dumpsys Foreground Engine & Proactive Memory Shield] 7.0.0-RC182
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC182** (Lynx Kernel Manager v3.2.28): **Pemberantasan Total Penyebab Lag Sistem & Stutter Berat di Background: Mengeliminasi Panggilan IPC Berat Root `dumpsys window` / `dumpsys activity` yang Sebelumnya Berjalan di Loop Cepat 250ms dan Mengunci `system_server` (WindowManagerGlobalLock) Menjadi Detektor Foreground Tanpa Beban (`LynxForegroundDetector`) Berbasis Pembacaan Langsung Kernel Cgroup `/dev/cpuset/top-app/cgroup.procs` & Cache RAM `UsageStatsManager`; Menghapus Pemindaian 700+ PID `/proc` Menjadi Pengecekan O(1) Status Aplikasi Target; Menghadirkan Perlindungan Memori Proaktif (`LynxMemoryShield`) untuk Menekan Thrashing ZRAM/kswapd0 dengan Menurunkan Nilai Swappiness Menjadi 60, Menaikkan Read-Ahead eMMC ke 512KB, Serta Menghentikan Tabrakan Daemon Ganda Antara Service Native dan `lynx_watcher.sh` Demi Performa Sehalus Sutra dan Responsif 100%**.

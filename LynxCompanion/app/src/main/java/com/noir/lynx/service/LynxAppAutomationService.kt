@@ -124,10 +124,24 @@ class LynxAppAutomationService : Service() {
                     if (now - lastPowerConnectedTime < 3000L) return
                     lastPowerConnectedTime = now
                     serviceScope.launch(Dispatchers.IO) {
-                        val state = LynxRepository.readState().charging
-                        if (state.extremeChargingEnabled || state.bypassEnabled) {
-                            LynxRepository.applySavedChargingConfig()
-                        }
+                        try {
+                            // 1. Proactive Memory Shield: purge caches to accommodate Android's charging sync jobs
+                            LynxMemoryShield.checkAndProtectMemory()
+
+                            // 2. Enforce fluid compositor latching during charging to prevent AC ripple touch jank
+                            Shell.cmd(
+                                "setprop debug.sf.latch_unsignaled 1",
+                                "setprop debug.sf.auto_latch_unsignaled 1",
+                                "setprop debug.sf.disable_backpressure 1",
+                                "setprop debug.sf.disable_client_composition_cache 0",
+                                "setprop debug.hwui.target_cpu_time_percent 70"
+                            ).submit()
+
+                            val state = LynxRepository.readState().charging
+                            if (state.extremeChargingEnabled || state.bypassEnabled) {
+                                LynxRepository.applySavedChargingConfig()
+                            }
+                        } catch (_: Exception) {}
                     }
                 }
                 Intent.ACTION_POWER_DISCONNECTED -> {
