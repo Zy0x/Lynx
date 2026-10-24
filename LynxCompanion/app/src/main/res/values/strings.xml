@@ -2126,4 +2126,12 @@
     <string name="floating_error_frame">Aplikasi tidak menghasilkan gambar pada jendela Lynx. Jendela ditutup.</string>
     <string name="floating_error_input">Sistem menolak input aplikasi virtual. Jendela ditutup agar sentuhan tidak tersangkut.</string>
     <string name="floating_error_resize">Ukuran display virtual tidak dapat diterapkan dan diverifikasi. Jendela ditutup.</string>
+    <string name="hud_clock_short">Clock</string>
+    <string name="hud_selected_count">%1$d metrik dipilih</string>
+    <string name="hud_metric_group_count">%1$d dari %2$d dipilih</string>
+    <string name="hud_floating_short">Aplikasi mengambang</string>
+    <string name="hud_window_size_value">%1$d%% × %2$d%%</string>
+    <string name="hud_engine_info">Informasi engine</string>
+    <string name="hud_unit_metric">%1$s · %2$s</string>
+    <string name="hud_metric_value_description">%1$s: %2$s</string>
 </resources>

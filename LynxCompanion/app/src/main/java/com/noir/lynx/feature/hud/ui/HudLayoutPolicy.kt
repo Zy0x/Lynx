@@ -20,4 +20,7 @@ internal object HudLayoutPolicy {
 
     fun fits(available: Float, cells: List<Float>, gap: Float = 8f): Boolean =
         cells.sum() + gap * (cells.size - 1).coerceAtLeast(0) <= available
+
+    fun columns(available: Float, cell: Float, gap: Float = 4f, maximum: Int = 3): Int =
+        ((available + gap) / (cell.coerceAtLeast(48f) + gap)).toInt().coerceIn(1, maximum.coerceAtLeast(1))
 }

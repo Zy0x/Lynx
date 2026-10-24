@@ -20,31 +20,19 @@ import com.noir.lynx.feature.hud.data.*
 @Composable
 internal fun HudDetails(snapshot: HudSnapshot) {
     var diagnostics by rememberSaveable { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        HudSection(hudString(R.string.hud_group_frame)) {
-            HudFrameChart(snapshot)
-            listOf(HudMetric.FPS, HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ, HudMetric.FRAME_AVERAGE, HudMetric.FPS_LOW).forEach {
-                HudReadingLine(hudString(it.label), snapshot[it])
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        hudMetricGroups.forEachIndexed { index, (title, metrics) ->
+            val problem = listOf("permission_denied", "stale", "warming_up", "unsupported").firstOrNull { state ->
+                metrics.any { snapshot[it].status == state }
             }
-        }
-        HudSection(hudString(R.string.hud_group_processor)) {
-            listOf(HudMetric.CPU_LOAD, HudMetric.CPU_CLOCK, HudMetric.GPU_LOAD, HudMetric.GPU_CLOCK).forEach {
-                HudReadingLine(hudString(it.label), snapshot[it])
+            HudExpandableSection(hudString(title), problem?.let { statusText(it) } ?: "", initiallyOpen = index == 0) {
+                if (index == 0) HudFrameChart(snapshot)
+                metrics.forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+                if (index == 1) snapshot.policies.forEach { (id, clock) -> HudReadingLine(id, clock) }
+                if (index == 3) Text(hudString(when (snapshot.charging) {
+                    true -> R.string.hud_charging; false -> R.string.hud_discharging; else -> R.string.hud_unsupported
+                }), fontSize = 12.sp, color = HudMuted)
             }
-            snapshot.policies.forEach { (id, clock) -> HudReadingLine(id, clock) }
-        }
-        HudSection(hudString(R.string.hud_group_memory_temperature)) {
-            listOf(HudMetric.RAM_USED, HudMetric.CPU_TEMP, HudMetric.SOC_TEMP, HudMetric.GPU_TEMP).forEach {
-                HudReadingLine(hudString(it.label), snapshot[it])
-            }
-        }
-        HudSection(hudString(R.string.hud_group_battery)) {
-            listOf(HudMetric.BATTERY_LEVEL, HudMetric.BATTERY_TEMP, HudMetric.BATTERY_CURRENT, HudMetric.BATTERY_POWER, HudMetric.BATTERY_VOLTAGE).forEach {
-                HudReadingLine(hudString(it.label), snapshot[it])
-            }
-            Text(hudString(when (snapshot.charging) {
-                true -> R.string.hud_charging; false -> R.string.hud_discharging; else -> R.string.hud_unsupported
-            }), fontSize = 12.sp, color = HudMuted)
         }
         HudDisclosure(hudString(R.string.hud_diagnostics), diagnostics) { diagnostics = !diagnostics }
         if (diagnostics) HudSection(hudString(R.string.hud_diagnostics)) {
@@ -69,7 +57,7 @@ private fun HudFrameChart(snapshot: HudSnapshot) {
         Text(hudString(R.string.hud_frame_chart), fontSize = 12.sp, color = HudMuted)
         Text(hudString(R.string.hud_chart_range, "%.1f".format(low), "%.1f".format(high)), fontSize = 12.sp, color = HudMuted)
         val description = hudString(R.string.hud_frame_chart)
-        Canvas(Modifier.fillMaxWidth().height(48.dp).semantics { contentDescription = description }) {
+        Canvas(Modifier.fillMaxWidth().height(32.dp).semantics { contentDescription = description }) {
             val max = high.coerceAtLeast(1f)
             val path = Path()
             history.forEachIndexed { i, v ->

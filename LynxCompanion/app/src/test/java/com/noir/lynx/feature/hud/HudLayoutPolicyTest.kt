@@ -48,4 +48,17 @@ class HudLayoutPolicyTest {
         assertFalse(HudLayoutPolicy.fits(196f, List(3) { 78f }, 0f))
         assertTrue(HudLayoutPolicy.fits(0f, emptyList()))
     }
+
+    @Test fun compactGridsRespectMeasuredCellsAtSmallAndScaledWidths() {
+        assertEquals(3, HudLayoutPolicy.columns(176f, 48f))
+        assertEquals(2, HudLayoutPolicy.columns(176f, 80f))
+        assertEquals(1, HudLayoutPolicy.columns(176f, 120f))
+        assertEquals(4, HudLayoutPolicy.columns(280f, 60f, maximum = 4))
+        assertEquals(1, HudLayoutPolicy.columns(0f, 80f))
+        for (width in listOf(176f, 224f, 280f, 336f)) for (font in listOf(1f, 1.3f, 2f)) {
+            val cell = 70f * font
+            val columns = HudLayoutPolicy.columns(width, cell)
+            if (columns > 1) assertTrue(HudLayoutPolicy.fits(width, List(columns) { cell }, 4f))
+        }
+    }
 }

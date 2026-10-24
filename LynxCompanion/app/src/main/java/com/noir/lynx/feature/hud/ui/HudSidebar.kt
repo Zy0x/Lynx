@@ -50,7 +50,7 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
             border = BorderStroke(1.dp, HudBorder)) {
             Column {
                 HudPanelHeader(appLabel, snapshot[HudMetric.BATTERY_LEVEL], onDrag) { onOpen(false) }
-                HudAppDock(apps, preferences, prefs) { onOpen(false); onApp(it) }
+                HudAppDock(apps) { onOpen(false); onApp(it) }
                 HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
                 Row(Modifier.weight(1f, fill = false)) {
                     if (layout.useRail) {
@@ -69,9 +69,9 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
                                 when (page) {
                                     HudPage.Summary -> HudOverview(snapshot, action, onProfile, onCapture, { page = HudPage.Tools }, onBoostRam)
                                     HudPage.Details -> HudDetails(snapshot)
-                                    HudPage.Tools -> HudTools(prefs, preferences, rates, snapshot[HudMetric.DISPLAY_HZ], action, onHz, onCapture, onStop)
+                                    HudPage.Tools -> HudTools(prefs, preferences, rates, snapshot[HudMetric.DISPLAY_HZ], action, onHz, onCapture, onStop, onBoostRam)
                                 }
-                                action.message?.let { Text(hudString(it), fontSize = 11.sp, color = HudCyan) }
+                                action.message?.let { Text(hudString(it), fontSize = 12.sp, color = HudCyan) }
                             }
                         }
                     }

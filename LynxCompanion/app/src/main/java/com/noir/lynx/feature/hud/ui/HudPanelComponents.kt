@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,8 +51,8 @@ internal fun HudSection(title: String, content: @Composable ColumnScope.() -> Un
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(0.8.dp, HudBorder)
     ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, color = HudCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = HudCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
             content()
         }
     }
@@ -67,11 +69,11 @@ internal fun HudChoice(label: String, selected: Boolean, onClick: () -> Unit,
         shape = RoundedCornerShape(9.dp),
         color = background,
         border = BorderStroke(0.8.dp, border),
-        modifier = modifier.heightIn(min = 44.dp)
+        modifier = modifier.heightIn(min = 48.dp).semantics { this.selected = selected; this.role = role }
     ) {
         Box(modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
             Text(label, color = if (!enabled) HudMuted.copy(alpha = 0.4f) else if (selected) HudCyan else HudMuted,
-                fontSize = 11.5.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center)
+                fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center)
         }
     }
 }
@@ -84,13 +86,13 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
         shape = RoundedCornerShape(10.dp),
         color = HudCard,
         border = BorderStroke(0.8.dp, HudBorder),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { stateDescription = state }
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { stateDescription = state }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(label, Modifier.weight(1f), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = HudCyan)
+            Text(label, Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HudCyan)
             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = HudMuted, modifier = Modifier.size(18.dp))
         }
     }
@@ -106,16 +108,16 @@ internal fun HudReadingLine(label: String, reading: HudReading) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (HudLayoutPolicy.fits(available, listOf(labelWidth, valueWidth))) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, Modifier.weight(1f), fontSize = 11.5.sp, color = HudMuted)
+                    Text(label, Modifier.weight(1f), fontSize = 12.sp, color = HudMuted)
                     Text(value, fontSize = 12.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
                         color = if (reading.status == "valid") Color.White else HudMuted.copy(alpha = 0.5f))
                 }
             } else {
-                Text(label, fontSize = 11.sp, color = HudMuted)
+                Text(label, fontSize = 12.sp, color = HudMuted)
                 Text(value, fontSize = 12.5.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold,
                     color = if (reading.status == "valid") Color.White else HudMuted.copy(alpha = 0.5f))
             }
-            if (reading.status != "valid") Text(statusText(reading.status), fontSize = 10.sp, color = HudMuted.copy(alpha = 0.5f))
+            if (reading.status != "valid") Text(statusText(reading.status), fontSize = 12.sp, color = HudMuted.copy(alpha = 0.5f))
         }
     }
 }

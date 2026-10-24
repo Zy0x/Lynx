@@ -15,13 +15,16 @@ import kotlin.math.abs
 
 @Composable
 internal fun HudTools(prefs: HudPreferences, store: HudPreferencesStore, rates: List<Float>, activeHz: HudReading,
-    action: HudActionState, onHz: (Float) -> Unit, onCapture: () -> Unit, onStop: () -> Unit) {
+    action: HudActionState, onHz: (Float) -> Unit, onCapture: () -> Unit, onStop: () -> Unit, onBoostRam: () -> Unit) {
     var configure by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HudSection(hudString(R.string.hud_quick_actions)) {
-            HudAction(hudString(R.string.hud_capture), !action.busy, onCapture, Modifier.fillMaxWidth())
+            val labels = listOf(hudString(R.string.hud_capture_short), hudString(R.string.hud_boost_ram))
+            HudAdaptiveGrid(labels, maximum = 2) { index ->
+                HudAction(labels[index], !action.busy, if (index == 0) onCapture else onBoostRam, Modifier.weight(1f))
+            }
         }
-        HudSection(hudString(R.string.hud_refresh)) {
+        HudExpandableSection(hudString(R.string.hud_refresh), hudString(R.string.hud_value, activeHz.text(), activeHz.unit)) {
             HudReadingLine(hudString(R.string.hud_actual_hz), activeHz)
             action.requestedHz?.let {
                 Text(hudString(R.string.hud_requested_hz, HudReading(it.toDouble(), "Hz", status = "valid").text()), fontSize = 12.sp, color = HudMuted)
@@ -29,19 +32,9 @@ internal fun HudTools(prefs: HudPreferences, store: HudPreferencesStore, rates: 
             if (rates.isEmpty()) Text(hudString(R.string.hud_unsupported), color = HudMuted, fontSize = 12.sp)
             else {
                 val labels = rates.map { hz -> hudString(R.string.hud_value, HudReading(hz.toDouble(), "Hz", status = "valid").text(), "Hz") }
-                val cellWidth = (hudLabelWidth(labels) + 16f).coerceAtLeast(48f)
-                BoxWithConstraints(Modifier.fillMaxWidth().selectableGroup()) {
-                    val columns = if (HudLayoutPolicy.fits(maxWidth.value, listOf(cellWidth, cellWidth), 6f)) 2 else 1
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        rates.indices.chunked(columns).forEach { indices ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                indices.forEach { i ->
-                                    HudChoice(labels[i], activeHz.status == "valid" && activeHz.value?.let { abs(it - rates[i]) < 0.05 } == true,
-                                        { onHz(rates[i]) }, Modifier.weight(1f), !action.busy)
-                                }
-                            }
-                        }
-                    }
+                HudAdaptiveGrid(labels, maximum = 4) { i ->
+                    HudChoice(labels[i], activeHz.status == "valid" && activeHz.value?.let { abs(it - rates[i]) < 0.05 } == true,
+                        { onHz(rates[i]) }, Modifier.weight(1f), !action.busy)
                 }
             }
         }
@@ -50,8 +43,10 @@ internal fun HudTools(prefs: HudPreferences, store: HudPreferencesStore, rates: 
             HudDisclosure(hudString(R.string.hud_configure), configure) { configure = !configure }
             if (configure) HudMetricSelection(prefs, store, showPin = false)
         }
-        HudSection(hudString(R.string.hud_session)) {
-            HudAction(hudString(R.string.hud_stop), onClick = onStop, modifier = Modifier.fillMaxWidth())
+        HudExpandableSection(hudString(R.string.hud_floating_short), hudString(
+            if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom)) {
+            HudFloatingSettings(prefs, store)
         }
+        HudAction(hudString(R.string.hud_stop), onClick = onStop, modifier = Modifier.fillMaxWidth())
     }
 }

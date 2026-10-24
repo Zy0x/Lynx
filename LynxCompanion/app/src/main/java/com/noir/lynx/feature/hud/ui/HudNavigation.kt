@@ -39,7 +39,7 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp, horizontal = 2.dp)
             .selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         HudPage.values().forEach { page ->
             val active = selected == page
@@ -63,14 +63,14 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 2.dp)
-                    .heightIn(min = 52.dp)
+                    .heightIn(min = 48.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     val icon = when (page) {
                         HudPage.Summary -> Icons.Default.Speed
@@ -85,7 +85,7 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
                     )
                     Text(
                         text = title,
-                        fontSize = 10.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         color = if (active) HudCyan else HudMuted,
                         softWrap = false
@@ -103,7 +103,7 @@ internal fun HudPageMenu(selected: HudPage, onSelect: (HudPage) -> Unit, modifie
             .verticalScroll(rememberScrollState())
             .selectableGroup()
             .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         HudPage.values().forEach { page ->
             HudChoice(
