@@ -6,13 +6,11 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,9 +23,9 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
     var extreme by rememberSaveable { mutableStateOf(false) }
 
     val choices = listOf(
-        Triple("powersave", R.string.hud_save, HudBlue),
-        Triple("balance", R.string.hud_balanced, HudCyan),
-        Triple("performance", R.string.hud_performance, HudOrange)
+        "powersave" to R.string.hud_save,
+        "balance" to R.string.hud_balanced,
+        "performance" to R.string.hud_performance
     )
     val activeLabelRes = when (current) {
         "powersave" -> R.string.hud_save
@@ -54,14 +52,13 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                choices.forEach { (id, labelRes, accent) ->
+                choices.forEach { (id, labelRes) ->
                     HudChoice(
                         label = hudString(labelRes),
                         selected = current == id,
                         onClick = { onProfile(id) },
                         modifier = Modifier.weight(1f),
-                        enabled = !busy,
-                        accentColor = accent
+                        enabled = !busy
                     )
                 }
                 Surface(
@@ -70,7 +67,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                     color = if (more || current in setOf("auto", "extreme")) HudCyan.copy(alpha = 0.16f) else HudElevated,
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(
-                        0.9.dp,
+                        0.8.dp,
                         if (more || current in setOf("auto", "extreme")) HudCyan.copy(alpha = 0.55f) else HudBorder
                     ),
                     modifier = Modifier.size(42.dp)
@@ -107,8 +104,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                             onProfile("auto")
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = !busy,
-                        accentColor = HudPurple
+                        enabled = !busy
                     )
                     HudChoice(
                         label = hudString(R.string.hud_extreme),
@@ -119,7 +115,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                         },
                         modifier = Modifier.weight(1f),
                         enabled = !busy,
-                        accentColor = HudRed
+                        accentColor = HudOrange
                     )
                 }
             }
@@ -127,50 +123,39 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
             if (current == null) {
                 Text(
                     text = hudString(R.string.hud_profile_unavailable),
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     color = HudMuted
                 )
             }
             if (busy) {
                 Text(
                     text = hudString(R.string.hud_applying),
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     color = HudCyan
                 )
             }
 
             if (extreme) {
                 Surface(
-                    color = HudRed.copy(alpha = 0.1f),
+                    color = HudCard,
                     shape = RoundedCornerShape(11.dp),
-                    border = BorderStroke(0.9.dp, HudRed.copy(alpha = 0.45f)),
+                    border = BorderStroke(0.8.dp, HudOrange),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier.padding(10.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.WarningAmber,
-                                contentDescription = null,
-                                tint = HudOrange,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = hudString(R.string.hud_extreme_title),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = HudOrange
-                            )
-                        }
+                        Text(
+                            text = hudString(R.string.hud_extreme_title),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = HudOrange
+                        )
                         Text(
                             text = hudString(R.string.hud_extreme_warning),
-                            fontSize = 11.sp,
-                            color = Color(0xFFE2E8F0)
+                            fontSize = 11.5.sp,
+                            color = HudMuted
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -189,8 +174,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                                     extreme = false
                                     onProfile("extreme")
                                 },
-                                modifier = Modifier.weight(1f),
-                                isDanger = true
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }

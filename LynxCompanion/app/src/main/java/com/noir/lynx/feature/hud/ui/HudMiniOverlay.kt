@@ -8,13 +8,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -60,170 +58,97 @@ internal fun HudMiniOverlay(
     val pages = selected.chunked(count)
     val pager = rememberPagerState(pageCount = { pages.size.coerceAtLeast(1) })
     val showMetrics = prefs.pinned && selected.isNotEmpty()
-    val miniWidth = min(viewport.widthDp * 0.62f, 248f).dp
-    var isDragging by remember { mutableStateOf(false) }
+    val colsOnPage = min(selected.size.coerceAtLeast(1), count)
+    val capsuleWidth = if (colsOnPage == 1) 96.dp else 168.dp
+    val totalWidth = if (showMetrics) capsuleWidth + 12.dp else 28.dp
+    val openDescription = hudString(R.string.hud_open)
 
     val handleShape = if (dockRight) {
-        RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)
+        RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)
     } else {
-        RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
+        RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp)
     }
 
-    val edgeHandle: @Composable () -> Unit = {
-        val description = hudString(R.string.hud_open)
+    val edgeBar: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .width(32.dp)
-                .height(72.dp)
-                .semantics { contentDescription = description }
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { openCallback() })
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { isDragging = true },
-                        onDragEnd = {
-                            isDragging = false
-                            dragEndCallback()
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                            dragEndCallback()
-                        },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            val xy = dragXYCallback
-                            if (xy != null) {
-                                xy(amount.x, amount.y)
-                            } else {
-                                dragYCallback(amount.y)
-                            }
-                        }
-                    )
-                },
+                .width(if (showMetrics) 6.dp else 28.dp)
+                .height(46.dp),
             contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
         ) {
             Surface(
                 shape = handleShape,
-                color = if (isDragging) HudElevated else HudCard.copy(alpha = 0.92f),
-                border = BorderStroke(
-                    width = if (isDragging) 1.4.dp else 1.dp,
-                    color = if (isDragging) HudCyan else HudCyan.copy(alpha = 0.55f)
-                ),
-                shadowElevation = if (isDragging) 8.dp else 4.dp,
+                color = HudCyan,
+                shadowElevation = 3.dp,
                 modifier = Modifier
-                    .width(if (isDragging) 16.dp else 12.dp)
-                    .height(if (isDragging) 68.dp else 60.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(3.5.dp)
-                            .height(26.dp)
-                            .clip(CircleShape)
-                            .background(HudCyan)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    repeat(2) {
-                        Box(
-                            modifier = Modifier
-                                .padding(vertical = 1.dp)
-                                .size(3.dp)
-                                .clip(CircleShape)
-                                .background(HudCyan.copy(alpha = 0.7f))
-                        )
-                    }
-                }
-            }
+                    .width(4.5.dp)
+                    .height(42.dp)
+            ) {}
         }
     }
 
-    val metricsCapsule: @Composable RowScope.() -> Unit = {
+    val metricsCapsule: @Composable () -> Unit = {
         Surface(
-            modifier = Modifier
-                .weight(1f)
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { openCallback() })
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { isDragging = true },
-                        onDragEnd = {
-                            isDragging = false
-                            dragEndCallback()
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                            dragEndCallback()
-                        },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            val xy = dragXYCallback
-                            if (xy != null) {
-                                xy(amount.x, amount.y)
-                            } else {
-                                dragYCallback(amount.y)
-                            }
-                        }
-                    )
-                },
-            color = HudBackground.copy(alpha = 0.94f),
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(
-                width = 1.dp,
-                color = if (isDragging) HudCyan else HudCyan.copy(alpha = 0.35f)
-            ),
-            shadowElevation = 6.dp
+            modifier = Modifier.width(capsuleWidth),
+            color = HudCard.copy(alpha = 0.94f),
+            shape = RoundedCornerShape(11.dp),
+            border = BorderStroke(0.8.dp, HudBorder),
+            shadowElevation = 4.dp
         ) {
             Column(
                 modifier = Modifier.padding(
-                    horizontal = 10.dp,
-                    vertical = if (compactHeight) 2.dp else 6.dp
+                    horizontal = 8.dp,
+                    vertical = if (compactHeight) 2.dp else 5.dp
                 )
             ) {
-                HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth()) { page ->
+                HorizontalPager(
+                    state = pager,
+                    userScrollEnabled = pages.size > 1,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    val pageMetrics = pages.getOrNull(page).orEmpty()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        pages.getOrNull(page)?.forEach { metric ->
+                        pageMetrics.forEachIndexed { idx, metric ->
+                            if (idx > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(0.8.dp)
+                                        .height(24.dp)
+                                        .background(HudBorder)
+                                )
+                            }
                             val reading = snapshot[metric]
                             val combined = hudString(R.string.hud_value, reading.text(), reading.unit)
                             val label = hudString(metric.label)
-                            BoxWithConstraints(Modifier.weight(1f)) {
-                                val fit = hudLabelWidth(listOf(combined), 13, numeric = true) <= maxWidth.value
-                                val description = hudString(R.string.hud_metric_value_description, label, combined)
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 38.dp)
-                                        .semantics { contentDescription = description },
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    if (!compactHeight) {
-                                        Text(
-                                            text = if (fit) label else hudString(R.string.hud_unit_metric, reading.unit, label),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = HudMuted,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
+                            val description = hudString(R.string.hud_metric_value_description, label, combined)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .semantics { contentDescription = description },
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                if (!compactHeight) {
                                     Text(
-                                        text = if (fit || compactHeight) combined else reading.text(),
-                                        fontSize = 13.5.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (reading == snapshot[HudMetric.FPS]) HudCyan else Color.White,
-                                        maxLines = 1
+                                        text = label,
+                                        fontSize = 9.5.sp,
+                                        color = HudMuted,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
+                                Text(
+                                    text = combined,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (metric == HudMetric.FPS) HudCyan else Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }
@@ -233,7 +158,7 @@ internal fun HudMiniOverlay(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 3.dp)
+                            .padding(top = 2.dp)
                             .semantics { contentDescription = pageText },
                         horizontalArrangement = Arrangement.Center
                     ) {
@@ -242,8 +167,8 @@ internal fun HudMiniOverlay(
                                 Modifier
                                     .padding(horizontal = 2.dp)
                                     .size(
-                                        width = if (i == pager.currentPage) 10.dp else 4.dp,
-                                        height = 3.dp
+                                        width = if (i == pager.currentPage) 8.dp else 4.dp,
+                                        height = 2.5.dp
                                     )
                                     .background(
                                         if (i == pager.currentPage) HudCyan else HudMuted.copy(alpha = 0.3f),
@@ -259,17 +184,51 @@ internal fun HudMiniOverlay(
 
     Row(
         modifier = Modifier
-            .width(if (showMetrics) miniWidth else 32.dp)
-            .heightIn(max = (viewport.heightDp * 0.25f).dp),
+            .width(totalWidth)
+            .heightIn(min = 46.dp, max = (viewport.heightDp * 0.25f).dp)
+            .semantics { contentDescription = openDescription }
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { openCallback() })
+            }
+            .pointerInput(Unit) {
+                var touchOffsetY = 0f
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        touchOffsetY = offset.y
+                    },
+                    onDragEnd = {
+                        dragEndCallback()
+                    },
+                    onDragCancel = {
+                        dragEndCallback()
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        val deltaY = change.position.y - touchOffsetY
+                        val xy = dragXYCallback
+                        if (xy != null) {
+                            xy(change.position.x, deltaY)
+                        } else {
+                            dragYCallback(amount.y)
+                        }
+                    }
+                )
+            },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
     ) {
         if (dockRight) {
-            if (showMetrics) metricsCapsule()
-            edgeHandle()
+            if (showMetrics) {
+                metricsCapsule()
+                Spacer(Modifier.width(3.dp))
+            }
+            edgeBar()
         } else {
-            edgeHandle()
-            if (showMetrics) metricsCapsule()
+            edgeBar()
+            if (showMetrics) {
+                Spacer(Modifier.width(3.dp))
+                metricsCapsule()
+            }
         }
     }
 }

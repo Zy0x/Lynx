@@ -50,7 +50,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private var safeWidth = 0
     private var safeHeight = 0
     private var registered = false
-    private var activelyDragging = false
 
     companion object {
         val isRunningFlow = MutableStateFlow(false)
@@ -226,7 +225,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     }
 
     private fun clamp() {
-        if (activelyDragging) return
         val v = view ?: return
         val p = params ?: return
         val maxX = (safeLeft + safeWidth - v.width).coerceAtLeast(safeLeft)
@@ -251,35 +249,46 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
     }
 
+    private fun dragSidebar(localX: Float, deltaLocalY: Float) {
+        val p = params ?: return
+        val v = view ?: return
+        val maxX = (safeLeft + safeWidth - v.width).coerceAtLeast(safeLeft)
+        val maxY = (safeTop + safeHeight - v.height).coerceAtLeast(safeTop)
+        val fingerScreenX = p.x + localX
+        val isRight = fingerScreenX > (safeLeft + safeWidth / 2)
+        dockRight.value = isRight
+        p.x = if (isRight) maxX else safeLeft
+        p.y = (p.y + deltaLocalY.toInt()).coerceIn(safeTop, maxY)
+        runCatching { windows.updateViewLayout(v, p) }
+    }
+
     private fun drag(dx: Float, dy: Float) {
         val p = params ?: return
         val v = view ?: return
-        activelyDragging = true
         val maxX = (safeLeft + safeWidth - v.width).coerceAtLeast(safeLeft)
         val maxY = (safeTop + safeHeight - v.height).coerceAtLeast(safeTop)
-        p.x = (p.x + dx.toInt()).coerceIn(safeLeft, maxX)
+        p.x = if (activeModeFlow.value == 0) {
+            if (dockRight.value) maxX else safeLeft
+        } else {
+            (p.x + dx.toInt()).coerceIn(safeLeft, maxX)
+        }
         p.y = (p.y + dy.toInt()).coerceIn(safeTop, maxY)
-        val isRight = (p.x + v.width / 2) > (safeLeft + safeWidth / 2)
-        dockRight.value = isRight
         runCatching { windows.updateViewLayout(v, p) }
         val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
         getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
             .putFloat(key, (p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1))
             .putInt("hud_x", p.x)
-            .putBoolean("hud_dock_right", isRight)
+            .putBoolean("hud_dock_right", dockRight.value)
             .apply()
     }
 
     private fun finishDrag() {
-        activelyDragging = false
         val p = params ?: return
         val v = view ?: return
         val maxX = (safeLeft + safeWidth - v.width).coerceAtLeast(safeLeft)
         val maxY = (safeTop + safeHeight - v.height).coerceAtLeast(safeTop)
         if (activeModeFlow.value == 0) {
-            val isRight = (p.x + v.width / 2) > (safeLeft + safeWidth / 2)
-            dockRight.value = isRight
-            p.x = if (isRight) maxX else safeLeft
+            p.x = if (dockRight.value) maxX else safeLeft
         } else {
             p.x = p.x.coerceIn(safeLeft, maxX)
         }
@@ -356,7 +365,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onStop = { stopSelf() },
                     onBoostRam = controller::boostRam,
                     dockRight = isDockRight,
-                    onDrag2D = ::drag,
+                    onDrag2D = ::dragSidebar,
                     onDragEnd = ::finishDrag
                 )
             } else {

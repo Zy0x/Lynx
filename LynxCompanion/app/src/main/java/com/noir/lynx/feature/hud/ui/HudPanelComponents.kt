@@ -3,7 +3,6 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -62,7 +60,7 @@ internal fun HudSection(
         modifier = Modifier.fillMaxWidth(),
         color = HudCard,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(0.9.dp, HudBorder)
+        border = BorderStroke(0.8.dp, HudBorder)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -73,43 +71,23 @@ internal fun HudSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(3.dp)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(accentColor)
-                    )
-                    Text(
-                        text = title,
-                        color = accentColor,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.4.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = title,
+                    color = accentColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (!badge.isNullOrBlank()) {
-                    Surface(
-                        color = accentColor.copy(alpha = 0.14f),
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
-                    ) {
-                        Text(
-                            text = badge,
-                            color = accentColor,
-                            fontSize = 10.5.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
+                    Text(
+                        text = badge,
+                        color = HudMuted,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
             content()
@@ -128,13 +106,13 @@ internal fun HudChoice(
     role: Role = Role.RadioButton
 ) {
     val background by animateColorAsState(
-        targetValue = if (selected) accentColor.copy(alpha = 0.18f) else HudElevated,
-        animationSpec = tween(180),
+        targetValue = if (selected) accentColor.copy(alpha = 0.16f) else HudElevated,
+        animationSpec = tween(160),
         label = label
     )
     val border by animateColorAsState(
-        targetValue = if (selected) accentColor.copy(alpha = 0.65f) else HudBorder,
-        animationSpec = tween(180),
+        targetValue = if (selected) accentColor.copy(alpha = 0.55f) else HudBorder,
+        animationSpec = tween(160),
         label = "border_$label"
     )
     Surface(
@@ -142,7 +120,7 @@ internal fun HudChoice(
         enabled = enabled,
         shape = RoundedCornerShape(10.dp),
         color = background,
-        border = BorderStroke(1.dp, border),
+        border = BorderStroke(0.8.dp, border),
         modifier = modifier
             .heightIn(min = 42.dp)
             .semantics {
@@ -159,10 +137,10 @@ internal fun HudChoice(
                 color = when {
                     !enabled -> HudMuted.copy(alpha = 0.4f)
                     selected -> accentColor
-                    else -> Color(0xFFE2E8F0)
+                    else -> Color.White
                 },
-                fontSize = 11.5.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -176,9 +154,9 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
     val state = hudString(if (expanded) R.string.hud_expanded else R.string.hud_collapsed)
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(10.dp),
         color = HudElevated,
-        border = BorderStroke(0.8.dp, if (expanded) HudCyan.copy(alpha = 0.4f) else HudBorder),
+        border = BorderStroke(0.8.dp, HudBorder),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 42.dp)
@@ -191,14 +169,14 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
             Text(
                 text = label,
                 modifier = Modifier.weight(1f),
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (expanded) HudCyan else Color(0xFFE2E8F0)
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (expanded) HudCyan else Color.White
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                 contentDescription = null,
-                tint = if (expanded) HudCyan else HudMuted,
+                tint = HudMuted,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -221,92 +199,27 @@ internal fun HudReadingLine(label: String, reading: HudReading, accentColor: Col
                     Text(
                         text = label,
                         modifier = Modifier.weight(1f),
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         color = HudMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = value,
-                        fontSize = 12.sp,
+                        fontSize = 12.5.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = if (reading.status == "valid") accentColor else HudMuted.copy(alpha = 0.5f)
                     )
                 }
             } else {
-                Text(label, fontSize = 11.sp, color = HudMuted)
+                Text(label, fontSize = 11.5.sp, color = HudMuted)
                 Text(
                     text = value,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (reading.status == "valid") accentColor else HudMuted.copy(alpha = 0.5f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun HudMetricTile(
-    label: String,
-    reading: HudReading,
-    modifier: Modifier = Modifier,
-    accentColor: Color = Color.White,
-    progress: Float? = null
-) {
-    val valueText = reading.text()
-    val isValid = reading.status == "valid"
-    Surface(
-        modifier = modifier,
-        color = HudElevated,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(0.7.dp, HudBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = label,
-                fontSize = 10.5.sp,
-                color = HudMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(
-                    text = valueText,
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isValid) accentColor else HudMuted.copy(alpha = 0.5f),
-                    maxLines = 1
-                )
-                if (isValid && reading.unit.isNotBlank()) {
-                    Text(
-                        text = reading.unit,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = HudMuted,
-                        modifier = Modifier.padding(bottom = 1.dp),
-                        maxLines = 1
-                    )
-                }
-            }
-            if (progress != null) {
-                LinearProgressIndicator(
-                    progress = progress.coerceIn(0f, 1f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(1.5.dp)),
-                    color = if (accentColor == Color.White) HudCyan else accentColor,
-                    trackColor = HudCard
                 )
             }
         }

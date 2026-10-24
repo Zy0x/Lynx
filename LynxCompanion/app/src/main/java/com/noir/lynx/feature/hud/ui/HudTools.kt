@@ -1,10 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -31,8 +27,7 @@ internal fun HudTools(
     var configure by rememberSaveable { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // 1. Quick Actions Card
-        HudSection(title = hudString(R.string.hud_quick_actions), accentColor = HudCyan) {
+        HudSection(hudString(R.string.hud_quick_actions)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -41,26 +36,21 @@ internal fun HudTools(
                     label = hudString(R.string.hud_capture_short),
                     enabled = !action.busy,
                     onClick = onCapture,
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.CameraAlt,
-                    accentColor = HudCyan
+                    modifier = Modifier.weight(1f)
                 )
                 HudAction(
                     label = hudString(R.string.hud_boost_ram),
                     enabled = !action.busy,
                     onClick = onBoostRam,
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.CleaningServices,
-                    accentColor = HudBlue
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        // 2. Display Refresh Rate Selector (Direct 1-Tap Access)
-        HudSection(
+        HudExpandableSection(
             title = hudString(R.string.hud_refresh),
-            badge = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
-            accentColor = HudBlue
+            detail = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
+            initiallyOpen = true
         ) {
             action.requestedHz?.let {
                 Text(
@@ -68,7 +58,7 @@ internal fun HudTools(
                         R.string.hud_requested_hz,
                         HudReading(it.toDouble(), "Hz", status = "valid").text()
                     ),
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     color = HudCyan
                 )
             }
@@ -76,7 +66,7 @@ internal fun HudTools(
                 Text(
                     text = hudString(R.string.hud_unsupported),
                     color = HudMuted,
-                    fontSize = 11.5.sp
+                    fontSize = 12.sp
                 )
             } else {
                 val labels = rates.map { hz ->
@@ -89,19 +79,13 @@ internal fun HudTools(
                         selected = isSelected,
                         onClick = { onHz(rates[i]) },
                         modifier = Modifier.weight(1f),
-                        enabled = !action.busy,
-                        accentColor = HudBlue
+                        enabled = !action.busy
                     )
                 }
             }
         }
 
-        // 3. Mini HUD Capsule Control
-        HudSection(
-            title = hudString(R.string.hud_mini_title),
-            badge = hudString(R.string.hud_selected_count, prefs.selected.size),
-            accentColor = HudCyan
-        ) {
+        HudSection(hudString(R.string.hud_mini_title)) {
             HudPreferenceToggle(
                 label = hudString(R.string.hud_pin),
                 checked = prefs.pinned,
@@ -117,24 +101,19 @@ internal fun HudTools(
             }
         }
 
-        // 4. Floating Window Engine Settings
         HudExpandableSection(
             title = hudString(R.string.hud_floating_short),
             detail = hudString(
                 if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
-            ),
-            accentColor = HudPurple
+            )
         ) {
             HudFloatingSettings(prefs, store)
         }
 
-        // 5. Stop HUD Danger Button
         HudAction(
             label = hudString(R.string.hud_stop),
             onClick = onStop,
-            modifier = Modifier.fillMaxWidth(),
-            icon = Icons.Default.PowerSettingsNew,
-            isDanger = true
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

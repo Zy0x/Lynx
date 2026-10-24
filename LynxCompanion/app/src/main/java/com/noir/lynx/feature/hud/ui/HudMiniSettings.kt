@@ -1,18 +1,14 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -39,7 +35,7 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
         }
         Text(
             text = hudString(R.string.hud_mini_help),
-            fontSize = 11.sp,
+            fontSize = 11.5.sp,
             color = HudMuted
         )
         hudMetricGroups.forEach { (title, metrics) ->
@@ -73,39 +69,29 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
 
 @Composable
 internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Surface(
-        color = HudElevated,
-        shape = RoundedCornerShape(11.dp),
-        border = BorderStroke(0.8.dp, if (checked) HudCyan.copy(alpha = 0.4f) else HudBorder),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 42.dp)
+            .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 42.dp)
-                .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (checked) Color.White else Color(0xFFCBD5E1)
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            fontSize = 12.sp,
+            color = Color.White
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = HudCyan,
+                uncheckedThumbColor = HudMuted,
+                uncheckedTrackColor = HudElevated
             )
-            Switch(
-                checked = checked,
-                onCheckedChange = null,
-                modifier = Modifier.scale(0.82f),
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.Black,
-                    checkedTrackColor = HudCyan,
-                    uncheckedThumbColor = HudMuted,
-                    uncheckedTrackColor = HudCard,
-                    uncheckedBorderColor = HudBorder
-                )
-            )
-        }
+        )
     }
 }

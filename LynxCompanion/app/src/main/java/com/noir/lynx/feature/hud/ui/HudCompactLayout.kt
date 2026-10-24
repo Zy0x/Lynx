@@ -1,7 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,9 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,7 +58,7 @@ internal fun HudExpandableSection(
         modifier = Modifier.fillMaxWidth(),
         color = HudCard,
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(0.9.dp, if (open) accentColor.copy(alpha = 0.28f) else HudBorder)
+        border = BorderStroke(0.8.dp, HudBorder)
     ) {
         Column {
             Surface(
@@ -69,42 +66,32 @@ internal fun HudExpandableSection(
                 color = Color.Transparent,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 46.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .width(3.dp)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(accentColor)
-                    )
-                    Text(
-                        text = title,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = accentColor,
+                    Column(
                         modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (detail.isNotBlank()) {
-                        Surface(
-                            color = HudElevated,
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(0.6.dp, HudBorder)
-                        ) {
+                        verticalArrangement = Arrangement.spacedBy(1.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = accentColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (detail.isNotBlank()) {
                             Text(
                                 text = detail,
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = Color(0xFFE2E8F0),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                maxLines = 1
+                                fontSize = 11.sp,
+                                color = HudMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -112,12 +99,12 @@ internal fun HudExpandableSection(
                         imageVector = if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = hudString(if (open) R.string.hud_expanded else R.string.hud_collapsed),
                         modifier = Modifier.size(18.dp),
-                        tint = if (open) accentColor else HudMuted
+                        tint = HudMuted
                     )
                 }
             }
             if (open) {
-                HorizontalDivider(color = HudBorder.copy(alpha = 0.1f), thickness = 0.6.dp)
+                HorizontalDivider(color = HudBorder, thickness = 0.6.dp)
                 Column(
                     modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),

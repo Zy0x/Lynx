@@ -78,9 +78,9 @@ fun HudSidebar(
             )
         } else {
             val panelShape = if (dockRight) {
-                RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 12.dp, bottomEnd = 12.dp)
+                RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
             } else {
-                RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp, topEnd = 20.dp, bottomEnd = 20.dp)
+                RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp)
             }
             Surface(
                 modifier = Modifier
@@ -88,8 +88,7 @@ fun HudSidebar(
                     .heightIn(max = viewport.panelHeight.dp),
                 shape = panelShape,
                 color = HudBackground,
-                border = BorderStroke(1.1.dp, HudAccentBorder),
-                shadowElevation = 12.dp
+                border = BorderStroke(1.dp, HudBorder)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     HudPanelHeader(
@@ -112,12 +111,9 @@ fun HudSidebar(
                         }
                     )
 
+                    HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
+
                     if (manageApps) {
-                        HorizontalDivider(
-                            color = HudBorder,
-                            thickness = 0.7.dp,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                         Column(
                             modifier = Modifier
                                 .weight(1f, fill = false)
@@ -136,7 +132,7 @@ fun HudSidebar(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             HudTopTabBar(
                                 selected = page,
@@ -144,14 +140,12 @@ fun HudSidebar(
                             )
                         }
 
-                        HorizontalDivider(color = HudBorder.copy(alpha = 0.1f), thickness = 0.6.dp)
-
                         pageState.SaveableStateProvider(page.name) {
                             Column(
                                 modifier = Modifier
                                     .weight(1f, fill = false)
                                     .verticalScroll(scrolls.getValue(page))
-                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    .padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 when (page) {
@@ -177,19 +171,12 @@ fun HudSidebar(
                                     )
                                 }
                                 action.message?.let { msgRes ->
-                                    Surface(
-                                        color = HudCyan.copy(alpha = 0.12f),
-                                        shape = RoundedCornerShape(8.dp),
-                                        border = BorderStroke(0.7.dp, HudCyan.copy(alpha = 0.35f)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = hudString(msgRes),
-                                            fontSize = 11.sp,
-                                            color = HudCyan,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                        )
-                                    }
+                                    Text(
+                                        text = hudString(msgRes),
+                                        fontSize = 11.5.sp,
+                                        color = HudCyan,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
                                 }
                             }
                         }
