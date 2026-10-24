@@ -3,8 +3,6 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -14,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -46,11 +43,6 @@ internal fun HudMiniOverlay(
     onDrag2D: ((Float, Float) -> Unit)? = null,
     onDragEnd: () -> Unit = {}
 ) {
-    val openCallback by rememberUpdatedState(onOpen)
-    val dragYCallback by rememberUpdatedState(onDrag)
-    val dragXYCallback by rememberUpdatedState(onDrag2D)
-    val dragEndCallback by rememberUpdatedState(onDragEnd)
-
     val selected = HudMetric.values().filter { it.key in prefs.selected }
     val fontScale = LocalDensity.current.fontScale
     val compactHeight = viewport.heightDp * .25f < 32f * fontScale + 8f
@@ -60,7 +52,7 @@ internal fun HudMiniOverlay(
     val showMetrics = prefs.pinned && selected.isNotEmpty()
     val colsOnPage = min(selected.size.coerceAtLeast(1), count)
     val capsuleWidth = if (colsOnPage == 1) 96.dp else 168.dp
-    val totalWidth = if (showMetrics) capsuleWidth + 12.dp else 28.dp
+    val totalWidth = if (showMetrics) capsuleWidth + 12.dp else 32.dp
     val openDescription = hudString(R.string.hud_open)
 
     val handleShape = if (dockRight) {
@@ -72,8 +64,8 @@ internal fun HudMiniOverlay(
     val edgeBar: @Composable () -> Unit = {
         Box(
             modifier = Modifier
-                .width(if (showMetrics) 6.dp else 28.dp)
-                .height(46.dp),
+                .width(if (showMetrics) 6.dp else 32.dp)
+                .height(72.dp),
             contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
         ) {
             Surface(
@@ -185,35 +177,8 @@ internal fun HudMiniOverlay(
     Row(
         modifier = Modifier
             .width(totalWidth)
-            .heightIn(min = 46.dp, max = (viewport.heightDp * 0.25f).dp)
-            .semantics { contentDescription = openDescription }
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { openCallback() })
-            }
-            .pointerInput(Unit) {
-                var touchOffsetY = 0f
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        touchOffsetY = offset.y
-                    },
-                    onDragEnd = {
-                        dragEndCallback()
-                    },
-                    onDragCancel = {
-                        dragEndCallback()
-                    },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        val deltaY = change.position.y - touchOffsetY
-                        val xy = dragXYCallback
-                        if (xy != null) {
-                            xy(change.position.x, deltaY)
-                        } else {
-                            dragYCallback(amount.y)
-                        }
-                    }
-                )
-            },
+            .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
+            .semantics { contentDescription = openDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
     ) {

@@ -2,7 +2,6 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -41,35 +39,12 @@ internal fun HudPanelHeader(
     onDragEnd: () -> Unit = {},
     onClose: () -> Unit
 ) {
-    val dragY by rememberUpdatedState(onDrag)
-    val dragXY by rememberUpdatedState(onDrag2D)
-    val dragFinish by rememberUpdatedState(onDragEnd)
     val description = hudString(R.string.hud_drag)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = description }
-            .pointerInput(Unit) {
-                var touchOffsetY = 0f
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        touchOffsetY = offset.y
-                    },
-                    onDragEnd = { dragFinish() },
-                    onDragCancel = { dragFinish() },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        val deltaY = change.position.y - touchOffsetY
-                        val xy = dragXY
-                        if (xy != null) {
-                            xy(change.position.x, deltaY)
-                        } else {
-                            dragY(amount.y)
-                        }
-                    }
-                )
-            }
             .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
