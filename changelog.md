@@ -1,3 +1,32 @@
+# Lynx Universal [Deep Silicon Master Harmonization & Extreme GPU Maximizer] 7.0.0-RC184
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC184** (Lynx Kernel Manager v3.2.30): **Integrasi Menyeluruh Tweak Deep Silicon Hardware & Optimalisasi Maksimal Mode Ekstrem GPU ke Profil Utama Lynx: Mengharmonisasikan Tweak Silikon Adreno KGSL Terbaru (`sptp_pc`, `skipsaverestore`, `wake_nice`, `gpu_llc_slice_enable`) dan Bypass Fence MediaTek (`ged_monitor_3D_fence_disable`) Langsung ke Mesin Native `lynxd` (`translator.rs`, `game.rs`) Serta Preset Otomatis di `LynxGpuControlRepository.kt`; Memastikan Mode Ekstrem GPU Benar-Benar Membuka Potensi Penuh Silikon Hardware (Shader Processor Power Uncollapsed, Real-Time Worker Scheduling -20, Bypass 3D Fence Overhead, Force Clocks & Rails On, Zero Latency PMQoS) Tanpa Kompromi Bottleneck Software Maupun Pengaturan Menggantung**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC184)
+
+### 1. 🚀 Harmonisasi Penuh Tweak Deep Silicon ke Profil Utama & Mesin Native (`translator.rs`)
+- **Qualcomm Adreno Deep Silicon Integration**:
+  - Mengintegrasikan node direct kernel KGSL ke dalam mesin translasi profil `lynxd` dan subsistem game (`game.rs`):
+    - `sptp_pc = 0` pada Mode Ekstrem (mencegah penonaktifan shader processor & texture processor saat mikro-idle yang kerap memicu micro-stutter pada game berat).
+    - `skipsaverestore = 1` pada Mode Ekstrem (mengeliminasi overhead simpan-pulihkan render context yang tidak perlu antar batch perintah draw call).
+    - `wake_nice = -20` (menetapkan prioritas penjadwalan real-time tertinggi bagi thread worker kernel GPU KGSL).
+    - `gpu_llc_slice_enable = 1` (mengaktifkan alokasi cache Last-Level-Cache khusus bagi pipeline render GPU).
+    - Restorasi bersih dan otomatis pada profil Seimbang (`sptp_pc = 1`, `skipsaverestore = 0`, `wake_nice = 0`).
+- **MediaTek Mali / GED Deep Silicon Integration**:
+  - Mengintegrasikan bypass sinkronisasi fence 3D:
+    - `ged_monitor_3D_fence_disable = 1` pada Mode Ekstrem dan Performa (mengeliminasi latensi antrean serialization frame pacing di driver MediaTek GED).
+    - Periode DVFS Mali dikunci pada 10ms (respon kilat terhadap fluktuasi beban render grafis).
+    - Restorasi otomatis ke `0` saat kembali ke profil Seimbang / Hemat Daya.
+
+### 2. 📱 Sinkronisasi Presisi Preset GPU Companion App (`LynxGpuControlRepository.kt`)
+- Menghubungkan seluruh fungsi silikon hardware Adreno dan pipa render grafis (`QualcommAdrenoSiliconExt.setSptpPc`, `setSkipSaveRestore`, `setWakeNice`, `setGpuLlcSlice`, `setAsyncShaderPipeline`) secara serentak ke dalam fungsi preset cepat (`applyGpuProfile`).
+- Menjaga keutuhan kode Kotlin dengan panjang baris tepat 667 baris (patuh aturan ketat ≤699 baris).
+
+### 3. 🛡️ Sinkronisasi Dua Arah Master Orchestrator
+- Menjamin konsistensi status hardware baik saat pengguna mengaktifkan profil melalui Home Dashboard (`lynxd profile apply`), Quick Settings Tile, Floating HUD, maupun pemilihan manual pada Tab GPU & Silikon.
+
+---
+
 # Lynx Universal [Charging Compositor Fluidity & Media Smoothness Guard] 7.0.0-RC183
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC183** (Lynx Kernel Manager v3.2.29): **Penyelesaian Tuntas Masalah UI Patah-Patah Saat Mengecas & Optimalisasi Kelancaran Aplikasi Media/Sosial: Mengeliminasi Override Destruktif pada `LynxMediaSafeguardManager` yang Sebelumnya Menurunkan Nilai `debug.sf.latch_unsignaled` dan `disable_backpressure` Menjadi 0 Saat Membuka Aplikasi Seperti Twitter/X, Chrome, dan Instagram Sehingga Memicu Frame Drop Parah; Mengintegrasikan Perlindungan Kompositor Halus dan Trimming RAM Otomatis pada Pemicu `ACTION_POWER_CONNECTED` di `LynxAppAutomationService` Guna Meredam Beban Sinkronisasi Background dan Gangguan Ripple AC Digitizer Sentuh Saat Kabel Pengisi Daya Terhubung; Serta Mengaktifkan Cache Komposisi Klien (`debug.sf.disable_client_composition_cache=0`) dan Menaikkan Alokasi Waktu Render HWUI ke 70% Demi Interaksi Sentuh yang Bebas Lag dan Super Mulus**.

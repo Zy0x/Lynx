@@ -37,6 +37,7 @@ impl MtkHardware {
     pub const GED_GPU_BOTTOM_FREQ: &'static str = "/sys/module/ged/parameters/gpu_bottom_freq";
     pub const GED_GPU_CUST_BOOST_FREQ: &'static str = "/sys/module/ged/parameters/gpu_cust_boost_freq";
     pub const GED_GPU_CUST_UPBOUND_FREQ: &'static str = "/sys/module/ged/parameters/gpu_cust_upbound_freq";
+    pub const GED_MONITOR_3D_FENCE_DISABLE: &'static str = "/sys/module/ged/parameters/ged_monitor_3D_fence_disable";
 
     // ── MediaTek GPUFreq v1 & v2 ────────────────────────────────────────────
     pub const GPUFREQ_VAR_DUMP: &'static str = "/proc/gpufreq/gpufreq_var_dump";

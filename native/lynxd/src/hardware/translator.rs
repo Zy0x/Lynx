@@ -426,6 +426,10 @@ impl HardwareTranslator {
                     Self::push_op(&mut ops, "MTK-GPU", *desc, *node, ged_game_flag, false);
                 }
 
+                // MediaTek 3D Fence Monitoring Bypass: 1 in Extreme / Performance to eliminate frame pacing queue serialization overhead
+                let ged_fence_bypass = if is_perf_or_ext { "1" } else { "0" };
+                Self::push_op(&mut ops, "MTK-GPU", "GED monitor 3D fence bypass", MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, ged_fence_bypass, false);
+
                 // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
                 let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED boost amplitude", MtkHardware::GED_BOOST_AMP, boost_amp, false);
@@ -735,18 +739,29 @@ impl HardwareTranslator {
                         false,
                     );
 
-                    // Extreme hardware rails & zero-latency PMQoS
+                    // Extreme hardware rails, deep silicon uncollapse & zero-latency PMQoS
                     if is_extreme {
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL bus split disable", QcomHardware::KGSL_BUS_SPLIT, "0", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force bus always on", QcomHardware::KGSL_FORCE_BUS_ON, "1", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force clk always on", QcomHardware::KGSL_FORCE_CLK_ON, "1", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force power rail on", QcomHardware::KGSL_FORCE_RAIL_ON, "1", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL active latency PMQoS", QcomHardware::KGSL_PMQOS_ACTIVE_LATENCY, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL disable SPTP PC", QcomHardware::KGSL_SPTP_PC, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL skip context save restore", QcomHardware::KGSL_SKIPSAVERESTORE, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL realtime worker wake nice", QcomHardware::KGSL_WAKE_NICE, "-20", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL enable LLC slice", QcomHardware::KGSL_GPU_LLC_SLICE, "1", false);
+                    } else if is_perf_or_ext {
+                        // High Performance: Keep SPTP active for thermal bounds but reduce wake latency
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL performance wake nice", QcomHardware::KGSL_WAKE_NICE, "-10", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL enable LLC slice", QcomHardware::KGSL_GPU_LLC_SLICE, "1", false);
                     } else if !is_perf_or_ext {
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL bus split restore", QcomHardware::KGSL_BUS_SPLIT, "1", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force bus auto restore", QcomHardware::KGSL_FORCE_BUS_ON, "0", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force clk auto restore", QcomHardware::KGSL_FORCE_CLK_ON, "0", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL force power rail auto restore", QcomHardware::KGSL_FORCE_RAIL_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL restore SPTP PC", QcomHardware::KGSL_SPTP_PC, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL restore save restore", QcomHardware::KGSL_SKIPSAVERESTORE, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL restore wake nice", QcomHardware::KGSL_WAKE_NICE, "0", false);
                     }
                 }
             }

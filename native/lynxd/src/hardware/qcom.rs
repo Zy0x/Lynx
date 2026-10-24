@@ -25,6 +25,10 @@ impl QcomHardware {
     pub const KGSL_FORCE_CLK_ON: &'static str = "/sys/class/kgsl/kgsl-3d0/force_clk_on";
     pub const KGSL_FORCE_RAIL_ON: &'static str = "/sys/class/kgsl/kgsl-3d0/force_rail_on";
     pub const KGSL_PMQOS_ACTIVE_LATENCY: &'static str = "/sys/class/kgsl/kgsl-3d0/pmqos_active_latency";
+    pub const KGSL_SPTP_PC: &'static str = "/sys/class/kgsl/kgsl-3d0/sptp_pc";
+    pub const KGSL_SKIPSAVERESTORE: &'static str = "/sys/class/kgsl/kgsl-3d0/skipsaverestore";
+    pub const KGSL_WAKE_NICE: &'static str = "/sys/class/kgsl/kgsl-3d0/wake_nice";
+    pub const KGSL_GPU_LLC_SLICE: &'static str = "/sys/class/kgsl/kgsl-3d0/gpu_llc_slice_enable";
 
     // ── Qualcomm GPU Bandwidth Bus Devfreq (GPUBW) ──────────────────────────
     pub const QCOM_GPUBW_DIR: &'static str = "/sys/devices/platform/soc/soc:qcom,gpubw/devfreq/soc:qcom,gpubw";

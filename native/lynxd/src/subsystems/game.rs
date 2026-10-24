@@ -121,6 +121,11 @@ impl GameController {
         Self::write_opt(QcomHardware::KGSL_PMQOS_ACTIVE_LATENCY, "0");
         Self::write_opt(QcomHardware::KGSL_ADRENOBOOST, "2");
         Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "2");
+        Self::write_opt(QcomHardware::KGSL_SPTP_PC, "0");
+        Self::write_opt(QcomHardware::KGSL_SKIPSAVERESTORE, "1");
+        Self::write_opt(QcomHardware::KGSL_WAKE_NICE, "-20");
+        Self::write_opt(QcomHardware::KGSL_GPU_LLC_SLICE, "1");
+        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "1");
 
         // Qualcomm WALT Scheduler Gaming Latency (downmigrate first to comply with kernel down < up rule)
         Self::write_opt(QcomHardware::SCHED_BOOST, "1");
@@ -220,6 +225,10 @@ impl GameController {
         Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "1");
         Self::write_opt(QcomHardware::KGSL_ADRENOBOOST, "0");
         Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "0");
+        Self::write_opt(QcomHardware::KGSL_SPTP_PC, "1");
+        Self::write_opt(QcomHardware::KGSL_SKIPSAVERESTORE, "0");
+        Self::write_opt(QcomHardware::KGSL_WAKE_NICE, "0");
+        Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "0");
 
         // Qualcomm WALT Scheduler Balanced Baseline (upmigrate first when raising thresholds)
         Self::write_opt(QcomHardware::SCHED_UPMIGRATE, "85 95");

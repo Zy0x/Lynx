@@ -3,6 +3,7 @@ import android.util.Log
 import com.noir.lynx.hardware.NodeWriter
 import com.noir.lynx.hardware.WriteResult
 import com.noir.lynx.hardware.gpu.GpuBackendManager
+import com.noir.lynx.hardware.gpu.QualcommAdrenoSiliconExt
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -482,6 +483,10 @@ internal object LynxGpuControlRepository {
                     ).exec()
                     setSurfaceFlingerLatchUnsignaled(false)
                     setSurfaceFlingerDisableBackpressure(false)
+                    QualcommAdrenoSiliconExt.setSptpPc(true)
+                    QualcommAdrenoSiliconExt.setSkipSaveRestore(false)
+                    QualcommAdrenoSiliconExt.setWakeNice(0)
+                    setAsyncShaderPipeline(false)
                 }
                 "balanced" -> {
                     setGpuFreq(minAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -501,6 +506,10 @@ internal object LynxGpuControlRepository {
                     ).exec()
                     setSurfaceFlingerLatchUnsignaled(true)
                     setSurfaceFlingerDisableBackpressure(false)
+                    QualcommAdrenoSiliconExt.setSptpPc(true)
+                    QualcommAdrenoSiliconExt.setSkipSaveRestore(false)
+                    QualcommAdrenoSiliconExt.setWakeNice(0)
+                    setAsyncShaderPipeline(false)
                 }
                 "esports" -> {
                     val floor = freqs.filter { it >= (maxAvail * 0.65).toInt() }.firstOrNull() ?: minAvail
@@ -523,6 +532,11 @@ internal object LynxGpuControlRepository {
                     ).exec()
                     setSurfaceFlingerLatchUnsignaled(true)
                     setSurfaceFlingerDisableBackpressure(true)
+                    QualcommAdrenoSiliconExt.setSptpPc(false)
+                    QualcommAdrenoSiliconExt.setSkipSaveRestore(true)
+                    QualcommAdrenoSiliconExt.setWakeNice(-10)
+                    QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
+                    setAsyncShaderPipeline(true)
                 }
                 "extreme" -> {
                     setGpuFreq(maxAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -545,6 +559,11 @@ internal object LynxGpuControlRepository {
                     ).exec()
                     setSurfaceFlingerLatchUnsignaled(true)
                     setSurfaceFlingerDisableBackpressure(true)
+                    QualcommAdrenoSiliconExt.setSptpPc(false)
+                    QualcommAdrenoSiliconExt.setSkipSaveRestore(true)
+                    QualcommAdrenoSiliconExt.setWakeNice(-20)
+                    QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
+                    setAsyncShaderPipeline(true)
                 }
             }
             true

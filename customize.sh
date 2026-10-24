@@ -324,19 +324,26 @@ fi
 
 # ── 6. Notification Sanitization ──────────────────────────────────
 # Purge legacy third-party toast popups for distraction-free gaming performance
-pm uninstall bellavita.toast >/dev/null 2>&1
+if pm path bellavita.toast >/dev/null 2>&1; then
+    (pm uninstall bellavita.toast >/dev/null 2>&1 &)
+fi
 
 # ── 6.5 Lynx Kernel Manager Companion App Staging ──────────────────
 if [ -f "$MODPATH/LynxKernelManager.apk" ]; then
     ui_print "$(lynx_t install_companion)"
     cp -af "$MODPATH/LynxKernelManager.apk" /data/local/tmp/LynxKernelManager.apk 2>/dev/null
     chmod 644 /data/local/tmp/LynxKernelManager.apk 2>/dev/null
-    if pm install -r /data/local/tmp/LynxKernelManager.apk >/dev/null 2>&1; then
+    # Run install in background subshell to prevent PackageInstaller IPC hangs
+    (
+        pm install -r /data/local/tmp/LynxKernelManager.apk >/dev/null 2>&1
+        rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
+    ) &
+    sleep 2
+    if pm path com.noir.lynx >/dev/null 2>&1; then
         ui_print "$(lynx_t companion_installed)"
     else
         ui_print "$(lynx_t companion_staged)"
     fi
-    rm -f /data/local/tmp/LynxKernelManager.apk 2>/dev/null
 fi
 
 # Grant seamless overlay and background execution privileges for Lynx Visual Feedback HUD
