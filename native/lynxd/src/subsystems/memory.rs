@@ -98,7 +98,6 @@ impl MemoryController {
         let _ = Command::new("resetprop").args(["ro.lmk.swap_free_low_percentage", swap_low_pct]).output();
         let _ = Command::new("resetprop").args(["ro.lmk.kill_heaviest_task", kill_heaviest]).output();
         let _ = Command::new("resetprop").args(["ro.lmk.kill_timeout_ms", kill_timeout]).output();
-        let _ = Command::new("setprop").args(["lmkd.reinit", "1"]).output();
 
         // Runtime dynamic Dalvik VM Heap enforcement via resetprop
         let (growth_limit, heap_size, start_size, max_free) = if mem.total_ram_mb <= 4500 {

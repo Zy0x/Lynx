@@ -68,10 +68,9 @@ impl GameController {
         Self::write_opt("/proc/sys/kernel/sched_lib_name", GAME_LIBS);
         Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "255");
 
-        // 5. Low-Latency Audio Pipeline
+        // 5. Audio Pipeline Safety: Preserve OEM/user audio policies to prevent
+        // audioserver watchdog crash loops with custom HALs / Dolby Atmos / AML mods.
         let _ = Command::new("setprop").args(&["af.fast_track_multiplier", "1"]).output();
-        let _ = Command::new("setprop").args(&["aaudio.mmap_policy", "2"]).output();
-        let _ = Command::new("setprop").args(&["aaudio.mmap_exclusive_policy", "2"]).output();
 
         // 6. Display Refresh Rate & Touch Sampling
         if let Ok(output) = Command::new("settings").args(&["get", "system", "peak_refresh_rate"]).output() {
@@ -257,9 +256,7 @@ impl GameController {
         Self::write_opt("/proc/sys/kernel/sched_lib_name", "");
         Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "0");
 
-        // 4. Reset Audio
-        let _ = Command::new("setprop").args(&["aaudio.mmap_policy", "1"]).output();
-        let _ = Command::new("setprop").args(&["aaudio.mmap_exclusive_policy", "1"]).output();
+        // 4. Reset Audio Multiplier
         let _ = Command::new("setprop").args(&["af.fast_track_multiplier", "2"]).output();
 
         // 5. Restore Refresh Rate
