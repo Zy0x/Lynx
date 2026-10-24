@@ -3,7 +3,6 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
@@ -20,15 +19,94 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 
-internal val HudPage.label: Int get() = when (this) {
-    HudPage.Summary -> R.string.hud_summary
-    HudPage.Details -> R.string.hud_details
-    HudPage.Tools -> R.string.hud_tools
+internal val HudPage.label: Int
+    get() = when (this) {
+        HudPage.Summary -> R.string.hud_summary
+        HudPage.Details -> R.string.hud_details
+        HudPage.Tools -> R.string.hud_tools
+    }
+
+@Composable
+internal fun HudTopTabBar(
+    selected: HudPage,
+    onSelect: (HudPage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = HudCard,
+        shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(0.9.dp, HudBorder)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(3.dp)
+                .selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HudPage.values().forEach { page ->
+                val active = selected == page
+                val title = hudString(page.label)
+                val background by animateColorAsState(
+                    targetValue = if (active) HudCyan.copy(alpha = 0.16f) else Color.Transparent,
+                    animationSpec = tween(180),
+                    label = "tab_bg_$title"
+                )
+                val borderColor by animateColorAsState(
+                    targetValue = if (active) HudCyan.copy(alpha = 0.55f) else Color.Transparent,
+                    animationSpec = tween(180),
+                    label = "tab_border_$title"
+                )
+                val icon = when (page) {
+                    HudPage.Summary -> Icons.Default.Speed
+                    HudPage.Details -> Icons.AutoMirrored.Filled.ShowChart
+                    HudPage.Tools -> Icons.Default.Tune
+                }
+
+                Surface(
+                    onClick = { onSelect(page) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = background,
+                    border = BorderStroke(0.9.dp, borderColor),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 38.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = if (active) HudCyan else HudMuted
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = title,
+                            fontSize = 11.5.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            color = if (active) HudCyan else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -39,19 +117,19 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp, horizontal = 2.dp)
             .selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         HudPage.values().forEach { page ->
             val active = selected == page
             val title = hudString(page.label)
             val background by animateColorAsState(
-                if (active) HudCyan.copy(alpha = 0.12f) else Color.Transparent,
-                tween(200),
+                if (active) HudCyan.copy(alpha = 0.14f) else Color.Transparent,
+                tween(180),
                 label = "bg_$title"
             )
             val borderColor by animateColorAsState(
-                if (active) HudCyan.copy(alpha = 0.35f) else Color.Transparent,
-                tween(200),
+                if (active) HudCyan.copy(alpha = 0.45f) else Color.Transparent,
+                tween(180),
                 label = "border_$title"
             )
 
@@ -85,7 +163,7 @@ internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPa
                     )
                     Text(
                         text = title,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         color = if (active) HudCyan else HudMuted,
                         softWrap = false
@@ -103,7 +181,7 @@ internal fun HudPageMenu(selected: HudPage, onSelect: (HudPage) -> Unit, modifie
             .verticalScroll(rememberScrollState())
             .selectableGroup()
             .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         HudPage.values().forEach { page ->
             HudChoice(

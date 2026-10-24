@@ -4,7 +4,18 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC189)
 
-### 0. 🧹 Perampingan Modul Pasca-Instalasi
+### 0. 🎮 Redesain Total Floating Game HUD & Bilah Samping Interaktif 2D (`feature/hud/ui/` & `LynxFloatingHudService.kt`)
+- **Tahan & Geser Bilah Samping Bebas 2D + Auto-Snap Kiri/Kanan**:
+  - Memperbaiki penuh mekanisme drag pada bilah samping (*edge handle*), kapsul Mini HUD, dan header panel terbuka sehingga saat ditahan dan digeser, bilah berpindah secara mulus mengikuti jari pengguna (vertikal maupun horizontal) dan otomatis menempel (*snap*) ke tepi kiri atau tepi kanan layar sesuai posisi pelepasan.
+  - Menghilangkan bug ruang kosong hitam di bagian bawah panel dengan menyelaraskan tinggi jendela overlay secara dinamis (`WRAP_CONTENT` + `heightIn`).
+- **Arsitektur Navigasi Segmented Pill & Bento Cyber-Tactical**:
+  - Mengganti bilah navigasi vertikal samping yang menyempitkan ruang konten menjadi `HudTopTabBar` (*segmented pill bar*) penuh di atas, memberikan 100% lebar panel untuk seluruh kartu di setiap halaman.
+  - Merombak tampilan **Header & App Dock**: dilengkapi *drag handle pill* taktil, emblem **LYNX** menyala, indikator suhu & status pengisian baterai, serta kontainer *frosted dock* untuk ikon aplikasi mengambang.
+  - **Tab Ringkasan (`HudOverview` & `HudProfiles`)**: Kartu Hero FPS berukuran besar dengan mini sparkline, kartu Bento ganda bersebelahan untuk **CPU** dan **GPU** (lengkap dengan persentase beban, clock MHz, suhu, dan progress bar), kartu pemilih **Profil Performa** dengan pil berbingkai tegas, serta tombol aksi cepat berikon (`Tangkap Layar`, `Lepas Cache`, `Alat`).
+  - **Tab Detail (`HudDetails`)**: Seluruh grup telemetri utama (**Frame & Display**, **CPU & GPU + Cluster Policies**, **RAM & Suhu**, **Baterai & Daya**) kini langsung terbuka dalam tata letak **Grid Bento 2×2** dengan indikator warna suhu semantik dan grafik gelombang bergradasi (`HudFrameChart`).
+  - **Tab Alat (`HudTools`, `HudMiniSettings`, `HudFloatingSettings`)**: Pilihan **Display Hz** kini tampil langsung untuk pergantian 1-ketukan tanpa perlu membuka akordeon, sakelar **Pin Mini HUD** dan pemilih chip metrik lebih proporsional, serta tombol **Hentikan HUD** beraksen merah taktis.
+
+### 0b. 🧹 Perampingan Modul Pasca-Instalasi
 - File yang hanya dibutuhkan saat instalasi (pemilih tombol volume, berkas bahasa installer, dokumentasi, dan APK bawaan setelah berhasil terpasang) kini otomatis dihapus dari folder modul. Hemat sekitar 7–8 MB penyimpanan.
 - Skrip pengisian daya lama berbasis shell dipensiunkan; seluruh kontrol pengisian kini sepenuhnya ditangani mesin native.
 - Aplikasi tidak lagi menulis target arus tinggi langsung ke kernel saat mesin native aktif, sehingga tidak ada lagi tabrakan pengaturan antara aplikasi dan modul.
