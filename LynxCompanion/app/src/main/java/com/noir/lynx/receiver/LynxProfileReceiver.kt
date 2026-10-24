@@ -49,6 +49,7 @@ class LynxProfileReceiver : BroadcastReceiver() {
                 ?: resolveFeedbackStyle(context)
 
             Log.i(TAG, "Profile broadcast received: profile=$profile, style=$style, reason=$reason")
+            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(profile, false)
 
             when (style) {
                 "jewel_top", "jewel_bottom" -> {

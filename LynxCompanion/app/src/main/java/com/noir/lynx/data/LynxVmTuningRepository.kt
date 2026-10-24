@@ -218,6 +218,14 @@ internal object LynxVmTuningRepository {
 
     suspend fun applyVmPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = LynxRepository.getLynxdPath()
+            if (LynxRepository.isLynxdAvailable()) {
+                val res = Shell.cmd("'$lynxdPath' memory vm-preset ${preset.lowercase()} 2>/dev/null").exec()
+                if (res.isSuccess) {
+                    cachedVmConfig = null
+                    return@withContext true
+                }
+            }
             when (preset.lowercase()) {
                 "gaming" -> {
                     Shell.cmd("""

@@ -60,9 +60,9 @@ object ThermalCapabilityDetector {
         }
         try {
             val lynxdPath = com.noir.lynx.data.LynxRepository.getLynxdPath()
-            val canExec = java.io.File(lynxdPath).canExecute()
+            val canExec = com.noir.lynx.data.LynxRepository.isLynxdAvailable()
             if (canExec) {
-                val res = Shell.cmd("$lynxdPath thermal status 2>/dev/null").exec()
+                val res = Shell.cmd("'$lynxdPath' thermal status 2>/dev/null").exec()
                 if (res.isSuccess && res.out.isNotEmpty()) {
                     val raw = res.out.joinToString("\n").trim()
                     if (raw.startsWith("{")) {

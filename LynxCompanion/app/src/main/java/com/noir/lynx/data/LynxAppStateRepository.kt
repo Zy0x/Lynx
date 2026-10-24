@@ -36,16 +36,18 @@ internal object LynxAppStateRepository {
 
     private fun getLynxdBinaryPath(): String? {
         cachedLynxdPath?.let { return it }
+        val path = LynxRepository.getLynxdPath()
+        val check = Shell.cmd("[ -x '$path' ] && echo 1 || echo 0").exec()
+        if (check.out.firstOrNull()?.trim() == "1") {
+            cachedLynxdPath = path
+            return path
+        }
         val bundled = File(LynxApp.instance.applicationInfo.nativeLibraryDir, "liblynxhud.so")
         if (bundled.canExecute()) {
             cachedLynxdPath = bundled.absolutePath
             return bundled.absolutePath
         }
-        val path = LynxRepository.getLynxdPath()
-        val check = Shell.cmd("[ -x '$path' ] && echo 1 || echo 0").exec()
-        val res = if (check.out.firstOrNull()?.trim() == "1") path else null
-        cachedLynxdPath = res
-        return res
+        return null
     }
 
     fun getLocalConfigPath(): String {
@@ -346,7 +348,7 @@ internal object LynxAppStateRepository {
 
         val applyCmd = if (lynxdPath != null) {
             when (profile) {
-                "auto" -> "killall lynxd 2>/dev/null; '$lynxdPath' daemon run >> /data/adb/lynx/lynxd.log 2>&1 &"
+                "auto" -> "'$lynxdPath' daemon status >/dev/null 2>&1 || '$lynxdPath' daemon start >/dev/null 2>&1"
                 "dormant" -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile revert"
                 else -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile'"
             }

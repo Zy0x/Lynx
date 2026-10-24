@@ -79,7 +79,10 @@ internal object LynxGpuControlRepository {
             val lynxdPath = LynxRepository.getLynxdPath()
             val minArg = minMhzVal ?: 0
             val maxArg = maxMhzVal ?: 0
-            Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu set-freq $minArg $maxArg").exec()
+            val lynxRes = Shell.cmd("[ -x '$lynxdPath' ] && '$lynxdPath' gpu set-freq $minArg $maxArg").exec()
+            if (lynxRes.isSuccess && lynxRes.out.any { !it.contains("not exposed") }) {
+                return@withContext true
+            }
 
             val adapterRes = GpuBackendManager.getActiveAdapter().setFrequencyRange(minMhzVal, maxMhzVal)
             if (adapterRes !is WriteResult.Rejected) return@withContext true

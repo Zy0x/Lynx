@@ -407,21 +407,27 @@ class LynxAppAutomationService : Service() {
             }
         }
 
-        // Lightweight 60-second charging bypass integrity watchdog
+        // Lightweight 60-second charging bypass integrity watchdog (Standalone fallback only)
         serviceScope.launch {
             while (isActive) {
                 delay(60000L)
                 try {
-                    val state = LynxRepository.readState().charging
-                    if (state.extremeChargingEnabled || state.bypassEnabled || state.maxBatteryPercent in 50..99) {
-                        val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim()
-                        if (stat.equals("Charging", ignoreCase = true) || stat.equals("Not charging", ignoreCase = true)) {
-                            LynxRepository.applySavedChargingConfig()
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        val state = LynxRepository.readState().charging
+                        if (state.extremeChargingEnabled || state.bypassEnabled || state.maxBatteryPercent in 50..99) {
+                            val stat = Shell.cmd("cat /sys/class/power_supply/battery/status 2>/dev/null").exec().out.firstOrNull()?.trim()
+                            if (stat.equals("Charging", ignoreCase = true) || stat.equals("Not charging", ignoreCase = true)) {
+                                LynxRepository.applySavedChargingConfig()
+                            }
                         }
                     }
                 } catch (_: Exception) {}
             }
         }
+    }
+
+    private suspend fun isNativeDaemonHandlingProfiles(): Boolean {
+        return LynxRepository.isModuleInstalled() && Shell.cmd("pgrep -f 'lynxd daemon'").exec().isSuccess
     }
 
     private suspend fun handleForegroundPackage(pkg: String, pid: Int?) {
@@ -506,8 +512,10 @@ class LynxAppAutomationService : Service() {
                     }
                 }
 
-                serviceScope.launch(Dispatchers.IO) {
-                    LynxRepository.setProfile(target, caller = "watcher")
+                if (!isNativeDaemonHandlingProfiles()) {
+                    serviceScope.launch(Dispatchers.IO) {
+                        LynxRepository.setProfile(target, caller = "watcher")
+                    }
                 }
 
                 val hzInfo = matchingRule.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
@@ -548,8 +556,10 @@ class LynxAppAutomationService : Service() {
                         }
                     }
 
-                    serviceScope.launch(Dispatchers.IO) {
-                        LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        serviceScope.launch(Dispatchers.IO) {
+                            LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                        }
                     }
                     activeCustomPkg = null
                     activeCustomPid = null
@@ -592,8 +602,10 @@ class LynxAppAutomationService : Service() {
                             }
                         }
 
-                        serviceScope.launch(Dispatchers.IO) {
-                            LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                        if (!isNativeDaemonHandlingProfiles()) {
+                            serviceScope.launch(Dispatchers.IO) {
+                                LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                            }
                         }
                         activeCustomPkg = null
                         activeCustomPid = null

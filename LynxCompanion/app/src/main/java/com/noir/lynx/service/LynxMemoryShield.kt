@@ -24,8 +24,15 @@ object LynxMemoryShield {
      */
     suspend fun applyOptimalVmParameters() = withContext(Dispatchers.IO) {
         try {
+            val lynxdPath = com.noir.lynx.data.LynxRepository.getLynxdPath()
+            if (com.noir.lynx.data.LynxRepository.isLynxdAvailable()) {
+                Shell.cmd("'$lynxdPath' memory apply 2>/dev/null").exec()
+                Log.i(TAG, "Applied memory and VM optimizations natively via lynxd.")
+                return@withContext
+            }
+
             val script = """
-                # 1. Optimal Virtual Memory (VM) tuning
+                # 1. Optimal Virtual Memory (VM) tuning (Fallback for standalone mode)
                 echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
                 echo 60 > /proc/sys/vm/swappiness 2>/dev/null
                 echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
@@ -45,7 +52,7 @@ object LynxMemoryShield {
             """.trimIndent()
 
             Shell.cmd(script).exec()
-            Log.i(TAG, "Applied optimal VM and eMMC block queue parameters.")
+            Log.i(TAG, "Applied optimal VM and eMMC block queue parameters via shell fallback.")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to apply VM parameters: ${e.message}")
         }

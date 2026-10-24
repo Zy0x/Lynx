@@ -319,9 +319,9 @@ internal object LynxCpuIdleRepository {
     }
 
     suspend fun applyCpuIdlePreset(preset: String, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
-        val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-        if (java.io.File(lynxdPath).canExecute()) {
-            val res = Shell.cmd("$lynxdPath cpuidle apply ${preset.lowercase()}").exec()
+        val lynxdPath = LynxRepository.getLynxdPath()
+        if (LynxRepository.isLynxdAvailable()) {
+            val res = Shell.cmd("'$lynxdPath' cpuidle apply ${preset.lowercase()}").exec()
             if (res.isSuccess) {
                 if (context != null) LynxRepository.appContext = context.applicationContext
                 val ctx = context ?: LynxRepository.appContext

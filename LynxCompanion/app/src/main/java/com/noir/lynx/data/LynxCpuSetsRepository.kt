@@ -232,9 +232,9 @@ internal object LynxCpuSetsRepository {
 
     suspend fun applyCpuSetPreset(preset: String, totalCores: Int = 8, context: Context? = null): Boolean = withContext(Dispatchers.IO) {
         try {
-            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-            if (java.io.File(lynxdPath).canExecute()) {
-                val res = Shell.cmd("$lynxdPath cpuset apply ${preset.lowercase()}").exec()
+            val lynxdPath = LynxRepository.getLynxdPath()
+            if (LynxRepository.isLynxdAvailable()) {
+                val res = Shell.cmd("'$lynxdPath' cpuset apply ${preset.lowercase()}").exec()
                 if (res.isSuccess) {
                     context?.let { ctx ->
                         val prefs = ctx.getSharedPreferences("lynx_cpusets", Context.MODE_PRIVATE)

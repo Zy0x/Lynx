@@ -303,9 +303,9 @@ class ChargingRepository(
     suspend fun handlePowerDisconnected(): Boolean = withContext(Dispatchers.IO) {
         try {
             Log.i(TAG, "Handling charger disconnection: reverting fast charging locks and restoring thermal baseline...")
-            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-            if (java.io.File(lynxdPath).canExecute()) {
-                Shell.cmd("$lynxdPath charging disconnect").exec()
+            val lynxdPath = LynxRepository.getLynxdPath()
+            if (LynxRepository.isLynxdAvailable()) {
+                Shell.cmd("'$lynxdPath' charging disconnect").exec()
             }
             true
         } catch (e: Exception) {

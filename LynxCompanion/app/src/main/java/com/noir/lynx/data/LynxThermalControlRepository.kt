@@ -12,8 +12,8 @@ internal object LynxThermalControlRepository {
 
     suspend fun applyThermalMode(mode: String, customTempLimit: Int = 52): Boolean = withContext(Dispatchers.IO) {
         try {
-            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-            if (java.io.File(lynxdPath).canExecute()) {
+            val lynxdPath = LynxRepository.getLynxdPath()
+            if (LynxRepository.isLynxdAvailable()) {
                 val rustMode = when (mode.lowercase()) {
                     "default", "default_oem" -> "conservative"
                     "hardware_safety_dominant", "unrestricted", "dominant" -> "gaming"
@@ -21,7 +21,7 @@ internal object LynxThermalControlRepository {
                     "extreme", "bypass" -> "extreme"
                     else -> mode.lowercase()
                 }
-                val res = Shell.cmd("$lynxdPath thermal mode $rustMode").exec()
+                val res = Shell.cmd("'$lynxdPath' thermal mode $rustMode").exec()
                 if (res.isSuccess) return@withContext true
             }
             com.noir.lynx.safety.OEMRestoreManager.captureBaselineIfMissing()
@@ -192,9 +192,9 @@ internal object LynxThermalControlRepository {
 
     suspend fun applyCustomTempLimitLive(tempC: Int): Boolean = withContext(Dispatchers.IO) {
         try {
-            val lynxdPath = "$MODULE_DIR/system/bin/lynxd"
-            if (java.io.File(lynxdPath).canExecute()) {
-                val res = Shell.cmd("$lynxdPath thermal set-limit $tempC").exec()
+            val lynxdPath = LynxRepository.getLynxdPath()
+            if (LynxRepository.isLynxdAvailable()) {
+                val res = Shell.cmd("'$lynxdPath' thermal set-limit $tempC").exec()
                 if (res.isSuccess) return@withContext true
             }
             val milliC = (tempC * 1000).toString()
