@@ -13,4 +13,24 @@ if [ -f /proc/sys/vm/max_map_count ]; then
     fi
 fi
 
+# MediaTek SCP SensorHub Race-Condition Auto-Heal Guard (APatch / Late SCP Init)
+# Under APatch, vendor.sensors-hal-2-0 can start before /dev/m_*_misc nodes finish
+# registering from SCP, leaving the HAL with 0 open sensor FDs until restarted.
+(
+    while [ "$(getprop sys.boot_completed)" != "1" ]; do
+        sleep 2
+    done
+    sleep 3
+    if [ -c /dev/m_acc_misc ]; then
+        SENSOR_PID=$(pidof android.hardware.sensors@2.0-service-mediatek 2>/dev/null)
+        if [ -n "$SENSOR_PID" ]; then
+            if ! ls -l "/proc/$SENSOR_PID/fd" 2>/dev/null | grep -q "/dev/m_acc_misc"; then
+                stop vendor.sensors-hal-2-0 2>/dev/null
+                sleep 1
+                start vendor.sensors-hal-2-0 2>/dev/null
+            fi
+        fi
+    fi
+) &
+
 exec "$MODPATH/system/bin/lynxd" boot
