@@ -93,8 +93,8 @@ impl GpuController {
 
             match gpu.driver {
                 GpuDriver::QcomKgsl => {
-                    let min_f = gpu.available_freqs_mhz.first().copied().unwrap_or(160);
-                    let max_f = gpu.available_freqs_mhz.last().copied().unwrap_or(710);
+                    let min_f = gpu.available_freqs_mhz.first().copied().unwrap_or(gpu.min_freq_mhz);
+                    let max_f = gpu.available_freqs_mhz.last().copied().unwrap_or(gpu.max_freq_mhz);
                     let lowest_idx = gpu.num_pwrlevels.saturating_sub(1);
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", lowest_idx.to_string());
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", "0");
@@ -109,8 +109,8 @@ impl GpuController {
                 GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
                     Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", "0");
                     Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
-                    let min_khz = gpu.available_freqs_mhz.first().copied().unwrap_or(300) * 1000;
-                    let max_khz = gpu.available_freqs_mhz.last().copied().unwrap_or(950) * 1000;
+                    let min_khz = gpu.available_freqs_mhz.first().copied().unwrap_or(gpu.min_freq_mhz).max(100) * 1000;
+                    let max_khz = gpu.available_freqs_mhz.last().copied().unwrap_or(gpu.max_freq_mhz).max(min_khz) * 1000;
                     Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());

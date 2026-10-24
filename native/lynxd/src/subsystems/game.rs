@@ -106,11 +106,40 @@ impl GameController {
         Self::write_opt(MtkHardware::GED_BOOST_AMP, "5");
         Self::write_opt(MtkHardware::GED_BOOST_EXTRA, "1");
         Self::write_opt(MtkHardware::GED_BOOST_GPU_ENABLE, "1");
-        Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, "850000");
-        Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, "950000");
         Self::write_opt(MtkHardware::GED_GPU_IDLE, "0");
         Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "1");
         Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", "4166666");
+
+        // Universal Dynamic Hardware-Aware GPU Frequency Floor & Ceiling
+        // BANS all hardcoded frequencies (e.g. 850/950 MHz). Adapts dynamically to ANY SoC
+        // (Helio, Dimensity, Snapdragon Adreno, Exynos Xclipse).
+        // Resolves max hardware clock and locks floor strictly to >= 95% of peak (or 100% max OPP)
+        // to prevent premature downclocking and ensure rock-solid frame rates.
+        let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
+        let gpu = HardwareCapability::resolve_gpu(vendor);
+        let max_mhz = gpu.available_freqs_mhz.last().copied().unwrap_or(gpu.max_freq_mhz);
+
+        if max_mhz > 0 {
+            // Target floor: strictly >= 95% of peak hardware capability
+            let target_95_pct = (max_mhz * 95) / 100;
+            let gaming_floor_mhz = gpu.available_freqs_mhz
+                .iter()
+                .copied()
+                .filter(|&f| f >= target_95_pct && f <= max_mhz)
+                .min()
+                .unwrap_or(max_mhz);
+
+            let max_khz = max_mhz * 1000;
+            let floor_khz = gaming_floor_mhz * 1000;
+
+            // Apply universal GPU frequency boost (floor >= 95%, ceiling = 100% max)
+            crate::subsystems::GpuController::set_freq(gaming_floor_mhz, Some(max_mhz));
+
+            // Specialized MediaTek GED parameter bindings (Dynamic kHz)
+            Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, max_khz.to_string());
+            Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, floor_khz.to_string());
+            Self::write_opt(MtkHardware::GED_GPU_BOTTOM_FREQ, floor_khz.to_string());
+        }
 
         Self::write_opt(MtkHardware::FPSGO_ENABLE, "1");
         Self::write_opt(MtkHardware::FPSGO_BOOST_TA, "1");
@@ -238,7 +267,10 @@ impl GameController {
             Self::write_opt(node, "0");
         }
 
-        // 6. Reset MediaTek GED, FPSGO, and PPM Hooks
+        // 6. Universal GPU Clock Restore to Auto DVFS
+        crate::subsystems::GpuController::set_freq(0, Some(0));
+
+        // Reset MediaTek GED, FPSGO, and PPM Hooks
         Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", "0");
         Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "0");
         Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "0");

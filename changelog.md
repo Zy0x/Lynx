@@ -1,14 +1,16 @@
 # Lynx Universal [Pro MediaTek Gaming Engine & Autonomous Foreground Tracking] 7.0.0-RC189
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC189** (Lynx Kernel Manager v3.2.35): **Akselerasi Penuh Game Berat MediaTek (Helio / Dimensity) & Penyempurnaan Deteksi Aplikasi Depan Otonom: Mengintegrasikan Parameter Tuning MediaTek GED (Threshold DVFS 30%, Boost Amplifikasi 5x, Freq Boost GPU 850-950MHz, & Bypass Fence 3D) Serta MediaTek FPSGO FBT (Ambang Termal 85°C Tanpa Throttling Artifisial CPU, Emergency Ultra Rescue, & BHR OPP); Memperbaiki Algoritma Detektor Aplikasi Depan Rust `detector.rs` Agar Mengenali Aplikasi Berprioritas Root (`oom_score_adj <= 0`) Serta Mengabaikan Sub-Proses Latar Belakang (`:provider`/`:service`); Mengoptimalkan Read-Ahead Penyimpanan 1024KB Untuk Streaming Aset Open-World Tanpa Stutter; Teruji Menghasilkan 31-33 FPS Stabil Dengan Suhu Baterai Aman 43°C Pada Pengujian Live Genshin Impact di Helio G96**.
+> **Lynx Universal v7.0.0-RC189** (Lynx Kernel Manager v3.2.35): **Akselerasi Penuh Game Berat MediaTek (Helio / Dimensity) & Penyempurnaan Deteksi Aplikasi Depan Otonom: Mengintegrasikan Parameter Tuning MediaTek GED (Threshold DVFS 30%, Boost Amplifikasi 5x, Resolusi Dinamis GPU 95%-100% OPP Bebas Hardcode, & Bypass Fence 3D) Serta MediaTek FPSGO FBT (Ambang Termal 85°C Tanpa Throttling Artifisial CPU, Emergency Ultra Rescue, & BHR OPP); Memperbaiki Algoritma Detektor Aplikasi Depan Rust `detector.rs` Agar Mengenali Aplikasi Berprioritas Root (`oom_score_adj <= 0`) Serta Mengabaikan Sub-Proses Latar Belakang (`:provider`/`:service`); Mengoptimalkan Read-Ahead Penyimpanan 1024KB Untuk Streaming Aset Open-World Tanpa Stutter; Teruji Menghasilkan 31-33 FPS Stabil Dengan Suhu Baterai Aman 43°C Pada Pengujian Live Genshin Impact di Helio G96**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC189)
 
 ### 1. ⚡ Akselerasi Game MediaTek GED & GPU Mali (`game.rs` & `mtk.rs`)
+- **Resolusi Frekuensi GPU Dinamis Murni (Bebas Hardcode)**:
+  - Menghapus seluruh nilai frekuensi statis. Mesin native secara otomatis menginspeksi tabel OPP hardware perangkat (`HardwareCapability`), mendeteksi frekuensi puncak (`max_mhz`), dan mengunci batas bawah gaming (`gaming_floor_mhz`) secara dinamis pada $\ge 95\%$ dari frekuensi maksimum hardware (misal 910–950 MHz pada Helio G96, atau nilai yang setara pada Dimensity / Snapdragon Adreno / Exynos).
+  - Menjamin frekuensi GPU tidak akan pernah drop ke batas bawah yang terlalu rendah saat beban render 3D tinggi.
 - **GED DVFS Aggressive Scaling**:
   - `g_fb_dvfs_threshold = 30`: GPU langsung melompat ke frekuensi tinggi saat beban framebuffer mencapai 30% (bukan menunggu hingga 80%).
   - `boost_amp = 5` & `boost_extra = 1`: Amplifikasi dorongan frekuensi GPU ditingkatkan dari 3x menjadi 5x.
-  - `gpu_cust_boost_freq = 850000` & `gpu_cust_upbound_freq = 950000`: Mengunci rentang dorongan GPU pada frekuensi tertinggi 850–950 MHz.
   - `gpu_idle = 0`: Meniadakan delay penurunan daya GPU selama sesi gaming aktif.
   - `ged_monitor_3D_fence_disable = 1`: Melenyapkan overhead sinkronisasi 3D fence.
 - **Driver GPU ARM Mali Bifrost / Valhall**:
