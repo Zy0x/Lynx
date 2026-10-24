@@ -211,11 +211,18 @@ impl ThermalController {
                 Self::unfreeze_oem_throttlers();
                 let _ = Command::new("cmd").args(&["thermalservice", "override-status", "0"]).output();
 
-                // PPM Balanced (MTK)
-                Self::write_opt("/proc/ppm/policy_status", "3 1");
-                Self::write_opt("/proc/ppm/policy_status", "4 1");
+                // PPM Balanced (MTK): Disable aggressive power/thermal downclocking so Big Cores reach 2.05 GHz
+                Self::write_opt("/proc/ppm/policy_status", "3 0");
+                Self::write_opt("/proc/ppm/policy_status", "4 0");
                 Self::write_opt("/proc/ppm/policy_status", "5 0");
-                Self::write_opt("/proc/cpufreq/cpufreq_imax_thermal_protect", "1");
+                Self::write_opt("/proc/cpufreq/cpufreq_imax_thermal_protect", "0");
+
+                // Unthrottle MediaTek GPU thermal clamp so 120Hz UI, video playback, and media rendering scale up freely
+                if Path::new("/proc/gpufreq/gpufreq_limit_table").exists() {
+                    for id in 3..=7 {
+                        Self::write_opt("/proc/gpufreq/gpufreq_limit_table", format!("{} 0 0", id));
+                    }
+                }
 
                 // Schedutil rate limits
                 for id in 0..16 {
