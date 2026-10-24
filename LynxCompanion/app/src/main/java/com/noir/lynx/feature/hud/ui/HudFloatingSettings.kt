@@ -37,6 +37,7 @@ internal fun HudFloatingSettings(prefs: HudPreferences, store: HudPreferencesSto
         Slider(prefs.floatingHeightPct.toFloat(), { store.setFloatingCustomSize(prefs.floatingWidthPct, it.toInt()) },
             valueRange = 35f..90f, steps = 10, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp))
     }
+    HudExpandableSection(hudString(R.string.hud_apps_manage)) { HudAppManager(prefs, store) }
     HudExpandableSection(hudString(R.string.hud_engine_info)) {
         Text(hudString(if (prefs.floatingEngine == "standalone") R.string.floating_engine_root_desc else R.string.floating_engine_rom_desc),
             fontSize = 12.sp, color = HudMuted)

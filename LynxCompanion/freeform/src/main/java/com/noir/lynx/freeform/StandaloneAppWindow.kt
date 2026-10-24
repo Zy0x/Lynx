@@ -106,6 +106,12 @@ internal class StandaloneAppWindow(
         catch (e: Exception) { close(); throw e }
     }
 
+    fun reveal() {
+        if (closed) return
+        if (minimized) restore()
+        chrome.showResizeHint()
+    }
+
     private fun box() = FloatingDisplayPolicy.Box(params.x, params.y, params.width, params.height)
     private fun use(box: FloatingDisplayPolicy.Box) {
         params.x = box.x; params.y = box.y; params.width = box.width; params.height = box.height
@@ -131,7 +137,7 @@ internal class StandaloneAppWindow(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX; startY = event.rawY; moved = false; original = box()
-                    if (resize) resizingGesture = true
+                    if (resize) { resizingGesture = true; chrome.showResizeHint(hold = true); cancelGesture() }
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - startX; val dy = event.rawY - startY

@@ -2134,4 +2134,13 @@
     <string name="hud_engine_info">Informasi engine</string>
     <string name="hud_unit_metric">%1$s · %2$s</string>
     <string name="hud_metric_value_description">%1$s: %2$s</string>
+    <string name="hud_apps_manage">Atur aplikasi</string>
+    <string name="hud_apps_description">Pilih aplikasi untuk dock. Atur urutan dan ukuran awal melalui tombol pengaturan setiap aplikasi.</string>
+    <string name="hud_apps_empty">Belum ada aplikasi yang dapat diluncurkan untuk pengguna Android ini.</string>
+    <string name="hud_apps_done">Selesai</string>
+    <string name="hud_app_customize">Atur %1$s</string>
+    <string name="hud_app_order">Urutan dock: %1$d</string>
+    <string name="hud_app_move_up">Pindahkan ke depan</string>
+    <string name="hud_app_move_down">Pindahkan ke belakang</string>
+    <string name="hud_app_custom_size">Ukuran khusus aplikasi</string>
 </resources>

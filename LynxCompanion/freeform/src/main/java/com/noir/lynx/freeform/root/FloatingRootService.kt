@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit
 /** APK-owned, non-daemon root service. It neither installs a module nor edits global settings. */
 class FloatingRootService : RootService() {
     private data class Session(val display: VirtualDisplay, val surface: Surface, val owner: IBinder,
-                               val death: IBinder.DeathRecipient)
+                               val death: IBinder.DeathRecipient, val packageName: String,
+                               val userId: Int)
     private val sessions = java.util.concurrent.ConcurrentHashMap<Int, Session>()
     private val lock = Any()
     private lateinit var access: RootAndroidAccess
@@ -36,9 +37,19 @@ class FloatingRootService : RootService() {
 
     private fun release(id: Int) {
         val session = sessions.remove(id) ?: return
+        val foreground = runCatching { access.tasks(0).firstOrNull()?.taskId }.getOrNull()
         runCatching { session.owner.unlinkToDeath(session.death, 0) }
-        runCatching { access.tasks(id).forEach { access.remove(it.taskId) } }
-        try { session.display.release() } finally { session.surface.release() }
+        // Return the app's real task instead of deleting its tab/session state on close.
+        runCatching { access.tasks(id).filter { access.userOf(it) == session.userId &&
+            it.baseActivity?.packageName == session.packageName }.forEach {
+                access.move(it.taskId, 0, bringToFront = false)
+                android.util.Log.i("LynxFloatingRoot", "Returned task=${it.taskId} to display=0")
+            } }.onFailure { android.util.Log.w("LynxFloatingRoot", "Task return failed; using display-removal migration", it) }
+        try { session.display.release() } finally {
+            session.surface.release()
+            runCatching { access.restoreMainFocus(foreground) }
+                .onFailure { android.util.Log.w("LynxFloatingRoot", "Main display focus restoration failed", it) }
+        }
     }
 
     private fun result(stage: () -> String = { "capability_unavailable" }, block: () -> Bundle): Bundle = try { block() } catch (e: Exception) {
@@ -61,6 +72,10 @@ class FloatingRootService : RootService() {
                 check(FloatingDisplayPolicy.validSize(width, height, density))
                 val target = ComponentName.unflattenFromString(component) ?: error("Invalid component")
                 check(packageManager.getActivityInfo(target, 0).exported)
+                val existing = RootTaskPolicy.reusable(access.tasks().map {
+                    RootTaskPolicy.Task(it.taskId, access.userOf(it), access.displayOf(it), it.baseActivity?.packageName)
+                }, target.packageName, userId, sessions.keys)
+                val foreground = access.tasks(0).firstOrNull()?.taskId?.takeIf { it != existing?.id }
                 stage = "display_creation"
                 val ctor = DisplayManager::class.java.getDeclaredConstructor(android.content.Context::class.java)
                 ctor.isAccessible = true
@@ -75,18 +90,21 @@ class FloatingRootService : RootService() {
                 }
                 val id = vd.display.displayId
                 val death = IBinder.DeathRecipient { synchronized(lock) { release(id) } }
-                sessions[id] = Session(vd, surface, owner, death)
+                sessions[id] = Session(vd, surface, owner, death, target.packageName, userId)
                 try {
                     owner.linkToDeath(death, 0)
                     val imeConfigured = access.configureIme(id)
                     val rotationLocked = access.lockOwnedRotation(id)
                     stage = "activity_launch"
-                    val child = ProcessBuilder(RootLaunchCommand.create(component, userId, id))
-                        .redirectErrorStream(true).start()
-                    try {
-                        check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
-                        check(child.exitValue() == 0)
-                    } finally { child.destroy(); child.inputStream.close() }
+                    if (existing != null) access.move(existing.id, id)
+                    else {
+                        val child = ProcessBuilder(RootLaunchCommand.create(component, userId, id))
+                            .redirectErrorStream(true).start()
+                        try {
+                            check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
+                            check(child.exitValue() == 0)
+                        } finally { child.destroy(); child.inputStream.close() }
+                    }
                     stage = "task_verification"
                     val deadline = SystemClock.uptimeMillis() + 2000
                     var task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
@@ -95,10 +113,14 @@ class FloatingRootService : RootService() {
                         task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
                     }
                     check(task != null) { "No task on requested display" }
+                    check(existing == null || task.taskId == existing.id) { "Existing task was not preserved" }
+                    access.restoreMainFocus(foreground)
+                    android.util.Log.i("LynxFloatingRoot", "Verified task=${task.taskId} display=$id reused=${existing != null} user=$userId")
                     Bundle().apply {
                         putBoolean("ok", true); putInt("displayId", id); putInt("taskId", task.taskId)
                         putInt("sdk", Build.VERSION.SDK_INT)
                         putString("compatibilityProfile", profile.name)
+                        putBoolean("reusedTask", existing != null)
                         putBoolean("imeConfigured", imeConfigured); putBoolean("rotationLocked", rotationLocked)
                     }
                 } catch (e: Exception) { release(id); throw e }

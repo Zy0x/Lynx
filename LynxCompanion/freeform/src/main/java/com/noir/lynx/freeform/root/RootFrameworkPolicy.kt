@@ -9,8 +9,9 @@ internal object RootFrameworkPolicy {
         .filter { candidates[it] in taskShapes }.maxByOrNull { candidates[it].size }
 
     fun displayFlags(sdk: Int): Int {
-        // PUBLIC | PRESENTATION | OWN_CONTENT_ONLY | SUPPORTS_TOUCH | DESTROY_CONTENT_ON_REMOVAL.
-        var flags = 1 or 2 or 8 or (1 shl 6) or (1 shl 8)
+        // Preserve app tasks if the host dies: Android returns them to the default display.
+        // PUBLIC | PRESENTATION | OWN_CONTENT_ONLY | SUPPORTS_TOUCH.
+        var flags = 1 or 2 or 8 or (1 shl 6)
         if (sdk >= 33) {
             // TRUSTED | OWN_DISPLAY_GROUP | TOUCH_FEEDBACK_DISABLED; never ALWAYS_UNLOCKED.
             flags = flags or (1 shl 10) or (1 shl 11) or (1 shl 13)

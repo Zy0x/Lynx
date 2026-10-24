@@ -15,7 +15,7 @@ class RootFrameworkPolicyTest {
     @Test fun displayFlagsDoNotUnlockDisplaysOrEnableRomDesktopDecorations() {
         for (sdk in 29..37) {
             val flags = RootFrameworkPolicy.displayFlags(sdk)
-            assertTrue(flags and (1 shl 8) != 0)
+            assertEquals(0, flags and (1 shl 8))
             assertEquals(0, flags and (1 shl 12))
             assertEquals(0, flags and (1 shl 9))
             assertEquals(sdk >= 33, flags and (1 shl 11) != 0)

@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.R
 import com.noir.lynx.feature.hud.*
 import com.noir.lynx.feature.hud.data.*
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,7 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     var page by remember { mutableStateOf(HudPage.Summary) }
     var menuOpen by remember { mutableStateOf(false) }
+    var manageApps by remember { mutableStateOf(false) }
     // Keep scroll states above both the open/closed branch and the responsive navigation branch.
     val scrolls = mapOf(HudPage.Summary to rememberScrollState(), HudPage.Details to rememberScrollState(), HudPage.Tools to rememberScrollState())
     val pageState = rememberSaveableStateHolder()
@@ -50,9 +52,13 @@ fun HudSidebar(snapshot: HudSnapshot, viewport: HudViewport, open: Boolean, pref
             border = BorderStroke(1.dp, HudBorder)) {
             Column {
                 HudPanelHeader(appLabel, snapshot[HudMetric.BATTERY_LEVEL], onDrag) { onOpen(false) }
-                HudAppDock(apps) { onOpen(false); onApp(it) }
+                HudAppDock(apps, { manageApps = !manageApps }) { onOpen(false); onApp(it) }
                 HorizontalDivider(color = HudBorder, thickness = 0.8.dp)
-                Row(Modifier.weight(1f, fill = false)) {
+                if (manageApps) Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+                    .padding(HudLayoutPolicy.CONTENT_PADDING.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    HudAction(hudString(R.string.hud_apps_done), onClick = { manageApps = false }, modifier = Modifier.fillMaxWidth())
+                    HudAppManager(prefs, preferences)
+                } else Row(Modifier.weight(1f, fill = false)) {
                     if (layout.useRail) {
                         HudNavigationRail(page, layout.railWidth) { page = it }
                         Box(Modifier.fillMaxHeight().width(0.8.dp).background(HudBorder))

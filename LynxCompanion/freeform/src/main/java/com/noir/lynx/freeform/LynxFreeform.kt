@@ -26,7 +26,8 @@ class LynxFreeform(
     val events = mutableEvents.asSharedFlow()
     private var connection: ServiceConnection? = null
     private var pending: CompletableDeferred<IFloatingRoot>? = null
-    private val windows = mutableSetOf<StandaloneAppWindow>()
+    private val windows = mutableMapOf<String, StandaloneAppWindow>()
+    private val launching = mutableSetOf<String>()
     private var generation = 0
     private var closed = false
     private val parentCompletion = parent.coroutineContext[Job]?.invokeOnCompletion {
@@ -64,6 +65,8 @@ class LynxFreeform(
     @MainThread
     fun launch(packageName: String, label: String? = null, widthPercent: Int = 55, heightPercent: Int = 50) {
         check(!closed) { "Engine closed" }
+        windows[packageName]?.let { it.reveal(); return }
+        if (!launching.add(packageName)) return
         val epoch = generation
         scope.launch {
             try {
@@ -82,12 +85,12 @@ class LynxFreeform(
                 lateinit var window: StandaloneAppWindow
                 window = StandaloneAppWindow(context, wm, scope, remote, appLabel,
                     component.flattenToString(), widthPercent, heightPercent, config,
-                    { mutableEvents.tryEmit(it) }) { windows.remove(window) }
-                windows.add(window); window.show()
+                    { mutableEvents.tryEmit(it) }) { if (windows[packageName] === window) windows.remove(packageName) }
+                windows[packageName] = window; window.show()
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) {
                 failed(packageName, "connection_unavailable")
-            }
+            } finally { launching.remove(packageName) }
         }
     }
 
@@ -96,8 +99,8 @@ class LynxFreeform(
         Toast.makeText(context, FloatingFailure.message(reason), Toast.LENGTH_LONG).show()
     }
 
-    @MainThread fun viewportChanged() { windows.toList().forEach { it.clampToViewport() } }
-    @MainThread fun closeWindows() { generation++; windows.toList().forEach { it.close() }; windows.clear() }
+    @MainThread fun viewportChanged() { windows.values.toList().forEach { it.clampToViewport() } }
+    @MainThread fun closeWindows() { generation++; windows.values.toList().forEach { it.close() }; windows.clear() }
 
     @MainThread override fun close() {
         if (closed) return

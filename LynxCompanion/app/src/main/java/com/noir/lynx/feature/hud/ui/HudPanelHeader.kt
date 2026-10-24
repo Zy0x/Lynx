@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,14 +47,16 @@ internal fun HudPanelHeader(appLabel: String, battery: HudReading, onDrag: (Floa
 }
 
 @Composable
-internal fun HudAppDock(apps: List<HudApp>, onApp: (HudApp) -> Unit) {
-    if (apps.isEmpty()) return
+internal fun HudAppDock(apps: List<HudApp>, onManage: () -> Unit, onApp: (HudApp) -> Unit) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
         apps.forEach { app ->
             IconButton(onClick = { onApp(app) }, modifier = Modifier.size(48.dp)) {
                 Image(app.icon.asImageBitmap(), app.label, Modifier.size(28.dp))
             }
+        }
+        IconButton(onClick = onManage, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Default.Add, hudString(R.string.hud_apps_manage), Modifier.size(18.dp), tint = HudCyan)
         }
     }
 }

@@ -14,11 +14,15 @@ import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.floating.StandaloneApps
 import com.noir.lynx.feature.hud.data.HudPreferencesStore
+import com.noir.lynx.feature.hud.data.HudAppCatalog
+import com.noir.lynx.feature.hud.data.HudDockPolicy
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -39,16 +43,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     init {
         scope.launch(Dispatchers.IO) {
             displaySession.restore()
-            val pm = context.packageManager
-            val candidates = listOf("com.android.chrome", "com.whatsapp", "org.telegram.messenger", "com.discord", "com.google.android.youtube", "com.google.android.calculator", "com.transsion.calculator", "com.android.calculator2")
-            appState.value = candidates.mapNotNull { pkg -> runCatching {
-                val info = pm.getApplicationInfo(pkg, 0)
-                if (pm.getLaunchIntentForPackage(pkg) == null) return@runCatching null
-                val icon = pm.getApplicationIcon(info)
-                val bitmap = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888)
-                icon.setBounds(0, 0, 96, 96); icon.draw(android.graphics.Canvas(bitmap))
-                HudApp(pkg, pm.getApplicationLabel(info).toString(), bitmap)
-            }.getOrNull() }.take(7)
+            combine(HudAppCatalog(context).apps, HudPreferencesStore(context).changes) { catalog, prefs ->
+                val byPackage = catalog.associateBy { it.packageName }
+                HudDockPolicy.packages(prefs.dockPackages, byPackage.keys).mapNotNull(byPackage::get)
+            }.collect { appState.value = it }
         }
     }
 
@@ -58,6 +56,9 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     fun launch(app: HudApp, forceFullscreen: Boolean = false) {
         val prefs = HudPreferencesStore(context).read()
+        val size = prefs.appSizes[app.packageName]
+        val width = size?.width ?: prefs.floatingWidthPct
+        val height = size?.height ?: prefs.floatingHeightPct
         if (!prefs.floatingEnabled || forceFullscreen) {
             runCatching {
                 val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)!!
@@ -70,7 +71,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         }
 
         if (prefs.floatingEngine == "standalone") {
-            StandaloneApps.launch(app, prefs.floatingWidthPct, prefs.floatingHeightPct)
+            StandaloneApps.launch(app, width, height)
             return
         }
         // The ROM backend is selected explicitly; it is never a silent standalone fallback.
@@ -78,8 +79,8 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             packageName = app.packageName,
             label = app.label,
             icon = app.icon,
-            widthPct = prefs.floatingWidthPct,
-            heightPct = prefs.floatingHeightPct,
+            widthPct = width,
+            heightPct = height,
             engine = prefs.floatingEngine
         )
     }

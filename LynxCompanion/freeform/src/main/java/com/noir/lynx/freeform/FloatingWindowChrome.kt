@@ -9,16 +9,15 @@ import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.*
 
 /** Compact single-row chrome. Extra actions stay in the bounded in-panel menu. */
 internal class FloatingWindowChrome(private val context: Context, label: String, appIcon: Drawable?, private val appearance: FreeformAppearance) {
     private val density = context.resources.displayMetrics.density
-    private fun dp(v: Int) = (v * density).toInt()
+    private fun dp(v: Int) = kotlin.math.ceil(v * density.toDouble()).toInt()
     private val headerHeight = dp(FloatingChromePolicy.headerHeight(context.resources.configuration.fontScale, appearance.titleSizeSp))
     private var toolbarShown = appearance.showToolbar
-    private var resizeArmed = false
+    private var minimized = false
     val controlsHeight get() = headerHeight + if (toolbarShown) dp(48) else 0
     val root = FrameLayout(context)
     val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -45,6 +44,9 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
     private val more = button(context, FloatingGlyph.MORE, R.string.lynx_freeform_window_actions)
     private val footer = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
     private var menu: FloatingActionMenu? = null
+    private val hideResizeHint = Runnable {
+        resize.animate().alpha(.18f).setDuration(200).start()
+    }
 
     init {
         root.background = panel(dp(appearance.cornerRadiusDp).toFloat()); root.clipToOutline = true
@@ -55,6 +57,7 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
             addView(ImageView(context).apply { setImageDrawable(appIcon); setPadding(dp(4), dp(4), dp(4), dp(4)) },
                 LinearLayout.LayoutParams(dp(32), dp(32)))
             addView(title, LinearLayout.LayoutParams(0, -1, 1f))
+            addView(resize, LinearLayout.LayoutParams(dp(48), dp(48)))
             addView(more, LinearLayout.LayoutParams(dp(48), dp(48)))
             addView(close, LinearLayout.LayoutParams(dp(48), dp(48)))
         }
@@ -69,26 +72,29 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
         root.addView(bubble, FrameLayout.LayoutParams(-1, -1))
         placeResizeHandle()
         more.setOnClickListener { toggleMenu() }
+        title.setOnClickListener { showResizeHint() }
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) { showResizeHint() }
+            override fun onViewDetachedFromWindow(v: View) { root.removeCallbacks(hideResizeHint); resize.animate().cancel() }
+        })
     }
 
     private fun placeResizeHandle() {
-        (resize.parent as? ViewGroup)?.removeView(resize)
         footer.visibility = if (toolbarShown) View.VISIBLE else View.GONE
         resize.setPadding(dp(16), dp(16), dp(16), dp(16))
-        if (toolbarShown) footer.addView(resize, LinearLayout.LayoutParams(dp(48), dp(48)))
-        else root.addView(resize, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.BOTTOM or Gravity.END))
-        resize.visibility = if (toolbarShown || resizeArmed) View.VISIBLE else View.GONE
-        resize.bringToFront(); bubble.bringToFront()
+        // The 16dp glyph has a dedicated 48dp header target, never covering app content.
+        resize.visibility = if (minimized) View.GONE else View.VISIBLE
+        bubble.bringToFront()
     }
 
     private fun toggleMenu() {
         if (menu != null) { dismissMenu(); return }
-        resizeArmed = false; placeResizeHandle()
+        placeResizeHandle()
         fun action(id: Int, view: View) = context.getString(id) to { if (view.isEnabled) view.performClick(); Unit }
         menu = FloatingActionMenu(root, headerHeight, appearance, state, listOf(
             action(R.string.lynx_freeform_back, back), action(R.string.lynx_freeform_minimize, minimize),
             action(R.string.lynx_freeform_maximize, maximize), action(R.string.lynx_freeform_rotate, rotate),
-            context.getString(R.string.lynx_freeform_resize) to { resizeArmed = true; placeResizeHandle() },
+            context.getString(R.string.lynx_freeform_resize) to { showResizeHint() },
             context.getString(if (toolbarShown) R.string.lynx_freeform_hide_toolbar else R.string.lynx_freeform_show_toolbar) to {
                 toolbarShown = !toolbarShown; placeResizeHandle()
             }
@@ -96,7 +102,11 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
     }
 
     fun dismissMenu() { menu?.close(); menu = null }
-    fun finishResize() { resizeArmed = false; if (!toolbarShown) resize.visibility = View.GONE }
+    fun showResizeHint(hold: Boolean = false) {
+        root.removeCallbacks(hideResizeHint); resize.animate().cancel(); resize.alpha = 1f
+        if (!hold) root.postDelayed(hideResizeHint, 3000)
+    }
+    fun finishResize() { showResizeHint() }
     fun state(resource: Int, busy: Boolean) {
         state = context.getString(resource)
         title.contentDescription = context.getString(R.string.lynx_freeform_title_state, title.text, state)
@@ -106,7 +116,9 @@ internal class FloatingWindowChrome(private val context: Context, label: String,
         listOf(back, rotate, maximize, minimize).forEach { it.isEnabled = !value; it.alpha = if (value) .45f else 1f }
     }
     fun minimized(value: Boolean) {
-        resize.visibility = if (value || (!toolbarShown && !resizeArmed)) View.GONE else View.VISIBLE
+        minimized = value
+        resize.visibility = if (value) View.GONE else View.VISIBLE
+        if (value) root.removeCallbacks(hideResizeHint) else showResizeHint()
         progress.visibility = if (value) View.GONE else progress.visibility
     }
     private fun panel(radius: Float) = GradientDrawable().apply {

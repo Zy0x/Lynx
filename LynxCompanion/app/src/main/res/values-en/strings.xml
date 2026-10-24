@@ -2110,4 +2110,13 @@
     <string name="hud_engine_info">Engine information</string>
     <string name="hud_unit_metric">%1$s · %2$s</string>
     <string name="hud_metric_value_description">%1$s: %2$s</string>
+    <string name="hud_apps_manage">Manage apps</string>
+    <string name="hud_apps_description">Choose dock apps. Use each app’s settings to change its order and initial window size.</string>
+    <string name="hud_apps_empty">No launchable apps are available for this Android user.</string>
+    <string name="hud_apps_done">Done</string>
+    <string name="hud_app_customize">Customize %1$s</string>
+    <string name="hud_app_order">Dock position: %1$d</string>
+    <string name="hud_app_move_up">Move earlier</string>
+    <string name="hud_app_move_down">Move later</string>
+    <string name="hud_app_custom_size">Use a custom app size</string>
 </resources>

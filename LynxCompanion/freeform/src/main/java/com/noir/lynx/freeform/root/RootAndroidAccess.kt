@@ -1,6 +1,7 @@
 package com.noir.lynx.freeform.root
 
 import android.app.ActivityManager
+import android.app.ActivityOptions
 import android.content.Context
 import android.hardware.input.InputManager
 import android.os.Build
@@ -24,7 +25,7 @@ internal class RootAndroidAccess(context: Context) {
         return inject.invoke(input, event, 0) == true
     }
 
-    fun tasks(displayId: Int): List<ActivityManager.RunningTaskInfo> {
+    fun tasks(displayId: Int = -1): List<ActivityManager.RunningTaskInfo> {
         val method = taskMethod
         val args = method.parameterTypes.mapIndexed { index, type ->
             when (type) {
@@ -38,12 +39,32 @@ internal class RootAndroidAccess(context: Context) {
             val taskDisplayId = runCatching {
                 it.javaClass.getField("displayId").getInt(it)
             }.getOrNull()
-            taskDisplayId == displayId
+            if (displayId < 0) taskDisplayId != null else taskDisplayId == displayId
         }
     }
 
-    fun remove(taskId: Int) {
-        check(atmType.getMethod("removeTask", Int::class.javaPrimitiveType).invoke(atm, taskId) == true)
+    fun displayOf(task: ActivityManager.RunningTaskInfo): Int = task.javaClass.getField("displayId").getInt(task)
+    fun userOf(task: ActivityManager.RunningTaskInfo): Int = task.javaClass.getField("userId").getInt(task)
+
+    fun restoreMainFocus(taskId: Int?) {
+        if (taskId == null || tasks(0).none { it.taskId == taskId }) return
+        atmType.getMethod("setFocusedTask", Int::class.javaPrimitiveType).invoke(atm, taskId)
+    }
+
+    fun move(taskId: Int, displayId: Int, bringToFront: Boolean = true) {
+        require(taskId >= 0 && displayId >= 0)
+        val options = ActivityOptions.makeBasic().setLaunchDisplayId(displayId)
+        ActivityOptions::class.java.getMethod("setLaunchWindowingMode", Int::class.javaPrimitiveType)
+            .invoke(options, 1)
+        if (!bringToFront) ActivityOptions::class.java.getMethod("setAvoidMoveToFront").invoke(options)
+        val result = atmType.getMethod("startActivityFromRecents", Int::class.javaPrimitiveType, android.os.Bundle::class.java)
+            .invoke(atm, taskId, options.toBundle()) as Int
+        check(result >= 0) { "Task move rejected: $result" }
+        val deadline = android.os.SystemClock.uptimeMillis() + 1000
+        while (tasks(displayId).none { it.taskId == taskId }) {
+            check(android.os.SystemClock.uptimeMillis() < deadline) { "Task move was not verified" }
+            Thread.sleep(50)
+        }
     }
 
     private val windowType by lazy { Class.forName("android.view.IWindowManager") }

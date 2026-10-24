@@ -5,6 +5,10 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import org.json.JSONArray
+import org.json.JSONObject
+
+data class HudAppSize(val width: Int, val height: Int)
 
 data class HudPreferences(
     val pinned: Boolean = false,
@@ -13,7 +17,9 @@ data class HudPreferences(
     val floatingEngine: String = "standalone",
     val floatingSizePreset: String = "standard",
     val floatingWidthPct: Int = 70,
-    val floatingHeightPct: Int = 65
+    val floatingHeightPct: Int = 65,
+    val dockPackages: List<String>? = null,
+    val appSizes: Map<String, HudAppSize> = emptyMap()
 )
 
 class HudPreferencesStore(context: Context) {
@@ -27,7 +33,17 @@ class HudPreferencesStore(context: Context) {
         val preset = prefs.getString("hud_floating_preset", "standard") ?: "standard"
         val wPct = prefs.getInt("hud_floating_w_pct", 70)
         val hPct = prefs.getInt("hud_floating_h_pct", 65)
-        return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct)
+        val dock = prefs.getString("hud_dock_packages_v1", null)?.let { text -> runCatching {
+            val json = JSONArray(text)
+            (0 until json.length()).map { json.getString(it) }.distinct()
+        }.getOrNull() }
+        val sizes = runCatching {
+            val json = JSONObject(prefs.getString("hud_app_sizes_v1", "{}") ?: "{}")
+            json.keys().asSequence().associateWith { key -> json.getJSONObject(key).let {
+                HudAppSize(it.getInt("width").coerceIn(35, 95), it.getInt("height").coerceIn(35, 90))
+            } }
+        }.getOrDefault(emptyMap())
+        return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct, dock, sizes)
     }
 
     val changes = callbackFlow {
@@ -73,5 +89,19 @@ class HudPreferencesStore(context: Context) {
             .putInt("hud_floating_w_pct", widthPct.coerceIn(35, 95))
             .putInt("hud_floating_h_pct", heightPct.coerceIn(35, 90))
             .apply()
+    }
+
+    fun setDockPackages(packages: List<String>) {
+        prefs.edit().putString("hud_dock_packages_v1", JSONArray(packages.distinct()).toString()).apply()
+    }
+
+    fun setAppSize(packageName: String, size: HudAppSize?) {
+        val json = JSONObject()
+        val sizes = read().appSizes.toMutableMap().apply {
+            if (size == null) remove(packageName)
+            else put(packageName, HudAppSize(size.width.coerceIn(35, 95), size.height.coerceIn(35, 90)))
+        }
+        sizes.forEach { (key, value) -> json.put(key, JSONObject().put("width", value.width).put("height", value.height)) }
+        prefs.edit().putString("hud_app_sizes_v1", json.toString()).apply()
     }
 }
