@@ -151,7 +151,7 @@ function Test-RoleInterlock([hashtable]$devInfo, [string]$serial) {
         Write-Info "Skipping active test device $($devInfo.Model) ($($devInfo.Device)) at $serial while searching for 'reference' device..."
         return $false
     }
-    if ($Role -eq "test" -and ($devInfo.Device -notmatch "^(?i:X698)$" -or $devInfo.Platform -ne "mt6781")) {
+    if ($Role -eq "test" -and ($devInfo.Device -notmatch "^(?i:(?:Infinix-)?X698)$" -or $devInfo.Platform -ne "mt6781")) {
         Write-Warn "SAFETY INTERLOCK: Active testing requires X698 / mt6781; rejected $serial."
         return $false
     }
