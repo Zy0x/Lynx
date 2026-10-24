@@ -403,6 +403,18 @@ chcon -R u:object_r:system_file:s0 "$MODPATH/platforms" 2>/dev/null
 # Clean non-runtime assets
 rm -rf "$MODPATH/archive" "$MODPATH/docs" "$MODPATH/references" "$MODPATH/tests" 2>/dev/null
 
+# Purge install-only payloads that no runtime component (lynxd, APK, WebUI) reads.
+# - addon/ (volume-key selector) and core/locale.sh are only sourced by this installer.
+# - changelog.md / UserGuide-*.html / README.md are documentation (README is copied to /sdcard/Lynx).
+# - core/Charging-Controller.sh is a legacy shell fallback fully superseded by native lynxd charging.
+rm -rf "$MODPATH/addon" 2>/dev/null
+rm -f "$MODPATH/core/locale.sh" "$MODPATH/core/Charging-Controller.sh" 2>/dev/null
+rm -f "$MODPATH/changelog.md" "$MODPATH/UserGuide-EN.html" "$MODPATH/UserGuide-ID.html" "$MODPATH/README.md" 2>/dev/null
+# Keep the bundled APK only when installation did not complete (user can sideload it manually).
+if pm path com.noir.lynx >/dev/null 2>&1; then
+    rm -f "$MODPATH/LynxKernelManager.apk" 2>/dev/null
+fi
+
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print "$(lynx_t installed "$MOD_VER")"
 ui_print "$(lynx_t open_app)"

@@ -4,6 +4,11 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC189)
 
+### 0. 🧹 Perampingan Modul Pasca-Instalasi
+- File yang hanya dibutuhkan saat instalasi (pemilih tombol volume, berkas bahasa installer, dokumentasi, dan APK bawaan setelah berhasil terpasang) kini otomatis dihapus dari folder modul. Hemat sekitar 7–8 MB penyimpanan.
+- Skrip pengisian daya lama berbasis shell dipensiunkan; seluruh kontrol pengisian kini sepenuhnya ditangani mesin native.
+- Aplikasi tidak lagi menulis target arus tinggi langsung ke kernel saat mesin native aktif, sehingga tidak ada lagi tabrakan pengaturan antara aplikasi dan modul.
+
 ### 1. ⚡ Akselerasi Game MediaTek GED & GPU Mali (`game.rs` & `mtk.rs`)
 - **Resolusi Frekuensi GPU Dinamis Murni (Bebas Hardcode)**:
   - Menghapus seluruh nilai frekuensi statis. Mesin native secara otomatis menginspeksi tabel OPP hardware perangkat (`HardwareCapability`), mendeteksi frekuensi puncak (`max_mhz`), dan mengunci batas bawah gaming (`gaming_floor_mhz`) secara dinamis pada $\ge 95\%$ dari frekuensi maksimum hardware (misal 910–950 MHz pada Helio G96, atau nilai yang setara pada Dimensity / Snapdragon Adreno / Exynos).

@@ -431,7 +431,12 @@ class ChargingRepository(
     suspend fun setHighCurrentTarget(percent: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             repository.writeStateKey("charging.high_current_target_percent", percent.toString(), "val")
-            Shell.cmd("echo $percent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null").exec()
+            // Native lynxd owns sc_tuisoc; only write directly when the daemon is unavailable.
+            if (LynxRepository.isLynxdAvailable()) {
+                Shell.cmd("'$LYNXD_PATH' charging apply 2>/dev/null").exec()
+            } else {
+                Shell.cmd("echo $percent > /sys/devices/platform/charger/sc_tuisoc 2>/dev/null").exec()
+            }
             true
         } catch (e: Exception) { false }
     }

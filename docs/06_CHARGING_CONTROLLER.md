@@ -1,5 +1,5 @@
 # 🔋 Module 06: Charging Controller & Hardware Safety Engine
-> **Subsystem**: Power, Charging Regulator & Direct Pump Controller (`native/lynxd/src/hardware/charging.rs` & `core/Charging-Controller.sh`)  
+> **Subsystem**: Power, Charging Regulator & Direct Pump Controller (`native/lynxd/src/hardware/charging.rs`; legacy shell fallback archived at `archive/legacy/core/Charging-Controller.sh`)  
 > **Standards**: POSIX Shell, Native Rust Engine, Hardware Thermal Safety, Switched-Capacitor Pump, AutoCut & Motherboard Bypass  
 > **Deep Reference**: [`docs/references/TRANSSION_CHARGING_HARDWARE_PATH_REFERENCE.md`](./references/TRANSSION_CHARGING_HARDWARE_PATH_REFERENCE.md)  
 
