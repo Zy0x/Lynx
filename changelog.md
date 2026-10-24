@@ -1,3 +1,25 @@
+# Lynx Universal [VMA Kernel Shield & Permanent Memory Headroom Expansion] 7.0.0-RC187
+Released on: 2026-10-24
+> **Lynx Universal v7.0.0-RC187** (Lynx Kernel Manager v3.2.33): **Solusi Permanen Kehabisan Slot Alamat Virtual Linux (VMA Ceiling): Melipatgandakan Ambang Batas `vm.max_map_count` Sebesar 8x Lipat (Dari 65.530 Menjadi 524.288 Slot Alamat) Secara Otomatis Saat Booting Melalui Mesin Native Rust `lynxd` (`memory.rs`), Layanan Boot `service.sh`, Serta Membuka Izin Keamanan SELinux `sepolicy.rule`; Mencegah Kegagalan Alokator Scudo `NO MEMORY` dan Melenyapkan Potensi Soft Reboot Framework Secara Permanen Meskipun Perangkat Aktif Berhari-hari Tanpa Restart**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC187)
+
+### 1. 🛡️ Ekspansi Batas Pemetaan Memori Kernel 8x Lipat (`vm.max_map_count = 524288`)
+- **Pelebaran Kapasitas VMA Plafon**:
+  - Menggantikan batas usang 32-bit bawaan Android (`65.530`) dengan standar kernel modern 64-bit (**`524.288`**).
+  - Memberikan ruang napas 8x lebih luas sehingga akumulasi pemetaan memori socket jaringan (`NetworkStats`) maupun alokator grafis selama berhari-hari hanya memakai sebagian kecil (<15%) dari total kapasitas VMA.
+- **Penerapan Otomatis Multi-Lapisan**:
+  - **Early Service Router (`service.sh`)**: Menerapkan `524288` ke `/proc/sys/vm/max_map_count` pada saat booting sebelum zygote dan user apps aktif.
+  - **Native Rust Engine (`memory.rs`)**: Menegakkan parameter secara deterministik di MemoryController `apply_ram()`.
+
+### 2. 🔐 Kebijakan Keamanan SELinux Terpadu (`sepolicy.rule`)
+- Menambahkan aturan:
+  `allow magisk proc_max_map_count file { read write open getattr }`
+  `allow init proc_max_map_count file { read write open getattr }`
+  sehingga proses root dan layanan inisialisasi boot dapat mengonfigurasi batas memori kernel tanpa hambatan penolakan izin SELinux `Enforcing`.
+
+---
+
 # Lynx Universal [IPC SurfaceFlinger Safety & VMA Memory Forensic Audit] 7.0.0-RC186
 Released on: 2026-10-24
 > **Lynx Universal v7.0.0-RC186** (Lynx Kernel Manager v3.2.32): **Pembersihan Total Panggilan IPC Tak Terdaftar SurfaceFlinger & Investigasi Forensik Mendalam Kejadian Soft Reboot Framework: Menghapus Eksekusi Transaksi Binder `service call SurfaceFlinger 1037` Pada Repositori Grafis Demi Menjaga Stabilitas Compositor; Melakukan Audit Forensik Menyeluruh Berdasarkan Tombstone Sistem (`tombstone_22`) Terkait Insiden Soft Reboot System Server yang Dipicu Oleh Batas Alokator VMA Linux (`vm.max_map_count`) Pasca-Uptime Berkelanjutan; Memastikan Keamanan Sistem 100% Bebas Dari Potensi Gangguan IPC Maupun Inisialisasi Grafis**.

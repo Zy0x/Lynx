@@ -3,3 +3,5 @@ allow untrusted_app app_data_file file {read write open getattr execute execute_
 allow untrusted_app device file {read open getattr}
 allow untrusted_app_all device file {read open getattr}
 allow system_server domain process { getattr }
+allow magisk proc_max_map_count file { read write open getattr }
+allow init proc_max_map_count file { read write open getattr }
