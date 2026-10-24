@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lynx_freeform_root_unavailable">The system rejected the virtual window or input. Root is required; some ROMs need LSPosed assistance.</string>
+    <string name="lynx_freeform_waiting">%1$s · Waiting for frames</string>
+    <string name="lynx_freeform_running">%1$s · Virtual display</string>
+    <string name="lynx_freeform_minimize">Minimize app</string>
+    <string name="lynx_freeform_close">Close app window</string>
+    <string name="lynx_freeform_back">Back in app</string>
+    <string name="lynx_freeform_maximize">Maximize or restore size</string>
+    <string name="lynx_freeform_resize">Resize window</string>
+    <string name="lynx_freeform_rotate">Switch portrait or landscape shape</string>
+    <string name="lynx_freeform_state_starting">Opening app…</string>
+    <string name="lynx_freeform_state_ready">Lynx Virtual</string>
+    <string name="lynx_freeform_state_resizing">Adjusting size…</string>
+    <string name="lynx_freeform_state_keyboard_limited">Keyboard not configured</string>
+    <string name="lynx_freeform_error_permission">System permission for virtual windows was denied. Check Lynx root access.</string>
+    <string name="lynx_freeform_error_display">This device rejected the Lynx virtual display.</string>
+    <string name="lynx_freeform_error_launch">This app could not launch on the Lynx virtual display.</string>
+    <string name="lynx_freeform_error_framework">Lynx could not verify the task on its virtual display. The framework interface may be unsupported.</string>
+    <string name="lynx_freeform_error_frame">The app did not produce an image in the Lynx window. The window was closed.</string>
+    <string name="lynx_freeform_error_input">The system rejected virtual app input. The window was closed to avoid a stuck gesture.</string>
+    <string name="lynx_freeform_error_resize">The virtual display size could not be applied and verified. The window was closed.</string>
+    <string name="lynx_freeform_window_actions">Window controls</string>
+    <string name="lynx_freeform_show_toolbar">Show bottom controls</string>
+    <string name="lynx_freeform_hide_toolbar">Hide bottom controls</string>
+    <string name="lynx_freeform_title_state">%1$s · %2$s</string>
+    <string name="lynx_freeform_error_android_version">Virtual app windows require Android 10 or later.</string>
+    <string name="lynx_freeform_error_overlay_permission">Allow display over other apps before opening a window.</string>
+    <string name="lynx_freeform_error_window_limit">The active window limit was reached. Close a window first.</string>
+</resources>

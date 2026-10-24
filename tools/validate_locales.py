@@ -27,6 +27,7 @@ INSTALLER = ROOT / "customize.sh"
 WEB_JS = ROOT / "webroot" / "app.js"
 COMMENT_ROOTS = (
     ROOT / "LynxCompanion" / "app" / "src" / "main",
+    ROOT / "LynxCompanion" / "freeform" / "src" / "main",
     ROOT / "core",
     ROOT / "native",
     ROOT / "platforms",
@@ -96,10 +97,11 @@ def read_plurals(path: Path) -> dict[str, dict[str, str]]:
     }
 
 
-def check_android() -> list[str]:
+def check_android(res: Path = RES) -> list[str]:
     errors: list[str] = []
-    catalogs = {locale: read_strings(path) for locale, path in ANDROID_LOCALES.items()}
-    default = read_strings(ANDROID_DEFAULT)
+    paths = {locale: res / f"values-{locale}" / "strings.xml" for locale in ("id", "en")}
+    catalogs = {locale: read_strings(path) for locale, path in paths.items()}
+    default = read_strings(res / "values" / "strings.xml")
     baseline = catalogs["id"]
     translated = catalogs["en"]
     for locale, catalog in catalogs.items():
@@ -122,7 +124,7 @@ def check_android() -> list[str]:
         for key, template in catalog.items():
             if PLACEHOLDER.search(template) and any(match.group() == "%" for match in percent_tokens.finditer(template)):
                 errors.append(f"Unescaped literal percent in formatted Android resource {key}/{locale}")
-    plural_catalogs = {locale: read_plurals(path) for locale, path in ANDROID_LOCALES.items()}
+    plural_catalogs = {locale: read_plurals(path) for locale, path in paths.items()}
     id_plurals = plural_catalogs["id"]
     en_plurals = plural_catalogs["en"]
     for key in sorted(id_plurals.keys() - en_plurals.keys()):
@@ -141,6 +143,10 @@ def check_android() -> list[str]:
             if expected != actual:
                 errors.append(f"Android plural placeholder mismatch for {key}/{quantity}: id={expected}, en={actual}")
     return errors
+
+
+def check_freeform_android() -> list[str]:
+    return check_android(ROOT / "LynxCompanion" / "freeform" / "src" / "main" / "res")
 
 
 class VisibleTextParser(HTMLParser):
@@ -756,7 +762,7 @@ def check_cli_locale_precedence() -> list[str]:
 
 def main() -> int:
     try:
-        errors = check_android() + check_web() + check_media_decoder_locales() + check_shell() + check_cli_locale_precedence() + check_android_accessibility() + check_android_notification_text() + check_android_notification_helpers() + check_custom_script_output_localization() + check_compose_raw_text_imports() + check_compose_catalog_mappings() + check_compose_visible_text_coverage() + check_feedback_catalog_coverage() + check_dynamic_feedback_coverage() + check_english_comments()
+        errors = check_android() + check_freeform_android() + check_web() + check_media_decoder_locales() + check_shell() + check_cli_locale_precedence() + check_android_accessibility() + check_android_notification_text() + check_android_notification_helpers() + check_custom_script_output_localization() + check_compose_raw_text_imports() + check_compose_catalog_mappings() + check_compose_visible_text_coverage() + check_feedback_catalog_coverage() + check_dynamic_feedback_coverage() + check_english_comments()
     except (OSError, ET.ParseError, ValueError) as exc:
         print(f"Locale validation error: {exc}", file=sys.stderr)
         return 2

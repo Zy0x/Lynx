@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "LynxCompanion"
 include(":app")
+include(":freeform")

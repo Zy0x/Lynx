@@ -80,6 +80,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":freeform"))
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
@@ -101,7 +102,6 @@ dependencies {
     // TopJohnWu LibSU - Universal Root Bridge (Magisk, KernelSU, APatch)
     implementation("com.github.topjohnwu.libsu:core:5.2.2")
     implementation("com.github.topjohnwu.libsu:io:5.2.2")
-    implementation("com.github.topjohnwu.libsu:service:5.2.2")
 
     // JSON parsing (lightweight)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

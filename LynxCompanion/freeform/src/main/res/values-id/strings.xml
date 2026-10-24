@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lynx_freeform_root_unavailable">Sistem menolak jendela atau input virtual. Root diperlukan; beberapa ROM memerlukan bantuan LSPosed.</string>
+    <string name="lynx_freeform_waiting">%1$s · Menunggu frame</string>
+    <string name="lynx_freeform_running">%1$s · Virtual display</string>
+    <string name="lynx_freeform_minimize">Minimalkan aplikasi</string>
+    <string name="lynx_freeform_close">Tutup jendela aplikasi</string>
+    <string name="lynx_freeform_back">Kembali dalam aplikasi</string>
+    <string name="lynx_freeform_maximize">Maksimalkan atau pulihkan ukuran</string>
+    <string name="lynx_freeform_resize">Ubah ukuran jendela</string>
+    <string name="lynx_freeform_rotate">Ubah bentuk potret atau lanskap</string>
+    <string name="lynx_freeform_state_starting">Membuka aplikasi…</string>
+    <string name="lynx_freeform_state_ready">Lynx Virtual</string>
+    <string name="lynx_freeform_state_resizing">Menyesuaikan ukuran…</string>
+    <string name="lynx_freeform_state_keyboard_limited">Keyboard belum dikonfigurasi</string>
+    <string name="lynx_freeform_error_permission">Izin sistem untuk jendela virtual ditolak. Periksa akses root Lynx.</string>
+    <string name="lynx_freeform_error_display">Perangkat menolak pembuatan display virtual Lynx.</string>
+    <string name="lynx_freeform_error_launch">Aplikasi tidak dapat dibuka pada display virtual Lynx.</string>
+    <string name="lynx_freeform_error_framework">Lynx tidak dapat memverifikasi tugas pada display virtual. Antarmuka framework mungkin tidak didukung.</string>
+    <string name="lynx_freeform_error_frame">Aplikasi tidak menghasilkan gambar pada jendela Lynx. Jendela ditutup.</string>
+    <string name="lynx_freeform_error_input">Sistem menolak input aplikasi virtual. Jendela ditutup agar sentuhan tidak tersangkut.</string>
+    <string name="lynx_freeform_error_resize">Ukuran display virtual tidak dapat diterapkan dan diverifikasi. Jendela ditutup.</string>
+    <string name="lynx_freeform_window_actions">Kontrol jendela</string>
+    <string name="lynx_freeform_show_toolbar">Tampilkan kontrol bawah</string>
+    <string name="lynx_freeform_hide_toolbar">Sembunyikan kontrol bawah</string>
+    <string name="lynx_freeform_title_state">%1$s · %2$s</string>
+    <string name="lynx_freeform_error_android_version">Jendela aplikasi virtual memerlukan Android 10 atau lebih baru.</string>
+    <string name="lynx_freeform_error_overlay_permission">Izinkan tampil di atas aplikasi lain sebelum membuka jendela.</string>
+    <string name="lynx_freeform_error_window_limit">Batas jendela aktif tercapai. Tutup salah satu jendela terlebih dahulu.</string>
+</resources>
