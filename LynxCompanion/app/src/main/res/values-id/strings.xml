@@ -2114,4 +2114,16 @@
     <string name="hud_tools_full">Alat Lengkap</string>
     <string name="hud_tools_full_sub">Pengaturan OSD</string>
     <string name="hud_cache_requested">Pelepasan cache diminta; tidak menjamin tambahan RAM.</string>
+    <string name="floating_rotate">Ubah bentuk potret atau lanskap</string>
+    <string name="floating_state_starting">Membuka aplikasi…</string>
+    <string name="floating_state_ready">Lynx Virtual</string>
+    <string name="floating_state_resizing">Menyesuaikan ukuran…</string>
+    <string name="floating_state_keyboard_limited">Keyboard belum dikonfigurasi</string>
+    <string name="floating_error_permission">Izin sistem untuk jendela virtual ditolak. Periksa akses root Lynx.</string>
+    <string name="floating_error_display">Perangkat menolak pembuatan display virtual Lynx.</string>
+    <string name="floating_error_launch">Aplikasi tidak dapat dibuka pada display virtual Lynx.</string>
+    <string name="floating_error_framework">Lynx tidak dapat memverifikasi tugas pada display virtual. Antarmuka framework mungkin tidak didukung.</string>
+    <string name="floating_error_frame">Aplikasi tidak menghasilkan gambar pada jendela Lynx. Jendela ditutup.</string>
+    <string name="floating_error_input">Sistem menolak input aplikasi virtual. Jendela ditutup agar sentuhan tidak tersangkut.</string>
+    <string name="floating_error_resize">Ukuran display virtual tidak dapat diterapkan dan diverifikasi. Jendela ditutup.</string>
 </resources>

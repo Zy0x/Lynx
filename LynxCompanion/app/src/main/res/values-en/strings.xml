@@ -2090,4 +2090,16 @@
     <string name="hud_tools_full">Tools</string>
     <string name="hud_tools_full_sub">Open HUD tools</string>
     <string name="hud_cache_requested">Cache release requested; no RAM gain is implied.</string>
+    <string name="floating_rotate">Switch portrait or landscape shape</string>
+    <string name="floating_state_starting">Opening app…</string>
+    <string name="floating_state_ready">Lynx Virtual</string>
+    <string name="floating_state_resizing">Adjusting size…</string>
+    <string name="floating_state_keyboard_limited">Keyboard not configured</string>
+    <string name="floating_error_permission">System permission for virtual windows was denied. Check Lynx root access.</string>
+    <string name="floating_error_display">This device rejected the Lynx virtual display.</string>
+    <string name="floating_error_launch">This app could not launch on the Lynx virtual display.</string>
+    <string name="floating_error_framework">Lynx could not verify the task on its virtual display. The framework interface may be unsupported.</string>
+    <string name="floating_error_frame">The app did not produce an image in the Lynx window. The window was closed.</string>
+    <string name="floating_error_input">The system rejected virtual app input. The window was closed to avoid a stuck gesture.</string>
+    <string name="floating_error_resize">The virtual display size could not be applied and verified. The window was closed.</string>
 </resources>

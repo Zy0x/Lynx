@@ -10,6 +10,11 @@ import android.view.InputEvent
 internal class RootAndroidAccess(context: Context) {
     private val atmType = Class.forName("android.app.IActivityTaskManager")
     private val atm = Class.forName("android.app.ActivityTaskManager").getMethod("getService").invoke(null)
+    private val taskMethod by lazy { atmType.methods.filter { it.name == "getTasks" }.let { methods ->
+        val index = RootFrameworkPolicy.taskSignature(methods.map { m -> m.parameterTypes.map { it.name } })
+            ?: error("Unsupported getTasks signature")
+        methods[index]
+    } }
     private val input = context.getSystemService(InputManager::class.java)
     private val setDisplay = InputEvent::class.java.getMethod("setDisplayId", Int::class.javaPrimitiveType)
     private val inject = InputManager::class.java.getMethod("injectInputEvent", InputEvent::class.java, Int::class.javaPrimitiveType)
@@ -20,10 +25,7 @@ internal class RootAndroidAccess(context: Context) {
     }
 
     fun tasks(displayId: Int): List<ActivityManager.RunningTaskInfo> {
-        val method = atmType.methods.single { it.name == "getTasks" }
-        check(method.parameterTypes.map { it.name } in listOf(
-            listOf("int"), listOf("int", "boolean", "boolean"), listOf("int", "boolean", "boolean", "int")
-        )) { "Unsupported getTasks signature" }
+        val method = taskMethod
         val args = method.parameterTypes.mapIndexed { index, type ->
             when (type) {
                 Int::class.javaPrimitiveType -> if (index == 0) 100 else displayId
@@ -44,13 +46,30 @@ internal class RootAndroidAccess(context: Context) {
         check(atmType.getMethod("removeTask", Int::class.javaPrimitiveType).invoke(atm, taskId) == true)
     }
 
-    fun configureIme(displayId: Int) {
-        if (Build.VERSION.SDK_INT < 31) return
+    private val windowType by lazy { Class.forName("android.view.IWindowManager") }
+    private val window by lazy {
         val binder = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, "window")
-        val type = Class.forName("android.view.IWindowManager")
-        val wm = Class.forName("android.view.IWindowManager\$Stub")
+        Class.forName("android.view.IWindowManager\$Stub")
             .getMethod("asInterface", android.os.IBinder::class.java).invoke(null, binder)
-        // FALLBACK_DISPLAY: show the keyboard on the physical display.
-        type.getMethod("setDisplayImePolicy", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType).invoke(wm, displayId, 1)
     }
+
+    fun configureIme(displayId: Int): Boolean = runCatching {
+        // Android 10/11 route a secondary display without a local IME to the default display.
+        if (Build.VERSION.SDK_INT < 31) return@runCatching true
+        // FALLBACK_DISPLAY: show the keyboard on the physical display.
+        windowType.getMethod("setDisplayImePolicy", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            .invoke(window, displayId, 1)
+        true
+    }.getOrDefault(false)
+
+    fun lockOwnedRotation(displayId: Int): Boolean = runCatching {
+        check(displayId > 0)
+        // Only this owned virtual display. Never fall back to freezeRotation(default display).
+        val p = Int::class.javaPrimitiveType
+        val method = runCatching { windowType.getMethod("freezeDisplayRotation", p, p, String::class.java) }
+            .getOrElse { windowType.getMethod("freezeDisplayRotation", p, p) }
+        if (method.parameterCount == 3) method.invoke(window, displayId, 0, "LynxVirtual")
+        else method.invoke(window, displayId, 0)
+        true
+    }.getOrDefault(false)
 }

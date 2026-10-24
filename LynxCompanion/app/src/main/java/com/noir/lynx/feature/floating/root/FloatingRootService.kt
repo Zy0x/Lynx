@@ -41,26 +41,28 @@ class FloatingRootService : RootService() {
         try { session.display.release() } finally { session.surface.release() }
     }
 
-    private fun result(block: () -> Bundle): Bundle = try { block() } catch (e: Exception) {
+    private fun result(stage: () -> String = { "capability_unavailable" }, block: () -> Bundle): Bundle = try { block() } catch (e: Exception) {
         android.util.Log.w("LynxFloatingRoot", "Privileged operation failed", e)
-        Bundle().apply { putBoolean("ok", false); putString("reason", "capability_unavailable") }
+        val cause = if (e is java.lang.reflect.InvocationTargetException) e.targetException else e
+        Bundle().apply {
+            putBoolean("ok", false)
+            putString("reason", if (cause is SecurityException) "permission_denied" else stage())
+        }
     }
 
     private val binder = object : IFloatingRoot.Stub() {
         override fun open(owner: IBinder, surface: Surface, component: String, userId: Int,
                           width: Int, height: Int, density: Int): Bundle = privileged {
-            result {
+            var stage = "framework_api"
+            result({ stage }) {
                 check(Build.VERSION.SDK_INT >= 29 && Process.myUid() == 0)
                 check(userId == clientUid / 100000 && owner.isBinderAlive && surface.isValid)
                 check(sessions.size < 4)
                 check(FloatingDisplayPolicy.validSize(width, height, density))
                 val target = ComponentName.unflattenFromString(component) ?: error("Invalid component")
                 check(packageManager.getActivityInfo(target, 0).exported)
-                var flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or (1 shl 6) or (1 shl 8)
-                if (Build.VERSION.SDK_INT >= 33) flags = flags or (1 shl 10)
-                if (Build.VERSION.SDK_INT >= 34) flags = flags or (1 shl 14)
+                stage = "display_creation"
+                val flags = RootFrameworkPolicy.displayFlags(Build.VERSION.SDK_INT)
                 val ctor = DisplayManager::class.java.getDeclaredConstructor(android.content.Context::class.java)
                 ctor.isAccessible = true
                 val dm = ctor.newInstance(this@FloatingRootService)
@@ -71,13 +73,16 @@ class FloatingRootService : RootService() {
                 sessions[id] = Session(vd, surface, owner, death)
                 try {
                     owner.linkToDeath(death, 0)
-                    access.configureIme(id)
+                    val imeConfigured = access.configureIme(id)
+                    val rotationLocked = access.lockOwnedRotation(id)
+                    stage = "activity_launch"
                     val child = ProcessBuilder(RootLaunchCommand.create(component, userId, id))
                         .redirectErrorStream(true).start()
                     try {
                         check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
                         check(child.exitValue() == 0)
                     } finally { child.destroy(); child.inputStream.close() }
+                    stage = "task_verification"
                     val deadline = SystemClock.uptimeMillis() + 2000
                     var task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
                     while (task == null && SystemClock.uptimeMillis() < deadline) {
@@ -85,13 +90,17 @@ class FloatingRootService : RootService() {
                         task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
                     }
                     check(task != null) { "No task on requested display" }
-                    Bundle().apply { putBoolean("ok", true); putInt("displayId", id); putInt("taskId", task.taskId) }
+                    Bundle().apply {
+                        putBoolean("ok", true); putInt("displayId", id); putInt("taskId", task.taskId)
+                        putInt("sdk", Build.VERSION.SDK_INT)
+                        putBoolean("imeConfigured", imeConfigured); putBoolean("rotationLocked", rotationLocked)
+                    }
                 } catch (e: Exception) { release(id); throw e }
             }.also { if (!it.getBoolean("ok")) surface.release() }
         }
 
         override fun resize(displayId: Int, width: Int, height: Int, density: Int): Bundle = privileged {
-            result {
+            result({ "resize_rejected" }) {
                 check(FloatingDisplayPolicy.validSize(width, height, density))
                 val s = sessions[displayId] ?: error("Unknown session")
                 s.display.resize(width, height, density)
@@ -100,10 +109,13 @@ class FloatingRootService : RootService() {
                 do {
                     @Suppress("DEPRECATION")
                     s.display.display.getRealMetrics(metrics)
-                    if (metrics.widthPixels == width && metrics.heightPixels == height) break
+                    if (metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density) break
                     Thread.sleep(50)
                 } while (SystemClock.uptimeMillis() < deadline)
-                Bundle().apply { putBoolean("ok", metrics.widthPixels == width && metrics.heightPixels == height) }
+                Bundle().apply {
+                    putBoolean("ok", metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density)
+                    putInt("width", metrics.widthPixels); putInt("height", metrics.heightPixels); putInt("density", metrics.densityDpi)
+                }
             }
         }
 

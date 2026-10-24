@@ -70,6 +70,8 @@ Actual vendor SurfaceFlinger support, root permission, sensor mapping, overlay r
 
 ## 6. APK-owned floating applications
 
+The dedicated [Lynx Freeform engine architecture](12_LYNX_FREEFORM_ENGINE.md) describes viewport rendering, serialized resizing, window chrome and the Android 10–17 compatibility target. The following section covers the shared HUD/service boundary.
+
 `StandaloneApps` binds libsu 5.2.2 `RootService` lazily after a dock launch. `IFloatingRoot` is a private AIDL connection; every privileged operation checks the Companion UID and clears the incoming Binder identity before contacting system services. No exported Android service, root module installation, LMO package dependency, or Xposed injection is used by this engine.
 
 `FloatingRootService` creates up to four own-content virtual displays with real output Surfaces. Android 13 adds the trusted-display flag; Android 14 adds independent focus. Activities launch fullscreen **on that virtual display**, not in physical-display windowingMode 5. The service checks the resulting task's actual display and package before returning success. Hidden framework methods are reflected by name/signature, never by guessed transaction numbers. Missing display identity fails closed. Android 10/11, Android 12, and later getTasks signatures are handled explicitly. Unsupported future signatures reject the operation.
