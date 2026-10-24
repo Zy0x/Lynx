@@ -59,7 +59,46 @@ impl MemoryController {
         };
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", watermark);
         Self::write_opt("/proc/sys/vm/min_free_kbytes", min_free_kb);
-        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
+
+        // ── Multitasking & ActivityManager / LMKD Tiering ────────────────────
+        // Strictly guards <= 4GB and <= 6GB RAM devices from lag & OOM stuttering,
+        // while unleashing true seamless multitasking & recent app retention on 8GB+ RAM devices.
+        let (max_cached, bg_limit, vfs_pressure, phantom, swap_low_pct, kill_heaviest, kill_timeout, default_swap) =
+            if mem.total_ram_mb <= 4500 {
+                // Tier 1: <= 4GB RAM (Redmi Note 7, etc.) - Strict conservation to prevent lag & direct reclaim
+                ("32", "32", "100", "32", "20", "true", "100", "60")
+            } else if mem.total_ram_mb <= 6500 {
+                // Tier 2: 6GB RAM - Moderate balanced multitasking headroom
+                ("48", "48", "80", "2147483647", "10", "false", "150", "65")
+            } else if mem.total_ram_mb <= 10500 {
+                // Tier 3: 8GB RAM (Infinix Note 11s, etc.) - Seamless multitasking, apps retained in memory
+                ("64", "64", "60", "2147483647", "5", "false", "250", "50")
+            } else {
+                // Tier 4: >= 12GB RAM - Desktop-grade retention
+                ("96", "96", "50", "2147483647", "3", "false", "300", "40")
+            };
+
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vfs_pressure);
+
+        // ActivityManager cached process headroom & phantom process protection
+        let _ = Command::new("device_config")
+            .args(["put", "activity_manager", "max_cached_processes", max_cached])
+            .output();
+        let _ = Command::new("device_config")
+            .args(["put", "activity_manager", "max_phantom_processes", phantom])
+            .output();
+        let _ = Command::new("device_config")
+            .args(["put", "activity_manager", "max_empty_time_millis", "7200000"])
+            .output();
+
+        let _ = Command::new("setprop").args(["persist.sys.fw.bg_apps_limit", bg_limit]).output();
+        let _ = Command::new("resetprop").args(["ro.sys.fw.bg_apps_limit", bg_limit]).output();
+
+        // LMKD (Low Memory Killer Daemon) Tuning
+        let _ = Command::new("resetprop").args(["ro.lmk.swap_free_low_percentage", swap_low_pct]).output();
+        let _ = Command::new("resetprop").args(["ro.lmk.kill_heaviest_task", kill_heaviest]).output();
+        let _ = Command::new("resetprop").args(["ro.lmk.kill_timeout_ms", kill_timeout]).output();
+        let _ = Command::new("setprop").args(["lmkd.reinit", "1"]).output();
 
         // Runtime dynamic Dalvik VM Heap enforcement via resetprop
         let (growth_limit, heap_size, start_size, max_free) = if mem.total_ram_mb <= 4500 {
@@ -78,7 +117,6 @@ impl MemoryController {
         let _ = Command::new("resetprop").args(["dalvik.vm.heapmaxfree", max_free]).output();
         let _ = Command::new("resetprop").args(["dalvik.vm.heaptargetutilization", "0.75"]).output();
 
-        let default_swap = if mem.total_ram_mb <= 4500 { "60" } else { "70" };
         let swap_val = ConfigStore::get("swappiness")
             .or_else(|| ConfigStore::get("memory.swappiness"))
             .filter(|v| !v.is_empty() && v != "0")
