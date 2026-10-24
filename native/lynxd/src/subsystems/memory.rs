@@ -76,7 +76,7 @@ impl MemoryController {
         let _ = Command::new("resetprop").args(["dalvik.vm.heapmaxfree", max_free]).output();
         let _ = Command::new("resetprop").args(["dalvik.vm.heaptargetutilization", "0.75"]).output();
 
-        let default_swap = if mem.total_ram_mb <= 4500 { "90" } else { "80" };
+        let default_swap = if mem.total_ram_mb <= 4500 { "60" } else { "70" };
         let swap_val = ConfigStore::get("swappiness")
             .or_else(|| ConfigStore::get("memory.swappiness"))
             .filter(|v| !v.is_empty() && v != "0")

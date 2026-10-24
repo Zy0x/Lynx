@@ -23,7 +23,7 @@ fi
 CURRENT_ACTIVE_APP=""
 BASELINE_PROFILE="balance"
 BASELINE_HZ="120.0"
-COOLDOWN_BUFFER=4
+COOLDOWN_BUFFER=3
 COOLDOWN_REMAINING=0
 AUTO_STARTED_HUD=0
 
@@ -37,6 +37,27 @@ is_screen_on() {
 }
 
 get_top_app() {
+    # 1. Direct procfs top-app cgroup (<0.1ms, zero shell fork)
+    for cfile in /dev/cpuset/top-app/cgroup.procs /sys/fs/cgroup/cpuset/top-app/cgroup.procs; do
+        if [ -f "$cfile" ]; then
+            for pid in $(cat "$cfile" 2>/dev/null); do
+                [ "$pid" -gt 0 ] 2>/dev/null || continue
+                oom=$(cat "/proc/$pid/oom_score_adj" 2>/dev/null)
+                [ -n "$oom" ] && [ "$oom" -gt 200 ] && continue
+                cmd=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' '\n' | head -n1 | cut -d':' -f1)
+                case "$cmd" in
+                    *.*)
+                        case "$cmd" in
+                            *system_server*|*inputmethod*|*keyboard*|*vendor*|*system*) ;;
+                            *) echo "$cmd"; return 0 ;;
+                        esac
+                        ;;
+                esac
+            done
+        fi
+    done
+
+    # 2. Lightweight fallback if procfs is unavailable
     local raw
     raw=$(dumpsys activity activities 2>/dev/null | grep -m1 "topResumedActivity" | grep -oE '[a-zA-Z0-9._]+/[a-zA-Z0-9._]+' | head -n1 | cut -d'/' -f1)
     if [ -z "$raw" ]; then
@@ -70,14 +91,13 @@ while true; do
             CURRENT_ACTIVE_APP="SCREEN_OFF"
             COOLDOWN_REMAINING=0
         fi
-        sleep 2
+        sleep 5
         continue
     fi
 
     if [ "$CURRENT_ACTIVE_APP" = "SCREEN_OFF" ]; then
         CURRENT_ACTIVE_APP=""
         sh "$APPLY_SCRIPT" "$BASELINE_PROFILE" watcher "" >/dev/null 2>&1
-        (/data/adb/modules/Lynx/system/bin/lynxd system wakeup-boost 2000 >/dev/null 2>&1 || (echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; chmod 644 /dev/cpuset/top-app/cpus 2>/dev/null; echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; sleep 2; echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null)) &
     fi
 
     top_app=$(get_top_app)
@@ -107,19 +127,14 @@ while true; do
         [ -f "/dev/lynx_pkg_cache/$top_app" ] && cached_mode=$(cat "/dev/lynx_pkg_cache/$top_app" 2>/dev/null)
         if [ -z "$cached_mode" ]; then
             mkdir -p /dev/lynx_pkg_cache 2>/dev/null
-            pkg_dump=$(dumpsys package "$top_app" 2>/dev/null)
-            if echo "$pkg_dump" | grep -qE "category=0|category=GAME|appCategory=0"; then
-                cached_mode="performance"
-            else
-                case "$top_app" in
-                    *game*|*genshin*|*honkai*|*pubg*|*codm*|*mobilelegends*|*freefire*)
-                        cached_mode="performance"
-                        ;;
-                    *)
-                        cached_mode="balance"
-                        ;;
-                esac
-            fi
+            case "$top_app" in
+                *game*|*genshin*|*honkai*|*pubg*|*codm*|*mobilelegends*|*freefire*)
+                    cached_mode="performance"
+                    ;;
+                *)
+                    cached_mode="balance"
+                    ;;
+            esac
             echo "$cached_mode" > "/dev/lynx_pkg_cache/$top_app" 2>/dev/null
         fi
 
@@ -150,23 +165,13 @@ while true; do
             if [ -n "$gpid" ]; then
                 [ -e /sys/module/ged/parameters/gx_top_app_pid ] && echo "$gpid" > /sys/module/ged/parameters/gx_top_app_pid 2>/dev/null
                 renice -n -20 -p "$gpid" 2>/dev/null
-                ionice -c 1 -n 0 -p "$gpid" 2>/dev/null
                 echo "$gpid" > /dev/cpuset/top-app/cgroup.procs 2>/dev/null
-                for tid in $(ls /proc/$gpid/task/ 2>/dev/null); do
-                    renice -n -20 -p "$tid" 2>/dev/null
-                    echo "$tid" > /dev/cpuset/top-app/tasks 2>/dev/null
-                done
             fi
 
             if [ -n "$target_hz" ] && [ "$target_hz" -gt 0 ] 2>/dev/null; then
                 settings put system min_refresh_rate "$target_hz.0" 2>/dev/null
                 settings put system peak_refresh_rate "$target_hz.0" 2>/dev/null
             fi
-
-            # Wi-Fi Gaming Low-Latency Auto-Trigger
-            cmd wifi force-low-latency-mode enabled >/dev/null 2>&1
-            [ -f /proc/net/wlan/setCAM ] && echo 1 > /proc/net/wlan/setCAM 2>/dev/null
-            settings put global wifi_scan_always_enabled 0 2>/dev/null
 
             if [ "$auto_hud" = "1" ]; then
                 am start-foreground-service -a com.noir.lynx.service.START_HUD "$LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
@@ -188,10 +193,6 @@ while true; do
                 settings put system min_refresh_rate "$BASELINE_HZ" 2>/dev/null
                 settings put system peak_refresh_rate "$BASELINE_HZ" 2>/dev/null
 
-                # Restore Wi-Fi Standard Mode
-                cmd wifi force-low-latency-mode disabled >/dev/null 2>&1
-                [ -f /proc/net/wlan/setCAM ] && echo 0 > /proc/net/wlan/setCAM 2>/dev/null
-
                 if [ "$AUTO_STARTED_HUD" = "1" ]; then
                     am start-service -a com.noir.lynx.service.STOP_HUD "$LYNX_PKG/com.noir.lynx.service.LynxFloatingHudService" >/dev/null 2>&1
                     AUTO_STARTED_HUD=0
@@ -202,5 +203,5 @@ while true; do
         fi
     fi
 
-    sleep 1
+    sleep 2
 done

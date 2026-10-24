@@ -182,8 +182,23 @@ impl ForegroundDetector {
 
     #[cfg(target_os = "android")]
     fn query_dumpsys_top_app() -> Option<String> {
-        // Ultra-lightweight fallback: dumpsys window (sub-30ms, zero ATMS global lock contention)
         use std::process::Command;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        // Anti-Throttling Rate Limiter: Never execute dumpsys window faster than once every 3 seconds
+        static LAST_DUMPSYS_TS: AtomicU64 = AtomicU64::new(0);
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let last = LAST_DUMPSYS_TS.load(Ordering::Relaxed);
+        if now.saturating_sub(last) < 3 {
+            return None;
+        }
+        LAST_DUMPSYS_TS.store(now, Ordering::Relaxed);
 
         let output = Command::new("dumpsys")
             .args(&["window"])
