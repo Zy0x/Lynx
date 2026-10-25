@@ -35,21 +35,23 @@ internal fun HudPanelHeader(
     battery: HudReading,
     batteryTemp: HudReading? = null,
     charging: Boolean? = null,
+    bypassActive: Boolean = false,
     canNavigateBack: Boolean = false,
     onBack: () -> Unit = {},
     onClose: () -> Unit
 ) {
     val description = hudString(R.string.hud_drag)
+    val bypassBadgeText = hudString(R.string.hud_bypass_badge)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .semantics { contentDescription = description }
-            .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
+            .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Sidekick Avatar Emblem Circle (acts as Back button when inside Detail/Tools/ManageApps)
+        // Sidekick Avatar Emblem Circle (acts as Back button when inside Detail/Lab/Tools/ManageApps)
         Box(
             modifier = Modifier
                 .size(30.dp)
@@ -66,7 +68,7 @@ internal fun HudPanelHeader(
             )
         }
 
-        // Sidekick Cobalt Blue Status Pill Badge (Battery + Temp)
+        // Sidekick Cobalt Blue Status Pill Badge (Battery + Temp + Bypass indicator)
         Surface(
             color = HudBlueBadge,
             shape = RoundedCornerShape(50)
@@ -77,7 +79,7 @@ internal fun HudPanelHeader(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Icon(
-                    imageVector = if (charging == true) Icons.Default.Bolt else Icons.Default.AutoAwesome,
+                    imageVector = if (charging == true || bypassActive) Icons.Default.Bolt else Icons.Default.AutoAwesome,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(12.dp)
@@ -89,6 +91,10 @@ internal fun HudPanelHeader(
                             append(" • ")
                             append(batteryTemp.text())
                             append("°")
+                        }
+                        if (bypassActive) {
+                            append(" • ")
+                            append(bypassBadgeText)
                         }
                     },
                     fontSize = 11.5.sp,
@@ -128,28 +134,28 @@ internal fun HudPanelHeader(
 @Composable
 internal fun HudQuickTileRow(
     pinned: Boolean,
-    toolsActive: Boolean = false,
+    focusActive: Boolean = false,
     busy: Boolean,
     onCapture: () -> Unit,
     onBoostRam: () -> Unit,
     onTogglePin: () -> Unit,
-    onOpenTools: () -> Unit
+    onToggleFocus: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val tiles = listOf(
             Triple(Icons.Default.Screenshot, hudString(R.string.hud_capture_short), onCapture),
             Triple(Icons.Default.CleaningServices, hudString(R.string.hud_boost_ram), onBoostRam),
             Triple(Icons.Default.Speed, hudString(R.string.hud_mini_title), onTogglePin),
-            Triple(Icons.Default.Tune, hudString(R.string.hud_tools), onOpenTools)
+            Triple(Icons.Default.DoNotDisturbOn, hudString(R.string.hud_focus), onToggleFocus)
         )
         tiles.forEachIndexed { index, (icon, label, action) ->
-            val highlighted = (index == 2 && pinned) || (index == 3 && toolsActive)
+            val highlighted = (index == 2 && pinned) || (index == 3 && focusActive)
             Surface(
                 onClick = action,
                 enabled = !busy,
@@ -157,12 +163,12 @@ internal fun HudQuickTileRow(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 52.dp)
+                    .heightIn(min = 50.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                        .padding(horizontal = 2.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
                 ) {
@@ -174,11 +180,12 @@ internal fun HudQuickTileRow(
                     )
                     Text(
                         text = label,
-                        fontSize = 9.5.sp,
+                        fontSize = 8.8.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (highlighted) Color.White else Color(0xFFC4C7C5),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
                     )
                 }
             }
@@ -196,7 +203,7 @@ internal fun HudAppDock(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 2.dp),
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {

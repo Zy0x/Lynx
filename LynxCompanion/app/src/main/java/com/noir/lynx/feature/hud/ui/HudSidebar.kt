@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -39,7 +40,13 @@ fun HudSidebar(
     onBoostRam: () -> Unit = {},
     dockRight: Boolean = false,
     onDrag2D: ((Float, Float) -> Unit)? = null,
-    onDragEnd: () -> Unit = {}
+    onDragEnd: () -> Unit = {},
+    bypassStatus: HudBypassStatus = HudBypassStatus(),
+    focusActive: Boolean = false,
+    onToggleFocus: () -> Unit = {},
+    onToggleBypass: (Boolean) -> Unit = {},
+    onRefreshBypass: () -> Unit = {},
+    onProbeNetwork: suspend () -> HudNetworkSample = { HudNetworkSample() }
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     var page by remember { mutableStateOf(HudPage.Summary) }
@@ -47,6 +54,7 @@ fun HudSidebar(
     val scrolls = mapOf(
         HudPage.Summary to rememberScrollState(),
         HudPage.Details to rememberScrollState(),
+        HudPage.Lab to rememberScrollState(),
         HudPage.Tools to rememberScrollState()
     )
     val pageState = rememberSaveableStateHolder()
@@ -82,7 +90,10 @@ fun HudSidebar(
             } else {
                 RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             }
-            val drawerWidth = (viewport.panelWidth - 15f).coerceAtLeast(240f).dp
+            val drawerWidthFloat = (viewport.panelWidth - 15f).coerceAtLeast(240f)
+            val drawerWidth = drawerWidthFloat.dp
+            val fontScale = LocalDensity.current.fontScale
+            val layout = HudLayoutPolicy.resolve(drawerWidthFloat, 48f * fontScale)
             val inSubscreen = manageApps || page != HudPage.Summary
 
             val drawerSurface: @Composable () -> Unit = {
@@ -97,13 +108,15 @@ fun HudSidebar(
                         HudPanelHeader(
                             appLabel = when {
                                 manageApps -> hudString(R.string.hud_apps_manage)
-                                page == HudPage.Details -> hudString(R.string.hud_details)
+                                page == HudPage.Details -> hudString(R.string.hud_monitor)
+                                page == HudPage.Lab -> hudString(R.string.hud_lab)
                                 page == HudPage.Tools -> hudString(R.string.hud_tools)
                                 else -> appLabel
                             },
                             battery = snapshot[HudMetric.BATTERY_LEVEL],
                             batteryTemp = snapshot[HudMetric.BATTERY_TEMP],
                             charging = snapshot.charging,
+                            bypassActive = bypassStatus.enabled || bypassStatus.active,
                             canNavigateBack = inSubscreen,
                             onBack = {
                                 manageApps = false
@@ -112,80 +125,136 @@ fun HudSidebar(
                             onClose = { onOpen(false) }
                         )
 
-                        // Google Play Games Sidekick 4 Quick-Action Squircle Tiles
-                        HudQuickTileRow(
-                            pinned = prefs.pinned,
-                            toolsActive = page == HudPage.Tools && !manageApps,
-                            busy = action.busy,
-                            onCapture = onCapture,
-                            onBoostRam = onBoostRam,
-                            onTogglePin = { preferences.pin(!prefs.pinned) },
-                            onOpenTools = {
-                                manageApps = false
-                                page = if (page == HudPage.Tools) HudPage.Summary else HudPage.Tools
-                            }
-                        )
+                        if (!layout.useRail) {
+                            HudTopTabBar(
+                                selected = page,
+                                onSelect = {
+                                    manageApps = false
+                                    page = it
+                                },
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
 
-                        HudAppDock(
-                            apps = apps,
-                            managing = manageApps,
-                            onManage = { manageApps = !manageApps },
-                            onApp = {
-                                onOpen(false)
-                                onApp(it)
-                            }
-                        )
-
-                        if (manageApps) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                HudAppManager(prefs, preferences)
-                            }
-                        } else {
-                            pageState.SaveableStateProvider(page.name) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f, fill = false)
-                                        .verticalScroll(scrolls.getValue(page))
-                                        .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    when (page) {
-                                        HudPage.Summary -> HudOverview(
-                                            snapshot = snapshot,
-                                            action = action,
-                                            onProfile = onProfile,
-                                            onCapture = onCapture,
-                                            onTools = { page = HudPage.Details },
-                                            onBoostRam = onBoostRam
-                                        )
-                                        HudPage.Details -> HudDetails(snapshot = snapshot)
-                                        HudPage.Tools -> HudTools(
-                                            prefs = prefs,
-                                            store = preferences,
-                                            rates = rates,
-                                            activeHz = snapshot[HudMetric.DISPLAY_HZ],
-                                            action = action,
-                                            onHz = onHz,
-                                            onCapture = onCapture,
-                                            onStop = onStop,
-                                            onBoostRam = onBoostRam
-                                        )
+                        Row(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth()
+                                .padding(start = 6.dp, end = 6.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (layout.useRail && !dockRight) {
+                                HudNavigationRail(
+                                    selected = page,
+                                    width = layout.railWidth,
+                                    onSelect = {
+                                        manageApps = false
+                                        page = it
                                     }
-                                    action.message?.let { msgRes ->
-                                        Text(
-                                            text = hudString(msgRes),
-                                            fontSize = 11.5.sp,
-                                            color = HudBlue,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (manageApps) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        HudAppDock(
+                                            apps = apps,
+                                            managing = true,
+                                            onManage = { manageApps = false },
+                                            onApp = {
+                                                onOpen(false)
+                                                onApp(it)
+                                            }
                                         )
+                                        HudAppManager(prefs, preferences)
+                                    }
+                                } else {
+                                    pageState.SaveableStateProvider(page.name) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .verticalScroll(scrolls.getValue(page))
+                                                .padding(horizontal = 4.dp, vertical = 4.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            when (page) {
+                                                HudPage.Summary -> {
+                                                    HudQuickTileRow(
+                                                        pinned = prefs.pinned,
+                                                        focusActive = focusActive,
+                                                        busy = action.busy,
+                                                        onCapture = onCapture,
+                                                        onBoostRam = onBoostRam,
+                                                        onTogglePin = { preferences.pin(!prefs.pinned) },
+                                                        onToggleFocus = onToggleFocus
+                                                    )
+                                                    HudAppDock(
+                                                        apps = apps,
+                                                        managing = manageApps,
+                                                        onManage = { manageApps = !manageApps },
+                                                        onApp = {
+                                                            onOpen(false)
+                                                            onApp(it)
+                                                        }
+                                                    )
+                                                    HudOverview(
+                                                        snapshot = snapshot,
+                                                        action = action,
+                                                        onProfile = onProfile,
+                                                        onCapture = onCapture,
+                                                        onTools = { page = HudPage.Details },
+                                                        onBoostRam = onBoostRam
+                                                    )
+                                                }
+                                                HudPage.Details -> HudDetails(snapshot = snapshot)
+                                                HudPage.Lab -> HudLab(
+                                                    snapshot = snapshot,
+                                                    bypassStatus = bypassStatus,
+                                                    busy = action.busy,
+                                                    onToggleBypass = onToggleBypass,
+                                                    onRefreshBypass = onRefreshBypass,
+                                                    onProbeNetwork = onProbeNetwork
+                                                )
+                                                HudPage.Tools -> HudTools(
+                                                    prefs = prefs,
+                                                    store = preferences,
+                                                    rates = rates,
+                                                    activeHz = snapshot[HudMetric.DISPLAY_HZ],
+                                                    action = action,
+                                                    onHz = onHz,
+                                                    onCapture = onCapture,
+                                                    onStop = onStop,
+                                                    onBoostRam = onBoostRam
+                                                )
+                                            }
+                                            action.message?.let { msgRes ->
+                                                Text(
+                                                    text = hudString(msgRes),
+                                                    fontSize = 11.5.sp,
+                                                    color = HudBlue,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
+                            }
+
+                            if (layout.useRail && dockRight) {
+                                HudNavigationRail(
+                                    selected = page,
+                                    width = layout.railWidth,
+                                    onSelect = {
+                                        manageApps = false
+                                        page = it
+                                    }
+                                )
                             }
                         }
                     }

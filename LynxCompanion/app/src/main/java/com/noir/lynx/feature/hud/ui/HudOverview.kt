@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -37,7 +38,7 @@ internal fun HudOverview(
     val displayHz = snapshot[HudMetric.DISPLAY_HZ]
     val fpsLow = snapshot[HudMetric.FPS_LOW]
 
-    // 1. Sidekick Main Hero Card (Clean, zero duplicate "FPS game" subtitle)
+    // 1. Sidekick Main Hero Card with compact frametime sparkline
     HudSection(
         title = hudString(R.string.hud_group_frame),
         badge = if (displayHz.status == "valid") "${displayHz.text()} ${displayHz.unit}" else null,
@@ -77,9 +78,27 @@ internal fun HudOverview(
                 )
             }
         }
+        if (snapshot.history.size > 1) {
+            val history = snapshot.history
+            val high = (history.maxOrNull() ?: 16.7f).coerceAtLeast(1f)
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .padding(top = 2.dp)
+            ) {
+                val path = Path()
+                history.forEachIndexed { i, v ->
+                    val x = i.toFloat() / history.lastIndex.coerceAtLeast(1) * size.width
+                    val y = size.height - (v / high).coerceIn(0f, 1f) * size.height
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, HudCyan.copy(alpha = 0.85f), style = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round))
+            }
+        }
     }
 
-    // 2. Sidekick Section Header ("CPU dan GPU" + Circular Arrow Button -> to Detail)
+    // 2. Sidekick Section Header ("CPU dan GPU" + Circular Arrow Button -> to Monitor)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -102,7 +121,7 @@ internal fun HudOverview(
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = hudString(R.string.hud_details),
+                    contentDescription = hudString(R.string.hud_monitor),
                     tint = Color(0xFFE8EAED),
                     modifier = Modifier.size(15.dp)
                 )

@@ -2,13 +2,16 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -16,7 +19,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,8 +33,17 @@ import com.noir.lynx.core.locale.LynxText as Text
 internal val HudPage.label: Int
     get() = when (this) {
         HudPage.Summary -> R.string.hud_summary
-        HudPage.Details -> R.string.hud_details
+        HudPage.Details -> R.string.hud_monitor
+        HudPage.Lab -> R.string.hud_lab
         HudPage.Tools -> R.string.hud_tools
+    }
+
+internal val HudPage.icon: ImageVector
+    get() = when (this) {
+        HudPage.Summary -> Icons.Default.Speed
+        HudPage.Details -> Icons.AutoMirrored.Filled.ShowChart
+        HudPage.Lab -> Icons.Default.Science
+        HudPage.Tools -> Icons.Default.Tune
     }
 
 @Composable
@@ -58,11 +73,6 @@ internal fun HudTopTabBar(
                     animationSpec = tween(160),
                     label = "tab_bg_$title"
                 )
-                val icon = when (page) {
-                    HudPage.Summary -> Icons.Default.Speed
-                    HudPage.Details -> Icons.AutoMirrored.Filled.ShowChart
-                    HudPage.Tools -> Icons.Default.Tune
-                }
 
                 Surface(
                     onClick = { onSelect(page) },
@@ -75,12 +85,12 @@ internal fun HudTopTabBar(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 6.dp, vertical = 5.dp),
+                            .padding(horizontal = 5.dp, vertical = 5.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = icon,
+                            imageVector = page.icon,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
                             tint = if (active) HudBlue else HudMuted
@@ -88,7 +98,7 @@ internal fun HudTopTabBar(
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = title,
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                             color = if (active) Color.White else HudMuted,
                             maxLines = 1,
@@ -102,55 +112,75 @@ internal fun HudTopTabBar(
 }
 
 @Composable
-internal fun HudNavigationRail(selected: HudPage, width: Float, onSelect: (HudPage) -> Unit) {
-    Column(
-        modifier = Modifier
-            .width(width.dp)
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 4.dp, horizontal = 2.dp)
-            .selectableGroup(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+internal fun HudNavigationRail(
+    selected: HudPage,
+    width: Float,
+    onSelect: (HudPage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.width(width.dp),
+        color = HudCard,
+        shape = RoundedCornerShape(16.dp)
     ) {
-        HudPage.values().forEach { page ->
-            val active = selected == page
-            val title = hudString(page.label)
-            val background by animateColorAsState(
-                if (active) HudElevated else Color.Transparent,
-                tween(160),
-                label = "bg_$title"
-            )
-            Surface(
-                onClick = { onSelect(page) },
-                shape = RoundedCornerShape(14.dp),
-                color = background,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 2.dp)
-                    .heightIn(min = 48.dp)
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 6.dp, horizontal = 3.dp)
+                .selectableGroup(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            HudPage.values().forEach { page ->
+                val active = selected == page
+                val title = hudString(page.label)
+                val pillColor by animateColorAsState(
+                    targetValue = if (active) HudBlueBadge.copy(alpha = 0.35f) else Color.Transparent,
+                    animationSpec = tween(160),
+                    label = "rail_pill_$title"
+                )
+                val iconTint by animateColorAsState(
+                    targetValue = if (active) HudBlue else HudMuted,
+                    animationSpec = tween(160),
+                    label = "rail_icon_$title"
+                )
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                        .heightIn(min = 52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .selectable(
+                            selected = active,
+                            onClick = { onSelect(page) },
+                            role = Role.Tab
+                        )
+                        .padding(vertical = 4.dp, horizontal = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    val icon = when (page) {
-                        HudPage.Summary -> Icons.Default.Speed
-                        HudPage.Details -> Icons.AutoMirrored.Filled.ShowChart
-                        HudPage.Tools -> Icons.Default.Tune
+                    Box(
+                        modifier = Modifier
+                            .size(width = 48.dp, height = 30.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(pillColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = page.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = iconTint
+                        )
                     }
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = if (active) HudBlue else HudMuted
-                    )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = title,
                         fontSize = 11.5.sp,
-                        fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) Color.White else HudMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         softWrap = false
                     )
                 }

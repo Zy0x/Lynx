@@ -2119,4 +2119,26 @@
     <string name="hud_app_move_up">Move earlier</string>
     <string name="hud_app_move_down">Move later</string>
     <string name="hud_app_custom_size">Use a custom app size</string>
+    <string name="hud_monitor">Monitor</string>
+    <string name="hud_lab">Lab</string>
+    <string name="hud_focus">Focus</string>
+    <string name="hud_bypass_badge">Bypass</string>
+    <string name="hud_lab_bypass_title">Bypass Charging</string>
+    <string name="hud_lab_bypass_desc">Stop charging current to battery cells while playing on external power</string>
+    <string name="hud_lab_network_title">Game Network</string>
+    <string name="hud_lab_network_desc">Measure live TCP connect latency and jitter while this tab is open</string>
+    <string name="hud_cap_ready">Ready</string>
+    <string name="hud_cap_needs_root">Needs Root</string>
+    <string name="hud_cap_unsupported">Unsupported</string>
+    <string name="hud_cap_checking">Checking…</string>
+    <string name="hud_net_ping">Ping</string>
+    <string name="hud_net_jitter">Jitter</string>
+    <string name="hud_net_loss">Loss</string>
+    <string name="hud_net_score">Score %1$d</string>
+    <string name="hud_retest">Retest</string>
+    <string name="hud_bypass_on_verified">Bypass charging enabled</string>
+    <string name="hud_bypass_off_verified">Normal battery charging restored</string>
+    <string name="hud_bypass_failed">Bypass charging could not be applied on this device</string>
+    <string name="hud_focus_on">Focus mode enabled (Priority DND)</string>
+    <string name="hud_focus_off">Focus mode disabled</string>
 </resources>

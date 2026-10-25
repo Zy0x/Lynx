@@ -2143,4 +2143,26 @@
     <string name="hud_app_move_up">Pindahkan ke depan</string>
     <string name="hud_app_move_down">Pindahkan ke belakang</string>
     <string name="hud_app_custom_size">Ukuran khusus aplikasi</string>
+    <string name="hud_monitor">Monitor</string>
+    <string name="hud_lab">Lab</string>
+    <string name="hud_focus">Fokus</string>
+    <string name="hud_bypass_badge">Bypass</string>
+    <string name="hud_lab_bypass_title">Bypass Charging</string>
+    <string name="hud_lab_bypass_desc">Hentikan arus pengisian ke sel baterai saat bermain dengan charger terpasang</string>
+    <string name="hud_lab_network_title">Jaringan Game</string>
+    <string name="hud_lab_network_desc">Uji latensi TCP dan jitter koneksi secara langsung saat halaman ini dibuka</string>
+    <string name="hud_cap_ready">Siap</string>
+    <string name="hud_cap_needs_root">Perlu Root</string>
+    <string name="hud_cap_unsupported">Tidak didukung</string>
+    <string name="hud_cap_checking">Memeriksa…</string>
+    <string name="hud_net_ping">Ping</string>
+    <string name="hud_net_jitter">Jitter</string>
+    <string name="hud_net_loss">Loss</string>
+    <string name="hud_net_score">Skor %1$d</string>
+    <string name="hud_retest">Uji ulang</string>
+    <string name="hud_bypass_on_verified">Bypass charging diaktifkan</string>
+    <string name="hud_bypass_off_verified">Pengisian baterai normal dipulihkan</string>
+    <string name="hud_bypass_failed">Bypass charging tidak dapat diterapkan pada perangkat ini</string>
+    <string name="hud_focus_on">Mode Fokus diaktifkan (DND Prioritas)</string>
+    <string name="hud_focus_off">Mode Fokus dinonaktifkan</string>
 </resources>

@@ -13,19 +13,21 @@ import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.floating.StandaloneApps
-import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.noir.lynx.feature.hud.data.HudAppCatalog
+import com.noir.lynx.feature.hud.data.HudBypassStatus
 import com.noir.lynx.feature.hud.data.HudDockPolicy
+import com.noir.lynx.feature.hud.data.HudLabRepository
+import com.noir.lynx.feature.hud.data.HudNetworkSample
+import com.noir.lynx.feature.hud.data.HudPreferencesStore
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
 import org.json.JSONObject
 import java.io.File
 
@@ -39,10 +41,22 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private val appState = MutableStateFlow<List<HudApp>>(emptyList())
     val apps = appState.asStateFlow()
     private val displaySession = HudDisplaySession(context)
+    private val labRepository = HudLabRepository(context)
+
+    private val bypassState = MutableStateFlow(HudBypassStatus())
+    val bypassStatus = bypassState.asStateFlow()
+
+    private val focusState = MutableStateFlow(false)
+    val focusActive = focusState.asStateFlow()
+    @Volatile
+    private var initialZenMode: Int? = null
 
     init {
         scope.launch(Dispatchers.IO) {
             displaySession.restore()
+            bypassState.value = runCatching { labRepository.probeBypass() }.getOrDefault(HudBypassStatus())
+            val zenRaw = Shell.cmd("settings get global zen_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+            focusState.value = zenRaw > 0
             val catalog = HudAppCatalog(context)
             HudPreferencesStore(context).changes.collect { prefs ->
                 val candidates = HudDockPolicy.candidatePackages(prefs.dockPackages)
@@ -51,6 +65,38 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             }
         }
     }
+
+    fun refreshBypassStatus() {
+        scope.launch(Dispatchers.IO) {
+            bypassState.value = runCatching { labRepository.probeBypass() }.getOrDefault(bypassState.value)
+        }
+    }
+
+    fun setBypass(enabled: Boolean) = perform {
+        val status = labRepository.setBypass(enabled)
+        bypassState.value = status
+        when {
+            enabled && (status.enabled || status.active) -> R.string.hud_bypass_on_verified
+            !enabled && !status.enabled && !status.active -> R.string.hud_bypass_off_verified
+            else -> R.string.hud_bypass_failed
+        }
+    }
+
+    fun toggleFocus() = perform {
+        val currentZen = Shell.cmd("settings get global zen_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+        if (initialZenMode == null) {
+            initialZenMode = currentZen
+        }
+        val target = !focusState.value
+        val dndArg = if (target) "priority" else "off"
+        Shell.cmd("cmd notification set_dnd $dndArg >/dev/null 2>&1").exec()
+        val afterZen = Shell.cmd("settings get global zen_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+        val verified = if (target) afterZen > 0 else afterZen == 0
+        focusState.value = afterZen > 0
+        if (!verified) R.string.hud_failed else if (target) R.string.hud_focus_on else R.string.hud_focus_off
+    }
+
+    suspend fun probeNetwork(): HudNetworkSample = labRepository.probeNetwork()
 
     fun openFloatingTool(tool: FloatingToolType, url: String? = null) {
         LynxFloatingWindowManager.openTool(tool, url)
@@ -103,14 +149,26 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun refresh(hz: Float, supported: List<Float>, display: Display?, current: () -> Float?) = perform {
-        if (supported.none { kotlin.math.abs(it-hz) < 0.2f }) return@perform R.string.hud_failed
+        if (supported.none { kotlin.math.abs(it - hz) < 0.2f }) return@perform R.string.hud_failed
         mutable.value = mutable.value.copy(requestedHz = hz)
-        val applied = display?.let { displaySession.apply(it,hz) } == true
+        val applied = display?.let { displaySession.apply(it, hz) } == true
         delay(1200)
-        if (applied && current()?.let { kotlin.math.abs(it-hz) < 0.6f } == true) R.string.hud_verified else R.string.hud_failed
+        if (applied && current()?.let { kotlin.math.abs(it - hz) < 0.6f } == true) R.string.hud_verified else R.string.hud_failed
     }
 
-    fun restoreDisplay() = displaySession.restore()
+    fun restoreDisplay() {
+        displaySession.restore()
+        val savedZen = initialZenMode
+        if (savedZen != null) {
+            val restoreArg = when (savedZen) {
+                1 -> "priority"
+                2 -> "none"
+                3 -> "alarms"
+                else -> "off"
+            }
+            Shell.cmd("cmd notification set_dnd $restoreArg >/dev/null 2>&1").submit()
+        }
+    }
 
     fun boostRam() = perform {
         val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
@@ -126,7 +184,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, "Lynx_${System.currentTimeMillis()}.png")
                 put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                if (Build.VERSION.SDK_INT >= 29) { put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Screenshots"); put(MediaStore.Images.Media.IS_PENDING, 1) }
+                if (Build.VERSION.SDK_INT >= 29) {
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Screenshots")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
             }
             val resolver = context.contentResolver
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@perform R.string.hud_failed
@@ -138,17 +199,32 @@ class HudController(private val context: Context, private val scope: CoroutineSc
                         val valid = child.inputStream.use { input ->
                             val header = ByteArray(8)
                             var read = 0
-                            while (read < header.size) { val n = input.read(header,read,header.size-read); if (n<0) break; read+=n }
-                            val png = byteArrayOf(0x89.toByte(),0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a)
-                            if (read == 8 && header.contentEquals(png)) { output.write(header); input.copyTo(output)>0 } else false
+                            while (read < header.size) {
+                                val n = input.read(header, read, header.size - read)
+                                if (n < 0) break
+                                read += n
+                            }
+                            val png = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+                            if (read == 8 && header.contentEquals(png)) {
+                                output.write(header)
+                                input.copyTo(output) > 0
+                            } else false
                         }
                         success = child.waitFor() == 0 && valid
                     }
-                } finally { child.destroy() }
-                if (success && Build.VERSION.SDK_INT >= 29) resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
-            } finally { if (!success) resolver.delete(uri, null, null) }
+                } finally {
+                    child.destroy()
+                }
+                if (success && Build.VERSION.SDK_INT >= 29) {
+                    resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                }
+            } finally {
+                if (!success) resolver.delete(uri, null, null)
+            }
             if (success) R.string.hud_captured else R.string.hud_failed
-        } finally { withContext(Dispatchers.Main) { hide(false) } }
+        } finally {
+            withContext(Dispatchers.Main) { hide(false) }
+        }
     }
 
     private fun perform(action: suspend () -> Int) {

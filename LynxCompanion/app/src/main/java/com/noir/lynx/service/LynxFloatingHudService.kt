@@ -531,6 +531,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val action by controller.actions.collectAsState()
             val apps by controller.apps.collectAsState()
             val supported by rates.collectAsState()
+            val bypassStatus by controller.bypassStatus.collectAsState()
+            val focusActive by controller.focusActive.collectAsState()
             if (mode == 0) {
                 HudSidebar(
                     snapshot = sample,
@@ -550,7 +552,13 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onBoostRam = controller::boostRam,
                     dockRight = isDockRight,
                     onDrag2D = null,
-                    onDragEnd = {}
+                    onDragEnd = {},
+                    bypassStatus = bypassStatus,
+                    focusActive = focusActive,
+                    onToggleFocus = controller::toggleFocus,
+                    onToggleBypass = controller::setBypass,
+                    onRefreshBypass = controller::refreshBypassStatus,
+                    onProbeNetwork = controller::probeNetwork
                 )
             } else {
                 FloatingHudContent(

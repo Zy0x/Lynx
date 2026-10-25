@@ -1,3 +1,37 @@
+# Lynx Universal [Compact M3 Vertical Navigation Rail HUD, Add-in Lab & Focus Mode] 7.0.0-RC192
+Released on: 2026-10-25
+> **Lynx Universal v7.0.0-RC192** (Lynx Kernel Manager v3.2.38): **Restrukturisasi Tata Letak In-Game Floating HUD ke Arsitektur Material 3 Vertical Navigation Rail 4 Halaman (`Ringkasan`, `Monitor`, `Lab`, `Alat`) untuk Efisiensi Ruang Vertikal Lanskap & Ergonomi Satu Ibu Jari; Pemindahan Quick Action Tiles & App Dock ke Halaman `Ringkasan`; Penggantian Tile Keempat Menjadi `Fokus` (DND Prioritas Terverifikasi dengan Pemulihan Otomatis); Penambahan Mini-Sparkline Frametime pada Kartu Hero; serta Peluncuran Halaman `HudLab` (Modul Bypass Charging Hardware-Verified & Diagnostik Latensi/Jitter Jaringan Game On-Demand)**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC192)
+
+### 1. 🧭 Material 3 Compact Vertical Navigation Rail (`HudNavigation.kt`, `HudLayoutPolicy.kt`, `HudSidebar.kt`)
+- **Navigasi Vertikal 4 Halaman (`64 dp`) di Sisi Tepi Layar**:
+  - Mengelompokkan fitur HUD ke dalam 4 halaman terstruktur: **Ringkasan** (`Summary`), **Monitor** (`Details`), **Lab** (`Lab`), dan **Alat** (`Tools`) menggunakan *Compact M3 Navigation Rail* (`64 dp` lebar, indikator pil aktif `48×30 dp`, ikon + label jelas).
+  - Posisi rail otomatis menyesuaikan sisi tambatan (*dock left* atau *dock right*) agar selalu berada paling dekat dengan ibu jari di tepi layar.
+  - Dilengkapi *fallback* otomatis ke `HudTopTabBar` apabila skala font ekstrem pengguna menyisakan lebar konten di bawah ambang aman `176 dp` (`HudLayoutPolicy.MIN_CONTENT`).
+- **Reklamasi Ruang Vertikal Lanskap**:
+  - Memindahkan `HudQuickTileRow` dan `HudAppDock` ke dalam halaman **Ringkasan** sehingga halaman **Monitor**, **Lab**, dan **Alat** memperoleh ruang vertikal penuh di bawah `HudPanelHeader`.
+
+### 2. 🧪 Halaman Baru `HudLab` (`HudLab.kt` & `HudLabRepository.kt`)
+- **Modul 1 — Bypass Charging Terverifikasi Hardware**:
+  - Memeriksa kapabilitas hardware pengisian daya secara nyata melalui `lynxd charging status` (`Siap`, `Perlu Root`, atau `Tidak didukung`), menampilkan chip pengisi daya yang terdeteksi, sakelar aktif/nonaktif dengan verifikasi baca-balik (*readback verification*), indikator `• Bypass` pada pil status baterai di header HUD, serta telemetri arus (`mA`) dan suhu baterai (`°C`) secara langsung.
+- **Modul 2 — Diagnostik Jaringan Game (`Game Network Probe`)**:
+  - Mengukur latensi koneksi TCP (`Ping ms`), fluktuasi (`Jitter ms`), `Packet Loss (%)`, dan skor kualitas jaringan (`0–100`) secara *on-demand* hanya ketika tab **Lab** sedang dibuka (otomatis dihentikan saat berpindah tab demi menjaga penghematan baterai dan CPU).
+
+### 3. 🔕 Tile Cepat `Fokus` (DND Prioritas) & Mini-Sparkline Frametime (`HudPanelHeader.kt`, `HudOverview.kt`, `HudController.kt`)
+- **Mode Fokus Satu Ketukan**:
+  - Mengganti tile cepat keempat (yang sebelumnya redundan dengan tab `Alat`) menjadi tombol **Fokus** (`DoNotDisturbOn`) yang mengaktifkan *Priority Do Not Disturb* dan otomatis memulihkan status DND awal pengguna ketika layanan HUD dihentikan.
+- **Frametime Mini-Sparkline di Kartu Hero**:
+  - Menambahkan grafik gelombang mini `18 dp` di dalam kartu **Frame dan display** pada halaman **Ringkasan** menggunakan riwayat sampel frame yang sudah ada tanpa beban sampling tambahan.
+
+---
+
+# Lynx Universal [Isolated :hud Process & Zero-Fork Top-App Telemetry] 7.0.0-RC191
+Released on: 2026-10-25
+> **Lynx Universal v7.0.0-RC191** (Lynx Kernel Manager v3.2.37): **Isolasi Proses Layanan Floating HUD (`android:process=":hud"`) Agar Tidak Membebani Memori Aplikasi Utama `LynxCompanion`; Pemuatan Ikon App Dock Secara Lazy Hanya untuk Paket Terpilih; Throttling Loop Telemetri Saat Panel Diciutkan (1500 ms); Serta Deteksi Aplikasi Aktif Tanpa Fork (`detect_top_package_fast` via `/proc` Cgroup Scan) di `lynxd`**.
+
+---
+
 # Lynx Universal [Dual-Rail GPU UV & Split Multi-Domain CPU Undervolt Engine] 7.0.0-RC190
 Released on: 2026-10-25
 > **Lynx Universal v7.0.0-RC190** (Lynx Kernel Manager v3.2.36): **Evolusi Lanjutan Arsitektur Modul Kernel (KPM): Integrasi Dual-Rail GPU Undervolt Engine (`lynx_gpu_uv.kpm` v1.3.0) dengan Sinkronisasi Presisi Tegangan L2 Cache Mali GPU (`vsram_gpu` -12.5 mV @ 937.5 mV) Menjaga Delta 100 mV Level-Shifter Tanpa Resiko Latch-Up; Peluncuran Split Multi-Domain CPU Undervolt (`lynx_cpu_uv.kpm` v2.3.0) dengan Pemotongan Agresif Little Cores Cortex-A55 (`vproc11` -25.0 mV) Memangkas Pembuangan Panas Background ~200 mW Sambil Mengunci Big Cores Cortex-A76 (`vproc12` -18.75 mV @ 925 mV) dan SoC VCore (`vcore` -12.5 mV) Tetap 100% Rock-Solid; Serta Penjelasan Teknis Komprehensif Mengenai Limitasi Hardware Silikon 12nm, SSPM Firmware Blob, dan Regulator PMIC**.
