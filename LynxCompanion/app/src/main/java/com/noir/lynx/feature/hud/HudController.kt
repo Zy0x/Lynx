@@ -49,6 +49,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private val gaming = HudGamingAddins(context, scope)
     val skipRunner = GenshinSkipRunner(context, scope)
     val isSkipping = skipRunner.isSkipping
+    val isPaused = skipRunner.isPaused
 
     private val bypassState = MutableStateFlow(HudBypassStatus())
     val bypassStatus = bypassState.asStateFlow()
@@ -245,12 +246,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     fun stopAutoSkip() { skipRunner.stop() }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
         gaming.update(pkg, isHudOpen, width, height)
-        skipRunner.currentForegroundPackage = pkg
-        skipRunner.isHudOpen = isHudOpen
-        skipRunner.screenWidth = width
-        skipRunner.screenHeight = height
-        skipRunner.speedMs = prefs.autoSkipSpeedMs
-        skipRunner.targetChoiceBottom = prefs.autoSkipChoiceBottom
+        skipRunner.syncState(
+            pkg = pkg,
+            isHudOpen = isHudOpen,
+            width = width,
+            height = height,
+            enabled = prefs.autoSkipEnabled,
+            speedMs = prefs.autoSkipSpeedMs,
+            targetChoiceBottom = prefs.autoSkipChoiceBottom
+        )
     }
 
     fun restoreDisplay() {

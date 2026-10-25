@@ -38,6 +38,8 @@ class HudGameQos(private val context: Context) {
         try {
             if (!restore()) return
             if (!enabled || !validMagicPackage(pkg) || families.isEmpty()) return
+            val actual = Shell.cmd("dumpsys activity activities | sed -nE '/Display #0 /,/Display #[1-9][0-9]* /{/topResumedActivity|mResumedActivity/{s/.* u[0-9][0-9]* //;s,/.*,,;p;q;}}'").exec().out.firstOrNull()?.trim()
+            if (actual != pkg) return
             val uid = runCatching { context.packageManager.getApplicationInfo(pkg, 0).uid }.getOrNull() ?: return
             if (uid < 10000) return
             val token = UUID.randomUUID().toString().replace("-", "")

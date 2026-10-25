@@ -9,7 +9,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -41,7 +40,9 @@ internal fun HudLab(
     shieldStatus: HudShieldStatus = HudShieldStatus(),
     onToggleTouchBoost: (Boolean) -> Unit = {},
     onToggleHeadsUpShield: (Boolean) -> Unit = {},
-    onSelectFocusLevel: (Int) -> Unit = {}
+    onSelectFocusLevel: (Int) -> Unit = {},
+    selectedAddin: Int = -1,
+    onSelectAddin: (Int) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var networkSample by remember { mutableStateOf<HudNetworkSample?>(null) }
@@ -67,8 +68,7 @@ internal fun HudLab(
         HudCapability.CHECKING -> HudBlue
     }
 
-    var selectedAddin by rememberSaveable { mutableIntStateOf(0) }
-    HudAddinNavigation(selectedAddin) { selectedAddin = it }
+    if (selectedAddin == -1) HudAddinNavigation(onSelectAddin)
     if (selectedAddin == 4) HudMagicBoxControls()
 
     // 1. Bypass Charging Lab Card

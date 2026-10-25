@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,11 +56,14 @@ fun HudSidebar(
     onSelectFocusLevel: (Int) -> Unit = {},
     onToggleBrightnessLock: (Boolean) -> Unit = {},
     isSkipping: Boolean = false,
+    isPaused: Boolean = false,
     onToggleAutoSkip: () -> Unit = {}
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     var page by remember { mutableStateOf(HudPage.Summary) }
     var manageApps by remember { mutableStateOf(false) }
+    var addinPage by rememberSaveable { mutableIntStateOf(-1) }
+    val addinScrolls = (0..4).associateWith { rememberScrollState() }
     val scrolls = mapOf(
         HudPage.Summary to rememberScrollState(),
         HudPage.Details to rememberScrollState(),
@@ -93,6 +97,7 @@ fun HudSidebar(
                 onDrag2D = onDrag2D,
                 onDragEnd = onDragEnd,
                 isSkipping = isSkipping,
+                isPaused = isPaused,
                 onToggleAutoSkip = onToggleAutoSkip
             )
         } else {
@@ -120,7 +125,7 @@ fun HudSidebar(
                             appLabel = when {
                                 manageApps -> hudString(R.string.hud_apps_manage)
                                 page == HudPage.Details -> hudString(R.string.hud_monitor)
-                                page == HudPage.Lab -> hudString(R.string.hud_lab)
+                                page == HudPage.Lab -> hudString(hudAddinTitles.getOrNull(addinPage) ?: R.string.hud_lab)
                                 page == HudPage.Tools -> hudString(R.string.hud_tools)
                                 else -> appLabel
                             },
@@ -130,8 +135,11 @@ fun HudSidebar(
                             bypassActive = bypassStatus.enabled || bypassStatus.active,
                             canNavigateBack = inSubscreen,
                             onBack = {
-                                manageApps = false
-                                page = HudPage.Summary
+                                if (page == HudPage.Lab && addinPage >= 0) addinPage = -1
+                                else {
+                                    manageApps = false
+                                    page = HudPage.Summary
+                                }
                             },
                             onClose = { onOpen(false) }
                         )
@@ -141,6 +149,7 @@ fun HudSidebar(
                                 selected = page,
                                 onSelect = {
                                     manageApps = false
+                                    if (it == HudPage.Lab) addinPage = -1
                                     page = it
                                 },
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -160,6 +169,7 @@ fun HudSidebar(
                                     width = layout.railWidth,
                                     onSelect = {
                                         manageApps = false
+                                        if (it == HudPage.Lab) addinPage = -1
                                         page = it
                                     }
                                 )
@@ -190,7 +200,7 @@ fun HudSidebar(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .verticalScroll(scrolls.getValue(page))
+                                                .verticalScroll(if (page == HudPage.Lab && addinPage >= 0) addinScrolls.getValue(addinPage) else scrolls.getValue(page))
                                                 .padding(horizontal = 4.dp, vertical = 4.dp),
                                             verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
@@ -235,7 +245,9 @@ fun HudSidebar(
                                                     shieldStatus = shieldStatus,
                                                     onToggleTouchBoost = onToggleTouchBoost,
                                                     onToggleHeadsUpShield = onToggleHeadsUpShield,
-                                                    onSelectFocusLevel = onSelectFocusLevel
+                                                    onSelectFocusLevel = onSelectFocusLevel,
+                                                    selectedAddin = addinPage,
+                                                    onSelectAddin = { addinPage = it }
                                                 )
                                                 HudPage.Tools -> HudTools(
                                                     prefs = prefs,
@@ -276,6 +288,7 @@ fun HudSidebar(
                                     width = layout.railWidth,
                                     onSelect = {
                                         manageApps = false
+                                        if (it == HudPage.Lab) addinPage = -1
                                         page = it
                                     }
                                 )

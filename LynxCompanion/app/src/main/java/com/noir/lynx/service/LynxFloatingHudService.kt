@@ -543,6 +543,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val shieldStatus by controller.shieldStatus.collectAsState()
             val brightnessLocked by controller.brightnessLocked.collectAsState()
             val isSkipping by controller.isSkipping.collectAsState()
+            val isPaused by controller.isPaused.collectAsState()
             val hudPrefs by preferences.changes.collectAsState(initial = preferences.read())
 
             LaunchedEffect(sample.packageName, expanded, size, hudPrefs) {
@@ -589,6 +590,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onSelectFocusLevel = controller::setFocusLevel,
                     onToggleBrightnessLock = controller::setBrightnessLock,
                     isSkipping = isSkipping,
+                    isPaused = isPaused,
                     onToggleAutoSkip = controller::toggleAutoSkip
                 )
             } else {

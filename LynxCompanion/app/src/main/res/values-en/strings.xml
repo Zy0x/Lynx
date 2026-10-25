@@ -2182,6 +2182,7 @@
     <string name="hud_autoskip_supported_games">Genshin Impact • Honkai Star Rail • ZZZ • WuWa</string>
     <string name="hud_autoskip_pill_idle">Auto-Skip</string>
     <string name="hud_autoskip_pill_active">Skipping...</string>
+    <string name="hud_autoskip_pill_paused">Paused</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Focus</string>
@@ -2217,4 +2218,13 @@
     <string name="hud_addin_inactive">Inactive</string>
     <string name="hud_network_manual_test">Manual test</string>
     <string name="hud_shield_mode_alarms">Alarms only</string>
+    <string name="hud_glow_preview">Preview glow</string>
+    <string name="hud_network_qos">Prioritize active app packets</string>
+    <string name="hud_network_qos_note">Per-UID DSCP AF41 marking for Wi-Fi/mobile. Benefits depend on the router/carrier. Only Lynx-owned rules are restored when the app changes or HUD stops.</string>
+    <string name="hud_network_qos_unavailable">Packet prioritization unavailable: DSCP/root unsupported or capability check pending.</string>
+    <string name="hud_addin_focus_brief">Block interruptions &amp; notification glow</string>
+    <string name="hud_addin_charge_brief">Driver bypass controls</string>
+    <string name="hud_addin_touch_brief">Driver mode &amp; touch event test</string>
+    <string name="hud_addin_network_brief">Connections, latency &amp; packet priority</string>
+    <string name="hud_addin_magic_brief">Custom tap sequences</string>
 </resources>

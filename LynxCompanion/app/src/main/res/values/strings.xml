@@ -2206,6 +2206,7 @@
     <string name="hud_autoskip_supported_games">Genshin Impact • Honkai Star Rail • ZZZ • WuWa</string>
     <string name="hud_autoskip_pill_idle">Auto-Skip</string>
     <string name="hud_autoskip_pill_active">Skipping...</string>
+    <string name="hud_autoskip_pill_paused">Jeda</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Fokus</string>
@@ -2241,4 +2242,13 @@
     <string name="hud_addin_inactive">Nonaktif</string>
     <string name="hud_network_manual_test">Uji manual</string>
     <string name="hud_shield_mode_alarms">Alarm saja</string>
+    <string name="hud_glow_preview">Pratinjau glow</string>
+    <string name="hud_network_qos">Prioritas paket aplikasi aktif</string>
+    <string name="hud_network_qos_note">Penandaan DSCP AF41 per UID untuk Wi-Fi/seluler. Manfaat bergantung pada router/operator. Aturan milik Lynx saja dipulihkan ketika aplikasi berganti atau HUD berhenti.</string>
+    <string name="hud_network_qos_unavailable">Prioritas paket tidak tersedia: target DSCP/root tidak didukung atau belum selesai diperiksa.</string>
+    <string name="hud_addin_focus_brief">Blokir gangguan &amp; glow notifikasi</string>
+    <string name="hud_addin_charge_brief">Kontrol bypass driver</string>
+    <string name="hud_addin_touch_brief">Mode driver &amp; uji event sentuh</string>
+    <string name="hud_addin_network_brief">Koneksi, latensi &amp; prioritas paket</string>
+    <string name="hud_addin_magic_brief">Urutan ketuk kustom</string>
 </resources>

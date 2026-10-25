@@ -74,6 +74,7 @@ internal fun HudMiniOverlay(
     onDrag2D: ((Float, Float) -> Unit)? = null,
     onDragEnd: () -> Unit = {},
     isSkipping: Boolean = false,
+    isPaused: Boolean = false,
     onToggleAutoSkip: () -> Unit = {}
 ) {
     val selected = HudMetric.values().filter { it.key in prefs.selected }
@@ -222,6 +223,7 @@ internal fun HudMiniOverlay(
         if (showAutoSkip) {
             HudSmartTriggerOverlay(
                 isSkipping = isSkipping,
+                isPaused = isPaused,
                 onToggle = onToggleAutoSkip
             )
         }

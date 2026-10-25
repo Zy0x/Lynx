@@ -17,13 +17,16 @@ open class HudDriverSession(context: Context, name: String, private val candidat
         if (!root()) return false
         val path = path() ?: return false
         val before = read(path) ?: return false
-        if ((!journal.contains("path") || path != journal.getString("path", null) || before != journal.getString("after", null)) &&
+        val ownedBefore = journal.contains("path") && path == journal.getString("path", null) && before == journal.getString("after", null)
+        if (!ownedBefore &&
             !journal.edit().putString("path", path).putString("before", before).commit()) return false
         val target = if (enabled) "1" else "0"
         if (!journal.edit().putString("after", target).commit()) return false
         val result = Shell.cmd("[ -w '$path' ] && printf '%s\\n' '$target' > '$path'").exec()
         if (result.isSuccess && read(path) == target) return true
-        restore()
+        if (read(path) == before) {
+            if (ownedBefore) journal.edit().putString("after", before).commit() else journal.edit().clear().commit()
+        } else restore()
         return false
     }
     @Synchronized fun restore(): Boolean {

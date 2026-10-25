@@ -3,6 +3,12 @@ package com.noir.lynx.feature.hud.ui
 import android.net.TrafficStats
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -22,13 +28,29 @@ import com.noir.lynx.core.locale.LynxText as Text
 import kotlinx.coroutines.delay
 import java.util.Locale
 
+internal val hudAddinTitles = listOf(R.string.hud_addin_focus, R.string.hud_lab_bypass_title,
+    R.string.hud_lab_touch_title, R.string.hud_lab_network_title, R.string.hud_magic_title)
+
 @Composable
-internal fun HudAddinNavigation(selected: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(R.string.hud_addin_focus, R.string.hud_lab_bypass_title, R.string.hud_lab_touch_title,
-            R.string.hud_lab_network_title, R.string.hud_magic_title).forEachIndexed { index, title ->
-            FilterChip(selected == index, { onSelect(index) }, label = { Text(hudString(title), fontSize = 12.sp) },
-                modifier = Modifier.heightIn(min = 48.dp))
+internal fun HudAddinNavigation(onSelect: (Int) -> Unit) {
+    val descriptions = listOf(R.string.hud_addin_focus_brief, R.string.hud_addin_charge_brief,
+        R.string.hud_addin_touch_brief, R.string.hud_addin_network_brief, R.string.hud_addin_magic_brief)
+    val icons = listOf(Icons.Default.NotificationsOff, Icons.Default.BatteryChargingFull,
+        Icons.Default.TouchApp, Icons.Default.NetworkCheck, Icons.Default.AutoFixHigh)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        hudAddinTitles.forEachIndexed { index, title ->
+            Surface(onClick = { onSelect(index) }, color = HudCard, shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, HudBorder), modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Icon(icons[index], contentDescription = null, tint = HudBlue, modifier = Modifier.size(20.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(hudString(title), fontSize = 12.sp, color = Color.White)
+                        Text(hudString(descriptions[index]), fontSize = 12.sp, color = HudMuted)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = HudMuted, modifier = Modifier.size(16.dp))
+                }
+            }
         }
     }
 }
@@ -37,7 +59,9 @@ internal fun HudAddinNavigation(selected: Int, onSelect: (Int) -> Unit) {
 private fun AddinToggle(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-        Switch(checked, onChange, enabled = enabled)
+        Switch(checked, onChange, enabled = enabled, colors = SwitchDefaults.colors(
+            checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge,
+            uncheckedThumbColor = HudMuted, uncheckedTrackColor = HudElevated))
     }
 }
 
@@ -54,7 +78,10 @@ internal fun HudGlowControls() {
     }
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf(R.string.hud_glow_cyan, R.string.hud_glow_blue, R.string.hud_glow_amber).forEachIndexed { index, label ->
-            FilterChip(color == index, { runtime.setColor(index) }, label = { Text(hudString(label), fontSize = 12.sp) }, modifier = Modifier.heightIn(min = 48.dp))
+            FilterChip(color == index, { runtime.setColor(index) }, label = { Text(hudString(label), fontSize = 12.sp) },
+                colors = FilterChipDefaults.filterChipColors(containerColor = HudElevated, labelColor = HudMuted,
+                    selectedContainerColor = HudBlueBadge.copy(alpha = .3f), selectedLabelColor = Color.White),
+                border = BorderStroke(1.dp, if (color == index) HudBlue else HudBorder), modifier = Modifier.heightIn(min = 48.dp))
         }
     }
     HudAction(hudString(R.string.hud_glow_preview), onClick = { runtime.previewGlow() }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp))
@@ -117,7 +144,10 @@ internal fun HudMagicBoxControls() {
         Text(pkg.ifBlank { "â€”" }, fontSize = 12.sp, color = HudBlue)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             points.forEachIndexed { index, _ ->
-                FilterChip(selected == index, { selected = index }, label = { Text(hudString(R.string.hud_magic_point, index + 1)) }, modifier = Modifier.heightIn(min = 48.dp))
+                FilterChip(selected == index, { selected = index }, label = { Text(hudString(R.string.hud_magic_point, index + 1)) },
+                    colors = FilterChipDefaults.filterChipColors(containerColor = HudElevated, labelColor = HudMuted,
+                        selectedContainerColor = HudBlueBadge.copy(alpha = .3f), selectedLabelColor = Color.White),
+                    border = BorderStroke(1.dp, if (selected == index) HudBlue else HudBorder), modifier = Modifier.heightIn(min = 48.dp))
             }
         }
         Text(hudString(R.string.hud_magic_position, point.x, point.y), fontSize = 12.sp, color = HudMuted)

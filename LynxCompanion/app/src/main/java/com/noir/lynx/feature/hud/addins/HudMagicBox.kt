@@ -79,7 +79,7 @@ class HudMagicBox(private val context: Context, private val scope: CoroutineScop
                         val x = initialWidth * point.x / 100; val y = initialHeight * point.y / 100
                         // Verify actual Android foreground again inside the same command as the tap.
                         val command = """
-                            pkg=${'$'}(dumpsys activity activities | sed -n '/topResumedActivity\|mResumedActivity/{s/.* u[0-9][0-9]* //;s,/.*,,;p;q;}')
+                            pkg=${'$'}(dumpsys activity activities | sed -nE '/Display #0 /,/Display #[1-9][0-9]* /{/topResumedActivity|mResumedActivity/{s/.* u[0-9][0-9]* //;s,/.*,,;p;q;}}')
                             [ "${'$'}pkg" = '$expected' ] || exit 7
                             input tap $x $y
                         """.trimIndent()

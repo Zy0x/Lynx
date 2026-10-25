@@ -1,3 +1,23 @@
+# Lynx Universal [Pemicu Bebas-Genggam Otomatis & Kontrol Jeda Manual Auto-Skip] 7.0.0-RC199
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC199** (Lynx Kernel Manager v3.2.41): **Evolusi Cerdas Pemicu Auto-Skip Percakapan: Eksekusi Bebas-Genggam (*Autonomous Hands-Free Skipping*) Otomatis Aktif Seketika Saat Dialog Dimulai Tanpa Perlu Menekan Tombol Manual; Penyediaan Tombol Jeda Taktis (*Manual Pause / Resume Safety Guard*) Melalui Tombol Melayang Berwarna Amber `[ ⏸️ Jeda ]` Jika Pemain Ingin Berhenti Sejenak Membaca Alur Cerita; Pemulihan Otomatis Status Jeda Saat Percakapan Selesai; Serta Sampling Frekuensi Adaptif (1200ms Mode Siaga <0.5% CPU & 650ms Saat Dialog Aktif)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC199)
+1. **Eksekusi Otomatis Pemicu Tanpa Tekan Manual (*Autonomous Hands-Free Skipping*)**:
+   - `GenshinSkipRunner` kini beroperasi secara otonom di latar belakang setiap kali pemicu melayang aktif pada game RPG (Genshin Impact, Star Rail, ZZZ, WuWa).
+   - Begitu dialog NPC/cerita terdeteksi di layar, runner langsung otomatis memulai siklus akselerasi dialog dan pengetukan opsi tanpa mengharuskan pengguna mengetuk tombol melayang secara manual.
+2. **Kontrol Jeda Taktis (*Manual Pause / Resume Safety Guard*)**:
+   - Tombol melayang tetap tersedia secara interaktif di layar. Jika pengguna menemukan adegan penting yang ingin dibaca perlahan:
+     - 1 ketukan pada tombol melayang saat *skipping* akan langsung menghentikan pengetukan seketika (*Pause*) dan mengubah tampilan tombol menjadi amber hangat `[ ⏸️ Jeda ]`.
+     - 1 ketukan berikutnya akan langsung melanjutkan kembali (*Resume*) akselerasi dialog jika percakapan masih berlangsung.
+3. **Reset Otomatis Status Jeda Pasca-Dialog**:
+   - Ketika percakapan selesai dan game kembali ke penjelajahan *open-world*, status jeda otomatis di-reset ke mode normal sehingga percakapan berikutnya akan langsung ter-skip secara otomatis tanpa perlu di-unpause manual.
+4. **Sampling Adaptif Super Efisien**:
+   - 1200ms (~1.2 detik) pada status siaga/eksplorasi guna menekan konsumsi CPU hingga di bawah 0.5% dan 0% beban saat layar mati.
+   - 650ms saat dialog aktif demi responsivitas tinggi penghentian ketukan saat dialog berakhir.
+
+---
+
 # Lynx Universal [Deteksi Akhir Percakapan & Auto-Disarm Cerdas Auto-Skip] 7.0.0-RC198
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC198** (Lynx Kernel Manager v3.2.41): **Implementasi Sistem Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection & Gameplay Shield*) pada Mesin Pemicu Pintar Auto-Skip: Memantau Keberadaan Lingkaran Tombol Kontrol Dialog Top-Left Melalui Pembacaan Stream Pipe Pixel Sub-Detik (`screencap | od`); Verifikasi Nilai Spektrum Warna Hangat Cream/Beige Ikon Dialog (`RGB ~ 236, 229, 216`); Penghentian Total Ketukan Layar Secara Otomatis (*Auto-Disarm*) Saat Dialog Selesai (Histeresis 2 Sampel Negatif ~1.5 Detik) Guna Mencegah Gangguan Kontrol Kamera Maupun Serangan di Open-World; Pemulihan Otomatis Status Tombol Melayang ke Mode Siaga `[ ⏩ Auto-Skip ]`; Fitur Pengaman Siaga Pra-Dialog (~4s Timeout); Serta Getaran Konfirmasi Haptik 35ms Saat Auto-Disarm Terpicu**.

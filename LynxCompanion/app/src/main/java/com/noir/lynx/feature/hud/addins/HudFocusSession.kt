@@ -18,13 +18,20 @@ class HudFocusSession(context: Context) {
         val before = read(key) ?: return false
         if (key == "zen_mode" && before.toIntOrNull() !in 0..3) return false
         if (key == "heads_up_notifications_enabled" && before !in listOf("0", "1", "null")) return false
-        if (!journal.contains("${key}_before") || before != journal.getString("${key}_after", null)) {
+        val ownedBefore = journal.contains("${key}_before") && before == journal.getString("${key}_after", null)
+        if (!ownedBefore) {
             if (!journal.edit().putString("${key}_before", before).putString("${key}_after", value.toString()).commit()) return false
         } else if (!journal.edit().putString("${key}_after", value.toString()).commit()) return false
         val command = if (key == "zen_mode") "cmd notification set_dnd ${zenArgument(value)}"
             else "settings put global $key $value"
         val result = Shell.cmd(command).exec()
-        return result.isSuccess && read(key) == value.toString()
+        val after = read(key)
+        if (result.isSuccess && after == value.toString()) return true
+        if (after == before) {
+            if (ownedBefore) journal.edit().putString("${key}_after", before).commit()
+            else journal.edit().remove("${key}_before").remove("${key}_after").commit()
+        }
+        return false
     }
     @Synchronized fun restore() {
         listOf("zen_mode", "heads_up_notifications_enabled").forEach { key ->

@@ -3,7 +3,6 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -21,18 +20,57 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 
+private val HudAmber = Color(0xFFFFB74D)
+
 @Composable
 internal fun HudSmartTriggerOverlay(
     isSkipping: Boolean,
+    isPaused: Boolean = false,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+
+    val targetBorder = when {
+        isSkipping -> HudCyan
+        isPaused -> HudAmber
+        else -> HudBorder
+    }
+
+    val targetBackground = when {
+        isSkipping -> Color(0xEE0B2538)
+        isPaused -> Color(0xEE2A1C0E)
+        else -> Color(0xEE12151B)
+    }
+
+    val targetTextColor = when {
+        isSkipping -> HudCyan
+        isPaused -> HudAmber
+        else -> Color.White
+    }
+
     val borderColor by animateColorAsState(
-        targetValue = if (isSkipping) HudCyan else HudBorder,
+        targetValue = targetBorder,
         animationSpec = tween(180),
         label = "triggerBorder"
     )
+
+    val backgroundColor by animateColorAsState(
+        targetValue = targetBackground,
+        animationSpec = tween(180),
+        label = "triggerBackground"
+    )
+
+    val iconText = when {
+        isPaused -> "⏸️"
+        else -> "⏩"
+    }
+
+    val labelText = when {
+        isSkipping -> hudString(R.string.hud_autoskip_pill_active)
+        isPaused -> hudString(R.string.hud_autoskip_pill_paused)
+        else -> hudString(R.string.hud_autoskip_pill_idle)
+    }
 
     Surface(
         onClick = {
@@ -40,7 +78,7 @@ internal fun HudSmartTriggerOverlay(
             onToggle()
         },
         shape = RoundedCornerShape(18.dp),
-        color = if (isSkipping) Color(0xEE0B2538) else Color(0xEE12151B),
+        color = backgroundColor,
         border = BorderStroke(1.5.dp, borderColor),
         modifier = modifier.padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
@@ -50,19 +88,15 @@ internal fun HudSmartTriggerOverlay(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "⏩",
+                text = iconText,
                 fontSize = 11.5.sp
             )
             Text(
-                text = if (isSkipping) {
-                    hudString(R.string.hud_autoskip_pill_active)
-                } else {
-                    hudString(R.string.hud_autoskip_pill_idle)
-                },
+                text = labelText,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace,
-                color = if (isSkipping) HudCyan else Color.White
+                color = targetTextColor
             )
         }
     }

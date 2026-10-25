@@ -10,6 +10,8 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.WindowManager
+import android.util.DisplayMetrics
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +46,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
                 magic.stop()
                 setWifiBoost(false)
                 glowOverlay.close()
+                scope.launch(Dispatchers.IO) { qos.restore() }
             }
         }
     }
@@ -124,7 +127,12 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
 
     fun update(pkg: String, hudOpen: Boolean, width: Int, height: Int) {
         if (pkg != magic.foreground.value && qos.state.value.enabled) scope.launch(Dispatchers.IO) { qos.restore() }
-        magic.update(pkg, hudOpen, width, height)
+        val windows = context.getSystemService(WindowManager::class.java)
+        val dimensions = runCatching {
+            if (Build.VERSION.SDK_INT >= 30) windows.maximumWindowMetrics.bounds.let { it.width() to it.height() }
+            else DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }.let { it.widthPixels to it.heightPixels }
+        }.getOrDefault(width to height)
+        magic.update(pkg, hudOpen, dimensions.first, dimensions.second)
         if (context.getSystemService(PowerManager::class.java)?.isInteractive != true) {
             setWifiBoost(false)
             glowOverlay.close()
