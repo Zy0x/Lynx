@@ -348,7 +348,7 @@ internal object LynxAppStateRepository {
 
         val applyCmd = if (lynxdPath != null) {
             when (profile) {
-                "auto" -> "'$lynxdPath' daemon status >/dev/null 2>&1 || '$lynxdPath' daemon start >/dev/null 2>&1"
+                "auto" -> "pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 &"
                 "dormant" -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile revert"
                 else -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile'"
             }

@@ -17,6 +17,16 @@ val buildHudCollector by tasks.registering(Exec::class) {
             into(packaged.get().asFile.parentFile)
             rename { "liblynxhud.so" }
         }
+        copy {
+            from(nativeRoot.resolve("target/aarch64-linux-android/release/lynxd"))
+            into(projectDir.resolve("src/main/assets/bin"))
+            rename { "lynxd" }
+        }
+        copy {
+            from(nativeRoot.resolve("target/aarch64-linux-android/release/lynxd"))
+            into(projectDir.resolve("src/main/assets"))
+            rename { "lynxd" }
+        }
     }
 }
 tasks.named("preBuild").configure { dependsOn(buildHudCollector) }

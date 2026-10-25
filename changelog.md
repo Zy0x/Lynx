@@ -1,3 +1,20 @@
+# Lynx Universal [Sinkronisasi Otomatis Daemon Native, Asset Embedding & Pembaruan Antar-Perangkat] 7.0.0-RC203
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC203** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Tata Kelola & Sinkronisasi Daemon Native Rust (`lynxd`): Integrasi Ekstraksi Biner Otomatis dari Asset APK Berkecepatan Penuh ke `/data/local/tmp/lynxd` dan `/data/adb/modules/Lynx/system/bin/lynxd`; Deteksi Pemuatan Biner Baru (`/data/local/tmp/lynxd_new`) dengan Migrasi Aman Berizin Root; Pengaktifan Daemon Latar Belakang Tahan Banting Menggunakan `nohup lynxd daemon run`; Pembaruan Serentak Modul & APK pada Perangkat Uji Lapangan Redmi Note 7 (Snapdragon 660) & Infinix X698 (Helio G96)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC203)
+1. **Otomasi Pembaruan Biner Native Daemon (`lynxd`)**:
+   - Skrip build Gradle `buildHudCollector` dikonfigurasi untuk menyalin biner Rust `lynxd` terkompilasi langsung ke folder asset APK (`assets/bin/lynxd` dan `assets/lynxd`) secara otomatis setiap kali kompilasi berlangsung.
+   - `LynxRepository.ensureDaemonRunning()` kini memverifikasi hash/perbedaan biner lokal dengan asset APK; jika terdeteksi versi baru, biner langsung diperbarui ke `/data/local/tmp/lynxd` dan direktori modul Magisk/KernelSU secara atomik dengan izin eksekusi penuh (`chmod 755` dan konteks SELinux `u:object_r:system_file:s0`).
+2. **Dukungan Injeksi Biner Cepat (`/data/local/tmp/lynxd_new`)**:
+   - Menambahkan mekanisme penangkapan file `lynxd_new` saat pengembang atau pengguna memperbarui biner via ADB tanpa memerlukan root ADB shell langsung; aplikasi native akan memindahkan biner tersebut ke path target secara aman menggunakan izin root LibSU.
+3. **Penyempurnaan Peluncuran Daemon di Latar Belakang**:
+   - Memperbaiki perintah peluncuran daemon latar belakang dari `daemon start` usang menjadi `nohup lynxd daemon run &` yang terjamin tahan terhadap pembersihan memori dan siklus doze Android.
+4. **Verifikasi Penuh Lintas Perangkat**:
+   - Berhasil dipasang dan diverifikasi berfungsi sempurna di Redmi Note 7 (Qualcomm Snapdragon 660) dan Infinix X698 (MediaTek Helio G96).
+
+---
+
 # Lynx Universal [Eliminasi Stuttering HUD, Penanganan Layar Transisi Narasi & Kalibrasi Koordinat Dialog] 7.0.0-RC202
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC202** (Lynx Kernel Manager v3.2.43): **Pemberantasan Total Masalah Frame Drop / Stuttering HUD & Autoskip Engine: Eliminasi Badai Polling `dumpsys SurfaceFlinger --latency` di Daemon Native Rust `lynxd` dan Penghapusan Pipa Berat `screencap | od` pada `GenshinSkipRunner`; Penanganan Penuh Layar Transisi Narasi Cerita (*Story Narration Transition Screen / Layar Hitam "Tekan untuk melanjutkan"*) di Bawah Tengah Layar (`X=0.50, Y=0.88`); Kalibrasi Presisi Koordinat Geometris Pilihan Dialog Genshin Impact Berdasarkan Pengukuran Piksel Riil (`X=0.72`, `Top=0.50`, `Mid=0.58`, `Bottom=0.66`); Serta Rotasi Cerdas Target Pilihan Berantai Melalui Perintah Tunggal Root Non-Blocking (`input tap; sleep; input tap`)**.

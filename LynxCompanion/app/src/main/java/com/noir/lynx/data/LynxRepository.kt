@@ -370,14 +370,29 @@ object LynxRepository {
     suspend fun ensureDaemonRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!isRootAvailable()) return@withContext false
         try {
+            // First check if a fresh binary was pushed via ADB to /data/local/tmp/lynxd_new
+            Shell.cmd("""
+                if [ -f /data/local/tmp/lynxd_new ]; then
+                    pkill -9 -f "lynxd daemon" 2>/dev/null
+                    pkill -9 lynxd 2>/dev/null
+                    if [ -d "$MODULE_DIR/system/bin" ]; then
+                        cp -f /data/local/tmp/lynxd_new "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                        chmod 755 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
+                    fi
+                    cp -f /data/local/tmp/lynxd_new /data/local/tmp/lynxd 2>/dev/null
+                    chmod 755 /data/local/tmp/lynxd 2>/dev/null
+                    chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                    rm -f /data/local/tmp/lynxd_new 2>/dev/null
+                    resolvedLynxdPath = null
+                fi
+            """.trimIndent()).exec()
+
             val path = getLynxdPath()
             val isModuleLynxd = path.startsWith(MODULE_DIR)
             val exists = resolvedLynxdPath != null || Shell.cmd("[ -x '$path' ]").exec().isSuccess
 
-            // If root module is installed, module's lynxd is the Single Source of Truth!
-            // NEVER overwrite $MODULE_DIR/system/bin/lynxd with older APK asset, and NEVER kill running daemon.
-            // Only extract to /data/local/tmp/lynxd in standalone root mode when binary is missing or updated.
-            if (!exists || (!isModuleLynxd && !lynxdBinarySyncedThisSession)) {
+            // Sync embedded asset to storage if newer or different
+            if (!exists || !lynxdBinarySyncedThisSession) {
                 lynxdBinarySyncedThisSession = true
                 try {
                     val ctx = appContext ?: com.noir.lynx.LynxApp.instance
@@ -387,12 +402,19 @@ object LynxRepository {
                         tmpAppFile.setReadable(true, false)
                         tmpAppFile.setExecutable(true, false)
                         Shell.cmd("""
-                            if [ ! -x '$MODULE_DIR/system/bin/lynxd' ]; then
-                                if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null; then
+                            if [ -d "$MODULE_DIR/system/bin" ]; then
+                                if ! cmp -s '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null; then
                                     pkill -9 -f "lynxd daemon" 2>/dev/null
-                                    rm -f /data/local/tmp/lynxd 2>/dev/null
-                                    cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                                    pkill -9 lynxd 2>/dev/null
+                                    cp -f '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
+                                    chmod 755 '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
                                 fi
+                            fi
+                            if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null; then
+                                pkill -9 -f "lynxd daemon" 2>/dev/null
+                                pkill -9 lynxd 2>/dev/null
+                                rm -f /data/local/tmp/lynxd 2>/dev/null
+                                cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
                             fi
                         """.trimIndent()).exec()
                         tmpAppFile.delete()
@@ -403,8 +425,14 @@ object LynxRepository {
                 }
             }
             val targetPath = getLynxdPath()
-            // Do not blindly restart if daemon is already healthy and active
-            Shell.cmd("[ -x '$targetPath' ] && ( '$targetPath' daemon status >/dev/null 2>&1 || '$targetPath' daemon start >/dev/null 2>&1 )").exec().isSuccess
+            // Ensure daemon background runner is active
+            Shell.cmd("""
+                if [ -x '$targetPath' ]; then
+                    if ! pgrep -f "lynxd daemon run" >/dev/null 2>&1; then
+                        nohup '$targetPath' daemon run >/dev/null 2>&1 &
+                    fi
+                fi
+            """.trimIndent()).exec().isSuccess
         } catch (e: Exception) {
             Log.w(TAG, "ensureDaemonRunning exception: ${e.message}")
             false

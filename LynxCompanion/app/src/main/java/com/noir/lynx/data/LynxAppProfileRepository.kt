@@ -72,7 +72,7 @@ internal object LynxAppProfileRepository {
             val lynxdPath = LynxRepository.getLynxdPath()
             Shell.cmd(
                 "pkill -f lynx_watcher.sh 2>/dev/null; " +
-                "if [ -x '$lynxdPath' ]; then '$lynxdPath' daemon start >/dev/null 2>&1; fi"
+                "if [ -x '$lynxdPath' ]; then pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 &; fi"
             ).exec()
 
             val intent = Intent(context, LynxAppAutomationService::class.java).apply {
