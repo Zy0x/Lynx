@@ -46,7 +46,16 @@ fun HudSidebar(
     onToggleFocus: () -> Unit = {},
     onToggleBypass: (Boolean) -> Unit = {},
     onRefreshBypass: () -> Unit = {},
-    onProbeNetwork: suspend () -> HudNetworkSample = { HudNetworkSample() }
+    onProbeNetwork: suspend () -> HudNetworkSample = { HudNetworkSample() },
+    touchStatus: HudTouchStatus = HudTouchStatus(),
+    shieldStatus: HudShieldStatus = HudShieldStatus(),
+    brightnessLocked: Boolean = false,
+    onToggleTouchBoost: (Boolean) -> Unit = {},
+    onToggleHeadsUpShield: (Boolean) -> Unit = {},
+    onSelectFocusLevel: (Int) -> Unit = {},
+    onToggleBrightnessLock: (Boolean) -> Unit = {},
+    isSkipping: Boolean = false,
+    onToggleAutoSkip: () -> Unit = {}
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     var page by remember { mutableStateOf(HudPage.Summary) }
@@ -82,7 +91,9 @@ fun HudSidebar(
                 onDrag = onDrag,
                 dockRight = dockRight,
                 onDrag2D = onDrag2D,
-                onDragEnd = onDragEnd
+                onDragEnd = onDragEnd,
+                isSkipping = isSkipping,
+                onToggleAutoSkip = onToggleAutoSkip
             )
         } else {
             val panelShape = if (dockRight) {
@@ -219,7 +230,12 @@ fun HudSidebar(
                                                     busy = action.busy,
                                                     onToggleBypass = onToggleBypass,
                                                     onRefreshBypass = onRefreshBypass,
-                                                    onProbeNetwork = onProbeNetwork
+                                                    onProbeNetwork = onProbeNetwork,
+                                                    touchStatus = touchStatus,
+                                                    shieldStatus = shieldStatus,
+                                                    onToggleTouchBoost = onToggleTouchBoost,
+                                                    onToggleHeadsUpShield = onToggleHeadsUpShield,
+                                                    onSelectFocusLevel = onSelectFocusLevel
                                                 )
                                                 HudPage.Tools -> HudTools(
                                                     prefs = prefs,
@@ -230,7 +246,12 @@ fun HudSidebar(
                                                     onHz = onHz,
                                                     onCapture = onCapture,
                                                     onStop = onStop,
-                                                    onBoostRam = onBoostRam
+                                                    onBoostRam = onBoostRam,
+                                                    brightnessLocked = brightnessLocked,
+                                                    onToggleBrightnessLock = onToggleBrightnessLock,
+                                                    onToggleAutoSkip = { preferences.setAutoSkipEnabled(it) },
+                                                    onSetAutoSkipSpeed = { preferences.setAutoSkipSpeed(it) },
+                                                    onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
                                                 )
                                             }
                                             action.message?.let { msgRes ->

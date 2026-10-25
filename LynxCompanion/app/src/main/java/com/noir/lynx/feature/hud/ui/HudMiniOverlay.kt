@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.data.*
 import kotlin.math.min
 
@@ -71,7 +72,9 @@ internal fun HudMiniOverlay(
     onDrag: (Float) -> Unit,
     dockRight: Boolean = false,
     onDrag2D: ((Float, Float) -> Unit)? = null,
-    onDragEnd: () -> Unit = {}
+    onDragEnd: () -> Unit = {},
+    isSkipping: Boolean = false,
+    onToggleAutoSkip: () -> Unit = {}
 ) {
     val selected = HudMetric.values().filter { it.key in prefs.selected }
     val fontScale = LocalDensity.current.fontScale
@@ -188,26 +191,39 @@ internal fun HudMiniOverlay(
         }
     }
 
-    Row(
-        modifier = Modifier
-            .width(totalWidth)
-            .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
-            .semantics { contentDescription = openDescription },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
+    val showAutoSkip = prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(snapshot.packageName)
+
+    Column(
+        horizontalAlignment = if (dockRight) Alignment.End else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (dockRight) {
-            if (showMetrics) {
-                metricsCapsule()
-                Spacer(Modifier.width(3.dp))
+        Row(
+            modifier = Modifier
+                .width(totalWidth)
+                .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
+                .semantics { contentDescription = openDescription },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
+        ) {
+            if (dockRight) {
+                if (showMetrics) {
+                    metricsCapsule()
+                    Spacer(Modifier.width(3.dp))
+                }
+                edgeBar()
+            } else {
+                edgeBar()
+                if (showMetrics) {
+                    Spacer(Modifier.width(3.dp))
+                    metricsCapsule()
+                }
             }
-            edgeBar()
-        } else {
-            edgeBar()
-            if (showMetrics) {
-                Spacer(Modifier.width(3.dp))
-                metricsCapsule()
-            }
+        }
+        if (showAutoSkip) {
+            HudSmartTriggerOverlay(
+                isSkipping = isSkipping,
+                onToggle = onToggleAutoSkip
+            )
         }
     }
 }

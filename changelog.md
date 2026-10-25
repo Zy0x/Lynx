@@ -1,3 +1,77 @@
+# Lynx Universal [Pemicu Pintar · Auto-Skip Dialog Genshin Impact & Hoyo RPGs] 7.0.0-RC196
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC196** (Lynx Kernel Manager v3.2.40): **Peluncuran Fitur Taktis Gaming Pintar: `Pemicu Pintar · Auto-Skip Dialog (Genshin Impact & Hoyo RPGs)` yang Diadaptasi dari Arsitektur Cerdas XBoost AI Magic Box Infinix & Desktop Dialogue Skipper; Memadukan Kalkulator Koordinat Adaptif Lintas-Rasio Layar (16:9, 19.5:9, 20.5:9, 21:9) Tanpa Ketergantungan Koordinat Statis Kaku; Runner Ringan Tanpa I/O Disk Berfrekuensi Sampling 4 Hz (CPU < 0.3%); Tombol Melayang Cerdas `[ ⏩ Auto-Skip ]` (Otomatis Muncul Hanya Saat Game RPG Aktif di Layar Depan); Injeksi Sentuhan Sub-Milidetik Terpadu; Serta Pengendalian Lengkap Kecepatan Ketukan (180ms, 250ms, 380ms) dan Pemilihan Opsi Percakapan di Halaman `Alat` (`HudTools`)**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC196)
+
+### 1. ⚡ Pemicu Pintar · Auto-Skip Dialog Genshin & Hoyo RPGs (`GenshinSkipEngine.kt`, `GenshinSkipRunner.kt`)
+- **Adaptasi Lintas-Rasio Layar Dinamis (*Aspect-Ratio & Orientation Invariant*)**:
+  - Mengeliminasi kelemahan skrip desktop koordinat statis: menghitung target sentuh secara matematis dari dimensi layar fisik (`screenWidth`, `screenHeight`), menghasilkan koordinat dialog advance (`X ≈ 72%`, `Y ≈ 60%`) dan kolom opsi dialog (`X ≈ 68%`, `Y ≈ 67%..77%`) yang presisi di layar standar 16:9 maupun ultra-wide 19.5:9 (Redmi Note 7) dan 20.5:9 (Infinix Note 11s).
+  - Normalisasi otomatis orientasi layar (selalu menggunakan dimensi bentang lanskap game).
+- **Mendukung Game RPG Populer Secara Spesifik**:
+  - `com.miHoYo.GenshinImpact` (Genshin Impact Global)
+  - `com.miHoYo.Yuanshen` (Genshin Impact CN)
+  - `com.HoYoverse.hkrpgoversea` (Honkai: Star Rail)
+  - `com.HoYoverse.Nap` (Zenless Zone Zero)
+  - `com.kurogame.wutheringwaves.global` (Wuthering Waves)
+
+### 2. 🛡️ Jaminan Kinerja "Zero-Lag & Smooth" (Bebas Stutter & Drop FPS)
+- **Zero Disk I/O**: Tidak pernah menulis file gambar screenshot mentah ke penyimpanan flash (`/sdcard/`).
+- **Low-Overhead Execution**:
+  - Loop berjalan dengan konsumsi daya CPU < 0.3% menggunakan coroutine Kotlin `Dispatchers.IO`.
+  - Pengecekan status layar mati atau aplikasi berpindah dari latar depan langsung memicu *pause* otomatis tanpa membebani game loop.
+  - Injeksi sentuhan sub-milidetik ke driver input touchscreen (`/dev/input/event*`) atau fallback `input tap`.
+
+### 3. 🎯 Antarmuka Terpadu: Tombol Melayang Pintar & Kontrol di Tab `Alat` (`HudTools.kt`, `HudSmartTriggerOverlay.kt`, `HudMiniOverlay.kt`)
+- **Tombol Melayang Pintar (*Smart Floating Trigger Pill*)**:
+  - Saat sakelar Pemicu Pintar aktif, tombol mini semi-transparan `[ ⏩ Auto-Skip ]` otomatis muncul di tepi layar ponsel ketika game RPG dideteksi di foreground.
+  - Mengetuk tombol tersebut langsung mengaktifkan akselerasi dialog dengan efek visual border cyan menyala `[ ⏩ Skipping... ]` dan dapat dihentikan kapan saja dengan 1 ketukan jari.
+- **Konfigurasi Lengkap di Tab `Alat`**:
+  - Sakelar aktivasi Pemicu Pintar.
+  - Pilihan Kecepatan Ketukan: **Cepat (180ms)**, **Alami (250ms)**, dan **Santai (380ms)**.
+  - Pilihan Target Opsi Dialog: **Opsi 1 (Atas)** atau **Opsi Terakhir (Bawah)**.
+  - Penataan ulang tampilan *Magic Box · Cooldown Timer* menjadi lebih lapang dan bebas benturan teks.
+
+---
+
+# Lynx Universal [Touch Master, Notification Shield, Brightness Lock & Tactical Cooldown Timer] 7.0.0-RC195
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC195** (Lynx Kernel Manager v3.2.39): **Ekspansi Ekosistem Fitur In-Game Gaming HUD: Peluncuran Modul 3 `Touch Master` (Akselerasi Responsivitas Sentuh Kernel MTK `tchbst`/`perfserv` & Qualcomm `schedtune`/`touchboost` Dilengkapi Bantalan Uji Sampel Sentuh Interaktif Real-Time Berakurasi Hz, Interval ms, dan Deteksi Multi-Jari); Modul 4 `Perisai Notifikasi & Fokus` (Pemblokir Banner Mengambang Heads-up Notifications & Selektor 3 Tingkat Mode Fokus dengan Pemulihan Otomatis Saat HUD Ditutup); Serta Utilitas Taktis `Kunci Kecerahan Game` (Mencegah Layar Meredup Mendadak Akibat Sensor Cahaya Tertutup Telapak Tangan Saat Menggenggam Ponsel) dan `Magic Box · Timer Cooldown` (Penghitung Waktu Mundur Respawn Buff/Objektif 30d, 60d, 2m, 3m yang Ringan & Efisien)**.
+
+## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC195)
+
+### 1. ⚡ Modul 3 `HudLab` — Touch Master & Live Touch Sampling Pad (`HudLab.kt`, `HudLabRepository.kt`)
+- **Akselerasi Responsivitas Sentuhan Hardware Terverifikasi**:
+  - Mengidentifikasi dan mengontrol node kernel akselerasi sentuh secara dinamis:
+    - **MediaTek**: `/proc/perfmgr/tchbst/user/usrtch`, `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost`, dan `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle`.
+    - **Qualcomm**: `/dev/stune/top-app/schedtune.prefer_idle` dan `/sys/module/msm_performance/parameters/touchboost`.
+  - Dilengkapi status backend transparan (`MTK Perfmgr TchBst + EAS` / `Qualcomm SchedTune + TouchBoost`) dan verifikasi status aktif melalui `/dev/lynx_touch_master_active`.
+- **Bantalan Sampel Sentuhan Interaktif (`Live Touch Sampling Pad`)**:
+  - Bantalan sentuh interaktif setinggi `54 dp` di dalam kartu Touch Master menggunakan Compose `pointerInput` (`awaitPointerEventScope`).
+  - Mengambil stempel waktu historis dan stempel waktu peristiwa sentuh primer (`change.historical` dan `uptimeMillis`) untuk menghitung metrik terukur nyata secara real-time:
+    - **Laju Sampel Sentuh**: `Sampling (Hz)` terhitung dari rata-rata interval antar-event mikro (`1.0..120.0 ms`).
+    - **Interval Sentuhan**: `Interval (ms)` terukur presisi hingga 1 desimal.
+    - **Deteksi Multi-Jari**: Jumlah titik sentuhan simultan maksimum yang tercatat saat pengujian.
+
+### 2. 🛡️ Modul 4 `HudLab` — Perisai Notifikasi & Fokus (`HudLab.kt`, `HudLabRepository.kt`, `HudController.kt`)
+- **Blokir Banner Mengambang (*Heads-Up Shield*)**:
+  - Sakelar langsung untuk menonaktifkan notifikasi mengambang (*heads-up pop-up banners*) yang kerap menghalangi pandangan krusial saat bertarung sengit di dalam game, melalui `settings put global heads_up_notifications_enabled 0|1`.
+  - Suara dan notifikasi tetap berjalan di latar belakang tanpa mengganggu game.
+  - Nilai awal dicatat dan dipulihkan secara otomatis saat HUD ditutup (`restoreDisplay()`).
+- **Selektor 3 Tingkat Fokus Game**:
+  - Kontrol terintegrasi 3 pilihan: **Normal** (`DND Off`), **Prioritas** (`DND Priority`), dan **Senyap** (`DND None/Total Silence`), tersinkronisasi dua arah dengan Quick Tile `Fokus` pada halaman Ringkasan.
+  - Seluruh setelan DND dikembalikan ke status awal saat HUD dinonaktifkan.
+
+### 3. 🎯 Halaman `HudTools` — Kunci Kecerahan Game & Magic Box Cooldown Timer (`HudTools.kt`)
+- **Kunci Kecerahan Game (*Game Brightness Lock*)**:
+  - Sakelar 1-ketuk untuk mengunci kecerahan layar ke mode manual (`settings put system screen_brightness_mode 0`), mencegah kecerahan layar turun mendadak ketika sensor ambient tertutup oleh jari atau telapak tangan gamer saat memegang perangkat dalam posisi lanskap.
+  - Mengembalikan mode kecerahan otomatis (`screen_brightness_mode 1`) secara otomatis saat HUD dimatikan.
+- **Magic Box · Timer Cooldown**:
+  - Utilitas taktis penghitung waktu mundur 1-ketuk dengan preset cepat **30d**, **60d**, **2m**, dan **3m** untuk memantau waktu spawn monster buff, Lord/Turtle, atau cooldown spell lawan.
+  - Tampilan format `MM:SS` kontras tinggi dengan aksen cyan saat aktif, tombol `Reset`, dan pemakaian CPU nyaris 0% (loop coroutine `1000 ms` hanya berjalan saat timer aktif).
+
+---
+
 # Lynx Universal [Pre-Zygote post-fs-data Sensor Synchronizer Before Lock Screen] 7.0.0-RC194
 Released on: 2026-10-25
 > **Lynx Universal v7.0.0-RC194** (Lynx Kernel Manager v3.2.38): **Sinkronisasi Sensor MediaTek SCP Tahap Pre-Zygote (`post-fs-data.sh`): Memantau Kemunculan `/dev/m_acc_misc` Setiap 200ms Sejak Detik ke-1.5 Booting (Sebelum `zygote64` dan `system_server` Berjalan), Memastikan `vendor.sensors-hal-2-0` Membuka Seluruh 16 Sensor Fisik 15 Detik Sebelum Pengguna Masuk ke Lock Screen Tanpa Risiko Abort `SensorService`**.

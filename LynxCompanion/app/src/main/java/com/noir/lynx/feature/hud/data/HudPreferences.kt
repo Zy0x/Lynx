@@ -19,7 +19,10 @@ data class HudPreferences(
     val floatingWidthPct: Int = 70,
     val floatingHeightPct: Int = 65,
     val dockPackages: List<String>? = null,
-    val appSizes: Map<String, HudAppSize> = emptyMap()
+    val appSizes: Map<String, HudAppSize> = emptyMap(),
+    val autoSkipEnabled: Boolean = false,
+    val autoSkipSpeedMs: Long = 250L,
+    val autoSkipChoiceBottom: Boolean = false
 )
 
 class HudPreferencesStore(context: Context) {
@@ -43,7 +46,10 @@ class HudPreferencesStore(context: Context) {
                 HudAppSize(it.getInt("width").coerceIn(35, 95), it.getInt("height").coerceIn(35, 90))
             } }
         }.getOrDefault(emptyMap())
-        return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct, dock, sizes)
+        val autoSkip = prefs.getBoolean("hud_autoskip_enabled", false)
+        val autoSkipSpeed = prefs.getLong("hud_autoskip_speed_ms", 250L)
+        val autoSkipBottom = prefs.getBoolean("hud_autoskip_choice_bottom", false)
+        return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct, dock, sizes, autoSkip, autoSkipSpeed, autoSkipBottom)
     }
 
     val changes = callbackFlow {
@@ -103,5 +109,17 @@ class HudPreferencesStore(context: Context) {
         }
         sizes.forEach { (key, value) -> json.put(key, JSONObject().put("width", value.width).put("height", value.height)) }
         prefs.edit().putString("hud_app_sizes_v1", json.toString()).apply()
+    }
+
+    fun setAutoSkipEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("hud_autoskip_enabled", enabled).apply()
+    }
+
+    fun setAutoSkipSpeed(speedMs: Long) {
+        prefs.edit().putLong("hud_autoskip_speed_ms", speedMs).apply()
+    }
+
+    fun setAutoSkipChoiceBottom(bottom: Boolean) {
+        prefs.edit().putBoolean("hud_autoskip_choice_bottom", bottom).apply()
     }
 }

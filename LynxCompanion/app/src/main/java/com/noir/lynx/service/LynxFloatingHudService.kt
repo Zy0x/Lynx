@@ -533,6 +533,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val supported by rates.collectAsState()
             val bypassStatus by controller.bypassStatus.collectAsState()
             val focusActive by controller.focusActive.collectAsState()
+            val touchStatus by controller.touchStatus.collectAsState()
+            val shieldStatus by controller.shieldStatus.collectAsState()
+            val brightnessLocked by controller.brightnessLocked.collectAsState()
+            val isSkipping by controller.isSkipping.collectAsState()
+            val hudPrefs by preferences.changes.collectAsState(initial = preferences.read())
+
+            LaunchedEffect(sample.packageName, expanded, size, hudPrefs) {
+                val dm = resources.displayMetrics
+                controller.syncAutoSkip(
+                    pkg = sample.packageName,
+                    isHudOpen = expanded,
+                    width = dm.widthPixels,
+                    height = dm.heightPixels,
+                    prefs = hudPrefs
+                )
+            }
             if (mode == 0) {
                 HudSidebar(
                     snapshot = sample,
@@ -558,7 +574,16 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onToggleFocus = controller::toggleFocus,
                     onToggleBypass = controller::setBypass,
                     onRefreshBypass = controller::refreshBypassStatus,
-                    onProbeNetwork = controller::probeNetwork
+                    onProbeNetwork = controller::probeNetwork,
+                    touchStatus = touchStatus,
+                    shieldStatus = shieldStatus,
+                    brightnessLocked = brightnessLocked,
+                    onToggleTouchBoost = controller::setTouchBoost,
+                    onToggleHeadsUpShield = controller::setHeadsUpShield,
+                    onSelectFocusLevel = controller::setFocusLevel,
+                    onToggleBrightnessLock = controller::setBrightnessLock,
+                    isSkipping = isSkipping,
+                    onToggleAutoSkip = controller::toggleAutoSkip
                 )
             } else {
                 FloatingHudContent(

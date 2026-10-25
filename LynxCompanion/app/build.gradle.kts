@@ -29,8 +29,8 @@ android {
         applicationId = "com.noir.lynx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20261280
-        versionName = "3.2.36"
+        versionCode = 20261284
+        versionName = "3.2.40"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

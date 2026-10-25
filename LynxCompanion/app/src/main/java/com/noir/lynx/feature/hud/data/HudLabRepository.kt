@@ -25,6 +25,25 @@ data class HudBypassStatus(
     val chipSummary: String = ""
 )
 
+data class HudTouchStatus(
+    val capability: HudCapability = HudCapability.CHECKING,
+    val enabled: Boolean = false,
+    val backendLabel: String = ""
+)
+
+data class HudTouchSample(
+    val rateHz: Int? = null,
+    val intervalMs: Double? = null,
+    val activeFingers: Int = 0,
+    val maxFingers: Int = 0
+)
+
+data class HudShieldStatus(
+    val capability: HudCapability = HudCapability.CHECKING,
+    val headsUpBlocked: Boolean = false,
+    val zenMode: Int = 0
+)
+
 data class HudNetworkSample(
     val avgMs: Double? = null,
     val jitterMs: Double? = null,
@@ -37,6 +56,31 @@ data class HudNetworkSample(
             val penalty = (avg * 0.45) + (jitter * 1.1) + (lossPct * 0.7)
             return (100.0 - penalty).roundToInt().coerceIn(0, 100)
         }
+}
+
+internal fun computeTouchSampleMetrics(
+    deltasMs: List<Double>,
+    activeFingers: Int,
+    previousMaxFingers: Int = 0
+): HudTouchSample {
+    val filtered = deltasMs.filter { it.isFinite() && it in 0.8..100.0 }
+    val maxFingers = maxOf(activeFingers, previousMaxFingers)
+    if (filtered.isEmpty()) {
+        return HudTouchSample(
+            rateHz = null,
+            intervalMs = null,
+            activeFingers = activeFingers,
+            maxFingers = maxFingers
+        )
+    }
+    val avgMs = filtered.average()
+    val hz = (1000.0 / avgMs).roundToInt().coerceIn(15, 1000)
+    return HudTouchSample(
+        rateHz = hz,
+        intervalMs = avgMs,
+        activeFingers = activeFingers,
+        maxFingers = maxFingers
+    )
 }
 
 internal fun parseChargingStatusJson(raw: String, rootAvailable: Boolean): HudBypassStatus {
@@ -100,6 +144,85 @@ class HudLabRepository(private val context: Context) {
         }
         val raw = Shell.cmd(cmd).exec().out.joinToString("\n")
         parseChargingStatusJson(raw, rootAvailable = true)
+    }
+
+    suspend fun probeTouchBoost(): HudTouchStatus = withContext(Dispatchers.IO) {
+        if (!isRootAvailable()) {
+            return@withContext HudTouchStatus(capability = HudCapability.NEEDS_ROOT)
+        }
+        val script = """
+            if [ -e /proc/perfmgr/tchbst/user/usrtch ] || [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
+                echo "BACKEND=MTK Perfmgr TchBst + EAS"
+                if [ -f /dev/lynx_touch_master_active ]; then echo "ACTIVE=1"; else echo "ACTIVE=0"; fi
+            elif [ -e /dev/stune/top-app/schedtune.prefer_idle ] || [ -e /sys/module/msm_performance/parameters/touchboost ]; then
+                echo "BACKEND=Qualcomm SchedTune + TouchBoost"
+                if [ -f /dev/lynx_touch_master_active ]; then echo "ACTIVE=1"; else echo "ACTIVE=0"; fi
+            else
+                echo "BACKEND=NONE"
+            fi
+        """.trimIndent()
+        val lines = Shell.cmd(script).exec().out
+        val backend = lines.firstOrNull { it.startsWith("BACKEND=") }?.substringAfter("BACKEND=")?.trim().orEmpty()
+        val active = lines.any { it.trim() == "ACTIVE=1" }
+        if (backend.isEmpty() || backend == "NONE") {
+            HudTouchStatus(capability = HudCapability.UNSUPPORTED, enabled = false, backendLabel = "")
+        } else {
+            HudTouchStatus(capability = HudCapability.READY, enabled = active, backendLabel = backend)
+        }
+    }
+
+    suspend fun setTouchBoost(enabled: Boolean): HudTouchStatus = withContext(Dispatchers.IO) {
+        if (!isRootAvailable()) {
+            return@withContext HudTouchStatus(capability = HudCapability.NEEDS_ROOT)
+        }
+        val script = if (enabled) {
+            """
+            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
+                echo 80 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
+            fi
+            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle ]; then
+                echo "3 1" > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle 2>/dev/null
+            fi
+            if [ -e /dev/stune/top-app/schedtune.prefer_idle ]; then
+                echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null
+            fi
+            if [ -e /sys/module/msm_performance/parameters/touchboost ]; then
+                echo 1 > /sys/module/msm_performance/parameters/touchboost 2>/dev/null
+            fi
+            touch /dev/lynx_touch_master_active 2>/dev/null
+            """.trimIndent()
+        } else {
+            """
+            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
+                echo 25 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
+            fi
+            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle ]; then
+                echo "3 0" > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle 2>/dev/null
+            fi
+            if [ -e /dev/stune/top-app/schedtune.prefer_idle ]; then
+                echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null
+            fi
+            rm -f /dev/lynx_touch_master_active 2>/dev/null
+            """.trimIndent()
+        }
+        Shell.cmd(script).exec()
+        probeTouchBoost()
+    }
+
+    suspend fun probeShield(): HudShieldStatus = withContext(Dispatchers.IO) {
+        if (!isRootAvailable()) {
+            return@withContext HudShieldStatus(capability = HudCapability.NEEDS_ROOT)
+        }
+        val lines = Shell.cmd(
+            "echo \"HEADSUP=\$(settings get global heads_up_notifications_enabled 2>/dev/null)\"; echo \"ZEN=\$(settings get global zen_mode 2>/dev/null)\""
+        ).exec().out
+        val headsUpRaw = lines.firstOrNull { it.startsWith("HEADSUP=") }?.substringAfter("HEADSUP=")?.trim()
+        val zenRaw = lines.firstOrNull { it.startsWith("ZEN=") }?.substringAfter("ZEN=")?.trim()?.toIntOrNull() ?: 0
+        HudShieldStatus(
+            capability = HudCapability.READY,
+            headsUpBlocked = headsUpRaw == "0",
+            zenMode = zenRaw.coerceIn(0, 3)
+        )
     }
 
     suspend fun probeNetwork(
