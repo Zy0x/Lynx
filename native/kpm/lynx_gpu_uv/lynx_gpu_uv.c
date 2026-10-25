@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_gpu_uv");
-KPM_VERSION("1.1.0");
+KPM_VERSION("1.2.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Adaptive GPU Undervolt [-12.5 mV Core VGPU | Safe Floor 0.55V]");
+KPM_DESCRIPTION("Lynx Adaptive GPU Undervolt [Tiered: Peak -12.5 mV | Mid/Low -25.0 mV | Floor 0.55V]");
 
 #define LOG_TAG "[LynxGPU_UV] "
 
@@ -20,9 +20,22 @@ KPM_DESCRIPTION("Lynx Adaptive GPU Undervolt [-12.5 mV Core VGPU | Safe Floor 0.
 static void *target_regulator_set_voltage = NULL;
 static void *target_ged_dvfs_vcore = NULL;
 
-// Runtime Configurable Offset (in microvolts, uV)
-// Default: -12500 uV (-12.5 mV primary sweet spot, 100% stable & cool)
-static int uv_gpu_offset_uv = -12500;
+// Operating Modes:
+// 0 = Tiered Curve (Recommended): Peak (>=840mV) @ -12.5 mV, Mid/Low (<840mV) @ -25.0 mV
+// 1 = Flat Offset across all OPP states
+// 2 = Disabled (Stock OEM voltages)
+#define UV_MODE_TIERED   0
+#define UV_MODE_FLAT     1
+#define UV_MODE_DISABLED 2
+
+static int g_uv_mode = UV_MODE_TIERED;
+
+// Tiered Configuration:
+static int uv_peak_offset_uv = -12500; // -12.5 mV for >= 840 mV (930-950 MHz)
+static int uv_mid_offset_uv  = -25000; // -25.0 mV for < 840 mV (300-920 MHz)
+
+// Flat Configuration (when g_uv_mode == UV_MODE_FLAT):
+static int uv_flat_offset_uv = -12500;
 
 // Rail Targeting Control:
 // 0 = ONLY vgpu (Core Logic undervolt, vsram kept at 100% stock for rock-solid stability)
@@ -51,6 +64,21 @@ static int k_str_contains(const char *haystack, const char *needle)
     return 0;
 }
 
+static inline int resolve_offset_for_uv(int base_uV)
+{
+    if (g_uv_mode == UV_MODE_DISABLED) return 0;
+    if (g_uv_mode == UV_MODE_FLAT) return uv_flat_offset_uv;
+
+    // UV_MODE_TIERED:
+    // Peak OPPs (930 - 950 MHz, base >= 840000 uV): -12.5 mV for 100% rock-solid combat stability
+    // Mid & Low OPPs (300 - 920 MHz, base < 840000 uV): -25.0 mV for deep thermal & power savings
+    if (base_uV >= 840000) {
+        return uv_peak_offset_uv;
+    } else {
+        return uv_mid_offset_uv;
+    }
+}
+
 // Before Hook for regulator_set_voltage(struct regulator *reg, int min_uV, int max_uV)
 void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
 {
@@ -75,16 +103,18 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
         return;
     }
 
-    if (uv_gpu_offset_uv < 0) {
-        int new_min = min_uV + uv_gpu_offset_uv;
-        int new_max = max_uV + uv_gpu_offset_uv;
+    int offset = resolve_offset_for_uv(min_uV);
+    if (offset < 0) {
+        int new_min = min_uV + offset;
+        int new_max = max_uV + offset;
 
         // Enforce safety floor
         if (new_min >= MIN_SAFE_GPU_UV && new_max >= MIN_SAFE_GPU_UV) {
             args->arg1 = (uint64_t)new_min;
             args->arg2 = (uint64_t)new_max;
-            logkd(LOG_TAG "UV applied to '%s': %d uV -> %d uV (offset %d uV)\n",
-                  name, min_uV, new_min, uv_gpu_offset_uv);
+            logkd(LOG_TAG "UV applied to '%s': %d uV -> %d uV (offset %d uV, %s)\n",
+                  name, min_uV, new_min, offset,
+                  (min_uV >= 840000) ? "Peak Tier" : "Mid/Low Tier");
         }
     }
 }
@@ -99,13 +129,17 @@ void before_ged_dvfs_vcore(hook_fargs1_t *args, void *udata)
     int vcore = (int)args->arg0;
 
     // Apply GPU Undervolt offset if active
-    if (vcore > 60000 && uv_gpu_offset_uv < 0) {
-        int offset_step = uv_gpu_offset_uv / 1000; // convert uV to mV
-        int new_vcore = vcore + (offset_step * 100);
-        if (new_vcore >= (MIN_SAFE_GPU_UV / 10)) {
-            args->arg0 = (uint64_t)new_vcore;
-            logkd(LOG_TAG "ged_dvfs_vcore: %d -> %d (offset %d uV)\n",
-                  vcore, new_vcore, uv_gpu_offset_uv);
+    if (vcore > 60000) {
+        int base_uV = vcore * 10;
+        int offset_uv = resolve_offset_for_uv(base_uV);
+        if (offset_uv < 0) {
+            int offset_step = offset_uv / 1000; // convert uV to mV
+            int new_vcore = vcore + (offset_step * 100);
+            if (new_vcore >= (MIN_SAFE_GPU_UV / 10)) {
+                args->arg0 = (uint64_t)new_vcore;
+                logkd(LOG_TAG "ged_dvfs_vcore: %d -> %d (offset %d uV)\n",
+                      vcore, new_vcore, offset_uv);
+            }
         }
     }
 }
@@ -121,20 +155,21 @@ static long lynx_gpu_uv_control0(const char *args, char *__user out_msg, int out
     logkd(LOG_TAG "Control command: %s\n", args);
 
     if (k_str_contains(args, "reset") || k_str_contains(args, "stock")) {
-        uv_gpu_offset_uv = 0;
+        g_uv_mode = UV_MODE_DISABLED;
         logkd(LOG_TAG "GPU UV disabled (stock default 0 uV)\n");
-    } else if (k_str_contains(args, "uv=-12.5") || k_str_contains(args, "sweetspot")) {
-        uv_gpu_offset_uv = -12500;
-        logkd(LOG_TAG "Set sweetspot GPU UV offset: -12.5 mV\n");
-    } else if (k_str_contains(args, "uv=-25")) {
-        uv_gpu_offset_uv = -25000;
-        logkd(LOG_TAG "Set aggressive GPU UV offset: -25.0 mV\n");
-    } else if (k_str_contains(args, "uv=-37.5")) {
-        uv_gpu_offset_uv = -37500;
-        logkd(LOG_TAG "Set heavy GPU UV offset: -37.5 mV\n");
-    } else if (k_str_contains(args, "uv=-50")) {
-        uv_gpu_offset_uv = -50000;
-        logkd(LOG_TAG "Set extreme GPU UV offset: -50.0 mV\n");
+    } else if (k_str_contains(args, "tiered") || k_str_contains(args, "auto")) {
+        g_uv_mode = UV_MODE_TIERED;
+        uv_peak_offset_uv = -12500;
+        uv_mid_offset_uv = -25000;
+        logkd(LOG_TAG "GPU UV mode: Tiered Curve (Peak -12.5 mV | Mid/Low -25.0 mV)\n");
+    } else if (k_str_contains(args, "flat12.5") || k_str_contains(args, "flat_12.5") || k_str_contains(args, "uv=-12.5")) {
+        g_uv_mode = UV_MODE_FLAT;
+        uv_flat_offset_uv = -12500;
+        logkd(LOG_TAG "GPU UV mode: Flat -12.5 mV across entire table\n");
+    } else if (k_str_contains(args, "flat25") || k_str_contains(args, "flat_25") || k_str_contains(args, "uv=-25")) {
+        g_uv_mode = UV_MODE_FLAT;
+        uv_flat_offset_uv = -25000;
+        logkd(LOG_TAG "GPU UV mode: Flat -25.0 mV across entire table\n");
     }
 
     if (k_str_contains(args, "vsram=off") || k_str_contains(args, "core_only")) {
@@ -161,7 +196,8 @@ static long lynx_gpu_uv_init(const char *args, const char *event, void *__user r
     if (target_regulator_set_voltage) {
         hook_err_t err = hook_wrap3(target_regulator_set_voltage, before_regulator_set_voltage, after_regulator_set_voltage, 0);
         if (err == HOOK_NO_ERR) {
-            logkd(LOG_TAG "Hooked regulator_set_voltage (GPU UV active: %d uV)\n", uv_gpu_offset_uv);
+            logkd(LOG_TAG "Hooked regulator_set_voltage (Tiered UV: Peak %d uV, Mid %d uV)\n",
+                  uv_peak_offset_uv, uv_mid_offset_uv);
         } else {
             logke(LOG_TAG "Failed to hook regulator_set_voltage, err=%d\n", err);
         }
@@ -174,7 +210,8 @@ static long lynx_gpu_uv_init(const char *args, const char *event, void *__user r
     if (target_ged_dvfs_vcore) {
         hook_err_t err = hook_wrap1(target_ged_dvfs_vcore, before_ged_dvfs_vcore, after_ged_dvfs_vcore, 0);
         if (err == HOOK_NO_ERR) {
-            logkd(LOG_TAG "Hooked ged_dvfs_vcore (GPU UV active: %d uV)\n", uv_gpu_offset_uv);
+            logkd(LOG_TAG "Hooked ged_dvfs_vcore (Tiered UV: Peak %d uV, Mid %d uV)\n",
+                  uv_peak_offset_uv, uv_mid_offset_uv);
         }
     }
 
