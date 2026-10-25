@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_cpu_uv");
-KPM_VERSION("2.1.0");
+KPM_VERSION("2.2.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Adaptive CPU Undervolt [CPU -25.0 mV | VCore -12.5 mV | Safe Floor 0.575V]");
+KPM_DESCRIPTION("Lynx Adaptive CPU Undervolt [CPU -18.75 mV | VCore -12.5 mV | Safe Floor 0.575V]");
 
 #define LOG_TAG "[LynxCPU_UV] "
 
@@ -23,11 +23,11 @@ static void *target_upmu_buck_vcore_vosel = NULL;
 static void *target_regulator_set_voltage = NULL;
 
 // Runtime Configurable Offsets (in microvolts, uV)
-// Default: -25000 uV (-25.0 mV recommended peak undervolt, 100% stable)
-static int uv_cpu_offset_uv = -25000;
-// MT6358 step is 6.25 mV (6250 uV) per selector step: 25000 / 6250 = 4 steps
-static int uv_cpu_selector_steps = 4;
-// Vcore SoC bus: conservative 12.5 mV (2 steps) or 25 mV (4 steps)
+// Default: -18750 uV (-18.75 mV sweet spot, 100% rock-solid stability & high thermal efficiency)
+static int uv_cpu_offset_uv = -18750;
+// MT6358 step is 6.25 mV (6250 uV) per selector step: 18750 / 6250 = 3 steps
+static int uv_cpu_selector_steps = 3;
+// Vcore SoC bus: conservative 12.5 mV (2 steps * 6.25 mV)
 static int uv_vcore_selector_steps = 2;
 
 // Absolute safety floor voltage (uV) to prevent CPU freeze/crash
@@ -139,9 +139,17 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
     int floor_uv = MIN_SAFE_CPU_UV;
 
     if (k_str_contains(name, "vproc11") || k_str_contains(name, "vproc12")) {
+        if (target_upmu_buck_vproc11_vosel || target_upmu_buck_vproc12_vosel) {
+            // Low-level PMIC vosel hook is active, avoid double-undervolting!
+            return;
+        }
         offset = uv_cpu_offset_uv;
         floor_uv = MIN_SAFE_CPU_UV;
     } else if (k_str_contains(name, "vcore")) {
+        if (target_upmu_buck_vcore_vosel) {
+            // Low-level PMIC vosel hook is active, avoid double-undervolting!
+            return;
+        }
         offset = uv_vcore_selector_steps * -6250;
         floor_uv = MIN_SAFE_VCORE_UV;
     } else {
