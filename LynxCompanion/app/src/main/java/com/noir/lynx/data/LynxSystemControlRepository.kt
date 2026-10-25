@@ -74,7 +74,7 @@ object LynxSystemControlRepository {
                     which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 0 2>/dev/null || true
                 done
 
-                # MediaTek Hardware Silicon Hooks
+                # MediaTek Hardware Silicon Hooks (Dynamic Format & Key Discovery)
                 if [ -f /proc/net/wlan/setCAM ]; then
                     chmod 666 /proc/net/wlan/setCAM 2>/dev/null
                     echo 1 > /proc/net/wlan/setCAM 2>/dev/null
@@ -86,61 +86,44 @@ object LynxSystemControlRepository {
                     echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
                 fi
                 if [ -f /proc/net/wlan/dbgLevel ]; then
-                    echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
+                    if grep -q ":" /proc/net/wlan/dbgLevel 2>/dev/null; then
+                        echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
+                    else
+                        echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
+                    fi
                 fi
                 if [ -f /proc/net/wlan/cfg ]; then
-                    for kv in "PowerSave 0" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
-                        echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                    cfg_dump=${'$'}(cat /proc/net/wlan/cfg 2>/dev/null)
+                    for kv in "PowerSave 0" "KeepFullPwr 1" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
+                        k=${'$'}{kv%% *}
+                        if [ -z "${'$'}cfg_dump" ] || echo "${'$'}cfg_dump" | grep -qE "(D:)?${'$'}{k}\|"; then
+                            echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                        fi
                     done
                 fi
-                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread/ {print ${'$'}1}'); do
+                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
                     renice -n -20 -p "${'$'}t" 2>/dev/null
                     chrt -f -p 50 "${'$'}t" 2>/dev/null || true
                 done
 
-                # Qualcomm Snapdragon WCNSS / QCACLD Low-Latency STA Hooks
-                if [ -d /sys/module/wlan/parameters ]; then
-                    [ -f /sys/module/wlan/parameters/con_mode ] && echo 0 > /sys/module/wlan/parameters/con_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/rx_mode ] && echo 1 > /sys/module/wlan/parameters/rx_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/gEnablePacketFilter ] && echo 0 > /sys/module/wlan/parameters/gEnablePacketFilter 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/dynamic_ps ] && echo 0 > /sys/module/wlan/parameters/dynamic_ps 2>/dev/null
-                fi
+                # Dynamic Multi-Vendor Kernel Module Parameter Discovery
+                for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do
+                    [ -d "${'$'}mod_dir" ] || continue
+                    for p_zero in con_mode gEnablePacketFilter dynamic_ps auto_power packet_filter dhd_slpauto dhd_watchdog_ms dhd_pkt_filter_enable slp_enable; do
+                        [ -f "${'$'}mod_dir/${'$'}p_zero" ] && echo 0 > "${'$'}mod_dir/${'$'}p_zero" 2>/dev/null
+                    done
+                    for p_one in rx_mode op_mode; do
+                        [ -f "${'$'}mod_dir/${'$'}p_one" ] && echo 1 > "${'$'}mod_dir/${'$'}p_one" 2>/dev/null
+                    done
+                    [ -f "${'$'}mod_dir/roam_trigger" ] && echo -75 > "${'$'}mod_dir/roam_trigger" 2>/dev/null
+                done
+                [ -f /proc/sprdwlan/auto_power ] && echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
+                [ -f /proc/sprdwlan/dynamic_ps ] && echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
                 setprop persist.vendor.data.mode concurrent 2>/dev/null
                 setprop persist.vendor.data.iwlan.enable true 2>/dev/null
-
-                # Unisoc (Spreadtrum) SPRDWLAN Driver Hooks
-                if [ -f /proc/sprdwlan/auto_power ]; then
-                    echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
-                fi
-                if [ -f /proc/sprdwlan/dynamic_ps ]; then
-                    echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/auto_power ]; then
-                    echo 0 > /sys/module/sprdwl_ng/parameters/auto_power 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/rx_mode ]; then
-                    echo 1 > /sys/module/sprdwl_ng/parameters/rx_mode 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/packet_filter ]; then
-                    echo 0 > /sys/module/sprdwl_ng/parameters/packet_filter 2>/dev/null
-                fi
                 setprop persist.vendor.sprd.wlan.lowpower 0 2>/dev/null
                 setprop persist.vendor.sprd.wlan.performance 1 2>/dev/null
                 setprop persist.sys.sprd.wlan.latency 1 2>/dev/null
-
-                # Broadcom / Samsung Exynos DHD & SCSC Hooks
-                if [ -d /sys/module/dhd/parameters ]; then
-                    [ -f /sys/module/dhd/parameters/dhd_slpauto ] && echo 0 > /sys/module/dhd/parameters/dhd_slpauto 2>/dev/null
-                    [ -f /sys/module/dhd/parameters/dhd_watchdog_ms ] && echo 0 > /sys/module/dhd/parameters/dhd_watchdog_ms 2>/dev/null
-                    [ -f /sys/module/dhd/parameters/dhd_pkt_filter_enable ] && echo 0 > /sys/module/dhd/parameters/dhd_pkt_filter_enable 2>/dev/null
-                fi
-                if [ -f /sys/module/bcmdhd/parameters/op_mode ]; then
-                    echo 1 > /sys/module/bcmdhd/parameters/op_mode 2>/dev/null
-                fi
-                if [ -d /sys/module/scsc_wlan/parameters ]; then
-                    [ -f /sys/module/scsc_wlan/parameters/slp_enable ] && echo 0 > /sys/module/scsc_wlan/parameters/slp_enable 2>/dev/null
-                    [ -f /sys/module/scsc_wlan/parameters/roam_trigger ] && echo -75 > /sys/module/scsc_wlan/parameters/roam_trigger 2>/dev/null
-                fi
                 echo ok
                 """.trimIndent()
             } else {
@@ -259,14 +242,25 @@ object LynxSystemControlRepository {
         try {
             val script = if (enabled) {
                 """
-                echo 16777216 > /proc/sys/net/core/rmem_max 2>/dev/null
-                echo 16777216 > /proc/sys/net/core/wmem_max 2>/dev/null
-                echo 262144 > /proc/sys/net/core/rmem_default 2>/dev/null
-                echo 262144 > /proc/sys/net/core/wmem_default 2>/dev/null
-                echo "4096 87380 16777216" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
-                echo "4096 65536 16777216" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
+                mem_kb=${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print ${'$'}2}')
+                [ -z "${'$'}mem_kb" ] && mem_kb=4000000
+                if [ "${'$'}mem_kb" -ge 8000000 ]; then
+                    buf_max=33554432; buf_def=524288
+                elif [ "${'$'}mem_kb" -ge 4000000 ]; then
+                    buf_max=16777216; buf_def=262144
+                elif [ "${'$'}mem_kb" -ge 2500000 ]; then
+                    buf_max=8388608; buf_def=131072
+                else
+                    buf_max=4194304; buf_def=65536
+                fi
+                echo "${'$'}buf_max" > /proc/sys/net/core/rmem_max 2>/dev/null
+                echo "${'$'}buf_max" > /proc/sys/net/core/wmem_max 2>/dev/null
+                echo "${'$'}buf_def" > /proc/sys/net/core/rmem_default 2>/dev/null
+                echo "${'$'}buf_def" > /proc/sys/net/core/wmem_default 2>/dev/null
+                echo "4096 87380 ${'$'}buf_max" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
+                echo "4096 65536 ${'$'}buf_max" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
                 for k in default wifi lte 5g hspa hsupa hsdpa umts edge gprs evdo cdma; do
-                    setprop net.tcp.buffersize.${'$'}k "524288,1048576,16777216,262144,524288,16777216" 2>/dev/null
+                    setprop net.tcp.buffersize.${'$'}k "524288,1048576,${'$'}buf_max,262144,524288,${'$'}buf_max" 2>/dev/null
                 done
                 echo ok
                 """.trimIndent()
@@ -361,7 +355,7 @@ object LynxSystemControlRepository {
                     which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 0 2>/dev/null || true
                 done
 
-                # 1. MediaTek Direct Silicon Hooks
+                # 1. MediaTek Direct Silicon Hooks (Dynamic Format & Key Discovery)
                 if [ -f /proc/net/wlan/autoPerfCfg ]; then
                     echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
                 fi
@@ -373,63 +367,46 @@ object LynxSystemControlRepository {
                     echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
                 fi
                 if [ -f /proc/net/wlan/dbgLevel ]; then
-                    echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
+                    if grep -q ":" /proc/net/wlan/dbgLevel 2>/dev/null; then
+                        echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
+                    else
+                        echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
+                    fi
                 fi
                 if [ -f /proc/net/wlan/cfg ]; then
-                    for kv in "PowerSave 0" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
-                        echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                    cfg_dump=${'$'}(cat /proc/net/wlan/cfg 2>/dev/null)
+                    for kv in "PowerSave 0" "KeepFullPwr 1" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
+                        k=${'$'}{kv%% *}
+                        if [ -z "${'$'}cfg_dump" ] || echo "${'$'}cfg_dump" | grep -qE "(D:)?${'$'}{k}\|"; then
+                            echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
+                        fi
                     done
                 fi
-                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread/ {print ${'$'}1}'); do
+                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
                     renice -n -20 -p "${'$'}t" 2>/dev/null
                     chrt -f -p 50 "${'$'}t" 2>/dev/null || true
                 done
 
-                # 2. Qualcomm Snapdragon WCNSS / QCACLD Direct Hooks
-                if [ -d /sys/module/wlan/parameters ]; then
-                    [ -f /sys/module/wlan/parameters/con_mode ] && echo 0 > /sys/module/wlan/parameters/con_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/rx_mode ] && echo 1 > /sys/module/wlan/parameters/rx_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/gEnablePacketFilter ] && echo 0 > /sys/module/wlan/parameters/gEnablePacketFilter 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/dynamic_ps ] && echo 0 > /sys/module/wlan/parameters/dynamic_ps 2>/dev/null
-                fi
+                # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery
+                for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do
+                    [ -d "${'$'}mod_dir" ] || continue
+                    for p_zero in con_mode gEnablePacketFilter dynamic_ps auto_power packet_filter dhd_slpauto dhd_watchdog_ms dhd_pkt_filter_enable slp_enable; do
+                        [ -f "${'$'}mod_dir/${'$'}p_zero" ] && echo 0 > "${'$'}mod_dir/${'$'}p_zero" 2>/dev/null
+                    done
+                    for p_one in rx_mode op_mode; do
+                        [ -f "${'$'}mod_dir/${'$'}p_one" ] && echo 1 > "${'$'}mod_dir/${'$'}p_one" 2>/dev/null
+                    done
+                    [ -f "${'$'}mod_dir/roam_trigger" ] && echo -75 > "${'$'}mod_dir/roam_trigger" 2>/dev/null
+                done
+                [ -f /proc/sprdwlan/auto_power ] && echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
+                [ -f /proc/sprdwlan/dynamic_ps ] && echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
                 setprop persist.vendor.data.mode concurrent 2>/dev/null
                 setprop persist.vendor.data.iwlan.enable true 2>/dev/null
-
-                # 3. Unisoc SPRDWLAN Direct Hooks
-                if [ -f /proc/sprdwlan/auto_power ]; then
-                    echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
-                fi
-                if [ -f /proc/sprdwlan/dynamic_ps ]; then
-                    echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/auto_power ]; then
-                    echo 0 > /sys/module/sprdwl_ng/parameters/auto_power 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/rx_mode ]; then
-                    echo 1 > /sys/module/sprdwl_ng/parameters/rx_mode 2>/dev/null
-                fi
-                if [ -f /sys/module/sprdwl_ng/parameters/packet_filter ]; then
-                    echo 0 > /sys/module/sprdwl_ng/parameters/packet_filter 2>/dev/null
-                fi
                 setprop persist.vendor.sprd.wlan.lowpower 0 2>/dev/null
                 setprop persist.vendor.sprd.wlan.performance 1 2>/dev/null
                 setprop persist.sys.sprd.wlan.latency 1 2>/dev/null
 
-                # 4. Broadcom / Samsung Exynos / Google Tensor SCSC & DHD Hooks
-                if [ -d /sys/module/dhd/parameters ]; then
-                    [ -f /sys/module/dhd/parameters/dhd_slpauto ] && echo 0 > /sys/module/dhd/parameters/dhd_slpauto 2>/dev/null
-                    [ -f /sys/module/dhd/parameters/dhd_watchdog_ms ] && echo 0 > /sys/module/dhd/parameters/dhd_watchdog_ms 2>/dev/null
-                    [ -f /sys/module/dhd/parameters/dhd_pkt_filter_enable ] && echo 0 > /sys/module/dhd/parameters/dhd_pkt_filter_enable 2>/dev/null
-                fi
-                if [ -f /sys/module/bcmdhd/parameters/op_mode ]; then
-                    echo 1 > /sys/module/bcmdhd/parameters/op_mode 2>/dev/null
-                fi
-                if [ -d /sys/module/scsc_wlan/parameters ]; then
-                    [ -f /sys/module/scsc_wlan/parameters/slp_enable ] && echo 0 > /sys/module/scsc_wlan/parameters/slp_enable 2>/dev/null
-                    [ -f /sys/module/scsc_wlan/parameters/roam_trigger ] && echo -75 > /sys/module/scsc_wlan/parameters/roam_trigger 2>/dev/null
-                fi
-
-                # 5. Universal Android Framework Wi-Fi Low Latency
+                # 3. Universal Android Framework Wi-Fi Low Latency
                 cmd wifi force-low-latency-mode enabled 2>/dev/null
                 cmd wifi set-power-save-mode 0 2>/dev/null
                 echo ok
