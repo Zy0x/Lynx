@@ -14,7 +14,6 @@ if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-$KpDir = Resolve-Path "$PSScriptRoot/../../../tools/KernelPatch"
 $Src = "$PSScriptRoot/lynx_cpu_uv.c"
 $Obj = "$OutputDir/lynx_cpu_uv.o"
 $Kpm = "$OutputDir/lynx_cpu_uv.kpm"
@@ -24,11 +23,7 @@ Write-Host "Source: $Src"
 Write-Host "Clang : $Clang"
 
 $IncFlags = @(
-    "-I$KpDir/kernel/include",
-    "-I$KpDir/kernel/patch/include",
-    "-I$KpDir/kernel/linux/include",
-    "-I$KpDir/kernel/linux/arch/arm64/include",
-    "-I$KpDir/kernel/linux/tools/arch/arm64/include"
+    "-I$PSScriptRoot/../include"
 )
 
 # Step 1: Compile object

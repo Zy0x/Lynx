@@ -6,18 +6,13 @@
  * Framework: KernelPatch / APatch KPM
  */
 
-#include <log.h>
-#include <compiler.h>
-#include <kpmodule.h>
-#include <hook.h>
-#include <kallsyms.h>
-#include <linux/printk.h>
+#include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_cpu_uv");
-KPM_VERSION("2.0.0");
+KPM_VERSION("2.1.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Dynamic Adaptive Peak CPU, CCI & SoC VCore Undervolt Engine");
+KPM_DESCRIPTION("Lynx Adaptive CPU Undervolt [CPU -25.0 mV | VCore -12.5 mV | Safe Floor 0.575V]");
 
 #define LOG_TAG "[LynxCPU_UV] "
 

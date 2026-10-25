@@ -6,18 +6,13 @@
  * Framework: KernelPatch / APatch KPM
  */
 
-#include <log.h>
-#include <compiler.h>
-#include <kpmodule.h>
-#include <hook.h>
-#include <kallsyms.h>
-#include <linux/printk.h>
+#include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_gpu_uv");
-KPM_VERSION("1.0.0");
+KPM_VERSION("1.1.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Dynamic Adaptive GPU Undervolt (UV) Engine");
+KPM_DESCRIPTION("Lynx Adaptive GPU Undervolt [-12.5 mV Core VGPU | Safe Floor 0.55V]");
 
 #define LOG_TAG "[LynxGPU_UV] "
 
