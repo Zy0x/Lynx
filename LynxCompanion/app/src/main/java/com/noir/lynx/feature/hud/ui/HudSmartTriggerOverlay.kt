@@ -4,24 +4,26 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 
 private val HudAmber = Color(0xFFFFB74D)
 
+/**
+ * Ultra-compact, non-intrusive floating trigger badge for Dialogue Auto-Skip.
+ * Slim 34×34 dp circular footprint: prevents game UI occlusion and eliminates dead zones.
+ */
 @Composable
 internal fun HudSmartTriggerOverlay(
     isSkipping: Boolean,
@@ -66,36 +68,25 @@ internal fun HudSmartTriggerOverlay(
         else -> "⏩"
     }
 
-    val labelText = when {
-        isSkipping -> hudString(R.string.hud_autoskip_pill_active)
-        isPaused -> hudString(R.string.hud_autoskip_pill_paused)
-        else -> hudString(R.string.hud_autoskip_pill_idle)
-    }
-
     Surface(
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onToggle()
         },
-        shape = RoundedCornerShape(18.dp),
+        shape = CircleShape,
         color = backgroundColor,
         border = BorderStroke(1.5.dp, borderColor),
-        modifier = modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+        modifier = modifier
+            .padding(1.dp)
+            .size(34.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
         ) {
             Text(
                 text = iconText,
-                fontSize = 11.5.sp
-            )
-            Text(
-                text = labelText,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
                 color = targetTextColor
             )
         }

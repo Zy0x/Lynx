@@ -60,7 +60,10 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     fun startMagic() { beforeMagicStart(); magic.start() }
     fun setGameQos(enabled: Boolean) {
         val pkg = magic.foreground.value
-        scope.launch(Dispatchers.IO) { if (!closed) qos.set(enabled, pkg) }
+        scope.launch(Dispatchers.IO) {
+            if (!closed) qos.set(enabled, pkg)
+            if (closed || magic.foreground.value != pkg) qos.restore()
+        }
     }
     fun previewGlow() = glowOverlay.pulse(color.value)
 
@@ -139,7 +142,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         }
     }
 
-    /** Called before the HUD scope is cancelled; restoration uses its caller's IO context. */
+    /** Teardown restoration runs on its caller's IO context, independently of the HUD scope. */
     fun close() {
         closed = true
         runCatching { context.unregisterReceiver(screenOff) }

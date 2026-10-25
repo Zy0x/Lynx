@@ -221,11 +221,18 @@ internal fun HudMiniOverlay(
             }
         }
         if (showAutoSkip) {
-            HudSmartTriggerOverlay(
-                isSkipping = isSkipping,
-                isPaused = isPaused,
-                onToggle = onToggleAutoSkip
-            )
+            Box(
+                modifier = Modifier
+                    .width(if (showMetrics) totalWidth else 34.dp)
+                    .padding(horizontal = if (dockRight) 0.dp else 1.dp),
+                contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
+            ) {
+                HudSmartTriggerOverlay(
+                    isSkipping = isSkipping,
+                    isPaused = isPaused,
+                    onToggle = onToggleAutoSkip
+                )
+            }
         }
     }
 }

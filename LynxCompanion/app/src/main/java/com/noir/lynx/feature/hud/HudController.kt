@@ -47,6 +47,9 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private val displaySession = HudDisplaySession(context)
     private val labRepository = HudLabRepository(context)
     private val gaming = HudGamingAddins(context, scope)
+    private data class SkipContext(val pkg: String, val open: Boolean, val width: Int, val height: Int,
+        val prefs: com.noir.lynx.feature.hud.data.HudPreferences)
+    private var skipContext: SkipContext? = null
     val skipRunner = GenshinSkipRunner(context, scope)
     val isSkipping = skipRunner.isSkipping
     val isPaused = skipRunner.isPaused
@@ -69,7 +72,8 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private var initialBrightnessMode: Int? = null
 
     init {
-        gaming.beforeMagicStart = { skipRunner.stop() }
+        gaming.beforeMagicStart = { syncSkipRunner(forceDisabled = true) }
+        scope.launch { gaming.magic.running.collect { syncSkipRunner() } }
         scope.launch(Dispatchers.IO) {
             gaming.setRootAvailable(runCatching { Shell.getShell().isRoot }.getOrDefault(false))
             displaySession.restore()
@@ -245,15 +249,21 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     fun toggleAutoSkip() { gaming.magic.stop(); skipRunner.toggle() }
     fun stopAutoSkip() { skipRunner.stop() }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
+        skipContext = SkipContext(pkg, isHudOpen, width, height, prefs)
         gaming.update(pkg, isHudOpen, width, height)
+        syncSkipRunner()
+    }
+
+    private fun syncSkipRunner(forceDisabled: Boolean = false) {
+        val state = skipContext ?: return
         skipRunner.syncState(
-            pkg = pkg,
-            isHudOpen = isHudOpen,
-            width = width,
-            height = height,
-            enabled = prefs.autoSkipEnabled,
-            speedMs = prefs.autoSkipSpeedMs,
-            targetChoiceBottom = prefs.autoSkipChoiceBottom
+            pkg = state.pkg,
+            isHudOpen = state.open,
+            width = state.width,
+            height = state.height,
+            enabled = state.prefs.autoSkipEnabled && !gaming.magic.running.value && !forceDisabled,
+            speedMs = state.prefs.autoSkipSpeedMs,
+            targetChoiceBottom = state.prefs.autoSkipChoiceBottom
         )
     }
 

@@ -1,3 +1,25 @@
+# Lynx Universal [Lencana Melayang 34dp Ultra-Kompak & Zero-Deadzone Pass-Through] 7.0.0-RC200
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC200** (Lynx Kernel Manager v3.2.42): **Pembaruan Desain & Efisiensi Sentuh Pemicu Pintar Auto-Skip: Transformasi Tombol Melayang Menjadi Lencana Sirkular Ultra-Kompak 34×34 dp (`CircleShape`) Ramping Menempel Rapi di Tepi Bezel Layar; Eliminasi Total Zona Mati Sentuh (*Zero-Deadzone Pass-Through*) Menggunakan `OnComputeInternalInsetsListener` (`TOUCHABLE_INSETS_REGION`) & Penolakan Intersepsi Sentuh Diluar Tombol (`dispatchTouchEvent -> false`) Sehingga Tombol In-Game Bebas Ditekan Tanpa Halangan; Perlindungan Anti-Kill OOM Tingkat Kernel (`oom_score_adj = -1000`) & Mode Layanan Persisten `START_STICKY` Menjamin HUD Tetap Kebal dari Tekanan Memori Saat Game Berat Memuat Data; Serta Optimalisasi Pembersihan Memori & Kompaksi zRAM Adaptif**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC200)
+1. **Lencana Melayang Sirkular 34×34 dp Ultra-Kompak (*Ultra-Compact Circular Badge*)**:
+   - Merevolusi tampilan tombol melayang dari bentuk kapsul lebar (~125dp) menjadi lencana mini melingkar ramping berukuran 34×34 dp (`CircleShape`).
+   - Tampilan bersih dengan ikon penunjuk arah `⏩` (oranye/putih saat siaga/aktif) dan `⏸️` (amber saat jeda) dengan border animasi halus.
+   - Mengurangi lebar jendela overlay hingga lebih dari 70%, menjaga area layar game tetap luas dan bebas dari penutupan visual.
+2. **Penembusan Sentuhan Bebas Hambatan (*Zero-Deadzone Pass-Through*)**:
+   - Memperbaiki masalah tombol in-game yang tidak bisa ditekan saat berada di sekitar tombol auto-skip.
+   - Mengimplementasikan `OnComputeInternalInsetsListener` dinamis dengan refleksi Android framework (`TOUCHABLE_INSETS_REGION = 3`), membatasi area tangkap sentuhan WindowManager hanya tepat di atas gagang geser dan lencana 34dp.
+   - Memodifikasi `HudHostView.dispatchTouchEvent` agar mengembalikan `false` seketika untuk setiap sentuhan di area transparan di luar lencana, menyalurkan sentuhan langsung ke engine tombol game di bawahnya tanpa delay.
+3. **Perlindungan Anti-Kill OOM Ekstrem (`oom_score_adj = -1000`)**:
+   - Menambahkan penguncian prioritas proses HUD ke tingkat `-1000` (setara dengan `system_server` dan `init`) menggunakan eksekusi root LibSU di `onCreate()`.
+   - Mengubah kebijakan layanan menjadi `START_STICKY` agar HUD otomatis bangkit kembali jika terjadi tekanan alokasi RAM saat game memuat aset 3D.
+4. **Analisis Memori & Diagnostik Framework**:
+   - Mengidentifikasi lonjakan konsumsi RAM latar belakang dari aplikasi media sosial/belanja (TikTok, Instagram, Tokopedia, WPS) yang memicu tekanan CPU dan watchdog timeout.
+   - Mengintegrasikan prosedur pembersihan cache file (`drop_caches 3`), kompaksi memori kernel (`compact_memory`), dan penyeimbangan `vm.vfs_cache_pressure` / `vm.swappiness` untuk stabilitas performa gaming maksimum.
+
+---
+
 # Lynx Universal [Pemicu Bebas-Genggam Otomatis & Kontrol Jeda Manual Auto-Skip] 7.0.0-RC199
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC199** (Lynx Kernel Manager v3.2.41): **Evolusi Cerdas Pemicu Auto-Skip Percakapan: Eksekusi Bebas-Genggam (*Autonomous Hands-Free Skipping*) Otomatis Aktif Seketika Saat Dialog Dimulai Tanpa Perlu Menekan Tombol Manual; Penyediaan Tombol Jeda Taktis (*Manual Pause / Resume Safety Guard*) Melalui Tombol Melayang Berwarna Amber `[ ⏸️ Jeda ]` Jika Pemain Ingin Berhenti Sejenak Membaca Alur Cerita; Pemulihan Otomatis Status Jeda Saat Percakapan Selesai; Serta Sampling Frekuensi Adaptif (1200ms Mode Siaga <0.5% CPU & 650ms Saat Dialog Aktif)**.

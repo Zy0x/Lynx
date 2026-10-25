@@ -5,6 +5,8 @@ import android.content.*
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.Region
+import java.lang.reflect.Proxy
 import android.hardware.display.DisplayManager
 import android.os.*
 import android.provider.Settings
@@ -20,6 +22,7 @@ import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.hud.HudController
+import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.feature.hud.ui.*
 import kotlinx.coroutines.*
@@ -191,6 +194,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         runCatching { java.io.File(filesDir, FLAG_FILE_NAME).createNewFile() }
         isRunningFlow.value = true
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val pid = android.os.Process.myPid()
+                com.topjohnwu.superuser.Shell.cmd("echo -1000 > /proc/$pid/oom_score_adj").exec()
+            }
+        }
         runCatching {
             sendBroadcast(Intent(ACTION_HUD_STATE_CHANGED).putExtra(EXTRA_IS_RUNNING, true).setPackage(packageName))
         }
@@ -217,7 +226,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 LynxFloatingWindowManager.openTool(tool)
             }
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun targetDisplay(): Display? = view?.display ?: displays.getDisplay(Display.DEFAULT_DISPLAY)
@@ -335,6 +344,60 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
         }
 
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            setupTouchableInsets()
+        }
+
+        private fun setupTouchableInsets() {
+            try {
+                val listenerClass = Class.forName("android.view.ViewTreeObserver\$OnComputeInternalInsetsListener")
+                val addMethod = ViewTreeObserver::class.java.getMethod("addOnComputeInternalInsetsListener", listenerClass)
+                val insetsInfoClass = Class.forName("android.view.ViewTreeObserver\$InternalInsetsInfo")
+                val setTouchableInsets = insetsInfoClass.getMethod("setTouchableInsets", Int::class.javaPrimitiveType)
+                val touchableRegionField = insetsInfoClass.getField("touchableRegion")
+
+                val proxy = Proxy.newProxyInstance(
+                    listenerClass.classLoader,
+                    arrayOf(listenerClass)
+                ) { _, method, args ->
+                    if (method.name == "onComputeInternalInsets" && args != null && args.isNotEmpty()) {
+                        val info = args[0]
+                        if (open.value) {
+                            setTouchableInsets.invoke(info, 0)
+                        } else {
+                            setTouchableInsets.invoke(info, 3)
+                            val region = touchableRegionField.get(info) as? Region ?: Region()
+                            val density = resources.displayMetrics.density
+
+                            val handleHeight = (72f * density).toInt()
+                            val handleWidth = width.coerceAtLeast(1)
+
+                            region.set(0, 0, handleWidth, handleHeight)
+
+                            val hasAutoSkip = preferences.read().autoSkipEnabled &&
+                                GenshinSkipEngine.isGameSupported(rendered.value.packageName)
+
+                            if (hasAutoSkip) {
+                                val triggerSize = (40f * density).toInt()
+                                val triggerTop = handleHeight
+                                val triggerBottom = (triggerTop + triggerSize).coerceAtMost(height.coerceAtLeast(triggerTop + 1))
+                                val isRight = dockRight.value
+                                val triggerRect = if (isRight) {
+                                    Rect((width - triggerSize).coerceAtLeast(0), triggerTop, width, triggerBottom)
+                                } else {
+                                    Rect(0, triggerTop, triggerSize.coerceAtMost(width), triggerBottom)
+                                }
+                                region.op(triggerRect, Region.Op.UNION)
+                            }
+                        }
+                    }
+                    null
+                }
+                addMethod.invoke(viewTreeObserver, proxy)
+            } catch (_: Throwable) {}
+        }
+
         override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
             super.onLayout(changed, left, top, right, bottom)
             updateExclusionRects(this)
@@ -376,11 +439,23 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             gestureMode = GestureMode.UNDECIDED
                             mainHandler.postDelayed(holdToDragRunnable, 220L)
                         } else {
-                            gestureMode = GestureMode.PASS_THROUGH
+                            val hasAutoSkip = preferences.read().autoSkipEnabled &&
+                                GenshinSkipEngine.isGameSupported(rendered.value.packageName)
+
+                            val triggerSizePx = 40f * density
+                            val isRight = dockRight.value
+                            val isInsideTrigger = hasAutoSkip && downLocalY <= (handleHeightPx + triggerSizePx) &&
+                                (if (isRight) downLocalX >= (width - triggerSizePx) else downLocalX <= triggerSizePx)
+
+                            if (isInsideTrigger) {
+                                gestureMode = GestureMode.PASS_THROUGH
+                            } else {
+                                return false
+                            }
                         }
                     }
-                    super.dispatchTouchEvent(ev)
-                    return true
+                    val handled = super.dispatchTouchEvent(ev)
+                    return if (gestureMode == GestureMode.PASS_THROUGH) handled else true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
