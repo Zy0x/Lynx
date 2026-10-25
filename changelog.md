@@ -1,3 +1,9 @@
+# Lynx Universal [Pre-SensorService Early-Boot Guard & Anti-Framework-Abort Fix] 7.0.0-RC193
+Released on: 2026-10-25
+> **Lynx Universal v7.0.0-RC193** (Lynx Kernel Manager v3.2.38): **Perbaikan Kritis Mekanisme Auto-Heal Sensor MediaTek SCP (`service.sh`): Memindahkan Pemeriksaan `/dev/m_acc_misc` & Restart `vendor.sensors-hal-2-0` ke Tahap Early-Boot Sebelum `SensorService` (`system_server`) Mengunci Handle Sensor, Mencegah `SIGABRT` (`Sensor handles changed, cannot re-enable sensors.`) yang Sebelumnya Memicu Restart Framework Saat Masuk ke Home Screen**.
+
+---
+
 # Lynx Universal [Compact M3 Vertical Navigation Rail HUD, Add-in Lab & Focus Mode] 7.0.0-RC192
 Released on: 2026-10-25
 > **Lynx Universal v7.0.0-RC192** (Lynx Kernel Manager v3.2.38): **Restrukturisasi Tata Letak In-Game Floating HUD ke Arsitektur Material 3 Vertical Navigation Rail 4 Halaman (`Ringkasan`, `Monitor`, `Lab`, `Alat`) untuk Efisiensi Ruang Vertikal Lanskap & Ergonomi Satu Ibu Jari; Pemindahan Quick Action Tiles & App Dock ke Halaman `Ringkasan`; Penggantian Tile Keempat Menjadi `Fokus` (DND Prioritas Terverifikasi dengan Pemulihan Otomatis); Penambahan Mini-Sparkline Frametime pada Kartu Hero; serta Peluncuran Halaman `HudLab` (Modul Bypass Charging Hardware-Verified & Diagnostik Latensi/Jitter Jaringan Game On-Demand)**.

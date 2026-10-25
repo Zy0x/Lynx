@@ -13,24 +13,30 @@ if [ -f /proc/sys/vm/max_map_count ]; then
     fi
 fi
 
-# MediaTek SCP SensorHub Race-Condition Auto-Heal Guard (APatch / Late SCP Init)
-# Under APatch, vendor.sensors-hal-2-0 can start before /dev/m_*_misc nodes finish
-# registering from SCP, leaving the HAL with 0 open sensor FDs until restarted.
+# MediaTek SCP SensorHub Early-Boot Guard (MUST run BEFORE system_server starts SensorService!)
+# Restarting vendor.sensors-hal-2-0 AFTER SensorService has cached sensor handles causes
+# system_server to SIGABRT with: "Sensor handles changed, cannot re-enable sensors."
+if [ "$(getprop sys.boot_completed)" != "1" ] && ! service check sensorservice 2>/dev/null | grep -q "found"; then
+    for _wait_i in 1 2 3 4 5 6; do
+        [ -c /dev/m_acc_misc ] && break
+        sleep 0.5
+    done
+    if [ -c /dev/m_acc_misc ]; then
+        SENSOR_PID=$(pidof android.hardware.sensors@2.0-service-mediatek 2>/dev/null)
+        if [ -n "$SENSOR_PID" ] && ! ls -l "/proc/$SENSOR_PID/fd" 2>/dev/null | grep -q "/dev/m_acc_misc"; then
+            if ! service check sensorservice 2>/dev/null | grep -q "found"; then
+                stop vendor.sensors-hal-2-0 2>/dev/null
+                start vendor.sensors-hal-2-0 2>/dev/null
+            fi
+        fi
+    fi
+fi
+
 (
     while [ "$(getprop sys.boot_completed)" != "1" ]; do
         sleep 2
     done
     sleep 3
-    if [ -c /dev/m_acc_misc ]; then
-        SENSOR_PID=$(pidof android.hardware.sensors@2.0-service-mediatek 2>/dev/null)
-        if [ -n "$SENSOR_PID" ]; then
-            if ! ls -l "/proc/$SENSOR_PID/fd" 2>/dev/null | grep -q "/dev/m_acc_misc"; then
-                stop vendor.sensors-hal-2-0 2>/dev/null
-                sleep 1
-                start vendor.sensors-hal-2-0 2>/dev/null
-            fi
-        fi
-    fi
 
     # Universal Dynamic Wi-Fi Silicon & Kernel Network Low-Latency Engine (Zero-Hardcoding)
     if [ -d /proc/net/wlan ] && [ -f "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" ] && [ -f /vendor/firmware/wifi.cfg ]; then
