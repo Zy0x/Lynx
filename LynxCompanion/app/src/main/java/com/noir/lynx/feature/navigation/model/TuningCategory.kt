@@ -16,7 +16,7 @@ enum class TuningCategory(
     val accentColor: Color
 ) {
     PROFILES("profiles", "Profil Performa Kernel", "Manajemen Profil & Otomasi Per-Aplikasi", Icons.Default.Speed, AccentOrange),
-    HUD("hud", "Floating Game HUD", "Overlay FPS, OSD Real-Time & Gaya Layout", Icons.Default.Visibility, AccentCyan),
+    HUD("hud", "Lynx Engine", "Overlay Game, Telemetri Real-Time & Alat Taktis", Icons.Default.Visibility, AccentCyan),
     CPU("cpu", "CPU Performa", "Kluster, Respon Daya & Penjadwal", Icons.Default.Memory, AccentCyan),
     GPU("gpu", "GPU & Display", "Clock GPU, Driver Boost & Refresh Rate", Icons.Default.SportsEsports, AccentOrange),
     THERMAL("thermal", "Thermal & Anti-Throttling", "Live Matrix, Trip Points & Bypass", Icons.Default.LocalFireDepartment, AccentRed),

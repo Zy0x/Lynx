@@ -133,7 +133,7 @@ fun FloatingGameHudCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "In-Game Performance HUD",
+                                text = "Lynx Engine In-Game",
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary

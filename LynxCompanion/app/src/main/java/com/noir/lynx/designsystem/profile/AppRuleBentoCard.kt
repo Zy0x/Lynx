@@ -240,7 +240,7 @@ fun AppRuleBentoCard(
                             border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.3f))
                         ) {
                             Text(
-                                text = "HUD",
+                                text = "ENGINE",
                                 color = AccentCyan,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,

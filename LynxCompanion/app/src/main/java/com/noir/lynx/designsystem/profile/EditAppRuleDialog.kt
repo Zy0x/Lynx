@@ -377,7 +377,7 @@ fun EditAppRuleDialog(
                         }
                     }
 
-                    // Card 4: Floating Game HUD (OSD) Toggle
+                    // Card 4: Lynx Engine In-Game Overlay Toggle
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFF0C0F17),
@@ -393,7 +393,7 @@ fun EditAppRuleDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
                                 Text(
-                                    text = "Floating Game HUD",
+                                    text = "Lynx Engine Overlay",
                                     color = TextPrimary,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 12.5.sp

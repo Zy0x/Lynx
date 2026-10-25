@@ -1,3 +1,17 @@
+# Lynx Universal [Rebranding Resmi: Transformasi HUD Menjadi "Lynx Engine"] 7.0.0-RC204
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC204** (Lynx Kernel Manager v3.2.43): **Rebranding Resmi & Menyeluruh Fitur Head-Up Display (HUD) Menjadi "Lynx Engine": Eliminasi Total Nomenklatur "HUD" dari Antarmuka Aplikasi, Drawer Navigasi, Kartu Profil Per-Aplikasi, Quick Settings Tile, Notifikasi Layanan Latar Belakang, hingga Label Panel OSD In-Game; Mempertegas Posisi Lynx Engine Sebagai Pusat Komando Telemetri Real-Time, Otomasi Auto-Skip Percakapan Game, dan Alat Taktis Gaming Berdaya Guna Tinggi**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC204)
+1. **Rebranding Penuh Menjadi "Lynx Engine"**:
+   - Menghapus seluruh sebutan generic "HUD" / "Game HUD" dari teks antarmuka pengguna (`strings.xml`, `TuningCategory`, `EditAppRuleDialog`, `AppRuleBentoCard`, `GpuSessionCards`).
+   - Kategori menu navigasi diubah menjadi **`Lynx Engine`** (`Overlay Game, Telemetri Real-Time & Alat Taktis`).
+   - Notifikasi layanan foreground diperbarui menjadi **`Lynx Engine Aktif`** dan Quick Settings Tile menjadi **`Lynx Engine`**.
+2. **Harmonisasi Identitas Produk**:
+   - Tombol pemicu auto-skip, panel bilah samping, dan jendela mengambang kini bernaung di bawah satu payung ekosistem terpadu: **Lynx Engine**.
+
+---
+
 # Lynx Universal [Sinkronisasi Otomatis Daemon Native, Asset Embedding & Pembaruan Antar-Perangkat] 7.0.0-RC203
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC203** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Tata Kelola & Sinkronisasi Daemon Native Rust (`lynxd`): Integrasi Ekstraksi Biner Otomatis dari Asset APK Berkecepatan Penuh ke `/data/local/tmp/lynxd` dan `/data/adb/modules/Lynx/system/bin/lynxd`; Deteksi Pemuatan Biner Baru (`/data/local/tmp/lynxd_new`) dengan Migrasi Aman Berizin Root; Pengaktifan Daemon Latar Belakang Tahan Banting Menggunakan `nohup lynxd daemon run`; Pembaruan Serentak Modul & APK pada Perangkat Uji Lapangan Redmi Note 7 (Snapdragon 660) & Infinix X698 (Helio G96)**.
