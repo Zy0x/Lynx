@@ -419,7 +419,7 @@ fun TuningTabContent(
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Icon(
                                                             imageVector = Icons.Default.NotificationsActive,
-                                                            contentDescription = "Gaya Feedback Notifikasi HUD",
+                                                            contentDescription = "Gaya Feedback Notifikasi Lynx Engine",
                                                             tint = AccentCyan.copy(alpha = 0.75f),
                                                             modifier = Modifier.size(17.dp)
                                                         )

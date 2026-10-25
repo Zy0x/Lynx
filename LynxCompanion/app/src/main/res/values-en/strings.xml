@@ -22,8 +22,8 @@
     <string name="tile_hud_off" formatted="false">Off</string>
     <string name="thermal_guard_channel_description" formatted="false">Real-time device thermal safety monitoring</string>
     <string name="thermal_guard_notification_status" formatted="false">Thermal Safety Guard Active</string>
-    <string name="floating_hud_notification_title" formatted="false">Lynx Floating Game HUD Active</string>
-    <string name="floating_hud_notification_tap_close" formatted="false">Tap to open Lynx or close the overlay</string>
+    <string name="floating_hud_notification_title" formatted="false">Lynx Engine Active</string>
+    <string name="floating_hud_notification_tap_close" formatted="false">Tap to open Lynx or close Lynx Engine</string>
     <string name="floating_hud_notification_tap" formatted="false">Tap to open Lynx</string>
     <string name="automation_channel_description" formatted="false">Lynx Universal active performance profile status</string>
     <string name="automation_standby_active" formatted="false">Standby Mode Active</string>
@@ -32,7 +32,7 @@
     <string name="automation_channel_name" formatted="false">Lynx Universal Mode</string>
     <string name="automation_notification_title">Lynx • %1$s</string>
     <string name="profile_name_auto" formatted="false">Auto (AI)</string>
-    <string name="floating_hud_channel_name" formatted="false">Lynx Game HUD Overlay</string>
+    <string name="floating_hud_channel_name" formatted="false">Lynx Engine Overlay</string>
     <string name="tile_profile_label_format">Lynx: %1$s</string>
     <string name="profile_name_balance" formatted="false">Balance</string>
     <string name="profile_name_performance" formatted="false">Performance</string>
@@ -48,7 +48,7 @@
     </plurals>
     <string name="tile_profile_label" formatted="false">Lynx Profile</string>
     <string name="tile_hbm_label" formatted="false">Lynx HBM</string>
-    <string name="tile_hud_label" formatted="false">Lynx HUD</string>
+    <string name="tile_hud_label" formatted="false">Lynx Engine</string>
     <string name="reset_to_oem_default" formatted="false">Reset to OEM Default</string>
     <string name="full_info_guide" formatted="false">Full Information Guide</string>
     <string name="restore_default" formatted="false">Restore Default</string>
@@ -381,7 +381,7 @@
     <string name="legacy_ui_de152fc3bc10a8" formatted="false">FT</string>
     <string name="legacy_ui_239b1b8e6bcc45" formatted="false">Filter dmesg (e.g. cpu, thermal, gpu)…</string>
     <string name="legacy_ui_1a693c00c40cc7" formatted="false">Float</string>
-    <string name="legacy_ui_b3f52a3b0283bd" formatted="false">Floating Game HUD (OSD)</string>
+    <string name="legacy_ui_b3f52a3b0283bd" formatted="false">Lynx Engine Overlay (OSD)</string>
     <string name="legacy_ui_531444b912de77" formatted="false">Floating Window</string>
     <string name="legacy_ui_16078339d173de" formatted="false">Frame pacing is smooth and close to the target refresh rate.</string>
     <string name="legacy_ui_a29bc419fc634b" formatted="false">GPU Clock Frequency</string>
@@ -403,7 +403,7 @@
     <string name="legacy_ui_f7554a8cddaf62" formatted="false">Global Undervolt Offset</string>
     <string name="legacy_ui_d944bf6ee9e7a2" formatted="false">HARDWARE</string>
     <string name="legacy_ui_c331c166bfed72" formatted="false">HBM Sunlight Booster</string>
-    <string name="legacy_ui_3fc391cbe2f215" formatted="false">HUD active! Swipe the side rail or tap the HUD header for quick controls in a game.</string>
+    <string name="legacy_ui_3fc391cbe2f215" formatted="false">Lynx Engine active! Swipe the side rail or tap the header for quick controls in a game.</string>
     <string name="legacy_ui_f3102b70ab5e6b" formatted="false">Pages Shared</string>
     <string name="legacy_ui_5c34c9dfb1282a" formatted="false">Shared Pages</string>
     <string name="legacy_ui_10725a56892ea5" formatted="false">Delete</string>
@@ -421,7 +421,7 @@
     <string name="legacy_ui_9c0b16d7f7e6d9" formatted="false">INTERCONNECT / MEMORY BUS</string>
     <string name="legacy_ui_c414eb3c60eb8f" formatted="false">Spoofed Identity (Userspace)</string>
     <string name="legacy_ui_88b6482669a59a" formatted="false">Follow Global</string>
-    <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Display-over-other-apps permission is required for the HUD overlay to appear during gameplay.</string>
+    <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Display-over-other-apps permission is required for Lynx Engine to appear during gameplay.</string>
     <string name="legacy_ui_752d23148d61fd" formatted="false">Run (Root)</string>
     <string name="legacy_ui_280d51a5874040" formatted="false">Run at Boot</string>
     <string name="legacy_ui_8f0b20f34ae743" formatted="false">A free-floating window that can be dragged anywhere on screen.</string>
@@ -496,7 +496,7 @@
     <string name="legacy_ui_55560ce670e21c" formatted="false">Disable All Emergency Tweaks</string>
     <string name="legacy_ui_e8db9f714e931b" formatted="false">OSD</string>
     <string name="legacy_ui_b74a55cf5b2e47" formatted="false">Per-App Profile Automation</string>
-    <string name="legacy_ui_6676ca1583e009" formatted="false">Real-Time Game HUD Overlay</string>
+    <string name="legacy_ui_6676ca1583e009" formatted="false">Real-Time Lynx Engine Overlay</string>
     <string name="legacy_ui_b7d9874de51c11" formatted="false">Active Tweak Overrides</string>
     <string name="legacy_ui_fe63abdc2f043b" formatted="false">PEAK CLOCK</string>
     <string name="legacy_ui_124f02058dca4d" formatted="false">KERNEL HINT (#):</string>
@@ -629,7 +629,7 @@
     <string name="legacy_ui_bb9046a72b0321" formatted="false">Test</string>
     <string name="legacy_ui_461c58f4b7edc3" formatted="false">Test Node</string>
     <string name="legacy_ui_4791ccd460ef4b" formatted="false">Run Again</string>
-    <string name="legacy_ui_c17ef32d6626e7" formatted="false">Test frame pacing, 1% Low FPS, and hardware presentation timestamps through SurfaceFlinger while the HUD is active.</string>
+    <string name="legacy_ui_c17ef32d6626e7" formatted="false">Test frame pacing, 1% Low FPS, and hardware presentation timestamps through SurfaceFlinger while Lynx Engine is active.</string>
     <string name="legacy_ui_4466bc08ffa517" formatted="false">VENDOR IMPLEMENTER</string>
     <string name="legacy_ui_b1bf5c78730845" formatted="false">VPROC / VSRAM</string>
     <string name="legacy_ui_acf57be3a40ab9" formatted="false">Frame Time Variance (Deviation)</string>
@@ -734,7 +734,7 @@
     <string name="legacy_ui_d769b458e1bd7b" formatted="false">FREQUENCY LEVELS (OPP)</string>
     <string name="legacy_ui_192f5f482134d7" formatted="false">Flash Kernel Now</string>
     <string name="legacy_ui_45c16378a66ef5" formatted="false">Flash a custom kernel (ZIP) from the system. The current kernel is backed up before writing.</string>
-    <string name="legacy_ui_47389b24691e6a" formatted="false">Floating Game HUD (In-Game OSD)</string>
+    <string name="legacy_ui_47389b24691e6a" formatted="false">Lynx Engine (In-Game OSD)</string>
     <string name="legacy_ui_1ddf10bdc368c9" formatted="false">Memory Bus &amp; Interconnect Frequency</string>
     <string name="legacy_ui_de187d5dfc6800" formatted="false">Full Thermal Bypass (Hardware Safety Dominant)</string>
     <string name="legacy_ui_655de2e95b8e63" formatted="false">GAMUT &amp; COLOR SPACE</string>
@@ -804,7 +804,7 @@
     <string name="legacy_ui_772988171935ff" formatted="false">Low-Latency Audio MMAP</string>
     <string name="legacy_ui_ef7e5c6f054db6" formatted="false">Disable software throttling • Silicon and battery protection remain active (phone cooler recommended)</string>
     <string name="legacy_ui_ecd3f4b5ec296f" formatted="false">Lynx App Icon</string>
-    <string name="legacy_ui_5eb514816c8065" formatted="false">Lynx HUD</string>
+    <string name="legacy_ui_5eb514816c8065" formatted="false">Lynx Engine</string>
     <string name="legacy_ui_42be3c3801a9d8" formatted="false">Lynx Kernel</string>
     <string name="legacy_ui_23bfe1edbd7de9" formatted="false">Lynx Performance Lab reads frame presentation timestamps from SurfaceFlinger to detect micro-stutter, jank, frame-time variance, and correlations with GPU frequency drops and thermal throttling.</string>
     <string name="legacy_ui_9e5f5b73830b15" formatted="false">CHARGING MODE</string>
@@ -815,7 +815,7 @@
     <string name="legacy_ui_1f447097eff4e9" formatted="false">Core Android service managers (ActivityManager, WindowManager, PowerManager).</string>
     <string name="legacy_ui_f325fcfbe2b460" formatted="false">SoC / GPU Identity Spoofing Detected</string>
     <string name="legacy_ui_bcf65bac9db0b6" formatted="false">GPU Master Tuner &amp; Telemetry</string>
-    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Game HUD Master Switch</string>
+    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Lynx Engine Master Switch</string>
     <string name="legacy_ui_e008b49696271c" formatted="false">Turn off the PLL clock generator when every core in the cluster is idle.</string>
     <string name="legacy_ui_8fbd3633b62c5c" formatted="false">Core Allocation Matrix (CPU Sets)</string>
     <string name="legacy_ui_f635ea316c7b4f" formatted="false">Core Matrix</string>
@@ -859,7 +859,7 @@
     <string name="legacy_ui_27d92bebbd3427" formatted="false">GPU Kernel &amp; Sysfs Nodes</string>
     <string name="legacy_ui_dccd8214c5fb92" formatted="false">Disabled (0 MB)</string>
     <string name="legacy_ui_10fa390c898387" formatted="false">Disable forced GPU OPP reductions by the THERMAL, BATT_LOW, and PBM limiter tables</string>
-    <string name="legacy_ui_1db912011ca127" formatted="false">Lynx Game HUD overlay status notifications</string>
+    <string name="legacy_ui_1db912011ca127" formatted="false">Lynx Engine overlay status notifications</string>
     <string name="legacy_ui_bf8fafef76b5df" formatted="false">OEM Locked (not supported by this hardware or kernel)</string>
     <string name="legacy_ui_daaa10bb848865" formatted="false">Octa-Core SoC Topology</string>
     <string name="legacy_ui_d290a777a63dba" formatted="false">SQLite &amp; FSTRIM Storage Optimization</string>
@@ -1117,8 +1117,8 @@
     <string name="legacy_ui_11dc041804ea41" formatted="false">KSM is not supported by this kernel</string>
     <string name="legacy_ui_89e93accfe6f9f" formatted="false">This feature is not supported by the kernel.</string>
     <string name="legacy_ui_4ec9ab46b325da" formatted="false">Kernel flashed successfully!</string>
-    <string name="legacy_ui_af4b874a65747d" formatted="false">Floating game HUD enabled</string>
-    <string name="legacy_ui_aa1b2f4dd62343" formatted="false">Floating game HUD disabled</string>
+    <string name="legacy_ui_af4b874a65747d" formatted="false">Lynx Engine enabled</string>
+    <string name="legacy_ui_aa1b2f4dd62343" formatted="false">Lynx Engine disabled</string>
     <string name="legacy_ui_b63af2d35e8b1b" formatted="false">Frequencies, governor, and silicon engine restored to the OEM default.</string>
     <string name="legacy_ui_84019c7065a158" formatted="false">GPU boost is not supported by this kernel</string>
     <string name="legacy_ui_190c920b48610b" formatted="false">Failed to clear RAM cache.</string>
@@ -1763,10 +1763,10 @@
     <string name="legacy_ui_e1b08b6ced435d" formatted="false">Calibration Engine Active</string>
     <string name="legacy_ui_3f83929f0f4cf5" formatted="false">GPU Ready for Tuning</string>
     <string name="legacy_ui_f61b206ce78afa" formatted="false">GUARD</string>
-    <string name="legacy_ui_ed547a602f805e" formatted="false">Floating HUD Active</string>
-    <string name="legacy_ui_970182f45e0740" formatted="false">HUD Inactive</string>
-    <string name="legacy_ui_1b526af5052f5b" formatted="false">The HUD is inactive.</string>
-    <string name="legacy_ui_3af0ec8369cd20" formatted="false">The HUD is running on screen.</string>
+    <string name="legacy_ui_ed547a602f805e" formatted="false">Floating Lynx Engine Active</string>
+    <string name="legacy_ui_970182f45e0740" formatted="false">Lynx Engine Inactive</string>
+    <string name="legacy_ui_1b526af5052f5b" formatted="false">Lynx Engine is inactive.</string>
+    <string name="legacy_ui_3af0ec8369cd20" formatted="false">Lynx Engine is running on screen.</string>
     <string name="legacy_ui_b54b2a7c4bbcee" formatted="false">Hardware engine &amp; developer verification</string>
     <string name="legacy_ui_6a9efcbfb4633b" formatted="false">Stop Process</string>
     <string name="legacy_ui_57ca0f9cdfa9a0" formatted="false">Stop Session &amp; Analyze Frames</string>
@@ -1861,7 +1861,7 @@
     <string name="dynamic_physical_gpu_driver" formatted="false">Physical Driver • %1$s</string>
     <string name="dynamic_gpu_session_condition" formatted="false">Condition: %1$s MHz • %2$s%% Load • %3$s</string>
     <string name="dynamic_load_more_tunables" formatted="false">Load More (%1$s remaining)</string>
-    <string name="floating_hud_action_close">Close HUD</string>
+    <string name="floating_hud_action_close">Close Lynx Engine</string>
     <string name="transient_feedback_channel_name">Lynx Profile Feedback</string>
     <string name="transient_feedback_notification_text">Profile feedback notification</string>
     <string name="shader_cache_title">Detected shader caches</string>
@@ -1974,8 +1974,8 @@
     <string name="hud_metric_frame_average">Average frame time</string>
     <string name="hud_metric_low" formatted="false">1% low</string>
     <string name="hud_close">Close panel</string>
-    <string name="hud_drag">Move HUD</string>
-    <string name="hud_open">Open HUD panel</string>
+    <string name="hud_drag">Move Lynx Engine</string>
+    <string name="hud_open">Open Lynx Engine panel</string>
     <string name="hud_profile">Profile</string>
     <string name="hud_save">Save</string>
     <string name="hud_balanced">Balanced</string>
@@ -1993,9 +1993,9 @@
     <string name="hud_failed">Application failed or readback differs</string>
     <string name="hud_capture">Screenshot</string>
     <string name="hud_captured">Screenshot saved</string>
-    <string name="hud_pin">Pin mini HUD</string>
-    <string name="hud_configure">Configure mini HUD</string>
-    <string name="hud_stop">Stop HUD</string>
+    <string name="hud_pin">Pin Lynx Engine Mini</string>
+    <string name="hud_configure">Configure Lynx Engine Mini</string>
+    <string name="hud_stop">Stop Lynx Engine</string>
     <string name="hud_refresh">Choose Display Hz</string>
     <string name="hud_mini_help">Choose what remains visible when the panel is closed. Swipe the capsule to see the next page.</string>
     <string name="hud_reset">Reset selection</string>
@@ -2027,18 +2027,18 @@
     <string name="hud_discharging">Not charging</string>
     <string name="hud_profile_current">Active profile: %1$s</string>
     <string name="hud_empty_metrics">Enable metrics to see a preview</string>
-    <string name="hud_preview">Mini HUD preview</string>
+    <string name="hud_preview">Lynx Engine Mini preview</string>
     <string name="hud_loading">Loading…</string>
     <string name="hud_profile_unavailable">Profile cannot be verified yet</string>
-    <string name="hud_settings_title">Game HUD</string>
+    <string name="hud_settings_title">Lynx Engine</string>
     <string name="hud_mode_title">Display mode</string>
     <string name="hud_sidebar">Sidebar</string>
     <string name="hud_classic">Classic window</string>
     <string name="hud_style">Classic window style</string>
-    <string name="hud_permission">Allow Lynx to display over other apps to use the HUD.</string>
+    <string name="hud_permission">Allow Lynx to display over other apps to use Lynx Engine.</string>
     <string name="hud_permission_action">Open overlay permission</string>
-    <string name="hud_on">HUD active</string>
-    <string name="hud_off">HUD inactive</string>
+    <string name="hud_on">Lynx Engine active</string>
+    <string name="hud_off">Lynx Engine inactive</string>
     <string name="hud_dock_edge">Dock to screen edge</string>
     <string name="hud_style_pillar">Pillar</string>
     <string name="hud_style_ribbon">Ribbon</string>
@@ -2058,8 +2058,8 @@
     <string name="hud_chart_range">%1$s–%2$s ms</string>
     <string name="hud_quick_actions">Quick actions</string>
     <string name="hud_actual_hz">Actual Hz</string>
-    <string name="hud_mini_title">Mini HUD</string>
-    <string name="hud_session">HUD session</string>
+    <string name="hud_mini_title">Lynx Engine Mini</string>
+    <string name="hud_session">Lynx Engine session</string>
     <string name="floating_root_unavailable">The system rejected the virtual window or input. Root is required; some ROMs need LSPosed assistance.</string>
     <string name="floating_waiting">%1$s · Waiting for frames</string>
     <string name="floating_running">%1$s · Virtual display</string>
@@ -2088,7 +2088,7 @@
     <string name="hud_floating_window_sub">Open dock apps in floating windows while gaming</string>
     <string name="hud_floating_window_title">Floating app window</string>
     <string name="hud_tools_full">Tools</string>
-    <string name="hud_tools_full_sub">Open HUD tools</string>
+    <string name="hud_tools_full_sub">Open Lynx Engine tools</string>
     <string name="hud_cache_requested">Cache release requested; no RAM gain is implied.</string>
     <string name="floating_rotate">Switch portrait or landscape shape</string>
     <string name="floating_state_starting">Opening app…</string>
@@ -2124,7 +2124,7 @@
     <string name="hud_focus">Focus</string>
     <string name="hud_bypass_badge">Bypass</string>
     <string name="hud_lab_bypass_title">Bypass Charging</string>
-    <string name="hud_lab_bypass_desc">Hardware bypass through supported driver nodes. State is read back for verification; settings are restored when HUD stops.</string>
+    <string name="hud_lab_bypass_desc">Hardware bypass through supported driver nodes. State is read back for verification; settings are restored when Lynx Engine stops.</string>
     <string name="hud_lab_network_title">Game Network</string>
     <string name="hud_lab_network_desc">TCP connection test to 1.1.1.1:443. This is not game-server ping, UDP packet loss, or a bandwidth test.</string>
     <string name="hud_cap_ready">Ready</string>
@@ -2186,7 +2186,7 @@
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Focus</string>
-    <string name="hud_glow_access_label">Lynx · HUD Notification Glow</string>
+    <string name="hud_glow_access_label">Lynx · Lynx Engine Notification Glow</string>
     <string name="hud_glow_toggle">Incoming notification glow</string>
     <string name="hud_glow_description">A short edge glow while Focus or banner blocking is active. Requires notification access. Message text is neither read nor stored; delivery timing follows Android.</string>
     <string name="hud_glow_grant">Allow notification access</string>
@@ -2199,11 +2199,11 @@
     <string name="hud_network_unvalidated">Internet not validated</string>
     <string name="hud_network_throughput">Device-wide download: %1$s</string>
     <string name="hud_wifi_latency">Request low-latency Wi-Fi</string>
-    <string name="hud_wifi_latency_note">Requests a Wi-Fi lock for the HUD session. Enforcement depends on Android and the radio; battery use may increase. Game packets are unchanged.</string>
+    <string name="hud_wifi_latency_note">Requests a Wi-Fi lock for the Lynx Engine session. Enforcement depends on Android and the radio; battery use may increase. Game packets are unchanged.</string>
     <string name="hud_network_dual">Wi-Fi: %1$s · Mobile: %2$s</string>
     <string name="hud_network_bonding_note">Two available connections do not imply combined bandwidth. Bonding other apps requires a compatible transport/server; Lynx does not claim that support.</string>
     <string name="hud_magic_title">Magic Box</string>
-    <string name="hud_magic_description">A root-based custom tap sequence for the active app. Set up to 5 points as screen percentages; start, then close the HUD panel.</string>
+    <string name="hud_magic_description">A root-based custom tap sequence for the active app. Set up to 5 points as screen percentages; start, then close the Lynx Engine panel.</string>
     <string name="hud_magic_point">Point %1$d</string>
     <string name="hud_magic_position">X %1$d%% · Y %2$d%%</string>
     <string name="hud_magic_add">Add</string>
@@ -2211,7 +2211,7 @@
     <string name="hud_magic_interval">Delay between taps: %1$d ms</string>
     <string name="hud_magic_start">Start sequence</string>
     <string name="hud_magic_stop">Stop sequence</string>
-    <string name="hud_magic_limits">Maximum 30 taps / 60 seconds. Stops on screen off, screen size or app changes. Opening HUD pauses taps. This sequence does not automatically recognize dialogue.</string>
+    <string name="hud_magic_limits">Maximum 30 taps / 60 seconds. Stops on screen off, screen size or app changes. Opening Lynx Engine pauses taps. This sequence does not automatically recognize dialogue.</string>
     <string name="hud_magic_x">Tap X position</string>
     <string name="hud_magic_y">Tap Y position</string>
     <string name="hud_magic_delay">Tap delay</string>
@@ -2220,7 +2220,7 @@
     <string name="hud_shield_mode_alarms">Alarms only</string>
     <string name="hud_glow_preview">Preview glow</string>
     <string name="hud_network_qos">Prioritize active app packets</string>
-    <string name="hud_network_qos_note">Per-UID DSCP AF41 marking for Wi-Fi/mobile. Benefits depend on the router/carrier. Only Lynx-owned rules are restored when the app changes or HUD stops.</string>
+    <string name="hud_network_qos_note">Per-UID DSCP AF41 marking for Wi-Fi/mobile. Benefits depend on the router/carrier. Only Lynx-owned rules are restored when the app changes or Lynx Engine stops.</string>
     <string name="hud_network_qos_unavailable">Packet prioritization unavailable: DSCP/root unsupported or capability check pending.</string>
     <string name="hud_addin_focus_brief">Block interruptions &amp; notification glow</string>
     <string name="hud_addin_charge_brief">Driver bypass controls</string>

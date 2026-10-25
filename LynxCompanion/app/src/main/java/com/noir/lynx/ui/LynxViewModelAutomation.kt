@@ -45,14 +45,14 @@ import kotlinx.coroutines.flow.update
                 } else {
                     context.startService(intent)
                 }
-                _uiState.update { it.copy(successMessage = "Floating Game HUD Diaktifkan") }
+                _uiState.update { it.copy(successMessage = "Lynx Engine Diaktifkan") }
             } else {
                 _uiState.update { it.copy(isGameHudActive = false) }
                 val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
                     action = com.noir.lynx.service.LynxFloatingHudService.ACTION_STOP
                 }
                 context.startService(intent)
-                _uiState.update { it.copy(successMessage = "Floating Game HUD Dinonaktifkan") }
+                _uiState.update { it.copy(successMessage = "Lynx Engine Dinonaktifkan") }
             }
         }
     }

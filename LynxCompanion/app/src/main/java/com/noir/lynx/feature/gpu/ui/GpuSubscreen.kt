@@ -293,7 +293,7 @@ fun LazyListScope.tuningGpuCategoryItems(
             item(key = "section_header_lab_benchmark") {
                 GpuSectionHeader(
                     title = "Benchmark & Overlay",
-                    subtitle = "Uji kestabilan GPU 30s/60s & floating telemetry in-game HUD",
+                    subtitle = "Uji kestabilan GPU 30s/60s & floating telemetry Lynx Engine",
                     accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
                     badge = "REAL-TIME TOOLS"
                 )

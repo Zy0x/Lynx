@@ -22,8 +22,8 @@
     <string name="tile_hud_off">Mati</string>
     <string name="thermal_guard_channel_description">Pemantauan keselamatan termal perangkat secara real-time</string>
     <string name="thermal_guard_notification_status">Thermal Safety Guard Aktif</string>
-    <string name="floating_hud_notification_title">Lynx Floating Game HUD Aktif</string>
-    <string name="floating_hud_notification_tap_close">Ketuk untuk membuka Lynx atau menutup overlay</string>
+    <string name="floating_hud_notification_title">Lynx Engine Aktif</string>
+    <string name="floating_hud_notification_tap_close">Ketuk untuk membuka Lynx atau menutup Lynx Engine</string>
     <string name="floating_hud_notification_tap">Ketuk untuk membuka Lynx</string>
     <string name="automation_channel_description">Status profil performa aktif Lynx Universal</string>
     <string name="automation_standby_active">Mode Standby Aktif</string>
@@ -32,7 +32,7 @@
     <string name="automation_channel_name">Lynx Universal Mode</string>
     <string name="automation_notification_title">Lynx • %1$s</string>
     <string name="profile_name_auto">Otomatis (AI)</string>
-    <string name="floating_hud_channel_name">Lynx Game HUD Overlay</string>
+    <string name="floating_hud_channel_name">Lynx Engine Overlay</string>
     <string name="tile_profile_label_format">Lynx: %1$s</string>
     <string name="profile_name_balance">Seimbang</string>
     <string name="profile_name_performance">Performa</string>
@@ -48,7 +48,7 @@
     </plurals>
     <string name="tile_profile_label">Lynx Profile</string>
     <string name="tile_hbm_label">Lynx HBM</string>
-    <string name="tile_hud_label">Lynx HUD</string>
+    <string name="tile_hud_label">Lynx Engine</string>
 
     <!-- Design System & Common Controls -->
     <string name="reset_to_oem_default">Reset ke Default OEM</string>
@@ -405,7 +405,7 @@
     <string name="legacy_ui_de152fc3bc10a8" formatted="false">FT</string>
     <string name="legacy_ui_239b1b8e6bcc45" formatted="false">Filter dmesg (e.g. cpu, thermal, gpu)...</string>
     <string name="legacy_ui_1a693c00c40cc7" formatted="false">Float</string>
-    <string name="legacy_ui_b3f52a3b0283bd" formatted="false">Floating Game HUD (OSD)</string>
+    <string name="legacy_ui_b3f52a3b0283bd" formatted="false">Lynx Engine Overlay (OSD)</string>
     <string name="legacy_ui_531444b912de77" formatted="false">Floating Window</string>
     <string name="legacy_ui_16078339d173de" formatted="false">Frame pacing berjalan mulus mendekati target refresh rate.</string>
     <string name="legacy_ui_a29bc419fc634b" formatted="false">Frekuensi Clock GPU</string>
@@ -427,7 +427,7 @@
     <string name="legacy_ui_f7554a8cddaf62" formatted="false">Global Undervolt Offset</string>
     <string name="legacy_ui_d944bf6ee9e7a2" formatted="false">HARDWARE</string>
     <string name="legacy_ui_c331c166bfed72" formatted="false">HBM Sunlight Booster</string>
-    <string name="legacy_ui_3fc391cbe2f215" formatted="false">HUD Aktif! Geser bilah samping atau ketuk header HUD untuk interaksi cepat saat berada di dalam game.</string>
+    <string name="legacy_ui_3fc391cbe2f215" formatted="false">Lynx Engine Aktif! Geser bilah samping atau ketuk header untuk interaksi cepat saat berada di dalam game.</string>
     <string name="legacy_ui_f3102b70ab5e6b" formatted="false">Halaman Shared</string>
     <string name="legacy_ui_5c34c9dfb1282a" formatted="false">Halaman Sharing</string>
     <string name="legacy_ui_10725a56892ea5" formatted="false">Hapus</string>
@@ -445,7 +445,7 @@
     <string name="legacy_ui_9c0b16d7f7e6d9" formatted="false">INTERCONNECT / MEMORY BUS</string>
     <string name="legacy_ui_c414eb3c60eb8f" formatted="false">Identitas Tiruan (Userspace)</string>
     <string name="legacy_ui_88b6482669a59a" formatted="false">Ikuti Global</string>
-    <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Izin Tampilkan di Atas Aplikasi Lain diperlukan agar overlay HUD dapat muncul saat Anda bermain game.</string>
+    <string name="legacy_ui_0dd43dadc4ac6b" formatted="false">Izin Tampilkan di Atas Aplikasi Lain diperlukan agar overlay Lynx Engine dapat muncul saat Anda bermain game.</string>
     <string name="legacy_ui_752d23148d61fd" formatted="false">Jalankan (Root)</string>
     <string name="legacy_ui_280d51a5874040" formatted="false">Jalankan Saat Boot</string>
     <string name="legacy_ui_8f0b20f34ae743" formatted="false">Jendela melayang bebas di layar dengan koordinat drag &amp; drop bebas.</string>
@@ -520,7 +520,7 @@
     <string name="legacy_ui_55560ce670e21c" formatted="false">Nonaktifkan Semua Tweak Darurat</string>
     <string name="legacy_ui_e8db9f714e931b" formatted="false">OSD</string>
     <string name="legacy_ui_b74a55cf5b2e47" formatted="false">Otomasi Profil Per-Aplikasi</string>
-    <string name="legacy_ui_6676ca1583e009" formatted="false">Overlay Game HUD Real-Time</string>
+    <string name="legacy_ui_6676ca1583e009" formatted="false">Overlay Lynx Engine Real-Time</string>
     <string name="legacy_ui_b7d9874de51c11" formatted="false">Override tweak aktif</string>
     <string name="legacy_ui_fe63abdc2f043b" formatted="false">PEAK CLOCK</string>
     <string name="legacy_ui_124f02058dca4d" formatted="false">PETUNJUK KERNEL (#):</string>
@@ -653,7 +653,7 @@
     <string name="legacy_ui_bb9046a72b0321" formatted="false">Uji</string>
     <string name="legacy_ui_461c58f4b7edc3" formatted="false">Uji Node</string>
     <string name="legacy_ui_4791ccd460ef4b" formatted="false">Uji Ulang</string>
-    <string name="legacy_ui_c17ef32d6626e7" formatted="false">Uji kestabilan frame pacing, 1% Low FPS, &amp; hardware presentation timestamp via SurfaceFlinger saat HUD aktif.</string>
+    <string name="legacy_ui_c17ef32d6626e7" formatted="false">Uji kestabilan frame pacing, 1% Low FPS, &amp; hardware presentation timestamp via SurfaceFlinger saat Lynx Engine aktif.</string>
     <string name="legacy_ui_4466bc08ffa517" formatted="false">VENDOR IMPLEMENTER</string>
     <string name="legacy_ui_b1bf5c78730845" formatted="false">VPROC / VSRAM</string>
     <string name="legacy_ui_acf57be3a40ab9" formatted="false">Variansi Frame Time (Deviasi)</string>
@@ -758,7 +758,7 @@
     <string name="legacy_ui_d769b458e1bd7b" formatted="false">FREQUENCY LEVELS (OPP)</string>
     <string name="legacy_ui_192f5f482134d7" formatted="false">Flash Kernel Sekarang</string>
     <string name="legacy_ui_45c16378a66ef5" formatted="false">Flash kernel kustom (ZIP) langsung dari sistem. Kernel lama akan otomatis dicadangkan sebelum proses penulisan.</string>
-    <string name="legacy_ui_47389b24691e6a" formatted="false">Floating Game HUD (In-Game OSD)</string>
+    <string name="legacy_ui_47389b24691e6a" formatted="false">Lynx Engine (In-Game OSD)</string>
     <string name="legacy_ui_1ddf10bdc368c9" formatted="false">Frekuensi Bus Memori &amp; Interkoneksi</string>
     <string name="legacy_ui_de187d5dfc6800" formatted="false">Full Thermal Bypass (Hardware Safety Dominant)</string>
     <string name="legacy_ui_655de2e95b8e63" formatted="false">GAMUT &amp; RUANG WARNA</string>
@@ -828,7 +828,7 @@
     <string name="legacy_ui_772988171935ff" formatted="false">Low-Latency Audio MMAP</string>
     <string name="legacy_ui_ef7e5c6f054db6" formatted="false">Lumpuhkan software throttling • Proteksi silikon &amp; baterai tetap aktif (Phone Cooler Disarankan)</string>
     <string name="legacy_ui_ecd3f4b5ec296f" formatted="false">Lynx App Icon</string>
-    <string name="legacy_ui_5eb514816c8065" formatted="false">Lynx HUD</string>
+    <string name="legacy_ui_5eb514816c8065" formatted="false">Lynx Engine</string>
     <string name="legacy_ui_42be3c3801a9d8" formatted="false">Lynx Kernel</string>
     <string name="legacy_ui_23bfe1edbd7de9" formatted="false">Lynx Performance Lab mengukur frame presentation timestamps langsung dari SurfaceFlinger untuk mendeteksi micro-stutter, jank, variansi frame-time, serta korelasi drop frekuensi GPU dan thermal throttling secara presisi.</string>
     <string name="legacy_ui_9e5f5b73830b15" formatted="false">MODE PENGISIAN DAYA</string>
@@ -839,7 +839,7 @@
     <string name="legacy_ui_1f447097eff4e9" formatted="false">Manajer inti layanan Android (ActivityManager, WindowManager, PowerManager).</string>
     <string name="legacy_ui_f325fcfbe2b460" formatted="false">Manipulasi Identitas SoC / GPU Terdeteksi</string>
     <string name="legacy_ui_bcf65bac9db0b6" formatted="false">Master GPU Tuner &amp; Telemetri</string>
-    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Master Sakelar Game HUD</string>
+    <string name="legacy_ui_8b7e8d765a0ce0" formatted="false">Master Sakelar Lynx Engine</string>
     <string name="legacy_ui_e008b49696271c" formatted="false">Matikan PLL clock generator saat seluruh core dalam kluster berada di status idle.</string>
     <string name="legacy_ui_8fbd3633b62c5c" formatted="false">Matriks Alokasi Core (CPU Sets)</string>
     <string name="legacy_ui_f635ea316c7b4f" formatted="false">Matriks Core</string>
@@ -883,7 +883,7 @@
     <string name="legacy_ui_27d92bebbd3427" formatted="false">Node Kernel GPU &amp; Sysfs</string>
     <string name="legacy_ui_dccd8214c5fb92" formatted="false">Nonaktif (0 MB)</string>
     <string name="legacy_ui_10fa390c898387" formatted="false">Nonaktifkan penurunan paksa OPP GPU oleh tabel limiter THERMAL, BATT_LOW, dan PBM</string>
-    <string name="legacy_ui_1db912011ca127" formatted="false">Notifikasi status overlay Game HUD Lynx</string>
+    <string name="legacy_ui_1db912011ca127" formatted="false">Notifikasi status overlay Lynx Engine</string>
     <string name="legacy_ui_bf8fafef76b5df" formatted="false">OEM Locked (Tidak didukung hardware/kernel ini)</string>
     <string name="legacy_ui_daaa10bb848865" formatted="false">Octa-Core SoC Topology</string>
     <string name="legacy_ui_d290a777a63dba" formatted="false">Optimasi SQLite &amp; FSTRIM Storage</string>
@@ -1141,8 +1141,8 @@
     <string name="legacy_ui_11dc041804ea41" formatted="false">Fitur KSM tidak didukung oleh kernel ini</string>
     <string name="legacy_ui_89e93accfe6f9f" formatted="false">Fitur tidak didukung oleh kernel.</string>
     <string name="legacy_ui_4ec9ab46b325da" formatted="false">Flashing kernel berhasil!</string>
-    <string name="legacy_ui_af4b874a65747d" formatted="false">Floating Game HUD Diaktifkan</string>
-    <string name="legacy_ui_aa1b2f4dd62343" formatted="false">Floating Game HUD Dinonaktifkan</string>
+    <string name="legacy_ui_af4b874a65747d" formatted="false">Lynx Engine Diaktifkan</string>
+    <string name="legacy_ui_aa1b2f4dd62343" formatted="false">Lynx Engine Dinonaktifkan</string>
     <string name="legacy_ui_b63af2d35e8b1b" formatted="false">Frekuensi, Governor &amp; Mesin Silikon berhasil dikembalikan ke default OEM.</string>
     <string name="legacy_ui_84019c7065a158" formatted="false">GPU Boost tidak didukung kernel ini</string>
     <string name="legacy_ui_190c920b48610b" formatted="false">Gagal membersihkan cache RAM.</string>
@@ -1787,10 +1787,10 @@
     <string name="legacy_ui_e1b08b6ced435d" formatted="false">Engine Kalibrasi Aktif</string>
     <string name="legacy_ui_3f83929f0f4cf5" formatted="false">GPU Siap Tuning</string>
     <string name="legacy_ui_f61b206ce78afa" formatted="false">PENJAGA</string>
-    <string name="legacy_ui_ed547a602f805e" formatted="false">HUD Mengambang Aktif</string>
-    <string name="legacy_ui_970182f45e0740" formatted="false">HUD Nonaktif</string>
-    <string name="legacy_ui_1b526af5052f5b" formatted="false">HUD dalam status nonaktif.</string>
-    <string name="legacy_ui_3af0ec8369cd20" formatted="false">HUD sedang berjalan di layar.</string>
+    <string name="legacy_ui_ed547a602f805e" formatted="false">Lynx Engine Mengambang Aktif</string>
+    <string name="legacy_ui_970182f45e0740" formatted="false">Lynx Engine Nonaktif</string>
+    <string name="legacy_ui_1b526af5052f5b" formatted="false">Lynx Engine dalam status nonaktif.</string>
+    <string name="legacy_ui_3af0ec8369cd20" formatted="false">Lynx Engine sedang berjalan di layar.</string>
     <string name="legacy_ui_b54b2a7c4bbcee" formatted="false">Hardware engine &amp; verifikasi pengembang</string>
     <string name="legacy_ui_6a9efcbfb4633b" formatted="false">Hentikan Proses</string>
     <string name="legacy_ui_57ca0f9cdfa9a0" formatted="false">Hentikan Sesi &amp; Analisis Frame</string>
@@ -1885,7 +1885,7 @@
     <string name="dynamic_physical_gpu_driver" formatted="false">Driver Fisik • %1$s</string>
     <string name="dynamic_gpu_session_condition" formatted="false">Kondisi: %1$s MHz • %2$s%% Beban • %3$s</string>
     <string name="dynamic_load_more_tunables" formatted="false">Muat Lebih Banyak (%1$s tersisa)</string>
-    <string name="floating_hud_action_close">Tutup HUD</string>
+    <string name="floating_hud_action_close">Tutup Lynx Engine</string>
     <string name="transient_feedback_channel_name">Umpan Balik Profil Lynx</string>
     <string name="transient_feedback_notification_text">Notifikasi umpan balik profil</string>
     <string name="shader_cache_title">Cache shader yang terdeteksi</string>
@@ -1998,8 +1998,8 @@
     <string name="hud_metric_frame_average">Rata-rata frame time</string>
     <string name="hud_metric_low" formatted="false">1% low</string>
     <string name="hud_close">Tutup panel</string>
-    <string name="hud_drag">Geser HUD</string>
-    <string name="hud_open">Buka panel HUD</string>
+    <string name="hud_drag">Geser Lynx Engine</string>
+    <string name="hud_open">Buka panel Lynx Engine</string>
     <string name="hud_profile">Profil</string>
     <string name="hud_save">Hemat</string>
     <string name="hud_balanced">Seimbang</string>
@@ -2017,9 +2017,9 @@
     <string name="hud_failed">Penerapan gagal atau hasil belum sesuai</string>
     <string name="hud_capture">Screenshot</string>
     <string name="hud_captured">Screenshot disimpan</string>
-    <string name="hud_pin">Pin mini HUD</string>
-    <string name="hud_configure">Atur mini HUD</string>
-    <string name="hud_stop">Hentikan HUD</string>
+    <string name="hud_pin">Pin Lynx Engine Mini</string>
+    <string name="hud_configure">Atur Lynx Engine Mini</string>
+    <string name="hud_stop">Hentikan Lynx Engine</string>
     <string name="hud_refresh">Pilih Display Hz</string>
     <string name="hud_mini_help">Pilih informasi yang tetap terlihat saat panel ditutup. Geser kapsul untuk melihat halaman berikutnya.</string>
     <string name="hud_reset">Pulihkan pilihan awal</string>
@@ -2051,18 +2051,18 @@
     <string name="hud_discharging">Tidak mengisi daya</string>
     <string name="hud_profile_current">Profil aktif: %1$s</string>
     <string name="hud_empty_metrics">Aktifkan metrik untuk melihat pratinjau</string>
-    <string name="hud_preview">Pratinjau mini HUD</string>
+    <string name="hud_preview">Pratinjau Lynx Engine Mini</string>
     <string name="hud_loading">Memuat…</string>
     <string name="hud_profile_unavailable">Profil belum dapat diverifikasi</string>
-    <string name="hud_settings_title">Game HUD</string>
+    <string name="hud_settings_title">Lynx Engine</string>
     <string name="hud_mode_title">Mode tampilan</string>
     <string name="hud_sidebar">Bilah samping</string>
     <string name="hud_classic">Jendela klasik</string>
     <string name="hud_style">Gaya jendela klasik</string>
-    <string name="hud_permission">Izinkan Lynx tampil di atas aplikasi lain untuk menggunakan HUD.</string>
+    <string name="hud_permission">Izinkan Lynx tampil di atas aplikasi lain untuk menggunakan Lynx Engine.</string>
     <string name="hud_permission_action">Buka izin overlay</string>
-    <string name="hud_on">HUD aktif</string>
-    <string name="hud_off">HUD nonaktif</string>
+    <string name="hud_on">Lynx Engine aktif</string>
+    <string name="hud_off">Lynx Engine nonaktif</string>
     <string name="hud_dock_edge">Kunci ke tepi layar</string>
     <string name="hud_style_pillar">Pillar</string>
     <string name="hud_style_ribbon">Ribbon</string>
@@ -2082,8 +2082,8 @@
     <string name="hud_chart_range">%1$s–%2$s ms</string>
     <string name="hud_quick_actions">Alat cepat</string>
     <string name="hud_actual_hz">Hz aktual</string>
-    <string name="hud_mini_title">Mini HUD</string>
-    <string name="hud_session">Sesi HUD</string>
+    <string name="hud_mini_title">Lynx Engine Mini</string>
+    <string name="hud_session">Sesi Lynx Engine</string>
     <string name="floating_root_unavailable">Sistem menolak jendela atau input virtual. Root diperlukan; beberapa ROM memerlukan bantuan LSPosed.</string>
     <string name="floating_waiting">%1$s · Menunggu frame</string>
     <string name="floating_running">%1$s · Virtual display</string>
@@ -2148,7 +2148,7 @@
     <string name="hud_focus">Fokus</string>
     <string name="hud_bypass_badge">Bypass</string>
     <string name="hud_lab_bypass_title">Bypass Charging</string>
-    <string name="hud_lab_bypass_desc">Bypass hardware melalui node driver yang didukung. Status diverifikasi lewat pembacaan kembali; pengaturan dipulihkan saat HUD berhenti.</string>
+    <string name="hud_lab_bypass_desc">Bypass hardware melalui node driver yang didukung. Status diverifikasi lewat pembacaan kembali; pengaturan dipulihkan saat Lynx Engine berhenti.</string>
     <string name="hud_lab_network_title">Jaringan Game</string>
     <string name="hud_lab_network_desc">Uji koneksi TCP ke 1.1.1.1:443. Ini bukan ping server game, pengukuran packet loss UDP, atau uji bandwidth.</string>
     <string name="hud_cap_ready">Siap</string>
@@ -2210,7 +2210,7 @@
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Fokus</string>
-    <string name="hud_glow_access_label">Lynx · Glow Notifikasi HUD</string>
+    <string name="hud_glow_access_label">Lynx · Glow Notifikasi Lynx Engine</string>
     <string name="hud_glow_toggle">Glow notifikasi masuk</string>
     <string name="hud_glow_description">Glow tepi singkat saat Fokus atau blokir banner aktif. Memerlukan akses notifikasi. Isi pesan tidak dibaca atau disimpan; waktu tiba mengikuti Android.</string>
     <string name="hud_glow_grant">Izinkan akses notifikasi</string>
@@ -2223,11 +2223,11 @@
     <string name="hud_network_unvalidated">Internet belum terverifikasi</string>
     <string name="hud_network_throughput">Unduhan seluruh perangkat: %1$s</string>
     <string name="hud_wifi_latency">Minta Wi-Fi latensi rendah</string>
-    <string name="hud_wifi_latency_note">Lock Wi-Fi diminta selama HUD aktif. Penerapannya bergantung pada Android dan radio; dapat menambah konsumsi baterai. Tidak mengubah paket data game.</string>
+    <string name="hud_wifi_latency_note">Lock Wi-Fi diminta selama Lynx Engine aktif. Penerapannya bergantung pada Android dan radio; dapat menambah konsumsi baterai. Tidak mengubah paket data game.</string>
     <string name="hud_network_dual">Wi-Fi: %1$s · Seluler: %2$s</string>
     <string name="hud_network_bonding_note">Dua koneksi tersedia bukan berarti bandwidth digabung. Bonding untuk aplikasi lain memerlukan transport/server yang mendukung; Lynx tidak mengklaim dukungan itu.</string>
     <string name="hud_magic_title">Magic Box</string>
-    <string name="hud_magic_description">Urutan ketuk kustom berbasis root untuk aplikasi aktif. Atur hingga 5 titik dalam persen layar; mulai lalu tutup panel HUD.</string>
+    <string name="hud_magic_description">Urutan ketuk kustom berbasis root untuk aplikasi aktif. Atur hingga 5 titik dalam persen layar; mulai lalu tutup panel Lynx Engine.</string>
     <string name="hud_magic_point">Titik %1$d</string>
     <string name="hud_magic_position">X %1$d%% · Y %2$d%%</string>
     <string name="hud_magic_add">Tambah</string>
@@ -2235,7 +2235,7 @@
     <string name="hud_magic_interval">Jeda antar ketukan: %1$d ms</string>
     <string name="hud_magic_start">Mulai urutan</string>
     <string name="hud_magic_stop">Hentikan urutan</string>
-    <string name="hud_magic_limits">Maksimal 30 ketukan / 60 detik. Berhenti saat layar mati, ukuran layar atau aplikasi berganti. Membuka HUD menjeda ketukan. Urutan ini tidak mengenali dialog secara otomatis.</string>
+    <string name="hud_magic_limits">Maksimal 30 ketukan / 60 detik. Berhenti saat layar mati, ukuran layar atau aplikasi berganti. Membuka Lynx Engine menjeda ketukan. Urutan ini tidak mengenali dialog secara otomatis.</string>
     <string name="hud_magic_x">Posisi X ketukan</string>
     <string name="hud_magic_y">Posisi Y ketukan</string>
     <string name="hud_magic_delay">Jeda ketukan</string>
@@ -2244,7 +2244,7 @@
     <string name="hud_shield_mode_alarms">Alarm saja</string>
     <string name="hud_glow_preview">Pratinjau glow</string>
     <string name="hud_network_qos">Prioritas paket aplikasi aktif</string>
-    <string name="hud_network_qos_note">Penandaan DSCP AF41 per UID untuk Wi-Fi/seluler. Manfaat bergantung pada router/operator. Aturan milik Lynx saja dipulihkan ketika aplikasi berganti atau HUD berhenti.</string>
+    <string name="hud_network_qos_note">Penandaan DSCP AF41 per UID untuk Wi-Fi/seluler. Manfaat bergantung pada router/operator. Aturan milik Lynx saja dipulihkan ketika aplikasi berganti atau Lynx Engine berhenti.</string>
     <string name="hud_network_qos_unavailable">Prioritas paket tidak tersedia: target DSCP/root tidak didukung atau belum selesai diperiksa.</string>
     <string name="hud_addin_focus_brief">Blokir gangguan &amp; glow notifikasi</string>
     <string name="hud_addin_charge_brief">Kontrol bypass driver</string>

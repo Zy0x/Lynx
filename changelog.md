@@ -1,3 +1,19 @@
+# Lynx Universal [Penyelesaian Total Rebranding Lynx Engine Lintas Bahasa & Subhalaman] 7.0.0-RC205
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC205** (Lynx Kernel Manager v3.2.43): **Penyelesaian Menyeluruh & Definitif Rebranding "Lynx Engine" di Seluruh Tingkat Bahasa (`values/`, `values-id/`, `values-en/`), Peta Resource String Lokal, ViewModel Automation, Serta Subhalaman Konfigurasi: Eliminasi Tuntas Sisa-Sisa Nomenklatur "HUD" / "Game HUD" pada Panel Pengaturan Master Sakelar, Izin Overlay, Status Aktif/Nonaktif, Menu Mini Preview, Sesi Game, Notifikasi Glow, Hingga Alat Taktis Magic Box; Memastikan Konsistensi Identitas 100% Bebas Kata HUD di Seluruh Perangkat Fisik**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC205)
+1. **Pembersihan Menyeluruh String Multi-Bahasa (`values-id/`, `values-en/`, `values/`)**:
+   - Menyelaraskan seluruh file lokalisasi bahasa (`values-id/strings.xml`, `values-en/strings.xml`, dan `values/strings.xml`) sehingga tidak ada lagi teks "Game HUD", "HUD aktif", "HUD nonaktif", "Pratinjau mini HUD", "Izin overlay HUD", maupun "Tutup HUD" yang muncul pada perangkat berbahasa Indonesia maupun Inggris.
+   - Memperbarui `LegacyUiTextResources.kt` dengan pemetaan kunci ganda (*backward-compatible dual-key mapping*) untuk teks toast dan notifikasi status.
+2. **Penyempurnaan ViewModel & Subhalaman Tuning**:
+   - Memperbarui pesan sukses `LynxViewModelAutomation` menjadi `Lynx Engine Diaktifkan` dan `Lynx Engine Dinonaktifkan`.
+   - Mengganti referensi teks subhalaman GPU dan deskripsi aksesibilitas icon.
+3. **Penyempurnaan UI & Verifikasi Konsistensi**:
+   - Menjamin bahwa seluruh antarmuka, mulai dari Dashboard, Pusat Tuning, Subhalaman Lynx Engine, hingga OSD overlay mengambang, secara konsisten mengusung identitas resmi **Lynx Engine**.
+
+---
+
 # Lynx Universal [Rebranding Resmi: Transformasi HUD Menjadi "Lynx Engine"] 7.0.0-RC204
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC204** (Lynx Kernel Manager v3.2.43): **Rebranding Resmi & Menyeluruh Fitur Head-Up Display (HUD) Menjadi "Lynx Engine": Eliminasi Total Nomenklatur "HUD" dari Antarmuka Aplikasi, Drawer Navigasi, Kartu Profil Per-Aplikasi, Quick Settings Tile, Notifikasi Layanan Latar Belakang, hingga Label Panel OSD In-Game; Mempertegas Posisi Lynx Engine Sebagai Pusat Komando Telemetri Real-Time, Otomasi Auto-Skip Percakapan Game, dan Alat Taktis Gaming Berdaya Guna Tinggi**.
