@@ -14,3 +14,9 @@ persist.vendor.ged.smart_boost=1
 # ── 2. MediaTek Power HAL Log Flood Suppression (Android 14 GSI EXPENSIVE_RENDERING)
 persist.log.tag.mtkpower@impl=S
 persist.log.tag.libPowerHal=S
+
+# ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard ────────────────────────────
+debug.sf.enable_gl_backpressure=1
+debug.sf.early_app_phase_offset_ns=500000
+debug.sf.early_gl_app_phase_offset_ns=15000000
+debug.sf.early_gl_sf_phase_offset_ns=16000000
