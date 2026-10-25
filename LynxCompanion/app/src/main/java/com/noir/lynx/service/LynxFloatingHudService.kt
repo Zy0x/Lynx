@@ -60,8 +60,18 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private enum class GestureMode { UNDECIDED, SWIPE_OPEN, DRAG_MOVE, PASS_THROUGH }
 
     companion object {
+        const val ACTION_HUD_STATE_CHANGED = "com.noir.lynx.HUD_STATE_CHANGED"
+        const val EXTRA_IS_RUNNING = "extra_is_running"
+        const val FLAG_FILE_NAME = "hud_active.flag"
         val isRunningFlow = MutableStateFlow(false)
-        val isRunning: Boolean get() = isRunningFlow.value
+        val isRunning: Boolean
+            get() {
+                val ctx = runCatching { com.noir.lynx.data.LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance }.getOrNull()
+                val fileActive = runCatching {
+                    ctx?.let { java.io.File(it.filesDir, FLAG_FILE_NAME).exists() } ?: false
+                }.getOrDefault(false)
+                return fileActive || isRunningFlow.value
+            }
         val activeStyleFlow = MutableStateFlow(1)
         val activeModeFlow = MutableStateFlow(0)
         val pinMiniFpsFlow = MutableStateFlow(false)
@@ -169,7 +179,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             val current = sample.copy(metrics = sample.metrics + (HudMetric.DISPLAY_HZ.key to displayReading))
                             rendered.value = current
                             snapshotFlow.value = current
-                            delay(250)
+                            val isFocused = open.value || pinMiniFpsFlow.value || activeModeFlow.value == 1
+                            val pollInterval = if (isFocused) 500L else 1500L
+                            delay(pollInterval)
                         }
                     } finally {
                         withContext(NonCancellable + Dispatchers.IO) { repository.stop() }
@@ -177,7 +189,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 }
             }
         }
+        runCatching { java.io.File(filesDir, FLAG_FILE_NAME).createNewFile() }
         isRunningFlow.value = true
+        runCatching {
+            sendBroadcast(Intent(ACTION_HUD_STATE_CHANGED).putExtra(EXTRA_IS_RUNNING, true).setPackage(packageName))
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -615,7 +631,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         view = null
         snapshotFlow.value = HudSnapshot()
+        runCatching { java.io.File(filesDir, FLAG_FILE_NAME).delete() }
         isRunningFlow.value = false
+        runCatching {
+            sendBroadcast(Intent(ACTION_HUD_STATE_CHANGED).putExtra(EXTRA_IS_RUNNING, false).setPackage(packageName))
+        }
         if (registry.currentState.isAtLeast(Lifecycle.State.CREATED)) registry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         super.onDestroy()
     }

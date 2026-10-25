@@ -61,6 +61,52 @@ fn query(args: &[&str]) -> Result<String, &'static str> {
     if !success || raw.contains("Permission Denial") { Err("permission_denied") } else { Ok(raw) }
 }
 
+/// Sub-millisecond, zero-fork direct kernel cgroup top app inspection.
+fn detect_top_package_fast() -> Option<String> {
+    let candidates = [
+        "/dev/cpuset/top-app/cgroup.procs",
+        "/dev/cpuset/top-app/tasks",
+        "/dev/cpuset/foreground/cgroup.procs",
+        "/sys/fs/cgroup/top-app/cgroup.procs",
+        "/sys/fs/cgroup/cgroup.procs",
+    ];
+    let mut best: Option<(i32, String)> = None;
+    for &node in &candidates {
+        if let Ok(content) = std::fs::read_to_string(node) {
+            for line in content.lines() {
+                let pid_str = line.trim();
+                if pid_str.is_empty() { continue; }
+                let cmdline_path = format!("/proc/{}/cmdline", pid_str);
+                if let Ok(bytes) = std::fs::read(&cmdline_path) {
+                    if bytes.is_empty() { continue; }
+                    let cmd_str = String::from_utf8_lossy(&bytes);
+                    let token = cmd_str.split('\0').next().unwrap_or("").trim();
+                    if token.contains('.') 
+                        && !token.starts_with("android.hardware") 
+                        && !token.starts_with("vendor.") 
+                        && !token.ends_with(":isolated_process") 
+                        && !token.ends_with(":sandboxed_process")
+                        && token != "system_server" 
+                        && !token.contains("inputmethod") 
+                    {
+                        let oom_path = format!("/proc/{}/oom_score_adj", pid_str);
+                        let oom_adj = std::fs::read_to_string(&oom_path).ok().and_then(|s| s.trim().parse::<i32>().ok()).unwrap_or(999);
+                        let clean = token.split(':').next().unwrap_or(token).to_string();
+                        if oom_adj <= 0 {
+                            return Some(clean);
+                        } else if oom_adj < 200 {
+                            if best.as_ref().map_or(true, |(score, _)| oom_adj < *score) {
+                                best = Some((oom_adj, clean));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    best.map(|(_, pkg)| pkg)
+}
+
 pub fn run() {
     let alive = Arc::new(AtomicBool::new(true));
     let stdin_alive = alive.clone();
@@ -79,12 +125,19 @@ pub fn run() {
     let mut next_layers = 0;
     let mut next_hw = 0;
     let mut next_temp = 0;
+    let mut next_dumpsys_top = 0;
     let mut stdout = std::io::stdout().lock();
     while alive.load(Ordering::Relaxed) {
         let started = Instant::now();
         let now = now_ms();
-        let target = query(&["activity","activities"]).ok().and_then(|s| top_package(&s)).unwrap_or_default();
-        if target != package {
+        let mut target = detect_top_package_fast().unwrap_or_default();
+        if target.is_empty() && now >= next_dumpsys_top {
+            if let Some(t) = query(&["activity","activities"]).ok().and_then(|s| top_package(&s)) {
+                target = t;
+            }
+            next_dumpsys_top = now + 3000;
+        }
+        if !target.is_empty() && target != package {
             frames.reset(); layer.clear(); layers.clear(); next_layers = 0; package = target;
         }
         let mut frame_status = "warming_up";

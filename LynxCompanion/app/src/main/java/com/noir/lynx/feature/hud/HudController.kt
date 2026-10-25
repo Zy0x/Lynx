@@ -43,10 +43,12 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     init {
         scope.launch(Dispatchers.IO) {
             displaySession.restore()
-            combine(HudAppCatalog(context).apps, HudPreferencesStore(context).changes) { catalog, prefs ->
-                val byPackage = catalog.associateBy { it.packageName }
-                HudDockPolicy.packages(prefs.dockPackages, byPackage.keys).mapNotNull(byPackage::get)
-            }.collect { appState.value = it }
+            val catalog = HudAppCatalog(context)
+            HudPreferencesStore(context).changes.collect { prefs ->
+                val candidates = HudDockPolicy.candidatePackages(prefs.dockPackages)
+                val loaded = catalog.loadTargetPackages(candidates)
+                appState.value = loaded
+            }
         }
     }
 

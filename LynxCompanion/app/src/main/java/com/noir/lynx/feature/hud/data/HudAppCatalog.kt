@@ -28,6 +28,21 @@ class HudAppCatalog(private val context: Context) {
     }.mapLatest { withContext(Dispatchers.IO) { load() } }
 
     @Suppress("DEPRECATION")
+    fun loadTargetPackages(targetPackages: List<String>): List<HudApp> {
+        val pm = context.packageManager
+        return targetPackages.distinct().filter { it != context.packageName }.mapNotNull { pkg ->
+            runCatching {
+                val info = pm.getApplicationInfo(pkg, 0)
+                if (!info.enabled || pm.getLaunchIntentForPackage(pkg) == null) return@runCatching null
+                val icon = pm.getApplicationIcon(info)
+                val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+                icon.setBounds(0, 0, 96, 96); icon.draw(Canvas(bitmap))
+                HudApp(pkg, pm.getApplicationLabel(info).toString(), bitmap)
+            }.getOrNull()
+        }
+    }
+
+    @Suppress("DEPRECATION")
     private fun load(): List<HudApp> {
         val pm = context.packageManager
         return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
