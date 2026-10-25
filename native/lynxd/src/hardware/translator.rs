@@ -315,6 +315,20 @@ impl HardwareTranslator {
                     false,
                 );
 
+                // MediaTek EEM (Energy Estimation Model) Hardware Calibration Undervolt
+                // Synchronizes native kernel EEM tables (-3 steps = -18.75 mV sweet spot)
+                let eem_step = match profile.name {
+                    "powersave" => "-4",
+                    _ => "-3",
+                };
+                for eem_node in &[
+                    "/proc/eem/EEM_DET_B/eem_offset",
+                    "/proc/eem/EEM_DET_L/eem_offset",
+                    "/proc/eem/EEM_DET_CCI/eem_offset",
+                ] {
+                    Self::push_op(&mut ops, "MTK-EEM", "MediaTek EEM hardware undervolt offset", *eem_node, eem_step, false);
+                }
+
                 // Dynamic MediaTek GPU OPP & GED Translation
                 if !cap.gpu.opp_table.is_empty() {
                     let lowest_opp = cap.gpu.opp_table.last().unwrap();
