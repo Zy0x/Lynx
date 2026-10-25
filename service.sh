@@ -13,18 +13,14 @@ if [ -f /proc/sys/vm/max_map_count ]; then
     fi
 fi
 
-# MediaTek SCP SensorHub Early-Boot Guard (MUST run BEFORE system_server starts SensorService!)
-# Restarting vendor.sensors-hal-2-0 AFTER SensorService has cached sensor handles causes
-# system_server to SIGABRT with: "Sensor handles changed, cannot re-enable sensors."
-if [ "$(getprop sys.boot_completed)" != "1" ] && ! service check sensorservice 2>/dev/null | grep -q "found"; then
-    for _wait_i in 1 2 3 4 5 6; do
-        [ -c /dev/m_acc_misc ] && break
-        sleep 0.5
-    done
+# MediaTek SCP SensorHub Early-Boot Guard (ONLY if system_server has NOT started yet!)
+# Restarting vendor.sensors-hal-2-0 AFTER system_server/SensorService has cached sensor handles
+# causes system_server to SIGABRT ("Sensor handles changed, cannot re-enable sensors.").
+if [ -z "$(pidof system_server 2>/dev/null)" ] && ! service check sensorservice 2>/dev/null | grep -q "found"; then
     if [ -c /dev/m_acc_misc ]; then
         SENSOR_PID=$(pidof android.hardware.sensors@2.0-service-mediatek 2>/dev/null)
         if [ -n "$SENSOR_PID" ] && ! ls -l "/proc/$SENSOR_PID/fd" 2>/dev/null | grep -q "/dev/m_acc_misc"; then
-            if ! service check sensorservice 2>/dev/null | grep -q "found"; then
+            if [ -z "$(pidof system_server 2>/dev/null)" ] && ! service check sensorservice 2>/dev/null | grep -q "found"; then
                 stop vendor.sensors-hal-2-0 2>/dev/null
                 start vendor.sensors-hal-2-0 2>/dev/null
             fi
