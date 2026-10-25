@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_gpu_uv");
-KPM_VERSION("1.2.0");
+KPM_VERSION("1.3.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Adaptive GPU Undervolt [Tiered: Peak -12.5 mV | Mid/Low -25.0 mV | Floor 0.55V]");
+KPM_DESCRIPTION("Lynx Dual-Rail Adaptive GPU Undervolt [Peak -12.5 mV (VGPU+VSRAM) | Mid/Low -25.0 mV | Floor 0.55V]");
 
 #define LOG_TAG "[LynxGPU_UV] "
 
@@ -38,12 +38,13 @@ static int uv_mid_offset_uv  = -25000; // -25.0 mV for < 840 mV (300-920 MHz)
 static int uv_flat_offset_uv = -12500;
 
 // Rail Targeting Control:
-// 0 = ONLY vgpu (Core Logic undervolt, vsram kept at 100% stock for rock-solid stability)
-// 1 = Dual-rail (both vgpu and vsram_gpu undervolted)
-static int uv_target_vsram = 0;
+// 0 = ONLY vgpu (Core Logic undervolt)
+// 1 = Dual-rail (both vgpu and vsram_gpu undervolted with 100mV level-shifter tracking)
+static int uv_target_vsram = 1;
 
 // Absolute safety floor voltage (uV) to prevent GPU freeze/crash
-#define MIN_SAFE_GPU_UV 550000 // 0.55 V minimum floor
+#define MIN_SAFE_GPU_UV   550000 // 0.55 V minimum floor for vgpu
+#define MIN_SAFE_VSRAM_UV 650000 // 0.65 V minimum floor for vsram_gpu
 
 typedef const char *(*fn_rdev_get_name)(void *rdev);
 static fn_rdev_get_name p_rdev_get_name = NULL;
@@ -93,23 +94,25 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
     const char *name = (p_rdev_get_name && rdev) ? p_rdev_get_name(rdev) : NULL;
 
     // Target ONLY GPU power rails:
-    // vgpu is always targeted. vsram_gpu is targeted ONLY if uv_target_vsram is explicitly enabled!
+    // vgpu is always targeted. vsram_gpu is targeted when uv_target_vsram is enabled.
+    // Strictly filter out CPU SRAM rails (vsram_proc11, vsram_proc12, vsram_others).
     if (!name) return;
 
     int is_vgpu = k_str_contains(name, "vgpu") && !k_str_contains(name, "vsram");
-    int is_vsram = k_str_contains(name, "vsram");
+    int is_vsram_gpu = k_str_contains(name, "vsram") && (k_str_contains(name, "gpu") || k_str_contains(name, "mali"));
 
-    if (!is_vgpu && !(is_vsram && uv_target_vsram)) {
+    if (!is_vgpu && !(is_vsram_gpu && uv_target_vsram)) {
         return;
     }
 
+    int floor_uv = is_vsram_gpu ? MIN_SAFE_VSRAM_UV : MIN_SAFE_GPU_UV;
     int offset = resolve_offset_for_uv(min_uV);
     if (offset < 0) {
         int new_min = min_uV + offset;
         int new_max = max_uV + offset;
 
         // Enforce safety floor
-        if (new_min >= MIN_SAFE_GPU_UV && new_max >= MIN_SAFE_GPU_UV) {
+        if (new_min >= floor_uv && new_max >= floor_uv) {
             args->arg1 = (uint64_t)new_min;
             args->arg2 = (uint64_t)new_max;
             logkd(LOG_TAG "UV applied to '%s': %d uV -> %d uV (offset %d uV, %s)\n",

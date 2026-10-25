@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_cpu_uv");
-KPM_VERSION("2.2.0");
+KPM_VERSION("2.3.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Adaptive CPU Undervolt [CPU -18.75 mV | VCore -12.5 mV | Safe Floor 0.575V]");
+KPM_DESCRIPTION("Lynx Split Multi-Domain CPU Undervolt [Little -25.0 mV | Big -18.75 mV | VCore -12.5 mV]");
 
 #define LOG_TAG "[LynxCPU_UV] "
 
@@ -23,11 +23,16 @@ static void *target_upmu_buck_vcore_vosel = NULL;
 static void *target_regulator_set_voltage = NULL;
 
 // Runtime Configurable Offsets (in microvolts, uV)
-// Default: -18750 uV (-18.75 mV sweet spot, 100% rock-solid stability & high thermal efficiency)
-static int uv_cpu_offset_uv = -18750;
-// MT6358 step is 6.25 mV (6250 uV) per selector step: 18750 / 6250 = 3 steps
-static int uv_cpu_selector_steps = 3;
-// Vcore SoC bus: conservative 12.5 mV (2 steps * 6.25 mV)
+// Little Cores (6x Cortex-A55 & CCI): -25.0 mV (4 selector steps) for deep thermal relief
+static int uv_little_cpu_offset_uv = -25000;
+static int uv_little_selector_steps = 4;
+
+// Big Cores (2x Cortex-A76): -18.75 mV sweet spot (3 steps) for 100% stable 2.05 GHz gaming
+static int uv_big_cpu_offset_uv = -18750;
+static int uv_big_selector_steps = 3;
+
+// Vcore SoC bus & LPDDR4X Controller: conservative 12.5 mV (2 steps * 6.25 mV)
+static int uv_vcore_offset_uv = -12500;
 static int uv_vcore_selector_steps = 2;
 
 // Absolute safety floor voltage (uV) to prevent CPU freeze/crash
@@ -62,13 +67,13 @@ void before_upmu_buck_vproc11_vosel(hook_fargs1_t *args, void *udata)
 {
     unsigned int val = (unsigned int)args->arg0;
 
-    if (uv_cpu_selector_steps > 0 && val > MIN_SAFE_SELECTOR) {
+    if (uv_little_selector_steps > 0 && val > MIN_SAFE_SELECTOR) {
         unsigned int max_drop = val - MIN_SAFE_SELECTOR;
-        unsigned int drop = (unsigned int)uv_cpu_selector_steps < max_drop ? (unsigned int)uv_cpu_selector_steps : max_drop;
+        unsigned int drop = (unsigned int)uv_little_selector_steps < max_drop ? (unsigned int)uv_little_selector_steps : max_drop;
         if (drop > 0) {
             unsigned int new_val = val - drop;
             args->arg0 = (uint64_t)new_val;
-            logkd(LOG_TAG "Little Cores & CCI (vproc11) Curve UV: sel %u -> %u (-%d uV)\n",
+            logkd(LOG_TAG "Little Cores & CCI (vproc11) Deep UV: sel %u -> %u (-%d uV)\n",
                   val, new_val, (int)(drop * 6250));
         }
     }
@@ -84,13 +89,13 @@ void before_upmu_buck_vproc12_vosel(hook_fargs1_t *args, void *udata)
 {
     unsigned int val = (unsigned int)args->arg0;
 
-    if (uv_cpu_selector_steps > 0 && val > MIN_SAFE_SELECTOR) {
+    if (uv_big_selector_steps > 0 && val > MIN_SAFE_SELECTOR) {
         unsigned int max_drop = val - MIN_SAFE_SELECTOR;
-        unsigned int drop = (unsigned int)uv_cpu_selector_steps < max_drop ? (unsigned int)uv_cpu_selector_steps : max_drop;
+        unsigned int drop = (unsigned int)uv_big_selector_steps < max_drop ? (unsigned int)uv_big_selector_steps : max_drop;
         if (drop > 0) {
             unsigned int new_val = val - drop;
             args->arg0 = (uint64_t)new_val;
-            logkd(LOG_TAG "Big Cores (vproc12) Curve UV: sel %u -> %u (-%d uV)\n",
+            logkd(LOG_TAG "Big Cores (vproc12) Sweet Spot UV: sel %u -> %u (-%d uV)\n",
                   val, new_val, (int)(drop * 6250));
         }
     }
@@ -138,19 +143,26 @@ void before_regulator_set_voltage(hook_fargs3_t *args, void *udata)
     int offset = 0;
     int floor_uv = MIN_SAFE_CPU_UV;
 
-    if (k_str_contains(name, "vproc11") || k_str_contains(name, "vproc12")) {
-        if (target_upmu_buck_vproc11_vosel || target_upmu_buck_vproc12_vosel) {
+    if (k_str_contains(name, "vproc11")) {
+        if (target_upmu_buck_vproc11_vosel) {
             // Low-level PMIC vosel hook is active, avoid double-undervolting!
             return;
         }
-        offset = uv_cpu_offset_uv;
+        offset = uv_little_cpu_offset_uv; // -25.0 mV Deep UV
+        floor_uv = MIN_SAFE_CPU_UV;
+    } else if (k_str_contains(name, "vproc12")) {
+        if (target_upmu_buck_vproc12_vosel) {
+            // Low-level PMIC vosel hook is active, avoid double-undervolting!
+            return;
+        }
+        offset = uv_big_cpu_offset_uv; // -18.75 mV Sweet spot
         floor_uv = MIN_SAFE_CPU_UV;
     } else if (k_str_contains(name, "vcore")) {
         if (target_upmu_buck_vcore_vosel) {
             // Low-level PMIC vosel hook is active, avoid double-undervolting!
             return;
         }
-        offset = uv_vcore_selector_steps * -6250;
+        offset = uv_vcore_offset_uv; // -12.5 mV SoC VCore
         floor_uv = MIN_SAFE_VCORE_UV;
     } else {
         return;
@@ -183,35 +195,21 @@ static long lynx_cpu_uv_control0(const char *args, char *__user out_msg, int out
     logkd(LOG_TAG "Control command: %s\n", args);
 
     if (k_str_contains(args, "reset")) {
-        uv_cpu_offset_uv = 0;
-        uv_cpu_selector_steps = 0;
+        uv_little_cpu_offset_uv = 0;
+        uv_little_selector_steps = 0;
+        uv_big_cpu_offset_uv = 0;
+        uv_big_selector_steps = 0;
+        uv_vcore_offset_uv = 0;
         uv_vcore_selector_steps = 0;
         logkd(LOG_TAG "CPU, CCI & VCore UV disabled (stock default 0 uV)\n");
-    } else if (k_str_contains(args, "uv=-12.5")) {
-        uv_cpu_offset_uv = -12500;
-        uv_cpu_selector_steps = 2; // 2 * 6.25 mV = 12.5 mV
-        uv_vcore_selector_steps = 1; // 1 * 6.25 mV = 6.25 mV
-        logkd(LOG_TAG "Set conservative Full-Curve CPU/CCI UV: -12.5 mV\n");
-    } else if (k_str_contains(args, "uv=-18.75")) {
-        uv_cpu_offset_uv = -18750;
-        uv_cpu_selector_steps = 3; // 3 * 6.25 mV = 18.75 mV
-        uv_vcore_selector_steps = 2; // 2 * 6.25 mV = 12.5 mV
-        logkd(LOG_TAG "Set moderate Full-Curve CPU/CCI UV: -18.75 mV\n");
-    } else if (k_str_contains(args, "uv=-25")) {
-        uv_cpu_offset_uv = -25000;
-        uv_cpu_selector_steps = 4; // 4 * 6.25 mV = 25.0 mV
-        uv_vcore_selector_steps = 2; // 2 * 6.25 mV = 12.5 mV
-        logkd(LOG_TAG "Set recommended Full-Curve CPU/CCI UV: -25.0 mV\n");
-    } else if (k_str_contains(args, "uv=-31.25")) {
-        uv_cpu_offset_uv = -31250;
-        uv_cpu_selector_steps = 5; // 5 * 6.25 mV = 31.25 mV
+    } else if (k_str_contains(args, "sweet") || k_str_contains(args, "default")) {
+        uv_little_cpu_offset_uv = -25000;
+        uv_little_selector_steps = 4;
+        uv_big_cpu_offset_uv = -18750;
+        uv_big_selector_steps = 3;
+        uv_vcore_offset_uv = -12500;
         uv_vcore_selector_steps = 2;
-        logkd(LOG_TAG "Set high Full-Curve CPU/CCI UV: -31.25 mV\n");
-    } else if (k_str_contains(args, "uv=-37.5")) {
-        uv_cpu_offset_uv = -37500;
-        uv_cpu_selector_steps = 6; // 6 * 6.25 mV = 37.5 mV
-        uv_vcore_selector_steps = 3;
-        logkd(LOG_TAG "Set aggressive Full-Curve CPU/CCI UV: -37.5 mV\n");
+        logkd(LOG_TAG "Set Sweet Spot Split UV: Little -25.0 mV | Big -18.75 mV | VCore -12.5 mV\n");
     }
 
     return 0;
@@ -220,7 +218,7 @@ static long lynx_cpu_uv_control0(const char *args, char *__user out_msg, int out
 // Module Initialization
 static long lynx_cpu_uv_init(const char *args, const char *event, void *__user reserved)
 {
-    logkd(LOG_TAG "Initializing Lynx Comprehensive CPU, CCI & VCore UV Engine v2.0...\n");
+    logkd(LOG_TAG "Initializing Lynx Split Multi-Domain CPU & VCore UV Engine v2.3...\n");
 
     if (kallsyms_lookup_name) {
         target_upmu_buck_vproc11_vosel = (void *)kallsyms_lookup_name("mt6358_upmu_set_rg_buck_vproc11_vosel");
@@ -262,7 +260,8 @@ static long lynx_cpu_uv_init(const char *args, const char *event, void *__user r
         }
     }
 
-    logkd(LOG_TAG "Lynx Comprehensive CPU, CCI & VCore UV Engine v2.0 successfully loaded! (Offset: %d uV)\n", uv_cpu_offset_uv);
+    logkd(LOG_TAG "Lynx Split Multi-Domain CPU UV Engine v2.3 successfully loaded! (Little: %d uV, Big: %d uV, VCore: %d uV)\n",
+          uv_little_cpu_offset_uv, uv_big_cpu_offset_uv, uv_vcore_offset_uv);
     return 0;
 }
 
