@@ -1,17 +1,20 @@
 package com.noir.lynx.feature.hud.autoskip
 
 import android.content.Context
+import android.os.Build
 import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 
 /**
- * Ultra-low overhead, lag-free Dialogue Auto-Skip Runner.
- * Executes micro-taps only when active and Genshin/Hoyo RPG is in foreground.
- * CPU load: < 0.3%, 0 disk I/O, instant 0ms lockout when game loses focus.
+ * Ultra-low overhead, lag-free Dialogue Auto-Skip Runner with intelligent Auto-Disarm.
+ * Executes micro-taps only when active and dialogue is in progress.
+ * Automatically halts tapping and disarms the pill as soon as dialogue finishes to protect gameplay.
  */
 class GenshinSkipRunner(
     private val context: Context,
@@ -39,7 +42,16 @@ class GenshinSkipRunner(
     var screenHeight: Int = 1080
 
     private var job: Job? = null
+    private var monitorJob: Job? = null
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+
+    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vibratorManager?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
 
     private var touchDeviceNode: String? = null
 
@@ -72,8 +84,13 @@ class GenshinSkipRunner(
         if (activeState.value) return
         activeState.value = true
         job?.cancel()
+        monitorJob?.cancel()
+
         job = scope.launch(Dispatchers.IO) {
             runLoop()
+        }
+        monitorJob = scope.launch(Dispatchers.IO) {
+            runDialogueMonitor()
         }
     }
 
@@ -81,6 +98,20 @@ class GenshinSkipRunner(
         activeState.value = false
         job?.cancel()
         job = null
+        monitorJob?.cancel()
+        monitorJob = null
+    }
+
+    private fun stopWithHaptic() {
+        stop()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(35L, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(35L)
+            }
+        } catch (_: Throwable) {}
     }
 
     private suspend fun runLoop() {
@@ -100,38 +131,73 @@ class GenshinSkipRunner(
             val choiceTarget = if (targetChoiceBottom) coords.bottomChoice else coords.topChoice
             val advanceTarget = coords.advance
 
+            val halfSpeed = (speedMs / 2).coerceAtLeast(60L)
+
             // 1. Choice tap (clicks dialogue option pill if visible)
             tap(choiceTarget.x, choiceTarget.y)
-            delay(100L)
+            delay(halfSpeed)
 
             // 2. Advance tap (clicks dialogue typewriter forward)
             tap(advanceTarget.x, advanceTarget.y)
-
-            val remainingDelay = (speedMs - 100L).coerceAtLeast(80L)
-            delay(remainingDelay)
+            delay(halfSpeed)
         }
         activeState.value = false
     }
 
-    private fun tap(x: Int, y: Int) {
-        val dev = touchDeviceNode
-        if (dev != null && File(dev).canWrite()) {
-            // High-speed Linux kernel input event (sub-0.1ms)
-            val script = """
-                sendevent $dev 3 57 1 2>/dev/null
-                sendevent $dev 3 53 $x 2>/dev/null
-                sendevent $dev 3 54 $y 2>/dev/null
-                sendevent $dev 3 58 50 2>/dev/null
-                sendevent $dev 1 330 1 2>/dev/null
-                sendevent $dev 0 0 0 2>/dev/null
-                sendevent $dev 3 57 -1 2>/dev/null
-                sendevent $dev 1 330 0 2>/dev/null
-                sendevent $dev 0 0 0 2>/dev/null
-            """.trimIndent()
-            Shell.cmd(script).submit()
-        } else {
-            // Standard Android input tap fallback (20ms)
-            Shell.cmd("input tap $x $y >/dev/null 2>&1").submit()
+    /**
+     * Parallel background watcher: monitors dialogue presence every ~750ms.
+     * When dialogue disappears for 2 consecutive checks (~1.5s), automatically halts tapping
+     * to prevent interference with gameplay and reverts HUD pill state.
+     */
+    private suspend fun runDialogueMonitor() {
+        delay(400L)
+        var hasDetectedDialogue = false
+        var nonDialogueStreak = 0
+        val startTime = System.currentTimeMillis()
+        val maxDurationMs = 90_000L // 90s safety watchdog
+
+        while (activeState.value && currentCoroutineContext().isActive) {
+            delay(750L)
+
+            // 1. Max safety duration cap
+            if (System.currentTimeMillis() - startTime > maxDurationMs) {
+                stopWithHaptic()
+                break
+            }
+
+            val isScreenOn = powerManager?.isInteractive ?: true
+            if (!isScreenOn || isHudOpen) {
+                continue
+            }
+
+            // 2. Ensure supported game is in foreground
+            if (!GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
+                stopWithHaptic()
+                break
+            }
+
+            // 3. Inspect top-left dialogue control circle color
+            val isDialogue = GenshinSkipEngine.checkDialogueActive(screenWidth, screenHeight)
+
+            if (isDialogue) {
+                hasDetectedDialogue = true
+                nonDialogueStreak = 0
+            } else {
+                nonDialogueStreak++
+                if (hasDetectedDialogue && nonDialogueStreak >= 2) {
+                    // Dialogue has finished! Auto-disarm immediately so gameplay is completely undisturbed.
+                    stopWithHaptic()
+                    break
+                } else if (!hasDetectedDialogue && nonDialogueStreak >= 5) {
+                    // Pre-armed standby: no dialogue started within ~4s, disarm safely.
+                    stopWithHaptic()
+                    break
+                }
+            }
         }
+    }
+
+    private fun tap(x: Int, y: Int) {
+        Shell.cmd("input tap $x $y >/dev/null 2>&1").submit()
     }
 }

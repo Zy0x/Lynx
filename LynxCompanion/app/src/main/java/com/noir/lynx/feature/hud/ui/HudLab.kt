@@ -1,12 +1,15 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -46,12 +49,7 @@ internal fun HudLab(
 
     LaunchedEffect(Unit) {
         onRefreshBypass()
-        while (true) {
-            networkBusy = true
-            networkSample = runCatching { onProbeNetwork() }.getOrNull()
-            networkBusy = false
-            delay(5_000L)
-        }
+
     }
 
     val capText = hudString(
@@ -69,8 +67,12 @@ internal fun HudLab(
         HudCapability.CHECKING -> HudBlue
     }
 
+    var selectedAddin by rememberSaveable { mutableIntStateOf(0) }
+    HudAddinNavigation(selectedAddin) { selectedAddin = it }
+    if (selectedAddin == 4) HudMagicBoxControls()
+
     // 1. Bypass Charging Lab Card
-    HudSection(
+    if (selectedAddin == 1) HudSection(
         title = hudString(R.string.hud_lab_bypass_title),
         badge = capText,
         accentColor = capColor
@@ -121,12 +123,12 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_metric_current),
-                value = if (current.status == "valid") "${current.text()} ${current.unit}" else "—",
+                value = if (current.status == "valid") "${current.text()} ${current.unit}" else "â€”",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_metric_battery_temp),
-                value = if (temp.status == "valid") "${temp.text()} ${temp.unit}" else "—",
+                value = if (temp.status == "valid") "${temp.text()} ${temp.unit}" else "â€”",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -137,7 +139,7 @@ internal fun HudLab(
     val scoreBadge = if (networkSample != null) {
         hudString(R.string.hud_net_score, score)
     } else {
-        hudString(R.string.hud_cap_checking)
+        hudString(R.string.hud_network_manual_test)
     }
     val scoreColor = when {
         networkSample == null -> HudBlue
@@ -146,11 +148,12 @@ internal fun HudLab(
         else -> HudRed
     }
 
-    HudSection(
+    if (selectedAddin == 3) HudSection(
         title = hudString(R.string.hud_lab_network_title),
         badge = scoreBadge,
         accentColor = scoreColor
     ) {
+        HudGameNetworkControls()
         Text(
             text = hudString(R.string.hud_lab_network_desc),
             fontSize = 11.5.sp,
@@ -163,17 +166,17 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_net_ping),
-                value = networkSample?.avgMs?.let { "${it.roundToInt()} ms" } ?: "—",
+                value = networkSample?.avgMs?.let { "${it.roundToInt()} ms" } ?: "â€”",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_net_jitter),
-                value = networkSample?.jitterMs?.let { "${it.roundToInt()} ms" } ?: "—",
+                value = networkSample?.jitterMs?.let { "${it.roundToInt()} ms" } ?: "â€”",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_net_loss),
-                value = networkSample?.let { "${it.lossPct}%" } ?: "—",
+                value = networkSample?.let { "${it.lossPct}%" } ?: "â€”",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -211,7 +214,7 @@ internal fun HudLab(
         HudCapability.CHECKING -> HudBlue
     }
 
-    HudSection(
+    if (selectedAddin == 2) HudSection(
         title = hudString(R.string.hud_lab_touch_title),
         badge = touchCapText,
         accentColor = touchCapColor
@@ -323,17 +326,17 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_rate),
-                value = touchSample.rateHz?.let { "$it Hz" } ?: "—",
+                value = touchSample.rateHz?.let { "$it Hz" } ?: "â€”",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_interval),
-                value = touchSample.intervalMs?.let { String.format(java.util.Locale.US, "%.1f ms", it) } ?: "—",
+                value = touchSample.intervalMs?.let { String.format(java.util.Locale.US, "%.1f ms", it) } ?: "â€”",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_fingers),
-                value = if (touchSample.maxFingers > 0) hudString(R.string.hud_touch_fingers_val, touchSample.maxFingers) else "—",
+                value = if (touchSample.maxFingers > 0) hudString(R.string.hud_touch_fingers_val, touchSample.maxFingers) else "â€”",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -341,11 +344,12 @@ internal fun HudLab(
 
     // 4. Notification & Focus Shield Card
     val shieldActive = shieldStatus.headsUpBlocked || shieldStatus.zenMode > 0
-    HudSection(
+    if (selectedAddin == 0) HudSection(
         title = hudString(R.string.hud_lab_shield_title),
         badge = hudString(if (shieldActive) R.string.hud_active else R.string.hud_cap_ready),
         accentColor = if (shieldActive) HudCyan else HudBlue
     ) {
+        HudGlowControls()
         Text(
             text = hudString(R.string.hud_lab_shield_desc),
             fontSize = 11.5.sp,
@@ -378,26 +382,26 @@ internal fun HudLab(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             val focusLevels = listOf(
                 0 to hudString(R.string.hud_shield_mode_off),
                 1 to hudString(R.string.hud_shield_mode_priority),
-                2 to hudString(R.string.hud_shield_mode_silent)
+                2 to hudString(R.string.hud_shield_mode_silent),
+                3 to hudString(R.string.hud_shield_mode_alarms)
             )
             focusLevels.forEach { (level, label) ->
                 val selected = when (level) {
                     0 -> shieldStatus.zenMode == 0
-                    1 -> shieldStatus.zenMode == 1 || shieldStatus.zenMode == 3
-                    else -> shieldStatus.zenMode == 2
+                    else -> shieldStatus.zenMode == level
                 }
                 HudChoice(
                     label = label,
                     selected = selected,
                     onClick = { onSelectFocusLevel(level) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy
+                    modifier = Modifier.widthIn(min = 84.dp).heightIn(min = 48.dp),
+                    enabled = !busy && shieldStatus.capability == HudCapability.READY
                 )
             }
         }

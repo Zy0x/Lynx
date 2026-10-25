@@ -122,91 +122,27 @@ class HudLabRepository(private val context: Context) {
         runCatching { Shell.getShell().isRoot }.getOrDefault(false)
 
     suspend fun probeBypass(): HudBypassStatus = withContext(Dispatchers.IO) {
-        if (!isRootAvailable()) {
-            return@withContext HudBypassStatus(capability = HudCapability.NEEDS_ROOT)
-        }
-        val bin = binaryPath() ?: return@withContext HudBypassStatus(capability = HudCapability.UNSUPPORTED)
-        val qBin = "'" + bin.replace("'", "'\\''") + "'"
-        val raw = Shell.cmd("$qBin charging status 2>/dev/null").exec().out.joinToString("\n")
-        parseChargingStatusJson(raw, rootAvailable = true)
+        com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass?.probe()
+            ?: HudBypassStatus(capability = HudCapability.UNSUPPORTED)
     }
 
     suspend fun setBypass(enabled: Boolean): HudBypassStatus = withContext(Dispatchers.IO) {
-        if (!isRootAvailable()) {
-            return@withContext HudBypassStatus(capability = HudCapability.NEEDS_ROOT)
-        }
-        val bin = binaryPath() ?: return@withContext HudBypassStatus(capability = HudCapability.UNSUPPORTED)
-        val qBin = "'" + bin.replace("'", "'\\''") + "'"
-        val cmd = if (enabled) {
-            "$qBin state set charging.bypass_enabled=true >/dev/null 2>&1; $qBin charging bypass >/dev/null 2>&1; $qBin charging status 2>/dev/null"
-        } else {
-            "rm -f /dev/lynx_bypass_active 2>/dev/null; $qBin state set charging.bypass_enabled=false >/dev/null 2>&1; $qBin charging apply >/dev/null 2>&1; $qBin charging status 2>/dev/null"
-        }
-        val raw = Shell.cmd(cmd).exec().out.joinToString("\n")
-        parseChargingStatusJson(raw, rootAvailable = true)
+        val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass
+            ?: return@withContext HudBypassStatus(capability = HudCapability.UNSUPPORTED)
+        session.set(enabled)
+        session.probe()
     }
 
     suspend fun probeTouchBoost(): HudTouchStatus = withContext(Dispatchers.IO) {
-        if (!isRootAvailable()) {
-            return@withContext HudTouchStatus(capability = HudCapability.NEEDS_ROOT)
-        }
-        val script = """
-            if [ -e /proc/perfmgr/tchbst/user/usrtch ] || [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
-                echo "BACKEND=MTK Perfmgr TchBst + EAS"
-                if [ -f /dev/lynx_touch_master_active ]; then echo "ACTIVE=1"; else echo "ACTIVE=0"; fi
-            elif [ -e /dev/stune/top-app/schedtune.prefer_idle ] || [ -e /sys/module/msm_performance/parameters/touchboost ]; then
-                echo "BACKEND=Qualcomm SchedTune + TouchBoost"
-                if [ -f /dev/lynx_touch_master_active ]; then echo "ACTIVE=1"; else echo "ACTIVE=0"; fi
-            else
-                echo "BACKEND=NONE"
-            fi
-        """.trimIndent()
-        val lines = Shell.cmd(script).exec().out
-        val backend = lines.firstOrNull { it.startsWith("BACKEND=") }?.substringAfter("BACKEND=")?.trim().orEmpty()
-        val active = lines.any { it.trim() == "ACTIVE=1" }
-        if (backend.isEmpty() || backend == "NONE") {
-            HudTouchStatus(capability = HudCapability.UNSUPPORTED, enabled = false, backendLabel = "")
-        } else {
-            HudTouchStatus(capability = HudCapability.READY, enabled = active, backendLabel = backend)
-        }
+        com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.touch?.probe()
+            ?: HudTouchStatus(capability = HudCapability.UNSUPPORTED)
     }
 
     suspend fun setTouchBoost(enabled: Boolean): HudTouchStatus = withContext(Dispatchers.IO) {
-        if (!isRootAvailable()) {
-            return@withContext HudTouchStatus(capability = HudCapability.NEEDS_ROOT)
-        }
-        val script = if (enabled) {
-            """
-            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
-                echo 80 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
-            fi
-            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle ]; then
-                echo "3 1" > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle 2>/dev/null
-            fi
-            if [ -e /dev/stune/top-app/schedtune.prefer_idle ]; then
-                echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null
-            fi
-            if [ -e /sys/module/msm_performance/parameters/touchboost ]; then
-                echo 1 > /sys/module/msm_performance/parameters/touchboost 2>/dev/null
-            fi
-            touch /dev/lynx_touch_master_active 2>/dev/null
-            """.trimIndent()
-        } else {
-            """
-            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ]; then
-                echo 25 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
-            fi
-            if [ -e /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle ]; then
-                echo "3 0" > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle 2>/dev/null
-            fi
-            if [ -e /dev/stune/top-app/schedtune.prefer_idle ]; then
-                echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null
-            fi
-            rm -f /dev/lynx_touch_master_active 2>/dev/null
-            """.trimIndent()
-        }
-        Shell.cmd(script).exec()
-        probeTouchBoost()
+        val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.touch
+            ?: return@withContext HudTouchStatus(capability = HudCapability.UNSUPPORTED)
+        session.set(enabled)
+        session.probe()
     }
 
     suspend fun probeShield(): HudShieldStatus = withContext(Dispatchers.IO) {
@@ -217,11 +153,14 @@ class HudLabRepository(private val context: Context) {
             "echo \"HEADSUP=\$(settings get global heads_up_notifications_enabled 2>/dev/null)\"; echo \"ZEN=\$(settings get global zen_mode 2>/dev/null)\""
         ).exec().out
         val headsUpRaw = lines.firstOrNull { it.startsWith("HEADSUP=") }?.substringAfter("HEADSUP=")?.trim()
-        val zenRaw = lines.firstOrNull { it.startsWith("ZEN=") }?.substringAfter("ZEN=")?.trim()?.toIntOrNull() ?: 0
+        val zenRaw = lines.firstOrNull { it.startsWith("ZEN=") }?.substringAfter("ZEN=")?.trim()?.toIntOrNull()
+        if (zenRaw !in 0..3 || headsUpRaw !in listOf("0", "1", "null")) {
+            return@withContext HudShieldStatus(capability = HudCapability.UNSUPPORTED)
+        }
         HudShieldStatus(
             capability = HudCapability.READY,
             headsUpBlocked = headsUpRaw == "0",
-            zenMode = zenRaw.coerceIn(0, 3)
+            zenMode = zenRaw ?: 0
         )
     }
 

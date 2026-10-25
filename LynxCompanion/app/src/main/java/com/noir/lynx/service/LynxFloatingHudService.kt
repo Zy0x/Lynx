@@ -370,8 +370,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                         val inHeaderArea = downLocalY <= 48f * density && downLocalX < (width - 76f * density)
                         gestureMode = if (onInnerEar || inHeaderArea) GestureMode.UNDECIDED else GestureMode.PASS_THROUGH
                     } else {
-                        gestureMode = GestureMode.UNDECIDED
-                        mainHandler.postDelayed(holdToDragRunnable, 170L)
+                        val handleHeightPx = 72f * density
+                        val isInsideHandle = downLocalY <= handleHeightPx
+                        if (isInsideHandle) {
+                            gestureMode = GestureMode.UNDECIDED
+                            mainHandler.postDelayed(holdToDragRunnable, 220L)
+                        } else {
+                            gestureMode = GestureMode.PASS_THROUGH
+                        }
                     }
                     super.dispatchTouchEvent(ev)
                     return true

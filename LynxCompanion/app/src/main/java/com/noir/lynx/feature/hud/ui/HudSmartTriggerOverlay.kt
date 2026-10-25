@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 
@@ -25,6 +27,7 @@ internal fun HudSmartTriggerOverlay(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val borderColor by animateColorAsState(
         targetValue = if (isSkipping) HudCyan else HudBorder,
         animationSpec = tween(180),
@@ -32,12 +35,14 @@ internal fun HudSmartTriggerOverlay(
     )
 
     Surface(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onToggle()
+        },
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xEE12151B),
-        border = BorderStroke(1.2.dp, borderColor),
-        modifier = modifier
-            .padding(horizontal = 6.dp, vertical = 4.dp)
-            .clickable { onToggle() }
+        color = if (isSkipping) Color(0xEE0B2538) else Color(0xEE12151B),
+        border = BorderStroke(1.5.dp, borderColor),
+        modifier = modifier.padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),

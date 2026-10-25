@@ -14,6 +14,7 @@ import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.floating.StandaloneApps
 import com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner
+import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.data.HudAppCatalog
 import com.noir.lynx.feature.hud.data.HudBypassStatus
 import com.noir.lynx.feature.hud.data.HudDockPolicy
@@ -45,6 +46,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     val apps = appState.asStateFlow()
     private val displaySession = HudDisplaySession(context)
     private val labRepository = HudLabRepository(context)
+    private val gaming = HudGamingAddins(context, scope)
     val skipRunner = GenshinSkipRunner(context, scope)
     val isSkipping = skipRunner.isSkipping
 
@@ -63,20 +65,24 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private val focusState = MutableStateFlow(false)
     val focusActive = focusState.asStateFlow()
     @Volatile
-    private var initialZenMode: Int? = null
-    @Volatile
-    private var initialHeadsUp: Int? = null
-    @Volatile
     private var initialBrightnessMode: Int? = null
 
     init {
+        gaming.beforeMagicStart = { skipRunner.stop() }
         scope.launch(Dispatchers.IO) {
+            gaming.setRootAvailable(runCatching { Shell.getShell().isRoot }.getOrDefault(false))
             displaySession.restore()
+            gaming.focus.restore()
+            gaming.touch.restore()
+            gaming.bypass.restore()
+            gaming.qos.restore()
+            gaming.qos.probe()
             bypassState.value = runCatching { labRepository.probeBypass() }.getOrDefault(HudBypassStatus())
             touchState.value = runCatching { labRepository.probeTouchBoost() }.getOrDefault(HudTouchStatus())
             val shield = runCatching { labRepository.probeShield() }.getOrDefault(HudShieldStatus())
             shieldState.value = shield
             focusState.value = shield.zenMode > 0
+            gaming.focused = shield.zenMode > 0 || shield.headsUpBlocked
             val bMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
             brightnessLockState.value = (bMode == 0)
             val catalog = HudAppCatalog(context)
@@ -95,6 +101,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             val shield = runCatching { labRepository.probeShield() }.getOrDefault(shieldState.value)
             shieldState.value = shield
             focusState.value = shield.zenMode > 0
+            gaming.focused = shield.zenMode > 0 || shield.headsUpBlocked
             val bMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
             brightnessLockState.value = (bMode == 0)
         }
@@ -121,15 +128,12 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun setHeadsUpShield(blocked: Boolean) = perform {
-        if (initialHeadsUp == null) {
-            val currentHeads = Shell.cmd("settings get global heads_up_notifications_enabled 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-            initialHeadsUp = currentHeads
-        }
         val targetVal = if (blocked) 0 else 1
-        Shell.cmd("settings put global heads_up_notifications_enabled $targetVal >/dev/null 2>&1").exec()
+        val applied = gaming.focus.set("heads_up_notifications_enabled", targetVal)
         val shield = labRepository.probeShield()
         shieldState.value = shield
-        if (shield.headsUpBlocked == blocked) {
+        gaming.focused = shield.headsUpBlocked || shield.zenMode > 0
+        if (applied && shield.headsUpBlocked == blocked) {
             if (blocked) R.string.hud_shield_on_verified else R.string.hud_shield_off_verified
         } else {
             R.string.hud_failed
@@ -137,20 +141,13 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun setFocusLevel(zenTarget: Int) = perform {
-        val currentZen = Shell.cmd("settings get global zen_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
-        if (initialZenMode == null) {
-            initialZenMode = currentZen
-        }
-        val dndArg = when (zenTarget) {
-            1 -> "priority"
-            2 -> "none"
-            else -> "off"
-        }
-        Shell.cmd("cmd notification set_dnd $dndArg >/dev/null 2>&1").exec()
+        if (zenTarget !in 0..3) return@perform R.string.hud_failed
+        val applied = gaming.focus.set("zen_mode", zenTarget)
         val shield = labRepository.probeShield()
         shieldState.value = shield
         focusState.value = shield.zenMode > 0
-        val verified = if (zenTarget == 0) shield.zenMode == 0 else shield.zenMode > 0
+        gaming.focused = shield.headsUpBlocked || shield.zenMode > 0
+        val verified = applied && shield.zenMode == zenTarget
         if (!verified) R.string.hud_failed else if (zenTarget > 0) R.string.hud_focus_on else R.string.hud_focus_off
     }
 
@@ -171,7 +168,18 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         }
     }
 
-    fun toggleFocus() = setFocusLevel(if (focusState.value) 0 else 1)
+    fun toggleFocus() = perform {
+        val enabled = !focusState.value
+        val zen = gaming.focus.set("zen_mode", if (enabled) 2 else 0)
+        val heads = gaming.focus.set("heads_up_notifications_enabled", if (enabled) 0 else 1)
+        val shield = labRepository.probeShield()
+        shieldState.value = shield
+        focusState.value = shield.zenMode > 0
+        gaming.focused = shield.zenMode > 0 || shield.headsUpBlocked
+        if (zen && heads) {
+            if (enabled) R.string.hud_focus_on else R.string.hud_focus_off
+        } else R.string.hud_failed
+    }
 
     suspend fun probeNetwork(): HudNetworkSample = labRepository.probeNetwork()
 
@@ -233,9 +241,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         if (applied && current()?.let { kotlin.math.abs(it - hz) < 0.6f } == true) R.string.hud_verified else R.string.hud_failed
     }
 
-    fun toggleAutoSkip() { skipRunner.toggle() }
+    fun toggleAutoSkip() { gaming.magic.stop(); skipRunner.toggle() }
     fun stopAutoSkip() { skipRunner.stop() }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
+        gaming.update(pkg, isHudOpen, width, height)
         skipRunner.currentForegroundPackage = pkg
         skipRunner.isHudOpen = isHudOpen
         skipRunner.screenWidth = width
@@ -245,21 +254,10 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun restoreDisplay() {
+        gaming.close()
         skipRunner.stop()
         displaySession.restore()
         val cmds = mutableListOf<String>()
-        initialZenMode?.let { savedZen ->
-            val restoreArg = when (savedZen) {
-                1 -> "priority"
-                2 -> "none"
-                3 -> "alarms"
-                else -> "off"
-            }
-            cmds.add("cmd notification set_dnd $restoreArg >/dev/null 2>&1")
-        }
-        initialHeadsUp?.let { savedHeads ->
-            cmds.add("settings put global heads_up_notifications_enabled $savedHeads >/dev/null 2>&1")
-        }
         initialBrightnessMode?.let { savedBMode ->
             cmds.add("settings put system screen_brightness_mode $savedBMode >/dev/null 2>&1")
         }

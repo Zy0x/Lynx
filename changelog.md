@@ -1,3 +1,37 @@
+# Lynx Universal [Deteksi Akhir Percakapan & Auto-Disarm Cerdas Auto-Skip] 7.0.0-RC198
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC198** (Lynx Kernel Manager v3.2.41): **Implementasi Sistem Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection & Gameplay Shield*) pada Mesin Pemicu Pintar Auto-Skip: Memantau Keberadaan Lingkaran Tombol Kontrol Dialog Top-Left Melalui Pembacaan Stream Pipe Pixel Sub-Detik (`screencap | od`); Verifikasi Nilai Spektrum Warna Hangat Cream/Beige Ikon Dialog (`RGB ~ 236, 229, 216`); Penghentian Total Ketukan Layar Secara Otomatis (*Auto-Disarm*) Saat Dialog Selesai (Histeresis 2 Sampel Negatif ~1.5 Detik) Guna Mencegah Gangguan Kontrol Kamera Maupun Serangan di Open-World; Pemulihan Otomatis Status Tombol Melayang ke Mode Siaga `[ ⏩ Auto-Skip ]`; Fitur Pengaman Siaga Pra-Dialog (~4s Timeout); Serta Getaran Konfirmasi Haptik 35ms Saat Auto-Disarm Terpicu**.
+
+## Rangkuman Fitur & Perbaikan (7.0.0-RC198)
+1. **Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection*)**:
+   - `GenshinSkipEngine` dilengkapi metode sampling pixel super-cepat berorientasi landscape (`checkDialogueActive`): membaca offset 16-byte tepat di koordinat lingkaran tombol Putar Otomatis dialog tanpa dump seluruh framebuffer.
+   - Pengecekan spektrum warna beige/cream hangat (`isDialogueColor`): `r in 210..248`, `g in 200..242`, `b in 188..232` dengan gradasi `r >= g >= b && (r - b) in 8..35`.
+2. **Auto-Disarm & Perlindungan Gameplay Open-World (*Gameplay Shield*)**:
+   - `GenshinSkipRunner` menjalankan monitor background terisolasi setiap ~750ms dengan filter histeresis.
+   - Begitu urutan dialog selesai dan tampilan berpindah kembali ke dunia bebas/eksplorasi (2 kali pengecekan berturut-turut tanpa elemen dialog), seluruh proses pengetukan langsung dihentikan seketika (`stop()`).
+   - Mencegah tombol skip terus mengetuk layar yang dapat mengganggu pergerakan karakter, perputaran kamera, maupun serangan mendadak saat pemain kembali ke open-world.
+3. **Sinkronisasi UI & Umpan Balik Haptik Taktil**:
+   - Tombol melayang `HudSmartTriggerOverlay` seketika berubah kembali dari status aktif menyala `[ ⏩ Skipping... ]` menjadi status siaga `[ ⏩ Auto-Skip ]`.
+   - Denyut haptik halus 35ms (`stopWithHaptic`) memberi sinyal taktil instan kepada pemain bahwa kendali karakter telah sepenuhnya diserahkan kembali ke tangan mereka.
+   - Pengaman siaga (*standby guard*): jika tombol melayang diaktifkan sebelum berbicara dengan NPC dan dalam 4 detik tidak ada dialog yang dimulai, auto-skip otomatis beralih ke mode siaga tanpa spamming layar.
+
+---
+
+# Lynx Universal [Pemicu Pintar Auto-Skip High-Cadence Cadence & Tactile Pill Trigger] 7.0.0-RC197
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC197** (Lynx Kernel Manager v3.2.41): **Optimalisasi Presisi & Responsivitas Sentuh Pemicu Pintar Auto-Skip Dialog: Penataan Ulang Surface Click Handling dengan Haptic Feedback Langsung (`LocalHapticFeedback`); Pemisahan Zona Intersepsi Sentuh Window Service (`LynxFloatingHudService`) Antara Gagang Geser (`handleHeightPx`) dan Tombol Melayang (`PASS_THROUGH`) Mencegah Pembatalan Event Klik oleh `holdToDragRunnable`; Sinkronisasi Otomatis Siklus Lompat Dialog Saat Sakelar di Tab `Alat` Dinyalakan; Serta Ritme Tapping Bergantian Berkecepatan Tinggi (Choice Tap + Advance Tap dengan Delay Terbagi Rata) Berakurasi Tinggi di Seluruh Resolusi Game Tanpa Lag**.
+
+## Rangkuman Fitur & Perbaikan (7.0.0-RC197)
+1. **Perbaikan Intersepsi Sentuhan Tombol Melayang**:
+   - `HudSmartTriggerOverlay` beralih ke `Surface(onClick = onToggle)` resmi Material 3 dengan getaran haptik responsif.
+   - Mengisolasi koordinat `downLocalY` di bawah `72dp` agar bypass langsung sebagai `GestureMode.PASS_THROUGH` tanpa risiko terintersepsi oleh *gesture handler* laci samping.
+2. **Sinkronisasi Otomatis Tab `Alat`**:
+   - Menyalakan sakelar "Aktifkan Tombol Melayang Auto-Skip" di tab `Alat` secara otomatis langsung mengaktifkan siklus *skipping* aktif (`isSkipping = true`) sehingga pemain dapat langsung menikmati auto-skip tanpa keharusan mengetuk tombol melayang berulang kali.
+3. **Kadensi Ketukan Tinggi & Bebas Konflik I/O**:
+   - Membagi interval ketukan rata (`delay(speedMs / 2)`) antara pemilihan opsi dialog kanan dan kemajuan dialog teks, menjamin setiap baris dialog terlewati dengan kecepatan optimal.
+
+---
+
 # Lynx Universal [Pemicu Pintar · Auto-Skip Dialog Genshin Impact & Hoyo RPGs] 7.0.0-RC196
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC196** (Lynx Kernel Manager v3.2.40): **Peluncuran Fitur Taktis Gaming Pintar: `Pemicu Pintar · Auto-Skip Dialog (Genshin Impact & Hoyo RPGs)` yang Diadaptasi dari Arsitektur Cerdas XBoost AI Magic Box Infinix & Desktop Dialogue Skipper; Memadukan Kalkulator Koordinat Adaptif Lintas-Rasio Layar (16:9, 19.5:9, 20.5:9, 21:9) Tanpa Ketergantungan Koordinat Statis Kaku; Runner Ringan Tanpa I/O Disk Berfrekuensi Sampling 4 Hz (CPU < 0.3%); Tombol Melayang Cerdas `[ ⏩ Auto-Skip ]` (Otomatis Muncul Hanya Saat Game RPG Aktif di Layar Depan); Injeksi Sentuhan Sub-Milidetik Terpadu; Serta Pengendalian Lengkap Kecepatan Ketukan (180ms, 250ms, 380ms) dan Pemilihan Opsi Percakapan di Halaman `Alat` (`HudTools`)**.

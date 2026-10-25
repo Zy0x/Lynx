@@ -249,7 +249,10 @@ fun HudSidebar(
                                                     onBoostRam = onBoostRam,
                                                     brightnessLocked = brightnessLocked,
                                                     onToggleBrightnessLock = onToggleBrightnessLock,
-                                                    onToggleAutoSkip = { preferences.setAutoSkipEnabled(it) },
+                                                    onToggleAutoSkip = { enabled ->
+                                                        preferences.setAutoSkipEnabled(enabled)
+                                                        if (enabled != isSkipping) onToggleAutoSkip()
+                                                    },
                                                     onSetAutoSkipSpeed = { preferences.setAutoSkipSpeed(it) },
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
                                                 )
