@@ -1,3 +1,9 @@
+# Lynx Universal [Pre-Zygote post-fs-data Sensor Synchronizer Before Lock Screen] 7.0.0-RC194
+Released on: 2026-10-25
+> **Lynx Universal v7.0.0-RC194** (Lynx Kernel Manager v3.2.38): **Sinkronisasi Sensor MediaTek SCP Tahap Pre-Zygote (`post-fs-data.sh`): Memantau Kemunculan `/dev/m_acc_misc` Setiap 200ms Sejak Detik ke-1.5 Booting (Sebelum `zygote64` dan `system_server` Berjalan), Memastikan `vendor.sensors-hal-2-0` Membuka Seluruh 16 Sensor Fisik 15 Detik Sebelum Pengguna Masuk ke Lock Screen Tanpa Risiko Abort `SensorService`**.
+
+---
+
 # Lynx Universal [Pre-SensorService Early-Boot Guard & Anti-Framework-Abort Fix] 7.0.0-RC193
 Released on: 2026-10-25
 > **Lynx Universal v7.0.0-RC193** (Lynx Kernel Manager v3.2.38): **Perbaikan Kritis Mekanisme Auto-Heal Sensor MediaTek SCP (`service.sh`): Memindahkan Pemeriksaan `/dev/m_acc_misc` & Restart `vendor.sensors-hal-2-0` ke Tahap Early-Boot Sebelum `SensorService` (`system_server`) Mengunci Handle Sensor, Mencegah `SIGABRT` (`Sensor handles changed, cannot re-enable sensors.`) yang Sebelumnya Memicu Restart Framework Saat Masuk ke Home Screen**.

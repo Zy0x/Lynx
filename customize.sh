@@ -393,7 +393,7 @@ set_perm_recursive "$MODPATH/system/bin" 0 0 0755 0755
 set_perm_recursive "$MODPATH/core" 0 0 0755 0644
 [ -d "$MODPATH/platforms" ] && set_perm_recursive "$MODPATH/platforms" 0 0 0755 0644
 set_perm_recursive "$MODPATH/webroot" 0 0 0755 0644
-chmod 755 "$MODPATH/service.sh" "$MODPATH/uninstall.sh" "$MODPATH/action.sh" 2>/dev/null
+chmod 755 "$MODPATH/post-fs-data.sh" "$MODPATH/service.sh" "$MODPATH/uninstall.sh" "$MODPATH/action.sh" 2>/dev/null
 
 # Enforce clean system_file SELinux context
 chcon -R u:object_r:system_file:s0 "$MODPATH/system" 2>/dev/null
