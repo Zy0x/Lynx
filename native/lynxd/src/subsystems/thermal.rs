@@ -147,6 +147,7 @@ impl ThermalController {
         let targets: &[&str] = &[
             "mi_thermald",
             "ituxd",
+            "thermalloadalgod",
             "com.samsung.android.game.gos",
             "com.xiaomi.joyose",
         ];
