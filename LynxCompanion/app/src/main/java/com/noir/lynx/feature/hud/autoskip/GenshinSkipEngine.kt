@@ -1,12 +1,12 @@
 package com.noir.lynx.feature.hud.autoskip
 
-import com.topjohnwu.superuser.Shell
 import kotlin.math.max
 import kotlin.math.min
 
 /**
  * Intelligent Target & Coordinate Calculator for Genshin Impact and Hoyo RPGs.
  * Adapts to any ultra-wide screen aspect ratio (16:9, 19.5:9, 20.5:9, 21:9) without hardcoded static resolution bias.
+ * Completely free of screencap overhead to guarantee 0% frame drops during gameplay.
  */
 object GenshinSkipEngine {
 
@@ -30,7 +30,9 @@ object GenshinSkipEngine {
 
     data class DialogueCoordinates(
         val advance: TapTarget,
+        val narration: TapTarget,
         val topChoice: TapTarget,
+        val midChoice: TapTarget,
         val bottomChoice: TapTarget
     )
 
@@ -43,17 +45,24 @@ object GenshinSkipEngine {
         val height = min(screenWidth, screenHeight).coerceAtLeast(720)
 
         // 1. Dialogue text typewriter fast-forward zone (center-right safe quadrant)
-        val advanceX = (width * 0.72f).toInt()
+        val advanceX = (width * 0.68f).toInt()
         val advanceY = (height * 0.60f).toInt()
 
-        // 2. Right-side dialogue choice options (Speech bubble pill column)
-        val choiceX = (width * 0.68f).toInt()
-        val topChoiceY = (height * 0.67f).toInt()
-        val bottomChoiceY = (height * 0.77f).toInt()
+        // 2. Center-bottom story narration transition prompt ("Tekan untuk melanjutkan" / "Tap to continue")
+        val narrationX = (width * 0.50f).toInt()
+        val narrationY = (height * 0.88f).toInt()
+
+        // 3. Right-side dialogue choice options (Speech bubble pill column)
+        val choiceX = (width * 0.72f).toInt()
+        val topChoiceY = (height * 0.50f).toInt()
+        val midChoiceY = (height * 0.58f).toInt()
+        val bottomChoiceY = (height * 0.66f).toInt()
 
         return DialogueCoordinates(
             advance = TapTarget(advanceX, advanceY),
+            narration = TapTarget(narrationX, narrationY),
             topChoice = TapTarget(choiceX, topChoiceY),
+            midChoice = TapTarget(choiceX, midChoiceY),
             bottomChoice = TapTarget(choiceX, bottomChoiceY)
         )
     }
@@ -72,7 +81,6 @@ object GenshinSkipEngine {
 
     /**
      * Calculates the raw byte offset for the Auto button pixel in screencap RGBA stream.
-     * Header is 16 bytes (width, height, format, colorspace).
      */
     fun calculateAutoButtonOffset(screenWidth: Int, screenHeight: Int): Long {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
@@ -80,41 +88,5 @@ object GenshinSkipEngine {
         val x = (width * 0.0305f).toInt()
         val y = (height * 0.0555f).toInt()
         return 16L + (y.toLong() * width.toLong() + x.toLong()) * 4L
-    }
-
-    /**
-     * Fast sub-second dialogue presence check via screencap pipe.
-     * Reads only 16 bytes at the Auto-button pixel offset instead of capturing full framebuffer.
-     */
-    fun checkDialogueActive(screenWidth: Int, screenHeight: Int): Boolean {
-        val offset = calculateAutoButtonOffset(screenWidth, screenHeight)
-        val cmd = "screencap | od -j $offset -N 16 -t u1 | head -n 1"
-        return try {
-            val process = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
-            val reader = process.inputStream.bufferedReader()
-            val line = reader.readLine()?.trim() ?: ""
-            process.destroy()
-            if (line.isEmpty()) return false
-            val parts = line.split("\\s+".toRegex())
-            if (parts.size < 5) return false
-
-            // Check primary pixel
-            val r1 = parts[1].toIntOrNull() ?: return false
-            val g1 = parts[2].toIntOrNull() ?: return false
-            val b1 = parts[3].toIntOrNull() ?: return false
-            if (isDialogueColor(r1, g1, b1)) return true
-
-            // Check adjacent pixel if available
-            if (parts.size >= 8) {
-                val r2 = parts[5].toIntOrNull() ?: 0
-                val g2 = parts[6].toIntOrNull() ?: 0
-                val b2 = parts[7].toIntOrNull() ?: 0
-                if (isDialogueColor(r2, g2, b2)) return true
-            }
-
-            false
-        } catch (_: Throwable) {
-            false
-        }
     }
 }

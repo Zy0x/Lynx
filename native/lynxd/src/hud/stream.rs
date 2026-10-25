@@ -144,15 +144,20 @@ pub fn run() {
         let mut display_hz: Option<f64> = None;
         if package.is_empty() || package == "com.android.systemui" { frame_status = "unsupported"; }
         else {
-            if now >= next_layers || layers.is_empty() {
+            if layer.is_empty() && (now >= next_layers || layers.is_empty()) {
                 layers = query(&["SurfaceFlinger","--list"]).unwrap_or_default().lines()
-                    .filter(|s| belongs_to(s,&package)).map(clean_layer_name).take(12).collect();
-                next_layers = now + 2000;
+                    .filter(|s| belongs_to(s,&package)).map(clean_layer_name).take(8).collect();
+                layers.sort_by(|a, b| {
+                    let a_sv = a.contains("SurfaceView");
+                    let b_sv = b.contains("SurfaceView");
+                    b_sv.cmp(&a_sv)
+                });
+                next_layers = now + 4000;
             }
             let mut candidates = Vec::new();
-            let probe_layers: Vec<_> = if !layer.is_empty() && now + 500 < next_layers {
+            let probe_layers: Vec<_> = if !layer.is_empty() {
                 vec![layer.clone()]
-            } else { layers.iter().take(6).cloned().collect() };
+            } else { layers.iter().take(2).cloned().collect() };
             for name in &probe_layers {
                 match query(&["SurfaceFlinger","--latency",name]) {
                     Ok(raw) => {

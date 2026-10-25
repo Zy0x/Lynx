@@ -1,3 +1,50 @@
+# Lynx Universal [Eliminasi Stuttering HUD, Penanganan Layar Transisi Narasi & Kalibrasi Koordinat Dialog] 7.0.0-RC202
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC202** (Lynx Kernel Manager v3.2.43): **Pemberantasan Total Masalah Frame Drop / Stuttering HUD & Autoskip Engine: Eliminasi Badai Polling `dumpsys SurfaceFlinger --latency` di Daemon Native Rust `lynxd` dan Penghapusan Pipa Berat `screencap | od` pada `GenshinSkipRunner`; Penanganan Penuh Layar Transisi Narasi Cerita (*Story Narration Transition Screen / Layar Hitam "Tekan untuk melanjutkan"*) di Bawah Tengah Layar (`X=0.50, Y=0.88`); Kalibrasi Presisi Koordinat Geometris Pilihan Dialog Genshin Impact Berdasarkan Pengukuran Piksel Riil (`X=0.72`, `Top=0.50`, `Mid=0.58`, `Bottom=0.66`); Serta Rotasi Cerdas Target Pilihan Berantai Melalui Perintah Tunggal Root Non-Blocking (`input tap; sleep; input tap`)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC202)
+1. **Eliminasi Total Stuttering HUD & Autoskip Engine**:
+   - Menghapus badai pengecekan multi-layer `dumpsys SurfaceFlinger --latency` pada `native/lynxd/src/hud/stream.rs`: ketika layer aktif sedang memproduksi frame, daemon mengunci pembacaan khusus pada layer tersebut tanpa mengganggu mutex `mStateLock` SurfaceFlinger.
+   - Mengeliminasi proses dump framebuffer `screencap` di latar belakang pada `GenshinSkipRunner` dan `GenshinSkipEngine` yang sebelumnya memicu micro-stutter setiap 650–1200ms pada game 60 FPS.
+2. **Penanganan Presisi Layar Transisi Narasi (*Story Narration Screen Handler*)**:
+   - Menangani adegan layar hitam/putih berisi narasi cerita dengan prompt kuning *"Tekan untuk melanjutkan"* dan panah berlian `⬇` di bagian bawah tengah layar (`X=0.50`, `Y=0.88`).
+   - Pengetukan berkala pada target narasi ini menjamin transisi adegan cerita berjalan mulus tanpa macet (*stuck*) meskipun tombol Putar Otomatis di pojok kiri atas tidak tersedia.
+3. **Kalibrasi Presisi Koordinat Pilihan Dialog (*Empirical Dialogue Choice Alignment*)**:
+   - Berdasarkan pengukuran piksel riil pada layar ultra-wide (2460×1080), posisi vertikal kapsul pilihan dialog di-refactor:
+     - Slot 1 / Atas: `Y = 0.50` (540px)
+     - Slot 2 / Tengah (Pilihan 1 pada 2 opsi): `Y = 0.58` (626px, riil: 624px)
+     - Slot 3 / Bawah (Pilihan 2 pada 2 opsi atau pilihan tunggal): `Y = 0.66` (712px, riil: 715px)
+     - Kolom X Kapsul Pilihan: `X = 0.72` (1771px, riil: 1648–2237px)
+4. **Eksekusi Berantai Atomik Non-Blocking**:
+   - Menggabungkan akselerasi teks dialog (`advance`), rotasi pilihan (`choice`), dan narasi (`narration`) ke dalam satu baris perintah root shell dengan interval `sleep 0.03`.
+   - Mengeliminasi overhead fork Dalvik berkali-kali per detik dan membebaskan antrean root shell.
+
+---
+
+# Lynx Universal [Redesain Material 3 Expressive & Tombol Bebas Geser 2D Seluruh Layar] 7.0.0-RC201
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC201** (Lynx Kernel Manager v3.2.43): **Redesain Menyeluruh Pemicu Auto-Skip Percakapan Berstandar Material 3 Expressive: Penggantian Total Ikon Emoji Kaku Menjadi Ikon Vektor Resolusi Tinggi (`FastForward`, `Pause`, `PlayArrow`); Permukaan Glassmorphic Squircle 42×42 dp (`RoundedCornerShape 13dp`) dengan Border Neon Bernapas Dinamis (`infiniteTransition`) & Titik Indikator Mikro Status Mesin; Kebebasan Geser 2D Penuh ke Seluruh Bagian Layar Menggunakan Jendela Melayang Terisolasi Khusus (`AutoSkipHostView`); Pembatasan Aman Presisi Terhadap Notch Kamera, Lubang Layar (*Camera Cutout*), & Batas Navigasi (`DisplayCutout Insets`); Serta Penjagaan Posisi Koordinat Layar Otomatis Antara Orientasi Landscape & Portrait**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC201)
+1. **Redesain Menyeluruh Material 3 Expressive (*Modern M3 Token Design*)**:
+   - Menghilangkan tampilan emoji raw `⏩` / `⏸️` yang terkesan kaku/amatir.
+   - Mengadopsi ikon vektor Material 3 Rounded resmi:
+     - **Mode Skipping/Aktif**: Ikon `FastForward` berwarna Electric Cyan (`#00E5FF`) dengan animasi border neon bernapas (*breathing pulse* 900ms) dan bayangan bercahaya (*glow ambient shadow*).
+     - **Mode Jeda (*Paused*)**: Ikon `Pause` bernuansa Golden Amber (`#FFB300`) dengan border solid tegas.
+     - **Mode Siaga (*Standby*)**: Ikon `PlayArrow` bernuansa Ice White (`#ECEFF4`) dengan aksen titanium gelap.
+   - Permukaan bertingkat (*tonal glassmorphic elevation*): latar gradasi gelap OLED, radius squircle 13dp, dan titik lentera mikro (*Micro Engine Beacon*) di sudut kanan atas.
+2. **Kebebasan Geser 2D Penuh ke Seluruh Area Layar (*Free 2D Floating Window*)**:
+   - Tombol auto-skip kini dipisahkan ke dalam jendela overlay mandiri (`AutoSkipHostView` 42×42 dp), melepaskannya dari keterikatan sisi gagang samping (`SidekickEdgeTab`).
+   - Pengguna bebas menyeret (*drag & drop*) tombol ke posisi mana pun di seluruh layar (tengah, pojok bawah, dekat kontrol sentuh karakter, dsb.).
+3. **Proteksi Batas Layar & Notch Kamera (*Notch & Edge Clamping Shield*)**:
+   - Sistem membaca batas insets fisik layar (`WindowInsets.Type.displayCutout()` & `systemBars()`).
+   - Tombol secara mutlak dicegah keluar dari tepian layar maupun masuk ke area terpotong kamera depan (*punch-hole / notch cutout*).
+   - Menyimpan posisi fraksi (X, Y) secara terpisah untuk mode landscape dan portrait agar selalu muncul di posisi yang sama saat orientasi layar diputar.
+4. **Zero-Deadzone Alami 100%**:
+   - Karena luas jendela overlay mandiri ini persis seukuran tombol (42×42 dp), tidak ada lagi area transparan yang dapat menghalangi tombol kontrol in-game di sekelilingnya.
+
+---
+
 # Lynx Universal [Lencana Melayang 34dp Ultra-Kompak & Zero-Deadzone Pass-Through] 7.0.0-RC200
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC200** (Lynx Kernel Manager v3.2.42): **Pembaruan Desain & Efisiensi Sentuh Pemicu Pintar Auto-Skip: Transformasi Tombol Melayang Menjadi Lencana Sirkular Ultra-Kompak 34×34 dp (`CircleShape`) Ramping Menempel Rapi di Tepi Bezel Layar; Eliminasi Total Zona Mati Sentuh (*Zero-Deadzone Pass-Through*) Menggunakan `OnComputeInternalInsetsListener` (`TOUCHABLE_INSETS_REGION`) & Penolakan Intersepsi Sentuh Diluar Tombol (`dispatchTouchEvent -> false`) Sehingga Tombol In-Game Bebas Ditekan Tanpa Halangan; Perlindungan Anti-Kill OOM Tingkat Kernel (`oom_score_adj = -1000`) & Mode Layanan Persisten `START_STICKY` Menjamin HUD Tetap Kebal dari Tekanan Memori Saat Game Berat Memuat Data; Serta Optimalisasi Pembersihan Memori & Kompaksi zRAM Adaptif**.

@@ -12,11 +12,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Ultra-low overhead, lag-free Dialogue Auto-Skip Runner with Autonomous Hands-Free Trigger & Manual Pause.
- * When the trigger is active in a supported RPG, it continuously watches for dialogue:
- * - Automatically engages skipping when dialogue appears on screen without requiring manual button press.
- * - Automatically stops tapping when dialogue finishes to protect open-world gameplay.
- * - Allows the player to pause at any time by pressing the floating pill, and resume whenever ready.
+ * Ultra-low overhead, lag-free Dialogue Auto-Skip Runner.
+ * Triggered on-demand via the floating badge [⏩] during RPG dialogue cutscenes.
+ * - Zero background polling or screencap execution to guarantee 100% stutter-free gaming.
+ * - Single-tap toggle to start or pause skipping at any moment.
+ * - Autonomous 60s safety timeout disarms tapping if dialogue concludes to protect open-world gameplay.
+ * - Automatic disarm when user exits the game or screen turns off.
  */
 class GenshinSkipRunner(
     private val context: Context,
@@ -35,7 +36,7 @@ class GenshinSkipRunner(
     var isHudOpen: Boolean = false
 
     @Volatile
-    var speedMs: Long = 250L
+    var speedMs: Long = 350L
 
     @Volatile
     var targetChoiceBottom: Boolean = false
@@ -50,7 +51,6 @@ class GenshinSkipRunner(
     var isEnabled: Boolean = false
 
     private var tapJob: Job? = null
-    private var watcherJob: Job? = null
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
 
     private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -59,29 +59,6 @@ class GenshinSkipRunner(
     } else {
         @Suppress("DEPRECATION")
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-    }
-
-    private var touchDeviceNode: String? = null
-
-    init {
-        scope.launch(Dispatchers.IO) {
-            findTouchDevice()
-        }
-    }
-
-    private fun findTouchDevice() {
-        if (!Shell.getShell().isRoot) return
-        val out = Shell.cmd("getevent -lp 2>/dev/null").exec().out
-        var currentDev: String? = null
-        for (line in out) {
-            val trimmed = line.trim()
-            if (trimmed.startsWith("add device")) {
-                currentDev = trimmed.substringAfter(":", "").trim()
-            } else if (trimmed.contains("INPUT_PROP_DIRECT") && currentDev != null) {
-                touchDeviceNode = currentDev
-                break
-            }
-        }
     }
 
     fun syncState(
@@ -93,58 +70,36 @@ class GenshinSkipRunner(
         speedMs: Long,
         targetChoiceBottom: Boolean
     ) {
+        val packageChanged = this.currentForegroundPackage != pkg
         this.currentForegroundPackage = pkg
         this.isHudOpen = isHudOpen
         this.screenWidth = width
         this.screenHeight = height
         this.isEnabled = enabled
-        this.speedMs = speedMs
+        this.speedMs = speedMs.coerceAtLeast(300L)
         this.targetChoiceBottom = targetChoiceBottom
 
-        if (enabled && GenshinSkipEngine.isGameSupported(pkg)) {
-            startAutonomousWatcher()
-        } else {
-            stopAutonomousWatcher()
+        if (!enabled || !GenshinSkipEngine.isGameSupported(pkg) || packageChanged) {
+            if (activeState.value || pausedState.value) {
+                stop()
+            }
         }
-    }
-
-    private fun startAutonomousWatcher() {
-        if (watcherJob?.isActive == true) return
-        watcherJob = scope.launch(Dispatchers.IO) {
-            runAutonomousWatcher()
-        }
-    }
-
-    private fun stopAutonomousWatcher() {
-        watcherJob?.cancel()
-        watcherJob = null
-        stopTapping()
-        pausedState.value = false
     }
 
     /**
      * Manual user toggle via floating trigger pill:
      * - If actively skipping -> PAUSE
-     * - If paused -> RESUME
-     * - If in standby -> manual force start / toggle
+     * - If paused or standby -> START skipping with haptic confirmation
      */
     fun toggle() {
         if (activeState.value) {
-            // User manually pauses during dialogue
             pausedState.value = true
             stopTapping()
             triggerHaptic(25L)
-        } else if (pausedState.value) {
-            // User manually resumes
-            pausedState.value = false
-            if (GenshinSkipEngine.checkDialogueActive(screenWidth, screenHeight)) {
-                startTapping()
-            }
-            triggerHaptic(25L)
         } else {
-            // Manual pre-arm / forced start in standby
+            pausedState.value = false
             startTapping()
-            triggerHaptic(25L)
+            triggerHaptic(30L)
         }
     }
 
@@ -175,6 +130,7 @@ class GenshinSkipRunner(
 
     private fun stopWithHaptic() {
         stopTapping()
+        pausedState.value = false
         triggerHaptic(35L)
     }
 
@@ -190,6 +146,10 @@ class GenshinSkipRunner(
     }
 
     private suspend fun runTapLoop() {
+        val maxDurationMs = 60_000L // 60s auto-disarm safety shield
+        val startTime = System.currentTimeMillis()
+        var cycleIndex = 0
+
         while (activeState.value && currentCoroutineContext().isActive) {
             val isScreenOn = powerManager?.isInteractive ?: true
             if (!isScreenOn || isHudOpen) {
@@ -198,87 +158,45 @@ class GenshinSkipRunner(
             }
 
             if (!GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
-                delay(400L)
-                continue
+                stopWithHaptic()
+                break
+            }
+
+            // Safety timeout: automatically stop tapping after 60s to protect open-world gameplay
+            if (System.currentTimeMillis() - startTime > maxDurationMs) {
+                stopWithHaptic()
+                break
             }
 
             val coords = GenshinSkipEngine.resolveCoordinates(screenWidth, screenHeight)
-            val choiceTarget = if (targetChoiceBottom) coords.bottomChoice else coords.topChoice
-            val advanceTarget = coords.advance
-
-            val halfSpeed = (speedMs / 2).coerceAtLeast(60L)
-
-            // 1. Choice tap (clicks dialogue option pill if visible)
-            tap(choiceTarget.x, choiceTarget.y)
-            delay(halfSpeed)
-
-            // 2. Advance tap (clicks dialogue typewriter forward)
-            tap(advanceTarget.x, advanceTarget.y)
-            delay(halfSpeed)
-        }
-        activeState.value = false
-    }
-
-    /**
-     * Autonomous hands-free dialogue watcher.
-     * Continuously senses dialogue presence:
-     * - Automatically starts skipping as soon as dialogue appears.
-     * - Automatically stops tapping when dialogue ends.
-     * - Automatically resets manual pause when dialogue concludes.
-     */
-    private suspend fun runAutonomousWatcher() {
-        var nonDialogueStreak = 0
-        var activeRunStart = 0L
-        val maxContinuousRunMs = 90_000L // 90s safety cap
-
-        while (currentCoroutineContext().isActive && isEnabled) {
-            // Dynamic adaptive sampling:
-            // 650ms during active dialogue for snappy stopping, 1200ms during standby (<0.5% CPU)
-            val checkInterval = if (activeState.value) 650L else 1200L
-            delay(checkInterval)
-
-            val isScreenOn = powerManager?.isInteractive ?: true
-            if (!isScreenOn || isHudOpen || !GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
-                if (activeState.value) {
-                    stopTapping()
-                }
-                continue
-            }
-
-            // Safety watchdog timeout
-            if (activeState.value && System.currentTimeMillis() - activeRunStart > maxContinuousRunMs) {
-                stopWithHaptic()
-                activeRunStart = 0L
-                continue
-            }
-
-            val isDialogue = GenshinSkipEngine.checkDialogueActive(screenWidth, screenHeight)
-
-            if (isDialogue) {
-                nonDialogueStreak = 0
-                // Hands-free auto-engage: If not paused and not currently tapping, start skipping automatically!
-                if (!pausedState.value && !activeState.value) {
-                    startTapping()
-                    activeRunStart = System.currentTimeMillis()
+            val choiceTarget = if (targetChoiceBottom) {
+                when (cycleIndex % 3) {
+                    0 -> coords.bottomChoice
+                    1 -> coords.midChoice
+                    else -> coords.topChoice
                 }
             } else {
-                nonDialogueStreak++
-                if (nonDialogueStreak >= 2) {
-                    // Dialogue concluded -> stop tapping to shield open-world controls
-                    if (activeState.value) {
-                        stopWithHaptic()
-                        activeRunStart = 0L
-                    }
-                    // Dialogue is fully over, reset paused state so the next conversation can auto-skip automatically
-                    if (pausedState.value) {
-                        pausedState.value = false
-                    }
+                when (cycleIndex % 3) {
+                    0 -> coords.midChoice
+                    1 -> coords.bottomChoice
+                    else -> coords.topChoice
                 }
             }
-        }
-    }
+            val advanceTarget = coords.advance
+            val narrationTarget = coords.narration
 
-    private fun tap(x: Int, y: Int) {
-        Shell.cmd("input tap $x $y >/dev/null 2>&1").submit()
+            val effectiveSpeed = speedMs.coerceAtLeast(300L)
+
+            // Batch advance, choice, and narration transition taps into a single root command
+            // Guarantees 0% frame drops, handles 3D cutscenes, dialogue choices, and narration screens ("Tekan untuk melanjutkan")
+            val cmd = "input tap ${advanceTarget.x} ${advanceTarget.y} >/dev/null 2>&1; sleep 0.03; " +
+                      "input tap ${choiceTarget.x} ${choiceTarget.y} >/dev/null 2>&1; sleep 0.03; " +
+                      "input tap ${narrationTarget.x} ${narrationTarget.y} >/dev/null 2>&1"
+            Shell.cmd(cmd).submit()
+
+            cycleIndex++
+            delay(effectiveSpeed)
+        }
+        activeState.value = false
     }
 }

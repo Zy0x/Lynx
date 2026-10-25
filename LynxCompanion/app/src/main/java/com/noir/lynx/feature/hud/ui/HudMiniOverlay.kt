@@ -192,46 +192,25 @@ internal fun HudMiniOverlay(
         }
     }
 
-    val showAutoSkip = prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(snapshot.packageName)
-
-    Column(
-        horizontalAlignment = if (dockRight) Alignment.End else Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    Row(
+        modifier = Modifier
+            .width(totalWidth)
+            .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
+            .semantics { contentDescription = openDescription },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
     ) {
-        Row(
-            modifier = Modifier
-                .width(totalWidth)
-                .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
-                .semantics { contentDescription = openDescription },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start
-        ) {
-            if (dockRight) {
-                if (showMetrics) {
-                    metricsCapsule()
-                    Spacer(Modifier.width(3.dp))
-                }
-                edgeBar()
-            } else {
-                edgeBar()
-                if (showMetrics) {
-                    Spacer(Modifier.width(3.dp))
-                    metricsCapsule()
-                }
+        if (dockRight) {
+            if (showMetrics) {
+                metricsCapsule()
+                Spacer(Modifier.width(3.dp))
             }
-        }
-        if (showAutoSkip) {
-            Box(
-                modifier = Modifier
-                    .width(if (showMetrics) totalWidth else 34.dp)
-                    .padding(horizontal = if (dockRight) 0.dp else 1.dp),
-                contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
-            ) {
-                HudSmartTriggerOverlay(
-                    isSkipping = isSkipping,
-                    isPaused = isPaused,
-                    onToggle = onToggleAutoSkip
-                )
+            edgeBar()
+        } else {
+            edgeBar()
+            if (showMetrics) {
+                Spacer(Modifier.width(3.dp))
+                metricsCapsule()
             }
         }
     }

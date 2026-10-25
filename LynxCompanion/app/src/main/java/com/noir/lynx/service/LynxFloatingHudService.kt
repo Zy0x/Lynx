@@ -45,6 +45,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private lateinit var controller: HudController
     private var view: View? = null
     private var params: WindowManager.LayoutParams? = null
+    private var autoSkipView: View? = null
+    private var autoSkipParams: WindowManager.LayoutParams? = null
     private val interactive = MutableStateFlow(false)
     private val rendered = MutableStateFlow(HudSnapshot())
     private val viewport = MutableStateFlow(HudViewport())
@@ -143,6 +145,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         updateBounds()
         updateDisplay()
         createOverlay()
+        createAutoSkipOverlay()
         scope.launch {
             preferences.changes.collect { pinMiniFpsFlow.value = it.pinned }
         }
@@ -260,6 +263,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         viewport.value = HudViewport(safeWidth / density, safeHeight / density)
         com.noir.lynx.feature.floating.StandaloneApps.viewportChanged()
         clamp()
+        clampAutoSkip()
     }
 
     private fun updateExclusionRects(v: View) {
@@ -317,6 +321,171 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             .apply()
     }
 
+    private fun loadAutoSkipPosition(p: WindowManager.LayoutParams) {
+        val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
+        val isLandscape = viewport.value.landscape
+        val xKey = if (isLandscape) "autoskip_x_landscape_fraction" else "autoskip_x_portrait_fraction"
+        val yKey = if (isLandscape) "autoskip_y_landscape_fraction" else "autoskip_y_portrait_fraction"
+        val density = resources.displayMetrics.density
+        val badgeSize = (42f * density).roundToInt()
+        val availW = (safeWidth - badgeSize).coerceAtLeast(1)
+        val availH = (safeHeight - badgeSize).coerceAtLeast(1)
+        val defaultX = if (isLandscape) 0.94f else 0.88f
+        val defaultY = 0.65f
+        val xFrac = pref.getFloat(xKey, defaultX).coerceIn(0f, 1f)
+        val yFrac = pref.getFloat(yKey, defaultY).coerceIn(0f, 1f)
+        p.x = safeLeft + (availW * xFrac).roundToInt()
+        p.y = safeTop + (availH * yFrac).roundToInt()
+    }
+
+    private fun saveAutoSkipPosition() {
+        val p = autoSkipParams ?: return
+        val isLandscape = viewport.value.landscape
+        val xKey = if (isLandscape) "autoskip_x_landscape_fraction" else "autoskip_x_portrait_fraction"
+        val yKey = if (isLandscape) "autoskip_y_landscape_fraction" else "autoskip_y_portrait_fraction"
+        val density = resources.displayMetrics.density
+        val badgeSize = (42f * density).roundToInt()
+        val availW = (safeWidth - badgeSize).coerceAtLeast(1)
+        val availH = (safeHeight - badgeSize).coerceAtLeast(1)
+        val xFrac = ((p.x - safeLeft).toFloat() / availW).coerceIn(0f, 1f)
+        val yFrac = ((p.y - safeTop).toFloat() / availH).coerceIn(0f, 1f)
+        getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
+            .putFloat(xKey, xFrac)
+            .putFloat(yKey, yFrac)
+            .apply()
+    }
+
+    private fun clampAutoSkip() {
+        val p = autoSkipParams ?: return
+        val v = autoSkipView ?: return
+        val density = resources.displayMetrics.density
+        val badgeSize = (42f * density).roundToInt()
+        val minX = safeLeft
+        val maxX = (safeLeft + safeWidth - badgeSize).coerceAtLeast(minX)
+        val minY = safeTop
+        val maxY = (safeTop + safeHeight - badgeSize).coerceAtLeast(minY)
+        val nextX = p.x.coerceIn(minX, maxX)
+        val nextY = p.y.coerceIn(minY, maxY)
+        if (p.x != nextX || p.y != nextY) {
+            p.x = nextX
+            p.y = nextY
+            runCatching { windows.updateViewLayout(v, p) }
+        }
+    }
+
+    private inner class AutoSkipHostView(context: Context) : FrameLayout(context) {
+        private var downRawX = 0f
+        private var downRawY = 0f
+        private var startParamX = 0
+        private var startParamY = 0
+        private var isDragging = false
+
+        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+            val p = autoSkipParams ?: return super.dispatchTouchEvent(ev)
+            val density = resources.displayMetrics.density
+            val dragSlopPx = 6f * density
+            val badgeSize = (42f * density).roundToInt()
+
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downRawX = ev.rawX
+                    downRawY = ev.rawY
+                    startParamX = p.x
+                    startParamY = p.y
+                    isDragging = false
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = ev.rawX - downRawX
+                    val dy = ev.rawY - downRawY
+                    if (!isDragging && hypot(dx, dy) >= dragSlopPx) {
+                        isDragging = true
+                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    }
+                    if (isDragging) {
+                        val minX = safeLeft
+                        val maxX = (safeLeft + safeWidth - badgeSize).coerceAtLeast(minX)
+                        val minY = safeTop
+                        val maxY = (safeTop + safeHeight - badgeSize).coerceAtLeast(minY)
+                        p.x = (startParamX + dx).roundToInt().coerceIn(minX, maxX)
+                        p.y = (startParamY + dy).roundToInt().coerceIn(minY, maxY)
+                        runCatching { windows.updateViewLayout(this, p) }
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!isDragging) {
+                        performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                        controller.toggleAutoSkip()
+                    } else {
+                        saveAutoSkipPosition()
+                    }
+                    isDragging = false
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
+                    return true
+                }
+            }
+            return super.dispatchTouchEvent(ev)
+        }
+    }
+
+    private fun createAutoSkipOverlay() {
+        autoSkipParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            title = "LynxAutoSkipBadge"
+            gravity = Gravity.TOP or Gravity.LEFT
+            loadAutoSkipPosition(this)
+        }
+
+        val composeView = ComposeView(this).apply {
+            setContent {
+                val isSkipping by controller.isSkipping.collectAsState()
+                val isPaused by controller.isPaused.collectAsState()
+
+                HudSmartTriggerOverlay(
+                    isSkipping = isSkipping,
+                    isPaused = isPaused
+                )
+            }
+        }
+
+        val host = AutoSkipHostView(this).apply {
+            setViewTreeLifecycleOwner(this@LynxFloatingHudService)
+            setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
+            addView(
+                composeView,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        autoSkipView = host
+        host.visibility = View.GONE
+        runCatching { windows.addView(host, autoSkipParams) }
+
+        scope.launch {
+            combine(rendered, preferences.changes, interactive) { sample, prefs, isInteractive ->
+                val supported = prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(sample.packageName)
+                supported && isInteractive
+            }.collect { visible ->
+                autoSkipView?.visibility = if (visible) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
     private inner class HudHostView(context: Context) : FrameLayout(context) {
         private var downRawX = 0f
         private var downRawY = 0f
@@ -369,27 +538,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             setTouchableInsets.invoke(info, 3)
                             val region = touchableRegionField.get(info) as? Region ?: Region()
                             val density = resources.displayMetrics.density
-
                             val handleHeight = (72f * density).toInt()
                             val handleWidth = width.coerceAtLeast(1)
-
                             region.set(0, 0, handleWidth, handleHeight)
-
-                            val hasAutoSkip = preferences.read().autoSkipEnabled &&
-                                GenshinSkipEngine.isGameSupported(rendered.value.packageName)
-
-                            if (hasAutoSkip) {
-                                val triggerSize = (40f * density).toInt()
-                                val triggerTop = handleHeight
-                                val triggerBottom = (triggerTop + triggerSize).coerceAtMost(height.coerceAtLeast(triggerTop + 1))
-                                val isRight = dockRight.value
-                                val triggerRect = if (isRight) {
-                                    Rect((width - triggerSize).coerceAtLeast(0), triggerTop, width, triggerBottom)
-                                } else {
-                                    Rect(0, triggerTop, triggerSize.coerceAtMost(width), triggerBottom)
-                                }
-                                region.op(triggerRect, Region.Op.UNION)
-                            }
                         }
                     }
                     null
@@ -439,19 +590,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             gestureMode = GestureMode.UNDECIDED
                             mainHandler.postDelayed(holdToDragRunnable, 220L)
                         } else {
-                            val hasAutoSkip = preferences.read().autoSkipEnabled &&
-                                GenshinSkipEngine.isGameSupported(rendered.value.packageName)
-
-                            val triggerSizePx = 40f * density
-                            val isRight = dockRight.value
-                            val isInsideTrigger = hasAutoSkip && downLocalY <= (handleHeightPx + triggerSizePx) &&
-                                (if (isRight) downLocalX >= (width - triggerSizePx) else downLocalX <= triggerSizePx)
-
-                            if (isInsideTrigger) {
-                                gestureMode = GestureMode.PASS_THROUGH
-                            } else {
-                                return false
-                            }
+                            return false
                         }
                     }
                     val handled = super.dispatchTouchEvent(ev)
@@ -711,6 +850,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
         params?.y = safeTop + (safeHeight * getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).getFloat(key, 0.2f)).toInt()
         view?.post { clamp(); params?.let { p -> runCatching { windows.updateViewLayout(view, p) } } }
+        autoSkipParams?.let { p ->
+            loadAutoSkipPosition(p)
+            clampAutoSkip()
+        }
     }
 
     private fun startNotification() {
@@ -746,6 +889,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
         }
         view = null
+        autoSkipView?.let {
+            runCatching { windows.removeView(it) }
+            ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
+        }
+        autoSkipView = null
         snapshotFlow.value = HudSnapshot()
         runCatching { java.io.File(filesDir, FLAG_FILE_NAME).delete() }
         isRunningFlow.value = false
