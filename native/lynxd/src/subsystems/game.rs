@@ -179,16 +179,82 @@ impl GameController {
         for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
             Self::write_opt(format!("{}/dvfs_period", entry), "10");
             Self::write_opt(format!("{}/power_policy", entry), "always_on");
+            Self::write_opt(format!("{}/js_scheduling_period", entry), "50");
+        }
+        Self::write_opt("/proc/ged/hal/dvfs_margin_value", "50");
+
+        // 8. Dynamic Media-Aware Storage Engine (UFS vs eMMC vs SD Card — Zero-Hardcoding)
+        // High-end UFS gets 2048KB burst prefetch & 512 queue depth for stutter-free asset streaming.
+        // eMMC 5.1 gets 256KB & deadline to prevent FBE crypto queue choke and UI freezes.
+        let storage = HardwareCapability::resolve_storage();
+        for dev in &storage.devices {
+            if !dev.queue_path.is_dir() {
+                continue;
+            }
+            let block = match dev.queue_path.parent() {
+                Some(b) => b,
+                None => continue,
+            };
+            if SysfsReader::read_trimmed(block.join("ro")).ok().as_deref() == Some("1") {
+                continue;
+            }
+            let effective_type = if dev.device_type == crate::hardware::capability::BlockDeviceType::Virtual && dev.name.starts_with("dm-") {
+                crate::hardware::storage::StoragePolicy::resolve_dm_slave_type(&dev.queue_path)
+            } else {
+                dev.device_type
+            };
+
+            let (ra_kb, nr, sched) = match effective_type {
+                crate::hardware::capability::BlockDeviceType::Ufs | crate::hardware::capability::BlockDeviceType::Nvme => {
+                    (2048, "512", "none")
+                }
+                crate::hardware::capability::BlockDeviceType::Emmc => {
+                    (256, "128", "deadline")
+                }
+                crate::hardware::capability::BlockDeviceType::Sd => {
+                    (512, "128", "deadline")
+                }
+                _ => (512, "128", "none"),
+            };
+
+            Self::write_opt(dev.queue_path.join("read_ahead_kb"), ra_kb.to_string());
+            Self::write_opt(dev.queue_path.join("nr_requests"), nr);
+            Self::write_opt(dev.queue_path.join("nomerges"), "0");
+            Self::write_opt(dev.queue_path.join("rq_affinity"), "2");
+
+            if dev.available_schedulers.iter().any(|s| s == sched) {
+                Self::write_opt(dev.queue_path.join("scheduler"), sched);
+            } else if sched == "deadline" {
+                if let Some(alt) = dev.available_schedulers.iter().find(|s| s.as_str() == "mq-deadline" || s.as_str() == "kyber") {
+                    Self::write_opt(dev.queue_path.join("scheduler"), alt);
+                }
+            }
         }
 
-        // Storage Read-Ahead Boosting (1024KB for open-world streaming)
-        for b in &["/sys/block/sda", "/sys/block/sdb", "/sys/block/sdc", "/sys/block/mmcblk0"] {
-            Self::write_opt(format!("{}/queue/read_ahead_kb", b), "1024");
-            Self::write_opt(format!("{}/queue/nomerges", b), "0");
-            Self::write_opt(format!("{}/queue/rq_affinity", b), "2");
+        // Virtual Memory & VFS Cache Shield (Eliminates Asset Streaming & Chunk Loading Stalls)
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "30");
+        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+
+        // Dynamic RAM-Proportional extra_free_kbytes (Prevents background memory compaction spikes)
+        let mem = HardwareCapability::resolve_memory();
+        let extra_free_kb = if mem.total_ram_mb >= 7000 {
+            20480
+        } else if mem.total_ram_mb >= 3800 {
+            12288
+        } else {
+            6144
+        };
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", extra_free_kb.to_string());
+
+        // Dynamic Schedutil iowait_boost_enable across all CPU clusters
+        for id in 0..16 {
+            Self::write_opt(
+                format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/iowait_boost_enable", id),
+                "1",
+            );
         }
 
-        // 8. Qualcomm Snapdragon Platform Game Boost (KGSL, WALT, Core Control, CPU Boost)
+        // 9. Qualcomm Snapdragon Platform Game Boost (KGSL, WALT, Core Control, CPU Boost)
         Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "120");
         Self::write_opt(QcomHardware::KGSL_THROTTLING, "0");
         Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "0");
@@ -313,10 +379,34 @@ impl GameController {
         for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
             Self::write_opt(format!("{}/dvfs_period", entry), "20");
             Self::write_opt(format!("{}/power_policy", entry), "coarse_demand");
+            Self::write_opt(format!("{}/js_scheduling_period", entry), "100");
+        }
+        Self::write_opt("/proc/ged/hal/dvfs_margin_value", "0");
+
+        // Restore Dynamic Storage to Balanced Targets (Zero-Hardcoding)
+        let storage = HardwareCapability::resolve_storage();
+        for dev in &storage.devices {
+            if !dev.queue_path.is_dir() {
+                continue;
+            }
+            if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "balance") {
+                Self::write_opt(dev.queue_path.join("read_ahead_kb"), params.read_ahead_kb.to_string());
+                if let Some(nr) = params.nr_requests {
+                    Self::write_opt(dev.queue_path.join("nr_requests"), nr.to_string());
+                }
+            }
         }
 
-        for b in &["/sys/block/sda", "/sys/block/sdb", "/sys/block/sdc", "/sys/block/mmcblk0"] {
-            Self::write_opt(format!("{}/queue/read_ahead_kb", b), "512");
+        // Restore Virtual Memory & VFS Cache
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", "4096");
+        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "15000");
+
+        for id in 0..16 {
+            Self::write_opt(
+                format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/iowait_boost_enable", id),
+                "0",
+            );
         }
 
         // 7. Reset Qualcomm Snapdragon KGSL, WALT, and Core Control Hooks
@@ -421,6 +511,24 @@ impl GameController {
                         let _ = Command::new("taskset").args(&["-p", &hex_all, &tid]).output();
                     }
                 }
+            }
+        }
+
+        // Trigger asynchronous Ahead-Of-Time (AOT) machine code compilation in background if not already compiled with 'speed'
+        if let Ok(cmd_bytes) = fs::read(format!("/proc/{}/cmdline", pid)) {
+            let cmd_str = String::from_utf8_lossy(&cmd_bytes);
+            let pkg = cmd_str.split('\0').next().unwrap_or("").trim().to_string();
+            if !pkg.is_empty() && !pkg.starts_with('/') && pkg.contains('.') {
+                std::thread::spawn(move || {
+                    let dump = Command::new("dumpsys").args(&["package", &pkg]).output().ok();
+                    let already_speed = dump.map(|d| {
+                        let s = String::from_utf8_lossy(&d.stdout);
+                        s.contains("status=speed]")
+                    }).unwrap_or(false);
+                    if !already_speed {
+                        let _ = Command::new("cmd").args(&["package", "compile", "-m", "speed", &pkg]).output();
+                    }
+                });
             }
         }
     }

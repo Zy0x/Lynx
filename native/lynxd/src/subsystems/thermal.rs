@@ -98,7 +98,7 @@ impl ThermalController {
         out
     }
 
-    /// Un-isolates any thermal-isolated CPU cores and resets core isolation cooling devices.
+    /// Un-isolates any thermal-isolated CPU cores, restores physical Fmax, and resets core cooling devices.
     pub fn un_isolate_all_cpus() {
         for i in 0..16 {
             let cpu_isolate = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
@@ -109,12 +109,31 @@ impl ThermalController {
             if Path::new(&cpu_online).exists() {
                 Self::write_opt(&cpu_online, "1");
             }
+
+            // Restore full physical hardware Fmax dynamically (Zero-Hardcoding)
+            let max_info_path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", i);
+            let scaling_max_path = format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_max_freq", i);
+            if let Ok(info_max) = SysfsReader::read_trimmed(&max_info_path) {
+                if !info_max.is_empty() {
+                    let cur_scaling_max = SysfsReader::read_trimmed(&scaling_max_path).unwrap_or_default();
+                    if cur_scaling_max != info_max {
+                        Self::write_opt(&scaling_max_path, &info_max);
+                    }
+                }
+            }
         }
         for id in 0..128 {
             let cdev_type_path = format!("/sys/class/thermal/cooling_device{}/type", id);
             if let Some(c_type) = Self::read_trimmed(&cdev_type_path) {
                 let lower = c_type.to_lowercase();
-                if lower.contains("isolate") || lower.contains("thermal-cpufreq") || lower.contains("battery") || lower == "battery" {
+                if lower.contains("isolate")
+                    || lower.contains("thermal-cpufreq")
+                    || lower.contains("battery")
+                    || lower.contains("cpu_adaptive")
+                    || lower.contains("adaptive")
+                    || lower.contains("abcct")
+                    || (lower.starts_with("cpu") && lower[3..].chars().all(|c| c.is_ascii_digit()))
+                {
                     Self::write_opt(format!("/sys/class/thermal/cooling_device{}/cur_state", id), "0");
                 }
             }
