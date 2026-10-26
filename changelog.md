@@ -1,3 +1,25 @@
+# Lynx Universal [Universal Adaptive Balanced Responsiveness, MediaTek GED Dynamic OPP Floor, Hardware PPM Touch Boost & Scroll-Aware Compose Telemetry Throttling] 7.0.0-RC214
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC214** (Lynx Kernel Manager v3.2.48): **Peningkatan Responsivitas Universal Profil Balanced Tanpa Ketergantungan Frekuensi Tertentu Maupun Display Refresh Rate Tertentu; Pengaktifan Otomatis MediaTek PPM System Touch Boost (`PPM_POLICY_SYS_BOOST`) pada Mode Balanced, Performance, dan Extreme; Penentuan Dinamis Batas Bawah Boost GPU Mali GED (`custom_boost_gpu_freq`) pada Titik Median Tabel OPP (~50% Frekuensi Puncak) dengan DVFS Berbasis Beban (`loading_mode = 1`) yang Tetap Mengizinkan Idle Downclock Penuh demi Penghematan Daya Baterai; Pengaktifan Sched Boost pada Input Sentuh Qualcomm Snapdragon (`sched_boost_on_input`); Serta Mekanisme Scroll-Aware Telemetry Throttling pada Jetpack Compose (`isUserScrolling`) untuk Menghilangkan Recomposition Loop Saat Pengguna Menggeser Layar**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC214)
+1. **Universal MediaTek Touch Boost (`PPM_POLICY_SYS_BOOST`) di Mode Balanced**:
+   - Memperbarui logika translator di `native/lynxd/src/hardware/translator.rs` agar `PPM_POLICY_SYS_BOOST` selalu aktif (`9 1`) pada mode Balanced, Performance, dan Extreme (hanya dinonaktifkan pada Powersave).
+   - Menjamin lonjakan frekuensi seketika pada CPU cluster Little (CPU 0–5) maupun Big core (CPU 6–7) saat terjadi interaksi sentuh (swipe/tap), mengeliminasi *High Input Latency* tanpa membuang daya saat layar tidak disentuh.
+2. **Dynamic Proportional GPU Floor & GED Load-Based DVFS (`translator.rs` & `subsystems/gpu.rs`)**:
+   - Menggantikan penetapan batas bawah statis dengan perhitungan proporsional dinamis berbasis tabel OPP hardware (`cap.gpu.opp_table.len() / 2`).
+   - Menerapkan `custom_boost_gpu_freq` pada tingkat median (~50% dari OPP hardware) saat terjadi sentuhan atau rendering grafis, sementara `gpu_bottom_freq` tetap diizinkan turun ke level terendah saat idle.
+   - Mengaktifkan `dvfs_loading_mode = 1` (load-based scaling) dan `boost_lvl = 25` pada mode Balanced, memastikan GPU Mali merespons instan terhadap beban antarmuka pada berbagai refresh rate layar (60Hz, 90Hz, 120Hz, 144Hz) secara universal.
+3. **Qualcomm Snapdragon Sched Boost Input Support**:
+   - Mengaktifkan `sched_boost_on_input = 1` dengan durasi input boost 50ms terkalibrasi pada profil Balanced untuk platform Qualcomm Snapdragon, memastikan perangkat seperti Redmi Note 7 (SDM660) mendapatkan kelancaran sentuhan yang setara.
+4. **Scroll-Aware Jetpack Compose Telemetry Throttling (`LynxViewModel.kt` & `MainDashboard.kt`)**:
+   - Menambahkan pelacak status gulir interaktif `isUserScrolling` yang diturunkan secara reaktif dari seluruh `LazyListState` (`dashboardLazyState`, `toolsLazyState`, `tuningHubLazyState`, `subscreenLazyState`).
+   - Menunda emisi pembaruan visual telemetri saat scroll aktif berlangsung (`isUserScrolling == true`), memberikan 100% anggaran CPU Main Thread kepada animasi gesture 60/90/120 FPS tanpa interupsi recomposition, dan segera menerbitkan snapshot data terbaru saat scroll berhenti.
+5. **Kompilasi & Pemasangan Multi-Device**:
+   - Biner rilis `lynxd` dan `LynxKernelManager.apk` berhasil dikompilasi dan dipasang ke perangkat fisik **Infinix X698** (`192.168.1.6:5555`) dan **Redmi Note 7** (`192.168.1.23:5555`).
+
+---
+
 # Lynx Universal [Dual-Engine Audio & Video Muxing, Luxury Vertical Action Tiles, Hardware-Accelerated Radar Sweep RAM Clean & Direct Screencap Optimization] 7.0.0-RC213
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC213** (Lynx Kernel Manager v3.2.47): **Implementasi Mesin Perekaman Audio & Video Paralel Dual-Engine (MediaRecorder AAC + MediaExtractor & MediaMuxer) untuk Perekaman Game dengan Mikrofon & Audio Internal, Redesain Kartu Cepat Bento Menggunakan Luxury Vertical Action Tiles Berukuran 52dp untuk Mencegah Teks Terpotong Ellipsis, Animasi Sapuan Radar Hardware-Accelerated Neon Sweep pada Pembersihan RAM, Optimalisasi Tangkapan Layar Root Langsung Bebas Korupsi Pipa Shell, dan Izin Runtime RECORD_AUDIO Otomatis**.

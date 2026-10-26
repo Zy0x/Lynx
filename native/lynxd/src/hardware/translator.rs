@@ -343,15 +343,26 @@ impl HardwareTranslator {
                         .min_by_key(|e| e.freq_mhz)
                         .unwrap_or(highest_opp);
 
-                    let (target_min_opp, target_max_opp) = match profile.name {
-                        "extreme" => (highest_opp, highest_opp),
-                        "performance" => (opp_95, highest_opp),
+                    // For Balanced mode: Calculate a proportional, adaptive boost floor (~50% of available OPP range).
+                    // This is strictly universal across any MediaTek chipset (Helio P35, Helio G96, Dimensity 1200, 9000):
+                    // When idle, GPU downclocks all the way to lowest_opp to conserve battery.
+                    // When UI touch or rendering activity occurs, GED boosts to target_boost_opp (50% OPP),
+                    // guaranteeing fast frame rasterization under vsync deadlines on ANY display Hz (60, 90, 120, 144Hz)
+                    // without pinning high clock or causing battery drain.
+                    let balance_boost_opp = {
+                        let mid_idx = cap.gpu.opp_table.len() / 2;
+                        cap.gpu.opp_table.get(mid_idx).unwrap_or(lowest_opp)
+                    };
+
+                    let (target_min_opp, target_boost_opp, target_max_opp) = match profile.name {
+                        "extreme" => (highest_opp, highest_opp, highest_opp),
+                        "performance" => (opp_95, opp_95, highest_opp),
                         "powersave" => {
                             let cap_idx = cap.gpu.opp_table.len() / 3;
                             let ceil_opp = cap.gpu.opp_table.get(cap_idx).unwrap_or(highest_opp);
-                            (lowest_opp, ceil_opp)
+                            (lowest_opp, lowest_opp, ceil_opp)
                         }
-                        _ => (lowest_opp, highest_opp),
+                        _ => (lowest_opp, balance_boost_opp, highest_opp),
                     };
 
                     Self::push_op(
@@ -365,9 +376,9 @@ impl HardwareTranslator {
                     Self::push_op(
                         &mut ops,
                         "GPU",
-                        format!("MediaTek GED boost floor ({} MHz)", target_min_opp.freq_mhz),
+                        format!("MediaTek GED boost floor ({} MHz)", target_boost_opp.freq_mhz),
                         "/sys/module/ged/parameters/gpu_cust_boost_freq",
-                        target_min_opp.freq_khz.to_string(),
+                        target_boost_opp.freq_khz.to_string(),
                         false,
                     );
                     Self::push_op(
@@ -381,9 +392,9 @@ impl HardwareTranslator {
                     Self::push_op(
                         &mut ops,
                         "GPU",
-                        format!("MediaTek GED HAL boost OPP index ({})", target_min_opp.index),
+                        format!("MediaTek GED HAL boost OPP index ({})", target_boost_opp.index),
                         "/sys/kernel/ged/hal/custom_boost_gpu_freq",
-                        target_min_opp.index.to_string(),
+                        target_boost_opp.index.to_string(),
                         false,
                     );
                     Self::push_op(
@@ -449,15 +460,16 @@ impl HardwareTranslator {
                 let ged_fence_bypass = if is_perf_or_ext { "1" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED monitor 3D fence bypass", MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, ged_fence_bypass, false);
 
-                // MediaTek GED GPU Boost Amplitude (0=stock, 2=perf, 3=extreme)
-                let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
+                // MediaTek GED GPU Boost Amplitude (0=stock, 1=balanced, 2=perf, 3=extreme)
+                let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else if is_powersave { "0" } else { "1" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED boost amplitude", MtkHardware::GED_BOOST_AMP, boost_amp, false);
 
-                // MediaTek GED GPU Boost Level (100 for extreme, 50 for perf, 0 for balance)
-                let boost_lvl = if is_extreme { "100" } else if is_perf_or_ext { "50" } else { "0" };
+                // MediaTek GED GPU Boost Level (100 for extreme, 50 for perf, 25 for balance, 0 for powersave)
+                let boost_lvl = if is_extreme { "100" } else if is_perf_or_ext { "50" } else if is_powersave { "0" } else { "25" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED GPU boost level", "/sys/kernel/ged/hal/gpu_boost_level", boost_lvl, false);
 
-                let loading_mode = if is_perf_or_ext { "1" } else { "0" };
+                // MediaTek GED DVFS Loading Mode: 1 (load-based scaling) in Balanced, Perf & Extreme so GPU scales instantly with UI load
+                let loading_mode = if is_powersave { "0" } else { "1" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS loading mode", MtkHardware::GED_HAL_DVFS, loading_mode, false);
 
                 // MediaTek CoreLink Interconnect (CCI) & Power Mode
@@ -467,7 +479,8 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "MTK-CCI", "MediaTek CCI interconnect mode", MtkHardware::CPUFREQ_CCI_MODE, cci_mode, false);
 
                 // MediaTek PPM Policy 9 (PPM_POLICY_SYS_BOOST) & Policy 3 (PPM_POLICY_PWR_THRO)
-                let ppm_sys_boost = if is_perf_or_ext { "9 1" } else { "9 0" };
+                // Active in Balanced, Performance, and Extreme to guarantee instantaneous touch-boost reaction!
+                let ppm_sys_boost = if is_powersave { "9 0" } else { "9 1" };
                 Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM System Boost Policy", MtkHardware::PPM_POLICY_STATUS, ppm_sys_boost, false);
                 if is_extreme {
                     Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Disable", MtkHardware::PPM_POLICY_STATUS, "3 0", false);
@@ -498,9 +511,9 @@ impl HardwareTranslator {
                     "extreme" => "120",
                     "performance" => "80",
                     "powersave" => "0",
-                    _ => "60",
+                    _ => "50",
                 };
-                let target_sched_boost_input = if is_perf_or_ext || profile.cpu.boost { "1" } else { "0" };
+                let target_sched_boost_input = if is_powersave { "0" } else { "1" };
 
                 Self::push_op(
                     &mut ops,

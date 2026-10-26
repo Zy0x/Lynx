@@ -134,6 +134,20 @@ fun MainDashboard(
     val toolsHubFling = rememberFluidFlingBehavior()
     val toolsSubscreenFling = rememberFluidFlingBehavior()
 
+    val isAnyScrollInProgress by remember {
+        derivedStateOf {
+            dashboardLazyState.isScrollInProgress ||
+            toolsLazyState.isScrollInProgress ||
+            tuningHubLazyState.isScrollInProgress ||
+            subscreenLazyState.isScrollInProgress ||
+            toolsHubLazyState.isScrollInProgress ||
+            toolsSubscreenLazyState.isScrollInProgress
+        }
+    }
+    LaunchedEffect(isAnyScrollInProgress) {
+        viewModel.isUserScrolling = isAnyScrollInProgress
+    }
+
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }

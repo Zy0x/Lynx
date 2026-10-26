@@ -743,6 +743,8 @@ class LynxViewModel : ViewModel() {
     internal var wasPreviouslyCharging: Boolean = false
     @Volatile var isBatteryScreenActive: Boolean = false
     @Volatile var isBatteryInformationScreenActive: Boolean = false
+    @Volatile var isUserScrolling: Boolean = false
+
     @Volatile internal var isRefreshingBattery: Boolean = false
     @Volatile internal var isRefreshingDeepBatteryStats: Boolean = false
     internal var lastDeepBatteryStatsTimeMs: Long = 0L

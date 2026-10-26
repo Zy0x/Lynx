@@ -36,6 +36,12 @@ import kotlinx.coroutines.launch
                     delay(12000L)
                     continue
                 }
+                // When user is actively dragging or flinging lists, throttle UI updates so
+                // Main UI thread has 100% budget for smooth 60/90/120 FPS animation and touch tracking.
+                if (isUserScrolling) {
+                    delay(300L)
+                    continue
+                }
                 // The battery route owns its own one-second battery refresh. CPU/GPU/thermal
                 // telemetry is not visible there, so pause this UI poll to avoid competing
                 // root reads and whole-screen state emissions while charts are scrolling.

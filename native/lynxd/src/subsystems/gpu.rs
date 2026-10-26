@@ -114,8 +114,9 @@ impl GpuController {
                     Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
-                    if let Some(min_opp) = gpu.opp_table.last() {
-                        Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", min_opp.index.to_string());
+                    let mid_opp = gpu.opp_table.get(gpu.opp_table.len() / 2).or_else(|| gpu.opp_table.last());
+                    if let Some(boost_opp) = mid_opp {
+                        Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", boost_opp.index.to_string());
                     }
                     if let Some(max_opp) = gpu.opp_table.first() {
                         Self::write_opt("/sys/kernel/ged/hal/custom_upbound_gpu_freq", max_opp.index.to_string());
