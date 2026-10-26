@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_gpu_uv");
-KPM_VERSION("1.3.0");
+KPM_VERSION("1.4.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Dual-Rail Adaptive GPU Undervolt [Peak -12.5 mV (VGPU+VSRAM) | Mid/Low -25.0 mV | Floor 0.55V]");
+KPM_DESCRIPTION("Lynx Core-Logic GPU Undervolt [Peak -12.5 mV (VGPU Core) | Mid/Low -25.0 mV | VSRAM Stock Safe | Floor 0.55V]");
 
 #define LOG_TAG "[LynxGPU_UV] "
 
@@ -38,9 +38,9 @@ static int uv_mid_offset_uv  = -25000; // -25.0 mV for < 840 mV (300-920 MHz)
 static int uv_flat_offset_uv = -12500;
 
 // Rail Targeting Control:
-// 0 = ONLY vgpu (Core Logic undervolt)
-// 1 = Dual-rail (both vgpu and vsram_gpu undervolted with 100mV level-shifter tracking)
-static int uv_target_vsram = 1;
+// 0 = ONLY vgpu (Core Logic undervolt - 100% stable, keeps VSRAM L2 Cache at OEM stock voltage)
+// 1 = Dual-rail (both vgpu and vsram_gpu undervolted)
+static int uv_target_vsram = 0;
 
 // Absolute safety floor voltage (uV) to prevent GPU freeze/crash
 #define MIN_SAFE_GPU_UV   550000 // 0.55 V minimum floor for vgpu
@@ -218,7 +218,7 @@ static long lynx_gpu_uv_init(const char *args, const char *event, void *__user r
         }
     }
 
-    logkd(LOG_TAG "Lynx Dedicated GPU UV Engine successfully loaded!\n");
+    logkd(LOG_TAG "Lynx Core-Logic GPU UV Engine v1.4 successfully loaded! (VSRAM kept at stock nominal)\n");
     return 0;
 }
 

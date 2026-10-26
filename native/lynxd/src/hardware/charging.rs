@@ -1325,8 +1325,11 @@ impl ChargingRegulator {
     /// to reset PMIC Type-C / BC1.2 state machine without physical cable replugging.
     pub fn trigger_charger_soft_reconnect() {
         if Self::is_qualcomm_soc() {
-            // NEVER pulse input_suspend or kick AICL on Qualcomm:
-            // USB-PD / QC HVDCP Type-C PHY handles negotiation in hardware, and pulsing input_suspend drops the contract!
+            // Kick AICL rerun on Qualcomm without cutting VBUS FET if already negotiated
+            let rerun_node = format!("{}/rerun_aicl", USB_DIR);
+            if Path::new(&rerun_node).exists() {
+                Self::write_node(&rerun_node, "1");
+            }
             return;
         }
 
@@ -1367,6 +1370,78 @@ impl ChargingRegulator {
             std::thread::sleep(std::time::Duration::from_millis(150));
             let _ = fs::write(&suspend_node, "0");
         }
+    }
+
+    /// Full hardware charger & PMIC restart (Qualcomm PM660/PM8150 + MediaTek MT63xx).
+    /// Clears latched voters, triggers AICL rerun, resets input FET, and restores healthy current ceilings.
+    pub fn force_restart_charger() {
+        // 1. Kick AICL renegotiation across all candidate nodes
+        for node in &[
+            format!("{}/rerun_aicl", USB_DIR),
+            format!("{}/rerun_aicl", BATT_DIR),
+            format!("{}/rerun_aicl", MAIN_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, "1");
+            }
+        }
+
+        // 2. Clear lingering markers
+        let _ = fs::remove_file("/dev/lynx_charging_guard");
+        let _ = fs::remove_file("/dev/lynx_extreme_charging");
+        let _ = fs::remove_file("/dev/lynx_standard_charging");
+        let _ = fs::remove_file("/dev/lynx_bypass_active");
+        let _ = fs::remove_file("/dev/lynx_orig_chg_max");
+        let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+        let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
+
+        // 3. Momentary VBUS input suspend pulse to force PMIC Type-C PHY & BC1.2 full renegotiation
+        let suspend_node = format!("{}/input_suspend", BATT_DIR);
+        if Path::new(&suspend_node).exists() {
+            Self::set_perm(&suspend_node, 0o666);
+            let _ = fs::write(&suspend_node, "1");
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            let _ = fs::write(&suspend_node, "0");
+        }
+
+        // 4. Ensure charging is enabled
+        let en_node = format!("{}/charging_enabled", BATT_DIR);
+        if Path::new(&en_node).exists() {
+            Self::set_perm(&en_node, 0o666);
+            Self::write_node(&en_node, "1");
+        }
+
+        // 5. Uncap input & charge currents to healthy defaults
+        let is_qcom = Self::is_qualcomm_soc();
+        let target_ua = if is_qcom { "3000000" } else { "4500000" };
+        for node in &[
+            format!("{}/constant_charge_current_max", BATT_DIR),
+            format!("{}/constant_charge_current", BATT_DIR),
+            format!("{}/current_max", USB_DIR),
+            format!("{}/current_max", MAIN_DIR),
+            format!("{}/input_current_limit", BATT_DIR),
+            format!("{}/hw_current_max", USB_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, target_ua);
+            }
+        }
+
+        if is_qcom {
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        }
+
+        // 6. Reset Android BatteryService broadcast state
+        let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+        Self::unlock_bcct();
     }
 
     /// Calculates the safe PMIC input bus current limit (in mA) based on adapter VBUS voltage.

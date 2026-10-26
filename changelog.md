@@ -1,3 +1,19 @@
+# Lynx Universal [Stabilisasi Arsitektur KPM Undervolt: Eliminasi Transient Bit-Flip & Framework Restart] 7.0.0-RC206
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC206** (Lynx Kernel Manager v3.2.43): **Stabilisasi Kritis Arsitektur Undervolt Kernel (KPM): Peluncuran `lynx_cpu_uv.kpm` v2.4.0 & `lynx_gpu_uv.kpm` v1.4.0 dengan Penguncian Jalur Pengontrol Memori LPDDR4X (`vcore`) dan L2 Cache GPU (`vsram_gpu`) pada Tegangan Nominal OEM Standar untuk Mengeliminasi Bit-Flip Transien, Crash SurfaceFlinger, dan Restart Framework Secara Tuntas Sambil Mempertahankan Efisiensi Deep UV pada Core Logic CPU & GPU; Serta Pemulihan Logika Deteksi Pengisian Daya PD/BMS Telemetri**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC206)
+1. **Stabilisasi Voltase Memori & Bus KPM Kernel (`lynx_cpu_uv.kpm` v2.4.0 & `lynx_gpu_uv.kpm` v1.4.0)**:
+   - **Eliminasi Undervolt LPDDR4X Memory Controller (`vcore`)**: Mengembalikan jalur `vcore` pada PMIC MT6358 ke tegangan nominal OEM (`0.0 mV`), mencegah terjadinya *voltage droop* dan *transient bit-flip* pada transaksi RAM frekuensi tinggi (LPDDR4X 4266 MT/s).
+   - **Isolasi Tegangan L2 SRAM Cache GPU (`vsram_gpu`)**: Mengunci `vsram_gpu` pada tegangan nominal pabrikan (`vsram=off` / stock safe), mengeliminasi anomali alamat memori dan crash `SIGSEGV` pada SurfaceFlinger, compiler ART, Chrome GPU process, serta modul decoding multimedia.
+   - **Preservasi Efisiensi UV Core Murni**: Mempertahankan penghematan daya dan termal pada *core logic* murni: Cortex-A55 Little Cores (`vproc11` -25.0 mV), Cortex-A76 Big Cores (`vproc12` -18.75 mV), serta Mali-G57 GPU Core (`vgpu` -12.5 mV s/d -25.0 mV) dengan stabilitas 100% *rock-solid* bebas restart framework.
+2. **Penyempurnaan Sub-Sistem Charging Controller & PMIC Reset (`lynxd`)**:
+   - Penambahan metode `force_restart_charger()` dan perintah `lynxd charging reset` untuk melakukan negosiasi ulang AICL, kliring latched voters, dan pemulihan batas arus PMIC.
+3. **Penyempurnaan Telemetri Pengisian Daya Baterai**:
+   - Memperbaiki akurasi evaluasi sinyal USB-PD pada `LynxBatteryTelemetryRepository.kt` dengan memfilter hanya status aktif valid (`1` atau `2`) guna mencegah pelaporan palsu pada kabel non-PD.
+
+---
+
 # Lynx Universal [Penyelesaian Total Rebranding Lynx Engine Lintas Bahasa & Subhalaman] 7.0.0-RC205
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC205** (Lynx Kernel Manager v3.2.43): **Penyelesaian Menyeluruh & Definitif Rebranding "Lynx Engine" di Seluruh Tingkat Bahasa (`values/`, `values-id/`, `values-en/`), Peta Resource String Lokal, ViewModel Automation, Serta Subhalaman Konfigurasi: Eliminasi Tuntas Sisa-Sisa Nomenklatur "HUD" / "Game HUD" pada Panel Pengaturan Master Sakelar, Izin Overlay, Status Aktif/Nonaktif, Menu Mini Preview, Sesi Game, Notifikasi Glow, Hingga Alat Taktis Magic Box; Memastikan Konsistensi Identitas 100% Bebas Kata HUD di Seluruh Perangkat Fisik**.

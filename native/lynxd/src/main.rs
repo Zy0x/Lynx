@@ -894,9 +894,14 @@ fn handle_charging(args: &[String]) {
                 println!("      - {}", node);
             }
         }
-        "disconnect" | "reset" => {
+        "disconnect" => {
             ChargingRegulator::handle_disconnect();
             println!("[OK] {}", ui("Pengisian cepat dihentikan, node direset, dan batas termal dipulihkan.", "Fast charging stopped, nodes reset, and thermal baseline restored."));
+        }
+        "reset" => {
+            ChargingRegulator::force_restart_charger();
+            ChargingRegulator::apply_from_config();
+            println!("[OK] {}", ui("Sistem pengisian daya dan PMIC berhasil direstart & di-reset.", "Charging subsystem and PMIC successfully restarted & reset."));
         }
         "tick" => {
             ChargingRegulator::tick();

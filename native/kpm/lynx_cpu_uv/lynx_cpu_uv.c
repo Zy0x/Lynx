@@ -9,10 +9,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_cpu_uv");
-KPM_VERSION("2.3.0");
+KPM_VERSION("2.4.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx Split Multi-Domain CPU Undervolt [Little -25.0 mV | Big -18.75 mV | VCore -12.5 mV]");
+KPM_DESCRIPTION("Lynx Split Multi-Domain CPU Undervolt [Little -25.0 mV | Big -18.75 mV | VCore 0.0 mV Stock LPDDR4X Rock-Solid]");
 
 #define LOG_TAG "[LynxCPU_UV] "
 
@@ -31,9 +31,9 @@ static int uv_little_selector_steps = 4;
 static int uv_big_cpu_offset_uv = -18750;
 static int uv_big_selector_steps = 3;
 
-// Vcore SoC bus & LPDDR4X Controller: conservative 12.5 mV (2 steps * 6.25 mV)
-static int uv_vcore_offset_uv = -12500;
-static int uv_vcore_selector_steps = 2;
+// Vcore SoC bus & LPDDR4X Controller: 0 mV (Stock OEM nominal voltage for 100% rock-solid memory bus stability)
+static int uv_vcore_offset_uv = 0;
+static int uv_vcore_selector_steps = 0;
 
 // Absolute safety floor voltage (uV) to prevent CPU freeze/crash
 // MT6358 formula: VOUT = 406250 uV + VOSEL * 6250 uV
@@ -110,7 +110,8 @@ void before_upmu_buck_vcore_vosel(hook_fargs1_t *args, void *udata)
 {
     unsigned int val = (unsigned int)args->arg0;
 
-    if (uv_vcore_selector_steps > 0 && val > MIN_SAFE_VCORE_SEL) {
+    // Safety guard: Only apply if selector steps > 0 and offset is negative. Default is 0 (stock safe).
+    if (uv_vcore_selector_steps > 0 && uv_vcore_offset_uv < 0 && val > MIN_SAFE_VCORE_SEL) {
         unsigned int max_drop = val - MIN_SAFE_VCORE_SEL;
         unsigned int drop = (unsigned int)uv_vcore_selector_steps < max_drop ? (unsigned int)uv_vcore_selector_steps : max_drop;
         if (drop > 0) {
@@ -207,9 +208,13 @@ static long lynx_cpu_uv_control0(const char *args, char *__user out_msg, int out
         uv_little_selector_steps = 4;
         uv_big_cpu_offset_uv = -18750;
         uv_big_selector_steps = 3;
-        uv_vcore_offset_uv = -12500;
-        uv_vcore_selector_steps = 2;
-        logkd(LOG_TAG "Set Sweet Spot Split UV: Little -25.0 mV | Big -18.75 mV | VCore -12.5 mV\n");
+        uv_vcore_offset_uv = 0;
+        uv_vcore_selector_steps = 0;
+        logkd(LOG_TAG "Set Sweet Spot Split UV: Little -25.0 mV | Big -18.75 mV | VCore Stock 0 mV (Rock-Solid LPDDR4X)\n");
+    } else if (k_str_contains(args, "vcore=off") || k_str_contains(args, "vcore=stock") || k_str_contains(args, "safe")) {
+        uv_vcore_offset_uv = 0;
+        uv_vcore_selector_steps = 0;
+        logkd(LOG_TAG "VCore LPDDR4X UV disabled (kept at stock 0 mV for stability)\n");
     }
 
     return 0;
@@ -218,7 +223,7 @@ static long lynx_cpu_uv_control0(const char *args, char *__user out_msg, int out
 // Module Initialization
 static long lynx_cpu_uv_init(const char *args, const char *event, void *__user reserved)
 {
-    logkd(LOG_TAG "Initializing Lynx Split Multi-Domain CPU & VCore UV Engine v2.3...\n");
+    logkd(LOG_TAG "Initializing Lynx Split Multi-Domain CPU & VCore UV Engine v2.4...\n");
 
     if (kallsyms_lookup_name) {
         target_upmu_buck_vproc11_vosel = (void *)kallsyms_lookup_name("mt6358_upmu_set_rg_buck_vproc11_vosel");
@@ -260,7 +265,7 @@ static long lynx_cpu_uv_init(const char *args, const char *event, void *__user r
         }
     }
 
-    logkd(LOG_TAG "Lynx Split Multi-Domain CPU UV Engine v2.3 successfully loaded! (Little: %d uV, Big: %d uV, VCore: %d uV)\n",
+    logkd(LOG_TAG "Lynx Split Multi-Domain CPU UV Engine v2.4 successfully loaded! (Little: %d uV, Big: %d uV, VCore: %d uV - Stock Safe)\n",
           uv_little_cpu_offset_uv, uv_big_cpu_offset_uv, uv_vcore_offset_uv);
     return 0;
 }

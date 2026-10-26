@@ -139,7 +139,8 @@ internal object LynxBatteryTelemetryRepository {
                     vooc_sig=${'$'}(cat /sys/class/power_supply/battery/vooc_charging 2>/dev/null || cat /sys/class/power_supply/battery/fast_charge_user_type 2>/dev/null || echo "")
                     qc_sig=${'$'}(cat /sys/class/power_supply/usb/quick_charge_type 2>/dev/null || cat /sys/class/qcom-battery/qc_type 2>/dev/null || cat /sys/class/power_supply/usb/real_type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
                     mi_sig=${'$'}(cat /sys/class/power_supply/battery/fastcharge_mode 2>/dev/null || cat /sys/class/power_supply/battery/boost_current 2>/dev/null || echo "")
-                    pd_sig=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/power_supply/usb/pd_allowed 2>/dev/null || cat /sys/class/typec/pd_active 2>/dev/null || echo "")
+                    pd_raw=${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null || cat /sys/class/typec/pd_active 2>/dev/null || echo "")
+                    if [ "${'$'}pd_raw" = "1" ] || [ "${'$'}pd_raw" = "2" ]; then pd_sig="${'$'}pd_raw"; else pd_sig=""; fi
 
                     mtk_chg=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo "")
                     [ "${'$'}mtk_chg" = "7" ] || [ "${'$'}mtk_chg" = "4" ] && pd_sig="1"
