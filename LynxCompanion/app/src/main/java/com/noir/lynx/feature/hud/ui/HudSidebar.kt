@@ -320,20 +320,25 @@ fun HudSidebar(
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
                                                 )
                                             }
-                                            androidx.compose.animation.AnimatedVisibility(
-                                                visible = action.busy || action.message != null || !action.detailMessage.isNullOrBlank(),
-                                                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
-                                                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
-                                            ) {
-                                                HudFeedbackBanner(
-                                                    message = if (action.busy) hudString(R.string.hud_pending) else (action.message?.let { hudString(it) } ?: "OK"),
-                                                    detail = action.detailMessage,
-                                                    busy = action.busy,
-                                                    actionType = action.actionType
-                                                )
-                                            }
                                         }
                                     }
+                                }
+
+                                // Floating Feedback Banner at BottomCenter of Viewport
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = action.busy || action.message != null || !action.detailMessage.isNullOrBlank(),
+                                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+                                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(start = 4.dp, end = 4.dp, bottom = 4.dp)
+                                ) {
+                                    HudFeedbackBanner(
+                                        message = if (action.busy) hudString(R.string.hud_pending) else (action.message?.let { hudString(it) } ?: "OK"),
+                                        detail = action.detailMessage,
+                                        busy = action.busy,
+                                        actionType = action.actionType
+                                    )
                                 }
                             }
 
@@ -394,6 +399,7 @@ internal fun HudFeedbackBanner(
                 listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.35f))
             )
         ),
+        shadowElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp)

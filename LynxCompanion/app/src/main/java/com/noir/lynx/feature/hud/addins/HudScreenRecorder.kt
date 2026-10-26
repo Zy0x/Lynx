@@ -20,6 +20,14 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
+private fun isMediaTekDevice(): Boolean = runCatching {
+    val hardware = Build.HARDWARE.lowercase()
+    val board = Build.BOARD.lowercase()
+    val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MANUFACTURER.lowercase() else ""
+    hardware.startsWith("mt") || board.startsWith("mt") || soc.contains("mediatek") ||
+            java.io.File("/proc/ged").exists() || java.io.File("/proc/ppm").exists()
+}.getOrDefault(false)
+
 internal fun recorderSize(width: Int, height: Int, quality: Int): Pair<Int, Int> {
     require(width > 0 && height > 0)
     val cap = when (quality) { 0 -> 1280; 1 -> 1920; else -> maxOf(width, height) }
@@ -48,7 +56,8 @@ class HudScreenRecorder(private val context: Context) {
     val state = mutable.asStateFlow()
     private val mutableQuality = MutableStateFlow(prefs.getInt("quality", 1).coerceIn(0, 2))
     val quality = mutableQuality.asStateFlow()
-    private val mutableCompatibility = MutableStateFlow(prefs.getBoolean("compatibility", false))
+    private val isMtk = isMediaTekDevice()
+    private val mutableCompatibility = MutableStateFlow(prefs.getBoolean("compatibility", isMtk))
     val compatibility = mutableCompatibility.asStateFlow()
     private var softwareCodec: String? = null
     @Volatile private var stopRequested = false
@@ -66,16 +75,26 @@ class HudScreenRecorder(private val context: Context) {
         recorderSize(dimensions.first, dimensions.second, if (compatibility.value || (state.value.busy && state.value.software)) 0 else quality.value)
     }.getOrNull()
 
+    private fun resolveSoftwareCodec(): String? {
+        if (softwareCodec != null) return softwareCodec
+        softwareCodec = runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
+                info.isEncoder && info.isSoftwareOnly && info.supportedTypes.any { it.equals("video/avc", true) }
+            }?.name?.takeIf { it.matches(Regex("[A-Za-z0-9._-]+")) }
+                ?: MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos.firstOrNull { info ->
+                    info.isEncoder && (info.name.contains("google", ignoreCase = true) || info.name.contains("c2.android", ignoreCase = true)) &&
+                            info.supportedTypes.any { it.equals("video/avc", true) }
+                }?.name?.takeIf { it.matches(Regex("[A-Za-z0-9._-]+")) }
+        }.getOrNull() ?: "c2.android.avc.encoder"
+        return softwareCodec
+    }
+
     private fun probe() {
         val available = Build.VERSION.SDK_INT >= 29 && runCatching {
             Shell.getShell().isRoot && Shell.cmd("test -x /system/bin/screenrecord").exec().isSuccess
         }.getOrDefault(false)
-        if (Build.VERSION.SDK_INT >= 29 && available && Shell.cmd("strings /system/bin/screenrecord 2>/dev/null | grep -q codec-name").exec().isSuccess) {
-            softwareCodec = runCatching {
-                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
-                    info.isEncoder && info.isSoftwareOnly && info.supportedTypes.any { it.equals("video/avc", true) }
-                }?.name?.takeIf { it.matches(Regex("[A-Za-z0-9._-]+")) }
-            }.getOrNull()
+        if (Build.VERSION.SDK_INT >= 29) {
+            resolveSoftwareCodec()
         }
         mutable.value = mutable.value.copy(phase = if (available) HudRecordingPhase.IDLE else HudRecordingPhase.UNSUPPORTED,
             lastUri = prefs.getString("last_saved", null))
@@ -127,17 +146,20 @@ class HudScreenRecorder(private val context: Context) {
                     val bitrate = if (software) 2_000_000 else when (quality.value) { 0 -> 4_000_000; 1 -> 6_000_000; else -> 10_000_000 }
                     check(prefs.edit().putString("active_uri", output.uri?.toString()).putString("active_path", output.path)
                         .putString("active_name", output.name).commit())
-                    val codec = if (software) "--codec-name ${softwareCodec ?: error("software AVC unavailable")}" else ""
+                    val resolvedCodec = if (software) resolveSoftwareCodec() ?: "c2.android.avc.encoder" else null
+                    val codec = if (resolvedCodec != null) "--codec-name $resolvedCodec" else ""
                     val appPid = android.os.Process.myPid()
                     val processName = android.app.Application.getProcessName().takeIf { it.matches(Regex("[A-Za-z0-9_.:]+")) } ?: error("invalid process identity")
                     val command = """
+                        mkdir -p /storage/emulated/0/Movies/Lynx 2>/dev/null
                         /system/bin/screenrecord $codec --size ${size.first}x${size.second} --bit-rate $bitrate --time-limit $seconds '${output.path}' &
                         rec=${'$'}!
                         echo LYNX_REC_PID=${'$'}rec
+                        echo ${'$'}rec > /data/local/tmp/lynx_rec.pid 2>/dev/null
                         (
                             while [ -d /proc/${'$'}rec ]; do
                                 parent=${'$'}(tr '\000' ' ' < /proc/$appPid/cmdline 2>/dev/null)
-                                case "${'$'}parent" in "$processName "*) ;; *)
+                                case "${'$'}parent" in "$processName"*) ;; *)
                                     own=0
                                     for fd in /proc/${'$'}rec/fd/*; do
                                         case "${'$'}(readlink "${'$'}fd" 2>/dev/null)" in */${output.name}) own=1;; esac
@@ -151,6 +173,7 @@ class HudScreenRecorder(private val context: Context) {
                         watcher=${'$'}!
                         wait "${'$'}rec"
                         result=${'$'}?
+                        rm -f /data/local/tmp/lynx_rec.pid 2>/dev/null
                         owner=${'$'}(awk '/^PPid:/ {print ${'$'}2}' /proc/${'$'}watcher/status 2>/dev/null)
                         [ "${'$'}owner" = "${'$'}${'$'}" ] && kill "${'$'}watcher" 2>/dev/null
                         wait "${'$'}watcher" 2>/dev/null
@@ -162,11 +185,23 @@ class HudScreenRecorder(private val context: Context) {
                         val reader = process.inputStream.bufferedReader()
                         // The root wrapper reports its child PID; never signal an unverified recorder.
                         val deadline = SystemClock.elapsedRealtime() + 4000
-                        while (pid <= 1 && SystemClock.elapsedRealtime() < deadline && (process.isAlive || reader.ready())) {
-                            if (reader.ready()) {
+                        while (pid <= 1 && SystemClock.elapsedRealtime() < deadline && process.isAlive) {
+                            if (reader.ready() || process.inputStream.available() > 0) {
                                 val header = reader.readLine() ?: break
-                                pid = Regex("LYNX_REC_PID=([0-9]+)").find(header)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                            } else delay(40)
+                                val parsed = Regex("LYNX_REC_PID=([0-9]+)").find(header)?.groupValues?.get(1)?.toIntOrNull()
+                                if (parsed != null && parsed > 1) {
+                                    pid = parsed
+                                    break
+                                }
+                            }
+                            if (pid <= 1) {
+                                val filePid = runCatching { java.io.File("/data/local/tmp/lynx_rec.pid").readText().trim().toIntOrNull() }.getOrNull()
+                                if (filePid != null && filePid > 1) {
+                                    pid = filePid
+                                    break
+                                }
+                            }
+                            delay(40)
                         }
                         check(pid > 1)
                         prefs.edit().putInt("active_pid", pid).commit()
@@ -233,36 +268,64 @@ class HudScreenRecorder(private val context: Context) {
 
     private fun createOutput(): Output {
         val name = "Lynx_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}.mp4"
+        val dir = java.io.File("/storage/emulated/0/Movies/Lynx")
+        if (!dir.exists()) dir.mkdirs()
+        val directFile = java.io.File(dir, name)
         val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, name); put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Lynx"); put(MediaStore.Video.Media.IS_PENDING, 1)
+            put(MediaStore.Video.Media.DISPLAY_NAME, name)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Lynx")
+            put(MediaStore.Video.Media.IS_PENDING, 1)
         }
-        val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: error("video destination unavailable")
-        val descriptor = try { context.contentResolver.openFileDescriptor(uri, "rw") ?: error("video descriptor unavailable") }
-        catch (error: Exception) { context.contentResolver.delete(uri, null, null); throw error }
-        return Output("/proc/${android.os.Process.myPid()}/fd/${descriptor.fd}", name, uri, descriptor)
+        val uri = runCatching { context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) }.getOrNull()
+        val descriptor = uri?.let { runCatching { context.contentResolver.openFileDescriptor(it, "rw") }.getOrNull() }
+        val path = directFile.absolutePath
+        return Output(path, name, uri, descriptor)
     }
 
     private fun finalizeOutput(output: Output, completed: Boolean): Boolean {
-        if (output.uri == null) return completed && Shell.cmd("[ -s '${output.path}' ]").exec().isSuccess
-        val valid = completed && runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(context, output.uri)
-                (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0) > 0 &&
-                    (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0) > 0
-            } finally { retriever.release() }
-        }.getOrDefault(false)
-        if (valid && context.contentResolver.update(output.uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null) > 0) return true
-        context.contentResolver.delete(output.uri, null, null)
-        return false
+        val file = java.io.File(output.path)
+        val hasFile = completed && file.exists() && file.length() > 1024L
+        if (output.uri == null) return hasFile
+
+        var valid = false
+        if (hasFile) {
+            valid = runCatching {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(output.path)
+                    (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0) > 0 &&
+                        (retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0) > 0
+                } finally { retriever.release() }
+            }.getOrDefault(false)
+        }
+
+        if (valid) {
+            runCatching {
+                context.contentResolver.update(output.uri, ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }, null, null)
+            }
+            android.media.MediaScannerConnection.scanFile(
+                context,
+                arrayOf(output.path),
+                arrayOf("video/mp4")
+            ) { _, scannedUri ->
+                if (scannedUri != null) {
+                    prefs.edit().putString("last_saved", scannedUri.toString()).apply()
+                }
+            }
+            return true
+        } else {
+            runCatching { file.delete() }
+            runCatching { context.contentResolver.delete(output.uri, null, null) }
+            return false
+        }
     }
 
     @Synchronized private fun signal(signal: String, requestedPid: Int, output: Output) {
         if (signal !in listOf("INT", "KILL")) return
         // A unique file name as well as the command and output path must match before signaling.
         val safeName = output.name.takeIf { it.matches(Regex("[A-Za-z0-9_.-]+")) } ?: return
-        val safePath = output.path.takeIf { it.matches(Regex("/proc/[0-9]+/fd/[0-9]+|/storage/emulated/0/Debug/LynxRecorderValidation_[A-Za-z0-9_]+\\.mp4")) } ?: return
+        val safePath = output.path.takeIf { it.matches(Regex("/proc/[0-9]+/fd/[0-9]+|/storage/emulated/0/(Debug|Movies/Lynx)/[A-Za-z0-9_.-]+\\.mp4|/sdcard/Movies/Lynx/[A-Za-z0-9_.-]+\\.mp4")) } ?: return
         val targetPid = if (requestedPid > 1) requestedPid else Shell.cmd("""
             for p in ${'$'}(pidof screenrecord); do
                 cmd=${'$'}(tr '\000' ' ' < /proc/${'$'}p/cmdline 2>/dev/null)

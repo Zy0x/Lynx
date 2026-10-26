@@ -1,3 +1,25 @@
+# Lynx Universal [Stealth Overlay FLAG_SECURE, MediaTek Codec2 Auto-Negotiation & Elevated Feedback Banner] 7.0.0-RC212
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC212** (Lynx Kernel Manager v3.2.46): **Implementasi Proteksi Lapisan Secure Layer (FLAG_SECURE) pada Indikator Floating Capsule Pill & Mini Screenshot Preview Card untuk Mencegah Tombol Kontrol Terekam dalam Video Gameplay, Perekam Layar Anti-Crash MediaTek Helio G96 dengan Auto-Negotiation Google Codec2 AVC & Direct Storage Path Movies/Lynx, Elevasi Floating Glassmorphism Feedback Banner di Bagian Bawah Viewport Drawer, serta Investigasi Diagnostik Mendalam Crash Kernel Panic MT6358 PMIC pada Infinix X698**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC212)
+1. **Stealth Overlay Protection (`FLAG_SECURE`)**:
+   - Menambahkan flag `WindowManager.LayoutParams.FLAG_SECURE` pada jendela overlay `HudRecordingIndicator` dan `HudScreenshotPreview`.
+   - SurfaceFlinger secara otomatis mengabaikan (exclude) jendela kontrol pill dari rekaman video MP4 dan tangkapan layar berikutnya, sehingga hasil rekaman gameplay tetap bersih 100% tanpa watermark tombol.
+2. **MediaTek Helio G96 Screen Recorder Auto-Negotiation (`HudScreenRecorder.kt`)**:
+   - Menambahkan deteksi hardware otomatis `isMediaTekDevice()` untuk mengalihkan encoder secara otonom ke Google Software Codec2 (`c2.android.avc.encoder`), mengeliminasi kesalahan fatal `Encoder failed err=-38`.
+   - Menulis langsung ke direktori file `/storage/emulated/0/Movies/Lynx/` yang terdaftar ke MediaStore via `MediaScannerConnection.scanFile`, menghapus ketergantungan pada symlink `/proc/<pid>/fd/<fd>`.
+3. **Elevasi Feedback Banner Glassmorphism (`HudSidebar.kt`)**:
+   - Memposisikan `HudFeedbackBanner` mengambang mandiri di `Alignment.BottomCenter` dari Box drawer dengan `shadowElevation = 8.dp` dan border gradien neon aksen semantik.
+   - Menjamin seluruh notifikasi aksi taktis (pembebasan RAM `freedMb`, tangkapan layar, perekaman) selalu tampil jelas dan seketika tanpa terhalang oleh posisi scroll drawer.
+4. **Investigasi Kernel Panic & Status Fast Charging**:
+   - Analisis AEE Dump `db.fatal.02.KE` dan `console-ramoops` membuktikan crash pada fungsi driver MediaTek PMIC `mt6358_upmu_get_da_vcamio_en` saat dual-voltage charge pump (RT9759 / DV2) berakselerasi ke 9V / 3A di 54 detik uptime pasca boot.
+   - Verifikasi telemetri pengisian daya Redmi Note 7 membuktikan mode Hyper beroperasi tanpa pembatasan perangkat lunak, dengan arus charging ~1.14A diatur murni oleh kurva elektrokimia Constant Voltage (CV) pada kapasitas 91% (4.394V).
+5. **Verifikasi & Pemasangan Multi-Device**:
+   - Kompilasi biner APK rilis `LynxKernelManager.apk` (6.840.330 bytes) berhasil dipasang ke **Infinix X698** (`192.168.1.6`) dan **Redmi Note 7** (`192.168.1.23`).
+
+---
+
 # Lynx Universal [Otomasi Zero-Touch Electronic Soft Reconnect Qualcomm QC 3.0 & VBUS Re-enumeration] 7.0.0-RC211
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC211** (Lynx Kernel Manager v3.2.45): **Implementasi Otomasi Simulasi Cabut-Colok Elektronik (Zero-Touch Electronic Soft Reconnect) untuk Chipset Qualcomm Snapdragon (PM660 / SMB2 / PM8150): Memicu Ulang Pulsa Handshake Hardware Quick Charge 3.0 (9V / 18W) Secara Mandiri Tanpa Perlu Mencabut Kabel Fisik, Pulsa VBUS Input Suspend 800ms Terkalibrasi untuk Menguras Kapasitor Filter GaN Charger, Deteksi Otomatis Stalled 5V DCP Saat Hyper Mode Aktif, dan Penyegaran AICL Seketika**.
