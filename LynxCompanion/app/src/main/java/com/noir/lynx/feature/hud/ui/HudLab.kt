@@ -17,7 +17,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -101,9 +100,7 @@ internal fun HudLab(
                         text = bypassStatus.chipSummary,
                         fontSize = 10.5.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = HudBlue,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = HudBlue
                     )
                 }
             }
@@ -243,9 +240,7 @@ internal fun HudLab(
                     text = if (touchStatus.backendLabel.isNotBlank()) touchStatus.backendLabel else hudString(R.string.hud_lab_touch_desc),
                     fontSize = 10.5.sp,
                     fontFamily = if (touchStatus.backendLabel.isNotBlank()) FontFamily.Monospace else FontFamily.Default,
-                    color = if (touchStatus.enabled) HudCyan else HudMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = if (touchStatus.enabled) HudCyan else HudMuted
                 )
             }
             Switch(
@@ -434,18 +429,14 @@ private fun HudLabStatPill(
             Text(
                 text = label,
                 fontSize = 10.sp,
-                color = HudMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = HudMuted
             )
             Text(
                 text = value,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = FontFamily.Monospace,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color.White
             )
         }
     }

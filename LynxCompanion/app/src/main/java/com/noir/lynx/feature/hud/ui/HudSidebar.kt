@@ -28,7 +28,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.addins.HudRecordingPhase
 import com.noir.lynx.feature.hud.*
@@ -263,7 +262,9 @@ fun HudSidebar(
                                                         },
                                                         onBoostRam = onBoostRam,
                                                         onTogglePin = { preferences.pin(!prefs.pinned) },
-                                                        onToggleFocus = onToggleFocus
+                                                        onToggleFocus = onToggleFocus,
+                                                        autoSkipEnabled = prefs.autoSkipEnabled,
+                                                        onToggleAutoSkip = { preferences.setAutoSkipEnabled(!prefs.autoSkipEnabled) }
                                                     )
                                                     HudAppDock(
                                                         apps = apps,
@@ -315,10 +316,10 @@ fun HudSidebar(
                                                     onToggleBrightnessLock = onToggleBrightnessLock,
                                                     onToggleAutoSkip = { enabled ->
                                                         preferences.setAutoSkipEnabled(enabled)
-                                                        if (enabled != isSkipping) onToggleAutoSkip()
                                                     },
                                                     onSetAutoSkipSpeed = { preferences.setAutoSkipSpeed(it) },
-                                                    onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
+                                                    onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) },
+                                                    isSkipping = isSkipping, isPaused = isPaused
                                                 )
                                             }
                                         }
@@ -456,18 +457,14 @@ internal fun HudFeedbackBanner(
                     text = message,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = Color.White
                 )
                 if (!detail.isNullOrBlank()) {
                     Text(
                         text = detail,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
-                        color = accentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        color = accentColor
                     )
                 }
             }

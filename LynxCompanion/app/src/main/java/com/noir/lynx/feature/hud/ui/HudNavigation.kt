@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -120,9 +119,7 @@ internal fun HudTopTabBar(
                             text = title,
                             fontSize = 11.sp,
                             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
-                            color = if (active) Color.White else HudMuted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = if (active) Color.White else HudMuted
                         )
                     }
                 }
@@ -198,10 +195,7 @@ internal fun HudNavigationRail(
                         text = title,
                         fontSize = 12.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (active) Color.White else HudMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        softWrap = false
+                        color = if (active) Color.White else HudMuted
                     )
                 }
             }

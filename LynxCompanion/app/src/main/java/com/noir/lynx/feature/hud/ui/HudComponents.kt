@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,8 +66,7 @@ internal fun HudValue(reading: HudReading, large: Boolean = false) {
         text = reading.text(),
         fontSize = if (large) 22.sp else 14.sp,
         fontWeight = FontWeight.SemiBold,
-        color = if (reading.value != null && reading.status == "valid") Color.White else HudMuted,
-        maxLines = 1
+        color = if (reading.value != null && reading.status == "valid") Color.White else HudMuted
     )
 }
 
@@ -118,9 +116,7 @@ internal fun HudAction(
                 text = label,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
-                color = textColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = textColor
             )
         }
     }

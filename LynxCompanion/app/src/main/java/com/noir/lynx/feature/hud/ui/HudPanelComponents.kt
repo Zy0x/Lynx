@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -67,7 +66,7 @@ internal fun HudSection(
             val titleContent: @Composable () -> Unit = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (showPlayIcon) Box(Modifier.size(5.dp).clip(CircleShape).background(accentColor))
-                    Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2)
+                    Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
             }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -127,9 +126,7 @@ internal fun HudChoice(
                 },
                 fontSize = 12.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -170,7 +167,7 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
 
 @Composable
 internal fun HudReadingLine(label: String, reading: HudReading, accentColor: Color = Color(0xFFE8EAED)) {
-    val value = hudString(R.string.hud_value, reading.text(), reading.unit)
+    val value = if (reading.status == "valid") hudString(R.string.hud_value, reading.text(), reading.unit) else "—"
     val labelWidth = hudLabelWidth(listOf(label))
     val valueWidth = hudLabelWidth(listOf(value), 12, numeric = true)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -185,9 +182,7 @@ internal fun HudReadingLine(label: String, reading: HudReading, accentColor: Col
                         text = label,
                         modifier = Modifier.weight(1f),
                         fontSize = 12.sp,
-                        color = HudMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = HudMuted
                     )
                     Text(
                         text = value,

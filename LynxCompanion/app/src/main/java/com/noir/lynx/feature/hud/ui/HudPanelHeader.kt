@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -50,12 +49,12 @@ internal fun HudPanelHeader(
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                fontWeight = FontWeight.SemiBold, color = Color.White)
             Text(buildString {
                 append(if (battery.status == "valid") "${battery.text()}%" else "—")
                 if (batteryTemp?.status == "valid") append(" · ${batteryTemp.text()}°C")
                 if (bypassActive) append(" · $bypassBadgeText")
-            }, fontSize = 12.sp, color = if (charging == true) HudCyan else HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }, fontSize = 12.sp, color = if (charging == true) HudCyan else HudMuted)
         }
         IconButton(onClose, Modifier.size(48.dp)) {
             Icon(Icons.Default.Close, hudString(R.string.hud_close), tint = HudMuted, modifier = Modifier.size(20.dp))
@@ -66,89 +65,33 @@ internal fun HudPanelHeader(
 /** Adaptive, labeled quick actions with consistent touch targets. */
 @Composable
 internal fun HudQuickTileRow(
-    pinned: Boolean,
-    focusActive: Boolean = false,
-    busy: Boolean,
-    isRecording: Boolean = false,
-    recordDuration: String? = null,
-    onCapture: () -> Unit,
-    onToggleRecord: () -> Unit,
-    onBoostRam: () -> Unit,
-    onTogglePin: () -> Unit,
-    onToggleFocus: () -> Unit
+    pinned: Boolean, focusActive: Boolean = false, busy: Boolean,
+    isRecording: Boolean = false, recordDuration: String? = null,
+    onCapture: () -> Unit, onToggleRecord: () -> Unit, onBoostRam: () -> Unit,
+    onTogglePin: () -> Unit, onToggleFocus: () -> Unit,
+    autoSkipEnabled: Boolean = false, onToggleAutoSkip: () -> Unit = {}
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        // Row 1: Quick Actions (Tangkap, Rekam/Stop, Bersihkan)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // 1. Tangkap Layar
-            HudActionTile(
-                icon = Icons.Default.CameraAlt,
-                label = hudString(R.string.hud_capture_short),
-                enabled = !busy,
-                onClick = onCapture,
-                modifier = Modifier.weight(1f)
-            )
-
-            // 2. Rekam Layar / Berhenti
-            if (isRecording) {
-                HudActionTile(
-                    icon = Icons.Default.StopCircle,
-                    label = recordDuration ?: hudString(R.string.hud_record_short),
-                    isDanger = true,
-                    enabled = true,
-                    onClick = onToggleRecord,
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                HudActionTile(
-                    icon = Icons.Default.Videocam,
-                    label = hudString(R.string.hud_record_short),
-                    enabled = !busy,
-                    onClick = onToggleRecord,
-                    modifier = Modifier.weight(1f)
-                )
+    val icons = listOf(Icons.Default.CameraAlt, if (isRecording) Icons.Default.StopCircle else Icons.Default.Videocam,
+        Icons.Default.Bolt, Icons.Default.Speed, Icons.Default.FastForward, Icons.Default.DoNotDisturbOn)
+    val labels = listOf(hudString(R.string.hud_capture_compact),
+        if (isRecording) recordDuration ?: hudString(R.string.hud_record_stop) else hudString(R.string.hud_record_short),
+        hudString(R.string.hud_clean_ram_short), hudString(R.string.hud_fps_short),
+        hudString(R.string.hud_autoskip_short), hudString(R.string.hud_focus_short))
+    val callbacks = listOf(onCapture, onToggleRecord, onBoostRam, onTogglePin, onToggleAutoSkip, onToggleFocus)
+    val selected = listOf(false, isRecording, false, pinned, autoSkipEnabled, focusActive)
+    val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columns = HudLayoutPolicy.columns(maxWidth.value, 56f * scale, gap = 6f, maximum = 3)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            labels.indices.chunked(columns).forEach { indices ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    indices.forEach { i ->
+                        HudActionTile(icons[i], labels[i], selected[i], isDanger = i == 1 && isRecording,
+                            enabled = !busy || (i == 1 && isRecording), onClick = callbacks[i], modifier = Modifier.weight(1f))
+                    }
+                    repeat(columns - indices.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
-
-            // 3. Bersihkan RAM
-            HudActionTile(
-                icon = Icons.Default.Bolt,
-                label = hudString(R.string.hud_clean_ram_short),
-                enabled = !busy,
-                onClick = onBoostRam,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // Row 2: Mode Toggles (Sematkan Mini HUD, Fokus Mode)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // 4. Sematkan Mini FPS
-            HudActionTile(
-                icon = Icons.Default.Speed,
-                label = hudString(R.string.hud_mini_short),
-                highlighted = pinned,
-                enabled = !busy,
-                onClick = onTogglePin,
-                modifier = Modifier.weight(1f)
-            )
-
-            // 5. Mode Fokus
-            HudActionTile(
-                icon = Icons.Default.DoNotDisturbOn,
-                label = hudString(R.string.hud_focus_short),
-                highlighted = focusActive,
-                enabled = !busy,
-                onClick = onToggleFocus,
-                modifier = Modifier.weight(1f)
-            )
         }
     }
 }
@@ -208,9 +151,7 @@ private fun HudActionTile(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
-                maxLines = 1,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                overflow = TextOverflow.Ellipsis
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
@@ -241,7 +182,7 @@ internal fun HudAppDock(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.width(52.dp)
+                    modifier = Modifier.width((64f * androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(104f).dp)
                 ) {
                     Surface(
                         onClick = { onApp(app) },
@@ -262,16 +203,14 @@ internal fun HudAppDock(
                     Text(
                         text = app.label,
                         fontSize = 12.sp,
-                        color = Color(0xFFC4C7C5),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = Color(0xFFC4C7C5)
                     )
                 }
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.width(52.dp)
+                modifier = Modifier.width((64f * androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(104f).dp)
             ) {
                 Surface(
                     onClick = onManage,
@@ -291,8 +230,7 @@ internal fun HudAppDock(
                 Text(
                     text = "+",
                     fontSize = 12.sp,
-                    color = Color(0xFFC4C7C5),
-                    maxLines = 1
+                    color = Color(0xFFC4C7C5)
                 )
             }
         }

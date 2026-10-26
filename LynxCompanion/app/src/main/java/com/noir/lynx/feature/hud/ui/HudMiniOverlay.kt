@@ -17,7 +17,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -80,12 +79,19 @@ internal fun HudMiniOverlay(
     val selected = HudMetric.values().filter { it.key in prefs.selected }
     val fontScale = LocalDensity.current.fontScale
     val compactHeight = viewport.heightDp * .25f < 32f * fontScale + 8f
-    val count = if (fontScale > 1.3f) 1 else 2
+    val budget = (min(viewport.widthDp * .6f, 240f) - 20f).coerceAtLeast(24f)
+    val labels = selected.map { hudString(it.label) }
+    val values = selected.map { metric ->
+        val reading = snapshot[metric]
+        if (reading.status == "valid") hudString(R.string.hud_value, reading.text(), reading.unit) else "—"
+    }
+    val cellWidth = maxOf(52f, hudLabelWidth(labels), hudLabelWidth(values + "9999 MHz", 13, numeric = true))
+    val count = if (budget >= cellWidth * 2f + 29f) 2 else 1
     val pages = selected.chunked(count)
     val pager = rememberPagerState(pageCount = { pages.size.coerceAtLeast(1) })
     val showMetrics = prefs.pinned && selected.isNotEmpty()
     val colsOnPage = min(selected.size.coerceAtLeast(1), count)
-    val capsuleWidth = if (colsOnPage == 1) 92.dp else 162.dp
+    val capsuleWidth = min(budget, cellWidth * colsOnPage + 20f + if (colsOnPage > 1) 9f else 0f).dp
     val totalWidth = if (showMetrics) capsuleWidth + 20.dp else 32.dp
     val openDescription = hudString(R.string.hud_open)
 
@@ -133,7 +139,7 @@ internal fun HudMiniOverlay(
                                 )
                             }
                             val reading = snapshot[metric]
-                            val combined = hudString(R.string.hud_value, reading.text(), reading.unit)
+                            val combined = if (reading.status == "valid") hudString(R.string.hud_value, reading.text(), reading.unit) else "—"
                             val label = hudString(metric.label)
                             val description = hudString(R.string.hud_metric_value_description, label, combined)
                             Column(
@@ -145,19 +151,16 @@ internal fun HudMiniOverlay(
                                 if (!compactHeight) {
                                     Text(
                                         text = label,
-                                        fontSize = 9.5.sp,
-                                        color = HudMuted,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        fontSize = 12.sp,
+                                        color = HudMuted
                                     )
                                 }
                                 Text(
                                     text = combined,
-                                    fontSize = 12.sp,
+                                    fontSize = 13.sp,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (metric == HudMetric.FPS) HudCyan else Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    color = if (metric == HudMetric.FPS) HudCyan else Color.White
                                 )
                             }
                         }
@@ -195,7 +198,7 @@ internal fun HudMiniOverlay(
     Row(
         modifier = Modifier
             .width(totalWidth)
-            .heightIn(min = 72.dp, max = (viewport.heightDp * 0.25f).dp)
+            .heightIn(min = min(72f, viewport.heightDp * .25f).dp, max = (viewport.heightDp * .25f).dp)
             .semantics { contentDescription = openDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (dockRight) Arrangement.End else Arrangement.Start

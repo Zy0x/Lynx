@@ -34,26 +34,11 @@ internal fun HudDetails(snapshot: HudSnapshot) {
             }
         }
 
-        HudExpandableSection(
-            title = hudString(R.string.hud_group_processor),
-            initiallyOpen = true
-        ) {
-            listOf(
-                HudMetric.CPU_LOAD,
-                HudMetric.CPU_CLOCK,
-                HudMetric.GPU_LOAD,
-                HudMetric.GPU_CLOCK
-            ).forEach { metric ->
-                HudReadingLine(hudString(metric.label), snapshot[metric])
-            }
-            snapshot.policies.forEach { (id, clock) ->
-                HudReadingLine(id, clock)
-            }
-        }
+        HudProcessorDetails(snapshot)
 
         HudExpandableSection(
             title = hudString(R.string.hud_group_memory_temperature),
-            initiallyOpen = true
+            initiallyOpen = false
         ) {
             listOf(
                 HudMetric.RAM_USED,
@@ -87,19 +72,20 @@ internal fun HudDetails(snapshot: HudSnapshot) {
                 HudReadingLine(hudString(metric.label), snapshot[metric])
             }
         }
+        HudDetailDiagnostics(snapshot)
     }
 }
 
 @Composable
 private fun HudFrameChart(snapshot: HudSnapshot) {
-    val history = snapshot.history
+    val history = snapshot.history.takeIf { snapshot[HudMetric.FRAME_TIME].status == "valid" }.orEmpty()
     if (history.size > 1) {
         val low = history.minOrNull() ?: 0f
         val high = history.maxOrNull() ?: 0f
         val description = hudString(R.string.hud_frame_chart)
         Text(
             text = hudString(R.string.hud_chart_range, "%.1f".format(low), "%.1f".format(high)),
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
             color = HudMuted
         )

@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -80,17 +79,13 @@ internal fun HudExpandableSection(
                             text = title,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
-                            color = accentColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = accentColor
                         )
                         if (detail.isNotBlank()) {
                             Text(
                                 text = detail,
                                 fontSize = 11.5.sp,
-                                color = HudBlue,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                color = HudBlue
                             )
                         }
                     }

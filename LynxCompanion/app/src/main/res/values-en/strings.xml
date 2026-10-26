@@ -2275,4 +2275,15 @@
     <string name="hud_screenshot_saved">Screenshot saved</string>
     <string name="hud_screenshot_open">Open</string>
     <string name="hud_record_stopping">Stopping recording…</string>
+    <string name="hud_cpu_policies">CPU policy clocks</string>
+    <string name="hud_load_short">Load</string>
+    <string name="hud_temperature_short">Sensor temperature</string>
+    <string name="hud_skip_dialog">Dialogue assistant</string>
+    <string name="hud_skip_options">Dialogue settings</string>
+    <string name="hud_skip_ready">Ready · waiting for dialogue</string>
+    <string name="hud_skip_off">Off</string>
+    <string name="hud_autoskip_short">Auto-skip</string>
+    <string name="hud_fps_short">FPS meter</string>
+    <string name="hud_capture_compact">Capture</string>
+    <string name="hud_skip_control_description">%1$s. Tap to pause or resume; drag to move.</string>
 </resources>

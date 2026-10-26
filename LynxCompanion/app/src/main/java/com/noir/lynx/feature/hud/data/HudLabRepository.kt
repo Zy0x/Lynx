@@ -122,25 +122,33 @@ class HudLabRepository(private val context: Context) {
         runCatching { Shell.getShell().isRoot }.getOrDefault(false)
 
     suspend fun probeBypass(): HudBypassStatus = withContext(Dispatchers.IO) {
-        com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass?.probe()
-            ?: HudBypassStatus(capability = HudCapability.UNSUPPORTED)
+        val currentSession = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass
+        if (currentSession != null) {
+            val status = currentSession.probe()
+            if (status.capability != HudCapability.UNSUPPORTED) return@withContext status
+        }
+        com.noir.lynx.feature.hud.addins.HudBypassSession(context).probe()
     }
 
     suspend fun setBypass(enabled: Boolean): HudBypassStatus = withContext(Dispatchers.IO) {
         val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass
-            ?: return@withContext HudBypassStatus(capability = HudCapability.UNSUPPORTED)
+            ?: com.noir.lynx.feature.hud.addins.HudBypassSession(context)
         session.set(enabled)
         session.probe()
     }
 
     suspend fun probeTouchBoost(): HudTouchStatus = withContext(Dispatchers.IO) {
-        com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.touch?.probe()
-            ?: HudTouchStatus(capability = HudCapability.UNSUPPORTED)
+        val currentSession = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.touch
+        if (currentSession != null) {
+            val status = currentSession.probe()
+            if (status.capability != HudCapability.UNSUPPORTED) return@withContext status
+        }
+        com.noir.lynx.feature.hud.addins.HudTouchSession(context).probe()
     }
 
     suspend fun setTouchBoost(enabled: Boolean): HudTouchStatus = withContext(Dispatchers.IO) {
         val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.touch
-            ?: return@withContext HudTouchStatus(capability = HudCapability.UNSUPPORTED)
+            ?: com.noir.lynx.feature.hud.addins.HudTouchSession(context)
         session.set(enabled)
         session.probe()
     }

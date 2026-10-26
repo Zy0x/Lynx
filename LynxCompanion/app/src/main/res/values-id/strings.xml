@@ -2299,4 +2299,15 @@
     <string name="hud_screenshot_saved">Tangkapan layar tersimpan</string>
     <string name="hud_screenshot_open">Buka</string>
     <string name="hud_record_stopping">Menghentikan rekaman…</string>
+    <string name="hud_cpu_policies">Clock per policy CPU</string>
+    <string name="hud_load_short">Beban</string>
+    <string name="hud_temperature_short">Suhu sensor</string>
+    <string name="hud_skip_dialog">Asisten dialog</string>
+    <string name="hud_skip_options">Pengaturan dialog</string>
+    <string name="hud_skip_ready">Siaga · menunggu dialog</string>
+    <string name="hud_skip_off">Nonaktif</string>
+    <string name="hud_autoskip_short">Auto-skip</string>
+    <string name="hud_fps_short">FPS meter</string>
+    <string name="hud_capture_compact">Tangkap</string>
+    <string name="hud_skip_control_description">%1$s. Ketuk untuk jeda atau lanjut; seret untuk memindahkan.</string>
 </resources>

@@ -34,7 +34,8 @@ internal fun HudTools(
     onToggleBrightnessLock: (Boolean) -> Unit = {},
     onToggleAutoSkip: (Boolean) -> Unit = { store.setAutoSkipEnabled(it) },
     onSetAutoSkipSpeed: (Long) -> Unit = { store.setAutoSkipSpeed(it) },
-    onSetAutoSkipChoiceBottom: (Boolean) -> Unit = { store.setAutoSkipChoiceBottom(it) }
+    onSetAutoSkipChoiceBottom: (Boolean) -> Unit = { store.setAutoSkipChoiceBottom(it) },
+    isSkipping: Boolean = false, isPaused: Boolean = false
 ) {
     var timerRemainingSec by rememberSaveable { mutableStateOf(0) }
     var timerActivePreset by rememberSaveable { mutableStateOf(0) }
@@ -103,10 +104,9 @@ internal fun HudTools(
         }
 
         // Game Brightness Lock
-        HudSection(
+        HudExpandableSection(
             title = hudString(R.string.hud_brightness_lock_title),
-            badge = hudString(if (brightnessLocked) R.string.hud_active else R.string.hud_cap_ready),
-            accentColor = if (brightnessLocked) HudCyan else HudBlue
+            detail = hudString(if (brightnessLocked) R.string.hud_active else R.string.hud_skip_off)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -133,90 +133,8 @@ internal fun HudTools(
             }
         }
 
-        // Pemicu Pintar · Auto-Skip Dialog (Genshin & Hoyo RPGs)
-        HudSection(
-            title = hudString(R.string.hud_autoskip_title),
-            badge = hudString(if (prefs.autoSkipEnabled) R.string.hud_active else R.string.hud_cap_ready),
-            accentColor = if (prefs.autoSkipEnabled) HudCyan else HudBlue
-        ) {
-            Text(
-                text = hudString(R.string.hud_autoskip_desc),
-                fontSize = 11.5.sp,
-                color = HudMuted
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = hudString(R.string.hud_autoskip_switch),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = prefs.autoSkipEnabled,
-                    onCheckedChange = { onToggleAutoSkip(it) },
-                    enabled = !action.busy,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = HudBlueBadge,
-                        uncheckedThumbColor = HudMuted,
-                        uncheckedTrackColor = HudElevated
-                    )
-                )
-            }
-
-            if (prefs.autoSkipEnabled) {
-                val speeds = listOf(
-                    180L to hudString(R.string.hud_autoskip_speed_fast),
-                    250L to hudString(R.string.hud_autoskip_speed_normal),
-                    380L to hudString(R.string.hud_autoskip_speed_slow)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    speeds.forEach { (speedMs, label) ->
-                        HudChoice(
-                            label = label,
-                            selected = prefs.autoSkipSpeedMs == speedMs,
-                            onClick = { onSetAutoSkipSpeed(speedMs) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    HudChoice(
-                        label = hudString(R.string.hud_autoskip_choice_top),
-                        selected = !prefs.autoSkipChoiceBottom,
-                        onClick = { onSetAutoSkipChoiceBottom(false) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    HudChoice(
-                        label = hudString(R.string.hud_autoskip_choice_bottom),
-                        selected = prefs.autoSkipChoiceBottom,
-                        onClick = { onSetAutoSkipChoiceBottom(true) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Text(
-                    text = hudString(R.string.hud_autoskip_supported_games),
-                    fontSize = 10.5.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = HudCyan,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-        }
+        HudAutomationControls(prefs, action.busy, isSkipping, isPaused,
+            onToggleAutoSkip, onSetAutoSkipSpeed, onSetAutoSkipChoiceBottom)
 
         // Magic Box · Cooldown Timer
         val mins = timerRemainingSec / 60
@@ -226,10 +144,9 @@ internal fun HudTools(
         } else {
             hudString(R.string.hud_timer_ready)
         }
-        HudSection(
+        HudExpandableSection(
             title = hudString(R.string.hud_timer_title),
-            badge = timerBadge,
-            accentColor = if (timerRemainingSec > 0) HudCyan else HudBlue
+            detail = timerBadge
         ) {
             Text(
                 text = hudString(R.string.hud_timer_desc),

@@ -312,7 +312,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         scope.launch(Dispatchers.IO) {
             val before = readHudMeminfo()
             val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
-            val result = Shell.cmd("'$path' hud release-cache").exec()
+            Shell.cmd("'$path' hud release-cache").exec()
             // Direct kernel cache drop for thorough pagecache & slab cleanup
             Shell.cmd("echo 3 > /proc/sys/vm/drop_caches").exec()
             delay(350)

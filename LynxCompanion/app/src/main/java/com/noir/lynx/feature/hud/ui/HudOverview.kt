@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -275,18 +274,14 @@ private fun HudMiniStatPill(
                 text = label,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = HudMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = HudMuted
             )
             Text(
                 text = value,
                 fontSize = 12.5.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color.White
             )
         }
     }
@@ -353,24 +348,18 @@ private fun HudProcessorCard(
                 text = title,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFE8EAED),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color(0xFFE8EAED)
             )
             Text(
                 text = if (clock.status == "valid") "${clock.text()} MHz" else "—",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color.White
             )
             Text(
                 text = if (temp.status == "valid") hudString(R.string.hud_sensor_temp_value, tempLabel, temp.text()) else "—",
                 fontSize = 10.5.sp,
-                color = HudMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = HudMuted
             )
         }
     }
@@ -457,25 +446,19 @@ private fun HudMemoryCard(
                 text = title,
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFE8EAED),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color(0xFFE8EAED)
             )
             Text(
                 text = if (used.status == "valid") "${used.text()} GB" else "—",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = Color.White
             )
             Text(
                 text = if (isCleaning) hudString(R.string.hud_pending) else hudString(R.string.hud_clean_ram_short),
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isCleaning) HudCyan else HudBlue,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                color = if (isCleaning) HudCyan else HudBlue
             )
         }
     }

@@ -72,7 +72,7 @@ internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChang
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
             .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically

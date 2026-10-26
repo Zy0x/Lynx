@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -107,9 +106,7 @@ internal fun HudAppManager(prefs: HudPreferences, store: HudPreferencesStore) {
                                     modifier = Modifier.weight(1f),
                                     fontSize = 11.5.sp,
                                     fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (chosen) Color.White else Color(0xFFCBD5E1),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    color = if (chosen) Color.White else Color(0xFFCBD5E1)
                                 )
                             }
                             IconButton(
