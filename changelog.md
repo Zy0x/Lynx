@@ -1,3 +1,24 @@
+# Lynx Universal [Otomasi Zero-Touch Electronic Soft Reconnect Qualcomm QC 3.0 & VBUS Re-enumeration] 7.0.0-RC211
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC211** (Lynx Kernel Manager v3.2.45): **Implementasi Otomasi Simulasi Cabut-Colok Elektronik (Zero-Touch Electronic Soft Reconnect) untuk Chipset Qualcomm Snapdragon (PM660 / SMB2 / PM8150): Memicu Ulang Pulsa Handshake Hardware Quick Charge 3.0 (9V / 18W) Secara Mandiri Tanpa Perlu Mencabut Kabel Fisik, Pulsa VBUS Input Suspend 800ms Terkalibrasi untuk Menguras Kapasitor Filter GaN Charger, Deteksi Otomatis Stalled 5V DCP Saat Hyper Mode Aktif, dan Penyegaran AICL Seketika**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC211)
+1. **Zero-Touch Electronic Soft Reconnect Qualcomm QC 3.0 (`charging.rs`)**:
+   - Mengembangkan simulasi pencabutan kabel virtual berbasis sirkuit FET PMIC Qualcomm (`/sys/class/power_supply/battery/input_suspend`).
+   - Menerapkan durasi jeda pulsa 800ms yang terkalibrasi khusus agar kapasitor output charger multi-port GaN (seperti Ugreen 65W) terkuras di bawah ambang batas deteksi disconnect sebelum menghubungkan kembali VBUS.
+   - Mengombinasikan siklus pulsa dengan penyegaran otomatis `rerun_aicl` dan pengaktifan rail `charging_enabled = 1`.
+2. **Pemicu Langsung Saat Aktivasi Hyper Mode (`apply_hyper_mode`)**:
+   - Menghubungkan eksekusi `trigger_charger_soft_reconnect()` seketika saat pengguna mengaktifkan mode Hyper di Lynx Companion maupun CLI saat perangkat sedang terhubung ke charger AC (selama kapasitas baterai < 85%).
+   - Menghilangkan kebutuhan bagi pengguna untuk mencabut dan menancapkan kembali kabel fisik saat ingin beralih dari pengisian standar ke pengisian puncak QC 3.0.
+3. **Deteksi Otonom Pengisian Tersangkut di 5V DCP (`tick()`)**:
+   - Menghadirkan algoritma pendeteksi pada perangkat Qualcomm: jika mode Hyper aktif namun tegangan USB < 6.5V atau batas arus PMIC tertahan $\le 1600\text{ mA}$ selama 4 detik berturut-turut, daemon Lynx otomatis mengeksekusi Soft Reconnect sekali per sesi kabel untuk mengunci protokol QC 3.0.
+   - Dilengkapi proteksi sesi `/dev/lynx_soft_reconnect_done` agar tidak melakukan looping berulang jika pengguna memang menggunakan kepala charger 10W standar.
+4. **Verifikasi Hardware & Kompilasi Native Rust**:
+   - Kompilasi biner `lynxd` v0.5.0 dengan Android NDK Clang rilis teroptimasi LTO strip (`1.07 MB`).
+   - Berhasil diverifikasi dan diuji coba langsung pada Redmi Note 7 (*lavender*, Snapdragon 660 / PM660).
+
+---
+
 # Lynx Universal [Elevasi Estetika Lynx Engine ala Infinix XBoost & Redesain Material 3 Subscreen] 7.0.0-RC210
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC210** (Lynx Kernel Manager v3.2.44): **Perombakan Estetika Mewah & Presisi Lynx Engine Terinspirasi Infinix XBoost & Xiaomi Game Turbo: Hardware Performance Tri-Cluster (CPU, GPU, RAM) dengan Animasi Sweep Ring Berotasi Saat Pembersihan Memori, Elevasi Kartu Hero FPS & Oscilloscope Area-Gradient Sparkline, Redesain Total Halaman Pengaturan Lynx Engine (`GameHudSubscreen.kt`) Menjadi Pusat Komando Bento-Card Material 3 Cyberpunk, Pembersihan Karakter Encoding UTF-8 Rusak, Serta Verifikasi Unit Test Lolos 100%**.
