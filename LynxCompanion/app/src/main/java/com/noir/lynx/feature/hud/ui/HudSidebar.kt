@@ -12,13 +12,26 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
+import android.os.SystemClock
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import com.noir.lynx.feature.hud.addins.HudGamingAddins
+import com.noir.lynx.feature.hud.addins.HudRecordingPhase
 import com.noir.lynx.feature.hud.*
 import com.noir.lynx.feature.hud.data.*
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -60,10 +73,15 @@ fun HudSidebar(
     onToggleAutoSkip: () -> Unit = {}
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
+    SideEffect {
+        val level = snapshot[HudMetric.BATTERY_LEVEL]
+        com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.acceptBattery(
+            level.value?.takeIf { level.status == "valid" && it in 0.0..100.0 }?.toInt())
+    }
     var page by remember { mutableStateOf(HudPage.Summary) }
     var manageApps by remember { mutableStateOf(false) }
     var addinPage by rememberSaveable { mutableIntStateOf(-1) }
-    val addinScrolls = (0..4).associateWith { rememberScrollState() }
+    val addinScrolls = (0..7).associateWith { rememberScrollState() }
     val scrolls = mapOf(
         HudPage.Summary to rememberScrollState(),
         HudPage.Details to rememberScrollState(),
@@ -108,8 +126,8 @@ fun HudSidebar(
             }
             val drawerWidthFloat = (viewport.panelWidth - 15f).coerceAtLeast(240f)
             val drawerWidth = drawerWidthFloat.dp
-            val fontScale = LocalDensity.current.fontScale
-            val layout = HudLayoutPolicy.resolve(drawerWidthFloat, 48f * fontScale)
+            val navigationLabels = HudPage.values().map { hudString(it.label) }
+            val layout = HudLayoutPolicy.resolve(drawerWidthFloat, hudLabelWidth(navigationLabels) + 2f)
             val inSubscreen = manageApps || page != HudPage.Summary
 
             val drawerSurface: @Composable () -> Unit = {
@@ -144,8 +162,9 @@ fun HudSidebar(
                             onClose = { onOpen(false) }
                         )
 
+                        HudRecordingBar()
                         if (!layout.useRail) {
-                            HudTopTabBar(
+                            HudPageSelector(
                                 selected = page,
                                 onSelect = {
                                     manageApps = false
@@ -197,6 +216,25 @@ fun HudSidebar(
                                     }
                                 } else {
                                     pageState.SaveableStateProvider(page.name) {
+                                        val recorder = HudGamingAddins.current?.recorder
+                                        val recState by (recorder?.state?.collectAsState() ?: remember { mutableStateOf(null) })
+                                        val isRecording = recState?.busy == true
+                                        var recNow by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                                        LaunchedEffect(isRecording) {
+                                            while (isRecording) {
+                                                recNow = SystemClock.elapsedRealtime()
+                                                kotlinx.coroutines.delay(1000)
+                                            }
+                                        }
+                                        val recordDuration = if (isRecording && recState != null) {
+                                            if (recState?.phase == HudRecordingPhase.COUNTDOWN) {
+                                                "${recState?.countdown}s"
+                                            } else {
+                                                val elapsed = ((recNow - (recState?.startedAt ?: 0L)).coerceAtLeast(0) / 1000)
+                                                String.format(Locale.US, "%02d:%02d", elapsed / 60, elapsed % 60)
+                                            }
+                                        } else null
+
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -210,7 +248,17 @@ fun HudSidebar(
                                                         pinned = prefs.pinned,
                                                         focusActive = focusActive,
                                                         busy = action.busy,
+                                                        isRecording = isRecording,
+                                                        recordDuration = recordDuration,
                                                         onCapture = onCapture,
+                                                        onToggleRecord = {
+                                                            if (isRecording) {
+                                                                recorder?.stop()
+                                                            } else {
+                                                                onOpen(false)
+                                                                recorder?.start()
+                                                            }
+                                                        },
                                                         onBoostRam = onBoostRam,
                                                         onTogglePin = { preferences.pin(!prefs.pinned) },
                                                         onToggleFocus = onToggleFocus
@@ -247,7 +295,9 @@ fun HudSidebar(
                                                     onToggleHeadsUpShield = onToggleHeadsUpShield,
                                                     onSelectFocusLevel = onSelectFocusLevel,
                                                     selectedAddin = addinPage,
-                                                    onSelectAddin = { addinPage = it }
+                                                    onSelectAddin = { addinPage = it },
+                                                    brightnessLocked = brightnessLocked,
+                                                    onToggleBrightnessLock = onToggleBrightnessLock
                                                 )
                                                 HudPage.Tools -> HudTools(
                                                     prefs = prefs,
@@ -269,12 +319,12 @@ fun HudSidebar(
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
                                                 )
                                             }
-                                            action.message?.let { msgRes ->
-                                                Text(
-                                                    text = hudString(msgRes),
-                                                    fontSize = 11.5.sp,
-                                                    color = HudBlue,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            if (action.busy || action.message != null || !action.detailMessage.isNullOrBlank()) {
+                                                HudFeedbackBanner(
+                                                    message = if (action.busy) hudString(R.string.hud_pending) else (action.message?.let { hudString(it) } ?: "OK"),
+                                                    detail = action.detailMessage,
+                                                    busy = action.busy,
+                                                    actionType = action.actionType
                                                 )
                                             }
                                         }
@@ -314,6 +364,66 @@ fun HudSidebar(
                     SidekickEdgeTab(
                         dockRight = false,
                         modifier = Modifier.clickable { onOpen(false) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun HudFeedbackBanner(
+    message: String,
+    detail: String? = null,
+    busy: Boolean = false,
+    actionType: String? = null
+) {
+    val isRed = actionType == "record"
+    val accentColor = if (isRed) HudRed else HudCyan
+    Surface(
+        color = HudCard,
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    color = accentColor,
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                val icon = when (actionType) {
+                    "ram" -> Icons.Default.Bolt
+                    "capture" -> Icons.Default.CameraAlt
+                    "record" -> Icons.Default.Videocam
+                    else -> Icons.Default.CheckCircle
+                }
+                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(20.dp))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = message,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!detail.isNullOrBlank()) {
+                    Text(
+                        text = detail,
+                        fontSize = 11.5.sp,
+                        color = accentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

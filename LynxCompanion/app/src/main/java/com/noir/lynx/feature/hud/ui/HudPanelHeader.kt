@@ -42,153 +42,171 @@ internal fun HudPanelHeader(
 ) {
     val description = hudString(R.string.hud_drag)
     val bypassBadgeText = hudString(R.string.hud_bypass_badge)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = description }
-            .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Sidekick Avatar Emblem Circle (acts as Back button when inside Detail/Lab/Tools/ManageApps)
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(if (canNavigateBack) HudBlueBadge else Color(0xFF282D3A))
-                .then(if (canNavigateBack) Modifier.clickable(onClick = onBack) else Modifier),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (canNavigateBack) Icons.AutoMirrored.Filled.ArrowBack else Icons.Default.SportsEsports,
-                contentDescription = if (canNavigateBack) hudString(R.string.hud_summary) else null,
-                tint = if (canNavigateBack) Color.White else HudCyan,
-                modifier = Modifier.size(17.dp)
-            )
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (canNavigateBack) IconButton(onBack, Modifier.size(48.dp)) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, hudString(R.string.hud_back), tint = HudCyan, modifier = Modifier.size(20.dp))
+        } else Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.SportsEsports, contentDescription = null, tint = HudCyan, modifier = Modifier.size(22.dp))
         }
-
-        // Sidekick Cobalt Blue Status Pill Badge (Battery + Temp + Bypass indicator)
-        Surface(
-            color = HudBlueBadge,
-            shape = RoundedCornerShape(50)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = if (charging == true || bypassActive) Icons.Default.Bolt else Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(12.dp)
-                )
-                Text(
-                    text = buildString {
-                        append(hudString(R.string.hud_value, battery.text(), battery.unit))
-                        if (batteryTemp != null && batteryTemp.status == "valid") {
-                            append(" • ")
-                            append(batteryTemp.text())
-                            append("°")
-                        }
-                        if (bypassActive) {
-                            append(" • ")
-                            append(bypassBadgeText)
-                        }
-                    },
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-            }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(buildString {
+                append(if (battery.status == "valid") "${battery.text()}%" else "—")
+                if (batteryTemp?.status == "valid") append(" · ${batteryTemp.text()}°C")
+                if (bypassActive) append(" · $bypassBadgeText")
+            }, fontSize = 12.sp, color = if (charging == true) HudCyan else HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-
-        // Active Game / App Name
-        Text(
-            text = appLabel.ifBlank { hudString(R.string.hud_unknown_app) },
-            modifier = Modifier.weight(1f),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.White.copy(alpha = 0.85f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        // Sidekick Close (✕) Button
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier.size(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = hudString(R.string.hud_close),
-                modifier = Modifier.size(18.dp),
-                tint = Color(0xFFE8EAED)
-            )
+        IconButton(onClose, Modifier.size(48.dp)) {
+            Icon(Icons.Default.Close, hudString(R.string.hud_close), tint = HudMuted, modifier = Modifier.size(20.dp))
         }
     }
 }
 
-/** Google Play Games Sidekick 4-tile quick action bar with clear small labels. */
+/** Adaptive, labeled quick actions with consistent touch targets. */
 @Composable
 internal fun HudQuickTileRow(
     pinned: Boolean,
     focusActive: Boolean = false,
     busy: Boolean,
+    isRecording: Boolean = false,
+    recordDuration: String? = null,
     onCapture: () -> Unit,
+    onToggleRecord: () -> Unit,
     onBoostRam: () -> Unit,
     onTogglePin: () -> Unit,
     onToggleFocus: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        val tiles = listOf(
-            Triple(Icons.Default.Screenshot, hudString(R.string.hud_capture_short), onCapture),
-            Triple(Icons.Default.CleaningServices, hudString(R.string.hud_boost_ram), onBoostRam),
-            Triple(Icons.Default.Speed, hudString(R.string.hud_mini_title), onTogglePin),
-            Triple(Icons.Default.DoNotDisturbOn, hudString(R.string.hud_focus), onToggleFocus)
-        )
-        tiles.forEachIndexed { index, (icon, label, action) ->
-            val highlighted = (index == 2 && pinned) || (index == 3 && focusActive)
-            Surface(
-                onClick = action,
+        // Row 1: Quick Actions (Tangkap, Rekam/Stop, Bersihkan)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // 1. Tangkap Layar
+            HudActionTile(
+                icon = Icons.Default.CameraAlt,
+                label = hudString(R.string.hud_capture_short),
                 enabled = !busy,
-                color = if (highlighted) HudBlueBadge else HudCard,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 50.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 2.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        tint = if (highlighted) Color.White else Color(0xFFE8EAED),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = label,
-                        fontSize = 8.8.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (highlighted) Color.White else Color(0xFFC4C7C5),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        softWrap = false
-                    )
-                }
+                onClick = onCapture,
+                modifier = Modifier.weight(1f)
+            )
+
+            // 2. Rekam Layar / Berhenti
+            if (isRecording) {
+                HudActionTile(
+                    icon = Icons.Default.StopCircle,
+                    label = recordDuration ?: hudString(R.string.hud_record_short),
+                    isDanger = true,
+                    enabled = true,
+                    onClick = onToggleRecord,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                HudActionTile(
+                    icon = Icons.Default.Videocam,
+                    label = hudString(R.string.hud_record_short),
+                    enabled = !busy,
+                    onClick = onToggleRecord,
+                    modifier = Modifier.weight(1f)
+                )
             }
+
+            // 3. Bersihkan RAM
+            HudActionTile(
+                icon = Icons.Default.Bolt,
+                label = hudString(R.string.hud_clean_ram_short),
+                enabled = !busy,
+                onClick = onBoostRam,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Row 2: Mode Toggles (Sematkan Mini HUD, Fokus Mode)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // 4. Sematkan Mini FPS
+            HudActionTile(
+                icon = Icons.Default.Speed,
+                label = hudString(R.string.hud_mini_short),
+                highlighted = pinned,
+                enabled = !busy,
+                onClick = onTogglePin,
+                modifier = Modifier.weight(1f)
+            )
+
+            // 5. Mode Fokus
+            HudActionTile(
+                icon = Icons.Default.DoNotDisturbOn,
+                label = hudString(R.string.hud_focus_short),
+                highlighted = focusActive,
+                enabled = !busy,
+                onClick = onToggleFocus,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HudActionTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    highlighted: Boolean = false,
+    isDanger: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = when {
+        isDanger -> HudRed.copy(alpha = 0.16f)
+        highlighted -> HudCyan.copy(alpha = 0.14f)
+        else -> HudElevated
+    }
+    val strokeColor = when {
+        isDanger -> HudRed.copy(alpha = 0.6f)
+        highlighted -> HudCyan.copy(alpha = 0.5f)
+        else -> Color(0xFF1E2638)
+    }
+    val iconColor = when {
+        isDanger -> HudRed
+        highlighted -> HudCyan
+        else -> HudCyan
+    }
+
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        color = bgColor,
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, strokeColor),
+        modifier = modifier.heightIn(min = 48.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(5.dp))
+            Text(
+                label,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -218,13 +236,13 @@ internal fun HudAppDock(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.width(46.dp)
+                    modifier = Modifier.width(52.dp)
                 ) {
                     Surface(
                         onClick = { onApp(app) },
                         color = HudCard,
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
@@ -238,7 +256,7 @@ internal fun HudAppDock(
                     }
                     Text(
                         text = app.label,
-                        fontSize = 9.sp,
+                        fontSize = 12.sp,
                         color = Color(0xFFC4C7C5),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -248,13 +266,13 @@ internal fun HudAppDock(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.width(46.dp)
+                modifier = Modifier.width(52.dp)
             ) {
                 Surface(
                     onClick = onManage,
                     color = if (managing) HudBlueBadge else HudCard,
                     shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -267,7 +285,7 @@ internal fun HudAppDock(
                 }
                 Text(
                     text = "+",
-                    fontSize = 9.sp,
+                    fontSize = 12.sp,
                     color = Color(0xFFC4C7C5),
                     maxLines = 1
                 )

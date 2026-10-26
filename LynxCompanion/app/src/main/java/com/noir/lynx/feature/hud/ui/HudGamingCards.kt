@@ -3,6 +3,7 @@ package com.noir.lynx.feature.hud.ui
 import android.net.TrafficStats
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,26 +30,35 @@ import kotlinx.coroutines.delay
 import java.util.Locale
 
 internal val hudAddinTitles = listOf(R.string.hud_addin_focus, R.string.hud_lab_bypass_title,
-    R.string.hud_lab_touch_title, R.string.hud_lab_network_title, R.string.hud_magic_title)
+    R.string.hud_lab_touch_title, R.string.hud_lab_network_title, R.string.hud_magic_title,
+    R.string.hud_record_title, R.string.hud_console_title, R.string.hud_session_title)
 
 @Composable
 internal fun HudAddinNavigation(onSelect: (Int) -> Unit) {
     val descriptions = listOf(R.string.hud_addin_focus_brief, R.string.hud_addin_charge_brief,
-        R.string.hud_addin_touch_brief, R.string.hud_addin_network_brief, R.string.hud_addin_magic_brief)
+        R.string.hud_addin_touch_brief, R.string.hud_addin_network_brief, R.string.hud_addin_magic_brief,
+        R.string.hud_record_brief, R.string.hud_console_brief, R.string.hud_session_brief)
     val icons = listOf(Icons.Default.NotificationsOff, Icons.Default.BatteryChargingFull,
-        Icons.Default.TouchApp, Icons.Default.NetworkCheck, Icons.Default.AutoFixHigh)
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        hudAddinTitles.forEachIndexed { index, title ->
-            Surface(onClick = { onSelect(index) }, color = HudCard, shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, HudBorder), modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Icon(icons[index], contentDescription = null, tint = HudBlue, modifier = Modifier.size(20.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(hudString(title), fontSize = 12.sp, color = Color.White)
-                        Text(hudString(descriptions[index]), fontSize = 12.sp, color = HudMuted)
+        Icons.Default.TouchApp, Icons.Default.NetworkCheck, Icons.Default.AutoFixHigh,
+        Icons.Default.Videocam, Icons.Default.Tune, Icons.Default.Timer)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(0..3, 4..7).forEachIndexed { group, indices ->
+            Text(hudString(if (group == 0) R.string.hud_addin_group_game else R.string.hud_addin_group_tools), fontSize = 12.sp, color = HudMuted)
+            Surface(color = HudCard, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, HudBorder)) {
+                Column {
+                    indices.forEach { index ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onSelect(index) }
+                            .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            Icon(icons[index], contentDescription = null, tint = HudCyan, modifier = Modifier.size(20.dp))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(hudString(hudAddinTitles[index]), fontSize = 12.sp, color = Color.White)
+                                Text(hudString(descriptions[index]), fontSize = 12.sp, color = HudMuted)
+                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = HudMuted, modifier = Modifier.size(16.dp))
+                        }
+                        if (index != indices.last) HorizontalDivider(Modifier.padding(start = 38.dp), color = HudBorder, thickness = .5.dp)
                     }
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = HudMuted, modifier = Modifier.size(16.dp))
                 }
             }
         }

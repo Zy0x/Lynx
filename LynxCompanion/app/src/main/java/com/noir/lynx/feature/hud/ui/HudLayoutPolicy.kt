@@ -8,13 +8,15 @@ internal data class HudPanelLayout(val railWidth: Float, val contentWidth: Float
 
 /** All widths are dp; label widths must already include the current font scale. */
 internal object HudLayoutPolicy {
-    const val RAIL_WIDTH = 64f
-    const val CONTENT_PADDING = 6f
+    const val RAIL_WIDTH = 72f
+    // Shell inset (6 dp) plus page inset (4 dp) on each side, and the rail gap.
+    const val CONTENT_PADDING = 10f
+    const val RAIL_GAP = 6f
     const val MIN_CONTENT = 176f
 
     fun resolve(panelWidth: Float, widestLabel: Float): HudPanelLayout {
         val rail = max(RAIL_WIDTH, widestLabel + 16f)
-        val remaining = panelWidth - rail - CONTENT_PADDING * 2
+        val remaining = panelWidth - rail - CONTENT_PADDING * 2 - RAIL_GAP
         val useRail = remaining >= MIN_CONTENT
         return HudPanelLayout(rail, max(0f, if (useRail) remaining else panelWidth - CONTENT_PADDING * 2), useRail)
     }

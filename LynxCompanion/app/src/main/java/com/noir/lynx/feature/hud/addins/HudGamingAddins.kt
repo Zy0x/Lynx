@@ -9,12 +9,14 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.WindowManager
 import android.util.DisplayMetrics
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 
 /** One HUD-owned session in :hud. UI never owns hardware or notification listeners. */
 class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
@@ -32,6 +34,15 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     val touch = HudTouchSession(context)
     val bypass = HudBypassSession(context)
     val qos = HudGameQos(context)
+    val recorder = HudScreenRecorder(context)
+    private val recordingIndicator = HudRecordingIndicator(context, recorder::stop)
+    val screenshotPreview = HudScreenshotPreview(context)
+    private var hudExpanded = true
+    val console = HudGameConsole(context)
+    val startedAt = SystemClock.elapsedRealtime()
+    private val mutableBatteryStart = MutableStateFlow<Int?>(null)
+    val batteryStart = mutableBatteryStart.asStateFlow()
+    fun acceptBattery(value: Int?) { if (mutableBatteryStart.value == null && value != null && value in 0..100) mutableBatteryStart.value = value }
     val magic = HudMagicBox(context, scope, prefs)
     private var wifiLock: WifiManager.WifiLock? = null
     private val mutableWifi = MutableStateFlow(false)
@@ -39,13 +50,16 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     val glowOverlay = HudNotificationGlow(context)
     @Volatile var focused = false
     @Volatile private var closed = false
+    private var previousDimensions: Pair<Int, Int>? = null
     var beforeMagicStart: () -> Unit = {}
     private val screenOff = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == Intent.ACTION_SCREEN_OFF) {
                 magic.stop()
+                recorder.stop()
                 setWifiBoost(false)
                 glowOverlay.close()
+                screenshotPreview.close()
                 scope.launch(Dispatchers.IO) { qos.restore() }
             }
         }
@@ -53,6 +67,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
 
     init {
         current = this
+        scope.launch { recorder.state.collect { recordingIndicator.update(it, !hudExpanded) } }
         if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF), Context.RECEIVER_NOT_EXPORTED)
         else context.registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
     }
@@ -66,6 +81,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         }
     }
     fun previewGlow() = glowOverlay.pulse(color.value)
+    fun setAwake(enabled: Boolean) { scope.launch(Dispatchers.IO) { console.setAwake(enabled) } }
 
     fun setGlow(enabled: Boolean) {
         mutableGlow.value = enabled
@@ -129,12 +145,16 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     }
 
     fun update(pkg: String, hudOpen: Boolean, width: Int, height: Int) {
+        hudExpanded = hudOpen
+        recordingIndicator.update(recorder.state.value, !hudExpanded)
         if (pkg != magic.foreground.value && qos.state.value.enabled) scope.launch(Dispatchers.IO) { qos.restore() }
         val windows = context.getSystemService(WindowManager::class.java)
         val dimensions = runCatching {
             if (Build.VERSION.SDK_INT >= 30) windows.maximumWindowMetrics.bounds.let { it.width() to it.height() }
             else DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }.let { it.widthPixels to it.heightPixels }
         }.getOrDefault(width to height)
+        if (previousDimensions != null && previousDimensions != dimensions && recorder.state.value.busy) recorder.stop()
+        previousDimensions = dimensions
         magic.update(pkg, hudOpen, dimensions.first, dimensions.second)
         if (context.getSystemService(PowerManager::class.java)?.isInteractive != true) {
             setWifiBoost(false)
@@ -147,6 +167,9 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         closed = true
         runCatching { context.unregisterReceiver(screenOff) }
         magic.stop()
+        recorder.close()
+        recordingIndicator.close()
+        screenshotPreview.close()
         setWifiBoost(false)
         glowOverlay.close()
         if (current === this) {
@@ -154,6 +177,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
             touch.restore()
             bypass.restore()
             qos.restore()
+            console.restore()
         }
         if (current === this) current = null
     }

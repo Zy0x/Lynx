@@ -2,6 +2,7 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -60,57 +61,24 @@ internal fun HudSection(
     showPlayIcon: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = HudCard,
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (showPlayIcon) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(accentColor.copy(alpha = 0.18f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(11.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = title,
-                        color = Color(0xFFE8EAED),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+    Surface(Modifier.fillMaxWidth(), color = HudCard, shape = RoundedCornerShape(14.dp), border = BorderStroke(1.dp, HudBorder)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val required = hudLabelWidth(listOf(title)) + (if (badge.isNullOrBlank()) 0f else hudLabelWidth(listOf(badge)) + 10f)
+            val titleContent: @Composable () -> Unit = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (showPlayIcon) Box(Modifier.size(5.dp).clip(CircleShape).background(accentColor))
+                    Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2)
                 }
-                if (!badge.isNullOrBlank()) {
-                    Text(
-                        text = badge,
-                        color = HudBlue,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth.value < required && !badge.isNullOrBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        titleContent()
+                        Text(badge, color = accentColor, fontSize = 12.sp)
+                    }
+                } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) { titleContent() }
+                    if (!badge.isNullOrBlank()) Text(badge, color = accentColor, fontSize = 12.sp)
                 }
             }
             content()
@@ -129,17 +97,18 @@ internal fun HudChoice(
     role: Role = Role.RadioButton
 ) {
     val background by animateColorAsState(
-        targetValue = if (selected) HudBlueBadge else HudElevated,
-        animationSpec = tween(160),
+        targetValue = if (selected) accentColor.copy(alpha = .16f) else HudElevated,
+        animationSpec = tween(200),
         label = label
     )
     Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (selected) accentColor.copy(alpha = .55f) else HudBorder),
         color = background,
         modifier = modifier
-            .heightIn(min = 38.dp)
+            .heightIn(min = 48.dp)
             .semantics {
                 this.selected = selected
                 this.role = role
@@ -156,7 +125,7 @@ internal fun HudChoice(
                     selected -> Color.White
                     else -> Color(0xFFE8EAED)
                 },
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -175,7 +144,7 @@ internal fun HudDisclosure(label: String, expanded: Boolean, onClick: () -> Unit
         color = HudElevated,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 40.dp)
+            .heightIn(min = 48.dp)
             .semantics { stateDescription = state }
     ) {
         Row(

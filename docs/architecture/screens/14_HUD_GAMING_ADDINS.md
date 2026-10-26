@@ -2,7 +2,7 @@
 
 ## 1. Identity and UI
 
-The native HUD's Add-ins page is `HudLab.kt`. The Add-ins landing page lists five vertical navigation rows: Focus, Bypass Charging, Touch Master, Game Network, and Magic Box. Each opens a real subpage, replaces the HUD header title, and uses the header back arrow to return to the Add-ins menu. The Add-ins rail destination also returns to the menu. No horizontal category tabs are used. Each subpage retains its own scroll position for the HUD session. Only the selected subpage is rendered. `HudGamingCards.kt` supplies notification glow settings, network information, and custom tap editing. Controls use 48 dp minimum targets and 12 sp labels; the existing bounded HUD window and its portrait/landscape sizing are unchanged.
+The native HUD's Add-ins page is `HudLab.kt`. The Add-ins landing page lists eight grouped vertical navigation rows: Focus, Bypass Charging, Touch Master, Game Network, Magic Box, Screen Recorder, Display & Audio, and HUD Session. Each opens a real subpage, replaces the HUD header title, and uses the header back arrow to return to the Add-ins menu. The Add-ins rail destination also returns to the menu. No horizontal category tabs are used. Each subpage retains its own scroll position for the HUD session. Only the selected subpage is rendered. `HudGamingCards.kt` supplies notification glow settings, network information, and custom tap editing. Controls use 48 dp minimum targets and 12 sp labels; the existing bounded HUD window and its portrait/landscape sizing are unchanged.
 
 ## 2. State and lifetime
 
@@ -36,3 +36,11 @@ Unit tests cover session restoration ownership, macro app/screen/rotation guards
 ## Validation record
 
 Release builds and unit tests passed on the implementation snapshot before the final subpage navigation change. The X698 UI confirmed priority DND writes/readback (0 → 1 → 0), banner-state preservation, and disabled unsupported bypass controls. Android locale catalogs pass; a comparison against the pre-change HEAD found 1041 normalized legacy locale findings and three additional findings in unrelated ignored probe scripts, with zero findings in add-in code. Real notification delivery testing is intentionally skipped at the user's request; notification access remains disabled. The glow preview is independently available without notification access. Final navigation/build and device results are recorded after validation.
+
+## Related subpages
+
+- [Screen recorder](15_HUD_SCREEN_RECORDER.md)
+- [Display and audio](16_HUD_GAME_CONSOLE.md)
+- [HUD session](17_HUD_SESSION.md)
+
+The shared visual refresh uses compact 14 dp cards, a two-line header, adaptive labelled quick actions, separate FPS/frame-time/display-rate values, responsive CPU/GPU gauges and three primary profile choices. Auto and Extreme remain behind More Profiles, with the existing Extreme warning. A page selector replaces unreadable compressed tabs when the navigation rail would leave less than 176 dp of content. Classic floating styles and WebUI are not redesigned.

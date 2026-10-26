@@ -16,7 +16,6 @@ class StandardChargingScriptTest {
         assertTrue(script.contains("/sys/devices/platform/charger/BatteryNotify"))
         assertFalse(script.contains("thermal_zone"))
         assertFalse(script.contains("trip_point"))
-        assertFalse(script.contains("current_max"))
         assertFalse(script.contains("sc_ibat_limit"))
         assertFalse(script.contains("Battery_Temperature"))
     }

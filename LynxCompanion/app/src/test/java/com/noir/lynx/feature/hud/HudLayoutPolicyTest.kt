@@ -7,12 +7,12 @@ import org.junit.Test
 
 class HudLayoutPolicyTest {
     @Test fun navigationSwitchesExactlyAtMinimumContentWidth() {
-        assertTrue(HudLayoutPolicy.resolve(252f, 48f).useRail)
-        assertEquals(64f, HudLayoutPolicy.resolve(252f, 48f).railWidth, 0f)
-        assertEquals(176f, HudLayoutPolicy.resolve(252f, 48f).contentWidth, 0f)
-        val narrower = HudLayoutPolicy.resolve(251.9f, 48f)
+        assertTrue(HudLayoutPolicy.resolve(274f, 48f).useRail)
+        assertEquals(72f, HudLayoutPolicy.resolve(274f, 48f).railWidth, 0f)
+        assertEquals(176f, HudLayoutPolicy.resolve(274f, 48f).contentWidth, 0f)
+        val narrower = HudLayoutPolicy.resolve(273.9f, 48f)
         assertFalse(narrower.useRail)
-        assertEquals(239.9f, narrower.contentWidth, 0.001f)
+        assertEquals(253.9f, narrower.contentWidth, 0.001f)
     }
 
     @Test fun measuredLabelsGrowRailWithoutClippingOrStealingMinimumContent() {
@@ -32,7 +32,7 @@ class HudLayoutPolicyTest {
                     for (label in listOf(48f, 52f, 58f, 84f)) {
                         val layout = HudLayoutPolicy.resolve(viewport.panelWidth, label * scale)
                         assertTrue(layout.contentWidth > 0)
-                        val occupied = layout.contentWidth + HudLayoutPolicy.CONTENT_PADDING * 2 + if (layout.useRail) layout.railWidth else 0f
+                        val occupied = layout.contentWidth + HudLayoutPolicy.CONTENT_PADDING * 2 + if (layout.useRail) layout.railWidth + HudLayoutPolicy.RAIL_GAP else 0f
                         assertEquals(viewport.panelWidth, occupied, 0.001f)
                         if (layout.useRail) assertTrue(layout.contentWidth >= 176f)
                         assertTrue(viewport.panelHeight <= viewport.heightDp)

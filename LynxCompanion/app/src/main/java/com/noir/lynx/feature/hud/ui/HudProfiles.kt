@@ -29,7 +29,8 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
 
     HudSection(
         title = hudString(R.string.hud_profile),
-        badge = activeLabelRes?.let { hudString(it) }
+        badge = activeLabelRes?.let { hudString(it) },
+        accentColor = if (current == "extreme") HudOrange else HudCyan
     ) {
         Column(
             modifier = Modifier
@@ -37,50 +38,29 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 .selectableGroup(),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                HudChoice(
-                    label = hudString(R.string.hud_auto),
-                    selected = current == "auto",
-                    onClick = { onProfile("auto") },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy
-                )
-                HudChoice(
-                    label = hudString(R.string.hud_balanced),
-                    selected = current == "balance",
-                    onClick = { onProfile("balance") },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy
-                )
+            val primary = listOf("powersave" to hudString(R.string.hud_save), "balance" to hudString(R.string.hud_balanced),
+                "performance" to hudString(R.string.hud_performance))
+            val cell = hudLabelWidth(primary.map { it.second }) + 16f
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (HudLayoutPolicy.fits(maxWidth.value, List(3) { cell }, gap = 6f)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        primary.forEach { (key, label) -> HudChoice(label, current == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy) }
+                    }
+                } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    primary.forEach { (key, label) -> HudChoice(label, current == key, { onProfile(key) }, Modifier.fillMaxWidth(), enabled = !busy) }
+                }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                HudChoice(
-                    label = hudString(R.string.hud_performance),
-                    selected = current == "performance",
-                    onClick = { onProfile("performance") },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy
-                )
-                HudChoice(
-                    label = hudString(R.string.hud_extreme),
-                    selected = current == "extreme",
-                    onClick = { extreme = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !busy,
-                    accentColor = HudOrange
-                )
+            var more by rememberSaveable { mutableStateOf(false) }
+            HudDisclosure(hudString(R.string.hud_profile_more), more) { more = !more }
+            if (more) {
+                HudChoice(hudString(R.string.hud_auto), current == "auto", { onProfile("auto") }, Modifier.fillMaxWidth(), enabled = !busy)
+                HudChoice(hudString(R.string.hud_extreme), current == "extreme", { extreme = true }, Modifier.fillMaxWidth(), enabled = !busy, accentColor = HudOrange)
             }
 
             if (busy) {
                 Text(
                     text = hudString(R.string.hud_applying),
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = HudBlue
                 )
             }
@@ -88,7 +68,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
             if (extreme) {
                 Surface(
                     color = HudElevated,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -103,7 +83,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                         )
                         Text(
                             text = hudString(R.string.hud_extreme_warning),
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             color = HudMuted
                         )
                         Row(

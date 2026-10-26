@@ -1,3 +1,27 @@
+# Lynx Universal [Penyempurnaan Fitur Game In-Game Lynx Engine & Redesain Material 3 Obsidian] 7.0.0-RC209
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC209** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Fitur Game Booster Lynx Engine: Implementasi Floating Mini Preview Thumbnail Tangkapan Layar (Screenshot), Floating Capsule Pill Indikator Rekam Layar (Screen Recording) Dinamis dengan Countdown & Tap-to-Stop, Tombol Clean RAM dengan Kalkulasi Selisih MB Riil & Banner Feedback Elegan, Serta Redesain Visual Menyeluruh Berbasis Material 3 Cyberpunk Obsidian (Minimal 48dp Touch Target, Glassmorphism, Micro-Borders 1dp, dan Tipografi Presisi)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC209)
+1. **Penyempurnaan Fitur Tangkapan Layar (Screenshot) & Floating Preview (`HudScreenshotPreview.kt`)**:
+   - Menghadirkan *Floating Mini Thumbnail Preview* di sudut layar (border neon cyan 1dp, obsidian glass `#12141C`) selama 3.5 detik setelah capture berhasil.
+   - Dilengkapi pemuatan thumbnail bitmap terkompresi secara asinkron, tombol aksi cepat "Buka" (membuka galeri foto via intent), serta dukungan tap atau swipe to dismiss yang mulus.
+2. **Penyempurnaan Perekam Layar (Screen Recording) & Floating Pill Indicator (`HudRecordingIndicator.kt`)**:
+   - Menghadirkan floating indicator berbentuk *Capsule Pill* mewah (tinggi minimal 48dp, border crimson `#FA6B75` 1.5dp, latar OLED obsidian) yang dapat digeser (draggable) dengan pembatasan area layar agar tidak keluar batas.
+   - Dilengkapi animasi pulsing red dot `🔴`, live timer monospaced presisi `00:00`, serta alur berhenti instan saat floating pill diketuk.
+   - Alur rekaman cerdas: panel laci Lynx Engine otomatis tertutup saat rekam dimulai, hitung mundur 3 detik (3.. 2.. 1..), dan status tile di panel berubah secara dinamis menjadi tombol Berhenti Merah `[⏹️ Berhenti mm:ss]` saat panel dibuka kembali saat merekam.
+3. **Penyempurnaan Fitur Bersihkan RAM (Clean RAM) & Feedback Banner (`HudController.kt` & `HudFeedbackBanner`)**:
+   - Menggantikan disclaimer statis dengan pembacaan langsung `/proc/meminfo` sebelum dan sesudah eksekusi `release-cache` dan kernel `drop_caches`.
+   - Mengkalkulasi selisih MB memori riil yang dibebaskan (`⚡ X MB RAM Dibebaskan · Tersedia Y.Y GB`) dan menampilkannya pada banner feedback Material 3 Glassmorphism dengan ikon petir `⚡` dan border cyan neon.
+4. **Redesain Menyeluruh Quick Action Bar & Seluruh Halaman Material 3 Cyberpunk Obsidian**:
+   - Quick Action Bar adaptif 5 tile: `[📸 Tangkap] [📹 Rekam] [⚡ Bersihkan]` (Row 1) dan `[📌 Sematkan] [🛡️ Fokus]` (Row 2) dengan target sentuh ergonomis minimal 48×48 dp.
+   - Redesain panel header, status bar rekaman (`HudRecordingBar`), kartu prosesor CPU/GPU, kartu profil, serta konsistensi micro-borders 1dp `#1E2638` di seluruh subhalaman.
+5. **Koreksi Unit Test Suite (`StandardChargingScriptTest.kt` & `HudGamingAddinsTest.kt`)**:
+   - Menyelaraskan verifikasi skrip pengisian daya standar OEM terhadap node arus batas Qualcomm yang dibuka pada RC207.
+   - Menambahkan unit test untuk kelengkapan `HudActionState` (actionType dan detailMessage) serta verifikasi kalkulasi memori RAM riil.
+
+---
+
 # Lynx Universal [Penyempurnaan Plafon Arus Hyper Mode Qualcomm PM660 & Deteksi Topologi Baterai] 7.0.0-RC208
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC208** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Plafon Arus Pengisian Daya Hyper Mode Qualcomm Snapdragon (PM660 / SDM660): Penyelarasan Deteksi PMIC Qualcomm Legacy & Xiaomi Quick Charge Tanpa Ketergantungan Jalur `/sys/class/qcom-battery`, Integrasi Pembukaan Batas Thermal & Step Charging pada `ExtremeChargingScript.kt`, Sinkronisasi Pelaporan Quick Charge 3.0 Real-Time pada Daemon Native `lynxd`, dan Verifikasi Sukses Pengisian Daya Cepat Tanpa Pembatasan di Redmi Note 7**.

@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Haptic feedback on profile switches -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Floating Game HUD Overlay -->

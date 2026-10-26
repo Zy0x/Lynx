@@ -57,7 +57,7 @@ internal fun HudExpandableSection(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = HudCard,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Column {
             Surface(
@@ -68,7 +68,7 @@ internal fun HudExpandableSection(
                     .heightIn(min = 48.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -78,7 +78,7 @@ internal fun HudExpandableSection(
                     ) {
                         Text(
                             text = title,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             color = accentColor,
                             maxLines = 1,

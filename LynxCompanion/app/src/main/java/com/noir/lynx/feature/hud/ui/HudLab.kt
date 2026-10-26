@@ -42,7 +42,9 @@ internal fun HudLab(
     onToggleHeadsUpShield: (Boolean) -> Unit = {},
     onSelectFocusLevel: (Int) -> Unit = {},
     selectedAddin: Int = -1,
-    onSelectAddin: (Int) -> Unit = {}
+    onSelectAddin: (Int) -> Unit = {},
+    brightnessLocked: Boolean = false,
+    onToggleBrightnessLock: (Boolean) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var networkSample by remember { mutableStateOf<HudNetworkSample?>(null) }
@@ -70,6 +72,9 @@ internal fun HudLab(
 
     if (selectedAddin == -1) HudAddinNavigation(onSelectAddin)
     if (selectedAddin == 4) HudMagicBoxControls()
+    if (selectedAddin == 5) HudRecorderControls()
+    if (selectedAddin == 6) HudConsoleControls(brightnessLocked, onToggleBrightnessLock)
+    if (selectedAddin == 7) HudSessionControls(snapshot)
 
     // 1. Bypass Charging Lab Card
     if (selectedAddin == 1) HudSection(

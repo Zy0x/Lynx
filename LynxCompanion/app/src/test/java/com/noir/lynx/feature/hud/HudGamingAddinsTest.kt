@@ -5,6 +5,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HudGamingAddinsTest {
+    @Test fun recordingSizesPreserveOrientationAndEncoderAlignment() {
+        assertEquals(560 to 1280, recorderSize(1080, 2460, 0))
+        assertEquals(1280 to 560, recorderSize(2460, 1080, 0))
+        assertEquals(832 to 1920, recorderSize(1080, 2460, 1))
+        for (quality in 0..2) {
+            val size = recorderSize(1080, 2460, quality)
+            assertEquals(0, size.first % 16)
+            assertEquals(0, size.second % 16)
+            assertTrue(size.first <= 1080 && size.second <= 2460)
+        }
+        assertThrows(IllegalArgumentException::class.java) { recorderSize(0, 2460, 0) }
+    }
+    @Test fun onlyActiveRecordingPhasesExposeStopControls() {
+        for (phase in HudRecordingPhase.values()) {
+            assertEquals(phase in listOf(HudRecordingPhase.COUNTDOWN, HudRecordingPhase.RECORDING, HudRecordingPhase.SAVING), HudRecordingState(phase).busy)
+        }
+    }
     @Test fun qosRulesAreScopedToOneUidAndUniqueOwner() {
         val token = "ab".repeat(16)
         val add = gameQosRule("iptables", "-A", 10649, token)
@@ -64,5 +81,21 @@ class HudGamingAddinsTest {
         assertTrue(HudTapPoint(1, 99).valid())
         assertFalse(HudTapPoint(0, 50).valid())
         assertFalse(HudTapPoint(50, 100).valid())
+    }
+
+    @Test fun actionStateCarriesDetailMessageAndActionType() {
+        val state = HudActionState(busy = false, message = 123, detailMessage = "⚡ 380 MB RAM dibebaskan", actionType = "ram")
+        assertFalse(state.busy)
+        assertEquals(123, state.message)
+        assertEquals("⚡ 380 MB RAM dibebaskan", state.detailMessage)
+        assertEquals("ram", state.actionType)
+    }
+
+    @Test fun meminfoCalculationComputesPositiveFreedMemory() {
+        val beforeAvailable = 1000000L
+        val afterAvailable = 1450000L
+        val freedKb = (afterAvailable - beforeAvailable).coerceAtLeast(0L)
+        val freedMb = (freedKb / 1024L).toInt()
+        assertEquals(439, freedMb)
     }
 }

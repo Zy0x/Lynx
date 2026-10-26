@@ -14,9 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +31,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
+
+/** A page selector replaces compressed tabs when content cannot fit beside a rail. */
+@Composable
+internal fun HudPageSelector(selected: HudPage, onSelect: (HudPage) -> Unit, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Surface(onClick = { expanded = !expanded }, color = HudElevated, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(selected.icon, contentDescription = null, tint = HudCyan, modifier = Modifier.size(18.dp))
+                Text(hudString(selected.label), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
+                Icon(Icons.Default.ExpandMore, hudString(R.string.hud_pages), tint = HudMuted, modifier = Modifier.size(18.dp))
+            }
+        }
+        if (expanded) HudPage.values().forEach { page ->
+            HudChoice(hudString(page.label), selected == page, { expanded = false; onSelect(page) }, Modifier.fillMaxWidth())
+        }
+    }
+}
 
 internal val HudPage.label: Int
     get() = when (this) {
@@ -70,7 +90,7 @@ internal fun HudTopTabBar(
                 val title = hudString(page.label)
                 val background by animateColorAsState(
                     targetValue = if (active) HudElevated else Color.Transparent,
-                    animationSpec = tween(160),
+                    animationSpec = tween(200),
                     label = "tab_bg_$title"
                 )
 
@@ -137,12 +157,12 @@ internal fun HudNavigationRail(
                 val title = hudString(page.label)
                 val pillColor by animateColorAsState(
                     targetValue = if (active) HudBlueBadge.copy(alpha = 0.35f) else Color.Transparent,
-                    animationSpec = tween(160),
+                    animationSpec = tween(200),
                     label = "rail_pill_$title"
                 )
                 val iconTint by animateColorAsState(
                     targetValue = if (active) HudBlue else HudMuted,
-                    animationSpec = tween(160),
+                    animationSpec = tween(200),
                     label = "rail_icon_$title"
                 )
                 Column(
@@ -176,7 +196,7 @@ internal fun HudNavigationRail(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = title,
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) Color.White else HudMuted,
                         maxLines = 1,

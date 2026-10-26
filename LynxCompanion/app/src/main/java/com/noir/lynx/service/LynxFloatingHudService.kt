@@ -22,6 +22,7 @@ import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.hud.HudController
+import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.feature.hud.ui.*
@@ -783,7 +784,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onDrag = {},
                     onProfile = controller::profile,
                     onHz = { controller.refresh(it, supported, targetDisplay()) { hz.value.value?.toFloat() } },
-                    onCapture = { controller.screenshot { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE } },
+                    onCapture = {
+                        controller.screenshot(
+                            hide = { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE },
+                            onCaptured = { uri ->
+                                HudGamingAddins.current?.screenshotPreview?.show(uri)
+                            }
+                        )
+                    },
                     onApp = controller::launch,
                     onStop = { stopSelf() },
                     onBoostRam = controller::boostRam,

@@ -34,14 +34,55 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.util.Locale
+import com.noir.lynx.core.locale.AppLocale
 
-data class HudActionState(val busy: Boolean = false, val message: Int? = null, val requestedHz: Float? = null)
+data class HudActionState(
+    val busy: Boolean = false,
+    val message: Int? = null,
+    val requestedHz: Float? = null,
+    val detailMessage: String? = null,
+    val actionType: String? = null
+)
 data class HudApp(val packageName: String, val label: String, val icon: android.graphics.Bitmap)
+
+internal data class HudMemorySnapshot(
+    val totalKb: Long,
+    val availableKb: Long,
+    val cachedKb: Long,
+    val freeKb: Long
+)
+
+internal fun readHudMeminfo(): HudMemorySnapshot {
+    var total = 0L
+    var available = 0L
+    var cached = 0L
+    var free = 0L
+    runCatching {
+        File("/proc/meminfo").forEachLine { line ->
+            when {
+                line.startsWith("MemTotal:") -> total = parseMemKb(line)
+                line.startsWith("MemAvailable:") -> available = parseMemKb(line)
+                line.startsWith("Cached:") -> cached = parseMemKb(line)
+                line.startsWith("MemFree:") -> free = parseMemKb(line)
+            }
+        }
+    }
+    if (available == 0L) available = free + cached
+    return HudMemorySnapshot(total, available, cached, free)
+}
+
+private fun parseMemKb(line: String): Long {
+    return line.substringAfter(':').trim().substringBefore(' ').toLongOrNull() ?: 0L
+}
 
 /** Event-driven actions only; telemetry and presentation never execute these commands. */
 class HudController(private val context: Context, private val scope: CoroutineScope) {
     private val mutable = MutableStateFlow(HudActionState())
+    private var actionGeneration = 0L
     val actions = mutable.asStateFlow()
+    private val screenshotFlow = MutableStateFlow<android.net.Uri?>(null)
+    val lastScreenshotUri = screenshotFlow.asStateFlow()
     private val appState = MutableStateFlow<List<HudApp>>(emptyList())
     val apps = appState.asStateFlow()
     private val displaySession = HudDisplaySession(context)
@@ -68,8 +109,6 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     private val focusState = MutableStateFlow(false)
     val focusActive = focusState.asStateFlow()
-    @Volatile
-    private var initialBrightnessMode: Int? = null
 
     init {
         gaming.beforeMagicStart = { syncSkipRunner(forceDisabled = true) }
@@ -82,14 +121,16 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             gaming.bypass.restore()
             gaming.qos.restore()
             gaming.qos.probe()
+            gaming.console.restore()
+            gaming.console.refreshSettings()
             bypassState.value = runCatching { labRepository.probeBypass() }.getOrDefault(HudBypassStatus())
             touchState.value = runCatching { labRepository.probeTouchBoost() }.getOrDefault(HudTouchStatus())
             val shield = runCatching { labRepository.probeShield() }.getOrDefault(HudShieldStatus())
             shieldState.value = shield
             focusState.value = shield.zenMode > 0
             gaming.focused = shield.zenMode > 0 || shield.headsUpBlocked
-            val bMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-            brightnessLockState.value = (bMode == 0)
+            gaming.console.refreshSettings()
+            brightnessLockState.value = gaming.console.state.value.brightnessLocked
             val catalog = HudAppCatalog(context)
             HudPreferencesStore(context).changes.collect { prefs ->
                 val candidates = HudDockPolicy.candidatePackages(prefs.dockPackages)
@@ -107,8 +148,8 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             shieldState.value = shield
             focusState.value = shield.zenMode > 0
             gaming.focused = shield.zenMode > 0 || shield.headsUpBlocked
-            val bMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-            brightnessLockState.value = (bMode == 0)
+            gaming.console.refreshSettings()
+            brightnessLockState.value = gaming.console.state.value.brightnessLocked
         }
     }
 
@@ -157,20 +198,11 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     }
 
     fun setBrightnessLock(locked: Boolean) = perform {
-        if (initialBrightnessMode == null) {
-            val currentBMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-            initialBrightnessMode = currentBMode
-        }
-        val targetVal = if (locked) 0 else 1
-        Shell.cmd("settings put system screen_brightness_mode $targetVal >/dev/null 2>&1").exec()
-        val afterBMode = Shell.cmd("settings get system screen_brightness_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 1
-        val isNowLocked = (afterBMode == 0)
-        brightnessLockState.value = isNowLocked
-        if (isNowLocked == locked) {
+        val applied = gaming.console.setBrightnessLock(locked)
+        brightnessLockState.value = gaming.console.state.value.brightnessLocked
+        if (applied && brightnessLockState.value == locked) {
             if (locked) R.string.hud_brightness_on_verified else R.string.hud_brightness_off_verified
-        } else {
-            R.string.hud_failed
-        }
+        } else R.string.hud_failed
     }
 
     fun toggleFocus() = perform {
@@ -271,23 +303,47 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         gaming.close()
         skipRunner.stop()
         displaySession.restore()
-        val cmds = mutableListOf<String>()
-        initialBrightnessMode?.let { savedBMode ->
-            cmds.add("settings put system screen_brightness_mode $savedBMode >/dev/null 2>&1")
-        }
-        if (cmds.isNotEmpty()) {
-            Shell.cmd(*cmds.toTypedArray()).submit()
+    }
+
+    fun boostRam() {
+        if (mutable.value.busy) return
+        val generation = ++actionGeneration
+        mutable.value = HudActionState(busy = true, message = R.string.hud_pending, actionType = "ram")
+        scope.launch(Dispatchers.IO) {
+            val before = readHudMeminfo()
+            val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
+            val result = Shell.cmd("'$path' hud release-cache").exec()
+            // Direct kernel cache drop for thorough pagecache & slab cleanup
+            Shell.cmd("echo 3 > /proc/sys/vm/drop_caches").exec()
+            delay(350)
+            val after = readHudMeminfo()
+
+            val freedKb = (after.availableKb - before.availableKb).coerceAtLeast(0L)
+            val cachedDiff = (before.cachedKb - after.cachedKb).coerceAtLeast(0L)
+            val effectiveKb = maxOf(freedKb, cachedDiff)
+            val freedMb = (effectiveKb / 1024L).toInt()
+            val availGb = String.format(Locale.US, "%.1f", after.availableKb / 1024.0 / 1024.0)
+
+            val detail = if (freedMb > 0) {
+                AppLocale.getString(context, R.string.hud_clean_ram_freed, freedMb, availGb)
+            } else {
+                AppLocale.getString(context, R.string.hud_clean_ram_optimal, availGb)
+            }
+
+            mutable.value = HudActionState(
+                busy = false,
+                message = R.string.hud_boost_ram,
+                detailMessage = detail,
+                actionType = "ram"
+            )
+            delay(4000)
+            if (generation == actionGeneration && !mutable.value.busy) {
+                mutable.value = HudActionState()
+            }
         }
     }
 
-    fun boostRam() = perform {
-        val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
-        val result = Shell.cmd("'$path' hud release-cache").exec()
-        val accepted = runCatching { JSONObject(result.out.joinToString("\n")).getBoolean("accepted") }.getOrDefault(false)
-        if (result.isSuccess && accepted) R.string.hud_cache_requested else R.string.hud_failed
-    }
-
-    fun screenshot(hide: (Boolean) -> Unit) = perform {
+    fun screenshot(hide: (Boolean) -> Unit, onCaptured: ((android.net.Uri) -> Unit)? = null) = perform(actionType = "capture") {
         withContext(Dispatchers.Main) { hide(true) }
         try {
             delay(180)
@@ -331,18 +387,27 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             } finally {
                 if (!success) resolver.delete(uri, null, null)
             }
-            if (success) R.string.hud_captured else R.string.hud_failed
+            if (success) {
+                screenshotFlow.value = uri
+                withContext(Dispatchers.Main) {
+                    onCaptured?.invoke(uri)
+                }
+                R.string.hud_captured
+            } else R.string.hud_failed
         } finally {
             withContext(Dispatchers.Main) { hide(false) }
         }
     }
 
-    private fun perform(action: suspend () -> Int) {
+    private fun perform(actionType: String? = null, action: suspend () -> Int) {
         if (mutable.value.busy) return
-        mutable.value = mutable.value.copy(busy = true, message = R.string.hud_pending)
+        val generation = ++actionGeneration
+        mutable.value = mutable.value.copy(busy = true, message = R.string.hud_pending, actionType = actionType)
         scope.launch(Dispatchers.IO) {
             val message = runCatching { action() }.getOrDefault(R.string.hud_failed)
-            mutable.value = mutable.value.copy(busy = false, message = message)
+            mutable.value = mutable.value.copy(busy = false, message = message, actionType = actionType)
+            delay(4000)
+            if (generation == actionGeneration && !mutable.value.busy) mutable.value = HudActionState()
         }
     }
 }

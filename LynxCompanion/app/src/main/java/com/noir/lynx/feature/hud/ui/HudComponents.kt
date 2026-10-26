@@ -21,19 +21,19 @@ import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
 // Google Play Games Sidekick Material 3 Dark Palette (High-Readability Tonal Contrast)
-internal val HudCyan = Color(0xFF00E676)            // Play Games Emerald Mint
-internal val HudBlue = Color(0xFF8AB4F8)            // Sidekick Sky Blue Link/Accent
-internal val HudBlueBadge = Color(0xFF0B57D0)       // Sidekick Top Pill Cobalt Blue
+internal val HudCyan = Color(0xFF43E5C1)            // Play Games Emerald Mint
+internal val HudBlue = Color(0xFF74B9FF)            // Sidekick Sky Blue Link/Accent
+internal val HudBlueBadge = Color(0xFF134D74)       // Sidekick Top Pill Cobalt Blue
 internal val HudOrange = Color(0xFFFBBF24)
 internal val HudRed = Color(0xFFF87171)
 internal val HudPurple = Color(0xFFC084FC)
-internal val HudBackground = Color(0xEE0D0F14)      // 93% Deep Obsidian Drawer (prevents background text bleed-through)
-internal val HudCard = Color(0xF51A1E26)            // 96% Matte Bento Card Surface
-internal val HudElevated = Color(0xFF252A34)        // Elevated Pill Surface
+internal val HudBackground = Color(0xF50B1016)      // 93% Deep Obsidian Drawer (prevents background text bleed-through)
+internal val HudCard = Color(0xFF171E27)            // 96% Matte Bento Card Surface
+internal val HudElevated = Color(0xFF202B37)        // Elevated Pill Surface
 internal val HudHandleSurface = Color(0x6612151B)   // 40% Frosted Edge Handle Tab
 internal val HudBorder = Color(0x18FFFFFF)          // Subtle 9% divider hairline
 internal val HudAccentBorder = Color(0x338AB4F8)
-internal val HudMuted = Color(0xFF9AA0A6)           // Material 3 Neutral Slate
+internal val HudMuted = Color(0xFF9BAABD)           // Material 3 Neutral Slate
 
 @Composable
 internal fun hudString(@StringRes id: Int, vararg args: Any): String =
@@ -96,9 +96,9 @@ internal fun HudAction(
     Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         color = containerColor,
-        modifier = modifier.heightIn(min = 42.dp)
+        modifier = modifier.heightIn(min = 48.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
