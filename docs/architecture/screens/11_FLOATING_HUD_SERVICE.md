@@ -4,7 +4,7 @@
 
 The primary overlay is hosted by `LynxFloatingHudService`. Presentation lives in `feature/hud/ui`, state and parsers in `feature/hud/data`, and event actions in `HudController`. The former XBoost components and their direct UI shell writes have been removed.
 
-`HudSidebar` provides an OLED surface (#090D10), cyan accents (#58E5D1), an installed-app dock, and Overview / Details / Tools navigation. Both orientations use a labeled icon rail. `HudLayoutPolicy` reserves at least 72 dp for the rail, or the measured widest 12 sp semibold localized label plus 16 dp. If the remaining content width after two 6 dp paddings would be below 176 dp, a labeled page selector replaces the rail above the content. Its expanded list replaces the page body inside the same panel, without a popup window. No fullscreen scrim or fullscreen touch-capture window is created. The actual WindowManager window wraps the displayed panel or mini HUD. Outside touches collapse the panel while allowing the underlying app to receive its own event.
+`HudSidebar` provides an OLED surface (#0B1016), cyan accents (#43E5C1), an installed-app dock, and Overview / Details / Add-ins / Tools navigation. Both orientations use a labeled icon rail. `HudLayoutPolicy` reserves at least 72 dp for the rail, or the measured widest 12 sp semibold localized label plus 16 dp. If the remaining content width after the two 10 dp combined shell/page insets and the 6 dp rail gap would be below 176 dp, a labeled page selector replaces the rail above the content. Its expanded list stays above the scrollable body inside the same panel, without a popup window. No fullscreen scrim or fullscreen touch-capture window is created. The actual WindowManager window wraps the displayed panel or mini HUD. Outside touches collapse the panel while allowing the underlying app to receive its own event.
 
 Panel width is min(85% of safe width, 336 dp) in portrait and min(44%, 384 dp) in landscape. Height is capped at 70% of safe height in portrait and the available safe height in landscape. Each tab scrolls independently. Header-only drag avoids fighting the content scroll gesture. Insets, display cutouts, actual measured window dimensions, and orientation-specific saved anchor fractions determine position. Opening a larger panel reclamps its complete bounds.
 
@@ -92,3 +92,8 @@ Built-in tools remain distinct from external apps. Their expanded overlay accept
 LSPosed is optional and no helper module is bundled. If root display creation, input, launch policy, or IME access is denied, Lynx reports unsupported capability. The message does not certify that installing any particular Xposed module will solve the denial. Android 10–16 are implementation targets, not a completed physical test matrix; versions above the inspected interfaces are unverified.
 
 The cache-release shortcut now calls the APK-owned native `hud release-cache` event command. It reports accepted kernel requests rather than claiming reclaimed RAM or measured optimization. The telemetry stream schema remains unchanged.
+
+The modern sidebar no longer ellipsizes user-facing labels or numbers. Headers, installed app names, action labels and source paths wrap inside their scroll containers. The mini capsule measures selected labels and numeric widths and reduces entries per page before its total width would exceed min(60% safe width, 240 dp).
+
+- [Performance details](18_HUD_PERFORMANCE_DETAILS.md)
+- [Automation controls](19_HUD_AUTOMATION_CONTROLS.md)

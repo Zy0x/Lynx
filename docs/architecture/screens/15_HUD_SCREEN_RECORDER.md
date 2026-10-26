@@ -23,3 +23,7 @@ The reusable backend depends on Android, libsu, coroutines and the Keep annotati
 ## 5. Errors and validation
 
 X698 rejected the default hardware encoder (`-38`) even from ADB shell, including aligned dimensions. Explicit Android software AVC successfully produced an MP4 in Debug; it was pulled and immediately removed. This is a device codec observation, not proof of a particular kernel/APatch defect. Unit fixtures cover portrait/landscape resolution bounds and active stop phases. Signed Release instrumentation validates the app backend and stop/finalization, and host MP4 parsing validates the actual output. Real notification access remains disabled as requested; recording does not require it.
+
+## Current UI validation scope
+
+The shared settings expose backend configuration while omitting the unused target-FPS preference. Frame rate is explicitly described as encoder/content dependent and separate from game FPS. Audio source and secure-overlay options were introduced in a separate concurrent change; the earlier successful signed video-only recorder tests (manual stop: 2.5313 s, 560×1280, 19 video samples; time limit: 3.2602 s, 560×1280, 33 samples) do not validate microphone, internal audio or mixed audio. No microphone or notification access was granted during this UI task. Those tests wrote only unique Debug MP4s, which were pulled and immediately deleted, and the signed probe APK was removed.
