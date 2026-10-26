@@ -128,12 +128,12 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_metric_current),
-                value = if (current.status == "valid") "${current.text()} ${current.unit}" else "â€”",
+                value = if (current.status == "valid") "${current.text()} ${current.unit}" else "—",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_metric_battery_temp),
-                value = if (temp.status == "valid") "${temp.text()} ${temp.unit}" else "â€”",
+                value = if (temp.status == "valid") "${temp.text()} ${temp.unit}" else "—",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -171,17 +171,17 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_net_ping),
-                value = networkSample?.avgMs?.let { "${it.roundToInt()} ms" } ?: "â€”",
+                value = networkSample?.avgMs?.let { "${it.roundToInt()} ms" } ?: "—",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_net_jitter),
-                value = networkSample?.jitterMs?.let { "${it.roundToInt()} ms" } ?: "â€”",
+                value = networkSample?.jitterMs?.let { "${it.roundToInt()} ms" } ?: "—",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_net_loss),
-                value = networkSample?.let { "${it.lossPct}%" } ?: "â€”",
+                value = networkSample?.let { "${it.lossPct}%" } ?: "—",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -331,17 +331,17 @@ internal fun HudLab(
         ) {
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_rate),
-                value = touchSample.rateHz?.let { "$it Hz" } ?: "â€”",
+                value = touchSample.rateHz?.let { "$it Hz" } ?: "—",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_interval),
-                value = touchSample.intervalMs?.let { String.format(java.util.Locale.US, "%.1f ms", it) } ?: "â€”",
+                value = touchSample.intervalMs?.let { String.format(java.util.Locale.US, "%.1f ms", it) } ?: "—",
                 modifier = Modifier.weight(1f)
             )
             HudLabStatPill(
                 label = hudString(R.string.hud_touch_fingers),
-                value = if (touchSample.maxFingers > 0) hudString(R.string.hud_touch_fingers_val, touchSample.maxFingers) else "â€”",
+                value = if (touchSample.maxFingers > 0) hudString(R.string.hud_touch_fingers_val, touchSample.maxFingers) else "—",
                 modifier = Modifier.weight(1f)
             )
         }

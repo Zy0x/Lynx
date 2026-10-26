@@ -121,7 +121,7 @@ internal fun HudGameNetworkControls() {
     Text(hudString(R.string.hud_game_network_status,
         if (network.transport == "Mobile") hudString(R.string.hud_network_mobile) else network.transport,
         hudString(if (network.validated) R.string.hud_network_validated else R.string.hud_network_unvalidated)), fontSize = 12.sp, color = HudBlue)
-    Text(hudString(R.string.hud_network_throughput, speed ?: "â€”"), fontSize = 12.sp, color = HudMuted)
+    Text(hudString(R.string.hud_network_throughput, speed ?: "—"), fontSize = 12.sp, color = HudMuted)
     AddinToggle(hudString(R.string.hud_wifi_latency), boost,
         enabled = Build.VERSION.SDK_INT >= 29 && (network.wifi || boost), onChange = runtime::setWifiBoost)
     Text(hudString(R.string.hud_wifi_latency_note), fontSize = 12.sp, color = HudMuted)
@@ -151,7 +151,7 @@ internal fun HudMagicBoxControls() {
     val delayLabel = hudString(R.string.hud_magic_delay)
     HudSection(title = hudString(R.string.hud_magic_title), badge = hudString(if (running) R.string.hud_active else R.string.hud_addin_inactive)) {
         Text(hudString(R.string.hud_magic_description), fontSize = 12.sp, color = HudMuted)
-        Text(pkg.ifBlank { "â€”" }, fontSize = 12.sp, color = HudBlue)
+        Text(pkg.ifBlank { "—" }, fontSize = 12.sp, color = HudBlue)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             points.forEachIndexed { index, _ ->
                 FilterChip(selected == index, { selected = index }, label = { Text(hudString(R.string.hud_magic_point, index + 1)) },

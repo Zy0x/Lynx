@@ -55,7 +55,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 
 /**
- * ProfilesCategoryTabRow â€” High-performance Segmented Tab Pill Row for Kernel Performance Profiles.
+ * ProfilesCategoryTabRow — High-performance Segmented Tab Pill Row for Kernel Performance Profiles.
  * Redesigned for visual calm, ergonomic tactile feedback, and unified dark aesthetic.
  */
 @Composable
@@ -155,7 +155,7 @@ fun ProfilesCategoryTabRow(
 // ProfilesFeedbackBottomSheet is modularized in ProfilesFeedbackBottomSheet.kt
 
 /**
- * tuningProfilesCategoryItems â€” Modular LazyListScope items for Kernel Performance Profile Subscreen.
+ * tuningProfilesCategoryItems — Modular LazyListScope items for Kernel Performance Profile Subscreen.
  *
  * Tab 0: Katalog Profil
  * - Active State Hero Card
