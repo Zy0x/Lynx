@@ -1,3 +1,30 @@
+# Lynx Universal [Elevasi Estetika Lynx Engine ala Infinix XBoost & Redesain Material 3 Subscreen] 7.0.0-RC210
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC210** (Lynx Kernel Manager v3.2.44): **Perombakan Estetika Mewah & Presisi Lynx Engine Terinspirasi Infinix XBoost & Xiaomi Game Turbo: Hardware Performance Tri-Cluster (CPU, GPU, RAM) dengan Animasi Sweep Ring Berotasi Saat Pembersihan Memori, Elevasi Kartu Hero FPS & Oscilloscope Area-Gradient Sparkline, Redesain Total Halaman Pengaturan Lynx Engine (`GameHudSubscreen.kt`) Menjadi Pusat Komando Bento-Card Material 3 Cyberpunk, Pembersihan Karakter Encoding UTF-8 Rusak, Serta Verifikasi Unit Test Lolos 100%**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC210)
+1. **Hardware Performance Tri-Cluster & Animasi Sweep Ring Memori (`HudOverview.kt`)**:
+   - Menghadirkan kluster pemantauan 3 pilar: CPU (Beban %, Clock MHz, Suhu °C), GPU (Beban %, Clock MHz, Suhu °C), dan RAM (Used GiB, Status Pembersihan, Gauge Dinamis).
+   - Menambahkan animasi rotasi sweep ring neon cyan (`rememberInfiniteTransition`) pada gauge RAM saat pembersihan memori `[⚡ Bersihkan]` berlangsung, memberikan umpan balik visual langsung yang terintegrasi dengan Banner Feedback di bagian bawah.
+   - Tata letak responsif adaptif: otomatis beralih menjadi 3 kolom sejajar pada layar lebar dan 2 kolom + 1 baris pada layar sempit tanpa kompresi font.
+2. **Elevasi Kartu Hero FPS & Oscilloscope Sparkline (`HudOverview.kt`)**:
+   - Angka FPS monospaced tebal 32sp dengan aksen putih bersih dan label `FPS` neon cyan.
+   - Indikator status live sync real-time berbasis canvas dot.
+   - Dua pill stat sekunder dengan micro-border rapi untuk Frame Time (ms) dan Refresh Rate Layar (Hz).
+   - Oscilloscope sparkline dengan area-gradient fill halus di bawah kurva gelombang telemetri frame time.
+3. **Redesain Total Halaman Lynx Engine di LynxCompanion (`GameHudSubscreen.kt`)**:
+   - Merombak halaman pengaturan Lynx Engine menjadi dashboard pusat komando bento-card Material 3 Cyberpunk.
+   - Menghadirkan Hero Bento Card dengan glowing border dinamis saat engine aktif, ikon gaming circular pill, switch sentuh ergonomis >=48dp, dan status chip izin overlay serta engine mode.
+   - Menghadirkan Interactive Mode Selector Cards: kartu visual bento untuk memilih antara `Bilah Samping (Game Dock)` dan `Klasik Floating Overlay`.
+   - Menghadirkan Gaming Add-ins Showcase Grid: pratinjau 8 fitur in-game (Perekam Layar MP4, Tangkapan Layar, Pembersih RAM, Bypass Charging, Touch Master, Game Network, Mode Fokus, dan Magic Box).
+4. **Pembersihan Karakter Encoding UTF-8 Rusak**:
+   - Membersihkan seluruh karakter em-dash yang rusak (`â€”`) kembali menjadi tanda pisah em-dash UTF-8 bersih (`—`) di seluruh berkas HUD dan katalog profil.
+5. **Verifikasi Kompilasi & Pengujian Kode**:
+   - Seluruh suite unit test `:app:testReleaseUnitTest` lolos 100% tanpa error.
+   - Berkas rilis APK (`6.83 MB`) berhasil dibangun dengan optimasi penuh R8 ProGuard shrinker.
+
+---
+
 # Lynx Universal [Penyempurnaan Fitur Game In-Game Lynx Engine & Redesain Material 3 Obsidian] 7.0.0-RC209
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC209** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Fitur Game Booster Lynx Engine: Implementasi Floating Mini Preview Thumbnail Tangkapan Layar (Screenshot), Floating Capsule Pill Indikator Rekam Layar (Screen Recording) Dinamis dengan Countdown & Tap-to-Stop, Tombol Clean RAM dengan Kalkulasi Selisih MB Riil & Banner Feedback Elegan, Serta Redesain Visual Menyeluruh Berbasis Material 3 Cyberpunk Obsidian (Minimal 48dp Touch Target, Glassmorphism, Micro-Borders 1dp, dan Tipografi Presisi)**.

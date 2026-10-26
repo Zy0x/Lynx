@@ -3,6 +3,7 @@ package com.noir.lynx.feature.hud.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -319,7 +320,11 @@ fun HudSidebar(
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) }
                                                 )
                                             }
-                                            if (action.busy || action.message != null || !action.detailMessage.isNullOrBlank()) {
+                                            androidx.compose.animation.AnimatedVisibility(
+                                                visible = action.busy || action.message != null || !action.detailMessage.isNullOrBlank(),
+                                                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                                                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
+                                            ) {
                                                 HudFeedbackBanner(
                                                     message = if (action.busy) hudString(R.string.hud_pending) else (action.message?.let { hudString(it) } ?: "OK"),
                                                     detail = action.detailMessage,
@@ -381,15 +386,20 @@ internal fun HudFeedbackBanner(
     val isRed = actionType == "record"
     val accentColor = if (isRed) HudRed else HudCyan
     Surface(
-        color = HudCard,
+        color = Color(0xF2121622),
         shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
+        border = androidx.compose.foundation.BorderStroke(
+            1.2.dp,
+            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.35f))
+            )
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -397,7 +407,7 @@ internal fun HudFeedbackBanner(
                 CircularProgressIndicator(
                     color = accentColor,
                     modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.2.dp
                 )
             } else {
                 val icon = when (actionType) {
@@ -406,7 +416,15 @@ internal fun HudFeedbackBanner(
                     "record" -> Icons.Default.Videocam
                     else -> Icons.Default.CheckCircle
                 }
-                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(20.dp))
+                Surface(
+                    color = accentColor.copy(alpha = 0.15f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
+                    }
+                }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
@@ -421,6 +439,7 @@ internal fun HudFeedbackBanner(
                     Text(
                         text = detail,
                         fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
                         color = accentColor,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

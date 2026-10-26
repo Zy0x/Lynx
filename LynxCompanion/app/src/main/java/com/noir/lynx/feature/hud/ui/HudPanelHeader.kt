@@ -163,21 +163,25 @@ private fun HudActionTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = when {
-        isDanger -> HudRed.copy(alpha = 0.16f)
-        highlighted -> HudCyan.copy(alpha = 0.14f)
+    val targetBg = when {
+        isDanger -> HudRed.copy(alpha = 0.18f)
+        highlighted -> HudCyan.copy(alpha = 0.16f)
         else -> HudElevated
     }
-    val strokeColor = when {
-        isDanger -> HudRed.copy(alpha = 0.6f)
-        highlighted -> HudCyan.copy(alpha = 0.5f)
+    val targetStroke = when {
+        isDanger -> HudRed.copy(alpha = 0.7f)
+        highlighted -> HudCyan.copy(alpha = 0.6f)
         else -> Color(0xFF1E2638)
     }
-    val iconColor = when {
+    val targetIcon = when {
         isDanger -> HudRed
         highlighted -> HudCyan
         else -> HudCyan
     }
+
+    val bgColor by androidx.compose.animation.animateColorAsState(targetBg, label = "TileBg")
+    val strokeColor by androidx.compose.animation.animateColorAsState(targetStroke, label = "TileStroke")
+    val iconColor by androidx.compose.animation.animateColorAsState(targetIcon, label = "TileIcon")
 
     Surface(
         onClick = onClick,
