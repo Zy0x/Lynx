@@ -67,7 +67,12 @@ internal fun HudRecorderControls() {
     val recorder = HudGamingAddins.current?.recorder ?: return
     val state by recorder.state.collectAsState()
     val quality by recorder.quality.collectAsState()
+    val audioSource by recorder.audioSource.collectAsState()
+    val bitrate by recorder.bitrate.collectAsState()
+    val fps by recorder.fps.collectAsState()
     val compatibility by recorder.compatibility.collectAsState()
+    val stealthOverlay by recorder.stealthOverlay.collectAsState()
+
     HudSection(hudString(R.string.hud_record_title), badge = hudString(when(state.phase) {
         HudRecordingPhase.CHECKING -> R.string.hud_cap_checking
         HudRecordingPhase.UNSUPPORTED -> R.string.hud_cap_unsupported
@@ -76,16 +81,53 @@ internal fun HudRecorderControls() {
         else -> R.string.hud_cap_ready
     })) {
         Text(hudString(R.string.hud_record_description), fontSize = 12.sp, color = HudMuted)
+
+        // Audio Source
+        Text("Sumber Audio:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        val audioLabels = listOf("Bisu", "Mic", "Internal", "Mix")
+        HudAdaptiveGrid(audioLabels, maximum = 4) { index ->
+            HudChoice(audioLabels[index], audioSource == index, { recorder.setAudioSource(index) }, modifier = Modifier.weight(1f), enabled = !state.busy)
+        }
+
+        // Resolution
+        Text("Resolusi:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
         val labels = listOf(hudString(R.string.hud_record_light), hudString(R.string.hud_record_balanced), hudString(R.string.hud_record_native))
         HudAdaptiveGrid(labels, maximum = 3) { index ->
             HudChoice(labels[index], quality == index, { recorder.setQuality(index) }, modifier = Modifier.weight(1f), enabled = !state.busy)
         }
         recorder.outputSize()?.let { size -> Text(hudString(R.string.hud_record_resolution, size.first, size.second), fontSize = 12.sp, color = HudBlue) }
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+
+        // Bitrate
+        Text("Bitrate Video:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        val bitrateLabels = listOf("4M", "8M", "16M", "24M")
+        HudAdaptiveGrid(bitrateLabels, maximum = 4) { i ->
+            HudChoice(bitrateLabels[i], bitrate == i, { recorder.setBitrate(i) }, modifier = Modifier.weight(1f), enabled = !state.busy)
+        }
+
+        // Target FPS
+        Text("Target FPS:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        val fpsLabels = listOf(30, 60, 120)
+        HudAdaptiveGrid(fpsLabels.map { "${it} FPS" }, maximum = 3) { i ->
+            HudChoice("${fpsLabels[i]} FPS", fps == fpsLabels[i], { recorder.setFps(fpsLabels[i]) }, modifier = Modifier.weight(1f), enabled = !state.busy)
+        }
+
+        // Stealth Overlay
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Sembunyikan Pill (FLAG_SECURE)", fontSize = 12.sp, color = Color.White)
+                Text("Tombol mengambang tidak terekam ke MP4", fontSize = 10.sp, color = HudMuted)
+            }
+            Switch(stealthOverlay, recorder::setStealthOverlay, enabled = !state.busy,
+                colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
+        }
+
+        // Compatibility
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(hudString(R.string.hud_record_compatibility), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
             Switch(if (state.busy) compatibility || state.software else compatibility, recorder::setCompatibility, enabled = !state.busy,
                 colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
         }
+
         HudAction(hudString(if (state.busy) R.string.hud_record_stop else R.string.hud_record_start),
             enabled = state.phase !in listOf(HudRecordingPhase.CHECKING, HudRecordingPhase.UNSUPPORTED),
             onClick = { if (state.busy) recorder.stop() else recorder.start() }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), isDanger = state.busy)

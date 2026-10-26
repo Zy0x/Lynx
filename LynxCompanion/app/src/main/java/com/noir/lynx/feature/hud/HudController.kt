@@ -359,30 +359,20 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@perform R.string.hud_failed
             var success = false
             try {
-                val child = ProcessBuilder("su", "-c", "exec screencap -p").redirectError(File("/dev/null")).start()
-                try {
+                val tempPath = "/data/local/tmp/lynx_snap_${System.currentTimeMillis()}.png"
+                val res = Shell.cmd("screencap -p '$tempPath'").exec()
+                val tempFile = File(tempPath)
+                if (res.isSuccess && tempFile.exists() && tempFile.length() > 1024L) {
                     resolver.openOutputStream(uri)?.use { output ->
-                        val valid = child.inputStream.use { input ->
-                            val header = ByteArray(8)
-                            var read = 0
-                            while (read < header.size) {
-                                val n = input.read(header, read, header.size - read)
-                                if (n < 0) break
-                                read += n
-                            }
-                            val png = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
-                            if (read == 8 && header.contentEquals(png)) {
-                                output.write(header)
-                                input.copyTo(output) > 0
-                            } else false
+                        tempFile.inputStream().use { input ->
+                            input.copyTo(output)
                         }
-                        success = child.waitFor() == 0 && valid
                     }
-                } finally {
-                    child.destroy()
-                }
-                if (success && Build.VERSION.SDK_INT >= 29) {
-                    resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                    Shell.cmd("rm -f '$tempPath'").exec()
+                    success = true
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                    }
                 }
             } finally {
                 if (!success) resolver.delete(uri, null, null)

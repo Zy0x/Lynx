@@ -1,3 +1,26 @@
+# Lynx Universal [Dual-Engine Audio & Video Muxing, Luxury Vertical Action Tiles, Hardware-Accelerated Radar Sweep RAM Clean & Direct Screencap Optimization] 7.0.0-RC213
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC213** (Lynx Kernel Manager v3.2.47): **Implementasi Mesin Perekaman Audio & Video Paralel Dual-Engine (MediaRecorder AAC + MediaExtractor & MediaMuxer) untuk Perekaman Game dengan Mikrofon & Audio Internal, Redesain Kartu Cepat Bento Menggunakan Luxury Vertical Action Tiles Berukuran 52dp untuk Mencegah Teks Terpotong Ellipsis, Animasi Sapuan Radar Hardware-Accelerated Neon Sweep pada Pembersihan RAM, Optimalisasi Tangkapan Layar Root Langsung Bebas Korupsi Pipa Shell, dan Izin Runtime RECORD_AUDIO Otomatis**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC213)
+1. **Mesin Dual-Engine Audio & Video Muxer (`HudScreenRecorder.kt`)**:
+   - Menambahkan perekam audio simultan berbasis Android native `MediaRecorder` dengan format MPEG-4 AAC (192 kbps, 48 kHz) yang berjalan paralel dengan `screenrecord`.
+   - Mengembangkan fungsi penggabung track `muxAudioIntoVideo` berbasis `MediaExtractor` dan `MediaMuxer` untuk menyatukan rekaman video gameplay H.264 dan audio mikrofon/internal secara sempurna ke berkas MP4 akhir di `/storage/emulated/0/Movies/Lynx/`.
+   - Menambahkan deklarasi izin `android.permission.RECORD_AUDIO` di `AndroidManifest.xml` serta pemberian izin otomatis via shell root.
+2. **Luxury Vertical Action Tiles Anti-Terpotong (`HudPanelHeader.kt`)**:
+   - Memperbarui `HudActionTile` dari tata letak baris sempit menjadi kolom vertikal terpusat berukuran minimum 52dp dengan tipografi `SemiBold` dan penataan ikon 19dp di bagian atas.
+   - Mengeliminasi teks terpotong ellipsis (`Tan...`, `Rek...`, `Bers...`) sehingga label "Tangkap Layar", "Rekam Layar", dan "Bersihkan RAM" tampil utuh, presisi, dan elegan seperti antarmuka konsol ROG Phone Armoury Crate.
+3. **Animasi Sapuan Radar Neon Sweep RAM Cleaner (`HudSidebar.kt`)**:
+   - Menambahkan animasi sapuan gradien tak hingga (`infiniteRepeatable` sweep gradient) pada border `HudFeedbackBanner` saat proses pembersihan RAM berlangsung.
+   - Memberikan umpan balik visual futuristik seketika dengan laporan akurat kapasitas memori yang dibebaskan (`freedMb`) dan ketersediaan memori sistem (`availGb`).
+4. **Optimalisasi Tangkapan Layar Root Mandiri (`HudController.kt`)**:
+   - Mengganti proses piping stdout `su -c exec screencap -p` yang rentan terhadap korupsi byte stream pada Android 11 dengan penulisan berkas langsung ke `/data/local/tmp/` sebelum ditransfer ke MediaStore.
+   - Menjamin tangkapan layar 100% andal, beresolusi penuh, dan langsung memicu preview mini melayang dengan tombol "Buka di Galeri".
+5. **Verifikasi & Penyebaran Multi-Device**:
+   - APK rilis `LynxKernelManager.apk` berhasil dikompilasi (3m 8s) dan dipasang ke **Infinix X698** (`192.168.1.6:5555`) dan **Redmi Note 7** (`192.168.1.23:5555`).
+
+---
+
 # Lynx Universal [Stealth Overlay FLAG_SECURE, MediaTek Codec2 Auto-Negotiation & Elevated Feedback Banner] 7.0.0-RC212
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC212** (Lynx Kernel Manager v3.2.46): **Implementasi Proteksi Lapisan Secure Layer (FLAG_SECURE) pada Indikator Floating Capsule Pill & Mini Screenshot Preview Card untuk Mencegah Tombol Kontrol Terekam dalam Video Gameplay, Perekam Layar Anti-Crash MediaTek Helio G96 dengan Auto-Negotiation Google Codec2 AVC & Direct Storage Path Movies/Lynx, Elevasi Floating Glassmorphism Feedback Banner di Bagian Bawah Viewport Drawer, serta Investigasi Diagnostik Mendalam Crash Kernel Panic MT6358 PMIC pada Infinix X698**.

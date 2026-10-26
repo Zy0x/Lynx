@@ -37,7 +37,7 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     val recorder = HudScreenRecorder(context)
     private val recordingIndicator = HudRecordingIndicator(context, recorder::stop)
     val screenshotPreview = HudScreenshotPreview(context)
-    private var hudExpanded = true
+    private var hudExpanded = false
     val console = HudGameConsole(context)
     val startedAt = SystemClock.elapsedRealtime()
     private val mutableBatteryStart = MutableStateFlow<Int?>(null)

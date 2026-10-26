@@ -390,15 +390,33 @@ internal fun HudFeedbackBanner(
 ) {
     val isRed = actionType == "record"
     val accentColor = if (isRed) HudRed else HudCyan
+
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "SweepTransition")
+    val sweepOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1200f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+        ),
+        label = "SweepOffset"
+    )
+    val borderBrush = if (busy) {
+        androidx.compose.ui.graphics.Brush.horizontalGradient(
+            colors = listOf(accentColor.copy(alpha = 0.2f), accentColor, accentColor.copy(alpha = 0.2f)),
+            startX = sweepOffset - 400f,
+            endX = sweepOffset
+        )
+    } else {
+        androidx.compose.ui.graphics.Brush.horizontalGradient(
+            listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.35f))
+        )
+    }
+
     Surface(
         color = Color(0xF2121622),
         shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.2.dp,
-            androidx.compose.ui.graphics.Brush.horizontalGradient(
-                listOf(accentColor.copy(alpha = 0.85f), accentColor.copy(alpha = 0.35f))
-            )
-        ),
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, borderBrush),
         shadowElevation = 8.dp,
         modifier = Modifier
             .fillMaxWidth()

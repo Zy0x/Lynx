@@ -142,8 +142,8 @@ class HudRecordingIndicator(private val context: Context, private val stop: () -
 
         // Mini Stop Icon Box
         val stopIcon = TextView(context).apply {
-            text = "⏹"
-            textSize = 12f
+            text = "\u25A0" // Solid square stop icon
+            textSize = 13f
             setTextColor(0xFFFA6B75.toInt())
             gravity = Gravity.CENTER
             setPadding((4 * density).toInt(), 0, (2 * density).toInt(), 0)

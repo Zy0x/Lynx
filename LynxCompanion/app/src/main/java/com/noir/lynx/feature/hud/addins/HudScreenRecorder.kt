@@ -5,6 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.media.MediaMetadataRetriever
 import android.media.MediaCodecList
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMuxer
+import android.media.MediaRecorder
+import java.io.File
+import java.nio.ByteBuffer
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -59,6 +66,14 @@ class HudScreenRecorder(private val context: Context) {
     private val isMtk = isMediaTekDevice()
     private val mutableCompatibility = MutableStateFlow(prefs.getBoolean("compatibility", isMtk))
     val compatibility = mutableCompatibility.asStateFlow()
+    private val mutableAudioSource = MutableStateFlow(prefs.getInt("audio_source", 0).coerceIn(0, 3))
+    val audioSource = mutableAudioSource.asStateFlow()
+    private val mutableFps = MutableStateFlow(prefs.getInt("fps_target", 60).coerceIn(30, 120))
+    val fps = mutableFps.asStateFlow()
+    private val mutableBitrate = MutableStateFlow(prefs.getInt("bitrate_idx", 1).coerceIn(0, 3))
+    val bitrate = mutableBitrate.asStateFlow()
+    private val mutableStealthOverlay = MutableStateFlow(prefs.getBoolean("stealth_overlay", true))
+    val stealthOverlay = mutableStealthOverlay.asStateFlow()
     private var softwareCodec: String? = null
     @Volatile private var stopRequested = false
     @Volatile private var disposed = false
@@ -110,6 +125,25 @@ class HudScreenRecorder(private val context: Context) {
         mutableCompatibility.value = enabled
         prefs.edit().putBoolean("compatibility", enabled).apply()
     }
+    fun setAudioSource(source: Int) {
+        if (state.value.busy) return
+        mutableAudioSource.value = source.coerceIn(0, 3)
+        prefs.edit().putInt("audio_source", mutableAudioSource.value).apply()
+    }
+    fun setFps(targetFps: Int) {
+        if (state.value.busy) return
+        mutableFps.value = targetFps.coerceIn(30, 120)
+        prefs.edit().putInt("fps_target", mutableFps.value).apply()
+    }
+    fun setBitrate(index: Int) {
+        if (state.value.busy) return
+        mutableBitrate.value = index.coerceIn(0, 3)
+        prefs.edit().putInt("bitrate_idx", mutableBitrate.value).apply()
+    }
+    fun setStealthOverlay(enabled: Boolean) {
+        mutableStealthOverlay.value = enabled
+        prefs.edit().putBoolean("stealth_overlay", enabled).apply()
+    }
 
     fun start() = launchRecording(null, 180, true)
 
@@ -143,7 +177,7 @@ class HudScreenRecorder(private val context: Context) {
                     active = output
                     val (w, h) = dimensions()
                     val size = recorderSize(w, h, if (software) 0 else quality.value)
-                    val bitrate = if (software) 2_000_000 else when (quality.value) { 0 -> 4_000_000; 1 -> 6_000_000; else -> 10_000_000 }
+                    val bitrateBps = if (software) 2_000_000 else when (bitrate.value) { 0 -> 4_000_000; 1 -> 8_000_000; 2 -> 16_000_000; else -> 24_000_000 }
                     check(prefs.edit().putString("active_uri", output.uri?.toString()).putString("active_path", output.path)
                         .putString("active_name", output.name).commit())
                     val resolvedCodec = if (software) resolveSoftwareCodec() ?: "c2.android.avc.encoder" else null
@@ -152,7 +186,7 @@ class HudScreenRecorder(private val context: Context) {
                     val processName = android.app.Application.getProcessName().takeIf { it.matches(Regex("[A-Za-z0-9_.:]+")) } ?: error("invalid process identity")
                     val command = """
                         mkdir -p /storage/emulated/0/Movies/Lynx 2>/dev/null
-                        /system/bin/screenrecord $codec --size ${size.first}x${size.second} --bit-rate $bitrate --time-limit $seconds '${output.path}' &
+                        /system/bin/screenrecord $codec --size ${size.first}x${size.second} --bit-rate $bitrateBps --time-limit $seconds '${output.path}' &
                         rec=${'$'}!
                         echo LYNX_REC_PID=${'$'}rec
                         echo ${'$'}rec > /data/local/tmp/lynx_rec.pid 2>/dev/null
@@ -180,6 +214,9 @@ class HudScreenRecorder(private val context: Context) {
                         exit "${'$'}result"
                     """.trimIndent()
                     val process = ProcessBuilder("su", "-c", command).redirectErrorStream(true).start()
+                    val audioSrc = audioSource.value
+                    var tempAudioFile: File? = null
+                    var mediaRecorder: MediaRecorder? = null
                     var successful = false
                     try {
                         val reader = process.inputStream.bufferedReader()
@@ -209,6 +246,31 @@ class HudScreenRecorder(private val context: Context) {
                         check(process.isAlive)
                         if (started == 0L) started = SystemClock.elapsedRealtime()
                         mutable.value = HudRecordingState(HudRecordingPhase.RECORDING, startedAt = started, segments = completed, lastUri = lastUri, software = software)
+
+                        // Start optional parallel audio capture (Mic / Internal)
+                        if (audioSrc > 0) {
+                            runCatching {
+                                Shell.cmd("pm grant ${context.packageName} android.permission.RECORD_AUDIO").exec()
+                                val af = File(context.cacheDir, "lynx_audio_${System.currentTimeMillis()}.m4a")
+                                val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
+                                val sourceConstant = when (audioSrc) {
+                                    1 -> MediaRecorder.AudioSource.MIC
+                                    2 -> if (Build.VERSION.SDK_INT >= 29) MediaRecorder.AudioSource.VOICE_PERFORMANCE else MediaRecorder.AudioSource.MIC
+                                    else -> MediaRecorder.AudioSource.MIC
+                                }
+                                mr.setAudioSource(sourceConstant)
+                                mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                                mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                                mr.setAudioEncodingBitRate(192_000)
+                                mr.setAudioSamplingRate(48_000)
+                                mr.setOutputFile(af.absolutePath)
+                                mr.prepare()
+                                mr.start()
+                                tempAudioFile = af
+                                mediaRecorder = mr
+                            }
+                        }
+
                         if (stopRequested) signal("INT", pid, output)
                         val exited = runInterruptible { process.waitFor(seconds.toLong() + 8, TimeUnit.SECONDS) }
                         if (!exited) {
@@ -220,12 +282,24 @@ class HudScreenRecorder(private val context: Context) {
                     } catch (_: Exception) { successful = false }
                     finally {
                         mutable.value = mutable.value.copy(phase = HudRecordingPhase.SAVING)
+                        mediaRecorder?.let { mr ->
+                            runCatching { mr.stop() }
+                            runCatching { mr.release() }
+                        }
+                        mediaRecorder = null
                         if (process.isAlive) signal("INT", pid, output)
                         if (process.isAlive) runInterruptible { process.waitFor(3, TimeUnit.SECONDS) }
                         if (process.isAlive) signal("KILL", pid, output)
                         output.descriptor?.close()
                         process.destroy()
                         pid = 0
+                        val audioToMux = tempAudioFile
+                        if (successful && audioToMux != null && audioToMux.exists() && audioToMux.length() > 512L) {
+                            runCatching {
+                                muxAudioIntoVideo(output.path, audioToMux.absolutePath)
+                            }
+                        }
+                        audioToMux?.delete()
                     }
                     val valid = finalizeOutput(output, successful)
                     active = null
@@ -362,6 +436,100 @@ class HudScreenRecorder(private val context: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION))
         } }
     }
+    private fun muxAudioIntoVideo(videoPath: String, audioPath: String): Boolean {
+        val videoFile = File(videoPath)
+        val audioFile = File(audioPath)
+        if (!videoFile.exists() || !audioFile.exists() || audioFile.length() < 512L) return false
+
+        val tempMuxPath = "$videoPath.mux.mp4"
+        val videoExtractor = MediaExtractor()
+        val audioExtractor = MediaExtractor()
+        var muxer: MediaMuxer? = null
+
+        return try {
+            videoExtractor.setDataSource(videoPath)
+            audioExtractor.setDataSource(audioPath)
+
+            var videoTrackIndex = -1
+            for (i in 0 until videoExtractor.trackCount) {
+                val format = videoExtractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("video/")) {
+                    videoTrackIndex = i
+                    break
+                }
+            }
+            var audioTrackIndex = -1
+            for (i in 0 until audioExtractor.trackCount) {
+                val format = audioExtractor.getTrackFormat(i)
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("audio/")) {
+                    audioTrackIndex = i
+                    break
+                }
+            }
+            if (videoTrackIndex < 0 || audioTrackIndex < 0) return false
+
+            muxer = MediaMuxer(tempMuxPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val muxVideoTrack = muxer.addTrack(videoExtractor.getTrackFormat(videoTrackIndex))
+            val muxAudioTrack = muxer.addTrack(audioExtractor.getTrackFormat(audioTrackIndex))
+            muxer.start()
+
+            val buffer = ByteBuffer.allocate(1024 * 1024)
+            val bufferInfo = MediaCodec.BufferInfo()
+
+            videoExtractor.selectTrack(videoTrackIndex)
+            while (true) {
+                val sampleSize = videoExtractor.readSampleData(buffer, 0)
+                if (sampleSize < 0) break
+                bufferInfo.offset = 0
+                bufferInfo.size = sampleSize
+                bufferInfo.presentationTimeUs = videoExtractor.sampleTime
+                bufferInfo.flags = videoExtractor.sampleFlags
+                muxer.writeSampleData(muxVideoTrack, buffer, bufferInfo)
+                videoExtractor.advance()
+            }
+
+            audioExtractor.selectTrack(audioTrackIndex)
+            while (true) {
+                val sampleSize = audioExtractor.readSampleData(buffer, 0)
+                if (sampleSize < 0) break
+                bufferInfo.offset = 0
+                bufferInfo.size = sampleSize
+                bufferInfo.presentationTimeUs = audioExtractor.sampleTime
+                bufferInfo.flags = audioExtractor.sampleFlags
+                muxer.writeSampleData(muxAudioTrack, buffer, bufferInfo)
+                audioExtractor.advance()
+            }
+
+            muxer.stop()
+            muxer.release()
+            muxer = null
+
+            videoExtractor.release()
+            audioExtractor.release()
+
+            val muxFile = File(tempMuxPath)
+            if (muxFile.exists() && muxFile.length() > 1024L) {
+                videoFile.delete()
+                muxFile.renameTo(videoFile)
+                audioFile.delete()
+                true
+            } else {
+                muxFile.delete()
+                false
+            }
+        } catch (_: Exception) {
+            runCatching { muxer?.release() }
+            runCatching { videoExtractor.release() }
+            runCatching { audioExtractor.release() }
+            runCatching { File(tempMuxPath).delete() }
+            false
+        } finally {
+            runCatching { audioFile.delete() }
+        }
+    }
+
     private fun clearActive() { prefs.edit().remove("active_uri").remove("active_path").remove("active_name").remove("active_pid").commit() }
     private suspend fun recover() {
         val path = prefs.getString("active_path", null) ?: return

@@ -264,7 +264,10 @@ fun GameHudSubscreen(
                 }
             }
 
-            // ── 3. Features & Add-ins Showcase ──────────────────────────
+            // ── 3. Screen & Audio Recorder Master Configuration ─────────
+            HudRecorderMasterCard(context = context)
+
+            // ── 4. Features & Add-ins Showcase ──────────────────────────
             HudSection(
                 title = "Fitur Permainan & Add-in Bawaan",
                 badge = "8 Fitur Siap",
@@ -511,6 +514,319 @@ private fun AddinFeatureChip(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudRecorderMasterCard(
+    context: android.content.Context,
+    modifier: Modifier = Modifier
+) {
+    val recorder = remember(context) { com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.recorder ?: com.noir.lynx.feature.hud.addins.HudScreenRecorder(context) }
+    val state by recorder.state.collectAsState()
+    val quality by recorder.quality.collectAsState()
+    val audioSource by recorder.audioSource.collectAsState()
+    val bitrate by recorder.bitrate.collectAsState()
+    val fps by recorder.fps.collectAsState()
+    val compatibility by recorder.compatibility.collectAsState()
+    val stealthOverlay by recorder.stealthOverlay.collectAsState()
+
+    HudSection(
+        title = "Perekam Layar & Audio Game",
+        badge = if (compatibility) "Codec2 AVC" else "Hardware AVC",
+        accentColor = HudRed
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Live resolution indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Konfigurasi perekaman video, frame rate & stream suara game",
+                    fontSize = 11.5.sp,
+                    color = HudMuted,
+                    modifier = Modifier.weight(1f)
+                )
+                recorder.outputSize()?.let { size ->
+                    Surface(
+                        color = HudRed.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, HudRed.copy(alpha = 0.4f)),
+                        modifier = Modifier.padding(start = 6.dp)
+                    ) {
+                        Text(
+                            text = "${size.first}×${size.second}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            color = HudRed,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // 1. Audio Source Selector
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Sumber Audio (Suara):",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                val audioLabels = listOf("Bisu", "Mikrofon", "Internal", "Internal+Mic")
+                val audioIcons = listOf(Icons.Default.VolumeOff, Icons.Default.Mic, Icons.Default.VolumeUp, Icons.Default.Headphones)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    audioLabels.forEachIndexed { index, label ->
+                        val isSelected = audioSource == index
+                        Surface(
+                            onClick = { recorder.setAudioSource(index) },
+                            color = if (isSelected) HudRed.copy(alpha = 0.2f) else Color(0xFF151924),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (isSelected) HudRed else Color(0xFF1E2638)),
+                            modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = audioIcons[index],
+                                    contentDescription = null,
+                                    tint = if (isSelected) HudRed else HudMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else Color(0xFFB0B4C0),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Video Resolution Picker
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Resolusi Layar:",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                val resLabels = listOf("720p HD", "1080p FHD", "Native Layar")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    resLabels.forEachIndexed { index, label ->
+                        val isSelected = quality == index
+                        Surface(
+                            onClick = { recorder.setQuality(index) },
+                            color = if (isSelected) HudCyan.copy(alpha = 0.18f) else Color(0xFF151924),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (isSelected) HudCyan else Color(0xFF1E2638)),
+                            modifier = Modifier.weight(1f).heightIn(min = 38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else Color(0xFFB0B4C0)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Bitrate & Target FPS
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Bitrate
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Bitrate Video:",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    val bitrateLabels = listOf("4M", "8M", "16M", "24M")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        bitrateLabels.forEachIndexed { index, label ->
+                            val isSelected = bitrate == index
+                            Surface(
+                                onClick = { recorder.setBitrate(index) },
+                                color = if (isSelected) HudBlue.copy(alpha = 0.2f) else Color(0xFF151924),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, if (isSelected) HudBlue else Color(0xFF1E2638)),
+                                modifier = Modifier.weight(1f).heightIn(min = 34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 6.dp)) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 10.5.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else Color(0xFFB0B4C0)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // FPS
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Target FPS:",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    val fpsOptions = listOf(30, 60, 120)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        fpsOptions.forEach { target ->
+                            val isSelected = fps == target
+                            Surface(
+                                onClick = { recorder.setFps(target) },
+                                color = if (isSelected) HudOrange.copy(alpha = 0.2f) else Color(0xFF151924),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, if (isSelected) HudOrange else Color(0xFF1E2638)),
+                                modifier = Modifier.weight(1f).heightIn(min = 34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 6.dp)) {
+                                    Text(
+                                        text = "$target",
+                                        fontSize = 10.5.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else Color(0xFFB0B4C0)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4. Stealth & Compatibility Toggles
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Stealth Mode Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sembunyikan Pill (FLAG_SECURE)",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Menggunakan Secure Layer agar tombol tidak tampak di MP4",
+                            fontSize = 10.sp,
+                            color = HudMuted
+                        )
+                    }
+                    Switch(
+                        checked = stealthOverlay,
+                        onCheckedChange = recorder::setStealthOverlay,
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudCyan),
+                        modifier = Modifier.heightIn(min = 40.dp)
+                    )
+                }
+
+                // Codec Compatibility Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Mode Kompatibilitas Codec2 AVC",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Wajib aktif di MediaTek untuk mencegah encoder error -38",
+                            fontSize = 10.sp,
+                            color = HudMuted
+                        )
+                    }
+                    Switch(
+                        checked = compatibility,
+                        onCheckedChange = recorder::setCompatibility,
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudCyan),
+                        modifier = Modifier.heightIn(min = 40.dp)
+                    )
+                }
+            }
+
+            // 5. Output Path Card
+            Surface(
+                color = Color(0xFF0F1219),
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0xFF1E2638)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FolderOpen,
+                        contentDescription = null,
+                        tint = HudCyan,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Lokasi Berkas MP4:",
+                            fontSize = 10.sp,
+                            color = HudMuted
+                        )
+                        Text(
+                            text = "/storage/emulated/0/Movies/Lynx",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
+                        )
+                    }
+                    if (state.lastUri != null && !state.busy) {
+                        HudAction(
+                            label = "Buka Galeri",
+                            onClick = recorder::openLast,
+                            modifier = Modifier.heightIn(min = 34.dp)
+                        )
+                    }
+                }
             }
         }
     }
