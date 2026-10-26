@@ -1,3 +1,18 @@
+# Lynx Universal [Penyempurnaan Plafon Arus Hyper Mode Qualcomm PM660 & Deteksi Topologi Baterai] 7.0.0-RC208
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC208** (Lynx Kernel Manager v3.2.43): **Penyempurnaan Total Plafon Arus Pengisian Daya Hyper Mode Qualcomm Snapdragon (PM660 / SDM660): Penyelarasan Deteksi PMIC Qualcomm Legacy & Xiaomi Quick Charge Tanpa Ketergantungan Jalur `/sys/class/qcom-battery`, Integrasi Pembukaan Batas Thermal & Step Charging pada `ExtremeChargingScript.kt`, Sinkronisasi Pelaporan Quick Charge 3.0 Real-Time pada Daemon Native `lynxd`, dan Verifikasi Sukses Pengisian Daya Cepat Tanpa Pembatasan di Redmi Note 7**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC208)
+1. **Penyelarasan Deteksi Topologi PMIC Qualcomm Legacy (`native/lynxd`)**:
+   - Mendukung deteksi PMIC Qualcomm (seperti PM660 pada Redmi Note 7) dan Xiaomi Quick Charge bahkan ketika jalur kernel modern `/sys/class/qcom-battery` tidak diekspos oleh kernel versi 4.4 / 4.19, dengan mengintegrasikan verifikasi SoC Qualcomm (`Self::is_qualcomm_soc()`).
+   - Menyinkronkan identifikasi protokol Qualcomm Quick Charge (QC 3.0 / 4+) pada output telemetri daemon native `lynxd charging status`.
+2. **Penyempurnaan Skrip Ekstrem / Hyper Mode (`ExtremeChargingScript.kt`)**:
+   - Memastikan pembukaan penuh pada node pembatas arus Qualcomm: `step_charging_enabled=0`, `system_temp_level=0`, `temp_state=0`, `thermal_input_current_limit=-1`, dan `charge_control_limit=3500000` uA pada skrip fallback Kotlin.
+3. **Verifikasi Operasional Perangkat Nyata (Redmi Note 7)**:
+   - Pengujian langsung di perangkat fisik Redmi Note 7 memastikan mode `⚡ HYPER` aktif dengan protokol `Qualcomm QC 3.0` murni, pengisian daya meningkat pesat (+1316 mA, 6.1 W pada 85.1%), suhu terjaga dingin di 37.8°C, dan bebas dari pembatasan termal / AICL throttling.
+
+---
+
 # Lynx Universal [Perbaikan Stalling PMIC Qualcomm & Restorasi Presisi Protokol QC] 7.0.0-RC207
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC207** (Lynx Kernel Manager v3.2.43): **Penyelesaian Tuntas Masalah Pengisian Daya Tersangkut / Stalling pada Qualcomm Snapdragon PM660 (Redmi Note 7) & Eliminasi Pelaporan Salah USB-PD: Implementasi Pemulihan Arus Otomatis Anti-Throttle pada Daemon Native `lynxd`, Restorasi Plafon Arus 3.000 mA pada Mode Standar OEM, Perbaikan Deteksi Protokol Qualcomm Quick Charge 3.0/2.0 pada Telemetri Baterai, serta Penyelarasan Deteksi Merek Xiaomi pada Perangkat Berchipset Qualcomm**.

@@ -337,8 +337,8 @@ impl ChargingRegulator {
             }
         }
         if primary_buck.is_none() {
-            if Path::new("/sys/class/qcom-battery").exists() {
-                primary_buck = Some("Qualcomm PMIC (PM8150/PM6150 Buck)".to_string());
+            if Path::new("/sys/class/qcom-battery").exists() || Self::is_qualcomm_soc() {
+                primary_buck = Some("Qualcomm PMIC (PM660/PM8150/PM6150 Buck)".to_string());
             } else if Path::new("/sys/devices/platform/charger").exists() {
                 primary_buck = Some("MediaTek Switching Buck".to_string());
             } else if Path::new("/sys/class/power_supply/sec-battery").exists() {
@@ -2888,10 +2888,10 @@ impl ChargingRegulator {
                 "Qualcomm SMB1390 Dual-Pump".to_string()
             } else if is_xiaomi && (Path::new("/sys/bus/i2c/drivers/ln8000").exists() || Path::new("/sys/bus/i2c/drivers/sc8551").exists()) {
                 "Xiaomi HyperCharge Dual-Pump (LN8000/SC8551)".to_string()
-            } else if is_xiaomi && Path::new("/sys/class/qcom-battery").exists() {
+            } else if is_xiaomi && (Path::new("/sys/class/qcom-battery").exists() || Self::is_qualcomm_soc()) {
                 "Xiaomi Quick Charge PMIC".to_string()
-            } else if Path::new("/sys/class/qcom-battery").exists() {
-                "Qualcomm PMIC (PM8150/PM6150 Buck)".to_string()
+            } else if Path::new("/sys/class/qcom-battery").exists() || Self::is_qualcomm_soc() {
+                "Qualcomm PMIC (PM660/PM8150/PM6150 Buck)".to_string()
             } else if is_samsung {
                 "Samsung PMIC Buck (Shannon/Maxim)".to_string()
             } else {
@@ -2924,7 +2924,7 @@ impl ChargingRegulator {
                 } else {
                     "Samsung Super Fast Charging (25W)"
                 }
-            } else if Path::new("/sys/class/qcom-battery").exists() && adpv > 8000 {
+            } else if (Path::new("/sys/class/qcom-battery").exists() || Self::is_qualcomm_soc()) && adpv > 8000 {
                 "Qualcomm Quick Charge (QC 3.0 / 4+)"
             } else if adpv > 8500 {
                 "USB Power Delivery / PPS"
