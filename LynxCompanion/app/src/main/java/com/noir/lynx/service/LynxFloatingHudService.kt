@@ -48,6 +48,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private var params: WindowManager.LayoutParams? = null
     private var autoSkipView: View? = null
     private var autoSkipParams: WindowManager.LayoutParams? = null
+    private var magicPinWindow: com.noir.lynx.feature.hud.overlay.HudMagicBoxPinWindow? = null
     private val interactive = MutableStateFlow(false)
     private val rendered = MutableStateFlow(HudSnapshot())
     private val viewport = MutableStateFlow(HudViewport())
@@ -147,8 +148,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         updateDisplay()
         createOverlay()
         createAutoSkipOverlay()
+        createMagicPinOverlay()
         scope.launch {
             preferences.changes.collect { pinMiniFpsFlow.value = it.pinned }
+        }
+        scope.launch {
+            HudGamingAddins.current?.magic?.isPlacing?.collect { placing ->
+                if (placing) open.value = false
+            }
         }
         scope.launch {
             open.collect { isOpen ->
@@ -452,13 +459,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
         val composeView = ComposeView(this).apply {
             setContent {
-                val isSkipping by controller.isSkipping.collectAsState()
-                val isPaused by controller.isPaused.collectAsState()
+                val mode by controller.autoSkipMode.collectAsState()
 
-                HudSmartTriggerOverlay(
-                    isSkipping = isSkipping,
-                    isPaused = isPaused
-                )
+                HudSmartTriggerOverlay(mode = mode)
             }
         }
 
@@ -485,6 +488,18 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 autoSkipView?.visibility = if (visible) View.VISIBLE else View.GONE
             }
         }
+    }
+
+    private fun createMagicPinOverlay() {
+        val magic = HudGamingAddins.current?.magic ?: return
+        magicPinWindow = com.noir.lynx.feature.hud.overlay.HudMagicBoxPinWindow(
+            context = this,
+            scope = scope,
+            lifecycle = this,
+            savedState = this,
+            magic = magic,
+            onClosePlacer = { reopen -> if (reopen) open.value = true }
+        )
     }
 
     private inner class HudHostView(context: Context) : FrameLayout(context) {
@@ -902,6 +917,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
         }
         autoSkipView = null
+        magicPinWindow?.close()
+        magicPinWindow = null
         snapshotFlow.value = HudSnapshot()
         runCatching { java.io.File(filesDir, FLAG_FILE_NAME).delete() }
         isRunningFlow.value = false

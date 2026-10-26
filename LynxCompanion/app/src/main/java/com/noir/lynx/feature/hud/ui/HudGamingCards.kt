@@ -152,6 +152,14 @@ internal fun HudMagicBoxControls() {
     HudSection(title = hudString(R.string.hud_magic_title), badge = hudString(if (running) R.string.hud_active else R.string.hud_addin_inactive)) {
         Text(hudString(R.string.hud_magic_description), fontSize = 12.sp, color = HudMuted)
         Text(pkg.ifBlank { "—" }, fontSize = 12.sp, color = HudBlue)
+        HudAction(
+            label = hudString(R.string.hud_magic_place_on_screen),
+            enabled = !running && root,
+            onClick = { runtime.magic.startPlacing() },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            accentColor = HudCyan,
+            icon = Icons.Default.TouchApp
+        )
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             points.forEachIndexed { index, _ ->
                 FilterChip(selected == index, { selected = index }, label = { Text(hudString(R.string.hud_magic_point, index + 1)) },

@@ -125,7 +125,7 @@ fun HudSidebar(
             } else {
                 RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             }
-            val drawerWidthFloat = (viewport.panelWidth - 15f).coerceAtLeast(240f)
+            val drawerWidthFloat = (viewport.panelWidth - 15f).coerceAtLeast(1f)
             val drawerWidth = drawerWidthFloat.dp
             val navigationLabels = HudPage.values().map { hudString(it.label) }
             val layout = HudLayoutPolicy.resolve(drawerWidthFloat, hudLabelWidth(navigationLabels) + 2f)
@@ -245,6 +245,12 @@ fun HudSidebar(
                                         ) {
                                             when (page) {
                                                 HudPage.Summary -> {
+                                                    HudSummaryContent(
+                                                        landscape = viewport.landscape,
+                                                        snapshot = snapshot, action = action,
+                                                        onProfile = onProfile, onCapture = onCapture,
+                                                        onDetails = { page = HudPage.Details }, onBoostRam = onBoostRam
+                                                    ) {
                                                     HudQuickTileRow(
                                                         pinned = prefs.pinned,
                                                         focusActive = focusActive,
@@ -275,14 +281,7 @@ fun HudSidebar(
                                                             onApp(it)
                                                         }
                                                     )
-                                                    HudOverview(
-                                                        snapshot = snapshot,
-                                                        action = action,
-                                                        onProfile = onProfile,
-                                                        onCapture = onCapture,
-                                                        onTools = { page = HudPage.Details },
-                                                        onBoostRam = onBoostRam
-                                                    )
+                                                    }
                                                 }
                                                 HudPage.Details -> HudDetails(snapshot = snapshot)
                                                 HudPage.Lab -> HudLab(

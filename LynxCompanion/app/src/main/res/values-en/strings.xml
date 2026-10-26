@@ -2183,6 +2183,9 @@
     <string name="hud_autoskip_pill_idle">Auto-Skip</string>
     <string name="hud_autoskip_pill_active">Skipping...</string>
     <string name="hud_autoskip_pill_paused">Paused</string>
+    <string name="hud_autoskip_mode_auto">Auto (Scene)</string>
+    <string name="hud_autoskip_mode_manual">Manual (Nonstop)</string>
+    <string name="hud_autoskip_mode_paused">Pause (Standby)</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Focus</string>
@@ -2215,6 +2218,12 @@
     <string name="hud_magic_x">Tap X position</string>
     <string name="hud_magic_y">Tap Y position</string>
     <string name="hud_magic_delay">Tap delay</string>
+    <string name="hud_magic_place_on_screen">Place Pins on Screen</string>
+    <string name="hud_magic_placing_title">Magic Box Pin Setup</string>
+    <string name="hud_magic_placing_desc">Tap screen or drag numbered pins onto game buttons</string>
+    <string name="hud_magic_save_only">Save</string>
+    <string name="hud_magic_save_and_run">Save &amp; Run</string>
+    <string name="hud_magic_cancel">Cancel</string>
     <string name="hud_addin_inactive">Inactive</string>
     <string name="hud_network_manual_test">Manual test</string>
     <string name="hud_shield_mode_alarms">Alarms only</string>

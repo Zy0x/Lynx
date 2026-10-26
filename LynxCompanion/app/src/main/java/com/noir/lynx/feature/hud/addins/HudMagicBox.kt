@@ -25,6 +25,8 @@ internal fun canRunMagic(expected: String, actual: String, open: Boolean, screen
 class HudMagicBox(private val context: Context, private val scope: CoroutineScope, private val prefs: SharedPreferences) {
     private val mutableRunning = MutableStateFlow(false)
     val running = mutableRunning.asStateFlow()
+    private val mutablePlacing = MutableStateFlow(false)
+    val isPlacing = mutablePlacing.asStateFlow()
     private val mutablePoints = MutableStateFlow(loadPoints())
     val points = mutablePoints.asStateFlow()
     private val mutableInterval = MutableStateFlow(prefs.getInt("magic_interval", 1000).coerceIn(750, 5000))
@@ -48,12 +50,37 @@ class HudMagicBox(private val context: Context, private val scope: CoroutineScop
         mutablePoints.value.forEach { array.put(JSONArray(listOf(it.x, it.y))) }
         prefs.edit().putString("magic_points", array.toString()).apply()
     }
+    fun startPlacing() {
+        stop()
+        mutablePlacing.value = true
+    }
+    fun stopPlacing() {
+        mutablePlacing.value = false
+    }
+    fun updatePoint(index: Int, x: Int, y: Int) {
+        val current = mutablePoints.value.toMutableList()
+        if (index in current.indices) {
+            current[index] = HudTapPoint(x.coerceIn(1, 99), y.coerceIn(1, 99))
+            setPoints(current)
+        }
+    }
+    fun addPoint() {
+        if (mutablePoints.value.size < 5) {
+            setPoints(mutablePoints.value + HudTapPoint())
+        }
+    }
+    fun removePoint(index: Int) {
+        if (mutablePoints.value.size > 1 && index in mutablePoints.value.indices) {
+            setPoints(mutablePoints.value.filterIndexed { i, _ -> i != index })
+        }
+    }
     fun setInterval(value: Int) {
         stop(); mutableInterval.value = value.coerceIn(750, 5000)
         prefs.edit().putInt("magic_interval", mutableInterval.value).apply()
     }
     fun update(pkg: String, hudOpen: Boolean, w: Int, h: Int) {
         if (running.value && (pkg != mutablePackage.value || w != width || h != height)) stop()
+        if (mutablePlacing.value && (pkg != mutablePackage.value || w != width || h != height)) stopPlacing()
         mutablePackage.value = pkg
         open = hudOpen; width = w; height = h
     }

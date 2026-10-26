@@ -13,21 +13,34 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Ultra-low overhead, lag-free Dialogue Auto-Skip Runner.
- * Triggered on-demand via the floating badge [⏩] during RPG dialogue cutscenes.
- * - Zero background polling or screencap execution to guarantee 100% stutter-free gaming.
- * - Single-tap toggle to start or pause skipping at any moment.
- * - Autonomous 60s safety timeout disarms tapping if dialogue concludes to protect open-world gameplay.
- * - Automatic disarm when user exits the game or screen turns off.
+ * Supports 3 discrete operational modes:
+ * - [SkipMode.PAUSED]: Zero taps, 100% player control for combat & navigation.
+ * - [SkipMode.AUTO]: Scene-Aware Auto-Skip. Detects dialogue UI and stops tapping within <=0.4s when dialogue ends.
+ * - [SkipMode.MANUAL]: Continuous Fast-Burst Nonstop. Rapid continuous tapping without vision/pixel checks.
+ *
+ * Cycles via floating trigger pill in 4 stages:
+ * PAUSED -> AUTO -> PAUSED -> MANUAL -> PAUSED -> AUTO ...
  */
 class GenshinSkipRunner(
     private val context: Context,
     private val scope: CoroutineScope
 ) {
+    enum class SkipMode {
+        PAUSED,
+        AUTO,
+        MANUAL
+    }
+
+    private val modeState = MutableStateFlow(SkipMode.PAUSED)
+    val currentMode = modeState.asStateFlow()
+
     private val activeState = MutableStateFlow(false)
     val isSkipping = activeState.asStateFlow()
 
-    private val pausedState = MutableStateFlow(false)
+    private val pausedState = MutableStateFlow(true)
     val isPaused = pausedState.asStateFlow()
+
+    private var previousActiveMode: SkipMode = SkipMode.MANUAL
 
     @Volatile
     var currentForegroundPackage: String = ""
@@ -80,58 +93,67 @@ class GenshinSkipRunner(
         this.targetChoiceBottom = targetChoiceBottom
 
         if (!enabled || !GenshinSkipEngine.isGameSupported(pkg) || packageChanged) {
-            if (activeState.value || pausedState.value) {
-                stop()
+            if (modeState.value != SkipMode.PAUSED) {
+                setMode(SkipMode.PAUSED)
             }
         }
     }
 
     /**
-     * Manual user toggle via floating trigger pill:
-     * - If actively skipping -> PAUSE
-     * - If paused or standby -> START skipping with haptic confirmation
+     * Manual user toggle via floating trigger pill.
+     * Alternates through the 4-stage cycle:
+     * [ PAUSE ] -> [ AUTO ] -> [ PAUSE ] -> [ MANUAL ] -> [ PAUSE ] -> [ AUTO ]
      */
     fun toggle() {
-        if (activeState.value) {
-            pausedState.value = true
-            stopTapping()
-            triggerHaptic(25L)
-        } else {
-            pausedState.value = false
-            startTapping()
-            triggerHaptic(30L)
+        when (modeState.value) {
+            SkipMode.PAUSED -> {
+                val nextMode = if (previousActiveMode == SkipMode.AUTO) SkipMode.MANUAL else SkipMode.AUTO
+                previousActiveMode = nextMode
+                setMode(nextMode)
+            }
+            SkipMode.AUTO, SkipMode.MANUAL -> {
+                previousActiveMode = modeState.value
+                setMode(SkipMode.PAUSED)
+            }
         }
     }
 
     fun start() {
-        pausedState.value = false
-        startTapping()
+        val target = if (previousActiveMode == SkipMode.MANUAL) SkipMode.MANUAL else SkipMode.AUTO
+        previousActiveMode = target
+        setMode(target)
     }
 
     fun stop() {
-        pausedState.value = false
-        stopTapping()
+        setMode(SkipMode.PAUSED)
     }
 
-    private fun startTapping() {
-        if (activeState.value) return
-        activeState.value = true
-        tapJob?.cancel()
-        tapJob = scope.launch(Dispatchers.IO) {
-            runTapLoop()
+    fun setMode(mode: SkipMode) {
+        if (modeState.value == mode && (tapJob != null || mode == SkipMode.PAUSED)) return
+        modeState.value = mode
+        when (mode) {
+            SkipMode.PAUSED -> {
+                activeState.value = false
+                pausedState.value = true
+                tapJob?.cancel()
+                tapJob = null
+                triggerHaptic(25L)
+            }
+            SkipMode.AUTO -> {
+                activeState.value = true
+                pausedState.value = false
+                tapJob?.cancel()
+                tapJob = scope.launch(Dispatchers.IO) { runTapLoop() }
+                triggerHaptic(30L)
+            }
+            SkipMode.MANUAL -> {
+                activeState.value = true
+                pausedState.value = false
+                tapJob?.cancel()
+                tapJob = scope.launch(Dispatchers.IO) { runTapLoop() }
+                triggerHaptic(45L)
+            }
         }
-    }
-
-    private fun stopTapping() {
-        activeState.value = false
-        tapJob?.cancel()
-        tapJob = null
-    }
-
-    private fun stopWithHaptic() {
-        stopTapping()
-        pausedState.value = false
-        triggerHaptic(35L)
     }
 
     private fun triggerHaptic(durationMs: Long) {
@@ -145,12 +167,27 @@ class GenshinSkipRunner(
         } catch (_: Throwable) {}
     }
 
+    suspend fun isGenshinDialogueActive(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val offset = GenshinSkipEngine.calculateAutoButtonOffset(screenWidth, screenHeight)
+            val endOffset = offset + 256L
+            val cmd = "screencap | head -c $endOffset | tail -c 256 | xxd -p 2>/dev/null"
+            val result = Shell.cmd(cmd).exec()
+            if (result.isSuccess && result.out.isNotEmpty()) {
+                val hex = result.out.joinToString("")
+                return@withContext GenshinSkipEngine.containsDialogueColor(hex)
+            }
+        } catch (_: Throwable) {}
+        return@withContext false
+    }
+
     private suspend fun runTapLoop() {
         val maxDurationMs = 60_000L // 60s auto-disarm safety shield
         val startTime = System.currentTimeMillis()
         var cycleIndex = 0
+        var consecutiveInactiveCount = 0
 
-        while (activeState.value && currentCoroutineContext().isActive) {
+        while (modeState.value != SkipMode.PAUSED && currentCoroutineContext().isActive) {
             val isScreenOn = powerManager?.isInteractive ?: true
             if (!isScreenOn || isHudOpen) {
                 delay(300L)
@@ -158,28 +195,57 @@ class GenshinSkipRunner(
             }
 
             if (!GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
-                stopWithHaptic()
+                setMode(SkipMode.PAUSED)
                 break
             }
 
             // Safety timeout: automatically stop tapping after 60s to protect open-world gameplay
             if (System.currentTimeMillis() - startTime > maxDurationMs) {
-                stopWithHaptic()
+                setMode(SkipMode.PAUSED)
                 break
+            }
+
+            val current = modeState.value
+
+            // Scene-Aware Auto check for SkipMode.AUTO
+            if (current == SkipMode.AUTO) {
+                val isDialogue = isGenshinDialogueActive()
+                if (!isDialogue) {
+                    consecutiveInactiveCount++
+                    if (consecutiveInactiveCount >= 2) {
+                        // Standby Hening: dialogue is inactive, do NOT send any taps
+                        // Protects player navigation, combat, joystick, and camera movement
+                        delay(350L)
+                        if (consecutiveInactiveCount > 100) {
+                            // After ~35s without dialogue, disarm to PAUSED
+                            setMode(SkipMode.PAUSED)
+                            break
+                        }
+                        continue
+                    } else {
+                        // Single missed check during potential dialogue line transition: wait without tap
+                        delay(200L)
+                        continue
+                    }
+                } else {
+                    consecutiveInactiveCount = 0
+                }
             }
 
             val coords = GenshinSkipEngine.resolveCoordinates(screenWidth, screenHeight)
             val choiceTarget = if (targetChoiceBottom) {
-                when (cycleIndex % 3) {
-                    0 -> coords.bottomChoice
-                    1 -> coords.midChoice
-                    else -> coords.topChoice
+                when (cycleIndex % 4) {
+                    0 -> coords.choice4
+                    1 -> coords.choice3
+                    2 -> coords.choice2
+                    else -> coords.choice1
                 }
             } else {
-                when (cycleIndex % 3) {
-                    0 -> coords.midChoice
-                    1 -> coords.bottomChoice
-                    else -> coords.topChoice
+                when (cycleIndex % 4) {
+                    0 -> coords.choice2
+                    1 -> coords.choice1
+                    2 -> coords.choice3
+                    else -> coords.choice4
                 }
             }
             val advanceTarget = coords.advance
@@ -197,6 +263,9 @@ class GenshinSkipRunner(
             cycleIndex++
             delay(effectiveSpeed)
         }
-        activeState.value = false
+
+        if (modeState.value != SkipMode.PAUSED) {
+            setMode(SkipMode.PAUSED)
+        }
     }
 }

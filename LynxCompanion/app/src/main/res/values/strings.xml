@@ -2207,6 +2207,9 @@
     <string name="hud_autoskip_pill_idle">Auto-Skip</string>
     <string name="hud_autoskip_pill_active">Skipping...</string>
     <string name="hud_autoskip_pill_paused">Jeda</string>
+    <string name="hud_autoskip_mode_auto">Auto (Adegan)</string>
+    <string name="hud_autoskip_mode_manual">Manual (Nonstop)</string>
+    <string name="hud_autoskip_mode_paused">Jeda (Siaga)</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Fokus</string>
@@ -2239,6 +2242,12 @@
     <string name="hud_magic_x">Posisi X ketukan</string>
     <string name="hud_magic_y">Posisi Y ketukan</string>
     <string name="hud_magic_delay">Jeda ketukan</string>
+    <string name="hud_magic_place_on_screen">Atur Titik di Layar</string>
+    <string name="hud_magic_placing_title">Atur Titik Magic Box</string>
+    <string name="hud_magic_placing_desc">Ketuk layar atau seret pin nomor ke tombol game</string>
+    <string name="hud_magic_save_only">Simpan</string>
+    <string name="hud_magic_save_and_run">Simpan &amp; Mulai</string>
+    <string name="hud_magic_cancel">Batal</string>
     <string name="hud_addin_inactive">Nonaktif</string>
     <string name="hud_network_manual_test">Uji manual</string>
     <string name="hud_shield_mode_alarms">Alarm saja</string>

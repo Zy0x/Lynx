@@ -33,7 +33,11 @@ object GenshinSkipEngine {
         val narration: TapTarget,
         val topChoice: TapTarget,
         val midChoice: TapTarget,
-        val bottomChoice: TapTarget
+        val bottomChoice: TapTarget,
+        val choice1: TapTarget = topChoice,
+        val choice2: TapTarget = midChoice,
+        val choice3: TapTarget = bottomChoice,
+        val choice4: TapTarget = bottomChoice
     )
 
     /**
@@ -58,12 +62,22 @@ object GenshinSkipEngine {
         val midChoiceY = (height * 0.58f).toInt()
         val bottomChoiceY = (height * 0.66f).toInt()
 
+        // 4-tier discrete vertical anchors (for 1, 2, 3, or 4+ dialogue choices)
+        val c1Y = (height * 0.46f).toInt()
+        val c2Y = (height * 0.54f).toInt()
+        val c3Y = (height * 0.62f).toInt()
+        val c4Y = (height * 0.70f).toInt()
+
         return DialogueCoordinates(
             advance = TapTarget(advanceX, advanceY),
             narration = TapTarget(narrationX, narrationY),
             topChoice = TapTarget(choiceX, topChoiceY),
             midChoice = TapTarget(choiceX, midChoiceY),
-            bottomChoice = TapTarget(choiceX, bottomChoiceY)
+            bottomChoice = TapTarget(choiceX, bottomChoiceY),
+            choice1 = TapTarget(choiceX, c1Y),
+            choice2 = TapTarget(choiceX, c2Y),
+            choice3 = TapTarget(choiceX, c3Y),
+            choice4 = TapTarget(choiceX, c4Y)
         )
     }
 
@@ -72,11 +86,32 @@ object GenshinSkipEngine {
      * Standard color is approx RGB (236, 229, 216).
      */
     fun isDialogueColor(r: Int, g: Int, b: Int): Boolean {
-        return r in 210..248 &&
-               g in 200..242 &&
-               b in 188..232 &&
+        return r in 200..250 &&
+               g in 195..245 &&
+               b in 180..235 &&
                (r >= g) && (g >= b) &&
                ((r - b) in 8..35)
+    }
+
+    /**
+     * Parses a raw hex dump string from screencap (RGBA8888) and checks if any pixel
+     * matches the warm cream/beige dialogue UI signature of Genshin Impact.
+     */
+    fun containsDialogueColor(hexString: String): Boolean {
+        if (hexString.isBlank()) return false
+        val clean = hexString.filter { (it in '0'..'9') || (it in 'a'..'f') || (it in 'A'..'F') }
+        val length = clean.length
+        var i = 0
+        while (i <= length - 8) {
+            val r = clean.substring(i, i + 2).toIntOrNull(16) ?: 0
+            val g = clean.substring(i + 2, i + 4).toIntOrNull(16) ?: 0
+            val b = clean.substring(i + 4, i + 6).toIntOrNull(16) ?: 0
+            if (isDialogueColor(r, g, b)) {
+                return true
+            }
+            i += 8
+        }
+        return false
     }
 
     /**

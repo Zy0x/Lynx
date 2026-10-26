@@ -1,3 +1,29 @@
+# Lynx Universal [Scene-Aware AutoSkip Engine, 3-Stage State Machine, 4-Tier Choice Hierarchy & Magic Box Pin Window] 7.0.0-RC216
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC216** (Lynx Kernel Manager v3.2.50): **Implementasi Mesin Cerdas Scene-Aware Auto-Skip untuk Genshin Impact dengan Deteksi Piksel Stream Sub-100ms Bebas Overhead, Siklus State Machine 4-Tahap ([ ⏸️ PAUSE ] -> [ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ MANUAL ]), Mekanisme Standby Hening Anti-Gangguan Kontrol Pemain saat Dialog Berhenti, Hirarki Pemilihan Opsi Percakapan 4-Tingkat Adaptif Resolusi Layar, Pembaruan Visual Token Dinamis HudSmartTriggerOverlay, serta Pemasangan Titik Ketukan Layar Interaktif Magic Box Pin Window**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC216)
+1. **Mesin Cerdas Scene-Aware Auto-Skip (`GenshinSkipEngine.kt` & `GenshinSkipRunner.kt`)**:
+   - Menambahkan deteksi adegan dialog waktu-nyata via pembacaan stream `screencap` terpotong (<0.10 detik) yang mengekstrak tanda tangan warna tombol Auto Genshin Impact (krem/beige hangat `RGB 236, 229, 216`).
+   - Menerapkan mekanisme **Standby Hening (Silent Standby)**: jika dialog selesai atau pemain kembali ke open-world / pertempuran, sistem seketika menghentikan ketukan (0 tap) dalam waktu $\le 0.4$ detik, membiarkan kontrol analog joystick, tombol skill, dan pergerakan kamera 100% bebas hambatan.
+   - Deteksi otomatis melanjutkan ketukan seketika saat adegan dialog baru dimulai tanpa memerlukan masukan manual pemain.
+2. **State Machine 3-Mode Berputar 4-Tahap (`SkipMode`)**:
+   - Menggantikan toggle biner sederhana dengan siklus status deterministik: `[ ⏸️ PAUSE ] -> [ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ MANUAL ] -> [ ⏸️ PAUSE ] -> [ 🤖 AUTO ]`.
+   - **Mode PAUSE** (`#70757F` Muted): Berhenti total tanpa ketukan.
+   - **Mode AUTO** (`#00E5FF` Cyan): Deteksi dialog cerdas berbasis adegan.
+   - **Mode MANUAL** (`#FF9100` Orange): Ketukan beruntun cepat nonstop tanpa pemeriksaan adegan untuk cutscene panjang atau dialog tanpa tombol auto.
+   - Dilengkapi umpan balik haptik spesifik (25ms untuk pause, 30ms untuk auto, 45ms untuk manual).
+3. **Hirarki Pilihan Dialog 4-Tingkat (`DialogueCoordinates`)**:
+   - Menambahkan 4 titik jangkar vertikal diskrit (`choice1`, `choice2`, `choice3`, `choice4` pada `Y: 46%, 54%, 62%, 70%`) untuk mengakomodasi percakapan dengan 1, 2, 3, hingga 4+ opsi sekaligus.
+   - Sinkronisasi sempurna dengan preferensi pengguna `targetChoiceBottom` untuk memprioritaskan opsi paling bawah atau paling atas.
+4. **Indikator Visual Dinamis & Aksesibilitas (`HudSmartTriggerOverlay.kt`)**:
+   - Menampilkan ikon adaptif `Icons.Default.AutoMode`, `Icons.Rounded.FastForward`, dan `Icons.Rounded.Pause` dengan transisi warna halus 200ms serta micro-dot status di sudut kanan atas.
+   - Mendukung lokalisasi penuh bahasa Indonesia (`values-id`) dan bahasa Inggris (`values-en`), kompatibel penuh dengan pembaca layar TalkBack.
+5. **Interactive Magic Box Pin Placer Window (`HudMagicBoxPinWindow.kt`)**:
+   - Memungkinkan pengaturan dan penyeretan titik koordinat ketukan langsung di atas layar game secara visual sebelum dieksekusi.
+
+---
+
 # Lynx Universal [Universal Adaptive Balanced Responsiveness, MediaTek GED Dynamic OPP Floor, Hardware PPM Touch Boost & Scroll-Aware Compose Telemetry Throttling] 7.0.0-RC214
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC214** (Lynx Kernel Manager v3.2.48): **Peningkatan Responsivitas Universal Profil Balanced Tanpa Ketergantungan Frekuensi Tertentu Maupun Display Refresh Rate Tertentu; Pengaktifan Otomatis MediaTek PPM System Touch Boost (`PPM_POLICY_SYS_BOOST`) pada Mode Balanced, Performance, dan Extreme; Penentuan Dinamis Batas Bawah Boost GPU Mali GED (`custom_boost_gpu_freq`) pada Titik Median Tabel OPP (~50% Frekuensi Puncak) dengan DVFS Berbasis Beban (`loading_mode = 1`) yang Tetap Mengizinkan Idle Downclock Penuh demi Penghematan Daya Baterai; Pengaktifan Sched Boost pada Input Sentuh Qualcomm Snapdragon (`sched_boost_on_input`); Serta Mekanisme Scroll-Aware Telemetry Throttling pada Jetpack Compose (`isUserScrolling`) untuk Menghilangkan Recomposition Loop Saat Pengguna Menggeser Layar**.
