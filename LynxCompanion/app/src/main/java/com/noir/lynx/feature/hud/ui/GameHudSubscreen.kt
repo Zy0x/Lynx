@@ -123,13 +123,13 @@ fun GameHudSubscreen(
 
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = "Lynx Engine",
+                                    text = hudString(R.string.hud_settings_title),
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                                 Text(
-                                    text = if (isActive) "Aktif · Bilah Samping Siap" else "Siaga · Ketuk untuk Mengaktifkan",
+                                    text = hudString(if (isActive) R.string.hud_engine_active_brief else R.string.hud_engine_idle_brief),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = if (isActive) HudCyan else HudMuted
@@ -198,13 +198,13 @@ fun GameHudSubscreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         EngineStatusBadge(
-                            label = if (uiState.hudMode == 0) "Bilah Samping" else "Klasik Floating",
+                            label = hudString(if (uiState.hudMode == 0) R.string.hud_sidebar else R.string.hud_classic),
                             icon = if (uiState.hudMode == 0) Icons.Default.Dock else Icons.Default.FlipToFront,
                             accentColor = HudBlue,
                             modifier = Modifier.weight(1f)
                         )
                         EngineStatusBadge(
-                            label = if (permission) "Izin Layar OK" else "Butuh Izin",
+                            label = hudString(if (permission) R.string.hud_overlay_ready else R.string.hud_overlay_needed),
                             icon = if (permission) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
                             accentColor = if (permission) HudCyan else HudOrange,
                             modifier = Modifier.weight(1f)
@@ -225,7 +225,7 @@ fun GameHudSubscreen(
                 ) {
                     ModeSelectionCard(
                         title = hudString(R.string.hud_sidebar),
-                        description = "Gaya XBoost Game Dock dengan bilah geser di tepi layar dan telemetri lengkap",
+                        description = hudString(R.string.hud_sidebar_description),
                         icon = Icons.Default.Dock,
                         selected = uiState.hudMode == 0,
                         onClick = { viewModel.setHudMode(context, 0) },
@@ -233,7 +233,7 @@ fun GameHudSubscreen(
                     )
                     ModeSelectionCard(
                         title = hudString(R.string.hud_classic),
-                        description = "Overlay floating minimalis yang selalu melayang di atas permainan Anda",
+                        description = hudString(R.string.hud_classic_description),
                         icon = Icons.Default.FlipToFront,
                         selected = uiState.hudMode == 1,
                         onClick = { viewModel.setHudMode(context, 1) },
@@ -244,7 +244,7 @@ fun GameHudSubscreen(
                 if (uiState.hudMode == 1) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Pilih Gaya Klasik:",
+                        text = hudString(R.string.hud_style),
                         fontSize = 11.5.sp,
                         color = HudMuted
                     )

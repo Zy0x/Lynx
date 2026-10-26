@@ -11,9 +11,7 @@ import com.noir.lynx.core.locale.LynxText as Text
 @Composable
 internal fun HudFeatureShowcase() {
     HudExpandableSection(hudString(R.string.hud_lab)) {
-        listOf(R.string.hud_focus_title, R.string.hud_lab_bypass_title, R.string.hud_touch_title,
-            R.string.hud_lab_network_title, R.string.hud_magic_title, R.string.hud_record_title,
-            R.string.hud_console_title, R.string.hud_session_title).forEach { title ->
+        hudAddinTitles.forEach { title ->
             Text(hudString(title), fontSize = 12.sp, color = HudMuted)
         }
     }

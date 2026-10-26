@@ -2310,4 +2310,21 @@
     <string name="hud_fps_short">FPS meter</string>
     <string name="hud_capture_compact">Tangkap</string>
     <string name="hud_skip_control_description">%1$s. Ketuk untuk jeda atau lanjut; seret untuk memindahkan.</string>
+    <string name="hud_record_settings">Pengaturan perekaman</string>
+    <string name="hud_record_audio">Sumber audio</string>
+    <string name="hud_audio_off">Tanpa suara</string>
+    <string name="hud_audio_mic">Mikrofon</string>
+    <string name="hud_audio_internal">Audio internal</string>
+    <string name="hud_audio_mix">Internal + mic</string>
+    <string name="hud_record_bitrate">Bitrate video</string>
+    <string name="hud_record_mbps">%1$d Mbps</string>
+    <string name="hud_record_stealth">Sembunyikan kontrol dari rekaman</string>
+    <string name="hud_record_audio_note">Dukungan audio mengikuti izin, aplikasi, dan sistem. Pilihan tanpa suara tidak memakai mikrofon.</string>
+    <string name="hud_record_fps_note">FPS rekaman mengikuti encoder dan konten layar; nilainya berbeda dari FPS game.</string>
+    <string name="hud_engine_active_brief">Aktif · siap di tepi layar</string>
+    <string name="hud_engine_idle_brief">Siaga · ketuk untuk mengaktifkan</string>
+    <string name="hud_overlay_ready">Izin overlay tersedia</string>
+    <string name="hud_overlay_needed">Perlu izin overlay</string>
+    <string name="hud_sidebar_description">Panel di tepi layar dengan pintasan dan telemetri langsung.</string>
+    <string name="hud_classic_description">Jendela metrik kecil yang tetap terlihat saat bermain.</string>
 </resources>

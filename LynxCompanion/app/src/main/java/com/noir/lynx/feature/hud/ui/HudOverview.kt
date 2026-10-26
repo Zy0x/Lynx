@@ -48,7 +48,7 @@ internal fun HudOverview(
     // 1. Luxury Hero FPS & Oscilloscope Card
     HudSection(
         title = hudString(R.string.hud_group_frame),
-        badge = if (fps.status == "valid") "LIVE SYNC" else null,
+        badge = null,
         accentColor = HudCyan,
         showPlayIcon = true
     ) {
@@ -106,7 +106,7 @@ internal fun HudOverview(
                             }
                         }
                         Text(
-                            text = if (fps.status == "valid") "REALTIME" else "WAITING",
+                            text = statusText(fps.status),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = FontFamily.Monospace,

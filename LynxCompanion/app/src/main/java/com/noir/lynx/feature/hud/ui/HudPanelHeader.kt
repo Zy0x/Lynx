@@ -148,7 +148,7 @@ private fun HudActionTile(
             Spacer(Modifier.height(3.dp))
             Text(
                 label,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center

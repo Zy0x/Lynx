@@ -2286,4 +2286,21 @@
     <string name="hud_fps_short">FPS meter</string>
     <string name="hud_capture_compact">Capture</string>
     <string name="hud_skip_control_description">%1$s. Tap to pause or resume; drag to move.</string>
+    <string name="hud_record_settings">Recording settings</string>
+    <string name="hud_record_audio">Audio source</string>
+    <string name="hud_audio_off">Muted</string>
+    <string name="hud_audio_mic">Microphone</string>
+    <string name="hud_audio_internal">Internal audio</string>
+    <string name="hud_audio_mix">Internal + mic</string>
+    <string name="hud_record_bitrate">Video bitrate</string>
+    <string name="hud_record_mbps">%1$d Mbps</string>
+    <string name="hud_record_stealth">Hide controls in recordings</string>
+    <string name="hud_record_audio_note">Audio support depends on permissions, apps and the system. Muted recording does not use the microphone.</string>
+    <string name="hud_record_fps_note">Recording frame rate depends on the encoder and screen content; it differs from game FPS.</string>
+    <string name="hud_engine_active_brief">Active · ready at the screen edge</string>
+    <string name="hud_engine_idle_brief">Standby · tap to enable</string>
+    <string name="hud_overlay_ready">Overlay allowed</string>
+    <string name="hud_overlay_needed">Overlay permission needed</string>
+    <string name="hud_sidebar_description">Edge panel with shortcuts and live telemetry.</string>
+    <string name="hud_classic_description">Small metrics window that stays visible while playing.</string>
 </resources>
