@@ -1668,9 +1668,35 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
         Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
-        Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
-        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+        let is_qcom = Self::is_qualcomm_soc();
+        if is_qcom {
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        } else {
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+        }
         Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
+
+        // Unthrottle throttled PMIC current registers to clean baseline fast charging
+        let default_limit_ua = if is_qcom { "3000000" } else { "2500000" };
+        for node in &[
+            format!("{}/constant_charge_current_max", BATT_DIR),
+            format!("{}/constant_charge_current", BATT_DIR),
+            format!("{}/current_max", USB_DIR),
+            format!("{}/current_max", MAIN_DIR),
+            format!("{}/input_current_limit", BATT_DIR),
+            format!("{}/hw_current_max", USB_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, default_limit_ua);
+            }
+        }
 
         // Unlock all sysfs charger nodes permissions so kernel OEM algorithms control them
         for node in &[
@@ -1681,11 +1707,6 @@ impl ChargingRegulator {
             format!("{}/enable_sc", MTK_DIR),
             format!("{}/pe20", MTK_DIR),
             format!("{}/pe40", MTK_DIR),
-            format!("{}/constant_charge_current_max", BATT_DIR),
-            format!("{}/constant_charge_current", BATT_DIR),
-            format!("{}/current_max", USB_DIR),
-            format!("{}/current_max", MAIN_DIR),
-            format!("{}/input_current_limit", BATT_DIR),
             format!("{}/restrict_cur", QC_DIR),
         ] {
             Self::set_perm(node, 0o666);
@@ -2738,6 +2759,50 @@ impl ChargingRegulator {
             }
         } else {
             let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+        }
+
+        // Qualcomm Autonomous Anti-Throttle & AICL Recovery:
+        // If device is plugged into AC charger, but PMIC input current or charge current is choked (< 500mA),
+        // autonomously un-choke voters and rerun AICL so charging flows at full speed.
+        if Self::is_qualcomm_soc() && !Self::is_laptop_port() && !Path::new("/dev/lynx_bypass_active").exists() {
+            let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(2000000);
+            let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(2000000);
+            let qcom_stalled = (cur_usb > 0 && cur_usb < 500_000) || (cur_fcc > 0 && cur_fcc < 500_000);
+            if qcom_stalled {
+                let marker_path = "/dev/lynx_qcom_stalled_count";
+                let count = Self::read_i64(marker_path).unwrap_or(0);
+                if count >= 3 {
+                    let _ = fs::remove_file(marker_path);
+                    let rerun_node = format!("{}/rerun_aicl", USB_DIR);
+                    if Path::new(&rerun_node).exists() {
+                        Self::set_perm(&rerun_node, 0o666);
+                        Self::write_node(&rerun_node, "1");
+                    }
+                    for node in &[
+                        format!("{}/constant_charge_current_max", BATT_DIR),
+                        format!("{}/constant_charge_current", BATT_DIR),
+                        format!("{}/current_max", USB_DIR),
+                        format!("{}/current_max", MAIN_DIR),
+                        format!("{}/input_current_limit", BATT_DIR),
+                        format!("{}/hw_current_max", USB_DIR),
+                    ] {
+                        if Path::new(node).exists() {
+                            Self::set_perm(node, 0o666);
+                            Self::write_node(node, "3000000");
+                        }
+                    }
+                    Self::write_node(&format!("{}/direct_charging", QC_DIR), "1");
+                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+                } else {
+                    let _ = fs::write(marker_path, (count + 1).to_string());
+                }
+            } else {
+                let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+            }
         }
 
         Self::enforce_live_charging_invariants();

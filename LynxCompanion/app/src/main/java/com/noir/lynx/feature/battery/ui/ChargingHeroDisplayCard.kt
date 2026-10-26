@@ -1590,7 +1590,7 @@ private fun resolveHardwareProtocolDirect(
             (mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
              brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")))
 
-    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
+    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
             (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")))
 
     val isQualcomm = (!hasTranHw && !hasXiaomiHw && !hasOplusHw && !hasSamsungHw) &&

@@ -1,3 +1,19 @@
+# Lynx Universal [Perbaikan Stalling PMIC Qualcomm & Restorasi Presisi Protokol QC] 7.0.0-RC207
+Released on: 2026-10-26
+> **Lynx Universal v7.0.0-RC207** (Lynx Kernel Manager v3.2.43): **Penyelesaian Tuntas Masalah Pengisian Daya Tersangkut / Stalling pada Qualcomm Snapdragon PM660 (Redmi Note 7) & Eliminasi Pelaporan Salah USB-PD: Implementasi Pemulihan Arus Otomatis Anti-Throttle pada Daemon Native `lynxd`, Restorasi Plafon Arus 3.000 mA pada Mode Standar OEM, Perbaikan Deteksi Protokol Qualcomm Quick Charge 3.0/2.0 pada Telemetri Baterai, serta Penyelarasan Deteksi Merek Xiaomi pada Perangkat Berchipset Qualcomm**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC207)
+1. **Pemulihan Otomatis Anti-Throttle Qualcomm PMIC (`native/lynxd`)**:
+   - **Autonomous Stalled Current Recovery**: Mendeteksi secara otomatis jika perangkat Qualcomm tersambung pengisi daya AC namun arus masukan PMIC terkunci di bawah 500 mA (misal 289 mA akibat komparator AICL drop atau thermal trip). Sistem secara otomatis memicu `rerun_aicl`, mereset `system_temp_level` ke `0`, mengembalikan plafon arus ke `3000000` uA (3.000 mA), dan memperbarui `BatteryService` via `dumpsys battery reset`.
+   - **Restorasi Arus Penuh Mode Standar OEM**: Memastikan `apply_standard_mode()` secara aktif menuliskan kembali plafon arus pengisian cepat normal (`constant_charge_current_max`, `input_current_limit`, `current_max` ke `3000000` uA) serta mengaktifkan `direct_charging=1` pada Qualcomm, bukan sekadar membuka izin hak akses sysfs yang membiarkan register PMIC tetap tercekik.
+2. **Koreksi Presisi Deteksi Protokol Pengisian Daya (`LynxCompanion`)**:
+   - **Eliminasi Deteksi Palsu USB-PD**: Menghapus asumsi rentang tegangan adaptor `7500..9800 mV` sebagai USB-PD. Adaptor 9V pada perangkat Qualcomm kini diidentifikasi secara sahih sebagai **Qualcomm Quick Charge 3.0 / QC 2.0 (HVDCP)** atau Fast Charge, bukan USB-PD.
+   - **Penyelarasan Deteksi Merek Xiaomi/Redmi**: Menghapus diskualifikasi hardware Qualcomm (`!hasQcomHw`) pada deteksi merek Xiaomi, sehingga ponsel Xiaomi/Redmi berprosesor Qualcomm Snapdragon (seperti Redmi Note 7) teridentifikasi dengan tepat sebagai perangkat Xiaomi resmi.
+3. **Penyempurnaan Skrip Standalone Charging**:
+   - Memperbarui skrip `StandardChargingScript.kt` agar menyertakan penulisan node batas arus Qualcomm dan trigger `rerun_aicl` saat diterapkan.
+
+---
+
 # Lynx Universal [Stabilisasi Arsitektur KPM Undervolt: Eliminasi Transient Bit-Flip & Framework Restart] 7.0.0-RC206
 Released on: 2026-10-26
 > **Lynx Universal v7.0.0-RC206** (Lynx Kernel Manager v3.2.43): **Stabilisasi Kritis Arsitektur Undervolt Kernel (KPM): Peluncuran `lynx_cpu_uv.kpm` v2.4.0 & `lynx_gpu_uv.kpm` v1.4.0 dengan Penguncian Jalur Pengontrol Memori LPDDR4X (`vcore`) dan L2 Cache GPU (`vsram_gpu`) pada Tegangan Nominal OEM Standar untuk Mengeliminasi Bit-Flip Transien, Crash SurfaceFlinger, dan Restart Framework Secara Tuntas Sambil Mempertahankan Efisiensi Deep UV pada Core Logic CPU & GPU; Serta Pemulihan Logika Deteksi Pengisian Daya PD/BMS Telemetri**.

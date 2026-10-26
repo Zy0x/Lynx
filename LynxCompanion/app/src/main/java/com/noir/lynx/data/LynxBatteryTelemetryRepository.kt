@@ -336,7 +336,7 @@ internal object LynxBatteryTelemetryRepository {
                             (mfgUpper.contains("INFINIX") || mfgUpper.contains("TECNO") || mfgUpper.contains("TRANSSION") ||
                              brandUpper.contains("INFINIX") || brandUpper.contains("TECNO")))
 
-                    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw && !hasQcomHw &&
+                    val isXiaomi = (hasXiaomiHw && !hasTranHw) || (!hasTranHw && !hasOplusHw && !hasSamsungHw &&
                             (mfgUpper.contains("XIAOMI") || brandUpper.contains("XIAOMI") || brandUpper.contains("REDMI") || brandUpper.contains("POCO")))
 
                     val isQualcommBrand = (!hasTranHw && !hasXiaomiHw && !hasOplusHw && !hasSamsungHw) &&
@@ -386,8 +386,7 @@ internal object LynxBatteryTelemetryRepository {
 
                         // 2. USB Power Delivery & PPS
                         pdSig == "1" || pdSig == "2" || chgTyp == "7" || rawPtyp == "MTK_7" ||
-                                ptypUpper.contains("PD") || ptypUpper.contains("PPS") ||
-                                (adpMv in 7500..9800 && chgTyp != "9" && !rfcAuth) -> {
+                                ptypUpper.contains("PD") || ptypUpper.contains("PPS") -> {
                             if (pdSig == "2" || ptypUpper.contains("PPS") || adpMv > 8500) "USB-PD / PPS"
                             else "USB-PD"
                         }
@@ -414,6 +413,7 @@ internal object LynxBatteryTelemetryRepository {
                         ptypUpper.contains("HVDCP_3P5") || qcUpper.contains("4") || qcUpper.contains("5") -> "Qualcomm QC 4/5"
                         ptypUpper.contains("HVDCP_3") || qcUpper.contains("3") || qcUpper.contains("QC3") -> "Qualcomm QC 3.0"
                         ptypUpper.contains("HVDCP") || qcUpper.contains("2") || qcUpper.contains("QC2") || qcUpper.contains("QC") || (qcSig.isNotBlank() && qcSig != "0") -> "Qualcomm QC"
+                        isQualcommBrand && (adpMv > 8000 || watt >= 10f) -> if (adpMv > 8000) "Qualcomm QC 3.0" else "Qualcomm QC"
 
                         // 7. Generic MediaTek Pump Express
                         chgTyp == "8" || rawPtyp == "MTK_8" || ptypUpper.contains("PUMP") || ptypUpper.contains("PE") -> "MTK Pump Express"

@@ -33,10 +33,23 @@ object StandardChargingScript {
             esac
             if [ "${'$'}?" -eq 0 ]; then applied=1; else failed=1; fi
         done
+        for node in /sys/class/power_supply/battery/constant_charge_current_max \
+                    /sys/class/power_supply/battery/constant_charge_current \
+                    /sys/class/power_supply/battery/input_current_limit \
+                    /sys/class/power_supply/usb/current_max \
+                    /sys/class/power_supply/usb/hw_current_max \
+                    /sys/class/power_supply/main/current_max; do
+            [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo 3000000 > "${'$'}node" 2>/dev/null
+        done
         if [ -d /sys/class/qcom-battery ]; then
             echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-            echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+            echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+            echo 3000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+            echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
         fi
+        echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
+        echo -1 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
+        [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
         for cd in /sys/class/thermal/cooling_device*; do
             if [ -f "${'$'}cd/type" ]; then
                 read -r t < "${'$'}cd/type" 2>/dev/null
