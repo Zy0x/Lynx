@@ -22,7 +22,9 @@ data class HudBypassStatus(
     val capability: HudCapability = HudCapability.CHECKING,
     val enabled: Boolean = false,
     val active: Boolean = false,
-    val chipSummary: String = ""
+    val chipSummary: String = "",
+    val thresholdPct: Int = 40,
+    val thermalCutActive: Boolean = false
 )
 
 data class HudTouchStatus(
@@ -134,6 +136,13 @@ class HudLabRepository(private val context: Context) {
         val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass
             ?: com.noir.lynx.feature.hud.addins.HudBypassSession(context)
         session.set(enabled)
+        session.probe()
+    }
+
+    suspend fun setBypassThreshold(pct: Int): HudBypassStatus = withContext(Dispatchers.IO) {
+        val session = com.noir.lynx.feature.hud.addins.HudGamingAddins.current?.bypass
+            ?: com.noir.lynx.feature.hud.addins.HudBypassSession(context)
+        session.setThreshold(pct)
         session.probe()
     }
 

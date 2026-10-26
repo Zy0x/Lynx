@@ -266,6 +266,12 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
     "/sys/class/power_supply/battery/mmi_charging_enable",
     "/sys/class/power_supply/battery/input_suspend"
 )) {
+    fun getThreshold(): Int = journal.getInt("threshold_pct", 40).coerceIn(20, 90)
+
+    fun setThreshold(pct: Int) {
+        journal.edit().putInt("threshold_pct", pct.coerceIn(20, 90)).commit()
+    }
+
     private fun binaryPath(): String? {
         val packaged = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so")
         if (packaged.canExecute()) return packaged.absolutePath
@@ -277,6 +283,8 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
     @Synchronized
     fun probe(): HudBypassStatus {
         if (!root()) return HudBypassStatus(capability = HudCapability.NEEDS_ROOT)
+        val threshold = getThreshold()
+        val isThermalCut = journal.getBoolean("thermal_cut_active", false)
 
         // 1. Check Native Lynx Daemon (lynxd / liblynxhud.so)
         val bin = binaryPath()
@@ -292,7 +300,9 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                     val isEffectiveEnabled = parsed.enabled || activeFile || isJournalActive
                     return parsed.copy(
                         enabled = isEffectiveEnabled,
-                        active = isEffectiveActive
+                        active = isEffectiveActive,
+                        thresholdPct = threshold,
+                        thermalCutActive = isThermalCut
                     )
                 }
             }
@@ -325,12 +335,18 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                     capability = HudCapability.READY,
                     enabled = isEffectiveEnabled,
                     active = isEffectiveActive,
-                    chipSummary = chipLabel
+                    chipSummary = chipLabel,
+                    thresholdPct = threshold,
+                    thermalCutActive = isThermalCut
                 )
             }
         }
 
-        return HudBypassStatus(capability = HudCapability.UNSUPPORTED)
+        return HudBypassStatus(
+            capability = HudCapability.UNSUPPORTED,
+            thresholdPct = threshold,
+            thermalCutActive = isThermalCut
+        )
     }
 
     @Synchronized

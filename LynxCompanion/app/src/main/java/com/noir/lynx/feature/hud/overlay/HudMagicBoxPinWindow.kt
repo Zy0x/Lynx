@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -13,49 +14,35 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.TouchApp
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
@@ -66,24 +53,16 @@ import com.noir.lynx.feature.hud.ui.hudString
 import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.addins.HudMagicBox
 import com.noir.lynx.feature.hud.addins.HudTapPoint
-import com.noir.lynx.feature.hud.ui.HudBackground
-import com.noir.lynx.feature.hud.ui.HudBlue
-import com.noir.lynx.feature.hud.ui.HudBlueBadge
-import com.noir.lynx.feature.hud.ui.HudBorder
-import com.noir.lynx.feature.hud.ui.HudCard
 import com.noir.lynx.feature.hud.ui.HudCyan
-import com.noir.lynx.feature.hud.ui.HudElevated
-import com.noir.lynx.feature.hud.ui.HudMuted
 import com.noir.lynx.feature.hud.ui.HudRed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * Interactive full-screen floating overlay for visual Magic Box point placement.
- * Allows gamers to drag visual pins or tap anywhere on top of games without guessing coordinates.
+ * Ultra-clean, high-precision visual Magic Box Combo Recorder & Pin Placer overlay.
+ * Inspired by professional Game Space macro recorders with minimal, unobtrusive HUD.
  */
 internal class HudMagicBoxPinWindow(
     private val context: Context,
@@ -118,19 +97,27 @@ internal class HudMagicBoxPinWindow(
     private val compose = ComposeView(context)
     private val visibilityJob: Job
 
+    fun setFocusable(focusable: Boolean) {
+        if (focusable) {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        runCatching { windows.updateViewLayout(host, params) }
+    }
+
     init {
         host.setViewTreeLifecycleOwner(lifecycle)
         host.setViewTreeSavedStateRegistryOwner(savedState)
         compose.setContent {
             MagicBoxPinPlacerContent(
                 magic = magic,
-                onSave = { updatedPoints, startImmediately ->
+                onSetFocusable = ::setFocusable,
+                onSave = { updatedPoints, updatedName ->
+                    magic.setComboName(updatedName)
                     magic.setPoints(updatedPoints)
                     magic.stopPlacing()
-                    onClosePlacer(!startImmediately)
-                    if (startImmediately) {
-                        HudGamingAddins.current?.startMagic()
-                    }
+                    onClosePlacer(true)
                 },
                 onCancel = {
                     magic.stopPlacing()
@@ -168,35 +155,54 @@ internal class HudMagicBoxPinWindow(
 @Composable
 private fun MagicBoxPinPlacerContent(
     magic: HudMagicBox,
-    onSave: (List<HudTapPoint>, Boolean) -> Unit,
+    onSetFocusable: (Boolean) -> Unit,
+    onSave: (List<HudTapPoint>, String) -> Unit,
     onCancel: () -> Unit
 ) {
     val livePoints by magic.points.collectAsState()
-    var draftPoints by remember(livePoints) { mutableStateOf(livePoints.ifEmpty { listOf(HudTapPoint()) }) }
-    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
-    if (selectedIndex !in draftPoints.indices) {
-        selectedIndex = (draftPoints.size - 1).coerceAtLeast(0)
-    }
+    val liveName by magic.comboName.collectAsState()
 
+    var draftPoints by remember(livePoints) { mutableStateOf(livePoints.ifEmpty { listOf(HudTapPoint()) }) }
+    var comboName by remember(liveName) { mutableStateOf(liveName) }
+    var selectedIndex by rememberSaveable { mutableIntStateOf(0) }
+    var isRecording by rememberSaveable { mutableStateOf(false) }
+    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
+
+    val view = LocalView.current
     val density = LocalDensity.current
-    val pinSizeDp = 56.dp
-    val pinSizePx = with(density) { pinSizeDp.toPx() }
-    val extraWidthDp = 44.dp
-    val totalWidthPx = with(density) { (pinSizeDp + extraWidthDp).toPx() }
+    val pinSizeDp = 42.dp
+    val pinRadiusPx = with(density) { (pinSizeDp / 2).toPx() }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.20f))
-            .pointerInput(selectedIndex, draftPoints.size) {
+            .background(Color.Transparent)
+            .pointerInput(isRecording, selectedIndex, draftPoints.size) {
                 detectTapGestures { tapOffset ->
                     val maxW = size.width.toFloat()
                     val maxH = size.height.toFloat()
-                    if (maxW > 0f && maxH > 0f && selectedIndex in draftPoints.indices) {
-                        val pctX = ((tapOffset.x / maxW) * 100).roundToInt().coerceIn(1, 99)
-                        val pctY = ((tapOffset.y / maxH) * 100).roundToInt().coerceIn(1, 99)
-                        draftPoints = draftPoints.toMutableList().also {
-                            it[selectedIndex] = HudTapPoint(pctX, pctY)
+                    if (maxW > 0f && maxH > 0f) {
+                        val ratioX = (tapOffset.x / maxW).coerceIn(0.005f, 0.995f)
+                        val ratioY = (tapOffset.y / maxH).coerceIn(0.005f, 0.995f)
+                        val pctX = (ratioX * 100f).roundToInt().coerceIn(1, 99)
+                        val pctY = (ratioY * 100f).roundToInt().coerceIn(1, 99)
+
+                        if (isRecording) {
+                            if (draftPoints.size < 10) {
+                                val nextPt = HudTapPoint(pctX, pctY, ratioX, ratioY)
+                                draftPoints = draftPoints + nextPt
+                                selectedIndex = draftPoints.lastIndex
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            } else {
+                                isRecording = false
+                            }
+                        } else {
+                            if (selectedIndex in draftPoints.indices) {
+                                draftPoints = draftPoints.toMutableList().also {
+                                    it[selectedIndex] = HudTapPoint(pctX, pctY, ratioX, ratioY, it[selectedIndex].delayMs)
+                                }
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                            }
                         }
                     }
                 }
@@ -204,291 +210,374 @@ private fun MagicBoxPinPlacerContent(
     ) {
         val maxW = constraints.maxWidth.toFloat().coerceAtLeast(1f)
         val maxH = constraints.maxHeight.toFloat().coerceAtLeast(1f)
+        val isLandscape = maxW > maxH
+        val topPadding = if (isLandscape) 18.dp else 38.dp
+        val sidePadding = if (isLandscape) 28.dp else 12.dp
+        val buttonSize = if (isLandscape) 46.dp else 42.dp
+        val pillHeight = if (isLandscape) 46.dp else 42.dp
+        val pillPaddingH = if (isLandscape) 14.dp else 9.dp
+        val centerSpacing = if (isLandscape) 10.dp else 6.dp
+        val nameTextMaxW = if (isLandscape) 160.dp else 78.dp
+        val fontSize = if (isLandscape) 13.sp else 11.5.sp
 
-        // 1. Interactive Pins Layer
+        // 1. Sleek C1..C10 Pins Layer
         draftPoints.forEachIndexed { index, pt ->
             val isSelected = index == selectedIndex
-            val centerX = maxW * pt.x / 100f
-            val centerY = maxH * pt.y / 100f
-            val left = (centerX - totalWidthPx / 2f).roundToInt()
-            val top = (centerY - pinSizePx / 2f).roundToInt()
+            val centerX = maxW * pt.xRatio
+            val centerY = maxH * pt.yRatio
+            val left = (centerX - pinRadiusPx).roundToInt()
+            val top = (centerY - pinRadiusPx).roundToInt()
+
+            val subscript = when (index) {
+                0 -> "₁"
+                1 -> "₂"
+                2 -> "₃"
+                3 -> "₄"
+                4 -> "₅"
+                5 -> "₆"
+                6 -> "₇"
+                7 -> "₈"
+                8 -> "₉"
+                9 -> "₁₀"
+                else -> "${index + 1}"
+            }
 
             Column(
                 modifier = Modifier
                     .offset { IntOffset(left, top) }
-                    .width(pinSizeDp + extraWidthDp)
-                    .wrapContentHeight(),
+                    .wrapContentSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Pin Target Reticle Ring
                 Surface(
                     modifier = Modifier
                         .size(pinSizeDp)
                         .pointerInput(index, maxW, maxH) {
                             detectDragGestures(
-                                onDragStart = { selectedIndex = index },
+                                onDragStart = {
+                                    selectedIndex = index
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    val curX = maxW * draftPoints[index].x / 100f
-                                    val curY = maxH * draftPoints[index].y / 100f
+                                    val curX = maxW * draftPoints[index].xRatio
+                                    val curY = maxH * draftPoints[index].yRatio
                                     val newX = (curX + dragAmount.x).coerceIn(0f, maxW)
                                     val newY = (curY + dragAmount.y).coerceIn(0f, maxH)
-                                    val newPctX = ((newX / maxW) * 100).roundToInt().coerceIn(1, 99)
-                                    val newPctY = ((newY / maxH) * 100).roundToInt().coerceIn(1, 99)
+                                    val newRatioX = (newX / maxW).coerceIn(0.005f, 0.995f)
+                                    val newRatioY = (newY / maxH).coerceIn(0.005f, 0.995f)
+                                    val newPctX = (newRatioX * 100f).roundToInt().coerceIn(1, 99)
+                                    val newPctY = (newRatioY * 100f).roundToInt().coerceIn(1, 99)
                                     draftPoints = draftPoints.toMutableList().also {
-                                        it[index] = HudTapPoint(newPctX, newPctY)
+                                        it[index] = HudTapPoint(newPctX, newPctY, newRatioX, newRatioY, it[index].delayMs)
                                     }
                                 }
                             )
                         }
-                        .clickable { selectedIndex = index },
+                        .clickable {
+                            selectedIndex = index
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
                     shape = CircleShape,
-                    color = HudCard.copy(alpha = 0.90f),
+                    color = Color(0xD9101014),
                     border = BorderStroke(
-                        width = if (isSelected) 2.5.dp else 1.5.dp,
-                        color = if (isSelected) HudCyan else HudCyan.copy(alpha = 0.55f)
+                        width = if (isSelected) 2.dp else 1.2.dp,
+                        color = if (isSelected) HudCyan else Color.White.copy(alpha = 0.40f)
                     ),
-                    shadowElevation = if (isSelected) 10.dp else 3.dp
+                    shadowElevation = if (isSelected) 8.dp else 3.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        // Center Crosshair Lines
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val c = size.width / 2f
-                            val arm = size.width * 0.20f
-                            val lineColor = if (isSelected) HudCyan else Color.White.copy(alpha = 0.5f)
-                            drawLine(lineColor, Offset(c - arm, c), Offset(c + arm, c), strokeWidth = 2.5f)
-                            drawLine(lineColor, Offset(c, c - arm), Offset(c, c + arm), strokeWidth = 2.5f)
-                        }
                         Text(
-                            text = "${index + 1}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            text = "C$subscript",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
                             color = if (isSelected) HudCyan else Color.White
                         )
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
+                // Precision coordinate badge only visible when pin is selected
+                if (isSelected) {
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xD90A0A0E))
+                            .border(BorderStroke(0.7.dp, HudCyan), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "X:${(pt.xRatio * 100).roundToInt()}% · Y:${(pt.yRatio * 100).roundToInt()}%",
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium,
+                            color = HudCyan
+                        )
+                    }
+                }
+            }
+        }
 
-                // Coordinate Pill below pin
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(HudBackground.copy(alpha = 0.92f))
-                        .border(BorderStroke(0.6.dp, if (isSelected) HudCyan else HudBorder), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+        // 2. Minimalist Top Bar (Left: Close, Center: Name & Record, Right: Done)
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = topPadding, start = sidePadding, end = sidePadding)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Left: Close Button ( X )
+            Surface(
+                onClick = onCancel,
+                shape = CircleShape,
+                color = Color(0xD91C1C20),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
+                shadowElevation = 8.dp,
+                modifier = Modifier.size(buttonSize)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = hudString(R.string.hud_magic_cancel),
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isLandscape) 20.dp else 18.dp)
+                    )
+                }
+            }
+
+            // Center: Name Pill & Record Pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(centerSpacing)
+            ) {
+                // Name Pill: "Nama: Kombo Cepat1 ✎"
+                Surface(
+                    onClick = {
+                        showRenameDialog = true
+                        onSetFocusable(true)
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xD91C1C20),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.height(pillHeight)
                 ) {
-                    Text(
-                        text = "X:${pt.x}% · Y:${pt.y}%",
-                        fontSize = 9.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSelected) HudCyan else HudMuted
+                    Row(
+                        modifier = Modifier.padding(horizontal = pillPaddingH),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Nama: ",
+                            fontSize = fontSize,
+                            color = Color(0xFFAAAAAA)
+                        )
+                        Text(
+                            text = comboName,
+                            fontSize = fontSize,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = nameTextMaxW)
+                        )
+                        Spacer(Modifier.width(1.dp))
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = Color(0xFF8E8E93),
+                            modifier = Modifier.size(if (isLandscape) 13.dp else 11.dp)
+                        )
+                    }
+                }
+
+                // Record Pill: "Rekam Lagi 🔴" / "Merekam... ⏹"
+                Surface(
+                    onClick = {
+                        if (isRecording) {
+                            isRecording = false
+                        } else {
+                            draftPoints = emptyList()
+                            selectedIndex = -1
+                            isRecording = true
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xD91C1C20),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isRecording) HudRed else Color.White.copy(alpha = 0.20f)
+                    ),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.height(pillHeight)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = pillPaddingH),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = if (isRecording) {
+                                hudString(R.string.hud_magic_recording)
+                            } else if (draftPoints.isEmpty()) {
+                                hudString(R.string.hud_magic_record)
+                            } else {
+                                hudString(R.string.hud_magic_record_again)
+                            },
+                            fontSize = fontSize,
+                            fontWeight = if (isRecording) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isRecording) HudRed else Color.White
+                        )
+
+                        if (isRecording) {
+                            // Stop square
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLandscape) 13.dp else 11.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(HudRed)
+                            )
+                        } else {
+                            // Red record circle with white ring matching reference screenshot
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLandscape) 18.dp else 15.dp)
+                                    .clip(CircleShape)
+                                    .border(1.2.dp, Color.White, CircleShape)
+                                    .padding(2.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF3B30))
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Right: Save Button ( ✓ )
+            Surface(
+                onClick = {
+                    onSave(draftPoints, comboName)
+                },
+                shape = CircleShape,
+                color = Color(0xD91C1C20),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
+                shadowElevation = 8.dp,
+                modifier = Modifier.size(buttonSize)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = hudString(R.string.hud_magic_save_only),
+                        tint = Color.White,
+                        modifier = Modifier.size(if (isLandscape) 22.dp else 19.dp)
                     )
                 }
             }
         }
 
-        // 2. Floating Top Control Island
-        Surface(
-            onClick = {},
+        // 3. Floating Hint Toast when recording
+        AnimatedVisibility(
+            visible = isRecording,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 24.dp, start = 12.dp, end = 12.dp)
-                .fillMaxWidth(0.96f)
-                .wrapContentHeight(),
-            color = HudBackground.copy(alpha = 0.95f),
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.45f)),
-            shadowElevation = 12.dp
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 36.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xF0121216),
+                border = BorderStroke(1.dp, HudRed.copy(alpha = 0.5f)),
+                shadowElevation = 10.dp
             ) {
-                // Header Row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(HudCyan.copy(alpha = 0.18f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.TouchApp,
-                                contentDescription = null,
-                                tint = HudCyan,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = hudString(R.string.hud_magic_placing_title),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = hudString(R.string.hud_magic_placing_desc),
-                                fontSize = 10.5.sp,
-                                color = HudMuted
-                            )
-                        }
-                    }
-
-                    // Cancel 'X' Button
-                    Surface(
-                        onClick = onCancel,
-                        shape = CircleShape,
-                        color = HudElevated,
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = hudString(R.string.hud_magic_cancel),
-                                tint = HudMuted,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Point Chips & Add/Remove Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    draftPoints.forEachIndexed { index, _ ->
-                        val active = selectedIndex == index
-                        FilterChip(
-                            selected = active,
-                            onClick = { selectedIndex = index },
-                            label = {
-                                Text(
-                                    text = hudString(R.string.hud_magic_point, index + 1),
-                                    fontSize = 11.sp,
-                                    fontWeight = if (active) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = HudElevated,
-                                labelColor = HudMuted,
-                                selectedContainerColor = HudBlueBadge.copy(alpha = 0.45f),
-                                selectedLabelColor = Color.White
-                            ),
-                            border = BorderStroke(1.dp, if (active) HudCyan else HudBorder),
-                            modifier = Modifier.heightIn(min = 36.dp)
-                        )
-                    }
-
-                    // Add Point Chip
-                    if (draftPoints.size < 5) {
-                        Surface(
-                            onClick = {
-                                val next = draftPoints + HudTapPoint()
-                                draftPoints = next
-                                selectedIndex = next.lastIndex
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = HudElevated,
-                            border = BorderStroke(1.dp, HudBorder),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Add, null, tint = HudCyan, modifier = Modifier.size(14.dp))
-                                Text(hudString(R.string.hud_magic_add), fontSize = 11.sp, color = HudCyan)
-                            }
-                        }
-                    }
-
-                    // Remove Point Chip
-                    if (draftPoints.size > 1) {
-                        Surface(
-                            onClick = {
-                                val removeIdx = selectedIndex
-                                val next = draftPoints.filterIndexed { i, _ -> i != removeIdx }
-                                draftPoints = next
-                                selectedIndex = (removeIdx - 1).coerceAtLeast(0)
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = HudElevated,
-                            border = BorderStroke(1.dp, HudRed.copy(alpha = 0.4f)),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, null, tint = HudRed, modifier = Modifier.size(14.dp))
-                                Text(hudString(R.string.hud_magic_remove), fontSize = 11.sp, color = HudRed)
-                            }
-                        }
-                    }
-                }
-
-                // Action Confirm Buttons Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Save Button
-                    Surface(
-                        onClick = { onSave(draftPoints, false) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = HudElevated,
-                        border = BorderStroke(1.dp, HudBlue.copy(alpha = 0.5f)),
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(Icons.Default.Check, null, tint = HudBlue, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(hudString(R.string.hud_magic_save_only), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                        }
-                    }
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(HudRed)
+                    )
+                    Text(
+                        text = hudString(R.string.hud_magic_tap_record_hint),
+                        fontSize = 12.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
 
-                    // Save & Run Immediately Button
-                    Surface(
-                        onClick = { onSave(draftPoints, true) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = HudCyan,
-                        modifier = Modifier
-                            .weight(1.3f)
-                            .fillMaxHeight()
+        // 4. Rename Dialog
+        if (showRenameDialog) {
+            var textInput by rememberSaveable { mutableStateOf(comboName) }
+            Dialog(
+                onDismissRequest = {
+                    showRenameDialog = false
+                    onSetFocusable(false)
+                }
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xF216161A),
+                    border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.45f)),
+                    shadowElevation = 16.dp,
+                    modifier = Modifier.fillMaxWidth(0.90f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        Text(
+                            text = hudString(R.string.hud_magic_edit_name_title),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        OutlinedTextField(
+                            value = textInput,
+                            onValueChange = { textInput = it.take(30) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = HudCyan,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
+                                cursorColor = HudCyan
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
                         ) {
-                            Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(hudString(R.string.hud_magic_save_and_run), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                            TextButton(
+                                onClick = {
+                                    showRenameDialog = false
+                                    onSetFocusable(false)
+                                }
+                            ) {
+                                Text(hudString(R.string.hud_magic_cancel), color = Color(0xFFAAAAAA))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    if (textInput.isNotBlank()) {
+                                        comboName = textInput.trim()
+                                    }
+                                    showRenameDialog = false
+                                    onSetFocusable(false)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = HudCyan,
+                                    contentColor = Color.Black
+                                )
+                            ) {
+                                Text(hudString(R.string.hud_magic_save_only), fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

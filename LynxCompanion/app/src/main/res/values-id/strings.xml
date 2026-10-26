@@ -2229,8 +2229,8 @@
     <string name="hud_wifi_latency_note">Lock Wi-Fi diminta selama Lynx Engine aktif. Penerapannya bergantung pada Android dan radio; dapat menambah konsumsi baterai. Tidak mengubah paket data game.</string>
     <string name="hud_network_dual">Wi-Fi: %1$s · Seluler: %2$s</string>
     <string name="hud_network_bonding_note">Dua koneksi tersedia bukan berarti bandwidth digabung. Bonding untuk aplikasi lain memerlukan transport/server yang mendukung; Lynx tidak mengklaim dukungan itu.</string>
-    <string name="hud_magic_title">Magic Box</string>
-    <string name="hud_magic_description">Urutan ketuk kustom berbasis root untuk aplikasi aktif. Atur hingga 5 titik dalam persen layar; mulai lalu tutup panel Lynx Engine.</string>
+    <string name="hud_magic_title">Kombo Makro (Combo Macro)</string>
+    <string name="hud_magic_description">Simpan &amp; picu urutan kombo sentuhan (C₁, C₂, dst.) saat bermain game dengan tombol melayang di layar.</string>
     <string name="hud_magic_point">Titik %1$d</string>
     <string name="hud_magic_position">X %1$d%% · Y %2$d%%</string>
     <string name="hud_magic_add">Tambah</string>
@@ -2238,7 +2238,7 @@
     <string name="hud_magic_interval">Jeda antar ketukan: %1$d ms</string>
     <string name="hud_magic_start">Mulai urutan</string>
     <string name="hud_magic_stop">Hentikan urutan</string>
-    <string name="hud_magic_limits">Maksimal 30 ketukan / 60 detik. Berhenti saat layar mati, ukuran layar atau aplikasi berganti. Membuka Lynx Engine menjeda ketukan. Urutan ini tidak mengenali dialog secara otomatis.</string>
+    <string name="hud_magic_limits">Maksimal 25 ketukan per kombo. Berhenti saat layar mati atau game ditutup.</string>
     <string name="hud_magic_x">Posisi X ketukan</string>
     <string name="hud_magic_y">Posisi Y ketukan</string>
     <string name="hud_magic_delay">Jeda ketukan</string>
@@ -2248,6 +2248,50 @@
     <string name="hud_magic_save_only">Simpan</string>
     <string name="hud_magic_save_and_run">Simpan &amp; Mulai</string>
     <string name="hud_magic_cancel">Batal</string>
+    <string name="hud_magic_record">Rekam</string>
+    <string name="hud_magic_record_again">Rekam Lagi</string>
+    <string name="hud_magic_recording">Merekam...</string>
+    <string name="hud_magic_name_prefix">Nama: %1$s</string>
+    <string name="hud_magic_name_label">Nama</string>
+    <string name="hud_magic_default_name">Kombo Cepat1</string>
+    <string name="hud_magic_edit_name_title">Nama Kombo</string>
+    <string name="hud_magic_tap_record_hint">Ketuk layar di mana saja untuk merekam titik kombo</string>
+
+    <!-- ZoneTouch Master -->
+    <string name="hud_zonetouch_title">ZoneTouch Master</string>
+    <string name="hud_zonetouch_desc">Optimasi touch IC hardware, touch slop minimal (2px), dan deadzone tepi.</string>
+    <string name="hud_zonetouch_esports">Esports Full-Link Boost</string>
+    <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
+    <string name="hud_zonetouch_slop">Sensitivitas Ultra-Peka (2px Slop)</string>
+    <string name="hud_zonetouch_slop_desc">Deteksi pergeseran seketika pada 2 piksel untuk bidikan mikro super peka.</string>
+    <string name="hud_zonetouch_deadzone">Deadzone Tepi Layar: %1$d dp</string>
+
+    <!-- TouchShare -->
+    <string name="hud_touchshare_export">Salin Kode (TouchShare)</string>
+    <string name="hud_touchshare_import">Tempel &amp; Pasang</string>
+    <string name="hud_touchshare_dialog_title">Impor Kombo TouchShare</string>
+    <string name="hud_touchshare_dialog_desc">Tempel kode string LYNX-COMBO# untuk memasang urutan sentuhan ke slot ini.</string>
+    <string name="hud_touchshare_copied">Kode kombo berhasil disalin ke Clipboard!</string>
+    <string name="hud_touchshare_success">Kombo berhasil diimpor!</string>
+    <string name="hud_touchshare_invalid">Format kode kombo tidak valid!</string>
+
+    <!-- GameShift -->
+    <string name="hud_gameshift_title">GameShift Turbo Reaktif</string>
+    <string name="hud_gameshift_desc">Mendeteksi drop frame SurfaceFlinger secara instan dan menyuntikkan turbo boost governor 3 detik.</string>
+    <string name="hud_gameshift_toggle">GameShift Reactive Boost</string>
+    <string name="hud_gameshift_status">Status: %1$d lonjakan jank distabilkan</string>
+
+    <!-- Dual-Channel Network Turbo -->
+    <string name="hud_net_turbo_title">Dual-Channel Network Turbo</string>
+    <string name="hud_net_turbo_desc">Kunci Wi-Fi low latency, anti-sleep radio, scan nonaktif, dan seluler siaga.</string>
+    <string name="hud_net_turbo_toggle">Network Turbo &amp; Anti-Jitter</string>
+    <string name="hud_net_turbo_cellular">Data Seluler Hot-Standby (Failover)</string>
+    <string name="hud_net_turbo_tcp">Anti-Bufferbloat TCP Tuning</string>
+
+    <!-- Smart Bypass Threshold -->
+    <string name="hud_bypass_threshold_label">Ambang Batas Bypass: %1$d%%</string>
+    <string name="hud_bypass_threshold_desc">Baterai mengisi daya hingga mencapai %1$d%%, lalu daya charger langsung dialirkan ke SoC (0 mA ke baterai).</string>
+    <string name="hud_bypass_thermal_cut">Proteksi Panas 42.0°C: Bypass dipaksa aktif saat panas untuk melindungi baterai.</string>
     <string name="hud_addin_inactive">Nonaktif</string>
     <string name="hud_network_manual_test">Uji manual</string>
     <string name="hud_shield_mode_alarms">Alarm saja</string>

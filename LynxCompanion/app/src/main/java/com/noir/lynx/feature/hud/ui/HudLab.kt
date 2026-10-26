@@ -1,10 +1,16 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -12,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
@@ -70,10 +77,11 @@ internal fun HudLab(
     }
 
     if (selectedAddin == -1) HudAddinNavigation(onSelectAddin)
-    if (selectedAddin == 4) HudMagicBoxControls()
+    if (selectedAddin == 4) HudComboControls()
     if (selectedAddin == 5) HudRecorderControls()
     if (selectedAddin == 6) HudConsoleControls(brightnessLocked, onToggleBrightnessLock)
     if (selectedAddin == 7) HudSessionControls(snapshot)
+    if (selectedAddin == 8) HudGameShiftControls()
 
     // 1. Bypass Charging Lab Card
     if (selectedAddin == 1) HudSection(
@@ -115,6 +123,51 @@ internal fun HudLab(
                     uncheckedTrackColor = HudElevated
                 )
             )
+        }
+
+        if (bypassStatus.capability == HudCapability.READY) {
+            val runtime = com.noir.lynx.feature.hud.addins.HudGamingAddins.current
+            var threshold by remember(bypassStatus.thresholdPct) { mutableIntStateOf(bypassStatus.thresholdPct) }
+
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = hudString(R.string.hud_bypass_threshold_label, threshold),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+            Slider(
+                value = threshold.toFloat(),
+                onValueChange = {
+                    threshold = it.toInt()
+                    runtime?.bypass?.setThreshold(threshold)
+                },
+                valueRange = 20f..90f,
+                modifier = Modifier.heightIn(min = 44.dp)
+            )
+            Text(
+                text = hudString(R.string.hud_bypass_threshold_desc, threshold),
+                fontSize = 11.sp,
+                color = HudMuted
+            )
+
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xD9101014))
+                    .border(BorderStroke(0.8.dp, if (bypassStatus.thermalCutActive) HudRed else HudCyan), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Default.Thermostat, contentDescription = null, tint = if (bypassStatus.thermalCutActive) HudRed else HudCyan, modifier = Modifier.size(16.dp))
+                Text(
+                    text = hudString(R.string.hud_bypass_thermal_cut),
+                    fontSize = 11.sp,
+                    color = Color.White
+                )
+            }
         }
 
         val current = snapshot[HudMetric.BATTERY_CURRENT]
@@ -340,6 +393,9 @@ internal fun HudLab(
                 modifier = Modifier.weight(1f)
             )
         }
+
+        Spacer(Modifier.height(4.dp))
+        HudZoneTouchControls()
     }
 
     // 4. Notification & Focus Shield Card

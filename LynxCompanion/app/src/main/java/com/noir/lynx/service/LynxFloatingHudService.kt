@@ -49,6 +49,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private var autoSkipView: View? = null
     private var autoSkipParams: WindowManager.LayoutParams? = null
     private var magicPinWindow: com.noir.lynx.feature.hud.overlay.HudMagicBoxPinWindow? = null
+    private var comboRecorderWindow: com.noir.lynx.feature.hud.overlay.HudComboRecorderWindow? = null
+    private var comboTriggersOverlay: com.noir.lynx.feature.hud.overlay.HudComboTriggersOverlay? = null
     private val interactive = MutableStateFlow(false)
     private val rendered = MutableStateFlow(HudSnapshot())
     private val viewport = MutableStateFlow(HudViewport())
@@ -158,6 +160,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
         }
         scope.launch {
+            HudGamingAddins.current?.comboManager?.editingComboId?.collect { editingId ->
+                if (editingId != null) open.value = false
+            }
+        }
+        scope.launch {
             open.collect { isOpen ->
                 val p = params ?: return@collect
                 val v = view ?: return@collect
@@ -193,6 +200,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             val current = sample.copy(metrics = sample.metrics + (HudMetric.DISPLAY_HZ.key to displayReading))
                             rendered.value = current
                             snapshotFlow.value = current
+                            val dm = resources.displayMetrics
+                            HudGamingAddins.current?.comboManager?.updateDimensions(current.packageName, open.value, dm.widthPixels, dm.heightPixels)
                             val isFocused = open.value || pinMiniFpsFlow.value || activeModeFlow.value == 1
                             val pollInterval = if (isFocused) 500L else 1500L
                             delay(pollInterval)
@@ -500,6 +509,27 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             magic = magic,
             onClosePlacer = { reopen -> if (reopen) open.value = true }
         )
+
+        val comboManager = HudGamingAddins.current?.comboManager
+        if (comboManager != null) {
+            comboRecorderWindow = com.noir.lynx.feature.hud.overlay.HudComboRecorderWindow(
+                context = this,
+                scope = scope,
+                lifecycle = this,
+                savedState = this,
+                comboManager = comboManager,
+                onClosePlacer = { reopen -> if (reopen) open.value = true }
+            )
+
+            comboTriggersOverlay = com.noir.lynx.feature.hud.overlay.HudComboTriggersOverlay(
+                context = this,
+                scope = scope,
+                lifecycle = this,
+                savedState = this,
+                comboManager = comboManager,
+                isHudOpenFlow = open
+            )
+        }
     }
 
     private inner class HudHostView(context: Context) : FrameLayout(context) {
@@ -919,6 +949,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         autoSkipView = null
         magicPinWindow?.close()
         magicPinWindow = null
+        comboRecorderWindow?.close()
+        comboRecorderWindow = null
+        comboTriggersOverlay?.close()
+        comboTriggersOverlay = null
         snapshotFlow.value = HudSnapshot()
         runCatching { java.io.File(filesDir, FLAG_FILE_NAME).delete() }
         isRunningFlow.value = false

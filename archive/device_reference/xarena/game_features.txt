@@ -1,0 +1,1020 @@
+"%1$s" telah ditambahkan ke %2$s. Ketuk untuk melihat.
+%1$s mendeteksi fluktuasi yang signifikan dalam jaringan game pada permainan game terakhir, dengan %2$d kejadian lag jaringan signifikan, dan latensi jaringan maksimum %3$d md. Mengaktifkan akselerasi jaringan game dapat membantu Anda mengurangi latensi menjadi %4$d md dan meningkatkan kecepatan jaringan hingga %5$d%%
+1. Bëni një freskim për të kontrolluar rrjetin e pagesës. 2. Verifikoni nëse gjendja e llogarisë së pagesës mjafton për të mbështetur pagesën.
+1. Obnovením skontrolujte platobnú sieť. 2. Skontrolujte, či je zostatok na platobnom účte dostatočný na zaplatenie.
+1. Opdater for at kontrollere betalingsnetværket. 2 Kontrollér, om saldoen på betalingskontoen er tilstrækkelig til at udføre betalingen.
+1. Proveďte obnovení a zkontrolujte platební síť. 2. Zkontrolujte, jestli je na platebním účtu dostatečný zůstatek pro provedení platby.
+1. Segarkan untuk memeriksa jaringan pembayaran. 2. Periksa apakah saldo akun pembayaran cukup untuk mendukung pembayaran.
+1. Uppdatera för att kontrollera betalningsnätverk. 2. Kontrollera om betalningsbalansen är tillräcklig för att stöda betalningen.
+1. Värskendage, et kontrollida maksevõrku. 2. Kontrollige, kas maksekonto saldo on piisav makse tegemiseks.
+1. Ödeme ağını kontrol etmek için yenileyin. 2. Ödeme yapacak hesabın bakiyesinin ödemeyi gerçekleştirecek yeterlilikte olup olmadığını kontrol edin.
+120 FPS 'ਤੇ ਫ੍ਰੇਮ ਇੰਟਰਪੋਲੇਸ਼ਨ
+120 FPS için Çerçeve İlişkilendirme
+120 FPS तक फ़्रेम इंटरपोलेशन
+120 FPS मा फ्रेम इन्टरपोलेसन
+120 FPS ला फ्रेम इंटरपोलेशन
+120 FPS માટે ફ્રેમ ઇન્ટરપોલેશન
+120 FPS ಗೆ ಫ್ರೇಮ್ ಇಂಟರ್ಪೋಲೇಶನ್
+120 FPS 프레임 보간
+120 FPS-লৈ ফ্ৰেম অন্তৰ্ভুক্যাশন
+120 FPSକୁ ଫ୍ରେମ୍‌ର ଇଣ୍ଟରପୋଲେସନ୍
+120 FPSకు ఫ్రేమ్ ఇంటర్‌పోలరేషన్
+120FPS
+298894~Magic Voice Changer
+304554~Frame Interpolation to 120 FPS
+311149~Magic voices free to use
+357929~Join us to enjoy magic sound transformation privileges
+60FPS
+90FPS
+Adidiọọñọ nsịn ñkanñkᴧk ke FPS 120
+Agar hozirgi oʻyin ajratilgan rejimni qoʻllab-quvvatlamasa, kontroller ajratilgan rejimda ishlatilmaydi.
+Ajratilgan rejimga almashsangiz, oʻyin kontrolleri uziladi. Uni Bluetooth orqali yana qayta juftlashingiz kerak boʻladi.
+Ako je uključeno, daje iskustvo kontrole nad igrom i smanjuje vrijeme odziva.
+Ako trenutačna igra ne podržava razdvojeni način, kontroler se ne može koristiti u tom načinu.
+Ako trenutna igra ne podržava podijeljeni način rada, kontroler se ne može koristiti u tom načinu rada.
+Ako trenutna igra ne podržava podijeljeni režim, kontroler za igre ne može se koristiti u podijeljenom režimu.
+Ako trenutna igra ne podržava režim podele, kontroler se ne može koristiti u tom režimu.
+Akselerasi Jaringan Game
+Akselerasi jaringan
+Aktivizo kontrolluesin.
+Aktivéier de Kontroller.
+Aktualiséierung feelgeschloen. Akku vum Kontroller ënner 30%
+Aktualiséierung feelgeschloen. Stell wgl. sécher, datt béid Kontrollere verbonne sinn
+Aktualizacja oprogramowania układowego nie powiodła się. Aby korzystać z kontrolera gier, spróbuj ponownie zaktualizować.
+Aktualizowanie oprogramowania układowego. Proszę nie opuszczać tej strony ani nie używać kontrolera gier.
+Akurasi Kontrol Mikro
+Akurasi yang lebih tinggi memungkinkan identifikasi kontrol mikro yang lebih tepat, sementara akurasi yang lebih rendah mengurangi sensitivitas terhadap kontrol ini tetapi meningkatkan stabilitas operasional.
+All Kontroller-Astellungen op Standard zerécksetzen?
+Anda akan keluar dari mode penghematan daya jika Anda mengaktifkan Kontrol tingkat Esports.
+Ang mas mataas na katumpakan ay magbibigay-daan sa mas tumpak na pagtukoy sa mga micro control, habang ang mas mababang katumpakan ay magpapababa ng sensitivity ng mga kontrol na ito pero magpapabuti sa stability ng operasyon.
+Ang mas matataas na index ay nagpapahiwatig ng mas magandang karanasan sa pagkontrol ng laro.
+Ang mataas na sensitivity ay magpapabuti sa mga effect ng pagpindot, habang ang binawasang sensitivity naman ay magpapabuti sa stability ng pagkontrol at makakabawas sa interference at mga hindi sinasadyang maling pagpindot.
+Anslut en kontroller för en bättre spelupplevelse. Anslut?
+Anslut en spelkontroller för en mer konsolliknande eller handhållen spelupplevelse.
+Anvisningar för kalibrering av kontroller
+Apabila mod dihidupkan, pad sentuh dibahagikan kepada empat kawasan, dan setiap kawasan sepadan dengan satu titik pemetaan.
+Artırılmış hassasiyet dokunma efektlerini iyileştirirken, azaltılmış hassasiyet kontrol kararlılığını artırır, müdahale ve hatalı dokunmaları azaltır.
+Astellunge vum Spillkontroller sinn am Modus Erweiderung vum Bildschierm net verfügbar
+Atjauninot programmaparatūru, pārliecinieties, ka ir pievienoti abi kontrolieri.
+Açıldığında oyunlar için kontrol deneyimi sunar ve kontrol yanıt süresini azaltır.
+Ağ bağlantısı yok. Lütfen ağ durumunu kontrol edin
+Ağ bağlantısı yok. Lütfen ağınızı kontrol edin ve yeniden deneyin
+Ağ bağlantısı yok. Lütfen ağınızı ve %s öğesini kontrol edin ve
+Ažuriranje firmvera nije uspelo. Da biste pravilno koristili kontroler za igru, molimo vas da ga ponovo ažurirate.
+Ažuriranje firmvera nije uspjelo. Da biste ispravno koristili kontroler za igre, ažurirajte ga ponovo.
+Ažuriranje firmvera nije uspjelo. Da biste pravilno koristili kontroler igre, molimo vas, ponovo ga ažurirajte.
+Ažuriranje firmvera. Molimo vas da ne napuštate ovu stranicu niti upravljate kontrolerom.
+Ažuriranje firmvera. Ne napuštajte ovu stranicu ili koristite kontroler za igre.
+Ažuriranje firmvera. Ne napuštajte ovu stranicu niti upravljajte kontrolerom.
+Ažuriranje firmwarea nije uspjelo. Za pravilnu upotrebu kontrolera za igre, ponovno ga ažurirajte.
+Ažuriranje nije uspelo. Baterija kontrolera je ispod 30%
+Ažuriranje nije uspelo. Molimo vas da osigurate da su oba kontrolera povezana
+Ažuriranje nije uspjelo. Baterija kontrolera je ispod 30%
+Ažuriranje nije uspjelo. Baterija kontrolera za igre je ispod 30%
+Ažuriranje nije uspjelo. Baterije kontrolera je ispod 30 %
+Ažuriranje nije uspjelo. Molimo vas da provjerite jesu li oba kontrolera povezana
+Ažuriranje nije uspjelo. Provjerite jesu li oba kontrolera spojena
+Ažuriranje nije uspjelo. Uvjerite se da su oba kontrolera za igre povezana
+Baada ya rafiki yako kupokea na kusakinisha mchezo kwa mara ya kwanza kwa mafanikio, utapokea nambari ya ukomboaji wa mchezo. Gusa Komboa ili kudai zawadi yako.
+Barcha kontroller sozlamalari odatiy holatiga tiklansinmi?
+Batareya darajasi 10% dan past boʻlsa, oʻyin kontrollerining tebranishi avtomatik oʻchadi.
+Başarıyla eklendi. Ana ekranda kontrol edebilirsiniz
+Begitu diaktifkan, Kontrol Suhu Gaming dapat secara efektif mengurangi suhu ponsel, sehingga waktu bermain game menjadi lebih lama.
+Beli Suara
+Beralih ke Mode Gabungan akan memutuskan koneksi kontroler game. Anda perlu memasangkannya kembali melalui Bluetooth.
+Beralih ke Mode Terpisah akan memutuskan koneksi kontroler game. Anda perlu memasangkannya kembali melalui Bluetooth.
+Beröringskontroll av Esportskvalitet
+Berøringskontroll på e-sportsnivå
+Bez připojení k síti. Zkontrolujte připojení k síti a %s
+Bez připojení k síti. Zkontrolujte stav sítě
+Bezplatně použitelné magické hlasy
+Bildinterpolering till 120 FPS
+Bildinterpoléierung op 120 FPS
+Boost misslyckades. Kontrollera nätverket och försök igen
+Brug berøringskontroller
+Bruk berøringskontroller
+Buka Pengaturan Mode Pemetaan
+Buka Tetapan Mod Pemetaan
+Buksan ang Mga Setting ng Mapping Mode
+Cambia-voce magico
+Carian suara
+Chap kontrollerdagi Quvvat tugmasini va oʻng kontrollerdagi Y tugmasini 2 soniya bosib turish orqali Moslash rejimi va Birlamchi rejim orasida almashish mumkin.
+Chyba při importu strategie. Zkontrolujte, zda používáte kompatibilní model telefonu.
+Cilësimet e kontrollit
+Cilësimet e kontrolluesit
+Cilësimet e kontrolluesit të lojës nuk janë të disponueshme në modalitetin "Zgjerimi i ekranit"
+Czy chcesz przywrócić wszystkie ustawienia kontrolera gier do domyślnych?
+D'Vibratioun vum Spillkontroller desaktivéiert sech automatesch, wann den Akkusniveau ënner 10% fält.
+Daftar Kontroler
+Daha yüksek dokunma örnekleme hızı kontrol hassasiyetini artırır ancak güç tüketimini yükseltir.
+Daha yüksek dokunma örnekleme hızı, kontrol hassasiyetini artırır ancak güç tüketimini yükseltir. Dokunmatik örnekleme hızını yalnızca oyun sırasında artırmak için Akıllı seçeneğini belirleyin.
+Daha yüksek endeks değeri daha iyi oyun kontrol deneyimini gösterir.
+Daha yüksek hassasiyet mikro kontrollerin daha hassas şekilde tanımlanmasını sağlar, diğer yandan daha düşük hassasiyet bu kontrollerin hassasiyetini azaltır ancak çalışma tutarlılığını iyileştirir.
+Dalam Mod Pemetaan, tekan kekunci Window untuk membuka tetapan Mod Pemetaan dengan cepat.
+Dalam Mode Pemetaan, tekan tombol Window untuk membuka pengaturan Mode Pemetaan secara cepat.
+Dhexdhexaadinta Qaabka ilaa 120 FPS
+Di Frame Interpolation to 120 FPS
+Di Magic Voice Changer
+Di kendo imak ofungu mar Mach ma ni e gir tayo mar kor achich kod ofungu mar Y ma ni e gir tayo mar kor acham kuom nyiriri 2 mondo iwil e kind Yor Mapping kod Yor Pinyno.
+Diutamakan menjamin sumber daya jaringan untuk game saat ini dengan teknologi pengoptimalan jaringan game yang dipatenkan.
+Dla lepszych wrażeń zaleca się skalibrowanie kontrolera do gier po aktualizacji oprogramowania układowego.
+Dla lepszych wrażeń zaleca się skalibrowanie kontrolera do gier przed pierwszym użyciem.
+Do të dalësh nga modaliteti i kursimit të energjisë nëse aktivizon kontrollin e shkallës Esports.
+Dobrodošli pri igralnem kontrolerju GT
+Dobrodošli u GT kontroler
+Dobrodošli u GT kontroler igre
+Dobrodošli u GT kontroler za igre
+Dodaj igralni kontroler
+Dodaj kontroler
+Dodaj kontroler do gier
+Dodaj kontroler za igre
+Dodajte kontroler za igru
+Dokunma ve ekranın tam bağlantılı optimizasyonu ile kontrollere tepki verme hızını iyileştirir ancak bu özellik telefonun ısınmasına neden olur.
+Dokunmatik Kontrolleri Kullan
+Download menunggu konektivitas jaringan
+Dridhja e kontrolluesit
+Dridhja e kontrolluesit të lojërave do të fiket automatikisht kur niveli i baterisë të bjerë nën 10%.
+Dridhja e kontrolluesit është aktive
+Dridhja e kontrolluesit është joaktive
+Druk in Mappingmodus op de Windowstoets om de instellingen van de Mappingmodus snel te openen.
+Du kommer att lämna energisparläget om du aktiverar Kontroll av Esportskvalitet.
+Du vil afslutte strømbesparelsestilstand, hvis du aktiverer E-sport-klassekontrol.
+Du vil avslutte strømsparingsmodus hvis du aktiverer kontroll på e-sportsnivå.
+Duke kontrolluar
+Dölj spelarkontroller
+E Spillkontroller derbäisetzen
+E Yor Mapping, di ofungu mar Dirisa mondo iyaw mapiyo chenro mag Yor Mapping.
+E-sport-klasse berøringskontrol
+E-sport-klassekontrol
+E-sport-klassekontrol aktiveret. Enhedens temperatur kan stige.
+Edukalt lisatud. Saate avakuval kontrollida
+Efuremu Y’ogosoyia egetatakeiri goika 120 FPS
+Erakutsi erreproduzigailua kontrolatzeko aukerak
+Espor Derecesinde Dokunma Kontrolü
+Espor Derecesinde Kontrol
+Espor Derecesinde Kontrol etkin. Cihaz sıcaklığı artabilir.
+Espor Derecesinde Kontrol'ü etkinleştirirseniz enerji tasarrufu modundan çıkacaksınız.
+Esports-grade na Kontrol
+Esports-grade na Kontrol sa Pagpindot
+Esports-kontrola
+Esports-kontrola dodira
+Esports-kontrola omogućena. Temperatura uređaja se može povećati.
+Etkinleştirildiğinde Oyun Sıcaklık Kontrolü telefon sıcaklığını etkin şekilde azaltabilir ve oyun süresini uzatabilir.
+Ezkutatu erreproduzigailua kontrolatzeko aukerak
+FPS
+Fastvareoppdateringen mislyktes. For å bruke spillkontrolleren riktig, må du oppdatere den på nytt.
+Fir Spiller, déi Spillkontrolleren ënnerstëtzen, kanns de direkt am urspréngleche Modus spillen.
+Fir Spiller, déi keng Spillkontrolleren ënnerstëtzen, kanns de d'Knäppercher um Kontroller de Steierelementer um Bildschierm zouweisen an am Zouuerdnungsmodus spillen.
+Fir eng besser Experienz gëtt recommandéiert, de Spillkontroller no der Aktualiséierung vun der Firmware ze kalibréieren.
+Fir eng besser Experienz gëtt recommandéiert, de Spillkontroller virum éischte Gebrauch ze kalibréieren.
+Firmware-Aktualiséierung feelgeschloen. Fir de Spillkontroller richteg ze benotzen, aktualiséier en nach eng Kéier.
+For Mapping Mode, press di Window key to quickly open Mapping Mode settins.
+For en bedre opplevelse anbefales det å kalibrere spillkontrolleren etter at fastvaren er oppdatert.
+For en bedre opplevelse anbefales det å kalibrere spillkontrolleren før første gangs bruk.
+For games that don't support game controllers, you can map controller buttons to on-screen controls and play in Mapping mode.
+For games wey no support game controller, you fit map controller buttons to di controls wey dey screen and play for Mapping mode.
+For spil, der ikke understøtter spilcontrollere, kan du tilknytte controllerknapper til kontroller på skærmen og spille i kortlægningstilstand.
+For spill som ikke støtter spillkontrollere, kan du tilordne kontrollerknapper til skjermkontroller og spille i kartleggingsmodus.
+For spill som støtter spillkontrollere kan du spille direkte i innebygd modus.
+Forbedre responshastigheten på kontrollene med fullkjedeoptimering av berøring og visning. men det vil føre til at telefonen blir varm.
+Frame Interpolation sa 120 FPS
+Frame Interpolation to 120 FPS
+Frame-Interpolation bis 120 FPS
+Frame-interpolation til 120 FPS
+För en bättre upplevelse rekommenderas det att kalibrera spelkontrollern efter att ha uppdaterat den fasta programvaran.
+För en bättre upplevelse rekommenderas det att kalibrera spelkontrollern innan första användning.
+För spel som inte stödjer spelkontroller kan du koppla kontrollknappar till skärmkontroller och spela i Mappningsläge.
+För spel som stödjer spelkontroller kan du spela direkt i Inbyggt läge.
+Förbättra kontrollens svarshastighet genom full-länkoptimering av pekskärm och display, men detta kommer att leda till att telefonen värms upp.
+GT Oʻyin kontrolleri (Birlashtirilgan rejim) yoki GT Oʻyin kontrolleri (Ajratilgan rejim) ni tanlang va Bluetooth orqali ulaning.
+GT Oʻyin kontrolleriga xush kelibsiz
+Gagal memperbarui. Baterai kontroler di bawah 30%
+Gagal memperbarui. Silakan pastikan kedua kontroler game terhubung
+Gagal mempercepat. Periksa jaringan Anda dan coba lagi
+Gagal menghubungkan. Silakan pastikan kontroler berada dalam mode pemasangan.
+Gamitin ang touchpad upang kontrolin ang direksyon ng mga kasanayan na drag-to-aim sa mga laro.
+Gdy funkcja „Kontrola temperatury podczas grania” jest włączona, może efektywnie obniżać temperaturę telefonu i wydłużać czas rozgrywki.
+Getaran Kontroler
+Getaran Kontroler aktif
+Getaran Kontroler nonaktif
+Giddugaltummaa fireemii gara FPS 120
+Gjenopprette alle kontrollerinnstillinger til standard?
+Gry obsługiwane kontrolerem
+Guide för spelkontroller
+Gunakan Kawalan Sentuh
+Gunakan Kontrol Sentuh
+Gunakan pad sentuh untuk mengawal arah kemahiran seret untuk sasar dalam permainan.
+Gwatia irikania bia ugima na ukaria bia meetho, njira ya gukara nthi, njira ya kurega kugwatwa ukombo.
+Güncelleme yapılamıyor. Lütfen ağ ayarlarınızı kontrol edin
+Güncellemeleri Kontrol Et
+Hak istimewa baru: Penyesuaian suara berlaku setelah pembelian.
+Hal den Un-/Aus-Schalter um lénkse Kontroller an den Y-Knäppchen um rietse Kontroller 2 Sekonne gedréckt, fir tëscht dem Zouuerdnungsmodus an dem urspréngleche Modus ze wiesselen.
+Hal ini terus terlihat sampai Anda melepas pin. Sentuh dan tahan tombol kembali dan peninjauan untuk melepas pin.
+Houd de Aan/uit-knop op de linkercontroller en de Y-knop op de rechtercontroller 2 seconden ingedrukt om te schakelen tussen Mappingmodus en Oorspronkelijke modus.
+Hubungkan kontroler game untuk pengalaman bermain yang lebih mirip konsol atau perangkat handheld.
+Hubungkan kontroler untuk pengalaman bermain game yang lebih baik. Hubungkan?
+Hvis det nåværende spillet ikke støtter delt modus, kan spillkontrolleren ikke brukes i delt modus.
+Håll in strömknappen på den vänstra spelkontrollen och Y-knappen på den högra spelkontrollen i 2 sekunder för att växla mellan Mappningsläge och Inbyggt läge.
+Högre index indikerar bättre erfarenhet av spelkontroll.
+Högre noggrannhet möjliggör mer exakt identifiering av mikrokontroller, medan lägre noggrannhet minskar känsligheten för dessa kontroller men förbättrar driftstabiliteten.
+Højere indekser angiver bedre spillekontrol.
+Høyere indekser indikerer en bedre spillkontrollopplevelse.
+Høyere presisjon gir mer nøyaktig identifisering av mikrokontroller, mens lavere presisjon reduserer følsomheten i disse kontrollene med forbedrer betjeningsstabiliteten.
+Høyere samplingrate for berøringer gir bedre respons for kontroll, men øker strømforbruket.
+Høyere samplingrate for berøringer gir bedre respons for kontroll, men øker strømforbruket. Velg alternativet Intelligent for å øke samplingraten for berøring bare når du spiller spill.
+Hızlandırılamadı. Lütfen ağınızı kontrol edin ve yeniden deneyin
+Idaha Ukpuhọde Data esim 120 FPS
+Ieslēdziet kontrolieri.
+Igralni kontroler
+Igralni kontroler je bil odklopljen. Preusmerjeni boste na domačo stran.
+Igre s kontrolerom
+Igre sa kontrolerom
+Igre za kontroler
+Igre, ki podpirajo igralne kontrolerje, lahko igrate neposredno v Izvornem načinu.
+Iltimos, toʻgʻri foydalanish uchun oʻyin kontrollerini qayta ishga tushiring.
+Importimi i strategjisë dështoi. Kontrollo nëse modeli është i përputhshëm
+In Mapping Mode, press the Window key to quickly open Mapping Mode settings.
+Indeks yang lebih tinggi menunjukkan pengalaman kontrol game yang lebih baik.
+Indekset më të larta tregojnë përvojë më të mirë në kontrollin e lojës.
+Ingen nettverksforbindelse. Kontroller nettverket, og prøv igjen
+Ingen nettverksforbindelse. Kontroller nettverksstatusen
+Ingen netværksforbindelse. Kontrollér dit netværk, og %s
+Ingen netværksforbindelse. Kontrollér dit netværk, og prøv igen
+Ingen nätverksanslutning. Kontrollera nätverket och %s
+Ingen nätverksanslutning. Kontrollera nätverket och försök igen
+Ingen nätverksanslutning. Kontrollera nätverksstatusen
+Innstillinger for kontroller
+Innstillinger for spillkontroller er ikke tilgjengelige i skjermutvidelsesmodus
+Instellingen Mappingmodus openen
+Instrukcja obsługi kontrolera
+Instrukcja obsługi kontrolera do gier
+Instrukcje kalibracji kontrolera
+Instruksjoner for kalibrering av kontroller
+Instruktioune fir d'Kontrollerkalibréierung
+Inställningar för kontroller
+Inställningar för spelkontroller är inte tillgängliga i läget Skärmtillägg
+Interpolace snímků na 120 fps
+Interpolacija okvira do 120 FPS
+Interpolación de fotogramas a 120 FPS
+Interpolare cadre la 120 fps
+Interpolasi Bingkai hingga 120 FPS
+Interpolasi Bingkai ke 120 FPS
+Interpolazione dei fotogrammi a 120 FPS
+Interpolação de Quadros para 120 FPS
+Interpolação de quadros a 120 FPS
+Interpolimi i kuadrove në 120 FPS
+Ipakita ang mga kontrol ng player
+Itago ang mga kontrol ng player
+Izaberite GT kontroler za igru (Kombinovani režim) ili GT kontroler za igru (Režim podele) i povežite se putem Bluetootha.
+Izaći ćete iz režima uštede energije ako omogućite kontrolu na nivou Esporta.
+Izaći ćete iz načina rada za uštedu energije ako omogućite funkciju Kontrola za E-sportove.
+Izaći ćete iz režima uštede energije ako omogućite kontrolu kvaliteta e-sporta.
+Izberite GT Igralni kontroler (Kombiniran način) ali GT Igralni kontroler (Deljeni zaslon) in se povežite prek Bluetootha.
+Izmantojiet skārienpaliktni, lai spēlēs kontrolētu mērķēšanas ar vilkšanu virzienu.
+Izvēlieties GT spēļu kontrolieri (Apvienotais režīms) vai GT spēļu kontrolieri (Sadalītais režīms) un savienojiet, izmantojot Bluetooth.
+Ja pašreizējā spēle neatbalsta sadalīto režīmu, kontrolieri nevar izmantot sadalītā režīmā.
+Jadi VIP untuk menikmati semua suara
+Jadilah VIP untuk menikmati semua suara
+Jangan hubungkan ke Wi-Fi secara otomatis saat menggunakan jaringan seluler
+Jaringan
+Jaringan yang Dipercepat
+Jeśli bieżąca gra nie obsługuje trybu podzielonego ekranu, kontroler gier nie może być używany w trybie podzielonego ekranu.
+Jeśli włączysz kontrolę klasy e-sportowej, tryb oszczędzania energii zostanie wyłączony.
+Jika game saat ini tidak mendukung mode terpisah, kontroler tidak dapat digunakan dalam Mode Terpisah.
+Join us to enjoy magic sound transformation privileges
+Kaadri interpolatsioon 120 fps-le
+Kada je omogućena, funkcija Kontrola temperature u igrama može učinkovito smanjiti temperaturu telefona i produžiti vrijeme igranja.
+Kada je omogućena, kontrola temperature za igre može efikasno smanjiti temperaturu telefona i produžiti vrijeme igranja.
+Kada je uključena, pruža iskustvo kontrole za igre i smanjuje vrijeme reagovanja kontrole.
+Kada je uključeno, poboljšava odziv kontrola u igrama i smanjuje kašnjenje
+Kada je uključeno, pruža iskustvo kontrole u igrama i smanjuje vrijeme odziva za kontrole.
+Kada se jednom omogući, kontrola temperature za igre može efikasno da smanji temperaturu telefona i produži vreme igranja.
+Kadar Pensampelan Sentuhan
+Kadar pensampelan sentuhan yang lebih tinggi meningkatkan tindak balas kawalan tetapi meningkatkan penggunaan kuasa.
+Kadar pensampelan sentuhan yang lebih tinggi meningkatkan tindak balas kawalan tetapi meningkatkan penggunaan kuasa. Pilih pilihan Pintar untuk meningkatkan kadar pensampelan sentuhan hanya semasa permainan.
+Kader interpoleren naar 120 FPS
+Kadr İnterpolyasiyası 120 FPS-də
+Kadrų interpoliavimas iki 120 FPS
+Kalibracija kontrolera
+Kalibracija kontrolera za igre
+Kalibracija kontrolne palice
+Kalibracja kontrolera
+Kalibrasi Kontroler
+Kalibrering av kontroller
+Kalibrimi i kontrolluesit
+Kalimi te Modaliteti i kombinuar do të shkëpusë kontrolluesin e lojës. Do të duhet ta çiftosh përsëri nëpërmjet Bluetooth-it.
+Kalimi te Modaliteti i ndarjes do të shkëpusë kontrolluesin e lojës. Do të duhet ta çiftosh përsëri nëpërmjet Bluetooth-it.
+Kan ikke opdatere. Kontroller venligst dine netværksindstillinger
+Kapag na-enable na, pwedeng epektibong mabawasan ng Kontrol sa Temperatura ng Paglalaro ang temperatura ng telepono at mapahaba ang oras ng paglalaro.
+Kapag naka-on ang mode na ito, ang touchpad ay nahahati sa apat na bahagi, at bawat bahagi ay tumutugma sa isang nakatalagang mapping point.
+Kapag naka-on ito, magbibigay ito ng karanasan sa pagkontrol para sa mga laro at babawasan ang oras ng pagtugon ng kontrol.
+Kasutage puuteplaati, et kontrollida mängudes lohistatavate oskuste sihtimissuunda.
+Kawalan Sentuh Gred e-Sukan
+Kašnjenje dodira se smanjuje primjenom tehnologije kontrole dodira s punim povezivanjem, ali to dovodi do povećanja temperature uređaja i skraćenja trajanja baterije.
+Kecepatan
+Kecepatan Bingkai Ultra
+Kecepatan Diutamakan
+Kecepatan Pengambilan Sampel Sentuh
+Kecepatan pengambilan sampel sentuh yang lebih tinggi meningkatkan responsivitas kontrol tetapi meningkatkan konsumsi daya.
+Kecepatan pengambilan sampel sentuh yang lebih tinggi meningkatkan responsivitas kontrol tetapi meningkatkan konsumsi daya. Pilih opsi Cerdas untuk meningkatkan kecepatan pengambilan sampel sentuh hanya selama bermain game.
+Keistimewaan baharu: Pelarasan suara berkuat kuasa selepas pembelian.
+Kenali zon operasi permainan yang berbeza secara pintar dan optimumkan dengan sewajarnya untuk memberikan pengalaman sentuhan permainan yang melampau. Apabila ini didayakan, zon sentuh akan dikesan dalam perlawanan pertama setiap sesi permainan.
+Kesalahan jaringan
+Ketika aktif, ini memberikan pengalaman kontrol untuk game dan mengurangi waktu respons kontrol.
+Keto Tong' e 120 FPS
+Ketuk di sini untuk mempelajari lebih lanjut.
+Ketuk tautan di bawah untuk membaca %1$s dan %2$s.
+Ketuk tombol ini untuk keluar dari mode ini dan kembali ke %1$s.
+Ketuk untuk beralih ke memilih hari
+Ketuk untuk beralih ke memilih tahun
+Ketuk untuk melihat %1$s dan %2$s. Dengan mengetuk "Setuju", Anda menyetujui pengaturan izin dan perjanjian kami.
+Koble til en kontroller for en bedre spillopplevelse. Koble til?
+Koble til en spillkontroller for en mer konsolllignende eller håndholdt spillopplevelse.
+Konsol yoki portativ qurilmaga oʻxshash oʻyin tajribasi uchun kontroller ulang.
+Kontrol
+Kontrol Ayarları
+Kontrol Düzenlemesi
+Kontrol Paneli
+Kontrol Sentuh Tingkat Esports
+Kontrol Suhu Gaming
+Kontrol başarısız oldu. Lütfen ağ ayarlarınızı kontrol edin
+Kontrol ediliyor
+Kontrol tingkat Esports
+Kontrol tingkat Esports diaktifkan. Suhu perangkat mungkin dapat meningkat.
+Kontrola
+Kontrola klasy e-sportowej
+Kontrola kvaliteta e-sporta
+Kontrola kvaliteta e-sporta omogućena. Temperatura uređaja se može povećati.
+Kontrola na dodir kvaliteta e-sporta
+Kontrola nastavenia
+Kontrola se nezdařila. Zkontrolujte nastavení sítě
+Kontrola temperature u igrama
+Kontrola temperature za igre
+Kontrola temperatury podczas grania
+Kontrola za E-sportove
+Kontrola za E-sportove omogućena. Temperatura uređaja može porasti.
+Kontrola zone dodira
+Kontrolcü Titreşimi
+Kontrolcü Titreşimi açık
+Kontrolcü Titreşimi kapalı
+Kontroler
+Kontroler Game
+Kontroler berhasil ditambahkan
+Kontroler do gier
+Kontroler game terputus. Anda akan diarahkan kembali ke halaman utama.
+Kontroler gry został rozłączony. Nastąpi przekierowanie do strony głównej.
+Kontroler igre
+Kontroler igre je odspojen. Bit ćete preusmjereni na početnu stranicu.
+Kontroler je uspešno dodat
+Kontroler je uspješno dodan
+Kontroler uspešno dodan
+Kontroler za igre
+Kontroler za igre je isključen. Bit ćete preusmjereni na početnu stranicu.
+Kontroler za igre je isključen. Bićete preusmereni na početnu stranicu.
+Kontroler za igre je odspojen. Bićete preusmjereni na početnu stranicu.
+Kontroler za igre je uspješno dodat
+Kontroliera iestatījumi
+Kontroliera kalibrēšana
+Kontroliera kalibrēšanas norādījumi
+Kontroliera rokasgrāmata
+Kontroliera spēles
+Kontroliera vibrācija
+Kontroliera vibrācija ieslēgta
+Kontroliera vibrācija izslēgta
+Kontrolieris sekmīgi pievienots
+Kontrolieru saraksts
+Kontrolin ang Adjustment
+Kontrolindstillinger
+Kontroll
+Kontroll av Esportskvalitet
+Kontroll av Esportskvalitet aktiverad. Enhetens temperatur kan öka.
+Kontroll op Esports-Niveau
+Kontroll op Esports-Niveau aktivéiert. D’Temperatur vum Apparat kann an d’’Luucht goen.
+Kontroll på e-sportsnivå
+Kontroll på e-sportsnivå aktivert. Enheten kan bli varmere.
+Kontrollberäich
+Kontrollen har lagts till
+Kontroller erfollegräich derbäigesat
+Kontroller oʻyinlari
+Kontroller qoʻllanmasi
+Kontroller qoʻshildi
+Kontroller rejimi
+Kontroller sozlamalari
+Kontroller tebranishi
+Kontroller tebranishi oʻchirildi
+Kontroller tebranishi yoqildi
+Kontroller-vibrasjon
+Kontroller-vibrasjon av
+Kontroller-vibrasjon på
+Kontroller-vibrasjon på spillkontrolleren slås av automatisk når batterinivået faller under 10 %.
+Kontrollerar
+Kontrollerastellungen
+Kontrolleren ble lagt til
+Kontrollerguide
+Kontrollering av gamingtemperatur
+Kontrollerkalibréierung
+Kontrollerlar roʻyxati
+Kontrollerlista
+Kontrollerliste
+Kontrollerlëscht
+Kontrollermodus
+Kontrollerni kalibrlash
+Kontrollerni kalibrlash koʻrsatmalari
+Kontrollerni yoqing.
+Kontrollerning yoqilganiga ishonch hosil qiling
+Kontrollerns vibration
+Kontrollerns vibration aktiverad
+Kontrollerns vibration av
+Kontrollerprogram
+Kontrolli dështoi. Kontrollo cilësimet e rrjetit
+Kontrolli i shkallës Esports
+Kontrolli i shkallës Esports u aktivizua. Temperatura e pajisjes mund të rritet.
+Kontrolli i temperaturës së lojës
+Kontrolli me prekje i shkallës Esports
+Kontrollimine
+Kontrollimine nurjus. Kontrollige oma võrgusätteid
+Kontrollinnstillinger
+Kontrollinställningar
+Kontrolljustering
+Kontrollo
+Kontrollo për përditësime
+Kontrollpanel
+Kontrolluesi i lojërave
+Kontrolluesi i lojërave u shtua me sukses
+Kontrolluesi i lojës është shkëputur. Do të ridrejtohesh në faqen kryesore.
+Kontrolna tabla
+Kontrolování
+Kontrolpanel
+Koristi kontrole na dodir
+Koristite dodirne kontrole
+Koristite kontrole na dodir
+Koristite tačped za kontrolu smjera vještina ciljanja prevlačenjem u igrama.
+Kosketuksen optimointi
+Kui Mängude temperatuurikontroll on lubatud, võib see telefoni temperatuuri tõhusalt vähendada ja pikendada mänguaega.
+Kukomboa
+Kunde inte ansluta. Se till att spelkontrollern är i parkopplingsläge
+Kunde inte importera strategi. Kontrollera om modellen är kompatibel
+Kunde inte kontrollera. Kontrollera dina nätverksinställningar
+Kunde inte uppdatera. Kontrollera dina nätverksinställningar
+Kunne ikke forsterke. Kontroller nettverket, og prøv igjen
+Kunne ikke forstærke. Kontrollér dit netværk, og prøv igen
+Kunne ikke importere strategien. Kontroller at modellen er kompatibel
+Kunne ikke koble til. Sørg for at kontrolleren er i koblingsmodus
+Kunne ikke kontrollere. Kontroller venligst dine netværksindstillinger
+Kunne ikke oppdatere. Kontrollerbatteriet er under 30 %
+Kunne ikke oppdatere. Sørg for at begge spillkontrollerne er koblet til
+Kunne ikke tilslutte. Sørg venligst for, at kontrolleren er i parringstilstand
+Kur është aktiv, ofron një përvojë kontrolli për lojërat dhe shkurton kohën e reagimit të kontrollit.
+Kurangi latensi sentuhan melalui teknologi kontrol sentuh tautan penuh, namun hal ini akan meningkatkan suhu perangkat dan mengurangi masa pakai baterai.
+Kurangkan latensi sentuhan melalui teknologi kawalan sentuh pautan penuh, tetapi ini akan meningkatkan suhu peranti dan mengurangkan hayat bateri.
+Képkocka interpoláció 120 FPS-re
+Kũihũria Fremu kũrĩ FPS 120
+Lag Jaringan
+Lai nodrošinātu labāku pieredzi, ieteicams kalibrēt spēļu kontrolieri pirms pirmās lietošanas.
+Lai nodrošinātu labāku pieredzi, ieteicams kalibrēt spēļu kontrolieri pēc programmaparatūras atjaunināšanas.
+Laipni lūgti GT spēļu kontrolierī
+Laske kuvataajuus 120 FPS:ään
+Legg til en spillkontroller
+Letakkan titik pemetaan di atas butang kemahiran dalam permainan MOBA.
+Lidh një kontrollues loje për një përvojë loje më të ngjashme me atë të konsolës ose të pajisjes portative.
+Lidh një kontrollues për përvojë më të mirë loje. Të lidhet?
+Lidhja dështoi. Sigurohuni që kontrolluesi të jetë në modalitetin e çiftimit
+Lista e kontrolluesve
+Lista kontrolera
+Lista kontrolera za igre
+Lista kontrolerów gier
+Lojëra me kontrollues
+Lägg till en spelkontroller
+Lūdzu, restartējiet spēļu kontrolieri pareizai lietošanai.
+MOBA ဂိမ္းမ်ားတြင္ skill ခလုတ္ေပၚတြင္ mapping point တစ္ခုထားပါ။
+MOBA ဂိမ်းများတွင် skill ခလုတ်ပေါ်တွင် mapping point တစ်ခုထားပါ။
+Magic Voice Changer
+Magic voices dey free to use
+Magic voices free to use
+Magický menič hlasu
+Magiczne głosy do swobodnego użytku
+Magiczny zmieniacz głosu
+Maglagay ng mapping point sa ibabaw ng skill button sa mga larong MOBA.
+Master Sentuhan Zon
+Master Zona Sentuh
+Mbaj shtypur për 2 sekonda butonin e ndezjes/fikjes te kontrolluesi i lojës majtas dhe butonin Y te kontrolluesi i lojës djathtas për të kaluar midis Modalitetit të hartëzimit dhe Modalitetit lokal.
+Memperbarui firmware. Harap jangan tinggalkan halaman ini atau mengoperasikan kontroler.
+Menampilkan kontrol pemutar
+Mengenali berbagai zona operasi game secara cerdas dan mengoptimalkannya sesuai kebutuhan untuk memberikan pengalaman sentuhan bermain game yang ekstrem. Saat ini diaktifkan, zona sentuh akan terdeteksi pada pertandingan pertama setiap sesi bermain game.
+Menyembunyikan kontrol pemutar
+Mga Setting ng Kontrol
+Mga magic voice na libreng gamitin
+Mikro Kontrol Hassasiyeti
+Mikrodastur yangilanmadi. Oʻyin kontrolleridan toʻgʻri foydalanish uchun uni qayta yangilang.
+Mikrodastur yangilanmoqda. Iltimos, ushbu sahifani tark etmang yoki kontroller bilan amallar bajarmang.
+Mikrodasturni yangilayotganda ikkala kontrollerning ulanganiga ishonch hosil qiling.
+Mikrokontrollpresisjon
+Mirë se vjen te kontrolluesi i lojërave GT
+Mod Pad Sentuh MOBA
+Modaliteti i kontrolluesit
+Mode Kontroler
+Molimo ponovo pokrenite kontroler igre za pravilnu upotrebu.
+Molimo vas da provjerite je li kontroler uključen
+Molimo vas da se uverite da je kontroler uključen
+Molimo vas ponovo pokrenite kontroler za igre za pravilno korišćenje.
+Mängu kontroller
+Mängude temperatuurikontroll
+Môžete skrátiť oneskorenie dotyku prostredníctvom plne prepojenej technológie kontroly dotyku, avšak tým sa zvýši teplota zariadenia a skráti výdrž batérie.
+Na-enable ang Esports-grade na Kontrol. Maaaring tumaas ang temperatura ng device.
+Nastavitve igralnega kontrolerja niso na voljo v načinu Razširitve zaslona
+Nastavitve kontrolerja
+Navodila za umerjanje kontrolerja
+Način kontrolerja
+Način rada kontrolera
+Ne tuke ma ok sir gir tayo tuke, inyalo keto ofunge mag tayo map e tayo ma itiyogo e lar mar wang' kendo itug e Yor Mapping.
+Neizdevās atjaunināt. Kontroliera akumulatora uzlādes līmenis ir zem 30%
+Neizdevās atjaunināt. Lūdzu, pārliecinieties, ka abi kontrolieri ir pievienoti
+Neizdevās izveidot savienojumu. Lūdzu, pārliecinieties, vai kontrolieris ir savienošanas pārī režīmā
+Nelze aktualizovat. Zkontrolujte nastavení sítě
+Nepodarilo sa aktualizovať. Skontrolujte svoje nastavenia siete
+Nepodarilo sa overiť. Skontrolujte svoje nastavenia siete
+Nepodarilo sa zvýšiť. Skontrolujte si sieť a skúste to znova
+Neuspešno povezivanje. Molimo vas da se uverite da je kontroler u režimu uparivanja
+Nie je sieťové pripojenie. Skontrolujte si sieť a %s
+Nie je sieťové pripojenie. Skontrolujte si sieť a skúste to znova
+Nie udało się połączyć. Upewnij się, że kontroler gier jest w trybie parowania.
+Nie udało się zaktualizować. Bateria kontrolera do gier poniżej 30%
+Nie udało się zaktualizować. Sprawdź, czy oba kontrolery do gier są podłączone
+Nije uspjelo povezivanje. Molimo vas da provjerite je li kontroler u načinu uparivanja
+Nivo dodirne kontrole za E-sportove
+Një shpejtësi më e lartë e kampionimit të prekjes përmirëson reagueshmërinë e kontrollit por rrit konsumin e energjisë.
+Një shpejtësi më e lartë e kampionimit të prekjes përmirëson reagueshmërinë e kontrollit por rrit konsumin e energjisë. Zgjidh opsionin Inteligjent për të rritur shpejtësinë e kampionimit të prekjes vetëm gjatë lojërave.
+Noggrannhet för mikrokontroll
+Nospiediet un turiet Ieslēgšanas pogu uz kreisā kontroliera un pogu Y uz labā kontroliera 2 sekundes, lai pārslēgtos starp kartēšanas režīmu un oriģinālo režīmu.
+Notifikasi baru. Ketuk untuk melihat
+Ntinyekọ foto dị iche iche ka ọ bụrụ FPS 120
+Nuk ka lidhje me rrjetin. Kontrollo rrjetin dhe %s
+Nuk ka lidhje me rrjetin. Kontrollo rrjetin tënd dhe provo përsëri
+Nuk ka lidhje me rrjetin. Kontrollo statusin e rrjetit
+Nuk mund të përditësohet. Kontrollo cilësimet e rrjetit
+Nyalakan kontroler.
+När den är aktiverad kan Kontrollering av gamingtemperatur effektivt sänka telefonens temperatur och förlänga speltiden.
+När den är på ger den en kontrollupplevelse för spel och minskar kontrollens svarstid.
+Når Spilltemperaturkontroll er aktivert, kan det effektivt redusere temperaturen på telefonen og dermed forlenge spilletiden.
+Når det er slået til, forbedrer det kontroloplevelsen for spil og reducerer kontrolresponstiden.
+Når dette er på, gir det en kontrollopplevelse for spill og reduserer responstiden for kontrollene.
+Nëse loja aktuale nuk e mbështet modalitetin e ndarjes, kontrolluesi nuk mund të përdoret në modalitetin e ndarjes.
+Nội suy khung hình tới 120 FPS
+Obnoviti sve postavke kontrolera na zadane postavke?
+Odaberite GT kontroler (kombinirani način) ili GT kontroler (razdvojeni način) i povežite se putem Bluetootha.
+Odaberite GT kontroler igre (kombinovani režim) ili GT kontroler igre (režim podjele) i povežite se putem Bluetootha.
+Om det aktuella spelet inte stödjer delat läge kan spelkontrollern inte användas i delat läge.
+Open Mapping Mode Settings
+Open Mapping Mode Settins
+Oppgraderer fastvare. Ikke forlat denne siden eller bruk spillkontrolleren.
+Optimalisasi Sentuhan
+Osigurajte da su oba kontrolera povezana kada ažurirate firmver.
+Oynatıcı kontrollerini gizle
+Oynatıcı kontrollerini göster
+Oyun Sıcaklık Kontrolü
+Oyun kumandalarını desteklemeyen oyunlarda, kumanda düğmelerini ekran üzerindeki kontrollere atayabilir ve Eşleştirme Modu'nda oynayabilirsiniz.
+Oyunlarda sürükleyerek nişan alınan becerilerin yönünü kontrol etmek için dokunmatik yüzeyi kullanın.
+Označite GT kontroler za igre (kombinovani režim) ili GT kontroler za igre (podijeljeni režim) i povežite se putem Bluetootha.
+Oʻyin kontrolleri
+Oʻyin kontrolleri qoʻllanmasi
+Oʻyin kontrolleri sozlamalari Ekranni kengaytirish rejimida ishlamaydi
+Oʻyin kontrolleri uzildi. Bosh sahifaga yoʻnaltirilasiz.
+Oʻyin kontrollerini qoʻshish
+Oʻyin kontrollerlarini qoʻllab-quvvatlamaydigan oʻyinlarda kontroller tugmalarini ekrandagi boshqaruv elementlariga moslab, Moslash rejimida oʻynashingiz mumkin.
+Oʻyin kontrollerlarini qoʻllab-quvvatlaydigan oʻyinlarda toʻgʻridan-toʻgʻri Birlamchi rejimda oʻynashingiz mumkin.
+Oʻyin taassurotini yaxshilash uchun kontrollerni ulang. Ulansinmi?
+Pad sentuh menyokong kedua-dua Mod Tetikus dan Mod Leret. Dalam Mod Tetikus, anda boleh menggerakkan kursor atau mengklik.
+Pahusayin ang bilis ng pagtugon sa kontrol sa pamamagitan ng full-link na pag-optimize ng touch at display, pero iinit ang telepono.
+Panduan Kontroler
+Panduan Kontroler Game
+Panduan Pad Sentuh
+Panel Kontrol
+Paneli i kontrollit
+Para sa mga larong hindi sumusuporta sa game controller, maaari mong italaga ang mga button ng controller sa mga kontrol sa screen at maglaro gamit ang Mapping mode.
+Parempi herkkyys tehostaa kosketusvaikutuksia, kun taas heikompi herkkyys parantaa ohjauksen vakaata ja vähentää häiriöitä ja vääriä kosketuksia.
+Pasi aktivizohet, Kontrolli i temperaturës së lojës mund të ulë me efektivitet temperaturën e telefonit dhe të zgjatë kohën e lojës.
+Pastikan kedua kontroler terhubung saat memperbarui firmware.
+Pastikan kontroler game dinyalakan
+Pembaruan firmware gagal. Untuk menggunakan kontroler game dengan benar, silakan perbarui lagi.
+Pemeriksaan gagal. Silakan periksa pengaturan jaringan Anda
+Penelusuran suara
+Pengaturan Kontrol
+Pengaturan Kontroler
+Pengoptimalan jaringan
+Pengoptimuman Sentuh
+Pengubah Suara Ajaib
+Pengubah suara
+Pengubah suara aktif
+Pengubah suara dihidupkan
+Pengubah suara dimatikan
+Pengubah suara nonaktif
+Peningkatan Jaringan
+Peningkatan sensitivitas meningkatkan efek sentuhan, sementara penurunan sensitivitas meningkatkan stabilitas kontrol dan mengurangi interferensi dan sentuhan yang salah.
+Peningkatan sensitiviti meningkatkan kesan sentuhan, manakala penurunan sensitiviti meningkatkan kestabilan kawalan dan mengurangkan gangguan dan sentuhan palsu.
+Penukar Suara Ajaib
+Penyempurnaan Grafis
+Penyesuaian Kontrol
+Perangkat perekam sedang digunakan oleh aplikasi lain. Tutup aplikasi terlebih dahulu
+Perjanjian Layanan Keanggotaan Paket Suara
+Perjanjian Perkhidmatan Keahlian Pek Suara
+Perlindungan perubahan jaringan
+Personalizon ndjeshmërinë e kontrollit dhe aftësisë reaguese bazuar në preferencat dhe nivelin e aftësive të tua.
+Petunjuk Kalibrasi Kontroler
+Pievienojiet kontrolieri, lai iegūtu konsolei vai rokas ierīcei līdzīgāku spēlēšanas pieredzi.
+Pievienot spēļu kontrolieri
+Pilih Kontroler Game GT (Mode Gabungan) atau Kontroler Game GT (Mode Terbagi) dan hubungkan melalui Bluetooth.
+Pilih Wi-Fi dan data seluler secara cerdas untuk mengurangi kelambatan jaringan. Data seluler dapat digunakan meskipun jaringan Wi-Fi tersambung.
+Pindutin at i-hold ang Power button sa kaliwang controller at ang button ng Y sa kanang controller nang 2 segundo upang lumipat sa pagitan ng Mapping Mode at Native Mode.
+Place a mapping point over a skill button in MOBA games.
+Po përditësohet firmueri. Mos dil nga kjo faqe dhe mos e përdor kontrolluesin.
+Poboljšajte brzinu odziva kontrola optimizacijom pune veze između dodira i prikaza, ali ovo će uzrokovati zagrijavanje telefona.
+Poboljšajte brzinu odziva kontrole kroz optimizaciju dodira i ekrana u punoj vezi, ali to će dovesti do zagrevanja telefona.
+Poboljšava brzinu odziva kontrole kroz optimizaciju dodira i ekrana u punoj vezi, ali to će prouzrokovati zagrijavanje telefona.
+Podczas aktualizacji oprogramowania układowego upewnij się, że oba kontrolery są połączone.
+Podešavanja kontrola
+Podešavanja kontrolera
+Podešavanja kontrolera za igre nisu dostupna u režimu proširenog ekrana
+Podešavanje kontrola
+Podešavanje kontrole
+Podłącz kontroler gier, aby uzyskać lepsze wrażenia z gry. Czy chcesz podłączyć?
+Podłącz kontroler, aby uzyskać bardziej konsolowe lub przenośne doświadczenie gry.
+Pomyślnie dodano kontroler
+Ponovo pokrenite kontroler za igre radi pravilne upotrebe.
+Popis kontrolera
+Posodabljanje vdelane programske opreme. Ne zapuščajte te strani niti uporabljajte igralnega kontrolerja.
+Posodobitev ni uspela. Baterija kontrolerja je pod 30 %
+Posodobitev ni uspela. Prepričajte se, da sta oba kontrolerja povezana
+Posodobitev vdelane programske opreme ni bila uspešna. Če želite pravilno uporabljati igralni kontroler, ga znova posodobite.
+Postavke kontrole
+Postavke kontrolera
+Postavke kontrolera igre nisu dostupne u načinu Proširenja ekrana
+Postavke kontrolera za igre
+Postavke kontrolera za igre nijesu dostupne u režimu proširenja ekrana
+Postavke kontrolera za igre nisu dostupne u načinu rada Proširenje zaslona
+Povezave ni bilo mogoče vzpostaviti. Prepričajte se, da je kontroler v načinu seznanjanja
+Povezivanje nije uspjelo. Provjerite je li kontroler u načinu spajanja
+Povezivanje nije uspjelo. Uvjerite se da je kontroler za igre u režimu uparivanja
+Povećana osetljivost poboljšava efekte dodira, a smanjena osetljivost poboljšava stabilnost kontrole i smanjuje smetnje i lažne dodire.
+Povećana osjetljivost poboljšava efekte dodira, a smanjena osjetljivost poboljšava stabilnost kontrole i smanjuje smetnje i lažne dodire.
+Povećana osjetljivost poboljšava efekte dodira, dok smanjena osjetljivost povećava stabilnost kontrole i smanjuje smetnje i lažne dodire.
+Povežite igralni kontroler za boljšo igralno izkušnjo. Želite povezati?
+Povežite igralni kontroler za izkušnjo, ki je bolj podobna izkušnji na konzolah ali izkušnji na prenosnih igralnih sistemih.
+Povežite kontroler za bolje igračko iskustvo. Poveži se?
+Povežite kontroler za bolje iskustvo igranja. Povezati?
+Povežite kontroler za igre radi boljge iskustva igranja. Povezati?
+Povežite kontroler za iskustvo igranja sličnije konzoli ili ručnom uređaju.
+Povežite kontroler za iskustvo igranja više nalik konzoli ili ručnom uređaju.
+Povežite kontroler za konzolno ili prenosivo iskustvo igranja.
+Prebacivanje na Kombinirani način prekida vezu s kontrolerom za igre. Morat ćete ga ponovno upariti putem Bluetootha.
+Prebacivanje na Kombinovani režim će prekinuti vezu s kontrolerom igara. Morat ćete ga ponovo upariti putem Bluetootha.
+Prebacivanje na Podijeljeni režim prekinuće vezu s kontrolerom za igre. Moraćete ga ponovo upariti putem Bluetooth-a.
+Prebacivanje na Razdvojeni način prekida vezu s kontrolerom za igre. Morat ćete ga ponovno upariti putem Bluetootha.
+Prebacivanje na Režim podjele će isključiti kontroler igara. Morat ćete ga ponovo upariti putem Bluetootha.
+Prebacivanje na kombinovani režim će isključiti kontroler za igru. Moraćete ga ponovo upariti putem Bluetooth-a.
+Prebacivanjem na Kombinovani režim prekinuće se veza s kontrolerom za igre. Moraćete ga ponovo upariti putem Bluetooth-a.
+Preciznost mikro kontrola
+Preciznost mikro kontrole
+Preciznost mikrokontrole
+Prelazak na Režim podele će prekinuti vezu sa kontrolerom za igru. Moraćete ga ponovo upariti putem Bluetooth-a.
+Prepričajte se, da je kontroler vklopljen
+Prepričajte se, da sta oba kontrolerja povezana pri posodabljanju vdelane programske opreme.
+Press and hold di Power button for di left controller and di Y button for di right controller for 2 seconds to switch am between Mapping Mode and Local Mode.
+Press and hold the Power button on the left controller and the Y button on the right controller for 2 seconds to switch between Mapping Mode and Native Mode.
+Prikaz kontrolnikov predvajalnika
+Prikaži kontrole playera
+Prikaži kontrole plejera
+Prilagodite osetljivost i odziv kontrole na osnovu vaših preferencija i nivoa veštine.
+Prilagodite osjetljivost i odziv kontrola prema vašim preferencijama i nivou vještine.
+Prilagođava osjetljivost i reakciju kontrole po vašoj želji i nivou vještine.
+Pritisnite dugme za uključivanje/isključivanje na lijevom kontroleru i dugme Y na desnom kontroleru i držite ih pritisnutim 2 sekunde da prebacujete između režima mapiranja i izvornog režima.
+Pritisnite gumb za napajanje na lijevom kontroleru i gumb Y na desnom kontroleru i držite ih 2 sekunde kako biste prebacili između načina mapiranja i izvornog načina rada.
+Pritisnite i držite Dugme za uklj./isklj. na lijevom kontroleru i dugme Y na desnom kontroleru 2 sekunde da biste se prebacili između Načina mapiranja i Izvornog načina rada.
+Pritisnite i držite dugme za napajanje na levom kontroleru i dugme Y na desnom kontroleru 2 sekunde da biste se prebacivali između Načina mapiranja i Matičnog režima.
+Pritisnite in 2 sekundi pridržite gumb za vklop/izklop na levem kontrolerju in gumb Y na desnem kontrolerju za preklop med načinom preslikave in izvornim načinom.
+Programmaparatūras atjaunināšana neizdevās. Lai spēļu kontrolieri izmantotu pareizi, lūdzu, atjauniniet to vēlreiz.
+Programmaparatūras atjaunināšana. Lūdzu, neatstājiet šo lapu un nedarbiniet kontrolieri.
+Proszę ponownie uruchomić kontroler gier w celu prawidłowego działania.
+Proverite da li su oba kontrolera povezana tokom ažuriranja firmvera.
+Provjerite je li kontroler uključen
+Provjerite jesu li oba kontrolera povezana prilikom ažuriranja firmvera.
+Przełączenie na tryb podzielonego ekranu rozłączy kontroler gier. Konieczne będzie ponowne sparowanie przez Bluetooth.
+Przełączenie na tryb połączony rozłączy kontroler gier. Konieczne będzie ponowne sparowanie przez Bluetooth.
+Przytrzymaj przycisk zasilania na lewym kontrolerze oraz przycisk Y na prawym kontrolerze przez 2 sekundy, aby przełączać się między trybem mapowania a trybem natywnym.
+Pulihkan semua pengaturan kontroler ke default?
+Put mapping point on top one skill button for MOBA games.
+Për lojërat që mbështesin kontrollues loje, mund të luash direkt te Modaliteti lokal.
+Për lojërat që nuk mbështesin kontrolluesit e lojës, mund t'i hartëzosh butonat e kontrolluesit te kontrollet në ekran dhe të luash te Modaliteti i hartëzimit.
+Për përvojë më të mirë, rekomandohet të kalibrosh kontrolluesin e lojërave para përdorimit të parë.
+Për përvojë më të mirë, rekomandohet të kalibrosh kontrolluesin e lojërave pas përditësimit të firmuerit.
+Përditësimi dështoi. Bateria e kontrolluesit nën 30%
+Përditësimi dështoi. Sigurohu që të dy kontrolluesit të jenë të lidhur
+Përditësimi i firmuerit dështoi. Për të përdorur siç duhet kontrolluesin e lojës, përditësoje përsëri.
+Përdor bllokun me prekje për të kontrolluar drejtimin e aftësive të shënjestrimit me tërheqje në lojëra.
+Përdor kontrollet me prekje
+Përforcimi dështoi. Kontrollo rrjetin tënd dhe provo përsëri
+Përmirëson shpejtësinë e reagimit të kontrollit përmes optimizimit me lidhje të plotë të prekjes dhe afishimit, por kjo shkakton nxehjen e telefonit.
+Përshtatja e kontrollit
+Pārliecinieties, vai kontrolieris ir ieslēgts
+Pārslēdzoties uz Apvienoto režīmu, spēļu kontrolieris tiks atvienots. Jums tas atkal būs jāsavieno pārī, izmantojot Bluetooth.
+Pārslēdzoties uz Sadalīto režīmu, spēļu kontrolieris tiks atvienots. Jums tas būs jāpāro vēlreiz, izmantojot Bluetooth.
+Rammainnskot að 120 FPS
+Rammeinterpolasjon til 120 FPS
+Reduserer berøringstregheten med fullkoblings berøringskontrollteknologi, men dette vil heve temperaturen på enheten og redusere batterilevetiden.
+Rekam
+Respons ketukan lebih sensitif, cocok untuk permainan MOBA.
+Respons sentuhan lebih sensitif dan akurat, cocok untuk kebanyakan game.
+Režim kontrolera
+Rinis kontrolluesin e lojës për përdorim të duhur.
+Rritja e ndjeshmërisë përmirëson efektet e prekjes, kurse ulja e ndjeshmërisë përmirëson stabilitetin e kontrollit dhe zbut interferencën dhe prekjet gabimisht.
+S preklopom v Kombiniran način bo prekinete povezavo z igralnim kontrolerjem. Morali ga boste znova seznaniti prek povezave Bluetooth.
+Sa Mapping Mode, pindutin ang Window key upang mabilis na buksan ang mga setting ng Mapping Mode.
+Saat mode aktif, touchpad dibagi menjadi empat area, masing-masing sesuai dengan satu titik pemetaan.
+Sakrij kontrole playera
+Sakrij kontrole plejera
+Saktësia e mikro kontrollit
+Saktësia më e lartë mundëson identifikim më të saktë të mikro kontrolleve, kurse saktësia më e ulët zvogëlon ndjeshmërinë për këto kontrolle, por përmirëson stabilitetin e funksionimit.
+Savienojiet kontrolieri labākai spēļu pieredzei. Savienot?
+Schimbător voce magică
+Se till att båda spelkontrollerna är anslutna när du uppdaterar den fasta programvaran.
+Se till att kontrollern är påslagen
+Selama proses tersebut, ketika teman Anda berhasil menerima dan memasang game untuk pertama kali, Anda akan menerima kode penukaran game. Ketuk Tukarkan untuk mengklaim hadiah Anda.
+Selamat datang di Kontroler Game GT
+Semua Suara
+Sensitivitas Ketuk
+Sesuaikan gaya grafis
+Sesuaikan sensitivitas dan daya tanggap kontrol berdasarkan preferensi dan tingkat keterampilan Anda.
+Sesuaikan untuk kualitas gambar yang lebih tinggi atau kecepatan pemrosesan yang lebih tinggi.
+Setelah teman Anda berhasil menerima dan memasang game untuk pertama kali, Anda akan menerima kode penukaran game. Ketuk Tukarkan untuk mengklaim hadiah Anda.
+Seznam igralnih kontrolerjev
+Shigarwa Firam zuwa 120 FPS
+Shto një kontrollues lojërash
+Shtuar me sukses. Mund ta kontrollosh në ekranin kryesor
+Sigurohu që kontrolluesi të jetë i ndezur
+Sigurohu që të dy kontrolluesit të jenë të lidhur gjatë përditësimit të firmuerit.
+Sigurohu që versioni i lojës dhe burimet të jenë të përditësuara, në mënyrë që lojtari tjetër të mund të hyjë direkt në lojë.
+Silakan mulai ulang kontroler game untuk penggunaan yang tepat.
+Sinyal jaringan
+Sirreessuun hin xumuramne. Karaa kamiinuu cufee bahuu?
+Skjul avspillingskontrollene
+Skontrolovať aktualizácie
+Skratite kašnjenje dodira putem tehnologije kontrole dodirom pune veze, ali će to povećati temperaturu uređaja i smanjiti vijek trajanja baterije.
+Skrivanje kontrolnikov predvajalnika
+Slå på spelkontroller.
+Slå på spillkontrolleren.
+Smanjite kašnjenje dodira kroz tehnologiju kontrole dodira pune veze, ali to će povećati temperaturu uređaja i smanjiti radni vek baterije.
+Spelkontroller
+Spelkontrollern har kopplats bort. Du kommer att omdirigeras till startsidan.
+Spelläge för spelkontroller
+Spiller mat Kontroller
+Spillkontroller
+Spillkontroller getrennt. Du gëss op d'Homepage weidergeleet.
+Spillkontroller-spill
+Spillkontrolleren er koblet fra. Du blir omdirigert til startsiden.
+Spillkontrollerguide
+Spillkontrollermodus
+Spilltemperaturkontroll
+Spojite kontroler za bolje iskustvo igranja. Želite li spojiti?
+Spojite kontroler za iskustvo igranja sličnije onome na konzoli ili prijenosnoj igraćoj konzoli.
+Spēlēm, kas atbalsta spēļu kontrolierus, varat spēlēt uzreiz oriģinālajā režīmā.
+Spēlēm, kas neatbalsta spēļu kontrolierus, varat kartēt kontroliera pogas uz ekrāna vadīklām un spēlēt kartēšanas režīmā.
+Spēļu kontroliera iestatījumi nav pieejami Ekrāna paplašināšanas režīmā
+Spēļu kontroliera režīms
+Spēļu kontroliera rokasgrāmata
+Spēļu kontroliera vibrācija automātiski izslēgsies, kad akumulatora uzlādes līmenis nokrītas zem 10 %.
+Spēļu kontrolieris
+Spēļu kontrolieris atvienots. Jūs tiksiet pārvirzīts uz sākumlapu.
+Start de Spillkontroller fir richteg Notzung wgl. nei.
+Start spillkontrolleren på nytt for riktig bruk.
+Starta om spelkontrollern för korrekt användning.
+Stell sécher, datt béid Kontrollere verbonne sinn, wann d'Firmware aktualiséiert gëtt.
+Stell sécher, datt de Kontroller aktivéiert ass
+Strateegia importimine nurjus. Kontrollige, kas mudel on ühilduv
+Strategien er importert. Kontroller i tilhørende spill
+Strategin importerades framgångsrikt. Kontrollera i motsvarande spel
+Strategjia u importua me sukses. Kontrollo në lojën përkatëse
+Strateji içe aktarılamadı. Lütfen modelin uyumlu olup olmadığını kontrol edin
+Strateji içe aktarıldı. Lütfen ilgili oyunda kontrol edin
+Stratégia bola úspešne importovaná. Skontrolujte to v príslušnej hre
+Stratégiu sa nepodarilo importovať. Skontrolujte, či je model kompatibilný
+Suara Lelaki
+Suara Perempuan
+Suara Pria
+Suara Wanita
+Suara ajaib bebas digunakan
+Suara ajaib percuma untuk digunakan
+Suara surround
+Sudah memiliki semua suara
+Sudah mempunyai semua suara
+Sørg for at begge spillkontrollerne er tilkoblet når du oppdaterer fastvaren.
+Sørg for at kontrolleren er slått på
+Taga-kontrol ng Laro
+Tam bağlantı dokunmatik kontrol teknolojisi ile dokunma gecikmesini azaltın ancak bu durumda cihaz sıcaklığı artacak ve pil ömrü azalacaktır.
+Tambahkan kontroler game
+Tambahkan widget Saran Game ke layar utama untuk akses satu ketukan ke game dengan pengaturan optimal.
+Tekan dan tahan butang Kuasa pada pengawal permainan kiri dan butang Y pada pengawal permainan kanan selama 2 saat untuk beralih antara Mod Pemetaan dan Mod Asli.
+Tekan dan tahan tombol Daya pada kontroler kiri dan tombol Y pada kontroler kanan selama 2 detik untuk beralih antara Mode Pemetaan dan Mode Native.
+Tempatkan titik pemetaan di atas tombol skill dalam game MOBA.
+Temperaturkontroll fir Gaming
+Tercihlerinize ve yetenek seviyenize göre kontrol hassasiyetini ve tepki hızını özelleştirin.
+Tidak ada jaringan
+Tidak ada jaringan tersedia!
+Tidak ada koneksi jaringan. Periksa jaringan Anda dan %s
+Tidak ada koneksi jaringan. Periksa jaringan Anda dan coba lagi
+Tidak ada koneksi jaringan. Silakan periksa status jaringan
+Tidak dapat memperbarui. Silakan periksa pengaturan jaringan Anda
+Tilføjet med succes. Du kan kontrollere det på startskærmen
+Tilpass kontrollenes følsomhet og respons ut fra egne preferanser og ferdighetsnivå.
+Tindak balas sentuhan lebih sensitif dan tepat, sesuai untuk kebanyakan permainan.
+Tingkatkan kecepatan respons kontrol melalui pengoptimalan tautan penuh pada sentuhan dan tampilan, tetapi ini akan menyebabkan ponsel menjadi panas.
+Tingkatkan kelajuan tindak balas kawalan melalui pengoptimuman pautan penuh untuk sentuhan dan paparan, tetapi ini akan menyebabkan telefon menjadi panas.
+Tingkatkan stabilitas jaringan ketika Anda bermain game. Pengguna baru dapat mencobanya gratis selama beberapa hari
+Tingkatkan suara langkah kaki
+Točnost mikrokontrole
+Tryb kontrolera
+Trykk og hold på strømknappen på den venstre spillkontrolleren og Y-knappen på den høyre spillkontrolleren i 2 sekunder for å bytte mellom kartleggingsmodus og innebygd modus.
+Tukar suara anda dalam permainan dalam masa nyata.
+Turbo Game Xunyou yang dibangun di Ruang Game/XArena adalah produk yang secara spesifik dirancang untuk TECNO/Infinix guna meningkatkan stabilitas jaringan game. Ini dapat menyelesaikan masalah latensi tinggi, putus koneksi, dsb., serta menjadikan jaringan lebih mulus dan game lebih stabil. Ini mendukung Wi-Fi dan jaringan data lainnya (5G/4G/3G).
+Të rivendosen të gjitha cilësimet e kontrolluesit në vlerat e parazgjedhura?
+Ubah suara Anda di game secara real time.
+Ubah suara Anda saat dalam game
+Ubah suara anda semasa dalam permainan
+Udhëzimet e kalibrimit të kontrolluesit
+Udhëzuesi i kontrolluesit
+Udhëzuesi i kontrolluesit të lojës
+Ufafanuzi wa Fremu kwa FPS 120
+Uključite kontroler za igre.
+Uključite kontroler.
+Ukumia Buremu ya Ûme mwanka 120 FPS
+Ulanmadi. Iltimos, kontrollerning juftlash rejimida ekanligiga ishonch hosil qiling
+Umerjanje kontrolerja
+Umetanje sličica do 120 FPS
+Untuk game yang mendukung kontroler game, Anda dapat memainkannya di Mode Native.
+Untuk game yang tidak mendukung kontroler game, Anda dapat memetakan tombol kontroler ke kontrol di layar dan bermain dalam Mode Pemetaan.
+Untuk pengalaman yang lebih baik, disarankan untuk melakukan kalibrasi kontroler game sebelum penggunaan pertama.
+Untuk pengalaman yang lebih baik, disarankan untuk melakukan kalibrasi kontroler game setelah memperbarui firmware.
+Untuk permainan yang tidak menyokong pengawal permainan, anda boleh memetakan butang pengawal permainan kepada kawalan pada skrin dan bermain dalam Mod Pemetaan.
+Upewnij się, że kontroler jest włączony
+Upgrade vun der Firmware leeft. Verlooss dës Säit wgl. net a benotz de Kontroller net.
+Uporabi kontrolnike na dotik
+Uppdaterar den fasta programvaran. Lämna inte den här sidan och använd inte spelkontrollen.
+Uppdatering av den fasta programvaran misslyckades. För att använda spelkontrollern korrekt måste du uppdatera den igen.
+Uppdateringen misslyckades. Kontrollerns batterinivå under 30 %.
+Uppdateringen misslyckades. Se till att båda spelkontrollanterna är anslutna
+Upute za kalibraciju kontrolera
+Uputstva za kalibraciju kontrolera
+Uputstva za kalibraciju kontrolera za igre
+Ustawienia kontrolera do gier nie są dostępne w trybie rozszerzenia ekranu
+Ustawienia kontrolera gier
+Uvjerite se da je kontroler uključen
+Uvjerite se da su oba kontrolera za igre povezana prilikom ažuriranja firmvera.
+V igrah, ki ne podpirajo igralnih kontrolerjev, lahko gumbe kontrolerja preslikate na kontrolnike na zaslonu in igrate v načinu preslikave.
+Vai atjaunot visus kontroliera iestatījumus uz noklusējuma iestatījumiem?
+Veća stopa uzorkovanja dodira poboljšava odziv kontrole, ali povećava potrošnju energije.
+Veća stopa uzorkovanja dodira poboljšava odziv kontrole, ali povećava potrošnju energije. Izaberite opciju Inteligentno da biste povećali stopu uzorkovanja dodirom samo tokom igranja.
+Ved bytte til kombinert modus vil spillkontrolleren bli koblet fra. Du må koble den til igjen via Bluetooth.
+Ved å bytte til delt modus vil spillkontrolleren bli koblet fra. Du må koble den til igjen via Bluetooth.
+Veileder for spillkontroller
+Velg GT-spillkontroller (kombinert modus) eller GT-spillkontroller (delt modus) og koble til via Bluetooth.
+Velkommen til GT-spillkontrolleren
+Verbann e Kontroller fir eng besser Spillerfarung. Verbannen?
+Verbann e Kontroller fir eng méi konsolänlech oder Handheld-änlech Spillerfarung.
+Verbindung feelgeschloen. Stell wgl. sécher, datt de Kontroller am Kopplungsmodus ass
+Versteek spelerkontroles
+Veća brzina uzorkovanja dodira poboljšava reagovanje kontrole, ali povećava potrošnju energije.
+Veća brzina uzorkovanja dodira poboljšava reagovanje kontrole, ali povećava potrošnju energije. Označite Inteligentnu opciju za pojačavanje brzine uzorkovanja dodira samo tokom igranja.
+Veća osjetljivost poboljšava dodirne efekte, dok manja osjetljivost poboljšava stabilnost kontrole te smanjuje smetnje te slučajne dodire.
+Veća preciznost omogućava precizniju identifikaciju mikro kontrola, dok niža preciznost smanjuje osjetljivost ovih kontrola ali poboljšava operativnu stabilnost.
+Veća preciznost omogućava precizniju identifikaciju mikrokontrola, dok niža preciznost smanjuje osetljivost na ove kontrole, ali poboljšava stabilnost rada.
+Veća preciznost omogućava precizniju identifikaciju mikrokontrola, dok niža preciznost smanjuje osjetljivost na ove kontrole, ali poboljšava stabilnost rada.
+Veća stopa uzorkovanja dodira poboljšava odzivnost kontrola, ali povećava potrošnju energije.
+Veća stopa uzorkovanja dodira poboljšava odzivnost kontrola, ali povećava potrošnju energije. Odaberite inteligentnu opciju za povećanje stope uzorkovanja dodira samo tokom igranja.
+Veći pokazatelji pokazuju bolje iskustvo kontrole igranja.
+Vibracija kontrolera
+Vibracija kontrolera isključena
+Vibracija kontrolera uključena
+Vibracija kontrolera za igre
+Vibracija kontrolera za igre automatski se isključuje kada baterija padne ispod 10 %.
+Vibracija kontrolera za igre automatski će se isključiti kada nivo baterije padne ispod 10%.
+Vibracija kontrolera za igre je isključena
+Vibracija kontrolera za igre je uključena
+Vibracija kontrolera za igru će se automatski isključiti kada nivo baterije padne ispod 10%.
+Vibracije igralnega kontrolerja
+Vibracije igralnega kontrolerja izklopljene
+Vibracije igralnega kontrolerja se bodo samodejno izklopile, ko raven baterije pade pod 10 %.
+Vibracije igralnega kontrolerja vklopljene
+Vibration för spelkontrollern stängs av automatiskt när batterinivån sjunker under 10 %.
+Vibratioun vum Kontroller
+Vibratioun vum Kontroller aus
+Vibratioun vum Kontroller un
+Vis avspillingskontrollene
+Visa spelarkontroller
+Visoka točnost omogućuje preciznu identifikaciju mikrokontrola, dok niža točnost smanjuje osjetljivost na te kontrole, ali povećava stabilnost rada.
+Viši indeksi ukazuju na bolje iskustvo kontrolisanja igre.
+Vklopite kontroler.
+Voci magice gratuite
+Voci magiche gratuite
+Vodič za kontroler
+Vodič za kontroler igara
+Vodič za kontroler za igre
+Vodnik za igralni kontroler
+Vodnik za kontroler
+Voor games die geen ondersteuning bieden voor gamecontrollers kunt u de knoppen van de gamecontroller toewijzen aan schermbedieningselementen en spelen in Mappingmodus.
+Vratiti sva podešavanja kontrolera na podrazumevana?
+Vratiti sve postavke kontrolera za igre na podrazumijevano?
+Välj GT-spelkontroller (kombinerat läge) eller GT-spelkontroller (delat läge) och anslut via Bluetooth.
+Välkommen till GT-spelkontroller
+Värskendamine nurjus. Kontrollige oma võrgusätteid
+Växling till Delat läge kopplar från spelkontrollern. Du måste parkoppla den igen via Bluetooth.
+Växling till Kombinerat läge kopplar från spelkontrollern. Du måste para den igen via Bluetooth.
+Võimendamine nurjus. Palun kontrollige oma võrku ja proovige uuesti
+Võrguühendust pole. Kontrollige oma võrku ja üksust %s
+Võrguühendust pole. Kontrollige võrgu olekut
+Võrguühendust pole. Palun kontrollige oma võrku ja proovige uuesti
+Vũlemũ Nzeo Ya Kũsianĩsya kwa 120 FPS
+W grach, które nie obsługują kontrolerów, możesz mapować przyciski kontrolera na sterowanie ekranowe i grać w trybie mapowania.
+W grach, które obsługują kontrolery, możesz grać bezpośrednio w trybie natywnym.
+Wakati wa tukio hilo, rafiki yako anapopokea na kusakinisha mchezo kwa mara ya kwanza kwa mafanikio, utapokea nambari ya ukomboaji wa mchezo. Gusa Komboa ili kudai zawadi yako.
+Wann aktivéiert, kann d’Temperaturkontroll fir Gaming d’Temperatur vum Telefon effikass reduzéieren an d’Spillzäit verlängeren.
+Wann dat aktuellt Spill de gedeelte Modus net ënnerstëtzt, kann de Kontroller net am gedeelte Modus benotzt ginn.
+Wann s du op de gedeelte Modus wiessels, gëtt de Spillkontroller getrennt. Du muss en erëm iwwer Bluetooth koppelen.
+Wann s du op de kombinéierte Modus wiessels, gëtt de Spillkontroller getrennt. Du muss en erëm iwwer Bluetooth koppelen.
+Wen di mode dey on, di touchpad go divide into four parts, and each part go match one mapping point.
+When the mode is on, the touchpad is divided into four areas, each corresponding to a mapping point.
+Wibracje kontrolera
+Wibracje kontrolera do gier zostaną automatycznie wyłączone, gdy poziom baterii spadnie poniżej 10%.
+Wibracje kontrolera wyłączone
+Wibracje kontrolera włączone
+Wiel GT Spillkontroller (Kombinéierte Modus) oder GT-Spillkontroller (Gedeelte Modus) a verbann dech iwwer Bluetooth.
+Witamy w kontrolerze do gier GT
+Wybierz kontroler gier GT (tryb połączony) lub kontroler gier GT (tryb podzielonego ekranu) i połącz przez Bluetooth.
+Wys spelerkontroles
+Wyższe wartości wskaźników oznaczają większą kontrolę nad grą.
+Wëllkomm bei GT-Spillkontroller
+Włącz kontroler.
+Włączono kontrolę klasy e-sportowej. Temperatura urządzenia może wzrosnąć.
+Yangilash amalga oshmadi. Iltimos, har ikki kontrollerning ulanganiga ishonch hosil qiling
+Yangilash amalga oshmadi. Kontroller batareyasi 30% dan past
+Yaw Chenro Yor Mapping
+Yaxshiroq tajriba uchun birinchi marta foydalanishdan oldin oʻyin kontrollerini kalibrlash tavsiya etiladi.
+Yaxshiroq tajriba uchun mikrodastur yangilanganidan soʻng oʻyin kontrollerini kalibrlash tavsiya etiladi.
+Yenilənmədi. Hər iki kontrollerin qoşulduğundan əmin olun
+Yenilənmədi. Kontroller batareyası 30%-dən aşağıdır
+Za bolje iskustvo preporučuje se kalibracija kontrolera nakon nadogradnje firmvera.
+Za bolje iskustvo preporučuje se kalibracija kontrolera prije prvog korištenja.
+Za bolje iskustvo, preporučuje se da kalibrirate kontroler igre prije prve upotrebe.
+Za bolje iskustvo, preporučuje se da kalibrišete kontroler za igre poslije ažuriranja firmvera.
+Za bolje iskustvo, preporučuje se da kalibrišete kontroler za igre prije prve upotrebe.
+Za bolje iskustvo, preporučuje se da kalibrišete kontroler za igru pre prve upotrebe.
+Za bolje iskustvo, preporučuje se kalibracija kontrolera igre nakon ažuriranja firmvera.
+Za bolje iskustvo, preporučuje se kalibrisanje kontrolera za igru nakon ažuriranja firmvera.
+Za boljšo izkušnjo je priporočljivo umeriti igralni kontroler po posodobitvi vdelane programske opreme.
+Za boljšo izkušnjo je priporočljivo umeriti igralni kontroler pred prvo uporabo.
+Za igre koje ne podržavaju kontrolere možete mapirati dugmad kontrolera na kontrole na ekranu i igrati u Načinu mapiranja.
+Za igre koje ne podržavaju kontrolere za igre možete mapirati dugmad kontrolera na kontrole na ekranu i igrati u Načinu mapiranja.
+Za igre koje ne podržavaju kontrolere za igre možete mapirati dugmad kontrolera na kontrole na ekranu i igrati u režimu mapiranja.
+Za igre koje ne podržavaju kontrolere za igre, gumbe kontrolera možete mapirati na kontrole na zaslonu i igrati u načinu mapiranja.
+Za igre koje podržavaju kontrolere možete igrati direktno u Izvornom načinu rada.
+Za igre koje podržavaju kontrolere za igre možete igrati direktno u Izvornom režimu.
+Za igre koje podržavaju kontrolere za igre možete igrati direktno u Matičnom režimu.
+Za igre koje podržavaju kontrolere za igre možete igrati izravno u izvornom načinu rada.
+Za ispravnu upotrebu ponovno pokrenite kontroler za igre.
+Zgjidh Kontrolluesi i lojërave GT (Modaliteti i kombinuar) ose GT Kontrolluesi i lojërave GT (Modaliteti i ndarjes) dhe lidhe me Bluetooth-in.
+Zkontrolovat aktualizace
+Znova zaženite igralni kontroler za pravilno delovanje.
+Zoznam kontrolérov
+Zvogëlon vonesën e prekjes përmes teknologjisë së kontrollit të prekjes me lidhje të plotë, por kjo rrit temperaturën e pajisjes dhe shkurton jetën e baterisë.
+Zvýšení výkonu se nezdařilo. Zkontrolujte síť a zkuste to znovu
+Àlàfo firẹmu sí 120 FPS
+Återställ alla inställningar för spelkontrollern till standardvärden?
+Ökad känslighet förbättrar beröringseffekterna, medan minskad känslighet förbättrar kontrollstabiliteten och minskar störningar och falska beröringar.
+Øget følsomhed forbedrer berøringseffekter, mens mindsket følsomhed forbedrer kontrolstabilitet og mindsker interferens og falske berøringer.
+Økt følsomhet forbedrer berøringseffekter, mens redusert følsomhet forbedrer kontrollstabiliteten og forstyrrelser ved feilberøringer.
+Úspešne pridané. Môžete skontrolovať na domovskej obrazovke
+Úspěšně přidáno. Můžete to zkontrolovat na domovské obrazovce
+Če preklopite na deljeni način, boste prekinili povezavo z igralnim kontrolerjem. Znova ga boste morali seznaniti prek povezave Bluetooth.
+Če trenutna igra ne podpira deljenega načina, igralnega kontrolerja ni mogoče uporabljati v deljenem načinu.
+Ĩvindanĩ ya ũndũ ũsu, yĩla mũnyanya waku wakwata na kwĩkĩa ĩthaũ yĩu ĩvindanĩ ya mbee, nũũkwata namba ya kũkomboa ĩthaũ. Tina Komboa nokenda ũkwate mũthĩnzĩo waku.
+Želite li vratiti sve postavke kontrolera na zadane vrijednosti?
+Želite obnoviti vse nastavitve igralnega kontrolerja na privzete vrednosti?
+Žiadne sieťové pripojenie. Skontrolujte stav siete
+Žádné připojení k síti. Zkontrolujte síť a zkuste to znovu
+Παρεμβολή Πλαισίου σε 120 FPS
+Интерполация на кадри до 120 FPS
+Интерполација на кадри до 120 FPS
+Интерполясияи чаҳорчӯба то 120 FPS
+Хүрээний интерполяцыг 120 FPS болгох
+ئینتەرپۆلاسیۆنی فرێم بۆ ١٢٠ FPS
+درون‌یابی فریم به ‎120 FPS
+فریم انٹرپولیشن 120 FPS پٮ۪ٹھۍ
+فریم انٹرپولیشن کو 120 FPS
+ஃபிரேம் இன்டர்பொலேஷன் 120 FPS
+ഫ്രെയിം ഇന്റർപോളേഷൻ 120 FPS-ലേക്ക്
+රාමු 120 FPS වෙත සංයුක්ත කිරීම
+การแทรกเฟรมเป็น 120 FPS
+ການແກ້ໄຂຂອບເປັນ 120 FPS
+ဖရိန္ အင္တာပိုေလးရွင္းကို 120 FPS အထိေရာက္ေအာင္ျပဳလုပ္ျခင္း
+ဖရိမ် တန်ဖိုးခန့်မှန်းချက် 120 FPS အထိ
+የፍሬም ጣልቃ ገብነት ወደ 120 FPS
+ፍሬም ናብ 120 FPS ምጥልላፍ
+កែខៃស៊ុមទៅ 120 FPS
+影格率插值達 120 FPS

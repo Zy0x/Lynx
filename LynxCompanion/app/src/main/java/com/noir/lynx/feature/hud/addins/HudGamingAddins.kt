@@ -16,7 +16,10 @@ import android.util.DisplayMetrics
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
+import com.noir.lynx.feature.hud.combo.HudComboManager
+import com.noir.lynx.feature.hud.touch.HudZoneTouchManager
+import com.noir.lynx.feature.hud.perf.HudGameShiftEngine
+import com.noir.lynx.feature.hud.network.HudNetworkStabilizer
 
 /** One HUD-owned session in :hud. UI never owns hardware or notification listeners. */
 class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
@@ -44,6 +47,10 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     val batteryStart = mutableBatteryStart.asStateFlow()
     fun acceptBattery(value: Int?) { if (mutableBatteryStart.value == null && value != null && value in 0..100) mutableBatteryStart.value = value }
     val magic = HudMagicBox(context, scope, prefs)
+    val comboManager = HudComboManager(context, scope, prefs)
+    val zoneTouch = HudZoneTouchManager(context, scope, prefs)
+    val gameShift = HudGameShiftEngine(context, scope, prefs)
+    val networkTurbo = HudNetworkStabilizer(context, scope, prefs)
     private var wifiLock: WifiManager.WifiLock? = null
     private val mutableWifi = MutableStateFlow(false)
     val wifiBoost = mutableWifi.asStateFlow()
@@ -156,6 +163,8 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         if (previousDimensions != null && previousDimensions != dimensions && recorder.state.value.busy) recorder.stop()
         previousDimensions = dimensions
         magic.update(pkg, hudOpen, dimensions.first, dimensions.second)
+        comboManager.updateDimensions(pkg, hudOpen, dimensions.first, dimensions.second)
+        gameShift.updateForeground(pkg)
         if (context.getSystemService(PowerManager::class.java)?.isInteractive != true) {
             setWifiBoost(false)
             glowOverlay.close()
@@ -167,6 +176,9 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         closed = true
         runCatching { context.unregisterReceiver(screenOff) }
         magic.stop()
+        comboManager.stopExecution()
+        networkTurbo.release()
+        gameShift.release()
         recorder.close()
         recordingIndicator.close()
         screenshotPreview.close()

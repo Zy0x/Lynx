@@ -2205,8 +2205,8 @@
     <string name="hud_wifi_latency_note">Requests a Wi-Fi lock for the Lynx Engine session. Enforcement depends on Android and the radio; battery use may increase. Game packets are unchanged.</string>
     <string name="hud_network_dual">Wi-Fi: %1$s · Mobile: %2$s</string>
     <string name="hud_network_bonding_note">Two available connections do not imply combined bandwidth. Bonding other apps requires a compatible transport/server; Lynx does not claim that support.</string>
-    <string name="hud_magic_title">Magic Box</string>
-    <string name="hud_magic_description">A root-based custom tap sequence for the active app. Set up to 5 points as screen percentages; start, then close the Lynx Engine panel.</string>
+    <string name="hud_magic_title">Combo Macro</string>
+    <string name="hud_magic_description">Record &amp; trigger combo tap sequences (C₁, C₂, etc.) in-game using precision floating trigger buttons.</string>
     <string name="hud_magic_point">Point %1$d</string>
     <string name="hud_magic_position">X %1$d%% · Y %2$d%%</string>
     <string name="hud_magic_add">Add</string>
@@ -2214,7 +2214,7 @@
     <string name="hud_magic_interval">Delay between taps: %1$d ms</string>
     <string name="hud_magic_start">Start sequence</string>
     <string name="hud_magic_stop">Stop sequence</string>
-    <string name="hud_magic_limits">Maximum 30 taps / 60 seconds. Stops on screen off, screen size or app changes. Opening Lynx Engine pauses taps. This sequence does not automatically recognize dialogue.</string>
+    <string name="hud_magic_limits">Maximum 25 taps per combo. Stops when screen turns off or game closes.</string>
     <string name="hud_magic_x">Tap X position</string>
     <string name="hud_magic_y">Tap Y position</string>
     <string name="hud_magic_delay">Tap delay</string>
@@ -2224,6 +2224,50 @@
     <string name="hud_magic_save_only">Save</string>
     <string name="hud_magic_save_and_run">Save &amp; Run</string>
     <string name="hud_magic_cancel">Cancel</string>
+    <string name="hud_magic_record">Record</string>
+    <string name="hud_magic_record_again">Record Again</string>
+    <string name="hud_magic_recording">Recording...</string>
+    <string name="hud_magic_name_prefix">Name: %1$s</string>
+    <string name="hud_magic_name_label">Name</string>
+    <string name="hud_magic_default_name">Quick Combo 1</string>
+    <string name="hud_magic_edit_name_title">Combo Name</string>
+    <string name="hud_magic_tap_record_hint">Tap anywhere on the screen to record combo points</string>
+
+    <!-- ZoneTouch Master -->
+    <string name="hud_zonetouch_title">ZoneTouch Master</string>
+    <string name="hud_zonetouch_desc">Hardware touch IC optimization, minimal touch slop (2px), and edge deadzones.</string>
+    <string name="hud_zonetouch_esports">Esports Full-Link Boost</string>
+    <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
+    <string name="hud_zonetouch_slop">Ultra-Sensitive (2px Slop)</string>
+    <string name="hud_zonetouch_slop_desc">Detects finger movement at just 2 pixels for instant micro-aiming response.</string>
+    <string name="hud_zonetouch_deadzone">Screen Edge Deadzone: %1$d dp</string>
+
+    <!-- TouchShare -->
+    <string name="hud_touchshare_export">Copy Code (TouchShare)</string>
+    <string name="hud_touchshare_import">Paste &amp; Apply</string>
+    <string name="hud_touchshare_dialog_title">Import TouchShare Combo</string>
+    <string name="hud_touchshare_dialog_desc">Paste a LYNX-COMBO# string to apply the touch sequence to this slot.</string>
+    <string name="hud_touchshare_copied">Combo code copied to Clipboard!</string>
+    <string name="hud_touchshare_success">Combo imported successfully!</string>
+    <string name="hud_touchshare_invalid">Invalid combo code format!</string>
+
+    <!-- GameShift -->
+    <string name="hud_gameshift_title">GameShift Reactive Turbo</string>
+    <string name="hud_gameshift_desc">Instantly detects SurfaceFlinger frame drops and injects a 3.0s governor boost.</string>
+    <string name="hud_gameshift_toggle">GameShift Reactive Boost</string>
+    <string name="hud_gameshift_status">Status: %1$d jank spikes smoothed</string>
+
+    <!-- Dual-Channel Network Turbo -->
+    <string name="hud_net_turbo_title">Dual-Channel Network Turbo</string>
+    <string name="hud_net_turbo_desc">Wi-Fi low latency lock, anti-sleep radio, scans throttled, and cellular on standby.</string>
+    <string name="hud_net_turbo_toggle">Network Turbo &amp; Anti-Jitter</string>
+    <string name="hud_net_turbo_cellular">Mobile Data Hot-Standby (Failover)</string>
+    <string name="hud_net_turbo_tcp">Anti-Bufferbloat TCP Tuning</string>
+
+    <!-- Smart Bypass Threshold -->
+    <string name="hud_bypass_threshold_label">Bypass Threshold: %1$d%%</string>
+    <string name="hud_bypass_threshold_desc">Battery charges up to %1$d%%, then charger power directs straight to SoC (0 mA to battery).</string>
+    <string name="hud_bypass_thermal_cut">42.0°C Thermal Auto-Cut: Bypass is forced active at high temperatures to protect the battery.</string>
     <string name="hud_addin_inactive">Inactive</string>
     <string name="hud_network_manual_test">Manual test</string>
     <string name="hud_shield_mode_alarms">Alarms only</string>

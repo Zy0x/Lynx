@@ -82,7 +82,7 @@ fun HudSidebar(
     var page by remember { mutableStateOf(HudPage.Summary) }
     var manageApps by remember { mutableStateOf(false) }
     var addinPage by rememberSaveable { mutableIntStateOf(-1) }
-    val addinScrolls = (0..7).associateWith { rememberScrollState() }
+    val addinScrolls = (0..8).associateWith { rememberScrollState() }
     val scrolls = mapOf(
         HudPage.Summary to rememberScrollState(),
         HudPage.Details to rememberScrollState(),

@@ -1,0 +1,645 @@
+
+==================== XBOOST / XBOOST AI (Total: 1) ====================
+- X-Boost
+
+==================== COMBO / MACRO (Total: 7) ====================
+- Baada ya rafiki yako kupokea na kusakinisha mchezo kwa mara ya kwanza kwa mafanikio, utapokea nambari ya ukomboaji wa mchezo. Gusa Komboa ili kudai zawadi yako.
+- Detekován požadavek na sdílení heslové fráze makra %1$s. Importovat makro?
+- Gwatia irikania bia ugima na ukaria bia meetho, njira ya gukara nthi, njira ya kurega kugwatwa ukombo.
+- Kukomboa
+- Sdílet makro %1$s
+- Wakati wa tukio hilo, rafiki yako anapopokea na kusakinisha mchezo kwa mara ya kwanza kwa mafanikio, utapokea nambari ya ukomboaji wa mchezo. Gusa Komboa ili kudai zawadi yako.
+- Ĩvindanĩ ya ũndũ ũsu, yĩla mũnyanya waku wakwata na kwĩkĩa ĩthaũ yĩu ĩvindanĩ ya mbee, nũũkwata namba ya kũkomboa ĩthaũ. Tina Komboa nokenda ũkwate mũthĩnzĩo waku.
+
+==================== SHOULDER KEY / GAMING TRIGGERS (Total: 22) ====================
+- 305799~System navigation needs to be triggered twice in succession to prevent accidental exit from the game.
+- 333374~GT Trigger
+- Abeg press di two triggers well togeda three times.
+- GT Trigger
+- GT-trigger
+- Kalibrasyon ng Trigger
+- M2,4.27 L19.73,22 L22.27,19.46 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z
+- M2,4.27 L2,4.27 L4.54,1.73 L4.54,1.73 L4.54,1 L23,1 L23,23 L1,23 L1,4.27 Z
+- M3.27,4.27 L19.74,20.74
+- Mag-trigger ng dalawang beses upang i-unlock ang navigation system, upang maiwasan ang pag-quit na hindi sinasadyang laro
+- Mangyaring sabay na buong pindutin ang parehong trigger nang tatlong beses.
+- NA~Pull both triggers to their deepest angle three times simultaneously.
+- NA~Trigger calibration
+- Please fully press both triggers together three times.
+- Sirreessuun hin xumuramne. Karaa kamiinuu cufee bahuu?
+- System navigation need to dey triggered twice back-to-back make di game no leave accidentally.
+- System navigation needs to be triggered twice in succession to prevent accidental exit from the game.
+- Trigger Calibration
+- Trigger Settin
+- Triggerni kalibrlash
+- http://cdn.shalltry.com/shalltrygroup/ar1/policy
+- http://cdn.shalltry.com/shalltrygroup/fr1/policy
+
+==================== TOUCH & SENSITIVITY (Total: 206) ====================
+- 304555~Reduce touch latency through the full-link touch control technology, but this will increase device temperature and reduce battery life.
+- 305674~Esports-grade Touch Control
+- 305981~Tap Sensitivity
+- 305984~Increased sensitivity improves touch effects, while decreased sensitivity improves control stability and lessens interference and false touches.
+- 357944~Touch Optimization
+- 357946~Improve the control response speed through full-link optimization of touch and display, but this will cause the phone to heat up.
+- 357950~The touch response is more sensitive and accurate, suitable for most games.
+- 357953~Customize control sensitivity and responsiveness based on your preference and skill level.
+- 357955~Higher accuracy enables more precise identification of micro controls, while lower accuracy reduces sensitivity to these controls but improves operational stability.
+- 357957~ZoneTouch Master
+- 357958~Intelligently recognize different game operation zones and optimize accordingly to provide an extreme gaming touch experience. When this is enabled, touch zones will be detected in the first match of each gaming session.
+- 465614~Use Touch Controls
+- 4D Vibrate on Touch
+- A higher touch sampling rate improves control responsiveness but increases power consumption.
+- A higher touch sampling rate improves control responsiveness but increases power consumption. Select the Intelligent option to boost the touch sampling rate only during gaming.
+- Akurasi yang lebih tinggi memungkinkan identifikasi kontrol mikro yang lebih tepat, sementara akurasi yang lebih rendah mengurangi sensitivitas terhadap kontrol ini tetapi meningkatkan stabilitas operasional.
+- Améliore la vitesse de réponse des commandes grâce à l'optimisation complète du toucher et de l'affichage, mais cela fera chauffer le téléphone.
+- Ang mas mataas na katumpakan ay magbibigay-daan sa mas tumpak na pagtukoy sa mga micro control, habang ang mas mababang katumpakan ay magpapababa ng sensitivity ng mga kontrol na ito pero magpapabuti sa stability ng operasyon.
+- Ang mas mataas na touch sampling rate ay nagpapabuti sa pagtugon sa control pero pinapalakas nito ang pagkonsumo ng baterya.
+- Ang mas mataas na touch sampling rate ay nagpapabuti sa pagtugon sa control pero pinapalakas nito ang pagkonsumo ng baterya. Piliin ang opsyong Matalino para ma-boost lang ang touch sampling rate habang naglalaro.
+- Ang mataas na sensitivity ay magpapabuti sa mga effect ng pagpindot, habang ang binawasang sensitivity naman ay magpapabuti sa stability ng pagkontrol at makakabawas sa interference at mga hindi sinasadyang maling pagpindot.
+- Apabila mod dihidupkan, pad sentuh dibahagikan kepada empat kawasan, dan setiap kawasan sepadan dengan satu titik pemetaan.
+- Appuyez sur la touche Menu pour basculer entre le mode souris et le mode glissement.
+- Bawasan ang touch latency sa pamamagitan ng full-link touch control na teknolohiya, pero mapapataas nito ang temperatura ng device at mababawasan ang buhay ng baterya.
+- Benotz den Touchpad, fir d'Richtung vun den Zéie-fir-ze-zilen-Fäegkeeten a Spiller ze steieren.
+- Brug touchpad'en til at styre retningen for træk-for-at-sigte-færdigheder i spil.
+- Controllo ZoneTouch
+- Customize control sensitivity and responsiveness based on your preference and skill level.
+- Când modul este activat, touchpadul este împărțit în patru zone, fiecare corespunzând unui punct de mapare.
+- D'Touch-Reaktioun ass méi sensibel a genee, fir déi meescht Spiller gëeegent.
+- Das Touchpad unterstützt sowohl den Maus-Modus als auch den Wisch-Modus. Im Maus-Modus kannst du den Cursor bewegen oder klicken.
+- Den Touchpad ënnerstëtzt souwuel Mausmodus wéi och Wëschmodus. Am Mausmodus kanns du de Curseur beweegen oder klicken.
+- Di Esports-grade Touch Control
+- Di touch response dey extra sensitive and accurate, suitable for most ganes dem.
+- Di touchpad dey support Mouse Mode and Swipe Mode. For Mouse Mode, you fit move di cursor or click.
+- Die Touch-Reaktion ist empfindlicher und präziser und eignet sich für die meisten Spiele.
+- Eine höhere Empfindlichkeit verbessert die Touch-Effekte, während eine geringere Empfindlichkeit die Stabilität der Steuerung verbessert und Störungen und falsche Berührungen vermindert.
+- Eine höhere Touch-Abtastrate verbessert die Reaktionsfähigkeit der Steuerung, erhöht aber den Stromverbrauch.
+- Eine höhere Touch-Abtastrate verbessert die Reaktionsfähigkeit der Steuerung, erhöht aber den Stromverbrauch. Wähle die Option Intelligent, um die Abtastrate nur während des Spiels zu erhöhen.
+- En högre samplingsfrekvens för beröring förbättrar styrningens respons men ökar strömförbrukningen.
+- En högre samplingsfrekvens för beröring förbättrar styrningens respons men ökar strömförbrukningen. Välj alternativet Intelligent för att öka insamlingsfrekvensen för pekskärmen endast under spel.
+- En højere touch-sampling rate forbedrer responsen fra Betjeningsknapperne, men øger strømforbruget.
+- En højere touch-sampling rate forbedrer responsen fra Betjeningsknapperne, men øger strømforbruget. Tag det intelligente valg for at øge touch-sampling rate under gaming.
+- En mode mappage, appuyez sur la touche Fenêtre pour ouvrir rapidement les paramètres du mode mappage.
+- Eng méi héich Touch-Oftaaschtfrequenz verbessert d'Reaktiounszäit vun der Steierung, mee erhéicht de Stroumverbrauch.
+- Eng méi héich Touch-Oftaaschtfrequenz verbessert d'Reaktiounszäit vun der Steierung, mee erhéicht de Stroumverbrauch. Wiel déi intelligent Optioun, fir d'Touch-Oftaaschtfrequenz nëmme wärend dem Spillen ze erhéijen.
+- Erhéicht Empfindlechkeet verbessert Touch-Effekter, reduzéiert Empfindlechkeet verbessert Steierungsstabilitéit a verréngert Interferenz a falsch Beréierungen.
+- Esports Touch
+- Esports-grade Touch Control
+- Fiek Sensitivity
+- Folosiți touchpadul pentru a controla direcția abilităților de țintire prin glisare în jocuri.
+- Gabay sa Touchpad
+- Gamitin ang Mga Touch Control
+- Gamitin ang touchpad upang kontrolin ang direksyon ng mga kasanayan na drag-to-aim sa mga laro.
+- Gebruik het touchpad om de richting van sleep-om-te-richten-vaardigheden in games te bedienen.
+- Ghid pentru touchpad
+- Guia do Touchpad
+- Guida al touchpad
+- Guide For Touchpad
+- Gunakan Kawalan Sentuh
+- Gunakan Kontrol Sentuh
+- Gunakan pad sentuh untuk mengawal arah kemahiran seret untuk sasar dalam permainan.
+- Gunakan touchpad untuk mengontrol arah bidikan skill drag-to-aim dalam game.
+- Hal ini terus terlihat sampai Anda melepas pin. Sentuh dan tahan tombol kembali dan peninjauan untuk melepas pin.
+- Handleiding touchpad
+- Het touchpad ondersteunt zowel Muismodus als Veegmodus. In Muismodus kunt u de cursor verplaatsen of klikken.
+- Higher accuracy enables more precise identification of micro controls, while lower accuracy reduces sensitivity to these controls but improves operational stability.
+- Høyere samplingrate for berøringer gir bedre respons for kontroll, men øker strømforbruket.
+- Høyere samplingrate for berøringer gir bedre respons for kontroll, men øker strømforbruket. Velg alternativet Intelligent for å øke samplingraten for berøring bare når du spiller spill.
+- I-customize ang control sensitivity at pagtugon batay sa iyong kagustuhan at antas ng kasanayan.
+- Il touchpad supporta sia la modalità mouse che la modalità scorrimento. In modalità mouse, puoi spostare il cursore o fare clic.
+- Improve di control response speed through full-link optimizing of touch and show, but dis one go cause di fone to heat up.
+- Improve the control response speed through full-link optimization of touch and display, but this will cause the phone to heat up.
+- Increased sensitivity dey improve touch effects dem, den reduced sensitivity dey improve control stability and e dey reduce interference and fake touches dem.
+- Increased sensitivity improves touch effects, while decreased sensitivity improves control stability and lessens interference and false touches.
+- Intelligente Erkennung verschiedener Spielbereiche und entsprechende Optimierung für ein extremes Spielerlebnis. Wenn diese Funktion aktiviert ist, werden Touch-Zonen beim ersten Spiel jeder Spielsitzung erkannt.
+- Intelligently recognize different game operation zones and optimize accordingly to provide an extreme gaming touch experience. When this is enabled, touch zones will be detected in the first match of each gaming session.
+- Kadar Pensampelan Sentuhan
+- Kadar pensampelan sentuhan yang lebih tinggi meningkatkan tindak balas kawalan tetapi meningkatkan penggunaan kuasa.
+- Kadar pensampelan sentuhan yang lebih tinggi meningkatkan tindak balas kawalan tetapi meningkatkan penggunaan kuasa. Pilih pilihan Pintar untuk meningkatkan kadar pensampelan sentuhan hanya semasa permainan.
+- Kama touchpad ndi kara usụñ eke mme usọ duri-man-top ke mme mbre.
+- Kapag naka-on ang mode na ito, ang touchpad ay nahahati sa apat na bahagi, at bawat bahagi ay tumutugma sa isang nakatalagang mapping point.
+- Kawalan Sentuh Gred e-Sukan
+- Když je tento režim zapnutý, touchpad je rozdělen do čtyř oblastí, z nichž každá odpovídá jednomu mapovacímu bodu.
+- Ke ini mod ema domo, ebahade touchpad oro ke mme ikpehe inan̄, kiet eken asaña ekekem ye ntọñọ akpan ebiet.
+- Kecepatan Pengambilan Sampel Sentuh
+- Kecepatan pengambilan sampel sentuh yang lebih tinggi meningkatkan responsivitas kontrol tetapi meningkatkan konsumsi daya.
+- Kecepatan pengambilan sampel sentuh yang lebih tinggi meningkatkan responsivitas kontrol tetapi meningkatkan konsumsi daya. Pilih opsi Cerdas untuk meningkatkan kecepatan pengambilan sampel sentuh hanya selama bermain game.
+- Kenali zon operasi permainan yang berbeza secara pintar dan optimumkan dengan sewajarnya untuk memberikan pengalaman sentuhan permainan yang melampau. Apabila ini didayakan, zon sentuh akan dikesan dalam perlawanan pertama setiap sesi permainan.
+- Keď je režim zapnutý, touchpad je rozdelený na štyri oblasti, z ktorých každá zodpovedá mapovaciemu bodu.
+- Kontrol Sentuh Tingkat Esports
+- Kurangi latensi sentuhan melalui teknologi kontrol sentuh tautan penuh, namun hal ini akan meningkatkan suhu perangkat dan mengurangi masa pakai baterai.
+- Kurangkan latensi sentuhan melalui teknologi kawalan sentuh pautan penuh, tetapi ini akan meningkatkan suhu peranti dan mengurangkan hayat bateri.
+- Känner intelligent igen olika speloperationszoner och optimerar därefter för att ge en extrem pekupplevelse i spel. När detta är aktiverat kommer touchzoner att upptäckas i den första matchen i varje spelsession.
+- La sensibilité du toucher est plus élevée, ce qui convient aux jeux MOBA.
+- Maestro de ZoneTouch
+- Make touch work fast with full-link touch control technology, but e go make device dey hot and batteri go dey finish quick.
+- Master Sentuhan Zon
+- Master Zona Sentuh
+- Matalinong kilalanin ang iba't ibang zone ng operasyon ng laro at mag-optimize nang naaayon para makapagbigay ng matinding karanasan sa pagpindot habang naglalaro. Kapag naka-enable ito, matutukoy ang mga touch zone sa unang laban ng bawat session ng paglalaro.
+- Mengenali berbagai zona operasi game secara cerdas dan mengoptimalkannya sesuai kebutuhan untuk memberikan pengalaman sentuhan bermain game yang ekstrem. Saat ini diaktifkan, zona sentuh akan terdeteksi pada pertandingan pertama setiap sesi bermain game.
+- Migliora la velocità di risposta attraverso un'ottimizzazione completa del touch e del display, ma questo potrebbe causare surriscaldamento del telefono.
+- Mjeshtri i ZoneTouch
+- Mod Pad Sentuh MOBA
+- Mod Touchpad MOBA
+- Modalità touchpad MOBA
+- Mode touchpad MOBA
+- Modo MOBA do Touchpad
+- Modo MOBA do touchpad
+- Modul MOBA pentru touchpad
+- NA~Touchpad handle
+- Ndausụñ Touchpad
+- Når tilstanden er aktiveret, opdeles touchpad'en i fire områder, som hver svarer til et kortlægningspunkt.
+- O touchpad suporta tanto o Modo de Rato como o Modo de Deslizamento. No Modo de Rato, pode mover o cursor ou clicar.
+- O touchpad é compatível com o Modo Mouse e o Modo Deslizar. No Modo Mouse, você pode mover o cursor ou clicar.
+- Optimalisasi Sentuhan
+- Optimisation du toucher
+- Ottimizzazione touch
+- Pad sentuh menyokong kedua-dua Mod Tetikus dan Mod Leret. Dalam Mod Tetikus, anda boleh menggerakkan kursor atau mengklik.
+- Pahusayin ang bilis ng pagtugon sa kontrol sa pamamagitan ng full-link na pag-optimize ng touch at display, pero iinit ang telepono.
+- Panduan Pad Sentuh
+- Panduan Touchpad
+- Pengoptimuman Sentuh
+- Peningkatan sensitivitas meningkatkan efek sentuhan, sementara penurunan sensitivitas meningkatkan stabilitas kontrol dan mengurangi interferensi dan sentuhan yang salah.
+- Peningkatan sensitiviti meningkatkan kesan sentuhan, manakala penurunan sensitiviti meningkatkan kestabilan kawalan dan mengurangkan gangguan dan sentuhan palsu.
+- Personalize control sensitivity and how e dey respond based on your preference and level of your skill.
+- Použite touchpad na ovládanie smeru schopností mierených ťahaním v hrách.
+- Press Sensitivity
+- Průvodce touchpadem
+- Quando la modalità è attiva, il touchpad viene suddiviso in quattro aree, ciascuna delle quali corrisponde a un punto di mappatura.
+- Quando o modo está ativado, o touchpad é dividido em quatro áreas, cada uma correspondendo a um ponto de mapeamento.
+- Reduce touch latency through the full-link touch control technology, but this will increase device temperature and reduce battery life.
+- Reducer berøringsforsinkelse gennem den fuldt forbundne touchbetjeningsteknologi, men dette vil øge enhedens temperatur og reducere batterilevetiden.
+- Reduzieren der Berührungslatenz durch die Full-Link-Touch-Control-Technologie, was jedoch die Gerätetemperatur erhöht und die Akkulaufzeit verkürzt.
+- Respons sentuhan lebih sensitif dan akurat, cocok untuk kebanyakan game.
+- Režim MOBA pre touchpad
+- Režim touchpadu pro MOBA
+- Riconosce in modo intelligente le diverse aree di operazione nei giochi e le ottimizza di conseguenza per offrire un'esperienza di gioco touch estremamente coinvolgente. Quando questa funzione è attiva, le aree di tocco verranno rilevate durante la prima partita di ogni sessione di gioco.
+- Riduci la latenza del tocco grazie alla tecnologia full-link touch control, ma questo aumenterà la temperatura del dispositivo e ridurrà la durata della batteria.
+- Saat mode aktif, touchpad dibagi menjadi empat area, masing-masing sesuai dengan satu titik pemetaan.
+- Samplingrate for berøring
+- Sensitivitas Ketuk
+- Sensitivity oyong adebede touch effects ndieng sensitivity isong a control nsoghoda afiak asokhode interferences ke false touches.
+- Sesuaikan sensitivitas dan daya tanggap kontrol berdasarkan preferensi dan tingkat keterampilan Anda.
+- Smartly identify different game operation zones and optimize correctly to provide di best gaming touch experience. When dis one dey on, e go detect touch zones for di first match of each gaming session.
+- Sprievodca touchpadom
+- Suportado ng touchpad ang Mode ng Mouse at Mode ng Pag-swipe. Sa Mode ng Mouse, maaari mong ilipat ang cursor o pindutin ito.
+- Tap Sensitivity
+- The touch response is more sensitive and accurate, suitable for most games.
+- The touchpad supports both Mouse Mode and Swipe Mode. In Mouse Mode, you can move the cursor or click.
+- This keeps it in view until you unpin. Touch & hold Back and Overview to unpin.
+- Tindak balas sentuhan lebih sensitif dan tepat, sesuai untuk kebanyakan permainan.
+- Tingkatkan kecepatan respons kontrol melalui pengoptimalan tautan penuh pada sentuhan dan tampilan, tetapi ini akan menyebabkan ponsel menjadi panas.
+- Tingkatkan kelajuan tindak balas kawalan melalui pengoptimuman pautan penuh untuk sentuhan dan paparan, tetapi ini akan menyebabkan telefon menjadi panas.
+- Touch Optimization
+- Touch Optimizing
+- Touch Sampling Rate
+- Touch sampling rate wey dey higher go make how e dey respond to control beta but e go increase how e dey suck battery.
+- Touch sampling rate wey dey higher go make how e dey respond to control beta but e go increase how e dey suck battery. Choose di smart option make e boost di touch sampling rate only wen you dey play game
+- Touch-Abtastrate
+- Touch-Oftaaschtfrequenz
+- Touch-Optimierung
+- Touch-Optiméierung
+- Touch-Steierelementer benotzen
+- Touch-Steierung op Esports-Niveau
+- Touch-Steuerung auf E-Sport-Niveau
+- Touch-Steuerung verwenden
+- Touch-sampling rate
+- Touchez pour passer à la sélection d'année
+- Touchez pour passer à la sélection de jour
+- Touchknoppen gebruiken
+- Touchpad Guide
+- Touchpad MOBA Mode
+- Touchpad MOBA-modus
+- Touchpad MOBA-tilstand
+- Touchpad enyime Mod Mouse ye Mod Duri mbiba. Ke Mod Mouse, afo emekeme ndi men eto nnuenubọk midighe fik.
+- Touchpad mendukung Mode Mouse dan Mode Geser. Dalam Mode Mouse, Anda dapat menggerakkan kursor atau mengeklik.
+- Touchpad na MOBA Mode
+- Touchpad podporuje režim myši aj režim potiahnutia. V režime myši môžete pohybovať kurzorom alebo klikať.
+- Touchpad podporuje režim myši i režim přejetí prstem. V režimu myši můžete pohybovat kurzorem nebo klikat.
+- Touchpad'en understøtter både Mus-tilstand og Stryge-tilstand. I Mus-tilstand kan du flytte markøren eller klikke.
+- Touchpad-Anleitung
+- Touchpad-Guide
+- Touchpad-MOBA-Modus
+- Touchpad-vejledning
+- Touchpadul acceptă atât Modul Mouse, cât și Modul Swipe (glisare). În Modul Mouse, puteți muta cursorul sau face clic.
+- Une sensibilité accrue améliore les effets du toucher, tandis qu'une sensibilité réduite améliore la stabilité du contrôle et réduit les interférences et les fausses touches.
+- Use Di Touch Controls Dem
+- Use Touch Controls
+- Use di touchpad take control di direction of drag-to-aim skills for inside games dem
+- Use o touchpad para controlar a direção das habilidades de arrastar para mirar nos jogos.
+- Use the touchpad to control the direction of drag-to-aim skills in games.
+- Utilize o touchpad para controlar a direção das habilidades de apontar e arrastar nos jogos.
+- Utilizza il touchpad per controllare la direzione delle abilità di mira tramite trascinamento nei giochi.
+- Verbessere die Reaktionsgeschwindigkeit der Steuerung durch die Optimierung der vollständigen Verknüpfung von Touch und Display, was jedoch zu einer Erwärmung des Telefons führt.
+- Verbessert d'Vitess vun der Steierungsreaktioun iwwer Voll-Link-Optiméierung vun Touch an Affichage, mee den Telefon erhëtzt sech.
+- Verschidde Spilloperatiounszonen intelligent erkennen an entspriechend optiméieren, fir eng extreem Touch-Experienz am Spill ze bidden. Wann et aktivéiert ass, ginn Touch-Zonen am éischte Match vun all Spillsessioun erkannt.
+- Verwende das Touchpad, um die Richtung von Ziehen-zum-Zielen-Fähigkeiten in Spielen zu steuern.
+- Wann de Modus ageschalt ass, ass den Touchpad a véier Beräicher opgedeelt, déi all engem Zouuerdnungspunkt entspriechen.
+- Wanneer deze modus is ingeschakeld, wordt het touchpad verdeeld in vier gebieden, die elk overeenkomen met een toewijzingspunt.
+- Wen di mode dey on, di touchpad go divide into four parts, and each part go match one mapping point.
+- Wenn der Modus aktiviert ist, ist das Touchpad in vier Bereiche unterteilt, von denen jeder einem Zuordnungspunkt entspricht.
+- When the mode is on, the touchpad is divided into four areas, each corresponding to a mapping point.
+- ZoneTouch Master
+- ZoneTouch Ustası
+- ZoneTouch-Master
+
+==================== BYPASS CHARGING / POWER (Total: 64) ====================
+- 305952~The percentage of power used to charge the battery
+- Actuellement pas pris en charge
+- Ambang Pengisian Daya
+- Ang porsyento ng power na nagamit sa pag-charge ng baterya
+- Baterai
+- Batterie en charge
+- Cet appareil ne prend pas en charge la fonction NFC
+- Chargement
+- Chargement de %1$s %%
+- Chargement de la vidéo...
+- Chargement...
+- Commencez à charger une fois que le niveau de la batterie est passé en dessous du seuil de charge.
+- Copiez la phrase de passe %1$s et partagez-la avec vos amis. Le modèle d'appareil pris en charge par ce plan %2$s est: %3$s.
+- Daya Pengisian Daya
+- Di percentage of di power you dey use to charge di battery
+- E Dey Charge
+- Echec du chargement
+- Erreur de chargement de la vidéo. Veuillez réessayer plus tard
+- Gagal memperbarui. Baterai kontroler di bawah 30%
+- Getaran pengendali game akan mati secara otomatis ketika tingkat baterai turun di bawah 10%.
+- Indeks yang lebih tinggi menunjukkan konsumsi daya yang lebih rendah dan masa pakai baterai yang lebih lama.
+- Jeux partiellement pris en charge
+- Kurangi latensi sentuhan melalui teknologi kontrol sentuh tautan penuh, namun hal ini akan meningkatkan suhu perangkat dan mengurangi masa pakai baterai.
+- La fenêtre flottante n'est pas prise en charge dans la scène actuelle
+- La fenêtre flottante ne peut prendre en charge que 2 applications seulement
+- Le pavé tactile prend en charge à la fois le mode souris et le mode glissement. En mode souris, vous pouvez déplacer le curseur ou cliquer.
+- Le pourcentage de puissance utilisé pour charger la batterie
+- Le turbo de jeu prend déjà en charge la plupart des jeux. Si certains jeux ne peuvent pas être accélérés, vous pouvez contacter le service client en ligne pour obtenir de l'aide.
+- Mode Penghematan Daya akan menurunkan kinerja perangkat dan memperpanjang masa pakai baterai. Cocok untuk game yang tidak memerlukan kualitas gambar tinggi.
+- Mulai pengisian daya ketika level baterai berada di bawah ambang pengisian daya.
+- Nagtsa-charge
+- Non pris en charge par la version du système d'exploitation de l'autre appareil
+- Pag-uumpisa ng Pag-charge
+- Percentage odudu ekamade e charge battery
+- Perpanjang masa pakai baterai hingga melebihi %1$s
+- Persentase daya yang digunakan untuk mengisi daya baterai
+- Pour les jeux prenant en charge les manettes de jeu, vous pouvez jouer directement en mode natif.
+- Pour les jeux qui ne prennent pas en charge les manettes de jeu, vous pouvez associer les boutons de la manette à des commandes à l'écran et jouer en mode mappage.
+- Power ng Pag-charge
+- Prise en charge des jeux massifs
+- Puissance de charge
+- Quels jeux le turbo de jeu prend-il en charge?
+- Refroidisseur lors de la charge
+- Seuil de charge
+- Si le jeu actuel ne prend pas en charge le mode partagé, la manette ne peut pas être utilisée en mode partagé.
+- Simulan ang pag-charge pagkatapos bumaba ang lebel ng baterya sa pag-uumpisa ng pag-charge.
+- Start dey charge after di battery level don too low.
+- Suppression des téléchargements en cours…
+- Suppression des téléchargements…
+- The percentage of power used to charge the battery
+- Tongho charge idaha level battery oshode ke charhing threshold.
+- Toutes les fonctionnalités de %1$s seront disponibles pour ce jeu après son téléchargement.
+- Téléchargement en cours…
+- Téléchargement terminé
+- Téléchargements
+- Téléchargements en attente de Wi-Fi
+- Téléchargements en attente de réseau
+- Téléchargements en attente du Wi-Fi
+- Téléchargements en attente du réseau
+- Téléchargements interrompus
+- Téléchargements mis en pause
+- Umur baterai
+- Xunyou Game Turbo intégré à Game Space/XArena est un produit spécialement conçu pour TECNO/Infinix afin d'améliorer la stabilité du réseau du jeu. Il peut résoudre les problèmes de latence élevée, de déconnexion, etc. et rendre le réseau plus fluide et le jeu plus stable. Il prend en charge le Wi-Fi et d'autres réseaux de données (5G/ 4G/3G).
+- Échec du téléchargement
+
+==================== MAGIC VOICE (Total: 19) ====================
+- 298894~Magic Voice Changer
+- 311149~Magic voices free to use
+- 358003~Voice changer
+- 358008~Voice changer on
+- 358009~Voice changer off
+- Di Magic Voice Changer
+- Magic Voice Changer
+- Magic voices dey free to use
+- Magic voices free to use
+- Mga magic voice na libreng gamitin
+- Off di voice changer
+- On di voice changer
+- Pengubah Suara Ajaib
+- Penukar Suara Ajaib
+- Suara ajaib bebas digunakan
+- Suara ajaib percuma untuk digunakan
+- Voice changer
+- Voice changer off
+- Voice changer on
+
+==================== HEAVY MODE (Total: 0) ====================
+
+==================== FPS & DISPLAY (Total: 47) ====================
+- 120 FPS için Çerçeve İlişkilendirme
+- 120FPS
+- 304554~Frame Interpolation to 120 FPS
+- 456035~Ultra Frame Rate
+- 60FPS
+- 90FPS
+- Bildinterpolering till 120 FPS
+- Bildinterpoléierung op 120 FPS
+- Dhexdhexaadinta Qaabka ilaa 120 FPS
+- Di Frame Interpolation to 120 FPS
+- Efuremu Y’ogosoyia egetatakeiri goika 120 FPS
+- FPS
+- Frame Interpolation sa 120 FPS
+- Frame Interpolation to 120 FPS
+- Frame-Interpolation bis 120 FPS
+- Frame-interpolation til 120 FPS
+- Giddugaltummaa fireemii gara FPS 120
+- Idaha Ukpuhọde Data esim 120 FPS
+- Interpolace snímků na 120 fps
+- Interpolacija okvira do 120 FPS
+- Interpolación de fotogramas a 120 FPS
+- Interpolare cadre la 120 fps
+- Interpolasi Bingkai hingga 120 FPS
+- Interpolasi Bingkai ke 120 FPS
+- Interpolazione dei fotogrammi a 120 FPS
+- Interpolação de Quadros para 120 FPS
+- Interpolação de quadros a 120 FPS
+- Interpolimi i kuadrove në 120 FPS
+- Kaadri interpolatsioon 120 fps-le
+- Kader interpoleren naar 120 FPS
+- Kadr İnterpolyasiyası 120 FPS-də
+- Kadrų interpoliavimas iki 120 FPS
+- Kecepatan Bingkai Ultra
+- Keto Tong' e 120 FPS
+- Képkocka interpoláció 120 FPS-re
+- Kũihũria Fremu kũrĩ FPS 120
+- Laske kuvataajuus 120 FPS:ään
+- Ntinyekọ foto dị iche iche ka ọ bụrụ FPS 120
+- Nội suy khung hình tới 120 FPS
+- Rammainnskot að 120 FPS
+- Rammeinterpolasjon til 120 FPS
+- Shigarwa Firam zuwa 120 FPS
+- Ufafanuzi wa Fremu kwa FPS 120
+- Ukumia Buremu ya Ûme mwanka 120 FPS
+- Ultra Frame Rate
+- Umetanje sličica do 120 FPS
+- Vũlemũ Nzeo Ya Kũsianĩsya kwa 120 FPS
+
+==================== GAME SPACE / XARENA CORE (Total: 261) ====================
+- %1$s akan berkuat kuasa selepas memulakan semula permainan, sila mulakan semula permainan.
+- %1$s memerlukan kebenaran Pemberitahuan untuk menolak pemberitahuan apabila permainan yang baru dimuat turun ditambah.
+- %1$s mendeteksi fluktuasi yang signifikan dalam jaringan game pada permainan game terakhir, dengan %2$d kejadian lag jaringan signifikan, dan latensi jaringan maksimum %3$d md. Mengaktifkan akselerasi jaringan game dapat membantu Anda mengurangi latensi menjadi %4$d md dan meningkatkan kecepatan jaringan hingga %5$d%%
+- %1$s telah mengesan naik turun yang besar dalam rangkaian permainan semasa permainan terakhir, dengan %2$d kes sela rangkaian yang ketara dan kependaman rangkaian maksimum sebanyak %3$d ms. Mendayakan pecutan rangkaian permainan boleh membantu anda mengurangkan kependaman kepada %4$d ms dan meningkatkan kelajuan rangkaian sebanyak %5$d%%
+- %d permainan telah ditambah ke %2$s
+- 305873~Add your favorite games to Game Space
+- 357860~Xunyou Game Turbo built in Game Space/XArena is a product specifically designed for TECNO/Infinix to improve the game network stability. It can solve the problems of high latency, disconnection, etc. and make the network smoother and the game more stable. It supports Wi-Fi and other data networks (5G/4G/3G).
+- 357871~TECNO/Infinix ID is the account of the player using the Xunyou Game Turbo services in the Game Space/XArena. Each account can get relevant free benefits and boost services after login.
+- 357884~ <b>Welcome to Game Space! We attach great importance to your personal information and privacy. In order to protect your rights and comply with relevant regulatory requirements, we explain to you as follows: This Privacy Policy will help you understand the following contents:</b> <br/>1.How We Collect and Use Your Personal Information <br/>2.How We Store and Protect Your Personal Information <br/>3.How We Share, Transfer and Disclose Your Personal Information <br/>4.How Your Personal Information is Transferred Across Borders <br/>5.Your Rights to Your Personal Information <br/>6.How We Handle the Personal Information of Children <br/>7.Third-Party Service Providers and Services <br/>8.Supplement and Update of the Policy <br/>9.How to Contact Us <br/><b>The Terms of Use will help you understand the following contents:</b> <br/>1.Game Space and its Services <br/>2.Restrictions on the use of This Software and Service <br/>3.Intellectual Property; Ownership <br/>4.Considerations on Your Use of This Software and Service <br/>5.About Updates <br/>6.Software and Services Provided by Third Parties <br/>7.Fees and Advertisement <br/>8.Termination and Breach of Contract <br/>9.Indemnification, DISCLAIMERS, LIMITATION OF LIABILITIES, Governing Laws and Dispute Resolution and Miscellaneous <br/>
+- <b>Selamat datang di Game Space! Untuk melindungi hak dan kepentingan Anda lebih baik dan memenuhi keperluan regulasi yang relevan, kami dengan ini menjelaskan kepada Anda sebagai berikut: Kebijakan Privasi ini akan membantu anda memahami hal-hal berikut:</b> <br/>1.Cara Kami Mengumpulkan dan Menggunakan Informasi Pribadi Anda <br/>2.Cara Kami Menyimpan dan Melindungi Informasi Pribadi Anda <br/>3.Cara Kami Membagikan, Mentransfer, dan Mengungkapkan Informasi dan Data Pribadi Anda <br/>4.Cara Informasi Pribadi Anda Ditransfer Lintas Batas <br/>5.Hak Anda atas Informasi Pribadi Anda <br/>6.Cara Kami Menangani Informasi Pribadi Anak <br/>7.Penyedia Layanan Pihak Ketiga dan Layanannya <br/>8.Tambahan dan Pembaruan Kebijakan <br/>9.Cara Hubungi Kami <b>Syarat Penggunaan ini akan membantu anda memahami hal-hal berikut:</b> <br/>1.Game Space dan Layanannya <br/>2.Pembatasan penggunaan Perangkat Lunak dan Layanan ini <br/>3.Kekayaan Intelektual; Kepemilikan <br/>4.Pertimbangan anda dalam Penggunaan Perangkat Lunak dan Layanan ini <br/>5.Tentang Pembaruan <br/>6.Perangkat Lunak dan Layanan yang Disediakan oleh Pihak Ketiga <br/>7.Biaya dan Iklan <br/>8.Pemutusan dan Pelanggaran Kontrak <br/>9.Ganti Rugi, PENAFIAN, PEMBATASAN TANGGUNG JAWAB, Hukum yang Mengatur dan Penyelesaian Sengketa, Persyaratan Umum <br/>
+- <b>Welcome to Game Space! We attach great importance to your personal information and privacy. In order to protect your rights and comply with relevant regulatory requirements, we explain to you as follows: This Privacy Policy will help you understand the following contents:</b> &lt;br/>1.How We Collect and Use Your Personal Information &lt;br/>2.How We Store and Protect Your Personal Information &lt;br/>3.How We Share, Transfer and Disclose Your Personal Information &lt;br/>4.How Your Personal Information is Transferred Across Borders &lt;br/>5.Your Rights to Your Personal Information &lt;br/>6.How We Handle the Personal Information of Children &lt;br/>7.Third-Party Service Providers and Services &lt;br/>8.Supplement and Update of the Policy &lt;br/>9.How to Contact Us &lt;br/><b>The Terms of Use will help you understand the following contents:</b> &lt;br/>1.Game Space and its Services &lt;br/>2.Restrictions on the use of This Software and Service &lt;br/>3.Intellectual Property; Ownership &lt;br/>4.Considerations on Your Use of This Software and Service &lt;br/>5.About Updates &lt;br/>6.Software and Services Provided by Third Parties &lt;br/>7.Fees and Advertisement &lt;br/>8.Termination and Breach of Contract &lt;br/>9.Indemnification, DISCLAIMERS, LIMITATION OF LIABILITIES, Governing Laws and Dispute Resolution and Miscellaneous &lt;br/>
+- <b>Welcome to Game Space! We attach great importance to your personal information and privacy. In order to protect your rights and comply with relevant regulatory requirements, we explain to you as follows: This Privacy Policy will help you understand the following contents:</b> <br/>1.How We Collect and Use Your Personal Information <br/>2.How We Store and Protect Your Personal Information <br/>3.How We Share, Transfer and Disclose Your Personal Information <br/>4.How Your Personal Information is Transferred Across Borders <br/>5.Your Rights to Your Personal Information <br/>6.How We Handle the Personal Information of Children <br/>7.Third-Party Service Providers and Services <br/>8.Supplement and Update of the Policy <br/>9.How to Contact Us <br/><b>The Terms of Use will help you understand the following contents:</b> <br/>1.Game Space and its Services <br/>2.Restrictions on the use of This Software and Service <br/>3.Intellectual Property; Ownership <br/>4.Considerations on Your Use of This Software and Service <br/>5.About Updates <br/>6.Software and Services Provided by Third Parties <br/>7.Fees and Advertisement <br/>8.Termination and Breach of Contract <br/>9.Indemnification, DISCLAIMERS, LIMITATION OF LIABILITIES, Governing Laws and Dispute Resolution and Miscellaneous <br/>
+- A Xunyou Játékturbó beépített Játéktér/XArena egy kifejezetten a TECNO/Infinix számára tervezett termék, amely javítja a játékhálózat stabilitását. Megoldja a nagy késleltetéssel, a kapcsolat megszakadásával stb. kapcsolatos problémákat, és zökkenőmentesebbé teszi a hálózatot, a játékot pedig stabilabbá. Támogatja a Wi-Fi-t és más adathálózatokat (5G/4G/3G).
+- A játékos a Játéktér/XArena Xunyou Játékturbó szolgáltatásaihoz a TECNO/Infinix ID-t használja fiókként. Minden fiók a bejelentkezés után releváns ingyenes előnyökhöz és szolgáltatásokhoz juthat.
+- Add your favorite games to Game Space
+- Add your games dem wey you like go Game Space
+- Anda telah menerima permainan yang dikongsi. Terima?
+- Ang TECNO/Infinix ID ay ang account ng manlalaro na gumagamit ng mga serbisyo ng Xunyou Game Turbo sa Game Space/XArena. Ang bawat account ay maaaring makakuha ng mga libreng benepisyong makabuluhan at mapalakas ang mga serbisyo pagkatapos mag-login.
+- Ang Xunyou Game Turbo na binuo sa Game Space/XArena ay isang produktong partikular na idinisenyo para sa TECNO/Infinix upang mapabuti ang katatagan ng network ng laro. Maaari nitong lutasin ang mga problema ng mataas na latency, pagkakadiskonekta, atbp. at gawing mas maayos ang network at aang laro nang mas matatag. Sinusuportahan nito ang Wi-Fi at iba pang data network (5G/4G/3G).
+- Antigangguan permainan
+- Antiketagih Permainan
+- Apabila ia didayakan, pintasan permainan akan disembunyikan pada skrin utama. Lancarkan dan uruskan semua permainan dalam %1$s untuk skrin utama yang bersih dan pengalaman permainan yang lancar.
+- Apabila ia dihidupkan, ia menyediakan pengalaman kawalan untuk permainan dan mengurangkan masa tindak balas kawalan.
+- Apabila mod Permainan dihidupkan, kecerahan auto akan dimatikan buat sementara untuk memastikan penutup skrin tidak akan mempengaruhi cara bermain permainan
+- Apakah akaun yang diikat dengan turbo permainan?
+- Apakah fungsi turbo permainan?
+- Apakah permainan yang disokong oleh turbo permainan?
+- Bakka Taphaa/XArena irratti ID TECNO/Infinix eenyummeessaa taphataa tajaajila Tapha Turbo Xunyou fayyadamuuti. Tokkoon tokkoon eenyummeessaa erga seeneen booda faayidaa bilisaa barbaachisaa ta'e argachuu fi tajaajila guddisuu danda'a.
+- Berjaya diterima. Sila pasang permainan.
+- Buka permainan
+- Dalam Mod Leret, anda boleh menyeret pandangan kamera dalam permainan.
+- Dalam mod ini, telefon anda akan menjadi peranti permainan genggam, yang menyekat kebanyakan pemberitahuan sistem dan menghalang kembali terus ke skrin utama melalui gerak isyarat bagi memberikan pengalaman permainan yang mendalam.
+- Data permainan
+- Data tempoh permainan
+- Dayakan Perkhidmatan Storan Permainan
+- Der Xunyou Game Turbo, integriert in Game Space/XArena, wurde von TECNO/Infinix zur Verbesserung der Netzwerkstabilität entwickelt. Probleme wie hohe Latenz, Verbindungsunterbrechungen usw. können so gelöst, die Netzwerkverbindung flüssiger und das Spiel stabilisiert werden. Er unterstützt WLAN und andere Datennetzwerke (5G/4G/3G)
+- Dian mbre afo amaaha akan ke Game Space
+- Die TECNO/Infinix ID ist das Konto des Spielers, der die Xunyou Game Turbo-Dienste bei Game Space/XArena verwendet. Jedes Konto kann nach der Anmeldung kostenlose Vorteile und Verstärkungsdienste erhalten.
+- Disediakan oleh mod Permainan
+- Dodaj ulubione gry do Game Space
+- Dorongan Permainan
+- El identificador de TECNO/Infinix es la cuenta del jugador que utiliza los servicios de la aplicación Xunyou Game Turbo en el Espacio de juegos/XArena. Cada cuenta puede obtener beneficios gratuitos pertinentes y potenciar los servicios después de iniciar sesión.
+- Funkce Xunyou Game Turbo, která je součástí aplikaceHerní místo/XArena, je speciálně navržena pro hry TECNO/Infinix a zvyšuje stabilitu herní sítě. Dokáže vyřešit problémy s vysokou latencí, odpojováním apod. a zajistí plynulejší chod sítě a vyšší stabilitu hry. Podporuje Wi-Fi a další datové sítě (5G/4G/3G).
+- Føj dine favoritspil til Game Space
+- Game Space
+- Gbakwụnye egwuregwu ndị kasị amasị gị na Game Space
+- Getaran pengawal permainan akan dimatikan secara automatik apabila paras bateri jatuh di bawah 10%.
+- Getaran permainan 4D
+- Grafik permainan
+- Gunakan pad sentuh untuk mengawal arah kemahiran seret untuk sasar dalam permainan.
+- ID TECNO/Infinix ialah akaun pemain menggunakan perkhidmatan Xunyou Game Turbo dalam Game Space/XArena. Setiap akaun boleh mendapat manfaat percuma dan perkhidmatan rangsangan yang berkaitan selepas log masuk.
+- ID de TECNO/Infinix é a conta do jogador que usa os serviços do Xunyou Game Turbo no Espaço de Jogo/XArena. Cada conta pode obter benefícios gratuitos relevantes e serviços de impulsionamento após o login.
+- ID-ul TECNO/Infinix este contul jucătorului care utilizează serviciile Xunyou Game Turbo în Spațiu de joc/XArena. Fiecare cont poate obține beneficii gratuite relevante și poate optimiza serviciile după conectare.
+- Indeks yang lebih tinggi menunjukkan pengalaman kawalan permainan yang lebih baik.
+- Jika permainan semasa tidak menyokong mod pisah, pengawal tidak boleh digunakan dalam mod pisah.
+- Kadar pensampelan sentuhan yang lebih tinggi meningkatkan tindak balas kawalan tetapi meningkatkan penggunaan kuasa. Pilih pilihan Pintar untuk meningkatkan kadar pensampelan sentuhan hanya semasa permainan.
+- Kaedah pemberitahuan mesej semasa permainan
+- Kawalan Suhu Permainan
+- Kehalusan tekstur permainan. Pelarasan ke belakang mengurangkan kualiti imej sambil meningkatkan prestasi. (Beralih ke atas melembutkan imej sambil meningkatkan prestasi; beralih ke bawah meningkatkan ketajaman imej.)
+- Kemas kini perisian tegar gagal. Untuk menggunakan pengawal permainan dengan betul, sila kemas kini semula.
+- Kenali zon operasi permainan yang berbeza secara pintar dan optimumkan dengan sewajarnya untuk memberikan pengalaman sentuhan permainan yang melampau. Apabila ini didayakan, zon sentuh akan dikesan dalam perlawanan pertama setiap sesi permainan.
+- Kesihatan permainan
+- Kurangkan gangguan untuk pengalaman bermain permainan yang lebih tumpu.
+- La aplicación Xunyou Game Turbo integrada en el Espacio de juegos/XArena es un producto diseñado específicamente para TECNO/Infinix con el fin de mejorar la estabilidad de la red del juego. Puede resolver los problemas de alta latencia, desconexión, etc. y hacer que la red sea más fluida y el juego más estable. Es compatible con wifi y otras redes de datos (5G/4G/3G).
+- Laraskan parameter permainan dengan bijak untuk memastikan pengalaman permainan yang lebih baik bagi tempoh masa yang lama.
+- Letakkan titik pemetaan di atas butang kemahiran dalam permainan MOBA.
+- Lihat tempoh permainan, penggunaan data
+- Lisää suosikkipelisi Game Space -sovellukeen
+- Lägg till dina favoritspel i Game Space
+- Maligayang pagdating sa Game Space! Nagbibigay kami ng malaking pagkakailangan sa iyong personal information at privacy. Upang maigi namin ang iyong mga katuwiran at pagsunod sa mga mahalagang pangangailangan ng reglamentasyon, sa pamamagitan nito ay ipaliwanag namin sa inyo ang ayon sa mga sumusunod: <br/><b>Ang Patakaran sa Pribasiya na ito ay tutulung sa inyong maunawaan ang sumusunod na mga nilalaman:</b> <br/>1.Paano Namin Kinokolekta at Ginagamit Ang Inyong Personal na Impormasyon <br/>2.Paano Namin Iniimbak at Pinoprotektahan Ang Inyong Personal na Impormasyon <br/>3.Paano Namin Ibinabahagi, Inililipat at Isinisiwalat Ang Inyong Personal na Impormasyon <br/>4.Paano Inililipat ang Inyong Personal na Impormasyon sa Mga Border <br/>5.Ang Inyong Mga Karapatan sa Inyong Personal na Impormasyon <br/>6.Paano Namin Pinangangasiwaan ang Personal na Impormasyon ng mga Bata <br/>7.Mga Ikatlong Partidong Tagapagbigay ng Serbisyo at Mga Serbisyo <br/>8.Pagdaragdag at Pag-update ng Patakaran <br/>9.Paano Makipag-Ugnayan sa Amin <br/><b>Mga Tuntunin sa Paggamit ng Game Space na ito ay tutulung sa inyong maunawaan ang sumusunod na mga nilalaman:</b> <br/>1.Ang Game Space at ang Mga Serbisyo nito <br/>2.Mga Paghihigpit sa paggamit ng Software at ng Serbisyong Ito <br/>3.Intelektwal na pag-aari; Pagmamay-ari <br/>4.Mga Konsiderasyon sa Inyong Paggamit ng Software at ng Serbisyo na Ito <br/>5.Tungkol sa Mga Update <br/>6.Software at Mga Serbisyong Ibinibigay ng Mga Ikatlong Partido <br/>7.Mga Bayarin at Patalastas <br/>8.Pagwawakas at Paglabag sa Kontrata <br/>9.Pagbabayad-pinsala, MGA PAGTATATWA, LIMITASYON NG MGA PANANAGUTAN, Mga Namamahalang Batas at Resolusyon sa Hindi Pagkakaunawaan, Iba pa <br/>
+- Masa permainan
+- Memindahkan permainan… Sila kekal pada halaman ini.
+- Menerima permainan… Sila kekal pada halaman ini.
+- Menjamin sumber rangkaian secara keutamaan untuk permainan semasa dengan teknologi pengoptimuman rangkaian permainan yang dibangunkan sendiri.
+- Menta omochieso ogo bwanchete ase Game Space
+- Menukar kepada Mod Gabungan akan memutuskan sambungan pengawal permainan. Anda perlu memasangkannya semula melalui Bluetooth.
+- Menukar kepada Mod Pisah akan memutuskan sambungan pengawal permainan. Anda perlu memasangkannya semula melalui Bluetooth.
+- Mesej daripada aplikasi tersenarai yang tidak dibenarkan tidak akan dimaklumkan lagi semasa permainan.
+- Mod Keseimbangan akan memperuntukkan sumber mengikut permainan dan prestasi telefon.
+- Mod Penjimatan Kuasa akan menurunkan prestasi peranti dan memanjangkan hayat bateri. Ia sesuai untuk permainan yang tidak memerlukan kualiti imej yang tinggi.
+- Mod Permainan
+- Mod Prestasi akan melepaskan prestasi peranti, sesuai untuk permainan kompetitif. Apabila didayakan, mod ini memberikan kualiti visual yang lebih tinggi tetapi meningkatkan penggunaan kuasa dan haba. Disyorkan bermain permainan di persekitaran yang sejuk.
+- Mod Prestasi akan meningkatkan prestasi telefon dan sesuai untuk permainan yang kompetitif. Apabila didayakan, ia akan mendapat kualiti imej yang lebih tinggi, tetapi ia akan meningkatkan penggunaan kuasa dan haba peranti. Adalah disyorkan untuk bermain dalam persekitaran suhu tidak tinggi.
+- Mod Seimbang akan mengagihkan sumber secara bijak berdasarkan jenis permainan tertentu dan prestasi peranti.
+- Mod permainan dimasuki
+- Mode Seimbang akan secara cerdas mengalokasikan sumber daya berdasarkan jenis permainan spesifik dan kinerja perangkat.
+- Mode permainan dimasukkan
+- Mula Permainan
+- Mîchetho ya Inya ya Xunyou iandi ndeene ya kaanya ka mucetho/XArena ni bidhaa igiti ya TECNO/Infinix kwongera mutandao jwa micetho. Yomba gutatua mathina ja gukiriria, kugwatithanukua, na bingi bibingi. Nigwatiraga WI-FI na mitandao iingi ya data (5G/4G/3G).
+- Nyahdayakan Mod Permainan
+- Nyahdayakan Mod Permainan untuk permainan ini?
+- O Xunyou Game Turbo integrado ao Espaço de jogos/XArena é um produto desenvolvido especificamente para a TECNO/Infinix para melhorar a estabilidade da rede do jogo. Ele pode resolver os problemas de alta latência, desconexão etc. e tornar a rede mais uniforme e o jogo mais estável. Compatível com Wi-Fi e outras redes de dados (5G/4G/3G).
+- Ohere Egwuregwu/XArena nke arụnyere n’ime Xunyou Egwuregwu Turbo bụ ngwahịa arụrụ kpọmkwem maka TECNO/Infinix iji mezie ọkwụkwụ netwọk egwuregwu. O nwere ike imezi nsogbu nke oke latensi, mwepụ njikọ, wdg. ma mee ka netwọk na-aga ọfụma ma egwuregwu akwụdosi ike. Ọ na-akwado Wi-Fi na netwọk data ndị ọzọ (5G/4G/3G).
+- Ongeera micetho iria wendete mono kiri Game Space
+- Ongerera mĩthako yaku wendete kũrĩ Game Space
+- Operasi ini lebih responsif, sesuai untuk permainan menembak.
+- Optimumkan grafik permainan
+- Optimumkan prestasi CPU dan GPU secara automatik untuk meningkatkan pengalaman permainan
+- Oyun Alanı/XArena içinde oluşturulmuş Xunyou Game Turbo özelliği oyun ağ kararlılığını iyileştirmek amacıyla özellikle TECNO/Infinix için tasarlanmış bir üründür. Yüksek gecikme süresi, bağlantı vs. sorunları çözebilir, ağı daha kesintisiz ve oyunu daha kararlı yapabilir. Wi-Fi ve diğer veri ağlarını (5G/4G/3G) destekler.
+- Oýun giňişligi / XArena -da gurlan Xunyou oýun turbo, oýun torunyň durnuklylygyny ýokarlandyrmak üçin TECNO / Infinix üçin ýörite öndürilen önüm. Ýokary gijä galmak, birikmäni kesmeklik we ş.m. meselelerini çözüp biler we tory has bökdençsiz, oýny has durnukly edip biler. Wi-Fi we beýleki maglumat torlaryny (5G / 4G / 3G) goldaýar.
+- Panduan Pengawal Permainan
+- Panel pembantu permainan
+- Pecutan Rangkaian Permainan
+- Pemasa di luar permainan untuk kebangkitan.
+- Pemindahan permainan gagal. Pihak lain menolak permintaan tersebut.
+- Pemindahan permainan gagal. Ruang storan tidak mencukupi.
+- Pengalaman permainan
+- Pengawal Permainan
+- Pengawal permainan telah diputuskan sambungan. Anda akan dialihkan ke halaman utama.
+- Penggalak Permainan XY
+- Pengurusan permainan
+- Penyejukan Pintar semasa Permainan
+- Penyongsangan warna membantu mengenal pasti watak yang bergerak dalam permainan dengan jelas, meningkatkan peluang kemenangan anda
+- Permainan Asli
+- Permainan Pengawal Permainan
+- Permainan Saya
+- Permainan Tutorial %1$s
+- Permainan Yang Dioptimumkan
+- Permainan Yang Disokong Separa
+- Permainan disyorkan
+- Permainan paling banyak dimainkan 7 hari
+- Permainan pecutan
+- Permainan popular
+- Permainan skrin dimatikan
+- Permainan telah berjaya dipasang. Selamat bermain!
+- Permainan telah berjaya dipindahkan dan dipasang. Selamat berseronok!
+- Picu dua kali untuk membuka kunci sistem navigasi, untuk menghindari permainan berhenti secara tidak sengaja
+- Pilih 2 aplikasi untuk mendayakan tetingkap terapung semasa dalam permainan
+- Pilih Pengawal Permainan GT (Mod Gabungan) atau Pengawal Permainan GT (Mod Pisah) dan sambung melalui Bluetooth.
+- Pilih aplikasi permainan daripada senarai. Aplikasi yang dipilih akan dijalankan dalam mod permainan.
+- Pilih mod permainan yang anda sukai
+- Përforcuesi i lojërave Xunyou i integruar te Hapësira e lojërave/XArena është një produkt i dizajnuar posaçërisht për TECNO/Infinix, për të përmirësuar qëndrueshmërinë e rrjetit të lojës. Ai mund të zgjidhë problemet e vonesës së madhe, shkëputjes etj. dhe ta bëjë rrjetin më të rrjedhshëm dhe lojën më të qëndrueshme. Mbështet Wi-Fi dhe rrjetet e tjera të të dhënave celulare (5G/4G/3G).
+- Račun igralca, ki uporablja storitve Xunyou Game Turbo v aplikaciji Igralni prostor/XArena, je ID TECNO/Infinix. Vsak račun lahko po prijavi pridobi ustrezne brezplačne ugodnosti in storitve pospeševanja.
+- Respons ketukan lebih sensitif, cocok untuk permainan MOBA.
+- Saat Mode Game aktif, kecerahan otomatis akan dimatikan sementara untuk memastikan bahwa penutup layar tidak akan memengaruhi permainan
+- Sambungkan pengawal permainan untuk pengalaman bermain yang lebih menyerupai konsol atau peranti genggam.
+- Sambungkan pengawal untuk pengalaman bermain permainan yang lebih baik. Sambungkan?
+- Sebaik sahaja didayakan, Kawalan Suhu Permainan boleh mengurangkan suhu telefon dan memanjangkan masa permainan dengan berkesan.
+- Sediakan maklum balas getaran dalam latar permainan tertentu
+- Seimbangkan penggunaan harian dan permainan untuk pengalaman yang lebih santai.
+- Selamat datang ke Pengawal Permainan GT
+- Selepas 2 jam bermain tanpa henti atau 4 jam permainan yang terkumpul
+- Selepas rakan anda berjaya menerima dan memasang permainan untuk kali pertama, anda akan menerima kod penebusan permainan. Ketik Tebus untuk menuntut ganjaran anda.
+- Semasa acara ini, apabila rakan anda berjaya menerima dan memasang permainan buat kali pertama, anda akan menerima kod penebusan permainan. Ketik Tebus untuk menuntut ganjaran anda.
+- Semua ciri pada %1$s akan tersedia untuk permainan ini selepas ia dimuat turun.
+- Setz deng Liblingsspiller op Game Space derbäi
+- Sevimli oʻyinlaringizni Game Spacega qoʻshing
+- Sila mulakan semula pengawal permainan untuk penggunaan yang betul.
+- Sila pastikan versi permainan dan sumber daya yang terkini supaya pemain lain boleh memasuki permainan secara langsung.
+- Simulasikan kesan pencahayaan sebenar untuk mencipta visual permainan yang lebih realistik.
+- Sokong permainan besar-besaran
+- Statistik penggunaan data permainan
+- Storan Permainan
+- Strategi %1$s tersuai dalam Panel Pembantu Permainan ditunjukkan di sini. Anda boleh mengimport atau berkongsi strategi.
+- Strategi berjaya diimport. Sila semak dalam permainan yang bersesuaian
+- Sumber permainan telah lapuk. Sila kemaskini terlebih dahulu sebelum memindahkan, supaya pemain lain boleh memasuki permainan secara langsung.
+- TECNO / Infinix ID es la cuenta del jugador que utiliza los servicios de Xunyou Game Turbo en Espacio de Juego / XArena. Cada cuenta puede obtener beneficios gratuitos relevantes y servicios de optimización después de iniciar sesión.
+- TECNO / Infinix ID, Oýun giňişligi / XArena-da Xunyou oýun turbo hyzmatlaryny ulanýan pleýer hasabydyr. Her hasap, degişli mugt artykmaçlyklardan peýdalanyp, hasabyňyza gireniňizden soň hyzmatlary artdyryp biler.
+- TECNO / „Infinix“ ID – „Xunyou Game Turbo“ paslaugas „Game Space“ / „XArena“ naudojančio žaidėjo paskyra. Prisijungus, kiekviena paskyra gali gauti atitinkamas mokesčio lengvatas ir spartinimo paslaugas.
+- TECNO/Infinix ID Oyun Alanı/XArena içinde Xunyou Oyun Turbo hizmetlerini kullanan oyuncu hesabıdır. Oturum açtıktan sonra her bir hesap ücretsiz avantajlardan yararlanabilir ve hizmetleri hızlandırabilir.
+- TECNO/Infinix ID adalah akun pemain yang menggunakan layanan Turbo Game Xunyou di Ruang Game/XArena. Setiap akun bisa mendapatkan manfaat gratis yang relevan dan layanan percepatan setelah login.
+- TECNO/Infinix ID ass de Kont vum Spiller, deen d’Xunyou Game Turbo-Servicer an der Game Space/XArena benotzt. All Kont ka relevant gratis Virdeeler kréien an d’Servicer no der Umeldung boosten.
+- TECNO/Infinix ID bụ akaụntụ onye ọgbụgba na-ejikwa ọrụ Xunyou Egwuregwu Turbo N’ime Ohere Egwuregwu/XArena. Akaụntụ niile nwere ike ịnweta ihe nrite ndị nwere isi ma kwalite ọrụ ka abanyesịrị.
+- TECNO/Infinix ID e akaunt mar jatugo matiyo gi Xunyou Game Turbo e Nafas Mar Tugo kata XArena. Akaunt ka akaunt nyalo yudo ber manono kendo jiwo tich bang donjo.
+- TECNO/Infinix ID edi akaunt owo mbre akamade Xunyou Nsa turbo mme uton ke Okpokoro Mmekọ/XArena. Akaunt ekeme ndiyene ekpakn-akpan mfon mme eno ke mme boost service ke ama login.
+- TECNO/Infinix ID er aðgangur spilara sem notar Xunyou Game Turbo þjónustur í Leikjasvæði/XArena. Hver aðgangur fær viðeigandi ókeypis fríðindi og styrkingarþjónustur eftir innskráningu.
+- TECNO/Infinix ID er kontoen for den spiller, som anvender Xunyou spilleturbo-tjenester i Game Space/XArena. Hver konto kan få relevante gratis fordele og forstærke tjenester efter login.
+- TECNO/Infinix ID er kontoen for spilleren som bruker Xunyou spillturbos tjenester i spillområdet/XArena. Hver konto kan få aktuelle gratisfordeler og forsterkningstjenester etter pålogging.
+- TECNO/Infinix ID est le compte du joueur utilisant les services Xunyou Game Turbo dans l'Espace de jeu/XArena. Chaque compte peut obtenir des avantages gratuits pertinents et des services boost après la connexion.
+- TECNO/Infinix ID ir tā spēlētāja konts, kurš izmanto Xunyou spēļu uzlabotāja pakalpojumus Spēļu telpā/XArena. Katrs konts pēc pieteikšanās var saņemt atbilstošas bezmaksas priekšrocības un uzlabošanas pakalpojumus.
+- TECNO/Infinix ID is de account van de speler die gebruik maakt van de Xunyou Game Turbo-services in de Gameruimte/XArena. Elke account kan relevante gratis voordelen en boost-diensten krijgen na aanmelding.
+- TECNO/Infinix ID is the account of the player using the Xunyou Game Turbo services in the Game Space/XArena. Each account can get relevant free benefits and boost services after login.
+- TECNO/Infinix ID je nalog igrača koji koristi Xunyou Game Turbo usluge u Prostor za igru/XArena. Svaki nalog može dobiti relevantne besplatne pogodnosti i poboljšati usluge nakon prijavljivanja.
+- TECNO/Infinix ID je nalog igrača koji koristi Xunyou Game Turbo usluge u Prostoru za igre/XArena. Svaki nalog može dobiti značajne besplatne pogodnosti i poboljšati usluge poslije prijave.
+- TECNO/Infinix ID je račun igrača koji koristi usluge Xunyou Akceleratora igara u Prostoru za igre/XArena. Svaki račun može dobiti relevantne besplatne pogodnosti i usluge ubrzanja nakon prijave.
+- TECNO/Infinix ID je račun igrača koji se služi uslugama Xunyou Game Turbo u prostoru za igre / XArena. Svaki račun može dobiti odgovarajuće besplatne prednosti i pojačati usluge nakon prijave.
+- TECNO/Infinix ID je účet hráča, ktorý používa služby Xunyou Game Turbo v Hernom priestore/XArena. Každý účet môže po prihlásení získať relevantné bezplatné výhody a rozšíriť si služby.
+- TECNO/Infinix ID na di account of di player wey dey use di Xunyou Game Turbo services in di Game Space/XArena. Each account fit get relevant free benefits dem and boost di services dem after login.
+- TECNO/Infinix ID na eakaonti ya omochieso ogotumeka obokoreri XArena Turbo Yomochieso obokoreri ase ribaga ria omochieso. Kera eakaonti nabo ekonyara konyora obuya na komenta obokoreri magega ya ogosoa.
+- TECNO/Infinix ID ni account ya mucethi ugutumira mootungata ja Xunyou mîchetho ya Inya kiri Kaanya ka micetho/XArena. Account oo yonthe no igwate mawega ja utheri jabatere na kwongera mootungata nyuma ya gutonya ndene.
+- TECNO/Infinix ID ni akaunti ya mchezaji anayetumia huduma za Xunyou Game Turbo kwenye Game Space/XArena. Kila akaunti inaweza kupata manufaa husika bila malipo na kuboresha huduma baada ya kuingia.
+- TECNO/Infinix ID ni akaunti ya mũthaki arahũthĩra ũtungata wa Turbo ya Mũthako ya Xunyou thĩinĩ wa Bathi ya Mũthako/XArena. O akaunti no ĩgĩe na wagĩrĩru wa burĩ na gwĩkĩra hinya ũtungata thutha wa kũingĩra.
+- TECNO/Infinix ID nĩ akaondĩ ya mũthaũkĩ ũla ũkũtũmĩa Xunyoũu ĩthaũ Turbo mawĩa kwa ĩthaũ mwanya/XArena. Kĩla akaondĩ noyĩkwate syĩndũ sya vat sta mana na kũkĩlwa mawĩa ĩtina wa kũlĩka.
+- TECNO/Infinix ID shi ne asusu na ɗan wasa da ke amfani da sabis-sabis na Xunyou Wasan Turbo a cikin Sararin Wasa/XArena. Kowane asusu zai iya samun fa'idoji kyauta da suka dace da haɓaka sabis-sabis bayan shiga.
+- TECNO/Infinix ID to konto gracza korzystające z usług Xunyou Game Turbo w centrum Game Space/XArena. Każde konto po zalogowaniu może uzyskać odpowiednie bezpłatne korzyści i usługi przyspieszające.
+- TECNO/Infinix ID är kontot som spelaren använder i Xunyou Game Turbo services i Game Space/XArena. Varje konto kan få relevanta kostnadsfria förmåner och förbättringstjänster efter varje inloggning.
+- TECNO/Infinix ID è l'account del giocatore che utilizza i servizi Xunyou Game Turbo in Spazio giochi/XArena. Dopo aver effettuato l'accesso, ogni account può ottenere vantaggi gratuiti rilevanti e potenziare i servizi.
+- TECNO/Infinix ID é a conta do jogador que usa os serviços do Xunyou Game Turbo no Espaço de jogos/XArena. Cada conta pode obter benefícios gratuitos relevantes e otimizar os serviços após o login.
+- TECNO/Infinix ID është llogaria e lojtarit që përdor shërbimet e përforcuesit të lojërave Xunyou te Hapësira e lojërave/XArena. Çdo llogari mund të marrë përfitime dhe shërbime përforcimi falas pas identifikimit.
+- TECNO/Infinixi ID on mängija konto, kes kasutab Xunyou Game Turbo teenuseid mänguruumis/XArenas. Iga konto saab pärast sisselogimist asjakohaseid tasuta soodustusi ja tõhustusteenuseid.
+- TECNOn/Infinixin tunnus on Game Space-/XArena-pelikeskuksen Xunyou Game Turbo -palveluita käyttävän pelaajan tili. Jokainen tili voi saada asiaankuuluvia ilmaisia etuja ja tehostaa palveluita, kun olet kirjautunut jokaiselle tilille.
+- Tambah Permainan
+- Tambah baik pengalaman permainan
+- Tambah pengawal permainan
+- Tambah permainan kegemaran anda ke Game Space
+- Tambah widget Cadangan Permainan ke skrin utama untuk akses sekali ketik kepada permainan dengan tetapan optimum.
+- Tambahkan game favorit Anda ke Ruang Game
+- Tambahkan permainan
+- Taphni Turbo Xunyou kan Bakka Tapha/XArena irra jiru oomisha TECNO/Infinix dhan hojjatamee fi tasagabbii cimdaa taphaa fooyyeessuuf kan gargaarudha. Rakkoo duubatti hafuu, addaan cituu, fi kkf furuun cimdaan sirnaan akka hojjatuu akkasumas akka tasgabawuuf fayyada. Wi-Fi fi cimdaa daataa biroo (5G/4G/3G) dhaf gargaara.
+- Tekan dan tahan butang Kuasa pada pengawal permainan kiri dan butang Y pada pengawal permainan kanan selama 2 saat untuk beralih antara Mod Pemetaan dan Mod Asli.
+- Tembak dua kali untuk membuka kunci navigasi sistem, untuk mengelakkan keluar daripada permainan secara tidak sengaja
+- Tempoh permainan 7 hari
+- Tempoh permainan hari ini
+- Tetapan pengawal permainan tidak tersedia dalam mod Peluasan Skrin
+- Tetapkan app untuk mendayakan mod Permainan
+- Tetapkan enjin ET untuk pengoptimuman permainan
+- Tiada permainan dipilih
+- Tiada permainan untuk dirangsang
+- Tiada strategi %1$s untuk %2$s. Anda boleh pergi ke %3$s dari permainan untuk menambah satu (hanya disokong untuk permainan berorientasikan landskap).
+- Tiada tempoh permainan
+- Tidak ada strategi %1$s untuk %2$s. Anda dapat membuka %3$s dari game untuk menambahkannya (hanya didukung untuk permainan berorientasi lanskap).
+- Tindak balas ketikan lebih sensitif, sesuai untuk permainan MOBA.
+- Tindak balas sentuhan lebih sensitif dan tepat, sesuai untuk kebanyakan permainan.
+- Tingkatkan kestabilan rangkaian apabila anda bermain permainan. Pengguna baharu boleh mencubanya secara percuma selama beberapa hari
+- Tingkatkan kualiti gambar sepanjang permainan
+- Trafik permainan 7 hari
+- Tukar suara anda dalam permainan dalam masa nyata.
+- Tunjukkan Panel Pembantu Permainan untuk pengalaman permainan yang lebih imersif
+- Tunjukkan mesej WhatsApp dan Messenger pada skrin permainan dalam borang bertalu-talu
+- Turbo Game Xunyou yang dibangun di Ruang Game/XArena adalah produk yang secara spesifik dirancang untuk TECNO/Infinix guna meningkatkan stabilitas jaringan game. Ini dapat menyelesaikan masalah latensi tinggi, putus koneksi, dsb., serta menjadikan jaringan lebih mulus dan game lebih stabil. Ini mendukung Wi-Fi dan jaringan data lainnya (5G/4G/3G).
+- Turbo igra Xunyou izrađena u prostoru za igre / XArena je proizvod posebno dizajniran za TECNO/Infinix kako bi se poboljšala stabilnost mreže igre. Može riješiti probleme s visokom latentnosti, odvajanjem i sl. te ugladiti mrežu, a stabilizirati igru. Podržava Wi-Fi i druge podatkovne mreže (5G/4G/3G).
+- Turbo permainan sudah menyokong kebanyakan permainan. Jika sesetengah permainan tidak boleh dirangsang, anda boleh menghubungi khidmat pelanggan untuk mendapatkan sokongan.
+- Turbo ya Mũthako ya Xunyou ya gũthondekerwo thĩinĩ wa Bathi ya Mathako/XArena nĩ kĩndũ gĩthondekeirwo kĩa mwanya TECNO/Infinix nĩgetha yagĩrithie wĩigananu wa netiwaki ya mũthako. No ĩhũrane na mathĩna ma kwĩgucia mũno, gũtigithũkana, na maingĩ. na ĩtũme netiwaki ĩ nyoroke na mũthako ũkorwo wĩigananĩte mũno. Ihotithĩtie Wi-Fi na netiwaki ingĩ cia data (5G/4G/3G).
+- Ubah suara anda semasa dalam permainan
+- Ufañ Mbre/XArena ebotto Andinam Mbre Adikaan asọp esịn ado ñkpọudua enamma enọ TECNO/Infinix adidịppe nsọñọnda netwọk mbre. Akeme adikọk mfịna akpọsọñ ndịbe, adikịppe, ntodo ntodo. anypñ anam netwọk asọp mbre anyʌñ asọọñọ ada. Anọ Utu-afịm ye mme netwọk deta(5G/4G/3G) mfen ibededem.
+- Untuk pengalaman yang lebih baik, disyorkan menentukur pengawal permainan sebelum digunakan buat kali pertama.
+- Untuk pengalaman yang lebih baik, disyorkan menentukur pengawal permainan selepas mengemaskini perisian tegar.
+- Untuk permainan yang menyokong pengawal permainan, anda boleh bermain secara langsung dalam Mod Asli.
+- Untuk permainan yang tidak menyokong pengawal permainan, anda boleh memetakan butang pengawal permainan kepada kawalan pada skrin dan bermain dalam Mod Pemetaan.
+- Usługa Xunyou Game Turbo wbudowana w centrum Game Space/XArena została zaprojektowana specjalnie dla urządzeń TECNO/Infinix w celu poprawienia stabilności sieci w grach. Może rozwiązywać problemy związane z wysokimi opóźnieniami, rozłączaniem itp., zapewniając płynniejsze działanie sieci i bardziej stabilną rozgrywkę. Obsługuje Wi-Fi i inne sieci danych (5G/4G/3G).
+- Versi permainan telah lapuk. Disyorkan mengemaskini ke versi terkini supaya pemain lain boleh memasuki permainan secara langsung.
+- Widget Cadangan Permainan
+- Xunyou Akcelerator igara ugrađen u Prostor za igre/XArena je proizvod posebno dizajniran za TECNO/Infinix kako bi se poboljšala stabilnost mreže za igre. Može riješiti probleme velike latencije, prekida veze, itd. i učiniti da mreža radi neometanije a igra stabilnije. Podržava Wi-Fi i druge mreže za prenos podataka (5G/4G/3G).
+- Xunyou Game Turbo -kiihdytyssovellus sisäänrakennettu Game Space-/XArena-pelikeskus on tuote, joka on erityisesti suunniteltu TECNOlle/Infinixille parantamaan peliverkon vakautta. Se voi ratkaista korkean latenssin, yhteyden katkeamisen jne. ongelmat ja tehdä verkosta sujuvamman ja pelin vakaamman. Se tukee Wi-Fi-verkkoa ja muita dataverkkoja (5G/4G/3G).
+- Xunyou Game Turbo built in Game Space/XArena is a product specifically designed for TECNO/Infinix to improve the game network stability. It can solve the problems of high latency, disconnection, etc. and make the network smoother and the game more stable. It supports Wi-Fi and other data networks (5G/4G/3G).
+- Xunyou Game Turbo built in Game Space/XArena na product wey dey specifically designed for TECNO/Infinix to improve di game network stability. E fit solve di problems dem of high latency, disconnection, etc. and make di network smoother and di game more stable. E dey support Wi-Fi and oda data networks dem(5G/4G/3G).
+- Xunyou Game Turbo byggd i Game Space/XArena är en produkt specifikt designad för TECNO/Infinix för att förbättra spelets nätverksstabilitet. De kan lösa problem med fördröjning, frånkoppling, etc. och göra nätverket smidigare och spelet mer stabilt. Det stöder Wifi och andra datanätverk (5G/4G/3G).
+- Xunyou Game Turbo byggt í Leikjasvæði / XArena er vara sérstaklega hönnuð fyrir TECNO / Infinix til að bæta stöðugleika leikjanetsins. Það getur leyst vandamál eins og langan biðtíma, aftengingu, o.s.frv. og gert netkerfið og leikinn stöðugri. Það styður Wi-Fi og önnur gagnanet (5G / 4G / 3G).
+- Xunyou Game Turbo iliyojengwa ndani ya Nafasi ya Mchezo/XArena ni bidhaa iliyoundwa mahususi kwa TECNO/Infinix ili kuboresha uthabiti wa mtandao wa mchezo. Inaweza kutatua matatizo ya uchelewaji wa juu, utenganisho, nk na kufanya mtandao kuwa laini na mchezo imara zaidi. Inaauni Wi-Fi na mitandao mingine ya data (5G/4G/3G).
+- Xunyou Game Turbo integrado ao Espaço de Jogo/XArena é um produto projetado especificamente para TECNO/Infinix para melhorar a estabilidade da rede do jogo. Ele pode resolver os problemas de alta latência, desconexão, etc. e tornar a rede mais fluida e o jogo mais estável. Ele suporta Wi-Fi e outras redes de dados (5G/4G/3G).
+- Xunyou Game Turbo integrado en Espacio de Juego / XArena es un producto diseñado específicamente para TECNO / Infinix para mejorar la estabilidad de la red de juegos. Puede resolver los problemas de alta latencia, desconexión, etc. y lograr que la red sea más fluida y el juego más estable. Soporta Wi-Fi y otras redes de datos (5G / 4G / 3G).
+- Xunyou Game Turbo integrat în Spațiu de joc/XArena este un produs special conceput pentru TECNO/Infinix pentru a îmbunătăți stabilitatea rețelei de jocuri. Poate să rezolve problemele de latență mare, deconectare etc. și poate face rețeaua mai cursivă și jocul mai stabil. Acceptă Wi-Fi și alte rețele de date (5G/4G/3G).
+- Xunyou Game Turbo integrato in Spazio giochi/XArena è un prodotto specificamente progettato per TECNO/Infinix per migliorare la stabilità della rete di gioco. Può risolvere i problemi di alta latenza, disconnessione, ecc. e rendere la rete più fluida e il gioco più stabile. Supporta Wi-Fi e altre reti di dati (5G/4G/3G).
+- Xunyou Game Turbo intégré à Game Space/XArena est un produit spécialement conçu pour TECNO/Infinix afin d'améliorer la stabilité du réseau du jeu. Il peut résoudre les problèmes de latence élevée, de déconnexion, etc. et rendre le réseau plus fluide et le jeu plus stable. Il prend en charge le Wi-Fi et d'autres réseaux de données (5G/ 4G/3G).
+- Xunyou Game Turbo is ingebouwd in Gameruimte/XArena en is een product dat speciaal is ontworpen voor TECNO/Infinix om de stabiliteit van het gamenetwerk te verbeteren. Het kan de problemen van hoge latentie, verbreken van de verbinding, enz. oplossen en het netwerk soepeler en de game stabieler maken. Het ondersteunt wifi en andere datanetwerken (5G/4G/3G).
+- Xunyou Game Turbo man gi Nafas Mar Tugo kata XArena en gino mowal ne TECNO/Infinix mondo omed teko e yor tudruok e mbui gi tugo. Onyalo loso chandruok mar malo mar yor Tud e mbui, ngado Tud, gi etc kendo oket yor tudruok e mbui obed mayom kod tugo motegno. Otiyo go Wi-Fi kod wache mar yor tudruok e mbui mamoko (5G/4G/3G).
+- Xunyou Game Turbo sisseehitatud Game Space / XArena on spetsiaalselt TECNO/Infinixi jaoks loodud toode, mis parendab mängu võrgustabiilsust. See võib lahendada suure latentsuse, ühenduse katkemise jne probleeme ning muuta võrku sujuvamaks ja mängu stabiilsemaks. See toetab Wi-Fi-t ja muid andmesidevõrke (5G/4G/3G).
+- Xunyou Game Turbo terbina dalam Game Space/XArena merupakan produk yang direka secara khusus untuk TECNO/Infinix bagi meningkatkan kestabilan rangkaian permainan. Ia boleh menyelesaikan masalah kependaman tinggi, terputus sambungan dsb. serta menjadikan rangkaian lebih lancar dan permainan lebih stabil. Ia menyokong Wi-Fi dan rangkaian data lain (5G/4G/3G).
+- Xunyou Game Turbo ugrađen u Prostor za igru/XArena je proizvod posebno dizajniran za TECNO/Infinix da poboljša stabilnost mreže igara. On može da reši probleme velikog kašnjenja, prekida veze itd. i učini mrežu glatkijom, a igru stabilnijom. Podržava Wi-Fi i druge mreže za prenos podataka (5G/4G/3G).
+- Xunyou Game Turbo ugrađen u Prostoru za igre/XArena je proizvod posebno dizajniran za TECNO/Infinix da poboljša stabilnost mreže igara. Može riješiti probleme velikog kašnjenja, prekida veze itd., te učiniti mrežu glađom, a igru stabilnijom. Podržava Wi-Fi mrežu i ostale mreže podataka (5G/4G/3G).
+- Xunyou Game Turbo zabudovaný v Hernom priestore/XArena je produkt špeciálne navrhnutý pre TECNO/Infinix na zlepšenie stability hernej siete. Môže vyriešiť problémy s vysokou latenciou, odpájaním atď. a dosiahnuť tak plynulejšiu sieť a stabilnejšiu hru. Podporuje Wi-Fi a ďalšie dátové siete (5G/4G/3G).
+- Xunyou Game Turbo, entwéckelt op Game Space/XArena, ass e Produkt spezifesch fir TECNO/Infinix, fir d’Stabilitéit vum Spillnetzwierk ze verbesseren. Et ka Problemer mat héijer Latenz, getrennter Verbindung, etc. behiewen an erhéicht d’Flëssegleet vum Netzwierk an d’Stabilitéit vum Spill. Et ënnerstëtzt Wi-Fi an aner Datennetzwierker (5G/4G/3G).
+- Xunyou Game Turbo, vgrajen v aplikacijo Igralni prostor/XArena, je izdelek, ki je z namenom izboljševanja stabilnosti omrežja iger posebej zasnovan za podjetje TECNO/Infinix. Z njim lahko odpravite težave z veliko zakasnitvijo, prekinitvijo povezave ipd. ter tako poskrbite, da omrežje deluje bolj tekoče, igra pa je stabilnejša. Podpira tudi omrežje Wi-Fi in druga podatkovna omrežja (5G/4G/3G).
+- Xunyou Turbo Yomochieso kwagacha ime ya Game Space/XArena na ebinto birosirie buya ase TECNO/Infinix erinde gwonchoreria omochiso bwa emetandao. Nabo ekonyara gosonsora obokong’u bwa latency ya igoro, kobutorwa, na ebinde, na kobeka enetwork bya na omochieso omuya mono. Egokonya wi-Fi na emetandao ende ya data (5G/4G/3G).
+- Xunyou Wasan Turbo da aka gina cikin Sararin Wasa/XArena wani kaya ne na musamman wanda aka tsara don TECNO/Infinix don inganta rashin matsalar cibiyar sadarwar wasa. Zai iya warware matsaloli na babban jinkiri, cirewar haɗi, da sauransu da mayar da cibiyar sadarwa ta kasance mai aiki sosai kuma wasan ya kasance sosai ba matsala. Yakan tallafi Wi-Fi da sauran cibiyoyin sadarwar bayanai (5G/4G/3G).
+- Xunyou nsa turbo adi Okpokoro Mmekọ/XArena adi mkpo udua enamde ono TECNO/Infinix ndi fiak ndebede nsa Network fo. Ekeme ndi solve mfana Okuk latency, disconnection, etc ke ndi nam Network fo odono ke nsa edi ukem. Adiana Wi-Fi ke mme Network Fo Akara Data (5G/4G/3G).
+- Xunyou spilleturbo indbygget i Game Space/XArena er et produkt, som er specielt designet til TECNO/Infinix for at forbedre netværksstabiliteten for spillet. Det kan løse problemer med lang ventetid, afbrydelse osv. og få netværket til at fungere mere jævnt og gøre spillet mere stabilt. Det understøtter Wi-Fi og andre datanetværk (5G/4G/3G).
+- Xunyou spillturbo utviklet i spillområdet/XArena er et produkt spesielt utformet for TECNO/Infinix for å forbedre nettverksstabiliteten for spill. Det kan løse problemer med store forsinkelser, frakobling osv. og gjøre at nettverket blir jevnere og spillet mer stabilt. Det støtter Wi-Fi og andre datanettverk (5G/4G/3G).
+- Xunyou spēļu uzlabotājs, kas iebūvēts Spēļu telpā/XArena, ir īpaši TECNO/Infinix vajadzībām izstrādāts produkts, kas paredzēts spēļu tīkla stabilitātes uzlabošanai. Tas var atrisināt problēmas, kas saistītas ar augstu latentumu, atvienošanos u.c., kā arī nodrošināt vienmērīgāku tīkla darbību un stabilāku spēles gaitu. Tas atbalsta Wi-Fi un citus datu tīklus (5G/4G/3G).
+- Xũnyoũ ĩthaũ Tũrbo yakĩtwe nthĩnĩ mwanya wa ĩthaũ/XArena nĩ kĩndũ kĩsaũvye sana kwa TECNO/Infinix kũtetheesya mũtandao wa ĩthaũ wĩwe wĩ mũngamũ nesa. No ũtatũe mathĩna ma ĩũlũ ma kũthela mĩtũkĩ, kũmanywa, etc. mbĩngĩ na ũĩtũma mtandao kwĩwa wĩ laĩsĩ na ĩthaũ kwa`wa yĩũngeme vyũ. Ikwataa kwoko Wi-Fi na netiwaka ĩngĩ sya data(5G/4G/3G).
+- „Game Space“ / „XArena“ įdėta „Xunyou Game Turbo“ yra specialiai TECNO / „Infinix“ sukurtas produktas, skirtas žaidimų tinklo stabilumui padidinti. Ji gali išspręsti didelės gaišties, atsijungimo ir kitas problemas bei užtikrinti sklandesnį tinklo veikimą ir stabilesnį žaidimą. Palaiko „Wi-Fi“ ir kitus duomenų tinklus (5G / 4G / 3G).

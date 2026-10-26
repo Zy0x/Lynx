@@ -1,3 +1,52 @@
+# Lynx Universal [Kombo Makro C1-C5 Multi-Touch Fullscreen Visual Recorder, ZoneTouch Master Esports 2px Slop, TouchShare Base64 Passphrase, GameShift Reactive Turbo Burst, Smart Bypass Dynamic Threshold & Dual-Channel Network Turbo] 7.0.0-RC217
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC217** (Lynx Kernel Manager v3.2.51): **Implementasi Fitur Gaming Adaptif Terpadu Berbasis Analisis XArena GameSpace Tanpa Hardcode: Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3\dots$) dengan Perekam Visual Layar Penuh Transparan Presisi Tinggi (Delay Alami & Penomoran Berurutan $①, ②\dots$), Tombol Pemicu Mengambang Dalam Game dengan Dukungan Single-Tap Eksekusi Cepat & Long-Press Reposisi Menggunakan Region Sentuhan Eksklusif `TOUCHABLE_INSETS_REGION` (Zero Passthrough Latency), Ekspor/Impor Kombo Portabel TouchShare via Token Terenkripsi Base64 URL-Safe (`LYNX-COMBO#1#...`), ZoneTouch Master dengan Optimalisasi IC Hardware Sampling Boost (240Hz/360Hz), Sensitivitas Ultra-Peka 2px Slop (`view.touch_slop 2`), dan Matriks Deadzone Tepi Layar, GameShift Turbo Reaktif Berbasis Pemantau Drop Frame SurfaceFlinger dengan Histeresis Pendinginan 8 Detik, Kontrol Cerdas Bypass Charging dengan Ambang Batas Baterai Dinamis (20%–90%) dan Proteksi Termal Auto-Cut 42.0°C, Serta Dual-Channel Network Turbo Anti-Jitter untuk Wi-Fi (2.4GHz/5GHz) dan Siaga Seluler Cepat**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC217)
+1. **Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3, C_4, C_5$) (`HudComboManager.kt` & `MacroCombo.kt`)**:
+   - Menghadirkan sistem Kombo Makro terpadu yang mampu menyimpan hingga 5 konfigurasi kombo terpisah ($C_1$ hingga $C_5$), masing-masing dengan pengaturan nama kustom, urutan hingga 25 ketukan beruntun, serta penanda visual unik.
+   - Mendukung dua mode eksekusi sentuhan: **1x Tekan (One-Shot)** untuk kombo instan sekali jalan, dan **Ulang (Hold Loop)** dengan jeda antar-siklus yang dapat dikonfigurasi bebas (50–1000 ms).
+   - Eksekusi sentuhan root ultra-presisi via pipa `input tap X Y` dengan perhitungan koordinat layar dinamis berbasis `DisplayMetrics` aktual perangkat tanpa hardcode resolusi.
+
+2. **Perekam Visual Layar Penuh Transparan Presisi Tinggi (`HudComboRecorderWindow.kt`)**:
+   - Bilah kontrol atas mengambang bergaya konsol modern: tombol batal `( X )`, pengubah nama kombo inline `[ Nama: C₁ ✎ ]`, tombol status rekam `[ Rekam Lagi 🔴 ]` / `[ Merekam... ⏹ ]` dengan aksen border merah berdenyut, dan tombol simpan `( ✓ )`.
+   - Menghitung delay interval alami antar-ketukan secara real-time (`+NNN ms`) dan menampilkan penomoran visual berurutan ($①, ②, ③\dots$) di titik-titik sentuh nyata yang diletakkan pemain di atas layar.
+   - Dilengkapi tombol melayang trigger $C_k$ yang dapat diseret bebas (*draggable trigger button*) ke posisi strategis di layar permainan sebelum perekaman dimulai.
+
+3. **Tombol Pemicu Mengambang Dalam Game Bebas Hambatan (`HudComboTriggersOverlay.kt`)**:
+   - Menggunakan refleksi Android WindowManager `ViewTreeObserver.OnComputeInternalInsetsListener` dengan tipe `TOUCHABLE_INSETS_REGION` (type 3).
+   - Hanya area lingkaran tombol bulat $C_k$ yang menangkap sentuhan; seluruh area layar game di sekitarnya tetap menerima sentuhan pemain 100% tanpa delay input (*zero touch consumption passthrough*).
+   - Interaksi gestur ganda: ketukan cepat (*instant tap*) langsung mengeksekusi kombo, sedangkan sentuhan tahan (*long-press*) mengaktifkan penyeretan reposisi tombol ke sudut layar yang diinginkan.
+
+4. **Protokol Berbagi Kombo Portabel TouchShare (`TouchShareParser.kt`)**:
+   - Menghasilkan token string portabel ringkas terenkripsi Base64 URL-safe berformat `LYNX-COMBO#1#<slot>#<payload>`.
+   - Fitur ekspor satu klik menyalin kode kombo ke Android System Clipboard dengan notifikasi toast.
+   - Dialog impor cerdas memvalidasi header token, mengurai data sentuhan JSON, dan langsung menerapkan urutan kombo ke slot aktif secara aman.
+
+5. **ZoneTouch Master & Akselerasi Touch IC Hardware (`HudZoneTouchManager.kt` & `core/touch_tuning.sh`)**:
+   - Probing otomatis driver touch controller multi-vendor: Goodix (`game_mode`, `report_rate`), Focaltech (`game_mode`), Novatek (`nvt_game_mode`), MediaTek TPD (`/proc/touch_report_rate`, `tpd_game_mode`), dan Qualcomm dev nodes.
+   - Pengaturan sensitivitas bidikan mikro ultra-peka `view.touch_slop 2` (2 piksel) untuk akurasi instan tanpa deadband.
+   - Pengaturan matriks deadzone tepi layar (0–32 dp) untuk mencegah sentuhan tidak disengaja oleh telapak tangan (*palm rejection*).
+   - Peningkatan prioritas penjadwalan kernel Linux Real-Time FIFO (`chrt -f -p 99`) untuk thread `InputReader`, `InputDispatcher`, dan `RenderThread`.
+
+6. **GameShift Turbo Reaktif Drop Frame Watcher (`HudGameShiftEngine.kt`)**:
+   - Pemantau latensi frame SurfaceFlinger waktu-nyata via pembacaan non-blocking `dumpsys SurfaceFlinger --latency`.
+   - Jika terdeteksi drop frame parah ($\ge 2$ frame tertunda / jank spike), sistem secara reaktif menyuntikkan burst frekuensi CPU/GPU hardware selama 3 detik.
+   - Mekanisme histeresis pendinginan 8 detik untuk mencegah lonjakan suhu berlebih dan menjaga kestabilan baterai.
+
+7. **Kontrol Cerdas Bypass Charging & Proteksi Termal 42°C (`HudBypassSession.kt` & `HudLabRepository.kt`)**:
+   - Ambang batas persentase pengisian daya baterai yang dapat diatur fleksibel oleh pengguna antara 20% hingga 90% (standar 40%).
+   - Baterai mengisi daya normal hingga mencapai ambang batas, setelah itu jalur daya charger dialihkan langsung ke motherboard/SoC (0 mA ke baterai).
+   - Pemantau termal internal: jika suhu baterai mencapai atau melampaui 42.0°C saat bermain game dengan kabel terhubung, bypass diaktifkan paksa secara otomatis demi keselamatan sel baterai.
+
+8. **Dual-Channel Network Turbo Anti-Jitter (`HudNetworkStabilizer.kt` & `core/network_turbo.sh`)**:
+   - Kunci latensi rendah Wi-Fi hardware via `WifiManager.WIFI_MODE_FULL_LOW_LATENCY` dan penonaktifan power save interface (`iw dev <wlan> set power_save off`).
+   - Penonaktifan background Wi-Fi scan spikes (`wifi_scan_always_enabled 0`, `wifi_scan_throttle_enabled 1`) untuk mengeliminasi lonjakan ping periodik 200ms.
+   - Mode siaga data seluler panas (*cellular hot-standby* via `mobile_data_always_on 1`) untuk failover instan saat koneksi Wi-Fi tidak stabil.
+   - Optimasi stack TCP Linux anti-bufferbloat (`tcp_low_latency 1`, `tcp_notsent_lowat 16384`, `tcp_fastopen 3`).
+
+---
+
 # Lynx Universal [Scene-Aware AutoSkip Engine, 3-Stage State Machine, 4-Tier Choice Hierarchy & Magic Box Pin Window] 7.0.0-RC216
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC216** (Lynx Kernel Manager v3.2.50): **Implementasi Mesin Cerdas Scene-Aware Auto-Skip untuk Genshin Impact dengan Deteksi Piksel Stream Sub-100ms Bebas Overhead, Siklus State Machine 4-Tahap ([ ⏸️ PAUSE ] -> [ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ MANUAL ]), Mekanisme Standby Hening Anti-Gangguan Kontrol Pemain saat Dialog Berhenti, Hirarki Pemilihan Opsi Percakapan 4-Tingkat Adaptif Resolusi Layar, Pembaruan Visual Token Dinamis HudSmartTriggerOverlay, serta Pemasangan Titik Ketukan Layar Interaktif Magic Box Pin Window**.

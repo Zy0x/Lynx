@@ -164,6 +164,12 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         }
     }
 
+    fun setBypassThreshold(pct: Int) = perform {
+        val status = labRepository.setBypassThreshold(pct)
+        bypassState.value = status
+        R.string.hud_bypass_on_verified
+    }
+
     fun setTouchBoost(enabled: Boolean) = perform {
         val status = labRepository.setTouchBoost(enabled)
         touchState.value = status
