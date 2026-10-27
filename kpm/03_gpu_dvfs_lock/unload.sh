@@ -1,23 +1,13 @@
 #!/system/bin/sh
 # Lynx GPU DVFS Lock - Independent Unloader Script
-MOD_NAME="gpu_dvfs_lock"
 
-echo "[LYNX-KPM] Melepas modul $MOD_NAME..."
-
-if ! lsmod | grep -q "^$MOD_NAME "; then
-    echo "[!] Modul $MOD_NAME memang sedang tidak aktif."
-    exit 0
+echo "[*] Melepas modul lynx_gpu_lock dari kernel ring-0..."
+if [ -x /data/local/tmp/kpm_diag ]; then
+    su 10683 -c "/data/local/tmp/kpm_diag unload lynx_gpu_lock"
 fi
 
-if [ -x /data/adb/ap/bin/kpatch ]; then
-    /data/adb/ap/bin/kpatch dummy kpm unload "$MOD_NAME" 2>/dev/null
-fi
-
-rmmod "$MOD_NAME" 2>/dev/null
-if [ $? -eq 0 ] || ! lsmod | grep -q "^$MOD_NAME "; then
-    echo "[✅] $MOD_NAME berhasil dilepas dari kernel."
-    exit 0
+if su 10683 -c '/data/local/tmp/kpm_diag list 2>/dev/null' | grep -q "lynx_gpu_lock"; then
+    echo "[❌] Modul masih terdeteksi aktif."
 else
-    echo "[❌] Gagal melepas $MOD_NAME."
-    exit 1
+    echo "[✅] Modul lynx_gpu_lock berhasil dilepas! Dynamic DVFS standar kembali aktif."
 fi

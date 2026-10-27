@@ -108,7 +108,20 @@ KPM (Kernel Patch Module) Lynx dirancang secara **terpisah per-fitur**. Setiap f
 
 ---
 
-## 🚀 3. Cara Memuat & Melepas Modul (Load / Unload)
+## 📱 3. Cara Memuat Modul di Aplikasi APatch (Metode GUI)
+
+Untuk memuat berkas `.kpm` secara langsung melalui aplikasi APatch tanpa perlu mengetik di terminal:
+1. Buka aplikasi **APatch Manager**.
+2. Masuk ke tab **KPM** (KernelPatch Module).
+3. Ketuk tombol **+** (Muat Modul KPM).
+4. Pilih salah satu berkas `.kpm`:
+   - `/sdcard/Download/lynx_gpu_lock.kpm`
+   - atau `/storage/emulated/0/Lynx/KPM/lynx_gpu_lock.kpm`
+5. Modul seketika aktif di memori kernel (ring-0) tanpa perlu reboot!
+
+---
+
+## 🚀 4. Cara Memuat & Melepas Modul via Terminal (Load / Unload)
 
 Seluruh operasi wajib dijalankan dengan hak akses **Root (`su`)** via Termux, MT Manager Terminal, atau ADB Shell:
 

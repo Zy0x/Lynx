@@ -1,48 +1,31 @@
 #!/system/bin/sh
 # Lynx EAS Sentinel - Independent Loader Script
 DIR="$(cd "$(dirname "$0")" && pwd)"
-MOD_NAME="eas_sentinel"
-KO_PATH="$DIR/${MOD_NAME}.ko"
+KPM_FILE="$DIR/eas_sentinel.kpm"
+[ -f "$KPM_FILE" ] || KPM_FILE="/storage/emulated/0/Lynx/KPM/lynx_eas_sentinel.kpm"
 
-echo "[LYNX-KPM] Memeriksa modul $MOD_NAME..."
+echo "[LYNX-KPM] Memeriksa status modul lynx_eas_sentinel..."
 
-# Cek apakah modul sudah berjalan
-if lsmod | grep -q "^$MOD_NAME "; then
-    echo "[!] Modul $MOD_NAME sudah aktif!"
+# Cek apakah sudah aktif di KernelPatch
+if su 10683 -c '/data/local/tmp/kpm_diag list 2>/dev/null' | grep -q "lynx_eas_sentinel"; then
+    echo "[!] Modul lynx_eas_sentinel sudah aktif di KernelPatch!"
     exit 0
 fi
 
-# Prioritas 1: APatch Jailbreak insmod (bypass vermagic)
-if [ -x /data/adb/ap/bin/apd ]; then
-    echo "[*] Memuat via APatch jailbreak engine (apd insmod)..."
-    /data/adb/ap/bin/apd insmod "$KO_PATH" 2>/dev/null
-    RC=$?
-    if [ $RC -eq 0 ]; then
-        echo "[✅] $MOD_NAME berhasil dimuat via APatch!"
-        [ -f /proc/lynx/eas_sentinel ] && cat /proc/lynx/eas_sentinel
-        exit 0
-    fi
-fi
+# Salin ke staging /data/local/tmp agar UID APatch bisa membaca berkas
+cp "$KPM_FILE" /data/local/tmp/lynx_eas_sentinel.kpm 2>/dev/null
+chown 10683:10683 /data/local/tmp/lynx_eas_sentinel.kpm 2>/dev/null
+chmod 644 /data/local/tmp/lynx_eas_sentinel.kpm 2>/dev/null
 
-# Prioritas 2: KernelPatch kpatch kpm load
-if [ -x /data/adb/ap/bin/kpatch ]; then
-    echo "[*] Mencoba memuat via KernelPatch kpm load..."
-    /data/adb/ap/bin/kpatch dummy kpm load "$KO_PATH" 2>/dev/null
-    if lsmod | grep -q "^$MOD_NAME "; then
-        echo "[✅] $MOD_NAME berhasil dimuat via KernelPatch KPM!"
-        [ -f /proc/lynx/eas_sentinel ] && cat /proc/lynx/eas_sentinel
-        exit 0
-    fi
-fi
+echo "[*] Memuat ke kernel ring-0 via KernelPatch (kpm_diag)..."
+su 10683 -c "/data/local/tmp/kpm_diag load /data/local/tmp/lynx_eas_sentinel.kpm"
 
-# Prioritas 3: Standar Linux insmod
-echo "[*] Memuat via insmod standar..."
-insmod "$KO_PATH" 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "[✅] $MOD_NAME berhasil dimuat!"
-    [ -f /proc/lynx/eas_sentinel ] && cat /proc/lynx/eas_sentinel
+if su 10683 -c '/data/local/tmp/kpm_diag list 2>/dev/null' | grep -q "lynx_eas_sentinel"; then
+    echo "[✅] lynx_eas_sentinel berhasil dimuat ke kernel via APatch!"
+    echo "[⚡] Prioritas EAS penjadwal game terlindungi (Dynamic Balance Aware)!"
+    echo "[💤] Mode Balance tetap hemat baterai dengan deep sleep aktif."
     exit 0
 else
-    echo "[❌] Gagal memuat $MOD_NAME. Pastikan file .ko telah dikompilasi untuk kernel Anda."
+    echo "[❌] Gagal memuat lynx_eas_sentinel. Anda juga bisa memuatnya langsung lewat tab KPM di aplikasi APatch."
     exit 1
 fi

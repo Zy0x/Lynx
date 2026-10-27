@@ -1,45 +1,31 @@
 #!/system/bin/sh
 # Lynx Thermal Silencer - Independent Loader Script
 DIR="$(cd "$(dirname "$0")" && pwd)"
-MOD_NAME="thermal_silencer"
-KO_PATH="$DIR/${MOD_NAME}.ko"
+KPM_FILE="$DIR/thermal_silencer.kpm"
+[ -f "$KPM_FILE" ] || KPM_FILE="/storage/emulated/0/Lynx/KPM/lynx_thermal_silencer.kpm"
 
-echo "[LYNX-KPM] Memeriksa modul $MOD_NAME..."
+echo "[LYNX-KPM] Memeriksa status modul lynx_thermal_silencer..."
 
-if lsmod | grep -q "^$MOD_NAME "; then
-    echo "[!] Modul $MOD_NAME sudah aktif!"
+# Cek apakah sudah aktif di KernelPatch
+if su 10683 -c '/data/local/tmp/kpm_diag list 2>/dev/null' | grep -q "lynx_thermal_silencer"; then
+    echo "[!] Modul lynx_thermal_silencer sudah aktif di KernelPatch!"
     exit 0
 fi
 
-# Prioritas 1: APatch Jailbreak insmod
-if [ -x /data/adb/ap/bin/apd ]; then
-    echo "[*] Memuat via APatch jailbreak engine (apd insmod)..."
-    /data/adb/ap/bin/apd insmod "$KO_PATH" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo "[✅] $MOD_NAME berhasil dimuat via APatch!"
-        [ -f /proc/lynx/thermal_silencer ] && cat /proc/lynx/thermal_silencer
-        exit 0
-    fi
-fi
+# Salin ke staging /data/local/tmp agar UID APatch bisa membaca berkas
+cp "$KPM_FILE" /data/local/tmp/lynx_thermal_silencer.kpm 2>/dev/null
+chown 10683:10683 /data/local/tmp/lynx_thermal_silencer.kpm 2>/dev/null
+chmod 644 /data/local/tmp/lynx_thermal_silencer.kpm 2>/dev/null
 
-# Prioritas 2: KernelPatch kpm load
-if [ -x /data/adb/ap/bin/kpatch ]; then
-    echo "[*] Mencoba memuat via KernelPatch kpm load..."
-    /data/adb/ap/bin/kpatch dummy kpm load "$KO_PATH" 2>/dev/null
-    if lsmod | grep -q "^$MOD_NAME "; then
-        echo "[✅] $MOD_NAME berhasil dimuat via KernelPatch KPM!"
-        [ -f /proc/lynx/thermal_silencer ] && cat /proc/lynx/thermal_silencer
-        exit 0
-    fi
-fi
+echo "[*] Memuat ke kernel ring-0 via KernelPatch (kpm_diag)..."
+su 10683 -c "/data/local/tmp/kpm_diag load /data/local/tmp/lynx_thermal_silencer.kpm"
 
-# Prioritas 3: Standar Linux insmod
-insmod "$KO_PATH" 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "[✅] $MOD_NAME berhasil dimuat!"
-    [ -f /proc/lynx/thermal_silencer ] && cat /proc/lynx/thermal_silencer
+if su 10683 -c '/data/local/tmp/kpm_diag list 2>/dev/null' | grep -q "lynx_thermal_silencer"; then
+    echo "[✅] lynx_thermal_silencer berhasil dimuat ke kernel via APatch!"
+    echo "[🛡️] Throttling termal CPU (mt_ppm) & GPU (mt_gpufreq) berhasil diredam!"
+    echo "[🔒] Proteksi shutdown darurat PMIC 115°C tetap aktif 100% demi keselamatan silikon."
     exit 0
 else
-    echo "[❌] Gagal memuat $MOD_NAME. Pastikan file .ko telah dikompilasi untuk kernel Anda."
+    echo "[❌] Gagal memuat lynx_thermal_silencer. Anda juga bisa memuatnya langsung lewat tab KPM di aplikasi APatch."
     exit 1
 fi

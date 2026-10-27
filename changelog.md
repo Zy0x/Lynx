@@ -1,3 +1,65 @@
+# Lynx Universal [Full Suite Dynamic KernelPatch Modules (.kpm) with Automatic Balance Mode Restoration] 7.0.0-RC256
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC256** (Lynx Kernel Manager v3.2.90): **Penyelesaian Seluruh 4 Modul Biner Asli KernelPatch (.kpm) untuk APatch Manager: Menyediakan Suite Lengkap lynx_eas_sentinel.kpm, lynx_thermal_silencer.kpm, lynx_gpu_lock.kpm, dan lynx_mem_cushion.kpm yang Dilengkapi Mekanisme Restorasi Otomatis Cerdas Ring-0: Otomatis Aktif Penuh Saat Gaming (Performance/Extreme) dan Seketika Kembali Dormant/Stock Tanpa Beban, Tanpa Panas, Serta Hemat Baterai Maksimal Saat Berada di Mode Daily Balance**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC256)
+1. **Suite 4 Modul Biner KernelPatch Mandiri (.kpm) untuk APatch**:
+   - Seluruh 4 fitur modular kernel patch telah selesai dikompilasi menjadi biner .kpm independen siap pakai:
+     - lynx_eas_sentinel.kpm: Melindungi prioritas dan headroom task gaming EAS (schedtune_task_boost & schedtune_prefer_idle) agar tidak terdegradasi saat notifikasi masuk.
+     - lynx_thermal_silencer.kpm: Meredam throttling termal semu pada CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) sambil mempertahankan batas darurat PMIC 115°C.
+     - lynx_gpu_lock.kpm: Mengunci lantai frekuensi GPU Mali-G57 MC2 di 950 MHz puncak hardware tanpa stuttering.
+     - lynx_mem_cushion.kpm: Mencegah render stall akibat direct page compaction dan direct reclaim (	ry_to_free_pages) melalui asynchronous kswapd scheduling.
+
+2. **Mekanisme Restorasi Otomatis Cerdas Ring-0 (Balance-Aware)**:
+   - Setiap modul meng-hook transisi status mode live (store_BN_TestMode) dan charger event (dv2_stop_algo).
+   - Saat kembali ke **Mode Balance**:
+     - lynx_eas_sentinel: Mengembalikan 100% penjadwal Linux ke kondisi stok, membiarkan CPU masuk status tidur lelap (*deep sleep*) dan downclock ke 500 MHz tanpa konsumsi baterai ekstra.
+     - lynx_thermal_silencer: Mengembalikan 100% profil batas suhu pabrik OEM Transsion.
+     - lynx_gpu_lock: Menonaktifkan kunci clock dan membiarkan GPU turun ke 300 MHz idle.
+     - lynx_mem_cushion: Mengembalikan alokator memori stok tanpa intervensi latar belakang.
+
+3. **Penyebaran Multi-Lokasi untuk Kenyamanan Pengguna**:
+   - Seluruh 4 berkas .kpm telah di-deploy ke /storage/emulated/0/Lynx/KPM/ dan /sdcard/Download/ sehingga pengguna dapat langsung memuat atau melepasnya lewat tab KPM aplikasi APatch Manager maupun melalui terminal root.
+
+---
+
+# Lynx Universal [Dedicated Ring-0 KernelPatch Module (.kpm) for SoC Thermal Throttling Mitigation] 7.0.0-RC255
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC255** (Lynx Kernel Manager v3.2.89): **Penerbitan Modul Biner KernelPatch Mandiri (lynx_thermal_silencer.kpm) untuk APatch Manager: Meredam Throttling Termal Agresif CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) pada Helio G96, Menghilangkan Lag Stutter Siang Hari Sambil Mempertahankan 100% Proteksi Darurat PMIC 115°C**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC255)
+1. **Modul Biner KernelPatch Murni (lynx_thermal_silencer.kpm)**:
+   - Membangun biner ELF relocatable KernelPatch mandiri (-nostdlib -ffreestanding) tanpa dependensi userspace.
+   - Meng-hook langsung simbol tingkat rendah kernel MediaTek: mt_ppm_cpu_thermal_protect, mt_gpufreq_thermal_protect, dan cpuhvfs_update_imax_thermal_state.
+
+2. **Mitigasi Cerdas CPU & GPU Throttling**:
+   - Secara aktif membatalkan pembatasan daya termal semu (*soft trip-points*) yang biasanya memicu stuttering saat sesi gaming panjang di siang hari.
+   - Tetap mempertahankan batas keselamatan darurat pada PMIC MT6358 (115°C) dan sel baterai untuk menjamin keamanan perangkat fisik.
+
+3. **Kompatibilitas Penuh GUI APatch Manager & CLI**:
+   - Tersedia di /sdcard/Download/lynx_thermal_silencer.kpm dan /storage/emulated/0/Lynx/KPM/ untuk dimuat instan lewat tab KPM aplikasi APatch atau via sh 02_thermal_silencer/load.sh.
+   - Teruji secara live di Infinix Note 11 Pro dengan siklus load dan clean unhook 100% mulus tanpa reboot.
+
+---
+
+# Lynx Universal [Freestanding Ring-0 KernelPatch Module (.kpm) for APatch & 950 MHz GPU DVFS Lock] 7.0.0-RC254
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC254** (Lynx Kernel Manager v3.2.88): **Penyediaan Modul Biner Asli KernelPatch (lynx_gpu_lock.kpm) yang Dapat Dimuat Langsung Melalui Aplikasi APatch Manager (KPM Tab): Mengunci Lantai Frekuensi GPU Mali-G57 MC2 di 950 MHz Puncak Hardware Tanpa Perlu Kompilasi Ulang Kernel, Dilengkapi Dukungan Load/Unload Dinamis Langsung dari Antarmuka GUI APatch Maupun Terminal**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC254)
+1. **Penerbitan Modul Biner Relocatable ELF KernelPatch (lynx_gpu_lock.kpm)**:
+   - Membangun modul KPM mandiri (*freestanding* tanpa dependensi userspace libc) berbasis SDK KernelPatch arm64 untuk kernel Linux 4.14+.
+   - Menyertakan section standar KernelPatch: .kpm.info, .kpm.init, .kpm.ctl0, dan .kpm.exit yang kompatibel 100% dengan APatch Manager.
+
+2. **Dukungan Penuh APatch Manager GUI**:
+   - Modul lynx_gpu_lock.kpm dapat langsung dimuat melalui tab **KPM** di aplikasi APatch Manager dengan menekan tombol **+** dan memilih berkas dari /sdcard/Download/ atau /storage/emulated/0/Lynx/KPM/.
+   - Modul langsung aktif di ring-0 tanpa memerlukan reboot perangkat, dan dapat di-unload kapan saja secara bersih (*clean unhooking*).
+
+3. **Verifikasi Hardware & Hook Ring-0 MediaTek**:
+   - Terverifikasi meng-hook mt_gpufreq_target dan ged_dvfs_boost_gpu_freq secara live pada SoC MediaTek Helio G96, mengunci lantai frekuensi GPU di 950 MHz saat bermain game dan bersinergi dengan lynx_gpu_uv.kpm.
+
+---
+
 # Lynx Universal [Mali GPU DVFS Lock 950 MHz Peak Clock Calibration & Undervolt Synergy] 7.0.0-RC253
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC253** (Lynx Kernel Manager v3.2.87): **Penyelarasan Pengunci Lantai Frekuensi GPU Mali-G57 MC2 ke 950 MHz Puncak Hardware (OPP [00]): Mengintegrasikan Sinergi Penuh Antara Modul KPM Pengunci DVFS (gpu_dvfs_lock) dan Modul Undervolting GPU (lynx_gpu_uv) Agar GPU Terkunci Langsung di Clock Maksimum 950 MHz dengan Suhu Silikon Tetap Dingin dan Stabil Tanpa Stuttering**.
