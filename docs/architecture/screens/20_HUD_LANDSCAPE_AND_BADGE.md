@@ -23,3 +23,7 @@ Panel safe bounds retain their conservative system-bars/cutout policy. `HudDispl
 ## 5. Validation and boundaries
 
 `HudBadgeGeometryTest` covers all four edges, measured non-square windows, visible-bar margins, local cutouts, portrait/landscape fraction round trips and repeated out-of-range drags. Exact right/bottom edges include the full measured window, not the old size. The app is built and tested in Release; native stream and root hardware controllers are unchanged. Physical landscape checks and artifact results are recorded in the HUD layout audit. Automated game interaction is not used to validate the badge.
+
+## Portrait follow-up
+
+Portrait now explicitly prefers the inline page menu, giving its entire usable width to the content instead of reserving a side rail. At a 321 dp drawer the usable body is 301 dp before card padding. Landscape retains the measured rail only while at least 176 dp of content remains. Header text shows the active app for top-level menu pages; the page selector identifies the page without repeating its title. Add-in child headings and Back behavior remain intact. The new policy test checks portrait widths 240/280/321/336 dp with short and long labels.
