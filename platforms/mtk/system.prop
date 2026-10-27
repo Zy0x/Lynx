@@ -15,8 +15,11 @@ persist.vendor.ged.smart_boost=1
 persist.log.tag.mtkpower@impl=S
 persist.log.tag.libPowerHal=S
 
-# ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard ────────────────────────────
-debug.sf.enable_gl_backpressure=1
-debug.sf.early_app_phase_offset_ns=500000
-debug.sf.early_gl_app_phase_offset_ns=15000000
-debug.sf.early_gl_sf_phase_offset_ns=16000000
+# ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard (Zero-Jitter High-FPS Phases) ──
+debug.sf.enable_gl_backpressure=0
+debug.sf.early_phase_offset_ns=1000000
+debug.sf.early_app_phase_offset_ns=1500000
+debug.sf.high_fps_early_phase_offset_ns=1000000
+debug.sf.high_fps_early_app_phase_offset_ns=1500000
+debug.sf.early_gl_phase_offset_ns=1000000
+debug.sf.early_gl_app_phase_offset_ns=1500000

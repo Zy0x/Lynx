@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,7 +13,6 @@ use crate::utils::Logger;
 
 static CURRENT_DISPLAY_HZ: AtomicU32 = AtomicU32::new(0);
 static LAST_HZ_CHANGE_MS: AtomicU64 = AtomicU64::new(0);
-static BACKDOOR_RELEASED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Default)]
 pub struct DisplayModeTable {
@@ -203,29 +202,36 @@ impl DisplayController {
         }
     }
 
-    /// Smooth adaptive rate adjustment for Auto mode without hard SurfaceFlinger 1035 backdoor stalls.
-    /// Manages min/peak refresh rate via DisplayModeDirector and panel sysfs.
-    pub fn apply_hz_auto(target_hz: u32, _high_hz: u32) {
-        let hz_str = format!("{}.0", target_hz);
+    /// Smooth zero-jitter adaptive rate adjustment for Auto mode.
+    /// Manages SurfaceFlinger HWC mode, Android framework min/peak refresh rate, and panel sysfs.
+    pub fn apply_hz_auto(target_hz: u32, sf_id: Option<i32>) {
+        // 1. Direct SurfaceFlinger HWC mode switch (instant zero-latency mode change with locked early phases)
+        if let Some(id) = sf_id {
+            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
+        }
 
-        let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
-
-        // Kernel / Vendor Panel Sysfs Nodes
+        // 2. Kernel / Vendor Panel Sysfs Nodes
         let nodes = [
+            "/proc/driver/disp_fps",
             "/sys/devices/virtual/graphics/fb0/mode",
             "/sys/class/graphics/fb0/mode",
-            "/proc/driver/disp_fps",
             "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
         ];
         for node in nodes {
             Self::write_opt(node, &target_hz.to_string());
         }
+
+        // 3. Android settings provider (spawn non-blocking async thread to avoid daemon loop stall)
+        let hz_str = format!("{}.0", target_hz);
+        std::thread::spawn(move || {
+            let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
+            let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
+            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
+        });
     }
 
     /// Immediate sub-1ms hardware touch boost notification triggered by TouchDetector thread.
-    /// Elevates min_refresh_rate to high_hz ceiling with zero latency on touch contact.
+    /// Elevates min_refresh_rate and SurfaceFlinger HWC mode to high_hz ceiling with zero latency on touch contact.
     pub fn on_hardware_touch() {
         let modes = Self::get_display_modes();
         if modes.supported_rates.len() <= 1 {
@@ -248,8 +254,26 @@ impl DisplayController {
                 .unwrap_or_default()
                 .as_millis() as u64;
             LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
+
+            // 1. Direct sub-1ms SurfaceFlinger HWC mode switch
+            let sf_id = modes.sf_modes.iter().find(|(h, _)| *h == high_hz).map(|(_, id)| *id);
+            if let Some(id) = sf_id {
+                let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
+            }
+
+            // 2. Direct sub-1ms kernel panel sysfs write
+            let nodes = [
+                "/proc/driver/disp_fps",
+                "/sys/devices/virtual/graphics/fb0/mode",
+                "/sys/class/graphics/fb0/mode",
+                "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
+            ];
+            for node in nodes {
+                Self::write_opt(node, &high_hz.to_string());
+            }
+
+            // 3. Asynchronously align Android framework settings provider
             let hz_str = format!("{}.0", high_hz);
-            // Spawn asynchronous non-blocking worker so input listener thread is never stalled by IPC
             std::thread::spawn(move || {
                 let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
                 let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
@@ -287,8 +311,6 @@ impl DisplayController {
             // User explicitly chose a fixed locked rate! DO NOT AUTO-SCALE!
             let locked_rate = lock_cfg;
 
-            BACKDOOR_RELEASED.store(false, Ordering::Relaxed);
-
             if CURRENT_DISPLAY_HZ.load(Ordering::Relaxed) != locked_rate {
                 let sf_id = modes.sf_modes.iter().find(|(hz, _)| *hz == locked_rate).map(|(_, id)| *id);
                 Self::apply_hz_hardware(locked_rate, sf_id);
@@ -298,15 +320,6 @@ impl DisplayController {
         }
 
         // ── Auto (Dynamic / Adaptive) Mode ─────────────────────────────────
-        // In Auto Mode, release SurfaceFlinger backdoor so Android's native
-        // Choreographer and DisplayModeDirector handle frame pacing smoothly without HWC stall glitches.
-        if !BACKDOOR_RELEASED.load(Ordering::Relaxed) {
-            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", "-1"]);
-            let _ = Self::run_cmd("cmd", &["display", "clear-user-preferred-display-mode", "0"]);
-            BACKDOOR_RELEASED.store(true, Ordering::Relaxed);
-            Logger::info("[DISPLAY] SurfaceFlinger backdoor released for seamless dynamic frame pacing.");
-        }
-
         let low_hz = modes.supported_rates.first().copied().unwrap_or(60);
         let high_hz = modes.supported_rates.last().copied().unwrap_or(60);
 
@@ -322,10 +335,10 @@ impl DisplayController {
         let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
 
         // Kinetic interaction window:
-        // Set to 4,500ms for active browsing/reading and 5,000ms for multitasking.
-        // Prevents rapid 60Hz <-> 120Hz mode-switching flap during natural reading pauses (2-4s),
-        // completely eliminating the touch-down modeset stutter!
-        let kinetic_window_ms: u64 = if is_multitask { 5000 } else { 4500 };
+        // Set to 8,000ms for active browsing/reading and 10,000ms for multitasking.
+        // Prevents rapid 60Hz <-> 120Hz mode-switching flap during natural reading pauses (3-6s),
+        // completely eliminating the touch-down modeset stutter while preserving idle power savings!
+        let kinetic_window_ms: u64 = if is_multitask { 10000 } else { 8000 };
 
         let is_kinetic_active = TouchDetector::is_touch_recent(kinetic_window_ms)
             || TouchDetector::is_touch_moving(kinetic_window_ms)
@@ -344,28 +357,29 @@ impl DisplayController {
         } else if is_media {
             // Video / Streaming (YouTube, Netflix, VLC, MX Player):
             // If actively touching / scrubbing timeline: High Tier (120Hz)
-            // If watching video hands-off: Low Tier (60Hz) to match 24/30/60 FPS video and save ~35-40% battery
-            if TouchDetector::is_touch_recent(1500) || TouchDetector::is_touch_moving(1500) {
+            // If watching video hands-off: Low Tier (60Hz) after 2s to match 24/30/60 FPS video and save ~35-40% battery
+            if TouchDetector::is_touch_recent(2000) || TouchDetector::is_touch_moving(2000) {
                 high_hz
             } else {
                 low_hz
             }
         } else if is_kinetic_active {
-            // Active touch / scrolling / fling gesture: Zero Latency (0 ms) High Tier
+            // Active touch / scrolling / reading session: Zero Latency (0 ms) High Tier
             high_hz
         } else {
-            // Stationary reading / idle: Drop to Low Tier (60Hz) for maximum panel power savings
+            // Stationary reading / deep idle (>8s): Drop to Low Tier (60Hz) for maximum panel power savings
             low_hz
         };
 
         let current_hz = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
         if target_hz != current_hz {
             let last_change = LAST_HZ_CHANGE_MS.load(Ordering::Relaxed);
-            let dwell_ms: u64 = if is_multitask { 2000 } else { 1000 };
+            let dwell_ms: u64 = if is_multitask { 2500 } else { 1500 };
             // Instant Ramp-Up (0 ms) when target > current.
-            // Dwell time (1000ms, or 2000ms in multitask) when stepping down to prevent visual flapping.
+            // Dwell time (1500ms, or 2500ms in multitask) when stepping down to prevent visual flapping.
             if target_hz > current_hz || now_ms.saturating_sub(last_change) >= dwell_ms {
-                Self::apply_hz_auto(target_hz, high_hz);
+                let sf_id = modes.sf_modes.iter().find(|(h, _)| *h == target_hz).map(|(_, id)| *id);
+                Self::apply_hz_auto(target_hz, sf_id);
                 CURRENT_DISPLAY_HZ.store(target_hz, Ordering::Relaxed);
                 LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
                 Logger::info(format!(

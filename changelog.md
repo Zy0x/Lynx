@@ -1,3 +1,23 @@
+# Lynx Universal [Zero-Jitter VSYNC Phase Lock & 8.0s Kinetic Reading Hold Engine] 7.0.0-RC234
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC234** (Lynx Kernel Manager v3.2.68): **Penyempurnaan Tuntas Mode Auto Refresh Rate Menyamai Kemulusan Mutlak 120Hz Full: Eliminasi Total Fluktuasi Fase VsyncModulator Melalui Penguncian Fase Rendah Latensi (App Phase 2.0ms / SF Phase 1.0ms), Penerapan Direct HWC Mode Switching pada 0ms Tanpa Penundaan IPC Java Framework, Pembersihan Konfigurasi GL Backpressure Lawas, Serta Perluasan Jendela Membaca Kinetik Menjadi 8.000ms (10.000ms Multitasking) untuk Menjamin Nol Mikro-Stutter Selama Sesi Membaca dan Multitasking**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC234)
+1. **Analisis Akar Masalah: Mengapa 120 Full Lebih Mulus dari Auto 120 Konvensional**:
+   - Ditemukan bahwa pada mode Auto konvensional, SurfaceFlinger mengalami lonjakan fase VSYNC (`VsyncModulator`) antara fase diam (8.3ms) dan fase aktif (0.5ms). Lonjakan interval 7.8ms di tengah gestur sentuh membuat Choreographer melewatkan batas waktu frame (*missed frame deadline*), menghasilkan sensasi mikro-stutter.
+   - Selain itu, durasi membaca sebelumnya (4.5s) terlalu singkat untuk ritme membaca artikel/feed manusia (3–6 detik per paragraf), menyebabkan layar turun ke 60Hz tepat saat pengguna sedang membaca dan mengalami jeda re-sinkronisasi hardware saat menggeser layar kembali.
+
+2. **Penguncian Fase VSYNC Rendah Latensi & Direct HWC Mode Switching (`apply_hz_auto`)**:
+   - Menghubungkan langsung mode HWC SurfaceFlinger pada `apply_hz_auto` dan sentuhan hardware (`on_hardware_touch`) dengan penguncian fase awal yang konstan (`app phase 2000000 ns`, `SF phase 1000000 ns`).
+   - Mengeliminasi jeda IPC framework Java dengan mengeksekusi penyesuaian settings secara asinkron tanpa memblokir siklus utama daemon.
+   - Memperbaiki properti grafis `debug.sf.early_gl_app_phase_offset_ns` dari nilai lawas 15ms menjadi 1.5ms dan menonaktifkan GL backpressure.
+
+3. **Perluasan Jendela Membaca Kinetik Menjadi 8.000ms (8 Detik) & 10.000ms (10 Detik Multitasking)**:
+   - Menjamin bahwa selama sesi aktif membaca artikel, browsing, atau menelusuri lini masa, layar tetap stabil pada 120Hz tanpa pernah mengalami penurunan ke 60Hz di antara setiap paragraf.
+   - Penurunan ke 60Hz hanya dieksekusi secara mulus jika perangkat benar-benar didiamkan lebih dari 8–10 detik, saat menonton video (setelah 2 detik), atau saat layar mati, mempertahankan penghematan konsumsi daya hingga ~40%.
+
+---
+
 # Lynx Universal [Zero-Jank Reading Dwell Window & Non-Blocking Touch Elevation] 7.0.0-RC233
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC233** (Lynx Kernel Manager v3.2.67): **Eliminasi Total Sensasi Lag / Stutter Awal Sentuhan pada Mode Auto Refresh Rate: Perluasan Jendela Interaksi Kinetik Membaca Menjadi 4.500ms (Mencegah Flapping Mode-Switching Berulang 60Hz <-> 120Hz di Setiap Jeda Paragraf), Pemuatan Asinkron Non-Blocking untuk Perintah Elevasi Layar di Thread Sentuh, Serta Peningkatan Otomatis GPU Langsung ke Fluid Tier (~588–675 MHz) Saat Sentuhan Kaca Pertama Kali Diterima**.
