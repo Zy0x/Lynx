@@ -532,29 +532,16 @@ class LynxAppAutomationService : Service() {
                             LynxRepository.grantOverlayPermission()
                         }
                         val isHudAlreadyRunning = LynxFloatingHudService.isHudProcessAlive(this@LynxAppAutomationService)
-                        val hudPrefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
                         if (!isHudAlreadyRunning) {
                             autoStartedHud = true
                             previousHudMode = null
+                            // Respect the user's base default configured mode (Sidebar vs Floating)
                             val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
                                 action = LynxFloatingHudService.ACTION_START
-                                putExtra(LynxFloatingHudService.EXTRA_MODE, 1)
                             }
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 startForegroundService(hudIntent)
                             } else {
-                                startService(hudIntent)
-                            }
-                        } else {
-                            val currentMode = hudPrefs.getInt("hud_mode", 0)
-                            if (currentMode != 1) {
-                                if (previousHudMode == null) {
-                                    previousHudMode = currentMode
-                                }
-                                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
-                                    action = LynxFloatingHudService.ACTION_SET_MODE
-                                    putExtra(LynxFloatingHudService.EXTRA_MODE, 1)
-                                }
                                 startService(hudIntent)
                             }
                         }

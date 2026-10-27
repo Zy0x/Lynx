@@ -265,7 +265,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val targetMode = intent.getIntExtra(EXTRA_MODE, 0).coerceIn(0, 1)
             activeModeFlow.value = targetMode
             open.value = false
-            prefs.edit().putInt("hud_mode", targetMode).apply()
             view?.post { clamp() }
         }
         when (intent?.action) {

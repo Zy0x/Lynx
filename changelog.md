@@ -1,3 +1,18 @@
+# Lynx Universal [Sidebar Mode Preservation & Base Default User Configuration Integrity] 7.0.0-RC246
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC246** (Lynx Kernel Manager v3.2.80): **Preservasi Mutlak Format Tata Letak Lynx Engine Sesuai Pilihan Pengguna (Sidebar Handle Mode 0 vs Classic Floating Tile Mode 1): Otomasi Game Menjalankan Engine Sesuai Base Default Pengguna Tanpa Pernah Memaksa Bentuk Kotak Mengambang, Menghilangkan Override Preferensi Otomatis, Serta Menjaga Integritas Pengaturan Pengguna**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC246)
+1. **Preservasi Base Default Mode Sidebar Pada Otomasi (`LynxAppAutomationService.kt`)**:
+   - **Eliminasi Pemaksaan Mode Mengambang**: Memperbaiki perilaku di mana pemicu otomasi game mengirimkan `EXTRA_MODE = 1` yang memaksa Lynx Engine tampil dalam wujud kotak melayang (Floating Tile) padahal pengguna telah menyetel format **Sidebar Handle** (`hud_mode = 0`).
+   - **Mengikuti Konfigurasi Pengguna Secara Alami**: Otomasi kini memanggil layanan murni melalui `ACTION_START`. Layanan overlay secara konsisten membaca preferensi dasar pengguna (`hud_mode`) yang tersimpan, menampilkan bilah pegangan Sidebar yang elegan dan tersembunyi rapi di tepi layar.
+
+2. **Integritas Preferensi Tersimpan (`LynxFloatingHudService.kt`)**:
+   - **Perlindungan Terhadap Perubahan Diam-Diam**: Menghapus mutasi otomatis `prefs.edit().putInt("hud_mode", targetMode).apply()` pada penerimaan intent runtime umum.
+   - Nilai preferensi dasar `hud_mode` kini hanya dapat diubah dan disimpan secara permanen ke disk ketika pengguna secara sadar memilih tombol tata letak di antarmuka Lynx Engine (`ACTION_SET_MODE` via `LynxViewModel.setHudMode`).
+
+---
+
 # Lynx Universal [Universal Dynamic Silicon Auto-Discovery, Float Voltage Probing & Adaptive Cooling Sweep] 7.0.0-RC245
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC245** (Lynx Kernel Manager v3.2.79): **Implementasi Penuh Mesin Penjelajah Jalur Driver & Batasan Silikon Universal (Universal Dynamic Silicon Driver Auto-Discovery): Mengeliminasi Seluruh Nilai Hardcoded Pada Pengisian Daya Cepat Hyper Mode, Menyelidiki Langsung Plafon Desain Fisik Tegangan (Float Voltage) dan Arus (Current Ceiling) dari Kernel BMS / Fuel Gauge, Sweeping Pendingin Termal Seluruh Vendor (Cooling Devices Sweep), Serta Deteksi Dinamis Berkas Konfigurasi Daemon Termal Vendor Qualcomm On-The-Fly**.
