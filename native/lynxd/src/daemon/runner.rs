@@ -244,6 +244,9 @@ impl DaemonRunner {
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
 
+            // Autonomous Scheduler & EAS Boost Priority Guardian tick (Anti-Notification Priority Inversion)
+            crate::subsystems::SchedulerGuardian::tick(active_prof, current_screen == ScreenState::On);
+
             // Check if multitasking is active (Split-Screen / Freeform / PiP)
             let is_multitask = fg_detector.is_multitasking_active();
 

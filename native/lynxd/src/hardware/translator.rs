@@ -1011,7 +1011,21 @@ impl HardwareTranslator {
         let (dirty_bg, dirty_fg) = if is_perf_or_ext { ("5", "15") } else { ("5", "12") };
         Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio (smooth writeback)", "/proc/sys/vm/dirty_background_ratio", dirty_bg, false);
         Self::push_op(&mut ops, "Memory", "VM dirty_ratio ceiling", "/proc/sys/vm/dirty_ratio", dirty_fg, false);
-        Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-kswapd storm)", "/proc/sys/vm/watermark_scale_factor", "15", false);
+        // VM Watermark Scale Factor & Extra Free Buffer
+        // In high-performance and extreme gaming: scale factor 150-200 wakes kswapd asynchronously
+        // well before allocations breach min watermark, preventing direct allocstalls when notifications arrive.
+        // Restored safely to Android standard (100) and stock extra free buffer on Balanced / Powersave.
+        let (wsf, extra_free) = if is_extreme {
+            ("200", "65536")
+        } else if is_perf_or_ext {
+            ("150", "65536")
+        } else if is_powersave {
+            ("60", "0")
+        } else {
+            ("100", "20480")
+        };
+        Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-allocstall buffer)", "/proc/sys/vm/watermark_scale_factor", wsf, false);
+        Self::push_op(&mut ops, "Memory", "VM extra_free_kbytes buffer", "/proc/sys/vm/extra_free_kbytes", extra_free, false);
 
         // Universal ZRAM Latency Eliminator (page-cluster = 0 reads 1 page instead of 8, cutting swap latency)
         Self::push_op(&mut ops, "Memory", "ZRAM single-page read latency fix (page-cluster 0)", "/proc/sys/vm/page-cluster", "0", false);

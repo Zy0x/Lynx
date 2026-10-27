@@ -1,3 +1,24 @@
+# Lynx Universal [Sidebar Handle Ergonomic Position Memory & Zero-Snap Expand/Collapse Restoration] 7.0.0-RC249
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC249** (Lynx Kernel Manager v3.2.83): **Implementasi Memori Posisi Ergonomis Handle Sidebar Lynx Engine: Mengingat Posisi Y Vertikal Handle Pilihan Pengguna Secara Persisten, Mencegah Penimpaan Koordinat Handle Saat Membuka Laci Menu (Expand), Mencegah Overwrite Fraksi Posisi Oleh Drawer Layar Penuh, Serta Mengembalikan Handle Secara Instan ke Posisi Strategis Semula Saat Sidebar Ditutup (Collapse)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC249)
+1. **Memori Posisi Handle Ergonomis Pilihan Pengguna (`LynxFloatingHudService.kt`)**:
+   - **Eliminasi Masalah Handle Melompat ke Posisi Tidak Strategis**:
+     - Memperbaiki masalah di mana pengguna telah mengatur posisi pegangan (handle) sidebar di ketinggian tertentu (misalnya area jangkauan jempol 60-70%), namun saat membuka sidebar dan kemudian menutupnya, handle malah melompat ke atas layar (`Y = 0`) atau posisi yang tidak strategis.
+   - **Restorasi Posisi Otomatis Dua Arah (`open.collect`)**:
+     - Saat sidebar dibuka (`open = true`): Posisi Y handle terakhir dicatat dan disimpan ke preferensi (`hud_y_landscape_fraction` / `hud_y_portrait_fraction`). Jendela laci menu kemudian ditautkan rapi ke batas atas area aman (`safeTop`).
+     - Saat sidebar ditutup (`open = false`): Layanan seketika membaca kembali fraksi posisi handle pengguna via `getSavedHandleYFraction()` dan memulihkan `params.y = safeTop + safeHeight * frac`. Handle kembali 100% presisi ke posisi semula di mana pengguna meletakkannya.
+2. **Proteksi Anti-Overwrite Koordinat Pada Panel Layar Penuh (`savePositionPrefs`)**:
+   - Menghentikan penimpaan fraksi posisi vertikal saat sidebar sedang dalam kondisi terbuka (`open = true`). Saat laci menu terbuka, operasi penyimpanan posisi hanya memperbarui status sisi dock (`hud_dock_right`), sehingga perpindahan sisi dock (kiri $\leftrightarrow$ kanan) tidak akan merusak ketinggian vertikal handle pengguna.
+3. **Penyempurnaan Pembatasan Dinamis (`clamp()`)**:
+   - Membedakan batas tinggi clamping antara panel laci menu penuh saat terbuka (`open = true`) dengan pegangan mini saat tertutup (`open = false` setinggi ~72dp).
+   - Menghilangkan *layout race condition* di mana pengecilan ukuran tampilan Compose secara asinkron sebelumnya memicu `clamp()` memotong posisi handle ke koordinat nol.
+4. **Sinkronisasi Orientasi Layar Terpadu (`onConfigurationChanged`)**:
+   - Transisi antara mode portrait dan landscape secara otomatis memuat fraksi posisi ergonomis yang sesuai untuk orientasi tersebut tanpa mereset ke nilai default acak.
+
+---
+
 # Lynx Universal [Zero-Jank Scheduler Anti-Thrashing, Frame Pacing & Bidirectional Profile Reversibility] 7.0.0-RC248
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC248** (Lynx Kernel Manager v3.2.82): **Implementasi Penuh Optimasi Penjadwal Rendah-Latensi (EAS / CFS Frame-Pacing Tunables), Arsitektur Mesin Cerdas Auto-Skip Mandiri Dua-Fase (Siaga Hening / Standby 0-Tap vs Semburan Cepat / Burst Skipping 180ms), Eliminasi Penurunan Otomatis Mode AUTO Menjadi PAUSED, Indikator Nafas Halus (Breathing Pulse) Pada Shortcut Mengambang, Eliminasi Thread Migration Thrashing Antara Cortex-A55 Little Cores dan Cortex-A76 Big Cores, Transisi Governor Bebas EINVAL, Serta Pemulihan Nilai Kernel 100% Reversibel**.
@@ -28,7 +49,8 @@ Released on: 2026-10-28
 4. **Audit Terpadu Profile Verifier v0.3.0 (`verifier.rs`)**:
    - Menambahkan verifikasi langsung pada level hardware untuk `sched_migration_cost_ns`, `m_sched_migrate_cost_n`, dan `perfserv_schedplus_down_throttle`.
    - Mengonfirmasi kepatuhan nilai di setiap profil (`VERIFIED` vs `CLAMPED`) dengan eksekusi audit sub-15ms.
-
+
+
 5. **Arsitektur Mesin Cerdas Auto-Skip Mandiri Dua-Fase & Indikator Breathing Pulse (`GenshinSkipRunner.kt`, `HudSmartTriggerOverlay.kt`, `HudTools.kt`)**:
    - **Integritas Status Mode AUTO Persisten Tanpa Downgrade**:
      - Memperbaiki bug kritis di mana ketiadaan dialog selama 15 detik menyebabkan mode `AUTO` otomatis turun (*downgrade*) menjadi `PAUSED`.
@@ -47,7 +69,8 @@ Released on: 2026-10-28
      - Memperbaiki `syncState()` sehingga minimisasi game atau pembukaan jendela mengambang lain tidak lagi mereset mode ke `PAUSED`. Mesin menahan eksekusi secara hening dan langsung melanjutkan kesiapan `AUTO` saat pemain kembali ke game.
    - **Telemetri Real-Time Terpadu di Panel Lynx Engine**:
      - Seksi Hoyo Auto-Skip & Diagnosa di Tab Alat menampilkan status akurat: `Paused` (saat dijeda), `Skipping...` (saat aktif melompati dialog), atau `Siaga (Standby)` (saat siaga mendengarkan dialog).
-
+
+
 ---
 
 # Lynx Universal [4-Stage Auto-Skip Alternating Cycle & Integrated Lynx Engine Scene Vision Diagnosis] 7.0.0-RC247

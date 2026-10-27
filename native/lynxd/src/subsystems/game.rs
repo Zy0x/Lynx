@@ -172,8 +172,14 @@ impl GameController {
         Self::write_opt("/sys/kernel/fpsgo/common/gpu_block_boost", "1 1 -1");
         Self::write_opt("/sys/kernel/fpsgo/common/force_onoff", "1");
         Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 1");
-        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "50");
+        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "60");
         Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
+
+        // EAS Schedtune Top-App Gaming Boost & Permission Shield
+        Self::write_opt("/dev/stune/top-app/schedtune.boost", "35");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_idle", "1");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "1");
+        crate::subsystems::SchedulerGuardian::enforce_permission_shield(true);
 
         // Dynamic Mali Bifrost/Valhall GPU Driver Tuning
         for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
@@ -231,18 +237,19 @@ impl GameController {
             }
         }
 
-        // Virtual Memory & VFS Cache Shield (Eliminates Asset Streaming & Chunk Loading Stalls)
-        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "30");
+        // Virtual Memory & VFS Cache Shield (Eliminates Asset Streaming & Direct Reclaim Stalls)
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "50");
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "150");
 
         // Dynamic RAM-Proportional extra_free_kbytes (Prevents background memory compaction spikes)
         let mem = HardwareCapability::resolve_memory();
         let extra_free_kb = if mem.total_ram_mb >= 7000 {
-            20480
+            65536
         } else if mem.total_ram_mb >= 3800 {
-            12288
+            32768
         } else {
-            6144
+            16384
         };
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", extra_free_kb.to_string());
 
@@ -373,8 +380,14 @@ impl GameController {
         Self::write_opt(MtkHardware::FBT_CPU_GCC_ENABLE, "0");
 
         Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 0");
-        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "0");
-        Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "0");
+        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "25");
+        Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
+
+        // EAS Schedtune Top-App Restore to Balanced Targets & Unlock Shield
+        Self::write_opt("/dev/stune/top-app/schedtune.boost", "18");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_idle", "1");
+        Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "0");
+        crate::subsystems::SchedulerGuardian::enforce_permission_shield(false);
 
         for entry in &["/sys/devices/platform/13000000.mali", "/sys/devices/platform/mali.0", "/sys/class/misc/mali0/device"] {
             Self::write_opt(format!("{}/dvfs_period", entry), "20");
@@ -399,7 +412,8 @@ impl GameController {
 
         // Restore Virtual Memory & VFS Cache
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
-        Self::write_opt("/proc/sys/vm/extra_free_kbytes", "4096");
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", "20480");
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "100");
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "15000");
 
         for id in 0..16 {

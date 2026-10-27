@@ -237,6 +237,9 @@ impl ProfileExecutor {
             }
         }
 
+        // Enforce Scheduler & EAS Permission Shield against notification / OomAdjuster resets
+        crate::subsystems::SchedulerGuardian::enforce_permission_shield(is_perf_or_ext);
+
         let _ = fs::create_dir_all("/data/adb/lynx");
         let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
 

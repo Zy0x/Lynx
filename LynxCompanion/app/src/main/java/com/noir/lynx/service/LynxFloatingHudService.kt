@@ -212,6 +212,25 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     p.x = if (dockRight.value) safeRight else safeLeft
                     p.width = if (isOpen) (viewport.value.panelWidth * dm.density).toInt() else WindowManager.LayoutParams.WRAP_CONTENT
                     p.height = WindowManager.LayoutParams.WRAP_CONTENT
+                    if (isOpen) {
+                        // Capture and save current handle Y before expanding
+                        if (p.y > safeTop + 2) {
+                            val isLandscape = viewport.value.landscape || (screenWidth > screenHeight && screenWidth > 0)
+                            val key = if (isLandscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+                            val frac = ((p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1)).coerceIn(0.05f, 0.95f)
+                            getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
+                                .putFloat(key, frac)
+                                .putBoolean("hud_dock_right", dockRight.value)
+                                .apply()
+                        }
+                        p.y = safeTop
+                    } else {
+                        // Restore collapsed handle to user's saved strategic position
+                        val frac = getSavedHandleYFraction()
+                        val handleHeight = (72f * dm.density).roundToInt()
+                        val maxHandleY = (safeTop + safeHeight - handleHeight).coerceAtLeast(safeTop)
+                        p.y = (safeTop + safeHeight * frac).roundToInt().coerceIn(safeTop, maxHandleY)
+                    }
                 } else {
                     p.gravity = Gravity.TOP or Gravity.LEFT
                     p.width = WindowManager.LayoutParams.WRAP_CONTENT
@@ -349,20 +368,44 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
     }
 
+    private fun getSavedHandleYFraction(): Float {
+        val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
+        val isLandscape = viewport.value.landscape || (screenWidth > screenHeight && screenWidth > 0)
+        val key = if (isLandscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+        val defaultFraction = if (isLandscape) 0.28f else 0.40f
+        return pref.getFloat(key, defaultFraction).coerceIn(0.05f, 0.95f)
+    }
+
     private fun clamp() {
         val v = view ?: return
         val p = params ?: return
         val nextGravity: Int
         val nextX: Int
+        val nextY: Int
+        val density = resources.displayMetrics.density
+
         if (activeModeFlow.value == 0) {
             nextGravity = Gravity.TOP or if (dockRight.value) Gravity.RIGHT else Gravity.LEFT
             nextX = if (dockRight.value) safeRight else safeLeft
+            if (open.value) {
+                nextY = safeTop
+            } else {
+                val handleHeight = if (v.height in 1..(120f * density).toInt()) v.height else (72f * density).roundToInt()
+                val maxY = (safeTop + safeHeight - handleHeight).coerceAtLeast(safeTop)
+                val currentY = if (p.y <= safeTop + 2) {
+                    (safeTop + safeHeight * getSavedHandleYFraction()).roundToInt()
+                } else {
+                    p.y
+                }
+                nextY = currentY.coerceIn(safeTop, maxY)
+            }
         } else {
             nextGravity = Gravity.TOP or Gravity.LEFT
             val maxX = (safeLeft + safeWidth - v.width).coerceAtLeast(safeLeft)
             nextX = p.x.coerceIn(safeLeft, maxX)
+            nextY = p.y.coerceIn(safeTop, (safeTop + safeHeight - v.height).coerceAtLeast(safeTop))
         }
-        val nextY = p.y.coerceIn(safeTop, (safeTop + safeHeight - v.height).coerceAtLeast(safeTop))
+
         if (p.gravity != nextGravity || p.x != nextX || p.y != nextY) {
             p.gravity = nextGravity
             p.x = nextX
@@ -386,12 +429,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
     private fun savePositionPrefs() {
         val p = params ?: return
-        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
-        getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
-            .putFloat(key, (p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1))
-            .putInt("hud_x", p.x)
-            .putBoolean("hud_dock_right", dockRight.value)
-            .apply()
+        val isLandscape = viewport.value.landscape || (screenWidth > screenHeight && screenWidth > 0)
+        val key = if (isLandscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+        val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
+        pref.putBoolean("hud_dock_right", dockRight.value)
+        if (activeModeFlow.value == 0) {
+            if (!open.value) {
+                val frac = ((p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1)).coerceIn(0.05f, 0.95f)
+                pref.putFloat(key, frac)
+            }
+        } else {
+            val frac = ((p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1)).coerceIn(0.05f, 0.95f)
+            pref.putFloat(key, frac)
+            pref.putInt("hud_x", p.x)
+        }
+        pref.apply()
     }
 
     private fun loadAutoSkipPosition(p: WindowManager.LayoutParams) {
@@ -860,8 +912,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
     private fun createOverlay() {
         val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
-        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
-        val initial = pref.getFloat(key, pref.getInt("hud_y", 280).toFloat() / safeHeight.coerceAtLeast(1)).coerceIn(0f, 1f)
+        val initial = getSavedHandleYFraction()
         params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -879,7 +930,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 gravity = Gravity.TOP or Gravity.LEFT
                 x = pref.getInt("hud_x", safeLeft)
             }
-            y = safeTop + (safeHeight * initial).toInt()
+            y = safeTop + (safeHeight * initial).roundToInt()
         }
         val composeView = ComposeView(this)
         val host = HudHostView(this).apply {
@@ -1047,8 +1098,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateBounds(); updateDisplay()
-        val key = if (viewport.value.landscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
-        params?.y = safeTop + (safeHeight * getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).getFloat(key, 0.2f)).toInt()
+        params?.y = safeTop + (safeHeight * getSavedHandleYFraction()).roundToInt()
         view?.post { clamp(); params?.let { p -> runCatching { windows.updateViewLayout(view, p) } } }
         autoSkipView?.post {
             autoSkipParams?.let { p ->
