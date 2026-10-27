@@ -313,7 +313,16 @@ impl GpuController {
             .as_millis() as u64;
 
         let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-        if now_ms.saturating_sub(last) < 600 {
+        let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
+        let target_state = if is_rapid {
+            DynamicGpuState::Peak
+        } else {
+            DynamicGpuState::Moderate
+        };
+
+        let current = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
+        // Only throttle if already at the desired state or higher
+        if now_ms.saturating_sub(last) < 80 && current >= (target_state as u8) {
             return;
         }
         LAST_TOUCH_BOOST_MS.store(now_ms, Ordering::Relaxed);
@@ -325,14 +334,20 @@ impl GpuController {
             return;
         }
 
-        // Only boost if currently in Idle state to jump floor up to Moderate instantly (0 ms)
-        if CURRENT_SCALER_STATE.load(Ordering::Relaxed) == 0 {
+        // Jump floor up to Moderate (or Peak if rapid fling) instantly (0 ms)
+        if current < (target_state as u8) {
             let (vendor, _) = ScoreBoard::evaluate();
             let gpu = HardwareCapability::resolve_gpu(vendor);
             if gpu.is_supported && !gpu.opp_table.is_empty() {
-                CURRENT_SCALER_STATE.store(1, Ordering::Relaxed);
-                LAST_MODERATE_MS.store(now_ms, Ordering::Relaxed);
-                Self::apply_state_hardware(&gpu, DynamicGpuState::Moderate);
+                let target_u8 = target_state as u8;
+                CURRENT_SCALER_STATE.store(target_u8, Ordering::Relaxed);
+                if target_state == DynamicGpuState::Peak {
+                    LAST_PEAK_MS.store(now_ms, Ordering::Relaxed);
+                    LAST_MODERATE_MS.store(now_ms, Ordering::Relaxed);
+                } else {
+                    LAST_MODERATE_MS.store(now_ms, Ordering::Relaxed);
+                }
+                Self::apply_state_hardware(&gpu, target_state);
             }
         }
     }
@@ -387,7 +402,7 @@ impl GpuController {
             let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(1500);
 
-            if is_rapid && workload >= WorkloadLevel::Moderate {
+            if is_rapid {
                 // High-velocity fling / rapid swiping: proactively boost to Peak
                 DynamicGpuState::Peak
             } else {
