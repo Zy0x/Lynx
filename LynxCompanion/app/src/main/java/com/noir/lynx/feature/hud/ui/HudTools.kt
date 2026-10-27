@@ -45,6 +45,7 @@ internal fun HudTools(
     onSetAutoSkipChoiceBottom: (Boolean) -> Unit = { store.setAutoSkipChoiceBottom(it) },
     isSkipping: Boolean = false,
     isPaused: Boolean = false,
+    isTappingLive: Boolean = false,
     onSnapshotScene: () -> Unit = {},
     sceneResult: GenshinSkipEngine.SceneSnapshotResult? = null
 ) {
@@ -145,8 +146,16 @@ internal fun HudTools(
             }
         }
 
-        HudAutomationControls(prefs, action.busy, isSkipping, isPaused,
-            onToggleAutoSkip, onSetAutoSkipSpeed, onSetAutoSkipChoiceBottom)
+        HudAutomationControls(
+            prefs = prefs,
+            busy = action.busy,
+            isSkipping = isSkipping,
+            isPaused = isPaused,
+            isTappingLive = isSkipping && !isPaused,
+            onEnabled = onToggleAutoSkip,
+            onSpeed = onSetAutoSkipSpeed,
+            onChoice = onSetAutoSkipChoiceBottom
+        )
 
         // Magic Box · Cooldown Timer
         val mins = timerRemainingSec / 60
@@ -212,7 +221,7 @@ internal fun HudTools(
 
         HudExpandableSection(
             title = "Hoyo Auto-Skip & Diagnosa",
-            detail = if (isPaused) "Paused" else if (isSkipping) "Aktif" else "Standby",
+            detail = if (isPaused) "Paused" else if (isTappingLive) "Skipping" else "Siaga (Standby)",
             initiallyOpen = false,
             info = "Fitur Hoyo RPG Auto-Skip & Diagnosa Scene:\n\nAuto-Skip mendeteksi dialog game secara cerdas. Jika Anda menemukan scene game baru yang tidak terskip atau salah tekan, gunakan tombol di bawah untuk mengambil snapshot diagnosa ke /sdcard/Lynx/scenes/."
         ) {

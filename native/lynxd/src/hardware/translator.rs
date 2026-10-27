@@ -164,8 +164,16 @@ impl HardwareTranslator {
                 raw_min_hz
             };
 
-            // If leaving 'performance' governor, switch governor first so scaling_min_freq is unlocked
+            // If leaving 'performance' governor, pre-unclamp min frequency so kernel accepts governor switch without EINVAL
             if target_gov != "performance" {
+                Self::push_op(
+                    &mut ops,
+                    "CPU",
+                    format!("Policy {} unclamp min freq for governor switch", pol.index),
+                    pol.path.join("scaling_min_freq"),
+                    pol.min_freq.to_string(),
+                    false,
+                );
                 Self::push_op(
                     &mut ops,
                     "CPU",
@@ -510,6 +518,18 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr uclamp min", MtkHardware::PERFMGR_UCLAMP_MIN, uclamp_min_perf, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr big task rotation", MtkHardware::PERFMGR_BIG_TASK_ROTATION, big_task_rot, false);
+
+                // MediaTek Perfmgr EAS Task Migration Cost & Throttle Bounds (Anti-Jank & Frame Pacing)
+                // Restored safely to default on Balanced / Powersave
+                let (mtk_mig_cost, up_throttle, down_throttle, sync_flag) = if is_perf_or_ext {
+                    ("200000", "500", "40000", "1")
+                } else {
+                    ("50000", "-1", "-1", "0")
+                };
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek EAS task migration cost", MtkHardware::PERFMGR_MIGRATE_COST, mtk_mig_cost, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek EAS schedplus up throttle", MtkHardware::PERFMGR_SCHEDPLUS_UP_THROTTLE, up_throttle, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek EAS schedplus down throttle", MtkHardware::PERFMGR_SCHEDPLUS_DOWN_THROTTLE, down_throttle, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek EAS schedplus sync flag", MtkHardware::PERFMGR_SCHEDPLUS_SYNC_FLAG, sync_flag, false);
             }
             Vendor::Qualcomm => {
                 // ── A. Qualcomm CPU Boost Driver ────────────────────────────
@@ -877,11 +897,38 @@ impl HardwareTranslator {
             );
         }
 
-        let (mig_cost, timer_mig) = if is_perf_or_ext {
-            ("50000", "0")
+        let (sched_lat, sched_min_gran, sched_wakeup_gran, mig_cost, timer_mig, child_runs_first, cstate_aware) = if is_perf_or_ext {
+            ("10000000", "3000000", "2000000", "500000", "0", "1", "0")
+        } else if is_powersave {
+            ("24000000", "6000000", "4000000", "500000", "1", "0", "1")
         } else {
-            ("500000", "1")
+            // Balanced: 10ms period, 3ms min gran, 2ms wakeup, 500us migration, timer migration & cstate aware active
+            ("10000000", "3000000", "2000000", "500000", "1", "0", "1")
         };
+        Self::push_op(
+            &mut ops,
+            "Scheduler",
+            "Kernel sched_latency_ns",
+            "/proc/sys/kernel/sched_latency_ns",
+            sched_lat,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Scheduler",
+            "Kernel sched_min_granularity_ns",
+            "/proc/sys/kernel/sched_min_granularity_ns",
+            sched_min_gran,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Scheduler",
+            "Kernel sched_wakeup_granularity_ns",
+            "/proc/sys/kernel/sched_wakeup_granularity_ns",
+            sched_wakeup_gran,
+            false,
+        );
         Self::push_op(
             &mut ops,
             "Scheduler",
@@ -896,6 +943,22 @@ impl HardwareTranslator {
             "Kernel timer_migration",
             "/proc/sys/kernel/timer_migration",
             timer_mig,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Scheduler",
+            "Kernel sched_child_runs_first",
+            "/proc/sys/kernel/sched_child_runs_first",
+            child_runs_first,
+            false,
+        );
+        Self::push_op(
+            &mut ops,
+            "Scheduler",
+            "Kernel sched_cstate_aware",
+            "/proc/sys/kernel/sched_cstate_aware",
+            cstate_aware,
             false,
         );
         Self::push_op(

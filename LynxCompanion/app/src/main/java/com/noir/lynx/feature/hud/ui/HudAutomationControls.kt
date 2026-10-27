@@ -16,8 +16,16 @@ import com.noir.lynx.feature.hud.data.HudPreferences
 
 /** Controls the existing guarded runner without changing its timing or foreground rules. */
 @Composable
-internal fun HudAutomationControls(prefs: HudPreferences, busy: Boolean, isSkipping: Boolean, isPaused: Boolean,
-    onEnabled: (Boolean) -> Unit, onSpeed: (Long) -> Unit, onChoice: (Boolean) -> Unit) {
+internal fun HudAutomationControls(
+    prefs: HudPreferences,
+    busy: Boolean,
+    isSkipping: Boolean,
+    isPaused: Boolean,
+    isTappingLive: Boolean = false,
+    onEnabled: (Boolean) -> Unit,
+    onSpeed: (Long) -> Unit,
+    onChoice: (Boolean) -> Unit
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val autoSkipInfo = "${hudString(R.string.hud_autoskip_desc)}\n\n" +
         "• Game Didukung: ${hudString(R.string.hud_autoskip_supported_games)}\n\n" +
@@ -30,7 +38,7 @@ internal fun HudAutomationControls(prefs: HudPreferences, busy: Boolean, isSkipp
                 Text(hudString(when {
                     !prefs.autoSkipEnabled -> R.string.hud_skip_off
                     isPaused -> R.string.hud_autoskip_pill_paused
-                    isSkipping -> R.string.hud_autoskip_pill_active
+                    isTappingLive -> R.string.hud_autoskip_pill_active
                     else -> R.string.hud_skip_ready
                 }), fontSize = 12.sp, color = if (isPaused) HudOrange else if (prefs.autoSkipEnabled) HudCyan else HudMuted)
             }

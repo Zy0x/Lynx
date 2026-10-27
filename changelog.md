@@ -1,3 +1,55 @@
+# Lynx Universal [Zero-Jank Scheduler Anti-Thrashing, Frame Pacing & Bidirectional Profile Reversibility] 7.0.0-RC248
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC248** (Lynx Kernel Manager v3.2.82): **Implementasi Penuh Optimasi Penjadwal Rendah-Latensi (EAS / CFS Frame-Pacing Tunables), Arsitektur Mesin Cerdas Auto-Skip Mandiri Dua-Fase (Siaga Hening / Standby 0-Tap vs Semburan Cepat / Burst Skipping 180ms), Eliminasi Penurunan Otomatis Mode AUTO Menjadi PAUSED, Indikator Nafas Halus (Breathing Pulse) Pada Shortcut Mengambang, Eliminasi Thread Migration Thrashing Antara Cortex-A55 Little Cores dan Cortex-A76 Big Cores, Transisi Governor Bebas EINVAL, Serta Pemulihan Nilai Kernel 100% Reversibel**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC248)
+1. **Penjadwal Anti-Thrashing & Eliminasi Stutter Pada Beban Tinggi (`translator.rs`, `apply_profile.sh`, `LynxCpuSchedulerProfilesRepository.kt`)**:
+   - **Kernel Task Migration Cost (`sched_migration_cost_ns = 500000`)**: Memperbaiki nilai ambang migrasi tugas Linux kernel dari 50µs menjadi 500µs pada mode Performance dan Extreme. Mencegah utas render Unity/game berpindah-pindah core secara agresif saat terjadi jeda sesaat antar-frame, menjaga cache L1/L2 CPU tetap panas dan menghilangkan micro-stuttering.
+   - **MediaTek EAS Cluster Migration Control (`m_sched_migrate_cost_n = 200000`)**: Menaikkan batas biaya migrasi EAS MediaTek ke 200µs pada mode Performance/Extreme sehingga scheduler memprioritaskan penyelesaian frame di cluster Big core Cortex-A76 tanpa demosi mendadak ke Little core.
+   - **MediaTek Schedplus Frame-Pacing Dampers (`perfserv_schedplus_up_throttle = 500`, `perfserv_schedplus_down_throttle = 40000`)**:
+     - *Up-Throttle 0.5 ms*: Akselerasi respons clock CPU saat scene kompleks memunculkan efek partikel atau musuh baru.
+     - *Down-Throttle 40 ms*: Menahan clock frekuensi tinggi melewati batas v-sync antarfram, mencegah fluktuasi clock drop yang memicu penurunan frametime.
+   - **CFS Granularity & Latency Tuning**: Menetapkan periode `sched_latency_ns = 10000000` (10ms), `sched_min_granularity_ns = 3000000` (3ms), dan `sched_wakeup_granularity_ns = 2000000` (2ms) untuk menjamin irama rendering frame tetap stabil tanpa preemption liar dari background workers.
+
+2. **Reversibilitas Dua Arah Mutlak (100% Bidirectional Reversion on Balanced/Powersave)**:
+   - Saat keluar dari mode Performance atau Extreme kembali ke **Balanced**:
+     - `m_sched_migrate_cost_n` dipulihkan secara instan ke `50000` (OEM default).
+     - `perfserv_schedplus_up_throttle` dan `down_throttle` dipulihkan ke `-1` (OEM default).
+     - `perfserv_schedplus_sync_flag` dinetralkan ke `0`.
+     - `sched_cstate_aware` dipulihkan ke `1` untuk mengembalikan efisiensi hemat daya dan tidur lelap CPU (C-states).
+     - `sched_child_runs_first` dipulihkan ke `0`.
+     - `timer_migration` dipulihkan ke `1`.
+   - Pada mode **Powersave**, latensi penjadwal disesuaikan ke mode hemat daya maksimum (`sched_latency_ns = 24000000`, `sched_min_granularity_ns = 6000000`, `sched_wakeup_granularity_ns = 4000000`).
+
+3. **Transisi Governor Bebas EINVAL / Hardware Clamping (`translator.rs`)**:
+   - Menambahkan rutinitas *Pre-Unclamp Minimum Frequency*: Ketika sistem beralih dari governor `performance` ke `schedutil`, `scaling_min_freq` secara otomatis diturunkan ke `pol.min_freq` terlebih dahulu sebelum nilai governor diinjeksikan.
+   - Mengeliminasi penolakan penulisan `os error 22 (EINVAL)` dari kernel cpufreq driver, menjamin kedua cluster (Little dan Big) dapat kembali ke governor dinamis `schedutil` secara sempurna.
+
+4. **Audit Terpadu Profile Verifier v0.3.0 (`verifier.rs`)**:
+   - Menambahkan verifikasi langsung pada level hardware untuk `sched_migration_cost_ns`, `m_sched_migrate_cost_n`, dan `perfserv_schedplus_down_throttle`.
+   - Mengonfirmasi kepatuhan nilai di setiap profil (`VERIFIED` vs `CLAMPED`) dengan eksekusi audit sub-15ms.
+
+5. **Arsitektur Mesin Cerdas Auto-Skip Mandiri Dua-Fase & Indikator Breathing Pulse (`GenshinSkipRunner.kt`, `HudSmartTriggerOverlay.kt`, `HudTools.kt`)**:
+   - **Integritas Status Mode AUTO Persisten Tanpa Downgrade**:
+     - Memperbaiki bug kritis di mana ketiadaan dialog selama 15 detik menyebabkan mode `AUTO` otomatis turun (*downgrade*) menjadi `PAUSED`.
+     - Mode pengguna tetap terkunci pada `AUTO` secara persisten dan tidak pernah berubah menjadi `PAUSED` secara otomatis.
+   - **Kadensi Otonom Dua-Fase (Two-Phase Autonomous Cadence)**:
+     - *Fase 1: Siaga Hening (Standby / Idle Listening)*: Saat pemain menjelajah open-world, bertarung, atau menavigasi menu tanpa dialog: 0 tap dikirim ke layar (sama sekali tidak mengganggu kontrol analog gerakan, kamera, serangan, atau skill karakter). Frekuensi pindaian slice ringan rileks di 1200ms dengan beban memori minimal (~550KB).
+     - *Fase 2: Semburan Cepat (Burst Skipping)*: Saat trigger dialog terdeteksi (`matches >= threshold`), mesin seketika mengalirkan rangkaian semburan tap cepat (6-8 burst cycle) pada kecepatan 180-250ms tanpa interupsi pindaian tangkapan layar.
+     - *Fase 3: Kembali ke Siaga Otomatis (Dialogue End Standby)*: Begitu dialog selesai (`matches < threshold`), mesin langsung berhenti mengetuk (0 tap) dan kembali ke status Siaga Hening tanpa mereset mode pengguna.
+   - **Efek Visual Indikator Nafas Halus (Breathing Pulse Glow)**:
+     - Pada token melayang di layar game:
+       - Mode `AUTO` saat Siaga Hening (0 tap): Tampilan garis tepi Cyan solid elegan dengan micro-beacon stabil.
+       - Mode `AUTO` saat Aktif Melompati Dialog (Skipping): Animasi getaran pendar bernafas (*breathing pulse*) halus (alpha 0.35f hingga 1.0f) memberi umpan balik visual jelas bahwa mesin sedang melompati dialog.
+       - Mode `PAUSED`: Tampilan Muted Dark solid dengan ikon jeda `||`.
+       - Mode `MANUAL`: Tampilan Oranye solid dengan ikon `⏩`.
+   - **Persistensi Saat Aplikasi Diminimalkan / Berganti Jendela**:
+     - Memperbaiki `syncState()` sehingga minimisasi game atau pembukaan jendela mengambang lain tidak lagi mereset mode ke `PAUSED`. Mesin menahan eksekusi secara hening dan langsung melanjutkan kesiapan `AUTO` saat pemain kembali ke game.
+   - **Telemetri Real-Time Terpadu di Panel Lynx Engine**:
+     - Seksi Hoyo Auto-Skip & Diagnosa di Tab Alat menampilkan status akurat: `Paused` (saat dijeda), `Skipping...` (saat aktif melompati dialog), atau `Siaga (Standby)` (saat siaga mendengarkan dialog).
+
+---
+
 # Lynx Universal [4-Stage Auto-Skip Alternating Cycle & Integrated Lynx Engine Scene Vision Diagnosis] 7.0.0-RC247
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC247** (Lynx Kernel Manager v3.2.81): **Implementasi Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda ([ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ NONSTOP ] -> [ ⏸️ PAUSE ] -> dst), Optimalisasi Shortcut Mengambang Menjadi Satu Token Tunggal Ringan Bebas Distraksi Layar Game, Serta Penempatan Pusat Tangkap & Diagnosa Adegan Scene Vision Terpadu di Dalam Panel Lynx Engine**.

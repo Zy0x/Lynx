@@ -193,6 +193,36 @@ impl ProfileVerifier {
             );
         }
 
+        Self::audit_exact(
+            &mut items,
+            "Scheduler",
+            "Kernel Migration Cost",
+            "/proc/sys/kernel/sched_migration_cost_ns",
+            "500000",
+        );
+
+        if cap.vendor == Vendor::MediaTek {
+            let (exp_mtk_mig, exp_down_throt) = if is_perf_or_ext {
+                ("200000", "40000")
+            } else {
+                ("50000", "-1")
+            };
+            Self::audit_exact(
+                &mut items,
+                "MTK-EAS",
+                "MTK EAS Migrate Cost",
+                MtkHardware::PERFMGR_MIGRATE_COST,
+                exp_mtk_mig,
+            );
+            Self::audit_exact(
+                &mut items,
+                "MTK-EAS",
+                "MTK EAS Schedplus Down Throttle",
+                MtkHardware::PERFMGR_SCHEDPLUS_DOWN_THROTTLE,
+                exp_down_throt,
+            );
+        }
+
         if cap.memory.mglru_supported {
             if let Ok(actual) = SysfsReader::read_trimmed("/sys/kernel/mm/lru_gen/enabled") {
                 let ok = !actual.is_empty() && actual != "0" && actual != "n";

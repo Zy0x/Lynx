@@ -94,6 +94,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     private var skipContext: SkipContext? = null
     val skipRunner = GenshinSkipRunner(context, scope)
     val autoSkipMode = skipRunner.currentMode
+    val autoSkipExecuting = skipRunner.isTappingLive
     val isSkipping = skipRunner.isSkipping
     val isPaused = skipRunner.isPaused
 

@@ -71,6 +71,7 @@ fun HudSidebar(
     onToggleBrightnessLock: (Boolean) -> Unit = {},
     isSkipping: Boolean = false,
     isPaused: Boolean = false,
+    isTappingLive: Boolean = false,
     onToggleAutoSkip: () -> Unit = {},
     onSnapshotScene: () -> Unit = {},
     sceneResult: com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine.SceneSnapshotResult? = null
@@ -329,6 +330,7 @@ fun HudSidebar(
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) },
                                                     isSkipping = isSkipping,
                                                     isPaused = isPaused,
+                                                    isTappingLive = isTappingLive,
                                                     onSnapshotScene = onSnapshotScene,
                                                     sceneResult = sceneResult
                                                 )

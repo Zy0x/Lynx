@@ -570,8 +570,12 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val composeView = ComposeView(this).apply {
             setContent {
                 val mode by controller.autoSkipMode.collectAsState()
+                val isExecuting by controller.autoSkipExecuting.collectAsState()
 
-                HudSmartTriggerOverlay(mode = mode)
+                HudSmartTriggerOverlay(
+                    mode = mode,
+                    isExecuting = isExecuting
+                )
             }
         }
 
@@ -909,6 +913,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val brightnessLocked by controller.brightnessLocked.collectAsState()
             val isSkipping by controller.isSkipping.collectAsState()
             val isPaused by controller.isPaused.collectAsState()
+            val isTappingLive by controller.autoSkipExecuting.collectAsState()
             val hudPrefs by preferences.changes.collectAsState(initial = preferences.read())
 
             LaunchedEffect(sample.packageName, expanded, size, hudPrefs) {
@@ -972,6 +977,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onToggleBrightnessLock = controller::setBrightnessLock,
                     isSkipping = isSkipping,
                     isPaused = isPaused,
+                    isTappingLive = isTappingLive,
                     onToggleAutoSkip = controller::toggleAutoSkip,
                     sceneResult = controller.lastSceneSnapshot.collectAsState().value,
                     onSnapshotScene = {

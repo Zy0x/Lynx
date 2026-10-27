@@ -1,7 +1,7 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -32,6 +32,7 @@ fun HudSmartTriggerOverlay(
     mode: GenshinSkipRunner.SkipMode,
     modifier: Modifier = Modifier,
     contentAlignment: Alignment = Alignment.Center,
+    isExecuting: Boolean = false,
     onToggleMode: (() -> Unit)? = null
 ) {
     val tint by animateColorAsState(
@@ -43,6 +44,20 @@ fun HudSmartTriggerOverlay(
         tween(200),
         label = "skipModeTint"
     )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    val borderAlpha = if (mode == GenshinSkipRunner.SkipMode.AUTO && isExecuting) pulseAlpha else 0.5f
+    val beaconAlpha = if (mode == GenshinSkipRunner.SkipMode.AUTO && isExecuting) pulseAlpha else 1f
     val status = hudString(
         when (mode) {
             GenshinSkipRunner.SkipMode.AUTO -> R.string.hud_autoskip_mode_auto
@@ -75,7 +90,7 @@ fun HudSmartTriggerOverlay(
                         .align(Alignment.TopEnd)
                         .padding(5.dp)
                         .size(4.dp)
-                        .background(tint, CircleShape)
+                        .background(tint.copy(alpha = beaconAlpha), CircleShape)
                 )
             }
         }
@@ -84,7 +99,7 @@ fun HudSmartTriggerOverlay(
                 onClick = onToggleMode,
                 color = HudBackground,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(0.75.dp, tint.copy(alpha = 0.5f)),
+                border = BorderStroke(0.75.dp, tint.copy(alpha = borderAlpha)),
                 modifier = Modifier.size(38.dp),
                 content = content
             )
@@ -92,7 +107,7 @@ fun HudSmartTriggerOverlay(
             Surface(
                 color = HudBackground,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(0.75.dp, tint.copy(alpha = 0.5f)),
+                border = BorderStroke(0.75.dp, tint.copy(alpha = borderAlpha)),
                 modifier = Modifier.size(38.dp),
                 content = content
             )

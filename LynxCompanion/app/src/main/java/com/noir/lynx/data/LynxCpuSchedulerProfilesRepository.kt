@@ -46,11 +46,11 @@ internal object LynxCpuSchedulerProfilesRepository {
         try {
             val script = when (preset.lowercase()) {
                 "extreme" -> """
-                    # CFS Latency & Preemption (Extreme Responsiveness)
-                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 3000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 500000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 50000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    # CFS Latency & Preemption (Extreme Anti-Stutter & Frame Pacing)
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
                     [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 0 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
@@ -84,7 +84,7 @@ internal object LynxCpuSchedulerProfilesRepository {
                     [ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo 256 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo 25 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)
                     [ -d /dev/stune/top-app ] && echo 80 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null
                     [ -d /dev/stune/foreground ] && echo 25 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null
-                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 80 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 25 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null && echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null && echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null
+                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 80 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 25 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null && echo 200000 > /proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n 2>/dev/null && echo 40000 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null && echo 500 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null
                     # HMP / WALT (Immediate big core dispatch & aggressive spillover)
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 50 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 30 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
@@ -94,11 +94,11 @@ internal object LynxCpuSchedulerProfilesRepository {
                     echo ok
                 """.trimIndent()
                 "gaming" -> """
-                    # CFS
-                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 4000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 750000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    # CFS (Anti-Stutter & Frame Pacing)
+                    [ -f /proc/sys/kernel/sched_latency_ns ] && echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 1 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
                     [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 0 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
@@ -130,7 +130,7 @@ internal object LynxCpuSchedulerProfilesRepository {
                     [ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo 154 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo 15 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)
                     [ -d /dev/stune/top-app ] && echo 50 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null
                     [ -d /dev/stune/foreground ] && echo 15 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null
-                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 50 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 15 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null
+                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 50 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 15 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null && echo 200000 > /proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n 2>/dev/null && echo 40000 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null && echo 500 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null
                     # HMP / WALT
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 60 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 40 > /proc/sys/kernel/sched_downmigrate 2>/dev/null
@@ -189,7 +189,7 @@ internal object LynxCpuSchedulerProfilesRepository {
                     [ -f /proc/sys/kernel/sched_latency_ns ] && echo 10000000 > /proc/sys/kernel/sched_latency_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_min_granularity_ns ] && echo 3000000 > /proc/sys/kernel/sched_min_granularity_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_wakeup_granularity_ns ] && echo 2000000 > /proc/sys/kernel/sched_wakeup_granularity_ns 2>/dev/null
-                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 200000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
+                    [ -f /proc/sys/kernel/sched_migration_cost_ns ] && echo 500000 > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null
                     [ -f /proc/sys/kernel/sched_nr_migrate ] && echo 32 > /proc/sys/kernel/sched_nr_migrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_child_runs_first ] && echo 0 > /proc/sys/kernel/sched_child_runs_first 2>/dev/null
                     [ -f /proc/sys/kernel/sched_cstate_aware ] && echo 1 > /proc/sys/kernel/sched_cstate_aware 2>/dev/null
@@ -220,7 +220,7 @@ internal object LynxCpuSchedulerProfilesRepository {
                     [ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo 51 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo 5 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)
                     [ -d /dev/stune/top-app ] && echo 20 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 0 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null
                     [ -d /dev/stune/foreground ] && echo 5 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null
-                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 20 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 5 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null
+                    [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ] && echo 20 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null && echo 5 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null && echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null && echo 50000 > /proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n 2>/dev/null && echo -1 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null && echo -1 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null
                     # HMP / WALT
                     [ -f /proc/sys/kernel/sched_upmigrate ] && echo 85 > /proc/sys/kernel/sched_upmigrate 2>/dev/null
                     [ -f /proc/sys/kernel/sched_downmigrate ] && echo 65 > /proc/sys/kernel/sched_downmigrate 2>/dev/null

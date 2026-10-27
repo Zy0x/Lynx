@@ -41,6 +41,9 @@ class GenshinSkipRunner(
     private val pausedState = MutableStateFlow(true)
     val isPaused = pausedState.asStateFlow()
 
+    private val executingState = MutableStateFlow(false)
+    val isTappingLive = executingState.asStateFlow()
+
     private var previousActiveMode: SkipMode = SkipMode.MANUAL
 
     @Volatile
@@ -93,7 +96,7 @@ class GenshinSkipRunner(
         this.speedMs = speedMs.coerceAtLeast(150L)
         this.targetChoiceBottom = targetChoiceBottom
 
-        if (!enabled || !GenshinSkipEngine.isGameSupported(pkg) || packageChanged) {
+        if (!enabled) {
             if (modeState.value != SkipMode.PAUSED) {
                 setMode(SkipMode.PAUSED)
             }
@@ -142,6 +145,7 @@ class GenshinSkipRunner(
             SkipMode.PAUSED -> {
                 activeState.value = false
                 pausedState.value = true
+                executingState.value = false
                 tapJob?.cancel()
                 tapJob = null
                 triggerHaptic(25L)
@@ -149,6 +153,7 @@ class GenshinSkipRunner(
             SkipMode.AUTO -> {
                 activeState.value = true
                 pausedState.value = false
+                executingState.value = false
                 tapJob?.cancel()
                 tapJob = scope.launch(Dispatchers.IO) { runTapLoop() }
                 triggerHaptic(30L)
@@ -156,6 +161,7 @@ class GenshinSkipRunner(
             SkipMode.MANUAL -> {
                 activeState.value = true
                 pausedState.value = false
+                executingState.value = true
                 tapJob?.cancel()
                 tapJob = scope.launch(Dispatchers.IO) { runTapLoop() }
                 triggerHaptic(45L)
@@ -247,14 +253,10 @@ class GenshinSkipRunner(
 
         while (modeState.value != SkipMode.PAUSED && currentCoroutineContext().isActive) {
             val isScreenOn = powerManager?.isInteractive ?: true
-            if (!isScreenOn || isHudOpen) {
-                delay(300L)
+            if (!isScreenOn || isHudOpen || !GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
+                executingState.value = false
+                delay(1000L)
                 continue
-            }
-
-            if (!GenshinSkipEngine.isGameSupported(currentForegroundPackage)) {
-                setMode(SkipMode.PAUSED)
-                break
             }
 
             val current = modeState.value
@@ -265,31 +267,29 @@ class GenshinSkipRunner(
                 break
             }
 
-            // Two-Phase Adaptive Cadence for SkipMode.AUTO:
-            // 1. Idle Phase (Outside Dialogue): Polls at 1000ms, sends ZERO taps. Guarantees 0% lag and 60/120 FPS.
+            // Two-Phase Autonomous Cadence for SkipMode.AUTO:
+            // 1. Standby Phase (Outside Dialogue): Polls lightweight slice at 1200ms, sends 0 taps. Guarantees 0% lag & 60/120 FPS.
             // 2. Burst Phase (Inside Dialogue): Fires 6 fast taps without screencap interrupts, eliminating GPU stalls.
+            // 3. Dialogue End: Returns cleanly to Standby Phase (0 tap) without ever resetting user mode to PAUSED.
             if (current == SkipMode.AUTO) {
                 if (burstCountRemaining <= 0) {
                     val isDialogue = isGenshinDialogueActive()
                     if (!isDialogue) {
                         burstCountRemaining = 0
+                        executingState.value = false
                         consecutiveInactiveCount++
-                        // Standby Hening: dialogue is inactive, immediately suppress all taps.
-                        // Protects player navigation, combat, joystick, camera movement, and open-world HUD.
-                        delay(1000L)
-                        if (consecutiveInactiveCount >= 15) {
-                            // After ~15s without dialogue, gracefully disarm to PAUSED
-                            setMode(SkipMode.PAUSED)
-                            break
-                        }
+                        val standbyDelay = if (consecutiveInactiveCount > 3) 1200L else 800L
+                        delay(standbyDelay)
                         continue
                     } else {
-                        // Dialogue active: enter 6-cycle burst phase with zero screencap interruption
                         burstCountRemaining = 6
                         consecutiveInactiveCount = 0
+                        executingState.value = true
                     }
                 }
                 burstCountRemaining--
+            } else if (current == SkipMode.MANUAL) {
+                executingState.value = true
             }
 
             val coords = GenshinSkipEngine.resolveCoordinates(screenWidth, screenHeight)

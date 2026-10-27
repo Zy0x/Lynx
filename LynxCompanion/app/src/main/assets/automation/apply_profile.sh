@@ -158,6 +158,10 @@ case "$PROFILE" in
         write_node "100" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
+        write_node "200000" "/proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n"
+        write_node "500" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle"
+        write_node "40000" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
+        write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_sync_flag"
 
         write_node "0" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"
@@ -422,10 +426,10 @@ case "$PROFILE" in
         write_node "3" "/proc/sys/vm/drop_caches"
         write_node "1" "/proc/sys/vm/compact_memory"
         if [ "$PROFILE" = "extreme" ]; then
-            write_node "3000000" "/proc/sys/kernel/sched_latency_ns"
-            write_node "400000" "/proc/sys/kernel/sched_min_granularity_ns"
-            write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
-            write_node "30000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
+            write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+            write_node "500000" "/proc/sys/kernel/sched_migration_cost_ns"
             write_node "60" "/proc/sys/kernel/sched_upmigrate"
             write_node "40" "/proc/sys/kernel/sched_downmigrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
@@ -437,10 +441,10 @@ case "$PROFILE" in
             write_node "25" "/proc/sys/vm/dirty_ratio"
             write_node "200" "/proc/sys/vm/watermark_scale_factor"
         else
-            write_node "6000000" "/proc/sys/kernel/sched_latency_ns"
-            write_node "750000" "/proc/sys/kernel/sched_min_granularity_ns"
-            write_node "1500000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
-            write_node "100000" "/proc/sys/kernel/sched_migration_cost_ns"
+            write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
+            write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
+            write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+            write_node "500000" "/proc/sys/kernel/sched_migration_cost_ns"
             write_node "85" "/proc/sys/kernel/sched_upmigrate"
             write_node "65" "/proc/sys/kernel/sched_downmigrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
@@ -1028,6 +1032,16 @@ case "$PROFILE" in
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_uclamp_min"
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
+        write_node "50000" "/proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n"
+        write_node "-1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle"
+        write_node "-1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_sync_flag"
+        write_node "24000000" "/proc/sys/kernel/sched_latency_ns"
+        write_node "6000000" "/proc/sys/kernel/sched_min_granularity_ns"
+        write_node "4000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+        write_node "500000" "/proc/sys/kernel/sched_migration_cost_ns"
+        write_node "0" "/proc/sys/kernel/sched_child_runs_first"
+        write_node "1" "/proc/sys/kernel/sched_cstate_aware"
 
         setprop lynx.mode powersave
         ;;
@@ -1122,6 +1136,10 @@ case "$PROFILE" in
         write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation"
         write_node "1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ext_launch_mon"
+        write_node "50000" "/proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n"
+        write_node "-1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle"
+        write_node "-1" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle"
+        write_node "0" "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_sync_flag"
 
         write_node "1" "/proc/ppm/enabled"
         write_node "0 0" "/proc/ppm/policy_status"
@@ -1264,10 +1282,10 @@ case "$PROFILE" in
         done
 
         # Restore Scheduler & VM Balanced Tunables
-        write_node "5000000" "/proc/sys/kernel/sched_latency_ns"
-        write_node "1000000" "/proc/sys/kernel/sched_min_granularity_ns"
-        write_node "800000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
-        write_node "200000" "/proc/sys/kernel/sched_migration_cost_ns"
+        write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
+        write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
+        write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
+        write_node "500000" "/proc/sys/kernel/sched_migration_cost_ns"
         write_node "32" "/proc/sys/kernel/sched_nr_migrate"
         write_node "0" "/proc/sys/kernel/sched_schedstats"
         write_node "0" "/proc/sys/kernel/sched_child_runs_first"

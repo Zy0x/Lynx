@@ -23,6 +23,10 @@ impl MtkHardware {
     pub const PERFMGR_UCLAMP_MIN: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min";
     pub const PERFMGR_TA_UCLAMP_MIN: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_uclamp_min";
     pub const PERFMGR_BIG_TASK_ROTATION: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation";
+    pub const PERFMGR_MIGRATE_COST: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/m_sched_migrate_cost_n";
+    pub const PERFMGR_SCHEDPLUS_UP_THROTTLE: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle";
+    pub const PERFMGR_SCHEDPLUS_DOWN_THROTTLE: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle";
+    pub const PERFMGR_SCHEDPLUS_SYNC_FLAG: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_sync_flag";
 
     // ── MediaTek GED & ARM Mali GPU ─────────────────────────────────────────
     pub const GED_HAL_FREQ: &'static str = "/sys/kernel/ged/hal/current_freqency";
