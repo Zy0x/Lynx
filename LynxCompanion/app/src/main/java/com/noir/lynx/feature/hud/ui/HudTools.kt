@@ -1,6 +1,14 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
@@ -37,7 +45,8 @@ internal fun HudTools(
     onSetAutoSkipChoiceBottom: (Boolean) -> Unit = { store.setAutoSkipChoiceBottom(it) },
     isSkipping: Boolean = false,
     isPaused: Boolean = false,
-    onSnapshotScene: () -> Unit = {}
+    onSnapshotScene: () -> Unit = {},
+    sceneResult: GenshinSkipEngine.SceneSnapshotResult? = null
 ) {
     var timerRemainingSec by rememberSaveable { mutableStateOf(0) }
     var timerActivePreset by rememberSaveable { mutableStateOf(0) }
@@ -234,6 +243,78 @@ internal fun HudTools(
                     onClick = onSnapshotScene,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (sceneResult != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        color = HudBackground,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val isDialog = sceneResult.telemetry.dialogueDeclared
+                            val verdictBg = if (isDialog) Color(0x2A43E5C1) else Color(0x2AFBBF24)
+                            val verdictBorder = if (isDialog) HudCyan.copy(alpha = 0.5f) else HudOrange.copy(alpha = 0.5f)
+                            val verdictColor = if (isDialog) HudCyan else HudOrange
+                            Surface(
+                                color = verdictBg,
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(0.75.dp, verdictBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = if (isDialog) Icons.Rounded.CheckCircle else Icons.Rounded.Warning,
+                                        contentDescription = null,
+                                        tint = verdictColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isDialog) hudString(R.string.hud_autoskip_scene_detected)
+                                               else hudString(R.string.hud_autoskip_scene_non_dialog),
+                                        color = verdictColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            Text(
+                                text = hudString(
+                                    R.string.hud_autoskip_scene_pixels,
+                                    sceneResult.telemetry.matchingPixels,
+                                    sceneResult.telemetry.thresholdRequired
+                                ),
+                                color = Color(0xFFE2E8F0),
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = hudString(
+                                    R.string.hud_autoskip_scene_zone,
+                                    sceneResult.telemetry.xMin,
+                                    sceneResult.telemetry.xMax,
+                                    sceneResult.telemetry.yRow
+                                ),
+                                color = HudMuted,
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                text = "${sceneResult.baseName}_full.png",
+                                color = HudMuted.copy(alpha = 0.7f),
+                                fontSize = 9.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
             }
         }
 

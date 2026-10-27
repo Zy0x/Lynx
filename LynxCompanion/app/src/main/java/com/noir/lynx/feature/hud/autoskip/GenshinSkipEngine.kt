@@ -235,6 +235,14 @@ object GenshinSkipEngine {
         }
     }
 
+    data class SceneSnapshotResult(
+        val directory: String,
+        val fullPath: String,
+        val slicePath: String?,
+        val baseName: String,
+        val telemetry: SceneTelemetry
+    )
+
     /**
      * Captures a complete diagnostic scene bundle for the Scene Vision learning pipeline:
      * - Full resolution screencap (PNG)
@@ -242,14 +250,14 @@ object GenshinSkipEngine {
      * - Telemetry metadata analysis (JSON)
      * Saved to /sdcard/Lynx/scenes/ (fallback to external files dir).
      */
-    fun captureSceneSnapshot(
+    fun captureSceneSnapshotDetailed(
         context: Context,
         screenWidth: Int,
         screenHeight: Int,
         packageName: String,
         mode: String,
         matchingPixels: Int
-    ): String? {
+    ): SceneSnapshotResult? {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
         val height = min(screenWidth, screenHeight).coerceAtLeast(720)
         val safeWidth = (height.toLong() * 16L) / 9L
@@ -292,11 +300,14 @@ object GenshinSkipEngine {
             dialogueDeclared = declared,
             mode = mode
         )
-        runCatching { jsonFile.writeText(telemetry.toJson()) }
+        val jsonContent = telemetry.toJson().replace("'", "'\\''")
+        Shell.cmd("echo '$jsonContent' > '${jsonFile.absolutePath}' && chmod 666 '${fullFile.absolutePath}' '${jsonFile.absolutePath}'").exec()
 
         // 3. Crop slice image if full file exists
+        var slicePath: String? = null
         if (fullFile.exists() && fullFile.length() > 1024L) {
             runCatching {
+                Shell.cmd("chmod 666 '${fullFile.absolutePath}'").exec()
                 val bmp = BitmapFactory.decodeFile(fullFile.absolutePath)
                 if (bmp != null) {
                     val cropY = y.toInt().coerceIn(0, bmp.height - 1)
@@ -306,15 +317,38 @@ object GenshinSkipEngine {
                     val cropXStart = xMin.toInt().coerceIn(0, bmp.width - cropW)
                     val cropped = Bitmap.createBitmap(bmp, cropXStart, cropYStart, cropW, cropH)
                     val sliceFile = File(targetDir, "${baseName}_slice.png")
-                    FileOutputStream(sliceFile).use { out ->
+                    val tempSlice = File(context.cacheDir, "slice_temp.png")
+                    FileOutputStream(tempSlice).use { out ->
                         cropped.compress(Bitmap.CompressFormat.PNG, 100, out)
                     }
+                    Shell.cmd("cp '${tempSlice.absolutePath}' '${sliceFile.absolutePath}' && chmod 666 '${sliceFile.absolutePath}'").exec()
+                    tempSlice.delete()
+                    slicePath = sliceFile.absolutePath
                     bmp.recycle()
                     cropped.recycle()
                 }
             }
         }
 
-        return targetDir.absolutePath
+        return SceneSnapshotResult(
+            directory = targetDir.absolutePath,
+            fullPath = fullFile.absolutePath,
+            slicePath = slicePath,
+            baseName = baseName,
+            telemetry = telemetry
+        )
+    }
+
+    fun captureSceneSnapshot(
+        context: Context,
+        screenWidth: Int,
+        screenHeight: Int,
+        packageName: String,
+        mode: String,
+        matchingPixels: Int
+    ): String? {
+        return captureSceneSnapshotDetailed(
+            context, screenWidth, screenHeight, packageName, mode, matchingPixels
+        )?.directory
     }
 }

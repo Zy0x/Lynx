@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -23,12 +22,17 @@ import androidx.compose.ui.unit.dp
 import com.noir.lynx.R
 import com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner
 
-/** Small visual token inside a full 48 dp gesture target. Supports 3 discrete operational modes. */
+/**
+ * Ultra-Compact Intelligent Floating Auto-Skip HUD Shortcut Badge.
+ * Minimal space footprint: 38 dp visual token inside a 48 dp touch target.
+ * Alternates through operational modes: [SkipMode.AUTO] -> [SkipMode.PAUSED] -> [SkipMode.MANUAL] (NonStop) -> [SkipMode.PAUSED] ...
+ */
 @Composable
 fun HudSmartTriggerOverlay(
     mode: GenshinSkipRunner.SkipMode,
     modifier: Modifier = Modifier,
-    contentAlignment: Alignment = Alignment.Center
+    contentAlignment: Alignment = Alignment.Center,
+    onToggleMode: (() -> Unit)? = null
 ) {
     val tint by animateColorAsState(
         when (mode) {
@@ -49,15 +53,12 @@ fun HudSmartTriggerOverlay(
     val description = hudString(R.string.hud_skip_control_description, status)
 
     Box(
-        modifier = modifier.size(48.dp).semantics { this.contentDescription = description },
+        modifier = modifier
+            .size(48.dp)
+            .semantics { this.contentDescription = description },
         contentAlignment = contentAlignment
     ) {
-        Surface(
-            color = HudBackground,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(0.75.dp, tint.copy(alpha = 0.5f)),
-            modifier = Modifier.size(38.dp)
-        ) {
+        val content: @Composable () -> Unit = {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = when (mode) {
@@ -78,10 +79,28 @@ fun HudSmartTriggerOverlay(
                 )
             }
         }
+        if (onToggleMode != null) {
+            Surface(
+                onClick = onToggleMode,
+                color = HudBackground,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(0.75.dp, tint.copy(alpha = 0.5f)),
+                modifier = Modifier.size(38.dp),
+                content = content
+            )
+        } else {
+            Surface(
+                color = HudBackground,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(0.75.dp, tint.copy(alpha = 0.5f)),
+                modifier = Modifier.size(38.dp),
+                content = content
+            )
+        }
     }
 }
 
-/** Backward-compatible overload for legacy call sites. */
+/** Backward-compatible overload for legacy boolean states. */
 @Composable
 fun HudSmartTriggerOverlay(
     isSkipping: Boolean,
@@ -96,5 +115,9 @@ fun HudSmartTriggerOverlay(
     } else {
         GenshinSkipRunner.SkipMode.PAUSED
     }
-    HudSmartTriggerOverlay(mode = mode, modifier = modifier, contentAlignment = contentAlignment)
+    HudSmartTriggerOverlay(
+        mode = mode,
+        modifier = modifier,
+        contentAlignment = contentAlignment
+    )
 }

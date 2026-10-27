@@ -191,4 +191,34 @@ class GenshinSkipEngineTest {
         assertTrue(json.contains("\"dialogue_declared\": true"))
         assertTrue(json.contains("\"pillarbox_padding\": 270"))
     }
+
+    @Test
+    fun sceneSnapshotResultConstructsCorrectly() {
+        val telemetry = GenshinSkipEngine.SceneTelemetry(
+            timestamp = 1730042100000L,
+            gamePackage = "com.miHoYo.GenshinImpact",
+            width = 2460,
+            height = 1080,
+            safeWidth = 1920L,
+            pillarbox = 270L,
+            xMin = 315L,
+            xMax = 550L,
+            yRow = 56L,
+            sliceBytes = 940L,
+            matchingPixels = 78,
+            thresholdRequired = 12,
+            dialogueDeclared = true,
+            mode = "AUTO"
+        )
+        val result = GenshinSkipEngine.SceneSnapshotResult(
+            directory = "/sdcard/Lynx/scenes",
+            fullPath = "/sdcard/Lynx/scenes/scene_test_full.png",
+            slicePath = "/sdcard/Lynx/scenes/scene_test_slice.png",
+            baseName = "scene_test",
+            telemetry = telemetry
+        )
+        assertEquals("/sdcard/Lynx/scenes", result.directory)
+        assertEquals("scene_test", result.baseName)
+        assertTrue(result.telemetry.dialogueDeclared)
+    }
 }

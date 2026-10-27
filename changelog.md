@@ -1,3 +1,35 @@
+# Lynx Universal [4-Stage Auto-Skip Alternating Cycle & Integrated Lynx Engine Scene Vision Diagnosis] 7.0.0-RC247
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC247** (Lynx Kernel Manager v3.2.81): **Implementasi Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda ([ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ NONSTOP ] -> [ ⏸️ PAUSE ] -> dst), Optimalisasi Shortcut Mengambang Menjadi Satu Token Tunggal Ringan Bebas Distraksi Layar Game, Serta Penempatan Pusat Tangkap & Diagnosa Adegan Scene Vision Terpadu di Dalam Panel Lynx Engine**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC247)
+1. **Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda (`GenshinSkipRunner.kt`)**:
+   - Memperbarui transisi siklus mode sesuai kebutuhan riil pemain:
+     `AUTO` (Ikon AutoMode Cyan, Deteksi Cerdas Dialog) $\to$ `PAUSED` (Ikon Pause Muted, Jeda Siaga) $\to$ `MANUAL` / `NONSTOP` (Ikon FastForward Oranye, Turbo Tap Cepat Berkelanjutan) $\to$ `PAUSED` $\to$ `AUTO` $\to$ ...
+   - Pengguna dapat langsung menjeda (Pause) dengan 1 sentuhan kapan saja dari mode manapun, dan sentuhan berikutnya beralih ke mode alternatif tanpa membebani interaksi game.
+
+2. **Shortcut Mengambang Minimalis & Hemat Ruang Layar (`HudSmartTriggerOverlay.kt`)**:
+   - Mengembalikan shortcut mengambang di layar game menjadi satu token tunggal ultra-ramping (38 dp visual token di dalam target sentuh 48 dp).
+   - Menghilangkan tombol ekstra maupun kartu popup yang memakan tempat di atas layar permainan, menjaga antarmuka in-game tetap bersih, rapi, dan estetis.
+   - Status visual dinamis terpadu dengan transisi warna halus (`HudCyan` untuk Auto, `HudMuted` untuk Paused, dan `HudOrange` untuk Nonstop).
+
+3. **Pusat Tangkap & Diagnosa Adegan Terintegrasi di Dalam Panel Lynx Engine (`HudTools.kt`, `HudSidebar.kt`)**:
+   - Menempatkan fitur `📸 Snapshot Diagnosa Scene` di dalam panel Lynx Engine pada Tab **Alat** (seksi Hoyo Auto-Skip & Diagnosa).
+   - Saat tombol ditekan di dalam Lynx Engine:
+     - Panel disembunyikan sementara (180ms) untuk mengambil tangkapan layar bersih tanpa overlay sistem.
+     - Mesin menganalisis kerapatan piksel dialog putih terhadap ambang batas safe-zone 16:9 (`calculateDialogueScanSlice`).
+     - Menyimpan berkas tangkapan (`_full.png`), potongan pindaian (`_slice.png`), dan metadata JSON di `/sdcard/Lynx/scenes/` dengan hak akses aman.
+     - Menampilkan kartu hasil diagnosa Scene Vision langsung di dalam panel Lynx Engine:
+       - Status verifikasi: `[ ✅ Dialog Terdeteksi ]` vs `[ ⚠️ Scene Non-Dialog / Kustom ]`.
+       - Metrik piksel dialog: `${matchingPixels} / ${thresholdRequired} px`.
+       - Koordinat zona aman 16:9: `X[min..max], Y`.
+       - Nama berkas rekaman adegan untuk bahan analisis dan pembelajaran lanjutan.
+
+4. **Delegasi Sentuhan Halus & Bebas Konflik (`AutoSkipHostView`)**:
+   - Memisahkan secara presisi antara interaksi klik pada shortcut dan gestur menggeser posisi badge di layar menggunakan batas slop 8dp dan pembatalan sentuh sintetis (`ACTION_CANCEL`).
+
+---
+
 # Lynx Universal [Sidebar Mode Preservation & Base Default User Configuration Integrity] 7.0.0-RC246
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC246** (Lynx Kernel Manager v3.2.80): **Preservasi Mutlak Format Tata Letak Lynx Engine Sesuai Pilihan Pengguna (Sidebar Handle Mode 0 vs Classic Floating Tile Mode 1): Otomasi Game Menjalankan Engine Sesuai Base Default Pengguna Tanpa Pernah Memaksa Bentuk Kotak Mengambang, Menghilangkan Override Preferensi Otomatis, Serta Menjaga Integritas Pengaturan Pengguna**.

@@ -72,7 +72,8 @@ fun HudSidebar(
     isSkipping: Boolean = false,
     isPaused: Boolean = false,
     onToggleAutoSkip: () -> Unit = {},
-    onSnapshotScene: () -> Unit = {}
+    onSnapshotScene: () -> Unit = {},
+    sceneResult: com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine.SceneSnapshotResult? = null
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     SideEffect {
@@ -328,7 +329,8 @@ fun HudSidebar(
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) },
                                                     isSkipping = isSkipping,
                                                     isPaused = isPaused,
-                                                    onSnapshotScene = onSnapshotScene
+                                                    onSnapshotScene = onSnapshotScene,
+                                                    sceneResult = sceneResult
                                                 )
                                             }
                                         }

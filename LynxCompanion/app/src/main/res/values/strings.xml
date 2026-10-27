@@ -2210,6 +2210,14 @@
     <string name="hud_autoskip_mode_auto">Auto (Adegan)</string>
     <string name="hud_autoskip_mode_manual">Manual (Nonstop)</string>
     <string name="hud_autoskip_mode_paused">Jeda (Siaga)</string>
+    <string name="hud_autoskip_scene_title">Diagnosis Scene Vision</string>
+    <string name="hud_autoskip_scene_detected">Dialog Terdeteksi</string>
+    <string name="hud_autoskip_scene_non_dialog">Scene Non-Dialog / Kustom</string>
+    <string name="hud_autoskip_scene_pixels">Piksel Putih: %1$d / %2$d px</string>
+    <string name="hud_autoskip_scene_zone">Zona 16:9: X[%1$d..%2$d], Y: %3$d</string>
+    <string name="hud_autoskip_scene_retake">Tangkap Ulang</string>
+    <string name="hud_autoskip_scene_close">Tutup</string>
+    <string name="hud_autoskip_scene_capture_tooltip">Tangkap &amp; Pelajari Scene</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Fokus</string>

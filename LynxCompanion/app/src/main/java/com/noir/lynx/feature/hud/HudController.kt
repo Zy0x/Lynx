@@ -307,12 +307,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     fun toggleAutoSkip() { gaming.magic.stop(); skipRunner.toggle() }
     fun stopAutoSkip() { skipRunner.stop() }
-    fun triggerSceneSnapshot(onSaved: (String) -> Unit) {
+
+    val lastSceneSnapshot = MutableStateFlow<GenshinSkipEngine.SceneSnapshotResult?>(null)
+
+    fun triggerSceneSnapshot(onSaved: ((String) -> Unit)? = null) {
         scope.launch(Dispatchers.IO) {
             val pkg = currentPackage ?: skipContext?.pkg ?: "unknown"
             val mode = skipRunner.currentMode.value.name
             val matchingPixels = skipRunner.probeMatchingPixels()
-            val dir = GenshinSkipEngine.captureSceneSnapshot(
+            val result = GenshinSkipEngine.captureSceneSnapshotDetailed(
                 context = context,
                 screenWidth = skipRunner.screenWidth,
                 screenHeight = skipRunner.screenHeight,
@@ -321,13 +324,19 @@ class HudController(private val context: Context, private val scope: CoroutineSc
                 matchingPixels = matchingPixels
             )
             withContext(Dispatchers.Main) {
-                onSaved(dir ?: "/sdcard/Lynx/scenes")
+                lastSceneSnapshot.value = result
+                onSaved?.invoke(result?.directory ?: "/sdcard/Lynx/scenes")
             }
         }
     }
+
+    fun clearSceneSnapshot() {
+        lastSceneSnapshot.value = null
+    }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
-        if (pkg.isNotBlank()) currentPackage = pkg
-        skipContext = SkipContext(pkg, isHudOpen, width, height, prefs)
+        val resolved = if (pkg.isNotBlank()) pkg else currentPackage ?: com.noir.lynx.service.LynxAppAutomationService.activeGamePackage ?: ""
+        if (resolved.isNotBlank()) currentPackage = resolved
+        skipContext = SkipContext(resolved, isHudOpen, width, height, prefs)
         gaming.update(pkg, isHudOpen, width, height)
         syncSkipRunner()
     }

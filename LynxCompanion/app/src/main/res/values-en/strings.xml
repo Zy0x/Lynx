@@ -2186,6 +2186,14 @@
     <string name="hud_autoskip_mode_auto">Auto (Scene)</string>
     <string name="hud_autoskip_mode_manual">Manual (Nonstop)</string>
     <string name="hud_autoskip_mode_paused">Pause (Standby)</string>
+    <string name="hud_autoskip_scene_title">Scene Vision Diagnosis</string>
+    <string name="hud_autoskip_scene_detected">Dialogue Detected</string>
+    <string name="hud_autoskip_scene_non_dialog">Non-Dialogue / Custom Scene</string>
+    <string name="hud_autoskip_scene_pixels">White Pixels: %1$d / %2$d px</string>
+    <string name="hud_autoskip_scene_zone">16:9 Zone: X[%1$d..%2$d], Y: %3$d</string>
+    <string name="hud_autoskip_scene_retake">Retake</string>
+    <string name="hud_autoskip_scene_close">Close</string>
+    <string name="hud_autoskip_scene_capture_tooltip">Capture &amp; Learn Scene</string>
 
     <!-- HUD gaming add-ins -->
     <string name="hud_addin_focus">Focus</string>

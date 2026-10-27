@@ -100,17 +100,29 @@ class GenshinSkipRunner(
         }
     }
 
+    private var lastActiveMode: SkipMode = SkipMode.MANUAL
+
     /**
      * Manual user toggle via floating trigger pill.
-     * Direct toggle between intelligent AUTO dialogue skip and PAUSED.
+     * Cycles through operational modes alternating through Pause:
+     * [SkipMode.AUTO] -> [SkipMode.PAUSED] -> [SkipMode.MANUAL] (NonStop) -> [SkipMode.PAUSED] -> [SkipMode.AUTO] ...
      */
     fun toggle() {
         when (modeState.value) {
-            SkipMode.PAUSED -> {
-                setMode(SkipMode.AUTO)
-            }
-            SkipMode.AUTO, SkipMode.MANUAL -> {
+            SkipMode.AUTO -> {
+                lastActiveMode = SkipMode.AUTO
                 setMode(SkipMode.PAUSED)
+            }
+            SkipMode.MANUAL -> {
+                lastActiveMode = SkipMode.MANUAL
+                setMode(SkipMode.PAUSED)
+            }
+            SkipMode.PAUSED -> {
+                if (lastActiveMode == SkipMode.AUTO) {
+                    setMode(SkipMode.MANUAL)
+                } else {
+                    setMode(SkipMode.AUTO)
+                }
             }
         }
     }
