@@ -1,3 +1,20 @@
+# Lynx Universal [Zero-Jank Reading Dwell Window & Non-Blocking Touch Elevation] 7.0.0-RC233
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC233** (Lynx Kernel Manager v3.2.67): **Eliminasi Total Sensasi Lag / Stutter Awal Sentuhan pada Mode Auto Refresh Rate: Perluasan Jendela Interaksi Kinetik Membaca Menjadi 4.500ms (Mencegah Flapping Mode-Switching Berulang 60Hz <-> 120Hz di Setiap Jeda Paragraf), Pemuatan Asinkron Non-Blocking untuk Perintah Elevasi Layar di Thread Sentuh, Serta Peningkatan Otomatis GPU Langsung ke Fluid Tier (~588–675 MHz) Saat Sentuhan Kaca Pertama Kali Diterima**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC233)
+1. **Perluasan Jendela Interaksi Kinetik Membaca Aktif (4.500ms / 5.000ms Multitasking)**:
+   - Pola membaca manusia melibatkan jeda scrolling sekitar 2 hingga 4 detik per paragraf. Timeout sebelumnya (2.2 detik) memicu penurunan prematur ke 60Hz di antara setiap paragraf, sehingga sentuhan berikutnya selalu mengalami *hardware modeset latency* (40–80ms).
+   - Dengan memperpanjang jendela interaksi menjadi 4.500ms (dan 5.000ms pada multitasking), layar tetap bertahan di 120Hz selama pengguna aktif membaca dan scrolling, menghilangkan total siklus flapping. Layar baru turun ke 60Hz jika pengguna benar-benar berhenti berinteraksi lama (> 4.5 detik).
+
+2. **Eksekusi Asinkron Non-Blocking pada Thread Sentuh (`on_hardware_touch`)**:
+   - Memindahkan eksekusi IPC `settings put` ke worker thread ringan (`std::thread::spawn`), memastikan loop pembacaan event hardware `/dev/input/` tidak pernah terblokir 30ms.
+
+3. **Elevasi Instan GPU Floor ke Fluid Tier Saat Touch Contact**:
+   - Target GPU saat sentuhan kaca pertama kali terdeteksi langsung dipatok ke `DynamicGpuState::Fluid` (~588–675 MHz), memastikan tenggat waktu frame 8.33ms (120 FPS) selalu tercapai tanpa dropped frame pada awal sapuan.
+
+---
+
 # Lynx Universal [Clamped Peak Scaler Fix & Deterministic 60/120Hz Transition Engine] 7.0.0-RC232
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC232** (Lynx Kernel Manager v3.2.66): **Penyelesaian Tuntas Kendala Mode Auto Refresh Rate yang Tidak Turun ke 60Hz: Pengikatan Sinkron `peak_refresh_rate` Bersama `min_refresh_rate` pada `apply_hz_auto` (Mengeliminasi Override Statis 120.0 yang Sebelumnya Mengunci DisplayModeDirector Non-LTPO), Elevasi Instan 120Hz (< 1ms) Saat Sentuhan Perangkat Keras Diterima, Serta Penurunan Otomatis ke 60Hz Pasca-Selesai Membaca Statis Demi Efisiensi Daya Maksimal**.

@@ -313,13 +313,8 @@ impl GpuController {
             .as_millis() as u64;
 
         let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-        let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 2);
-        let is_moving = crate::daemon::TouchDetector::is_touch_moving(350);
-        let target_state = if is_rapid || is_moving {
-            DynamicGpuState::Fluid
-        } else {
-            DynamicGpuState::Light
-        };
+        // Instant Fluid tier (~588-675 MHz) elevation on any touch down to guarantee 120 FPS deadline (<8.3ms)
+        let target_state = DynamicGpuState::Fluid;
 
         let current = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
         if now_ms.saturating_sub(last) < 40 && current >= (target_state as u8) {

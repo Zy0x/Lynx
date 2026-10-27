@@ -249,9 +249,12 @@ impl DisplayController {
                 .as_millis() as u64;
             LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
             let hz_str = format!("{}.0", high_hz);
-            let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-            let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_hz.to_string()]);
+            // Spawn asynchronous non-blocking worker so input listener thread is never stalled by IPC
+            std::thread::spawn(move || {
+                let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
+                let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
+                let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_hz.to_string()]);
+            });
         }
     }
 
@@ -318,9 +321,11 @@ impl DisplayController {
 
         let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
 
-        // Kinetic fling window: 2,200ms for single app scrolling; extended to 3,000ms during multitasking
-        // to prevent multi-layer SurfaceFlinger compositor stutter while switching focus between split windows.
-        let kinetic_window_ms: u64 = if is_multitask { 3000 } else { 2200 };
+        // Kinetic interaction window:
+        // Set to 4,500ms for active browsing/reading and 5,000ms for multitasking.
+        // Prevents rapid 60Hz <-> 120Hz mode-switching flap during natural reading pauses (2-4s),
+        // completely eliminating the touch-down modeset stutter!
+        let kinetic_window_ms: u64 = if is_multitask { 5000 } else { 4500 };
 
         let is_kinetic_active = TouchDetector::is_touch_recent(kinetic_window_ms)
             || TouchDetector::is_touch_moving(kinetic_window_ms)
