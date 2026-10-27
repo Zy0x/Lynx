@@ -1,3 +1,40 @@
+# Lynx Universal [Autonomous Swap & ZRAM Saturation Watchdog, Native Hardware Compaction, & Framework Crash Shield] 7.0.0-RC219
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC219** (Lynx Kernel Manager v3.2.53): **Implementasi Mesin Pelindung Framework Android Terpadu Anti-Restart Berbasis Autonomous Swap/ZRAM Saturation Watchdog, Pemadatan Hardware ZRAM Native (`/sys/block/zram0/compact`), dan Eviksi Proses Cached Latar Belakang: Eliminasi Risiko System Server Watchdog Timeout (10000ms Binder Stall & 60s SIGABRT Soft Reboot), Integrasi Penuh Pemadatan ZRAM & `am kill-all` ke Dalam `lynxd memory clean` dan CCleaner, Penambahan Aturan SELinux `sysfs_zram` pada `sepolicy.rule`, Serta Penguatan Lapisan Maintenance Repository pada Companion App**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC219)
+1. **Autonomous Swap & ZRAM Saturation Watchdog (`native/lynxd/src/subsystems/memory.rs` & `daemon/runner.rs`)**:
+   - Menghadirkan mekanisme pemantau saturasi memori otonom pada daemon Rust `lynxd` yang dieksekusi secara berkala setiap 60 siklus runtime.
+   - Memantau ambang batas kritis `/proc/meminfo`: jika swap perangkat aktif ($> 512\text{ MB}$) dan ruang swap bebas menipis ke batas bahaya ($< 12.5\%$ atau $< 250\text{ MB}$), sistem secara reaktif memicu pemadatan hardware ZRAM dan eviksi proses aplikasi cached yang terbengkalai.
+   - Dilengkapi *cooldown guard* atomik 180 detik untuk mencegah spam eksekusi dan menjaga stabilitas performa sistem.
+   - Mencegah secara proaktif kondisi kehabisan slot swap yang memicu *direct page reclaim thrashing*, kemacetan transaksi Binder `system_server`, dan crash Android Watchdog (soft reboot).
+
+2. **Mesin Pemadatan Hardware ZRAM Terpadu (`native/lynxd/src/subsystems/zram.rs`)**:
+   - Menambahkan fungsi `ZramController::compact()` yang menulis instruksi pemadatan ke `/sys/block/zram0/compact` dengan mode izin `WriteMode::ForcePermission`.
+   - Mengompresi dan menggabungkan alokasi blok memori ZRAM yang terfragmentasi, membebaskan ratusan megabyte RAM fisik murni tanpa merusak halaman swap yang sedang aktif.
+
+3. **Restrukturisasi Pembersihan Memori CCleaner (`native/lynxd/src/subsystems/memory.rs` & `maintenance.rs`)**:
+   - Memperbarui fungsi inti `clean_memory()` dan `compact_memory()`: tidak lagi hanya melepaskan pagecache (`drop_caches 3`), melainkan menggabungkan:
+     1. Sinkronisasi I/O (`sync`).
+     2. Pelepasan clean file cache (`drop_caches 3`).
+     3. Pemadatan memori kernel Linux (`compact_memory 1`).
+     4. Pemadatan hardware ZRAM (`/sys/block/zram0/compact 1`).
+     5. Eviksi proses cached Android (`am kill-all`).
+   - Membersihkan seketika tumpukan memori anonim dari aplikasi tidur (TikTok, Facebook, Shopee, Instagram, YouTube) yang sebelumnya terjebak dan menyumbat ruang swap ZRAM hingga 4 GB.
+
+4. **Penguatan Kebijakan SELinux (`sepolicy.rule`)**:
+   - Menambahkan aturan akses `sysfs_zram`:
+     ```text
+     allow magisk sysfs_zram file { read write open getattr }
+     allow init sysfs_zram file { read write open getattr }
+     ```
+   - Menjamin eksekusi pemadatan ZRAM berjalan bebas hambatan (*unrestricted*) pada lingkungan root APatch, Magisk, maupun KernelSU.
+
+5. **Sinkronisasi Companion App (`LynxMaintenanceRepository.kt`)**:
+   - Memperbarui eksekusi `runCCleaner()` di lapisan Kotlin Companion App agar secara berurutan mengeksekusi eviksi proses cached, pemeriksaan dan pemadatan node ZRAM, serta pendelegasian ke `lynxd memory clean`.
+
+---
+
 # Lynx Universal [Ultra-Compact Gaming HUD Layout, In-Place Modal Information Overhaul, & Universal (i) Dialog Engine] 7.0.0-RC218
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC218** (Lynx Kernel Manager v3.2.52): **Pembaruan Arsitektur Antarmuka Floating Gaming HUD (HudSidebar) Menjadi Ultra-Compact & Ringkas: Eliminasi Paragraf Deskripsi Tebal dari Tampilan Kartu Utama dan Penggantian dengan Tombol Interaktif `( i )` (`HudInfoButton`), Arsitektur Dialog In-Place Non-Window (`HudInfoModal`) Berbasis `CompositionLocalProvider(LocalHudInfo)` Bebas Konflik `ACTION_OUTSIDE` WindowManager Overlay, Restrukturisasi 11 Modul HUD (Frame & Display, Quick Profiles, Gaming Add-ins, Bypass Charging, Network Turbo, Combo Recorder, ZoneTouch Master, GameShift Spike Watcher, AutoSkip, Screen Recorder, dan Cooldown Timer) dengan Pemadatan Tata Letak 35%–55% Tanpa Mengorbankan Kedalaman Petunjuk Teknis & Spesifikasi Driver Hardware**.

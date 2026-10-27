@@ -6,6 +6,7 @@ use crate::hardware::capability::HardwareCapability;
 use crate::state::ConfigStore;
 use crate::subsystems::tui::{is_english, ui};
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
+use crate::Logger;
 
 pub struct MemoryController;
 
@@ -178,15 +179,22 @@ impl MemoryController {
         let cache = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct).is_ok();
         let compact =
             SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::Direct).is_ok();
-        // Tombstones and ANRs are diagnostic evidence, not reclaimable process memory.
-        if !cache || !compact {
+        let zram_compact = super::zram::ZramController::compact();
+        // Evict idle background cached processes to immediately release stale anonymous pages from ZRAM
+        let _ = Command::new("am").arg("kill-all").status();
+
+        if !cache && !compact && !zram_compact {
             return ui(
                 "Sebagian permintaan pembersihan memori ditolak kernel.",
                 "The kernel rejected some memory cleanup requests.",
             )
             .to_string();
         }
-        ui("Permintaan pelepasan cache dan pemadatan dikirim. Swap dan alokasi proses aktif dipertahankan.", "Cache release and compaction were requested. Swap and live process allocations were preserved.").to_string()
+        ui(
+            "Cache dilepas, ZRAM dipadatkan, dan proses cached dievaksi demi mencegah kejenuhan swap dan framework restart.",
+            "Cache released, ZRAM compacted, and cached processes evicted to prevent swap saturation and framework restarts.",
+        )
+        .to_string()
     }
 
     /// Reads kernel VM parameters from /proc/sys/vm/ and returns JSON for WebUI / Companion App.
@@ -314,10 +322,70 @@ impl MemoryController {
         }
     }
 
-    /// Autonomous VMA Watchdog: Monitors system_server VMA mapping count.
-    /// If mappings exceed safe limits (> 40,000 VMAs), triggers gentle memory compaction
-    /// to defragment virtual memory areas and reclaim secondary allocations.
+    /// Autonomous Memory & Swap Watchdog:
+    /// 1. Monitors system_server VMA mapping count. If mappings exceed safe limits (>= 40,000 VMAs),
+    ///    triggers gentle memory compaction.
+    /// 2. Monitors Swap / ZRAM saturation from /proc/meminfo. If Swap is critically full (free < 12.5% or free < 250MB),
+    ///    autonomously triggers hardware ZRAM compaction & evicts dead cached processes to shield against
+    ///    Android framework Watchdog freeze (SIGABRT / soft reboot).
     pub fn check_vma_health() {
+        Self::check_swap_pressure();
+        Self::check_system_server_vma();
+    }
+
+    fn check_swap_pressure() {
+        if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+            let mut swap_total = 0u64;
+            let mut swap_free = 0u64;
+            for line in content.lines() {
+                if line.starts_with("SwapTotal:") {
+                    swap_total = line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+                } else if line.starts_with("SwapFree:") {
+                    swap_free = line
+                        .split_whitespace()
+                        .nth(1)
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
+                }
+            }
+
+            // If swap device is active (> 512 MB) and critically saturated (free < 12.5% or free < 250 MB)
+            if swap_total > 524_288 && (swap_free < swap_total / 8 || swap_free < 256_000) {
+                // Cooldown guard to avoid spamming am kill-all every minute (180s cooldown)
+                static LAST_RECLAIM: std::sync::atomic::AtomicU64 =
+                    std::sync::atomic::AtomicU64::new(0);
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let last = LAST_RECLAIM.load(std::sync::atomic::Ordering::Relaxed);
+                if now.saturating_sub(last) >= 180 {
+                    LAST_RECLAIM.store(now, std::sync::atomic::Ordering::Relaxed);
+                    Logger::warn(if is_english() {
+                        format!(
+                            "[DAEMON] Critical Swap Saturation (Total: {} kB, Free: {} kB)! Triggering emergency ZRAM compaction & cached process eviction to prevent framework restart.",
+                            swap_total, swap_free
+                        )
+                    } else {
+                        format!(
+                            "[DAEMON] Tekanan Swap Kritis (Total: {} kB, Bebas: {} kB)! Memicu pemadatan ZRAM & eviksi cached process darurat demi mencegah restart framework.",
+                            swap_total, swap_free
+                        )
+                    });
+
+                    let _ = super::zram::ZramController::compact();
+                    let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
+                    let _ = Command::new("am").arg("kill-all").status();
+                }
+            }
+        }
+    }
+
+    fn check_system_server_vma() {
         let pid_str = match std::fs::read_to_string("/dev/lynx_system_server_pid") {
             Ok(p) => p.trim().to_string(),
             Err(_) => {

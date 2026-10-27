@@ -244,4 +244,15 @@ impl ZramController {
         )
         .to_string())
     }
+
+    /// Triggers hardware ZRAM page compaction via sysfs to merge chunk allocations
+    /// and reclaim physical memory without dropping active swap pages.
+    pub fn compact() -> bool {
+        let p = "/sys/block/zram0/compact";
+        if Path::new(p).exists() {
+            SysfsWriter::write(p, "1", WriteMode::ForcePermission).is_ok()
+        } else {
+            false
+        }
+    }
 }

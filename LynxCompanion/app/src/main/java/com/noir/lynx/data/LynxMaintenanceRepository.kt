@@ -35,7 +35,11 @@ object LynxMaintenanceRepository {
      */
     suspend fun runCCleaner(): String = withContext(Dispatchers.IO) {
         try {
-            val res = Shell.cmd("'$LYNXD_PATH' memory clean && '$LYNXD_PATH' io apply 2>&1").exec()
+            val res = Shell.cmd(
+                "am kill-all 2>/dev/null; " +
+                "if [ -f /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact 2>/dev/null; fi; " +
+                "'$LYNXD_PATH' memory clean && '$LYNXD_PATH' io apply 2>&1"
+            ).exec()
             res.out.joinToString("\n").ifBlank { "Cache dibersihkan via lynxd." }
         } catch (e: Exception) {
             "Error: ${e.message}"

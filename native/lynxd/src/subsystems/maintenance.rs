@@ -65,14 +65,16 @@ impl MaintenanceController {
         reports
     }
 
-    /// Performs gentle zero-stutter kernel memory compaction.
+    /// Performs gentle zero-stutter kernel memory compaction & hardware ZRAM compaction.
     pub fn compact_memory() -> bool {
         let p = "/proc/sys/vm/compact_memory";
-        if Path::new(p).exists() {
+        let r1 = if Path::new(p).exists() {
             SysfsWriter::write(p, "1", WriteMode::ForcePermission).is_ok()
         } else {
             false
-        }
+        };
+        let r2 = super::zram::ZramController::compact();
+        r1 || r2
     }
 
     fn find_db_files(root: &Path, max_depth: usize, current_depth: usize, acc: &mut Vec<PathBuf>) {
