@@ -1,0 +1,24 @@
+{
+  "timestamp": 1793129799373,
+  "game_package": "com.miHoYo.GenshinImpact",
+  "screen_resolution": {
+    "width": 2460,
+    "height": 1080,
+    "safe_width_16_9": 1920,
+    "pillarbox_padding": 270
+  },
+  "scan_parameters": {
+    "y_row": 56,
+    "x_min": 315,
+    "x_max": 550,
+    "slice_bytes": 940
+  },
+  "pixel_analysis": {
+    "matching_pixels": 0,
+    "threshold_required": 12,
+    "dialogue_declared": false
+  },
+  "hud_state": {
+    "mode": "AUTO"
+  }
+}

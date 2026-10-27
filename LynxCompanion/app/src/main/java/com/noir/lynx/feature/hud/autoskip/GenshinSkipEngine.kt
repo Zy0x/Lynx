@@ -37,6 +37,24 @@ object GenshinSkipEngine {
 
     data class TapTarget(val x: Int, val y: Int)
 
+    enum class SceneType {
+        UNKNOWN,
+        STANDARD_DIALOGUE,
+        BLACK_INTERSTITIAL,
+        WHITE_LOADING,
+        OPEN_WORLD,
+        START_SCREEN
+    }
+
+    data class SceneClassification(
+        val sceneType: SceneType,
+        val confidence: Float,
+        val dialogueMatches: Int,
+        val goldMatches: Int,
+        val blackRatio: Float,
+        val whiteRatio: Float
+    )
+
     data class DialogueCoordinates(
         val advance: TapTarget,
         val narration: TapTarget,
@@ -100,6 +118,17 @@ object GenshinSkipEngine {
                b in 180..235 &&
                (r >= g) && (g >= b) &&
                ((r - b) in 8..35)
+    }
+
+    /**
+     * Gold / Amber UI signature of bottom story narration prompt ("Tekan untuk melanjutkan" / "Tap to continue"):
+     * Standard Hoyoverse gold diamond arrow has high red (170..255), medium-high green (130..215), and very low blue (0..35).
+     */
+    fun isPromptGoldColor(r: Int, g: Int, b: Int): Boolean {
+        return r in 170..255 &&
+               g in 130..215 &&
+               b in 0..35 &&
+               (r >= g)
     }
 
     /**
@@ -179,6 +208,30 @@ object GenshinSkipEngine {
     }
 
     /**
+     * Calculates the raw screencap byte slice parameters for the bottom narration prompt ("Tekan untuk melanjutkan"):
+     * Y is row 944 on 1080p (~87.4% height).
+     * X is centered at width / 2, spanning width of (height * 450) / 1080 (~450px wide).
+     * Returns Pair(headBytes, sliceBytes).
+     */
+    fun calculatePromptScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
+        val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
+        val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
+
+        val y = ((height * 944L) / 1080L).coerceIn(0L, height - 1L)
+        val promptW = ((height * 450L) / 1080L).coerceAtLeast(300L)
+        val xMin = ((width / 2L) - (promptW / 2L)).coerceAtLeast(0L)
+        val xMax = ((width / 2L) + (promptW / 2L)).coerceAtMost(width)
+
+        val rowStart = 16L + (y * width * 4L)
+        val byteStart = rowStart + (xMin * 4L)
+        val byteEnd = rowStart + (xMax * 4L)
+        val sliceBytes = byteEnd - byteStart
+        val headBytes = byteEnd
+
+        return headBytes to sliceBytes
+    }
+
+    /**
      * Calculates the raw byte offset for the Auto button pixel in screencap RGBA stream.
      */
     fun calculateAutoButtonOffset(screenWidth: Int, screenHeight: Int): Long {
@@ -203,7 +256,11 @@ object GenshinSkipEngine {
         val matchingPixels: Int,
         val thresholdRequired: Int,
         val dialogueDeclared: Boolean,
-        val mode: String
+        val mode: String,
+        val sceneType: String = SceneType.UNKNOWN.name,
+        val goldMatches: Int = 0,
+        val blackRatio: Float = 0f,
+        val whiteRatio: Float = 0f
     ) {
         fun toJson(): String {
             return """
@@ -226,6 +283,12 @@ object GenshinSkipEngine {
                     "matching_pixels": $matchingPixels,
                     "threshold_required": $thresholdRequired,
                     "dialogue_declared": $dialogueDeclared
+                  },
+                  "scene_classification": {
+                    "scene_type": "$sceneType",
+                    "gold_matches": $goldMatches,
+                    "black_ratio": $blackRatio,
+                    "white_ratio": $whiteRatio
                   },
                   "hud_state": {
                     "mode": "$mode"
@@ -256,7 +319,8 @@ object GenshinSkipEngine {
         screenHeight: Int,
         packageName: String,
         mode: String,
-        matchingPixels: Int
+        matchingPixels: Int,
+        sceneClassification: SceneClassification? = null
     ): SceneSnapshotResult? {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
         val height = min(screenWidth, screenHeight).coerceAtLeast(720)
@@ -284,6 +348,12 @@ object GenshinSkipEngine {
         Shell.cmd("screencap -p '${fullFile.absolutePath}'").exec()
 
         // 2. Telemetry metadata
+        val sceneTypeStr = sceneClassification?.sceneType?.name
+            ?: if (declared) SceneType.STANDARD_DIALOGUE.name else SceneType.UNKNOWN.name
+        val goldMatches = sceneClassification?.goldMatches ?: 0
+        val blackRatio = sceneClassification?.blackRatio ?: 0f
+        val whiteRatio = sceneClassification?.whiteRatio ?: 0f
+
         val telemetry = SceneTelemetry(
             timestamp = System.currentTimeMillis(),
             gamePackage = packageName,
@@ -298,7 +368,11 @@ object GenshinSkipEngine {
             matchingPixels = matchingPixels,
             thresholdRequired = threshold,
             dialogueDeclared = declared,
-            mode = mode
+            mode = mode,
+            sceneType = sceneTypeStr,
+            goldMatches = goldMatches,
+            blackRatio = blackRatio,
+            whiteRatio = whiteRatio
         )
         val jsonContent = telemetry.toJson().replace("'", "'\\''")
         Shell.cmd("echo '$jsonContent' > '${jsonFile.absolutePath}' && chmod 666 '${fullFile.absolutePath}' '${jsonFile.absolutePath}'").exec()

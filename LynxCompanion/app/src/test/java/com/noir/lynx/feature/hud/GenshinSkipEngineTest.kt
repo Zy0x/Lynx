@@ -221,4 +221,82 @@ class GenshinSkipEngineTest {
         assertEquals("scene_test", result.baseName)
         assertTrue(result.telemetry.dialogueDeclared)
     }
+    @Test
+    fun promptGoldColorAccuratelyIdentifiesHoyoverseNarrationDiamond() {
+        // True Hoyoverse gold / amber diamond colors:
+        assertTrue(GenshinSkipEngine.isPromptGoldColor(235, 180, 2))
+        assertTrue(GenshinSkipEngine.isPromptGoldColor(255, 195, 6))
+        assertTrue(GenshinSkipEngine.isPromptGoldColor(183, 141, 0))
+
+        // Non-gold colors must be rejected
+        assertFalse(GenshinSkipEngine.isPromptGoldColor(255, 255, 255)) // White
+        assertFalse(GenshinSkipEngine.isPromptGoldColor(0, 0, 0))       // Black
+        assertFalse(GenshinSkipEngine.isPromptGoldColor(236, 229, 216)) // Dialogue warm cream (too high blue)
+        assertFalse(GenshinSkipEngine.isPromptGoldColor(100, 150, 255)) // Blue
+    }
+
+    @Test
+    fun promptScanSliceAdaptsToScreenResolutionsAndOrientations() {
+        // Infinix 2460 x 1080 (20.5:9)
+        // y = 944, promptW = 450
+        // xMin = 1230 - 225 = 1005, xMax = 1230 + 225 = 1455
+        // sliceBytes = (1455 - 1005) * 4 = 1800
+        val sliceInfinix = GenshinSkipEngine.calculatePromptScanSlice(2460, 1080)
+        assertEquals(1800L, sliceInfinix.second)
+
+        // Orientation invariance: portrait input resolves identical slice
+        val sliceInfinixPortrait = GenshinSkipEngine.calculatePromptScanSlice(1080, 2460)
+        assertEquals(sliceInfinix.first, sliceInfinixPortrait.first)
+        assertEquals(sliceInfinix.second, sliceInfinixPortrait.second)
+
+        // Standard 16:9 1920 x 1080
+        // y = 944, promptW = 450
+        // xMin = 960 - 225 = 735, xMax = 960 + 225 = 1185
+        // sliceBytes = (1185 - 735) * 4 = 1800
+        val slice1080p = GenshinSkipEngine.calculatePromptScanSlice(1920, 1080)
+        assertEquals(1800L, slice1080p.second)
+    }
+
+    @Test
+    fun sceneClassificationDataTypesConstructAccurately() {
+        val classification = GenshinSkipEngine.SceneClassification(
+            sceneType = GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
+            confidence = 0.99f,
+            dialogueMatches = 0,
+            goldMatches = 182,
+            blackRatio = 0.98f,
+            whiteRatio = 0.01f
+        )
+        assertEquals(GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL, classification.sceneType)
+        assertEquals(0.99f, classification.confidence, 0.001f)
+        assertEquals(182, classification.goldMatches)
+    }
+
+    @Test
+    fun sceneTelemetryIncludesMultiSceneClassification() {
+        val telemetry = GenshinSkipEngine.SceneTelemetry(
+            timestamp = 1730042100000L,
+            gamePackage = "com.miHoYo.GenshinImpact",
+            width = 2460,
+            height = 1080,
+            safeWidth = 1920L,
+            pillarbox = 270L,
+            xMin = 315L,
+            xMax = 550L,
+            yRow = 56L,
+            sliceBytes = 940L,
+            matchingPixels = 0,
+            thresholdRequired = 12,
+            dialogueDeclared = false,
+            mode = "AUTO",
+            sceneType = "BLACK_INTERSTITIAL",
+            goldMatches = 182,
+            blackRatio = 0.985f,
+            whiteRatio = 0.005f
+        )
+        val json = telemetry.toJson()
+        assertTrue(json.contains("\"scene_type\": \"BLACK_INTERSTITIAL\""))
+        assertTrue(json.contains("\"gold_matches\": 182"))
+        assertTrue(json.contains("\"black_ratio\": 0.985"))
+    }
 }

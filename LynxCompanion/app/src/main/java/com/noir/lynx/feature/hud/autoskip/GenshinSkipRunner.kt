@@ -87,7 +87,6 @@ class GenshinSkipRunner(
         speedMs: Long,
         targetChoiceBottom: Boolean
     ) {
-        val packageChanged = this.currentForegroundPackage != pkg
         this.currentForegroundPackage = pkg
         this.isHudOpen = isHudOpen
         this.screenWidth = width
@@ -180,67 +179,187 @@ class GenshinSkipRunner(
         } catch (_: Throwable) {}
     }
 
-    suspend fun probeMatchingPixels(): Int = withContext(Dispatchers.IO) {
+    suspend fun probeScene(): GenshinSkipEngine.SceneClassification = withContext(Dispatchers.IO) {
         var proc: Process? = null
         try {
-            val (headBytes, sliceBytes) = GenshinSkipEngine.calculateDialogueScanSlice(screenWidth, screenHeight)
-            val byteStart = headBytes - sliceBytes
+            val (tlHead, tlSliceBytes) = GenshinSkipEngine.calculateDialogueScanSlice(screenWidth, screenHeight)
+            val tlStart = tlHead - tlSliceBytes
 
             // In-process native binary stream: skips 6 external shell forks (head, tail, xxd, grep, wc)
             // Aborts immediately after reading target bytes, saving SurfaceFlinger GPU bandwidth and frame drops
             proc = ProcessBuilder("su", "-c", "exec screencap").start()
             val stream = BufferedInputStream(proc.inputStream, 32768)
 
+            // 1. Skip to top-left dialogue slice (row 56)
             var skipped = 0L
             val skipBuf = ByteArray(16384)
-            while (skipped < byteStart) {
-                val toRead = minOf(skipBuf.size.toLong(), byteStart - skipped).toInt()
+            while (skipped < tlStart) {
+                val toRead = minOf(skipBuf.size.toLong(), tlStart - skipped).toInt()
                 val r = stream.read(skipBuf, 0, toRead)
                 if (r <= 0) break
                 skipped += r
             }
-            if (skipped < byteStart) return@withContext 0
-
-            val slice = ByteArray(sliceBytes.toInt())
-            var sliceRead = 0
-            while (sliceRead < slice.size) {
-                val r = stream.read(slice, sliceRead, slice.size - sliceRead)
-                if (r <= 0) break
-                sliceRead += r
+            if (skipped < tlStart) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.UNKNOWN, 0f, 0, 0, 0f, 0f
+                )
             }
 
-            // Immediately destroy process to close pipe and release SurfaceFlinger framebuffer lock
-            runCatching { stream.close() }
-            proc.destroy()
-            proc = null
+            val tlSlice = ByteArray(tlSliceBytes.toInt())
+            var tlRead = 0
+            while (tlRead < tlSlice.size) {
+                val r = stream.read(tlSlice, tlRead, tlSlice.size - tlRead)
+                if (r <= 0) break
+                tlRead += r
+            }
+            if (tlRead < tlSlice.size) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.UNKNOWN, 0f, 0, 0, 0f, 0f
+                )
+            }
 
-            if (sliceRead < slice.size) return@withContext 0
-
-            // High-speed in-memory pixel density verification (< 0.01 ms execution time)
-            var matchCount = 0
-            val limit = slice.size - 3
+            var dialogueMatches = 0
+            var blackPixels = 0
+            var whitePixels = 0
+            val totalSampled = tlSlice.size / 4
             var i = 0
+            val limit = tlSlice.size - 3
             while (i < limit) {
-                val red = slice[i].toInt() and 0xFF
-                val green = slice[i + 1].toInt() and 0xFF
-                val blue = slice[i + 2].toInt() and 0xFF
+                val red = tlSlice[i].toInt() and 0xFF
+                val green = tlSlice[i + 1].toInt() and 0xFF
+                val blue = tlSlice[i + 2].toInt() and 0xFF
                 if (GenshinSkipEngine.isDialogueColor(red, green, blue)) {
-                    matchCount++
+                    dialogueMatches++
+                }
+                if (red < 30 && green < 30 && blue < 30) {
+                    blackPixels++
+                }
+                if (red > 230 && green > 230 && blue > 230) {
+                    whitePixels++
                 }
                 i += 4
             }
-            return@withContext matchCount
+
+            val minThreshold = GenshinSkipEngine.calculateMinDialogueThreshold(screenHeight)
+            val blackRatio = if (totalSampled > 0) blackPixels.toFloat() / totalSampled else 0f
+            val whiteRatio = if (totalSampled > 0) whitePixels.toFloat() / totalSampled else 0f
+
+            // Fast Exit 1: Standard dialogue control confirmed in top-left (<10ms probe)
+            if (dialogueMatches >= minThreshold) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.STANDARD_DIALOGUE,
+                    0.98f,
+                    dialogueMatches,
+                    0,
+                    blackRatio,
+                    whiteRatio
+                )
+            }
+
+            // Fast Exit 2: Pure white loading screen
+            if (whiteRatio > 0.85f) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.WHITE_LOADING,
+                    0.99f,
+                    dialogueMatches,
+                    0,
+                    blackRatio,
+                    whiteRatio
+                )
+            }
+
+            // Fast Exit 3: Normal open-world gameplay or start screen (colorful sky/terrain, not black)
+            if (blackRatio < 0.85f) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.OPEN_WORLD,
+                    0.90f,
+                    dialogueMatches,
+                    0,
+                    blackRatio,
+                    whiteRatio
+                )
+            }
+
+            // Deep Probe: Pitch black screen detected in top row (blackRatio >= 85%).
+            // Advance forward down the screencap stream to row 944 to check for narration prompt ("Tekan untuk melanjutkan")
+            val (promptHead, promptSliceBytes) = GenshinSkipEngine.calculatePromptScanSlice(screenWidth, screenHeight)
+            val promptStart = promptHead - promptSliceBytes
+
+            var currentOffset = tlHead
+            while (currentOffset < promptStart) {
+                val toRead = minOf(skipBuf.size.toLong(), promptStart - currentOffset).toInt()
+                val r = stream.read(skipBuf, 0, toRead)
+                if (r <= 0) break
+                currentOffset += r
+            }
+            if (currentOffset < promptStart) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.OPEN_WORLD, 0.80f, dialogueMatches, 0, blackRatio, whiteRatio
+                )
+            }
+
+            val promptSlice = ByteArray(promptSliceBytes.toInt())
+            var pRead = 0
+            while (pRead < promptSlice.size) {
+                val r = stream.read(promptSlice, pRead, promptSlice.size - pRead)
+                if (r <= 0) break
+                pRead += r
+            }
+            if (pRead < promptSlice.size) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.OPEN_WORLD, 0.80f, dialogueMatches, 0, blackRatio, whiteRatio
+                )
+            }
+
+            var goldMatches = 0
+            var pi = 0
+            val plimit = promptSlice.size - 3
+            while (pi < plimit) {
+                val r = promptSlice[pi].toInt() and 0xFF
+                val g = promptSlice[pi + 1].toInt() and 0xFF
+                val b = promptSlice[pi + 2].toInt() and 0xFF
+                if (GenshinSkipEngine.isPromptGoldColor(r, g, b)) {
+                    goldMatches++
+                }
+                pi += 4
+            }
+
+            if (goldMatches >= 15) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
+                    0.99f,
+                    dialogueMatches,
+                    goldMatches,
+                    blackRatio,
+                    whiteRatio
+                )
+            } else {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.OPEN_WORLD,
+                    0.85f,
+                    dialogueMatches,
+                    goldMatches,
+                    blackRatio,
+                    whiteRatio
+                )
+            }
         } catch (_: Throwable) {
-            return@withContext 0
+            return@withContext GenshinSkipEngine.SceneClassification(
+                GenshinSkipEngine.SceneType.UNKNOWN, 0f, 0, 0, 0f, 0f
+            )
         } finally {
             runCatching { proc?.destroy() }
         }
     }
 
+    suspend fun probeMatchingPixels(): Int {
+        return probeScene().dialogueMatches
+    }
+
     suspend fun isGenshinDialogueActive(): Boolean {
-        val matches = probeMatchingPixels()
-        val threshold = GenshinSkipEngine.calculateMinDialogueThreshold(screenHeight)
-        return matches >= threshold
+        val scene = probeScene()
+        return scene.sceneType == GenshinSkipEngine.SceneType.STANDARD_DIALOGUE ||
+               scene.sceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL
     }
 
     private suspend fun runTapLoop() {
@@ -249,6 +368,7 @@ class GenshinSkipRunner(
         var cycleIndex = 0
         var consecutiveInactiveCount = 0
         var burstCountRemaining = 0
+        var activeSceneType = GenshinSkipEngine.SceneType.UNKNOWN
         val tapBin = if (Build.VERSION.SDK_INT >= 29) "cmd input tap" else "input tap"
 
         while (modeState.value != SkipMode.PAUSED && currentCoroutineContext().isActive) {
@@ -267,25 +387,36 @@ class GenshinSkipRunner(
                 break
             }
 
-            // Two-Phase Autonomous Cadence for SkipMode.AUTO:
+            // Multi-Scene Vision AI Cadence for SkipMode.AUTO:
             // 1. Standby Phase (Outside Dialogue): Polls lightweight slice at 1200ms, sends 0 taps. Guarantees 0% lag & 60/120 FPS.
-            // 2. Burst Phase (Inside Dialogue): Fires 6 fast taps without screencap interrupts, eliminating GPU stalls.
-            // 3. Dialogue End: Returns cleanly to Standby Phase (0 tap) without ever resetting user mode to PAUSED.
+            // 2. Burst Phase (Inside Standard Dialogue): Fires fast cycling taps without screencap interrupts.
+            // 3. Burst Phase (Inside Black Interstitial): Fires rapid taps on narration prompt target.
+            // 4. Dialogue End: Returns cleanly to Standby Phase (0 tap) without ever resetting user mode to PAUSED.
             if (current == SkipMode.AUTO) {
                 if (burstCountRemaining <= 0) {
-                    val isDialogue = isGenshinDialogueActive()
-                    if (!isDialogue) {
-                        burstCountRemaining = 0
-                        executingState.value = false
-                        consecutiveInactiveCount++
-                        val standbyDelay = if (consecutiveInactiveCount > 3) 1200L else 800L
-                        delay(standbyDelay)
-                        continue
-                    } else {
-                        val effSpeed = speedMs.coerceAtLeast(45L)
-                        burstCountRemaining = (1200L / effSpeed).toInt().coerceIn(8, 24)
-                        consecutiveInactiveCount = 0
-                        executingState.value = true
+                    val scene = probeScene()
+                    activeSceneType = scene.sceneType
+                    when (scene.sceneType) {
+                        GenshinSkipEngine.SceneType.STANDARD_DIALOGUE -> {
+                            val effSpeed = speedMs.coerceAtLeast(45L)
+                            burstCountRemaining = (1200L / effSpeed).toInt().coerceIn(8, 24)
+                            consecutiveInactiveCount = 0
+                            executingState.value = true
+                        }
+                        GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL -> {
+                            val effSpeed = speedMs.coerceAtLeast(45L)
+                            burstCountRemaining = (800L / effSpeed).toInt().coerceIn(4, 16)
+                            consecutiveInactiveCount = 0
+                            executingState.value = true
+                        }
+                        else -> {
+                            burstCountRemaining = 0
+                            executingState.value = false
+                            consecutiveInactiveCount++
+                            val standbyDelay = if (consecutiveInactiveCount > 3) 1200L else 800L
+                            delay(standbyDelay)
+                            continue
+                        }
                     }
                 }
                 burstCountRemaining--
@@ -314,11 +445,17 @@ class GenshinSkipRunner(
 
             val effectiveSpeed = speedMs.coerceAtLeast(45L)
 
-            // Ultra-fast single-shot touch dispatch: eliminates subshell sleep delays and touch queue choke
-            val target = when (cycleIndex % 3) {
-                0 -> advanceTarget
-                1 -> choiceTarget
-                else -> narrationTarget
+            // Adaptive Multi-Scene Touch Dispatch:
+            // - BLACK_INTERSTITIAL: Confirms the prompt directly on narrationTarget ("Tekan untuk melanjutkan")
+            // - STANDARD_DIALOGUE / MANUAL: Cycles through Advance, Choice, and Narration targets
+            val target = if (activeSceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL) {
+                narrationTarget
+            } else {
+                when (cycleIndex % 3) {
+                    0 -> advanceTarget
+                    1 -> choiceTarget
+                    else -> narrationTarget
+                }
             }
             Shell.cmd("$tapBin ${target.x} ${target.y} >/dev/null 2>&1").submit()
 

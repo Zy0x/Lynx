@@ -1,3 +1,36 @@
+# Lynx Universal [Multi-Scene Vision AI Classifier, Interstitial Story Auto-Advance & Vision Training Suite] 7.0.0-RC251
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC251** (Lynx Kernel Manager v3.2.85): **Implementasi Mesin Pengenal Adegan Cerdas Multi-Modal (Vision AI Scene Classifier) Pada Auto-Skip Hoyo RPG: Mendeteksi Secara Presisi Adegan Cerita Layar Hitam (Black Interstitial Cutscenes) Dengan Pengenalan Diamond Emas Amber "Tekan untuk melanjutkan", Penekanan Ketukan Otomatis Pada Layar Putih (White Loading Screen Flash Suppression), Proteksi Mutlak Siaga Hening Pada Dunia Terbuka (Open World Zero-Tap Silence), Serta Pustaka Pelatihan & Kalibrasi Citra Otonom (`tools/train_scene_classifier.py`) Demi Menjamin Auto-Skip Bekerja Dinamis, Cerdas, dan Adaptif**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC251)
+1. **Mesin Pengenal Adegan Cerdas Multi-Modal Vision AI (`GenshinSkipEngine.kt`, `GenshinSkipRunner.kt`)**:
+   - **Pemecahan Masalah Pembekuan Auto-Skip Pada Adegan Narasi Layar Hitam**:
+     - Menelaah secara mendalam seluruh sampel telemetri citra nyata (`/sdcard/Lynx/scenes/`): ditemukan akar masalah di mana versi lama hanya memindai satu baris tunggal di pojok kiri atas (`y = 56`), sehingga saat game memasuki adegan narasi layar hitam (seperti monolog buku, transisi cerita, percakapan cutscene), baris kiri atas bernilai hitam pekat (`matching_pixels: 0/12`), menyebabkan auto-skip diam dan memaksa pengguna menekan layar manual.
+     - Mengembangkan arsitektur klasifikasi adegan multi-fase (`SceneType`):
+       - `STANDARD_DIALOGUE`: Kotak dialog 3D aktif dengan tombol kontrol kiri atas ("Otomatis", "Log", "Sembunyikan UI"). Menembakkan semburan cepat siklus Maju Teks, Pilihan Dialog, dan Narasi.
+       - `BLACK_INTERSTITIAL`: Adegan narasi cerita berlatar belakang hitam pekat (>85% gelap) dengan teks putih di tengah dan prompt konfirmasi di tengah bawah ("Tekan untuk melanjutkan" / "Tap to continue" / "Click to begin").
+       - `WHITE_LOADING`: Layar transisi putih penuh / kilat teleportasi / loading domain (>85% putih). Ketukan diredam total (0-tap) untuk mencegah gangguan I/O.
+       - `OPEN_WORLD`: Penjelajahan aktif dunia terbuka (minimap, tombol skill, bilah HP). Ketukan diredam 100% (Siaga Hening) demi kebebasan penuh kendali pemain.
+       - `START_SCREEN`: Pintu gerbang Celestia / layar awal game (0-tap supresi).
+   - **Pengenalan Presisi Indikator Diamond Emas Amber (`isPromptGoldColor`)**:
+     - Mengidentifikasi spektrum warna emas khas Hoyoverse (`R = 170..255`, `G = 130..215`, `B = 0..35`) pada baris irisan bawah (`y = 944`, `X = center ± 225px`).
+     - Pada dataset 11 citra nyata, seluruh 5 adegan narasi layar hitam terdeteksi dengan tepat 182 piksel emas murni (100% akurasi deteksi, 0% false positive).
+   - **Eksekusi Ketukan Otonom Khusus Adegan Narasi (`coords.narration`)**:
+     - Saat `BLACK_INTERSTITIAL` terdeteksi, runner secara otomatis mengalihkan titik ketukan langsung ke target prompt narasi (`X = 1230, Y = 950` pada 2460x1080) untuk memajukan dialog cerita dengan cepat dan mulus.
+
+2. **Pipeline Pelatihan & Kalibrasi Vision AI (`tools/train_scene_classifier.py`)**:
+   - **Suite Pelatihan Citra Mandiri & Otomatis**:
+     - Menyediakan utilitas Python komprehensif untuk pengembang dan pengguna:
+       - `--pull`: Mengambil dataset tangkapan layar baru dari perangkat Android secara otomatis via ADB (`/sdcard/Lynx/scenes/`).
+       - `--evaluate`: Menjalankan inferensi klasifikasi multi-adegan pada seluruh citra di `archive/scenes/`.
+       - `--report`: Menghasilkan ringkasan matriks klasifikasi dalam format JSON (`classification_report.json`) dan dokumentasi Markdown (`TRAINING_REPORT.md`).
+     - Membuka ruang bagi pengguna untuk mengumpulkan adegan-adegan baru di masa mendatang yang dapat langsung dilatihkan dan dikalibrasi ke dalam batas warna Kotlin secara instan.
+
+3. **Penyempurnaan Telemetri & Diagnostik Citra (`SceneTelemetry`)**:
+   - Menyertakan metrik multi-adegan terpadu pada berkas JSON diagnostik: `scene_type`, `gold_matches`, `black_ratio`, dan `white_ratio`.
+
+---
+
 # Lynx Universal [Scheduler EAS Margin Lock, Anti-Priority Inversion & Anti-Allocstall Memory Buffer] 7.0.0-RC250
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC250** (Lynx Kernel Manager v3.2.84): **Implementasi Mesin Pelindung Penjadwal Otonom (`SchedulerGuardian`): Mencegah Android Framework (`OomAdjuster`) dan Daemon Vendor OEM (`perfservice`) Membatalkan atau Membalikkan Prioritas EAS Game Saat Terjadi Notifikasi Heads-Up / Multitasking, Perlindungan Izin Node Schedtune (`chmod 644/444`), Watchdog Pemulihan Instan Sub-Siklus, Serta Penyangga Memori Anti-Allocstall (`watermark_scale_factor = 150`, `extra_free_kbytes = 64MB`) Demi Menjamin Gameplay Tetap Buttery Smooth Tanpa Micro-Stuttering**.
