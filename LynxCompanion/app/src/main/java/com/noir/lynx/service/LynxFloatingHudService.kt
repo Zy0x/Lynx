@@ -254,8 +254,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val display = targetDisplay()
         val mode = display?.mode
         hz.value = if (mode != null) HudReading(mode.refreshRate.toDouble(), "Hz", "Display ${display.displayId}: mode ${mode.modeId}", SystemClock.elapsedRealtime(), "valid") else HudReading(unit = "Hz", status = "unsupported")
-        rates.value = display?.supportedModes?.filter { mode != null && it.physicalWidth == mode.physicalWidth && it.physicalHeight == mode.physicalHeight }
-            ?.map { it.refreshRate }?.distinctBy { (it * 10).roundToInt() }?.sorted() ?: emptyList()
+        rates.value = display?.supportedModes?.filter { m ->
+            mode != null && ((m.physicalWidth == mode.physicalWidth && m.physicalHeight == mode.physicalHeight) ||
+                    (m.physicalWidth == mode.physicalHeight && m.physicalHeight == mode.physicalWidth))
+        }?.map { it.refreshRate }?.distinctBy { (it * 10).roundToInt() }?.sorted()
+            ?.ifEmpty { listOf(60f, 90f, 120f) } ?: listOf(60f, 90f, 120f)
     }
 
     @Suppress("DEPRECATION")
@@ -828,7 +831,15 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onOpen = { open.value = it },
                     onDrag = {},
                     onProfile = controller::profile,
-                    onHz = { controller.refresh(it, supported, targetDisplay()) { hz.value.value?.toFloat() } },
+                    onHz = { targetHz ->
+                        controller.refresh(targetHz, supported.ifEmpty { listOf(60f, 90f, 120f) }, targetDisplay()) {
+                            updateDisplay()
+                            val cur: Float? = try {
+                                kotlinx.coroutines.runBlocking { com.noir.lynx.data.LynxDisplayRepository.readDisplayRefreshRate().toFloat() }
+                            } catch (_: Throwable) { null }
+                            if (cur != null && kotlin.math.abs(cur - targetHz) < 1.0f) cur else hz.value.value?.toFloat()
+                        }
+                    },
                     onCapture = {
                         controller.screenshot(
                             hide = { hidden -> host.visibility = if (hidden) View.INVISIBLE else View.VISIBLE },
@@ -886,8 +897,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             open.value = true
                         } else controller.profile(profile)
                     },
-                    onBoostRam = {},
-                    onCycleRefreshRate = {},
+                    onBoostRam = controller::boostRam,
+                    onCycleRefreshRate = {
+                        val supportedRates = supported.ifEmpty { listOf(60f, 90f, 120f) }
+                        val currentVal = hz.value.value?.toFloat() ?: 60f
+                        val currentIdx = supportedRates.indexOfFirst { kotlin.math.abs(it - currentVal) < 0.5f }
+                        val nextIdx = if (currentIdx >= 0) (currentIdx + 1) % supportedRates.size else 0
+                        val nextHz = supportedRates[nextIdx]
+                        controller.refresh(nextHz, supportedRates, targetDisplay()) {
+                            updateDisplay()
+                            val cur: Float? = try {
+                                kotlinx.coroutines.runBlocking { com.noir.lynx.data.LynxDisplayRepository.readDisplayRefreshRate().toFloat() }
+                            } catch (_: Throwable) { null }
+                            if (cur != null && kotlin.math.abs(cur - nextHz) < 1.0f) cur else hz.value.value?.toFloat()
+                        }
+                    },
                     onDrag = ::dragClassic,
                     onDragVertical = { dragClassic(0f, it) }
                 )

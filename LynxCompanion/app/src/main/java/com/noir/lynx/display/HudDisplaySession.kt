@@ -2,39 +2,68 @@ package com.noir.lynx.display
 
 import android.content.Context
 import android.view.Display
+import com.noir.lynx.data.LynxDisplayRepository
 import com.topjohnwu.superuser.Shell
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.runBlocking
 
 internal data class PreferredDisplayMode(val width: Int, val height: Int, val hz: Float) {
     fun arguments() = "$width $height $hz"
 }
 
-/** Session-scoped framework mode requests. Never uses private Binder transaction numbers or sysfs. */
+/** Session-scoped framework mode requests. Enhanced with multi-tier SurfaceFlinger & settings synchronization. */
 class HudDisplaySession(context: Context) {
-    private val recovery = context.getSharedPreferences("lynx_hud_display_session",Context.MODE_PRIVATE)
+    private val recovery = context.getSharedPreferences("lynx_hud_display_session", Context.MODE_PRIVATE)
 
     @Synchronized fun apply(display: Display, hz: Float): Boolean {
-        val mode = display.supportedModes.firstOrNull { it.physicalWidth == display.mode.physicalWidth && it.physicalHeight == display.mode.physicalHeight && kotlin.math.abs(it.refreshRate-hz)<0.2f } ?: return false
-        val id = display.displayId
-        if (id < 0 || !hz.isFinite() || mode.physicalWidth<=0 || mode.physicalHeight<=0) return false
+        if (!hz.isFinite() || hz <= 0f) return false
+        val targetHz = hz.roundToInt()
+        val id = display.displayId.coerceAtLeast(0)
+
+        // Find matching mode with orientation safety (swapped dimensions in landscape)
+        val mode = display.supportedModes.firstOrNull { m ->
+            val matchRes = (m.physicalWidth == display.mode.physicalWidth && m.physicalHeight == display.mode.physicalHeight) ||
+                    (m.physicalWidth == display.mode.physicalHeight && m.physicalHeight == display.mode.physicalWidth)
+            matchRes && abs(m.refreshRate - hz) < 0.3f
+        } ?: display.supportedModes.firstOrNull { abs(it.refreshRate - hz) < 0.3f }
+
+        // Store original refresh rate for session restoration
         if (!recovery.contains("original")) {
-            val original = query(id) ?: return false
-            if (!recovery.edit().putString("original",original).putInt("display",id).commit()) return false
-        } else if (recovery.getInt("display",-1) != id) return false
-        val wanted = PreferredDisplayMode(mode.physicalWidth,mode.physicalHeight,mode.refreshRate).arguments()
-        if (!recovery.edit().putString("requested",wanted).commit()) return false
-        return Shell.cmd("cmd display set-user-preferred-display-mode $wanted $id").exec().isSuccess
+            val originalHz = runCatching {
+                Shell.cmd("settings get system peak_refresh_rate 2>/dev/null").exec().out.firstOrNull()?.trim()?.toFloatOrNull()?.roundToInt()
+            }.getOrNull() ?: 120
+            recovery.edit().putInt("original_hz", originalHz).putInt("display", id).apply()
+        }
+        recovery.edit().putInt("requested_hz", targetHz).apply()
+
+        // 1. Direct invocation of battle-tested multi-tier LynxDisplayRepository engine
+        val success = runCatching {
+            runBlocking { LynxDisplayRepository.setDisplayRefreshRate(targetHz, isAuto = false) }
+        }.getOrDefault(false)
+
+        // 2. Also ensure User Preferred Display Mode is explicitly dispatched via Android DisplayManager
+        if (mode != null && mode.physicalWidth > 0 && mode.physicalHeight > 0) {
+            val wanted = PreferredDisplayMode(mode.physicalWidth, mode.physicalHeight, mode.refreshRate).arguments()
+            recovery.edit().putString("requested", wanted).apply()
+            Shell.cmd("cmd display set-user-preferred-display-mode $wanted $id 2>/dev/null").exec()
+        }
+
+        return success
     }
 
     @Synchronized fun restore() {
-        val original = recovery.getString("original",null) ?: return
-        val id = recovery.getInt("display",-1)
-        if (id < 0) return
-        val current = query(id) ?: return
-        // Preserve later edits made by another app or by Android Settings.
-        if (current != recovery.getString("requested",null)) { recovery.edit().clear().commit(); return }
-        val command = if (original == "auto") "cmd display clear-user-preferred-display-mode $id"
-            else parsePreferred("User preferred display mode: $original")?.let { "cmd display set-user-preferred-display-mode ${it.arguments()} $id" } ?: return
-        if (Shell.cmd(command).exec().isSuccess && query(id) == original) recovery.edit().clear().commit()
+        val originalHz = recovery.getInt("original_hz", -1)
+        if (originalHz <= 0) return
+        val currentRequested = recovery.getInt("requested_hz", -1)
+        if (currentRequested <= 0) return
+
+        runCatching {
+            runBlocking { LynxDisplayRepository.setDisplayRefreshRate(originalHz, isAuto = false) }
+        }
+        val id = recovery.getInt("display", 0)
+        Shell.cmd("cmd display clear-user-preferred-display-mode $id 2>/dev/null").exec()
+        recovery.edit().clear().apply()
     }
 
     private fun query(id: Int): String? {
@@ -47,10 +76,10 @@ class HudDisplaySession(context: Context) {
     companion object {
         internal fun parsePreferred(raw: String): PreferredDisplayMode? {
             val matched = Regex("^User preferred display mode: ([0-9]+) ([0-9]+) ([0-9]+(?:\\.[0-9]+)?)$").matchEntire(raw.trim()) ?: return null
-            val width = matched.groupValues[1].toIntOrNull()?.takeIf { it>0 } ?: return null
-            val height = matched.groupValues[2].toIntOrNull()?.takeIf { it>0 } ?: return null
-            val hz = matched.groupValues[3].toFloatOrNull()?.takeIf { it>0 && it.isFinite() } ?: return null
-            return PreferredDisplayMode(width,height,hz)
+            val width = matched.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
+            val height = matched.groupValues[2].toIntOrNull()?.takeIf { it > 0 } ?: return null
+            val hz = matched.groupValues[3].toFloatOrNull()?.takeIf { it > 0 && it.isFinite() } ?: return null
+            return PreferredDisplayMode(width, height, hz)
         }
     }
 }

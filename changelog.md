@@ -1,3 +1,27 @@
+# Lynx Universal [Game HUD Multi-Tier Display Refresh Rate Switching Engine] 7.0.0-RC237
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC237** (Lynx Kernel Manager v3.2.71): **Perbaikan Kritis Sistem Penerapan Refresh Rate Layar pada Lynx Engine In-Game HUD: Menghubungkan Langsung Sesi Pengaturan HUD dengan Mesin Multi-Tier LynxDisplayRepository (Sinkronisasi Android Settings Provider, DisplayManager User Preferred Display Mode, Direct SurfaceFlinger Hardware Mode Switching 1035, Kernel Panel Sysfs, Serta Lock State lynxd), Mengatasi Masalah Dimensi Mode Terbalik pada Orientasi Layar Landscape (Rotasi Game 90°/270°), Mengintegrasikan Siklus Cepat Ganti Hz pada Mode Classic HUD, Serta Menjamin Verifikasi Refresh Rate Real-Time Tanpa False-Negative**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC237)
+1. **Perbaikan Mesin Penerapan Refresh Rate HUD (`HudDisplaySession.kt`)**:
+   - Menghubungkan langsung `HudDisplaySession.apply()` ke mesin multi-tier `LynxDisplayRepository.setDisplayRefreshRate(targetHz)`:
+     - Android Settings Provider (`system min_refresh_rate`, `peak_refresh_rate`, `user_refresh_rate`).
+     - DisplayManager `cmd display set-user-preferred-display-mode`.
+     - Direct SurfaceFlinger Hardware Composer Physical Mode Switching (`service call SurfaceFlinger 1035 i32 <mode>`).
+     - Vendor Kernel Panel Sysfs nodes (`/sys/devices/virtual/graphics/fb0/mode`, `disp_fps`).
+     - Sinkronisasi status lock daemon `lynxd` dan `config.json`.
+   - Mengeliminasi penyebab utama kegagalan sebelumnya di mana `HudDisplaySession` hanya mengeksekusi `cmd display set-user-preferred-display-mode` tunggal yang diabaikan oleh DisplayManager Android ketika `peak_refresh_rate` sistem masih mengunci layar di 120Hz.
+
+2. **Resolusi Masalah Dimensi Mode Terbalik pada Orientasi Game Landscape**:
+   - Menyelesaikan *bug* orientasi layar game di mana pada mode landscape (`2460x1080`), pemeriksaan `mode.physicalWidth == display.mode.physicalWidth` gagal total karena dimensi tertukar dengan mode bawaan panel (`1080x2460`), menyebabkan pemanggilan `apply()` langsung keluar (*early return false*).
+   - Menambahkan pencocokan dimensi fleksibel dua arah (`(w == modeW && h == modeH) || (w == modeH && h == modeW)`) dan *fallback* pencocokan murni frekuensi Hz.
+
+3. **Verifikasi Real-Time Tanpa False-Negative (`LynxFloatingHudService.kt`)**:
+   - Memperbarui *callback* verifikasi `onHz` agar secara aktif meng-query status refresh rate nyata dari SurfaceFlinger via `LynxDisplayRepository.readCurrentRefreshRate()` dan memperbarui `hz.value` seketika.
+   - Mengaktifkan tombol siklus cepat **"⚡ Ganti Hz"** (`onCycleRefreshRate`) dan **"Boost RAM"** pada mode *Classic Floating HUD* yang sebelumnya berupa fungsi kosong (*empty lambda*).
+
+---
+
 # Lynx Universal [Thermal Design System Harmonization & Unified Section Metrics] 7.0.0-RC236
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC236** (Lynx Kernel Manager v3.2.70): **Harmonisasi Total Desain Sistem dan Konsistensi Visual Subscreen Thermal & Anti-Throttling: Penyelarasan Penuh Dimensi dan Gaya Segmented TabRow (Tinggi 46dp, Kontainer 0xFF10141E, Seleksi Slate Pill 0xFF1E2638 dengan Border Gradien Putih Halus dan Aksen Merah Termal), Eliminasi Double-Padding Horizontal (Menjamin Seluruh Kartu Memiliki Margin Simetris 16dp yang Sempurna), Penambahan Standardized Section Headers dengan Indikator Batang Vertikal 3x18dp, Serta Harmonisasi Palet Warna Kontrol (Slider, Badge, dan Kartu) Mengikuti Identitas Domain Termal**.
