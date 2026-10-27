@@ -1,8 +1,5 @@
 package com.noir.lynx.feature.thermal.ui
 
-import com.noir.lynx.core.locale.localizedUiText
-import com.noir.lynx.ui.*
-
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -20,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.core.locale.localizedUiText
 import com.noir.lynx.R
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,13 +43,80 @@ import com.noir.lynx.ui.setJoyoseNeutralize
 import com.noir.lynx.ui.setThermalAntiDimming
 import com.noir.lynx.ui.setThermalMode
 import com.noir.lynx.ui.selectThermalTab
+import com.noir.lynx.ui.refreshThermalCapabilities
+import com.noir.lynx.ui.refreshThermalZones
+
+/**
+ * ThermalSectionHeader — Standardized luxury typographic section header with vertical accent bar.
+ * 100% consistent with GpuSectionHeader and AutomationSectionHeader across Lynx.
+ */
+@Composable
+fun ThermalSectionHeader(
+    title: String,
+    subtitle: String,
+    accentColor: Color = AccentRed,
+    badge: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(accentColor)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title.uppercase(),
+                    color = TextPrimary,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+                Text(
+                    text = subtitle,
+                    color = TextSecondary.copy(alpha = 0.75f),
+                    fontSize = 9.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (badge != null) {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = accentColor.copy(alpha = 0.12f),
+                border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f))
+            ) {
+                Text(
+                    text = badge,
+                    color = accentColor,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
+                )
+            }
+        }
+    }
+}
 
 /**
  * ThermalSwipeableSubscreen — 2-Tab Segmented Architecture for Thermal Management.
  * Tab 0: Mode & Proteksi (Hero status, 2x2 Bento Matrix, Trip point slider, and Anti-Throttling switches)
  * Tab 1: Vendor & Sensor (Vendor Thermal HAL configs, raw INI editor, and live thermal sensors matrix)
  *
- * Designed mobile-first & touch-first with zero overlap against floating navigation dock.
+ * Designed mobile-first & touch-first with 100% margin/section consistency and zero dock overlap.
  */
 @Composable
 fun ThermalSwipeableSubscreen(
@@ -65,6 +132,10 @@ fun ThermalSwipeableSubscreen(
     LaunchedEffect(Unit) {
         viewModel.refreshThermalCapabilities()
         viewModel.refreshThermalZones()
+    }
+
+    val validZones = remember(uiState.thermalZones) {
+        uiState.thermalZones.filter { it.tempC in 15f..115f }
     }
 
     LynxTabPager(
@@ -87,19 +158,38 @@ fun ThermalSwipeableSubscreen(
             state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item(key = "thermal_p${page}_top") { Spacer(Modifier.height(4.dp)) }
 
             if (page == 0) {
                 // ── TAB 0: MODE & PROTEKSI (KONTROL HARIAN) ───────────────────
                 item(key = "thermal_hero") {
-                    ThermalHeroCard(uiState)
+                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
+                        ThermalHeroCard(uiState)
+                    }
+                }
+
+                item(key = "thermal_section_modes") {
+                    ThermalSectionHeader(
+                        title = "Pilihan Mode Proteksi Termal",
+                        subtitle = "Preset mitigasi hardware, toleransi throttling & performa berkelanjutan",
+                        accentColor = AccentRed,
+                        badge = "4 PRESET"
+                    )
                 }
 
                 item(key = "thermal_modes") {
                     ThermalModeSelectionSection(uiState = uiState, viewModel = viewModel)
+                }
+
+                item(key = "thermal_section_flexible") {
+                    ThermalSectionHeader(
+                        title = "Penyesuaian Ambang Suhu & Mitigasi",
+                        subtitle = "Trip point kustom, netralisasi Joyose OEM & anti-dimming",
+                        accentColor = AccentOrange,
+                        badge = "TRIP POINTS"
+                    )
                 }
 
                 item(key = "thermal_flexible") {
@@ -107,12 +197,30 @@ fun ThermalSwipeableSubscreen(
                 }
             } else {
                 // ── TAB 1: VENDOR & SENSOR (ADVANCED & INSPECTION) ───────────
+                item(key = "thermal_section_vendor") {
+                    ThermalSectionHeader(
+                        title = "Konfigurasi Vendor OEM",
+                        subtitle = "Status bind-mount & manipulasi file konfigurasi HAL",
+                        accentColor = AccentCyan,
+                        badge = "VENDOR HAL"
+                    )
+                }
+
                 item(key = "thermal_vendor") {
                     VendorThermalCard(
                         currentTripTempC = uiState.state.thermal.customTempLimitC,
                         onOpenRawEditor = { rawContent ->
                             activeRawEditorContent = rawContent
                         }
+                    )
+                }
+
+                item(key = "thermal_section_sensors") {
+                    ThermalSectionHeader(
+                        title = "Radar Sensor Temperatur",
+                        subtitle = "Telemetri real-time 8-zona sensor termal fisik",
+                        accentColor = AccentRed,
+                        badge = "${validZones.size} SENSOR"
                     )
                 }
 
@@ -143,69 +251,66 @@ fun ThermalSwipeableSubscreen(
 @Composable
 private fun ThermalModeSelectionSection(
     uiState: LynxUiState,
-    viewModel: LynxViewModel
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
 ) {
     val state = uiState.state
     val activeMode = uiState.thermalStatusDetails.activeMode
     val isDominant = activeMode == ThermalEngineMode.HARDWARE_SAFETY_DOMINANT || state.thermal.fullBypass
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "PILIHAN MODE TERMAL",
-            style = MaterialTheme.typography.labelSmall,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+    val thermalModes = listOf(
+        ThermalModeItem(
+            key = "default_oem",
+            title = "Default OEM",
+            subtitle = "Proteksi pabrik aktif",
+            icon = Icons.Default.Tune,
+            accent = AccentGreen,
+            tempLimit = 45,
+            joyose = false,
+            antiDimming = false,
+            isActive = activeMode == ThermalEngineMode.DEFAULT_OEM
+        ),
+        ThermalModeItem(
+            key = "stable",
+            title = "Thermal Stabil",
+            subtitle = "Sustained • Bebas Drop FPS",
+            icon = Icons.Default.Shield,
+            accent = AccentCyan,
+            tempLimit = 52,
+            joyose = true,
+            antiDimming = true,
+            isActive = activeMode == ThermalEngineMode.THERMAL_STABLE
+        ),
+        ThermalModeItem(
+            key = "performance",
+            title = "Performa",
+            subtitle = "Toleransi tinggi • Clock max",
+            icon = Icons.Default.Bolt,
+            accent = AccentOrange,
+            tempLimit = 58,
+            joyose = true,
+            antiDimming = true,
+            isActive = activeMode == ThermalEngineMode.PERFORMANCE
+        ),
+        ThermalModeItem(
+            key = "hardware_safety_dominant",
+            title = "Safety Dominant",
+            subtitle = "Bypass software throttling",
+            icon = Icons.Default.LocalFireDepartment,
+            accent = AccentRed,
+            tempLimit = 75,
+            joyose = true,
+            antiDimming = true,
+            isActive = isDominant
         )
+    )
 
-        val thermalModes = listOf(
-            ThermalModeItem(
-                key = "default_oem",
-                title = "Default OEM",
-                subtitle = "Proteksi pabrik aktif",
-                icon = Icons.Default.Tune,
-                accent = AccentGreen,
-                tempLimit = 45,
-                joyose = false,
-                antiDimming = false,
-                isActive = activeMode == ThermalEngineMode.DEFAULT_OEM
-            ),
-            ThermalModeItem(
-                key = "stable",
-                title = "Thermal Stabil",
-                subtitle = "Sustained • Bebas Drop FPS",
-                icon = Icons.Default.Shield,
-                accent = AccentCyan,
-                tempLimit = 52,
-                joyose = true,
-                antiDimming = true,
-                isActive = activeMode == ThermalEngineMode.THERMAL_STABLE
-            ),
-            ThermalModeItem(
-                key = "performance",
-                title = "Performa",
-                subtitle = "Toleransi tinggi • Clock max",
-                icon = Icons.Default.Bolt,
-                accent = AccentOrange,
-                tempLimit = 58,
-                joyose = true,
-                antiDimming = true,
-                isActive = activeMode == ThermalEngineMode.PERFORMANCE
-            ),
-            ThermalModeItem(
-                key = "hardware_safety_dominant",
-                title = "Safety Dominant",
-                subtitle = "Bypass software throttling",
-                icon = Icons.Default.LocalFireDepartment,
-                accent = AccentRed,
-                tempLimit = 75,
-                joyose = true,
-                antiDimming = true,
-                isActive = isDominant
-            )
-        )
-
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         // Row 1: Default OEM & Thermal Stabil
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -242,6 +347,7 @@ private fun ThermalModeSelectionSection(
 
         // Calm Psychological Safety Advisory for Dominant mode
         if (isDominant) {
+            Spacer(Modifier.height(2.dp))
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = AccentOrange.copy(alpha = 0.08f),
@@ -301,10 +407,11 @@ private fun ThermalFlexibleTuningSection(
 
     LynxCard(
         title = "Penyesuaian Fleksibel & Anti-Throttling",
-        icon = Icons.Default.Speed,
-        accentColor = AccentCyan
+        subtitle = "Trip point kustom & netralisasi pembatasan vendor",
+        icon = Icons.Default.Tune,
+        accentColor = AccentOrange
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -398,34 +505,37 @@ private fun ThermalFlexibleTuningSection(
             label = "Netralkan Pembatasan OEM (Joyose / GOS)",
             subLabel = "Cegah pemotongan refresh rate dan resolusi buatan pabrik",
             checked = state.oemNeutralizer.joyoseNeutralize,
-            onCheckedChange = { viewModel.setJoyoseNeutralize(it) }
+            onCheckedChange = { viewModel.setJoyoseNeutralize(it) },
+            enabled = true
         )
 
-        // Anti-Dimming Layar Termal switch
+        // Anti-Dimming Display Protection switch
         LynxSwitch(
             label = "Cegah Layar Meredup (Anti-Dimming)",
             subLabel = "Menjaga kecerahan layar tetap stabil saat suhu meningkat",
             checked = state.thermal.antiDimming,
-            onCheckedChange = { viewModel.setThermalAntiDimming(it) }
+            onCheckedChange = { viewModel.setThermalAntiDimming(it) },
+            enabled = true
         )
     }
 }
 
 /**
- * Real-time Hardware Thermal Sensors Matrix Card with live radar filtering.
+ * Live 8-zone thermal sensors matrix section with category filters and live refresh.
  */
 @Composable
 private fun ThermalSensorsMatrixSection(
     uiState: LynxUiState,
     viewModel: LynxViewModel
 ) {
+    var selectedSensorFilter by remember { mutableStateOf("Semua") }
     val validZones = remember(uiState.thermalZones) {
         uiState.thermalZones.filter { it.tempC in 15f..115f }
     }
-    var selectedSensorFilter by remember { mutableStateOf("Semua") }
 
     LynxCard(
-        title = "Sensor Termal Hardware",
+        title = "Sensor Termal Hardware Terdeteksi",
+        subtitle = "Telemetri temperatur real-time per-zona hardware",
         icon = Icons.Default.Thermostat,
         accentColor = AccentRed
     ) {
@@ -509,33 +619,33 @@ private fun ThermalSensorsMatrixSection(
         val chunkedZones = filteredZones.take(8).chunked(2)
         chunkedZones.forEach { row ->
             Row(
-                Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 row.forEach { zone ->
                     val tempColor = when {
-                        zone.tempC >= 60f -> AccentRed
-                        zone.tempC >= 48f -> AccentOrange
+                        zone.tempC >= 65f -> AccentRed
+                        zone.tempC >= 50f -> AccentOrange
+                        zone.tempC >= 42f -> AccentCyan
                         else -> AccentGreen
                     }
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = BgElevated,
-                        border = BorderStroke(0.7.dp, tempColor.copy(alpha = 0.3f)),
+                        border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
-                            Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(Modifier.weight(1f).padding(end = 6.dp)) {
-                                val cleanLabel = formatSensorLabel(zone.type)
+                            Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                                 Text(
-                                    cleanLabel,
+                                    formatSensorLabel(zone.type),
                                     color = TextPrimary,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -591,6 +701,7 @@ private fun ThermalBentoCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val cardBg by animateColorAsState(
         targetValue = if (item.isActive) item.accent.copy(alpha = 0.12f) else BgElevated,
         animationSpec = tween(durationMillis = 180),
@@ -609,19 +720,21 @@ private fun ThermalBentoCard(
         modifier = modifier
             .heightIn(min = 60.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .clickable {
+                if (!item.isActive) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                onClick()
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
         ) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = if (item.isActive) item.accent.copy(alpha = 0.20f) else Color(0x10FFFFFF),
-                border = BorderStroke(
-                    0.5.dp,
-                    if (item.isActive) item.accent.copy(alpha = 0.3f) else Color(0x15FFFFFF)
-                ),
+                border = BorderStroke(0.5.dp, if (item.isActive) item.accent.copy(alpha = 0.3f) else Color(0x15FFFFFF)),
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -633,7 +746,7 @@ private fun ThermalBentoCard(
                     )
                 }
             }
-            Spacer(Modifier.width(9.dp))
+            Spacer(Modifier.width(8.dp))
             Column(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.weight(1f)

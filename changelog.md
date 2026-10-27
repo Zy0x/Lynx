@@ -1,3 +1,33 @@
+# Lynx Universal [Thermal Design System Harmonization & Unified Section Metrics] 7.0.0-RC236
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC236** (Lynx Kernel Manager v3.2.70): **Harmonisasi Total Desain Sistem dan Konsistensi Visual Subscreen Thermal & Anti-Throttling: Penyelarasan Penuh Dimensi dan Gaya Segmented TabRow (Tinggi 46dp, Kontainer 0xFF10141E, Seleksi Slate Pill 0xFF1E2638 dengan Border Gradien Putih Halus dan Aksen Merah Termal), Eliminasi Double-Padding Horizontal (Menjamin Seluruh Kartu Memiliki Margin Simetris 16dp yang Sempurna), Penambahan Standardized Section Headers dengan Indikator Batang Vertikal 3x18dp, Serta Harmonisasi Palet Warna Kontrol (Slider, Badge, dan Kartu) Mengikuti Identitas Domain Termal**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC236)
+1. **Harmonisasi Desain Sistem TabRow (`ThermalTabRow.kt`)**:
+   - Menyamakan 100% token desain `ThermalTabRow` dengan `GpuDisplayTabRow` dan `CpuTabRow`:
+     - Tinggi kontainer disesuaikan dari 52dp menjadi **46dp** (`RoundedCornerShape(12.dp)`).
+     - Warna latar belakang kontainer menggunakan **`Color(0xFF10141E)`** dengan border `0.6.dp, Color(0x1AFFFFFF)`.
+     - Indikator tab aktif kini menggunakan **Slate Pill `Color(0xFF1E2638)`** dengan border gradien halus vertikal (`listOf(Color(0x35FFFFFF), Color(0x10FFFFFF))`), mengeliminasi kotak outline hijau/cyan neon yang sebelumnya tidak konsisten.
+     - Aksen ikon aktif diselaraskan dengan identitas domain Termal (**`AccentRed`**), dan teks aktif **`TextPrimary`** (`FontWeight.SemiBold`).
+     - Menambahkan transisi animasi halus `animateColorAsState` dan haptic tactile feedback saat berpindah tab.
+
+2. **Eliminasi Total Isu Double-Padding & Ketidaksinkronan Lebar Kartu**:
+   - Ditemukan bahwa `LazyColumn` pada `ThermalSubscreen` sebelumnya menerapkan `contentPadding = PaddingValues(horizontal = 16.dp)`, sementara komponen `LynxCard` di dalamnya memiliki padding bawaan `16.dp`, menyebabkan kartu bawah (`Penyesuaian Fleksibel & Anti-Throttling`, `VendorThermalCard`, dan `Sensor Matrix`) terkompresi secara asimetris dengan margin 32dp (tampak menciut dibanding kartu di atasnya).
+   - Menghapus horizontal `contentPadding` pada `LazyColumn` dan menerapkan margin konsisten **16dp** di seluruh level komponen (`ThermalHeroCard`, `ThermalSectionHeader`, `ThermalModeSelectionSection`, dan `LynxCard`), menjamin seluruh section memiliki lebar dan alignment yang presisi 100%.
+
+3. **Integrasi Standardized Section Headers (`ThermalSectionHeader`)**:
+   - Menggantikan teks statis tanpa format dengan komponen `ThermalSectionHeader` standar:
+     - Indikator aksen batang vertikal 3×18dp dengan sudut membulat 2dp.
+     - Tipografi semantik kapital tebal (`11.5.sp`, `letterSpacing = 0.8.sp`) disertai teks penjelas sekunder (`9.5.sp`).
+     - Badge ringkas terstandarisasi (`4 PRESET`, `TRIP POINTS`, `VENDOR HAL`, `${validZones.size} SENSOR`).
+
+4. **Harmonisasi Palet Warna & Identitas Domain Termal**:
+   - Menyelaraskan seluruh elemen visual `ThermalFlexibleTuningSection`:
+     - Mengubah aksen kartu dari Cyan menjadi **`AccentOrange`**, harmonis dengan badge trip point, slider track, dan preset chips.
+     - Mengeliminasi tabrakan visual antara header kartu, kontrol slider, dan sakelar.
+
+---
+
 # Lynx Universal [Segmented 2-Tab Thermal Architecture & Cascading Master Profile Harmonization] 7.0.0-RC235
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC235** (Lynx Kernel Manager v3.2.69): **Rombak Total Arsitektur Antarmuka Thermal & Anti-Throttling Menjadi 2-Tab Segmented Layout (Mode & Proteksi vs Vendor & Sensor) Mengeliminasi Total Masalah Tumpang Tindih Dok Navigasi Bawah, Serta Harmonisasi Master Profile Bertingkat (Cascading Master Profile Engine) yang Menghubungkan Pengaturan CPU, GPU, Thermal Trip Points, dan Refresh Rate Layar Secara Serempak Dalam Sekali Sentuh**.
