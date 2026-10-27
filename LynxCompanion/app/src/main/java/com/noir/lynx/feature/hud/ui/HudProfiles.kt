@@ -27,10 +27,18 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
         else -> null
     }
 
+    val profilesInfo = "Profil Pengoptimalan Kernel:\n\n" +
+        "• Powersave (Hemat): Menurunkan frekuensi CPU/GPU dan menghemat daya baterai.\n\n" +
+        "• Balanced (Seimbang): Keseimbangan dinamis responsivitas dan konsumsi baterai.\n\n" +
+        "• Performance (Performa): Kunci frekuensi tinggi untuk kelancaran game yang konsisten.\n\n" +
+        "• Auto (AI): Berpindah profil otomatis mendeteksi game yang sedang aktif di layar.\n\n" +
+        "• Extreme: Mengunci frekuensi clock maksimum tanpa batas termal (disarankan menggunakan pendingin eksternal)."
+
     HudSection(
         title = hudString(R.string.hud_profile),
         badge = activeLabelRes?.let { hudString(it) },
-        accentColor = if (current == "extreme") HudOrange else HudCyan
+        accentColor = if (current == "extreme") HudOrange else HudCyan,
+        info = profilesInfo
     ) {
         Column(
             modifier = Modifier

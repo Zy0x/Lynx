@@ -50,7 +50,8 @@ internal fun HudTools(
         HudExpandableSection(
             title = hudString(R.string.hud_refresh),
             detail = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
-            initiallyOpen = true
+            initiallyOpen = true,
+            info = "Pengaturan Refresh Rate Layar:\n\nPilih kecepatan refresh rate panel (Hz) yang diinginkan secara langsung saat di dalam game untuk menghemat baterai atau memaksimalkan kelancaran grafis."
         ) {
             action.requestedHz?.let {
                 Text(
@@ -146,13 +147,9 @@ internal fun HudTools(
         }
         HudExpandableSection(
             title = hudString(R.string.hud_timer_title),
-            detail = timerBadge
+            detail = timerBadge,
+            info = hudString(R.string.hud_timer_desc)
         ) {
-            Text(
-                text = hudString(R.string.hud_timer_desc),
-                fontSize = 11.5.sp,
-                color = HudMuted
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

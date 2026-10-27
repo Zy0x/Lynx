@@ -83,30 +83,37 @@ internal fun HudLab(
     if (selectedAddin == 7) HudSessionControls(snapshot)
     if (selectedAddin == 8) HudGameShiftControls()
 
+    val bypassInfo = "${hudString(R.string.hud_lab_bypass_desc)}\n\n" +
+        "• Ambang Batas (${bypassStatus.thresholdPct}%): Baterai mengisi daya normal hingga mencapai ambang batas, lalu daya charger dialirkan langsung ke motherboard/SoC (0 mA ke baterai).\n\n" +
+        "• Proteksi Panas 42.0°C: Pengisian daya otomatis diputus (auto-cut) saat suhu baterai mencapai 42.0°C demi menjaga kesehatan sel baterai." +
+        (if (bypassStatus.chipSummary.isNotBlank()) "\n\n• Hardware Driver: ${bypassStatus.chipSummary}" else "")
+
     // 1. Bypass Charging Lab Card
     if (selectedAddin == 1) HudSection(
         title = hudString(R.string.hud_lab_bypass_title),
         badge = capText,
-        accentColor = capColor
+        accentColor = capColor,
+        info = bypassInfo
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = hudString(R.string.hud_lab_bypass_desc),
-                    fontSize = 11.5.sp,
-                    color = HudMuted
+                    text = hudString(R.string.hud_lab_bypass_title),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
                 )
                 if (bypassStatus.chipSummary.isNotBlank()) {
                     Text(
                         text = bypassStatus.chipSummary,
-                        fontSize = 10.5.sp,
+                        fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
                         color = HudBlue
                     )
@@ -203,17 +210,20 @@ internal fun HudLab(
         else -> HudRed
     }
 
+    val networkInfo = "${hudString(R.string.hud_lab_network_desc)}\n\n" +
+        "• Network Turbo & Anti-Jitter: ${hudString(R.string.hud_net_turbo_desc)}\n\n" +
+        "• Wi-Fi Latensi Rendah: ${hudString(R.string.hud_wifi_latency_note)}\n\n" +
+        "• Dual-Channel Failover: ${hudString(R.string.hud_network_bonding_note)}\n\n" +
+        "• Prioritas Paket Game (QoS): ${hudString(R.string.hud_network_qos_note)}\n\n" +
+        "• Pengujian Latensi: Menguji latensi koneksi TCP (ping rata-rata, jitter, dan packet loss) secara manual."
+
     if (selectedAddin == 3) HudSection(
         title = hudString(R.string.hud_lab_network_title),
         badge = scoreBadge,
-        accentColor = scoreColor
+        accentColor = scoreColor,
+        info = networkInfo
     ) {
         HudGameNetworkControls()
-        Text(
-            text = hudString(R.string.hud_lab_network_desc),
-            fontSize = 11.5.sp,
-            color = HudMuted
-        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -269,10 +279,15 @@ internal fun HudLab(
         HudCapability.CHECKING -> HudBlue
     }
 
+    val touchInfo = "${hudString(R.string.hud_lab_touch_desc)}\n\n" +
+        "• Driver: ${if (touchStatus.backendLabel.isNotBlank()) touchStatus.backendLabel else "Universal Kernel Touch Sysfs"}\n\n" +
+        "• Sensor Sampling Pad: Geser 1 hingga 5 jari pada sensor sentuh untuk mengukur kecepatan refresh rate sentuh (Hz) dan interval jeda waktu (ms) secara akurat."
+
     if (selectedAddin == 2) HudSection(
         title = hudString(R.string.hud_lab_touch_title),
         badge = touchCapText,
-        accentColor = touchCapColor
+        accentColor = touchCapColor,
+        info = touchInfo
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -400,17 +415,18 @@ internal fun HudLab(
 
     // 4. Notification & Focus Shield Card
     val shieldActive = shieldStatus.headsUpBlocked || shieldStatus.zenMode > 0
+    val shieldInfo = "${hudString(R.string.hud_lab_shield_desc)}\n\n" +
+        "• Blokir Heads-up: Mencegah notifikasi banner mengambang menutupi layar game.\n\n" +
+        "• Mode Fokus DND: Mengatur mode Jangan Ganggu (Hening, Prioritas, Alarm Saja) selama game berjalan.\n\n" +
+        "• Glow Ambient Edge: Menampilkan kilatan cahaya tepian layar saat menerima notifikasi penting tanpa mengganggu gameplay."
+
     if (selectedAddin == 0) HudSection(
         title = hudString(R.string.hud_lab_shield_title),
         badge = hudString(if (shieldActive) R.string.hud_active else R.string.hud_cap_ready),
-        accentColor = if (shieldActive) HudCyan else HudBlue
+        accentColor = if (shieldActive) HudCyan else HudBlue,
+        info = shieldInfo
     ) {
         HudGlowControls()
-        Text(
-            text = hudString(R.string.hud_lab_shield_desc),
-            fontSize = 11.5.sp,
-            color = HudMuted
-        )
 
         Row(
             modifier = Modifier.fillMaxWidth(),

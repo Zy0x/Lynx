@@ -69,7 +69,8 @@ internal fun HudConsoleControls(brightnessLocked: Boolean, onBrightness: (Boolea
     val root by runtime.rootAvailable.collectAsState()
     val volumeLabel = hudString(R.string.hud_console_volume)
     LaunchedEffect(runtime) { while (true) { runtime.console.refreshVolume(); delay(1000) } }
-    HudSection(hudString(R.string.hud_console_title)) {
+    val consoleInfo = "${hudString(R.string.hud_console_brief)}\n\n• ${hudString(R.string.hud_console_restore_note)}"
+    HudSection(hudString(R.string.hud_console_title), info = consoleInfo) {
         Text(if (state.maxVolume > 0) hudString(R.string.hud_console_volume_value, state.volume, state.maxVolume) else "—", fontSize = 12.sp, color = HudBlue)
         if (state.maxVolume > 0) Slider(state.volume.toFloat(), { runtime.console.setVolume(it.toInt()) },
             valueRange = 0f..state.maxVolume.toFloat(), enabled = !state.fixedVolume, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = volumeLabel })
@@ -91,13 +92,13 @@ internal fun HudSessionControls(snapshot: HudSnapshot) {
     val start by runtime.batteryStart.collectAsState()
     var elapsed by remember { mutableLongStateOf(0L) }
     LaunchedEffect(runtime) { while (true) { elapsed = SystemClock.elapsedRealtime() - runtime.startedAt; delay(1000) } }
-    HudSection(hudString(R.string.hud_session_title)) {
+    val sessionInfo = "${hudString(R.string.hud_session_brief)}\n\n• ${hudString(R.string.hud_session_note)}"
+    HudSection(hudString(R.string.hud_session_title), info = sessionInfo) {
         HudSessionLine(hudString(R.string.hud_session_duration), sessionTime(elapsed))
         val current = snapshot[HudMetric.BATTERY_LEVEL]
         HudSessionLine(hudString(R.string.hud_session_battery_start), start?.let { "$it%" } ?: "—")
         HudSessionLine(hudString(R.string.hud_metric_battery), if (current.status == "valid") "${current.text()}%" else "—")
         HudSessionLine(hudString(R.string.hud_session_package), snapshot.packageName.ifBlank { "—" })
-        Text(hudString(R.string.hud_session_note), fontSize = 12.sp, color = HudMuted)
     }
 }
 

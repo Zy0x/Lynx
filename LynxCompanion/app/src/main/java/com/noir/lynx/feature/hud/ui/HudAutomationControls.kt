@@ -19,7 +19,11 @@ import com.noir.lynx.feature.hud.data.HudPreferences
 internal fun HudAutomationControls(prefs: HudPreferences, busy: Boolean, isSkipping: Boolean, isPaused: Boolean,
     onEnabled: (Boolean) -> Unit, onSpeed: (Long) -> Unit, onChoice: (Boolean) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    HudSection(hudString(R.string.hud_autoskip_short)) {
+    val autoSkipInfo = "${hudString(R.string.hud_autoskip_desc)}\n\n" +
+        "• Game Didukung: ${hudString(R.string.hud_autoskip_supported_games)}\n\n" +
+        "• Tombol Smart Trigger: Tekan tombol melayang untuk beralih mode ([PAUSE] -> [AUTO] -> [MANUAL])."
+
+    HudSection(hudString(R.string.hud_autoskip_short), info = autoSkipInfo) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(hudString(R.string.hud_skip_dialog), fontSize = 12.sp, color = Color.White)

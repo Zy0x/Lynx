@@ -1,3 +1,37 @@
+# Lynx Universal [Ultra-Compact Gaming HUD Layout, In-Place Modal Information Overhaul, & Universal (i) Dialog Engine] 7.0.0-RC218
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC218** (Lynx Kernel Manager v3.2.52): **Pembaruan Arsitektur Antarmuka Floating Gaming HUD (HudSidebar) Menjadi Ultra-Compact & Ringkas: Eliminasi Paragraf Deskripsi Tebal dari Tampilan Kartu Utama dan Penggantian dengan Tombol Interaktif `( i )` (`HudInfoButton`), Arsitektur Dialog In-Place Non-Window (`HudInfoModal`) Berbasis `CompositionLocalProvider(LocalHudInfo)` Bebas Konflik `ACTION_OUTSIDE` WindowManager Overlay, Restrukturisasi 11 Modul HUD (Frame & Display, Quick Profiles, Gaming Add-ins, Bypass Charging, Network Turbo, Combo Recorder, ZoneTouch Master, GameShift Spike Watcher, AutoSkip, Screen Recorder, dan Cooldown Timer) dengan Pemadatan Tata Letak 35%–55% Tanpa Mengorbankan Kedalaman Petunjuk Teknis & Spesifikasi Driver Hardware**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC218)
+1. **Arsitektur Dialog Informasi In-Place (`HudPanelComponents.kt` & `HudSidebar.kt`)**:
+   - Menghadirkan sistem data modal `HudInfoData(title, content, icon)` dan `CompositionLocal` `LocalHudInfo`.
+   - Mengatasi limitasi kritis Android `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY`: dialog Compose bawaan (`Dialog`) memicu `ACTION_OUTSIDE` pada window overlay yang menyebabkan sidebar tertutup otomatis. Solusi: `HudInfoModal` dibangun sebagai modal in-place yang me-render scrim semi-transparan (`#D90A0C12`), kartu rounded 18dp dengan border cyan/blue glow, badge ikon judul, area konten teks terformat scrollable, tombol tutup `( X )`, dan tombol konfirmasi penuh "Mengerti" langsung di viewport drawer yang sama.
+   - Mengimplementasikan komponen `HudInfoButton`: tombol bulat 26dp touch-friendly dengan ripple effect dan ikon `Icons.Outlined.Info` yang menyatu harmonis pada header kartu maupun baris toggle kontrol.
+
+2. **Integrasi Universal Tombol `( i )` pada Header Seksi (`HudSection` & `HudExpandableSection`)**:
+   - Menambahkan parameter `info: String? = null` dan `infoTitle: String? = null` pada komponen dasar `HudSection` dan `HudExpandableSection`.
+   - Jika teks petunjuk/informasi tersedia, tombol `( i )` secara otomatis disematkan di samping judul header tanpa perlu boilerplate tambahan.
+
+3. **Pemadatan Kartu Kontrol Gaming Utama (`HudGamingCards.kt`)**:
+   - **Glow & Edge Notification**: Menghilangkan teks deskripsi panjang; menyematkan parameter `info` langsung pada `AddinToggle`.
+   - **Game Network Controls**: Menghapus lebih dari 5 baris paragraf deskripsi tebal untuk Network Turbo, Siaga Seluler, Tuning TCP, Wi-Fi latency, dan QoS; seluruh penjelasan teknis dipindahkan ke modal `( i )`.
+   - **Kombo Makro ($C_1$–$C_5$)**: Memadatkan tampilan kartu utama; seluruh petunjuk perekaman layar transparan, mode loop, TouchShare token, dan batasan tombol dipindahkan ke modal `( i )`.
+   - **ZoneTouch Master**: Memindahkan penjelasan Esports Mode, toleransi sentuhan 2px (`view.touch_slop`), sampling rate IC, dan deadzone tepi ke modal `( i )`.
+   - **GameShift Reactive Burst**: Memindahkan detail algoritma deteksi drop frame SurfaceFlinger dan durasi pendinginan histeresis 8 detik ke modal `( i )`.
+
+4. **Pemadatan Lab & Daya Baterai (`HudLab.kt`)**:
+   - **Bypass Charging**: Mengganti paragraf panjang dengan indikator ringkas status driver kernel (`Driver: sysfs / charger node`), memindahkan penjelasan proteksi termal auto-cut 42.0°C dan ambang batas dinamis ke modal `( i )`.
+   - **Network Probe, Touch Master, & Focus Shield**: Seluruh teks keterangan dipadatkan dan dihubungkan ke modal `( i )` masing-masing seksi.
+
+5. **Pemadatan Konsol, Perekam Layar, & Profil Cepat (`HudCaptureConsole.kt`, `HudRecorderControls.kt`, `HudProfiles.kt`, `HudTools.kt`, & `HudOverview.kt`)**:
+   - **Luxury Hero Frame**: Penjelasan refresh rate dinamis dan FPS SurfaceFlinger dipindahkan ke `( i )`.
+   - **Quick Profiles**: Penjelasan Safe Balanced, High Performance, dan Extreme Unrestricted dipindahkan ke `( i )`.
+   - **AutoSkip**: Daftar game yang didukung dan mode pemicu scene-aware diringkas ke modal `( i )`.
+   - **Screen Recorder**: Menghapus catatan teks usang di bagian bawah setelan bitrate dan memindahkannya ke modal `( i )`.
+   - **Cooldown Timer & Refresh Rate Tool**: Menghilangkan teks deskripsi redundant dan menyatukannya ke header expandable dengan tombol `( i )`.
+
+---
+
 # Lynx Universal [Kombo Makro C1-C5 Multi-Touch Fullscreen Visual Recorder, ZoneTouch Master Esports 2px Slop, TouchShare Base64 Passphrase, GameShift Reactive Turbo Burst, Smart Bypass Dynamic Threshold & Dual-Channel Network Turbo] 7.0.0-RC217
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC217** (Lynx Kernel Manager v3.2.51): **Implementasi Fitur Gaming Adaptif Terpadu Berbasis Analisis XArena GameSpace Tanpa Hardcode: Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3\dots$) dengan Perekam Visual Layar Penuh Transparan Presisi Tinggi (Delay Alami & Penomoran Berurutan $①, ②\dots$), Tombol Pemicu Mengambang Dalam Game dengan Dukungan Single-Tap Eksekusi Cepat & Long-Press Reposisi Menggunakan Region Sentuhan Eksklusif `TOUCHABLE_INSETS_REGION` (Zero Passthrough Latency), Ekspor/Impor Kombo Portabel TouchShare via Token Terenkripsi Base64 URL-Safe (`LYNX-COMBO#1#...`), ZoneTouch Master dengan Optimalisasi IC Hardware Sampling Boost (240Hz/360Hz), Sensitivitas Ultra-Peka 2px Slop (`view.touch_slop 2`), dan Matriks Deadzone Tepi Layar, GameShift Turbo Reaktif Berbasis Pemantau Drop Frame SurfaceFlinger dengan Histeresis Pendinginan 8 Detik, Kontrol Cerdas Bypass Charging dengan Ambang Batas Baterai Dinamis (20%–90%) dan Proteksi Termal Auto-Cut 42.0°C, Serta Dual-Channel Network Turbo Anti-Jitter untuk Wi-Fi (2.4GHz/5GHz) dan Siaga Seluler Cepat**.

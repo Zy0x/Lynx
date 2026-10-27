@@ -92,6 +92,7 @@ fun HudSidebar(
     val pageState = rememberSaveableStateHolder()
     val context = LocalContext.current
     var appLabel by remember { mutableStateOf("") }
+    var activeInfoModal by remember { mutableStateOf<HudInfoData?>(null) }
 
     LaunchedEffect(snapshot.packageName) {
         appLabel = ""
@@ -132,14 +133,18 @@ fun HudSidebar(
             val inSubscreen = manageApps || page != HudPage.Summary
 
             val drawerSurface: @Composable () -> Unit = {
-                Surface(
-                    modifier = Modifier
-                        .width(drawerWidth)
-                        .heightIn(max = viewport.panelHeight.dp),
-                    shape = panelShape,
-                    color = HudBackground
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                CompositionLocalProvider(LocalHudInfo provides { activeInfoModal = it }) {
+                    Box(
+                        modifier = Modifier
+                            .width(drawerWidth)
+                            .heightIn(max = viewport.panelHeight.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            shape = panelShape,
+                            color = HudBackground
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
                         HudPanelHeader(
                             appLabel = when {
                                 manageApps -> hudString(R.string.hud_apps_manage)
@@ -356,8 +361,17 @@ fun HudSidebar(
                             }
                         }
                     }
+                    }
+                    if (activeInfoModal != null) {
+                        HudInfoModal(
+                            data = activeInfoModal!!,
+                            shape = panelShape,
+                            onDismiss = { activeInfoModal = null }
+                        )
+                    }
                 }
             }
+        }
 
             // Protruding Sidekick Handle Ear attached to the inner edge of the open drawer
             Row(

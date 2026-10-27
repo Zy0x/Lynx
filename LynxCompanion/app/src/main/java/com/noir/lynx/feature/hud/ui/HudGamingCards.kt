@@ -99,9 +99,24 @@ internal fun HudAddinNavigation(onSelect: (Int) -> Unit) {
 }
 
 @Composable
-internal fun AddinToggle(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+internal fun AddinToggle(
+    label: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    info: String? = null,
+    onChange: (Boolean) -> Unit
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+            if (!info.isNullOrBlank()) {
+                HudInfoButton(title = label, info = info)
+            }
+        }
         Switch(checked, onChange, enabled = enabled, colors = SwitchDefaults.colors(
             checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge,
             uncheckedThumbColor = HudMuted, uncheckedTrackColor = HudElevated))
@@ -114,8 +129,16 @@ internal fun HudGlowControls() {
     val enabled by runtime.glow.collectAsState()
     val color by runtime.color.collectAsState()
     val connected by runtime.listenerConnected.collectAsState()
-    AddinToggle(hudString(R.string.hud_glow_toggle), enabled, onChange = runtime::setGlow)
-    Text(hudString(R.string.hud_glow_description), fontSize = 12.sp, color = HudMuted)
+    val glowInfo = "${hudString(R.string.hud_glow_description)}\n\n" +
+        "• Animasi Kilau Tepi: Menampilkan garis cahaya animasi di sekeliling bezel layar saat ada notifikasi masuk saat bermain game.\n\n" +
+        "• Akses Notifikasi: Memerlukan izin Notification Listener agar dapat mendeteksi pesan masuk dari aplikasi chat/pesan."
+
+    AddinToggle(
+        label = hudString(R.string.hud_glow_toggle),
+        checked = enabled,
+        info = glowInfo,
+        onChange = runtime::setGlow
+    )
     if (!connected) {
         HudAction(hudString(R.string.hud_glow_grant), onClick = runtime::openNotificationAccess, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp))
     }
@@ -165,36 +188,45 @@ internal fun HudGameNetworkControls() {
     AddinToggle(
         label = hudString(R.string.hud_net_turbo_toggle),
         checked = turboEnabled,
+        info = hudString(R.string.hud_net_turbo_desc),
         onChange = runtime.networkTurbo::setTurboEnabled
     )
-    Text(hudString(R.string.hud_net_turbo_desc), fontSize = 11.5.sp, color = HudMuted)
 
     if (turboEnabled) {
         AddinToggle(
             label = hudString(R.string.hud_net_turbo_cellular),
             checked = cellularStandby,
+            info = "Menjaga koneksi data seluler tetap aktif di latar belakang saat terhubung ke Wi-Fi sehingga failover ke seluler instan (0 ms) saat sinyal Wi-Fi terputus.",
             onChange = runtime.networkTurbo::setCellularStandby
         )
         AddinToggle(
             label = hudString(R.string.hud_net_turbo_tcp),
             checked = tcpTuning,
+            info = "Menerapkan TCP BBR congestion control, TCP window scaling, dan buffer tuning untuk meminimalkan bufferbloat dan jitter koneksi game.",
             onChange = runtime.networkTurbo::setTcpTuning
         )
     }
 
-    AddinToggle(hudString(R.string.hud_wifi_latency), boost,
-        enabled = Build.VERSION.SDK_INT >= 29 && (network.wifi || boost), onChange = runtime::setWifiBoost)
-    Text(hudString(R.string.hud_wifi_latency_note), fontSize = 12.sp, color = HudMuted)
+    AddinToggle(
+        label = hudString(R.string.hud_wifi_latency),
+        checked = boost,
+        enabled = Build.VERSION.SDK_INT >= 29 && (network.wifi || boost),
+        info = hudString(R.string.hud_wifi_latency_note),
+        onChange = runtime::setWifiBoost
+    )
 
     Text(hudString(R.string.hud_network_dual,
         hudString(if (network.wifi) R.string.hud_active else R.string.hud_addin_inactive),
         hudString(if (network.cellular) R.string.hud_active else R.string.hud_addin_inactive)), fontSize = 12.sp, color = HudMuted)
-    Text(hudString(R.string.hud_network_bonding_note), fontSize = 12.sp, color = HudMuted)
 
-    AddinToggle(hudString(R.string.hud_network_qos), qos.enabled,
+    val qosNote = hudString(if (qos.capability == com.noir.lynx.feature.hud.data.HudCapability.READY) R.string.hud_network_qos_note else R.string.hud_network_qos_unavailable)
+    AddinToggle(
+        label = hudString(R.string.hud_network_qos),
+        checked = qos.enabled,
         enabled = !qos.busy && qos.capability == com.noir.lynx.feature.hud.data.HudCapability.READY && validMagicPackage(pkg),
-        onChange = runtime::setGameQos)
-    Text(hudString(if (qos.capability == com.noir.lynx.feature.hud.data.HudCapability.READY) R.string.hud_network_qos_note else R.string.hud_network_qos_unavailable), fontSize = 12.sp, color = HudMuted)
+        info = qosNote,
+        onChange = runtime::setGameQos
+    )
 }
 
 /**
@@ -220,12 +252,19 @@ internal fun HudComboControls() {
     val isRunning = activeRunning != null
     val isCurrentRunning = activeRunning == currentCombo.id
 
+    val comboInfo = "${hudString(R.string.hud_magic_description)}\n\n" +
+        "• Rekam Sentuhan: Tekan tombol merah untuk merekam koordinat dan urutan ketukan layar.\n\n" +
+        "• Mode Eksekusi: 1x Tekan untuk menjalankan kombo sekali, atau Ulang (Loop) untuk mengeksekusi kombo berulang-ulang selama tombol ditahan.\n\n" +
+        "• Tombol Melayang (C1, C2...): Saat diaktifkan, tombol pintas kecil akan muncul di atas game agar dapat memicu kombo secara instan.\n\n" +
+        "• TouchShare: Bagikan kode kombo ke teman atau impor kombo dari teks salinan.\n\n" +
+        "• Batasan Sistem: ${hudString(R.string.hud_magic_limits)}"
+
     HudSection(
         title = hudString(R.string.hud_magic_title),
         badge = hudString(if (isRunning) R.string.hud_active else R.string.hud_addin_inactive),
-        accentColor = if (isRunning) HudCyan else HudBlue
+        accentColor = if (isRunning) HudCyan else HudBlue,
+        info = comboInfo
     ) {
-        Text(hudString(R.string.hud_magic_description), fontSize = 12.sp, color = HudMuted)
 
         Row(
             Modifier.fillMaxWidth(),
@@ -392,7 +431,6 @@ internal fun HudComboControls() {
             )
         }
 
-        Text(hudString(R.string.hud_magic_limits), fontSize = 11.5.sp, color = HudMuted)
         if (!root) Text(hudString(R.string.hud_cap_needs_root), fontSize = 12.sp, color = HudOrange)
     }
 
@@ -464,13 +502,18 @@ internal fun HudZoneTouchControls() {
     val touchSlop by zoneTouch.touchSlop.collectAsState()
     val edgeDeadzone by zoneTouch.edgeDeadzone.collectAsState()
 
+    val zoneTouchInfo = "${hudString(R.string.hud_zonetouch_desc)}\n\n" +
+        "• Esports Low-Latency Touch: Memaksa responsivitas touch event ke prioritas tertinggi di subsistem Android InputReader.\n\n" +
+        "• Sampling Rate Boost: Meningkatkan touch report rate hingga batas maksimal hardware digitizer (240Hz - 480Hz).\n\n" +
+        "• Ultra-Sensitive Touch Slop (2px): Mengurangi ambang batas jarak pergerakan jari sebelum diakui sebagai gesture scroll/swipe, membuat sentuhan sangat peka.\n\n" +
+        "• Anti-Mistouch Edge Deadzone: Mengatur lebar area mati di tepi layar (0-32px) untuk mencegah ketidaksengajaan sentuhan telapak tangan saat memegang HP."
+
     HudSection(
         title = hudString(R.string.hud_zonetouch_title),
         badge = hudString(if (esportsEnabled) R.string.hud_active else R.string.hud_addin_inactive),
-        accentColor = if (esportsEnabled) HudCyan else HudBlue
+        accentColor = if (esportsEnabled) HudCyan else HudBlue,
+        info = zoneTouchInfo
     ) {
-        Text(hudString(R.string.hud_zonetouch_desc), fontSize = 12.sp, color = HudMuted)
-
         AddinToggle(
             label = hudString(R.string.hud_zonetouch_esports),
             checked = esportsEnabled,
@@ -487,11 +530,11 @@ internal fun HudZoneTouchControls() {
             AddinToggle(
                 label = hudString(R.string.hud_zonetouch_slop),
                 checked = touchSlop <= 2,
+                info = hudString(R.string.hud_zonetouch_slop_desc),
                 onChange = { ultra ->
                     zoneTouch.setTouchSlop(if (ultra) 2 else 8)
                 }
             )
-            Text(hudString(R.string.hud_zonetouch_slop_desc), fontSize = 11.5.sp, color = HudMuted)
 
             Text(hudString(R.string.hud_zonetouch_deadzone, edgeDeadzone), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
             Slider(
@@ -515,12 +558,16 @@ internal fun HudGameShiftControls() {
     val isBurst by gameShift.isBurstActive.collectAsState()
     val spikes by gameShift.spikeCount.collectAsState()
 
+    val gameShiftInfo = "${hudString(R.string.hud_gameshift_desc)}\n\n" +
+        "• Reaktif Spike FPS Drop: Otomatis mendeteksi saat terjadi drop frame berat atau lonjakan beban CPU/GPU saat teamfight di game.\n\n" +
+        "• CPU/GPU Clock Burst: Memberikan burst boost sesaat pada frekuensi inti CPU dan GPU untuk menstabilkan 60/90/120 FPS secara instan."
+
     HudSection(
         title = hudString(R.string.hud_gameshift_title),
         badge = if (isBurst) "🚀 TURBO BURST" else hudString(if (enabled) R.string.hud_active else R.string.hud_addin_inactive),
-        accentColor = if (isBurst) HudRed else (if (enabled) HudCyan else HudBlue)
+        accentColor = if (isBurst) HudRed else (if (enabled) HudCyan else HudBlue),
+        info = gameShiftInfo
     ) {
-        Text(hudString(R.string.hud_gameshift_desc), fontSize = 12.sp, color = HudMuted)
 
         AddinToggle(
             label = hudString(R.string.hud_gameshift_toggle),

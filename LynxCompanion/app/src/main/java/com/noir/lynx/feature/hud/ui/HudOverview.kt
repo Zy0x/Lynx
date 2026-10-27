@@ -45,12 +45,18 @@ internal fun HudOverview(
     val ram = snapshot[HudMetric.RAM_USED]
     val isCleaningRam = action.actionType == "ram" && action.busy
 
+    val fpsInfo = "Metrik Performa Layar:\n\n" +
+        "• FPS (Frames Per Second): Jumlah frame grafis aktual yang berhasil dirender dan disajikan per detik.\n\n" +
+        "• Frame Time (ms): Durasi waktu penyusunan tiap frame (idealnya 16.6ms untuk 60Hz, 11.1ms untuk 90Hz, 8.3ms untuk 120Hz).\n\n" +
+        "• Stabilitas Frame: Grafik gelombang bezier yang memvisualisasikan konsistensi frame tanpa stuttering."
+
     // 1. Luxury Hero FPS & Oscilloscope Card
     HudSection(
         title = hudString(R.string.hud_group_frame),
         badge = null,
         accentColor = HudCyan,
-        showPlayIcon = true
+        showPlayIcon = true,
+        info = fpsInfo
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

@@ -28,13 +28,22 @@ internal fun HudRecorderControls(provided: HudScreenRecorder? = null) {
     val bitrate by recorder.bitrate.collectAsState()
     val compatibility by recorder.compatibility.collectAsState()
     val stealth by recorder.stealthOverlay.collectAsState()
-    HudSection(hudString(R.string.hud_record_title), hudString(when (state.phase) {
-        HudRecordingPhase.CHECKING -> R.string.hud_cap_checking
-        HudRecordingPhase.UNSUPPORTED -> R.string.hud_cap_unsupported
-        HudRecordingPhase.FAILED -> R.string.hud_record_failed
-        HudRecordingPhase.SAVED -> R.string.hud_record_saved
-        else -> R.string.hud_cap_ready
-    })) {
+    val recordInfo = "${hudString(R.string.hud_record_audio_note)}\n\n" +
+        "• ${hudString(R.string.hud_record_fps_note)}\n\n" +
+        "• ${hudString(R.string.hud_record_compatibility_note)}\n\n" +
+        "• ${hudString(R.string.hud_record_storage)}"
+
+    HudSection(
+        title = hudString(R.string.hud_record_title),
+        badge = hudString(when (state.phase) {
+            HudRecordingPhase.CHECKING -> R.string.hud_cap_checking
+            HudRecordingPhase.UNSUPPORTED -> R.string.hud_cap_unsupported
+            HudRecordingPhase.FAILED -> R.string.hud_record_failed
+            HudRecordingPhase.SAVED -> R.string.hud_record_saved
+            else -> R.string.hud_cap_ready
+        }),
+        info = recordInfo
+    ) {
         recorder.outputSize()?.let { Text(hudString(R.string.hud_record_resolution, it.first, it.second), fontSize = 12.sp, color = HudBlue) }
         val qualities = listOf(hudString(R.string.hud_record_light), hudString(R.string.hud_record_balanced), hudString(R.string.hud_record_native))
         HudAdaptiveGrid(qualities) { i -> HudChoice(qualities[i], quality == i, { recorder.setQuality(i) }, Modifier.weight(1f), enabled = !state.busy) }
@@ -54,12 +63,6 @@ internal fun HudRecorderControls(provided: HudScreenRecorder? = null) {
                 if (!state.busy) recorder.setCompatibility(it)
             }
             HudPreferenceToggle(hudString(R.string.hud_record_stealth), stealth, recorder::setStealthOverlay)
-            Text(hudString(R.string.hud_record_audio_note), fontSize = 12.sp, color = HudMuted)
-            Text(hudString(R.string.hud_record_fps_note), fontSize = 12.sp, color = HudMuted)
-        }
-        HudExpandableSection(hudString(R.string.hud_record_details)) {
-            Text(hudString(R.string.hud_record_compatibility_note), fontSize = 12.sp, color = HudMuted)
-            Text(hudString(R.string.hud_record_storage), fontSize = 12.sp, color = HudMuted)
         }
     }
 }

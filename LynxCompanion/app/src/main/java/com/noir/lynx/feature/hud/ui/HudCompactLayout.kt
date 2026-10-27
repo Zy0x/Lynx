@@ -50,6 +50,7 @@ internal fun HudExpandableSection(
     detail: String = "",
     initiallyOpen: Boolean = false,
     accentColor: Color = Color(0xFFE8EAED),
+    info: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var open by rememberSaveable { mutableStateOf(initiallyOpen) }
@@ -75,12 +76,24 @@ internal fun HudExpandableSection(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(1.dp)
                     ) {
-                        Text(
-                            text = title,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = accentColor
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = title,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = accentColor
+                            )
+                            if (!info.isNullOrBlank()) {
+                                HudInfoButton(
+                                    title = title,
+                                    info = info,
+                                    accentColor = HudCyan
+                                )
+                            }
+                        }
                         if (detail.isNotBlank()) {
                             Text(
                                 text = detail,
