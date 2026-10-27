@@ -167,6 +167,10 @@ import kotlinx.coroutines.flow.update
                 echo 1024 > /proc/sys/kernel/sched_uclamp_util_max 2>/dev/null || true
                 echo 0 > /proc/sys/kernel/sched_util_clamp_min 2>/dev/null || true
                 echo 1024 > /proc/sys/kernel/sched_util_clamp_max 2>/dev/null || true
+                chmod 666 /dev/stune/top-app/schedtune.boost 2>/dev/null || true
+                chmod 666 /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null || true
+                chmod 664 /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null || true
+                echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null || true
                 echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null || true
                 echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null || true
                 echo 0 > /dev/stune/foreground/schedtune.boost 2>/dev/null || true
