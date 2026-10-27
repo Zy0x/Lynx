@@ -1,3 +1,34 @@
+# Lynx Universal [Modular Kernel Patch Modules (KPM/LKM), Ring-0 Telemetry & Independent Load/Unload Suite] 7.0.0-RC252
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC252** (Lynx Kernel Manager v3.2.86): **Implementasi Arsitektur Modul Kernel Ring-0 Terpisah (Modular Kernel Patch Modules / KPM & LKM): Menyediakan 4 Modul Kernel C Mandiri yang Dapat Dimuat (*load*) dan Dilepas (*unload*) Secara Independen Demi Fleksibilitas Pengguna, Meliputi EAS Schedtune Sentinel (`eas_sentinel`), Peredam Throttling Termal Lembut (`thermal_silencer`), Pengunci Lantai Frekuensi GPU Mali G57 (`gpu_dvfs_lock`), Serta Penyangga Memori Anti-Allocstall (`mem_cushion`), Dilengkapi Telemetri `/proc/lynx/*` dan Panduan Komprehensif di `/storage/emulated/0/Lynx/KPM`**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC252)
+1. **Arsitektur Kernel Patch Modules Modular (`kpm/` & `/storage/emulated/0/Lynx/KPM`)**:
+   - Memisahkan seluruh fitur kernel patch tingkat rendah menjadi 4 sub-direktori mandiri dengan `Makefile`, source code C Linux 4.14 arm64, serta skrip loader (`load.sh`) dan unloader (`unload.sh`) individual:
+     - `01_eas_sentinel`: Mengunci margin penjadwal EAS `top-app` langsung di ring-0 kernel memory, mencegah `system_server` atau vendor daemon meniadakan prioritas game saat ada notifikasi.
+     - `02_thermal_silencer`: Memberikan kompensasi ambang batas termal lunak (+15°C margin) pada zona termal MediaTek Helio G96, mencegah isolasi core agresif sambil tetap mempertahankan proteksi shutdown darurat PMIC pada 115°C demi keselamatan fisik silikon.
+     - `03_gpu_dvfs_lock`: Mengunci lantai frekuensi GPU ARM Mali-G57 MC2 ke 850-950 MHz saat beban 3D aktif, mengeliminasi drop FPS sesaat akibat tawar-menawar clock DVFS saat transisi scene.
+     - `04_mem_cushion`: Menyediakan penyangga memori dinamis (64 MB buffer) di level kernel memory allocator, memastikan alokasi mendadak aplikasi notifikasi tidak menahan (*stall*) render thread game.
+
+2. **Dukungan Multi-Loader Hirarki APatch & Linux Native**:
+   - Setiap skrip `load.sh` mendukung pemuatan adaptif bertingkat:
+     - Prioritas 1: APatch Jailbreak Engine (`apd insmod`) dengan bypass vermagic.
+     - Prioritas 2: KernelPatch Module Manager (`kpatch <key> kpm load`).
+     - Prioritas 3: Standar Linux kernel syscall (`insmod` & `rmmod`).
+   - Menyediakan master orchestrator: `load_all.sh` (muat berurutan), `unload_all.sh` (lepas berurutan terbalik), dan `status.sh` (inspeksi modul aktif).
+
+3. **Antarmuka Telemetri Ring-0 Real-Time (`/proc/lynx/*`)**:
+   - Setiap modul yang aktif secara dinamis membuat antarmuka procfs interaktif:
+     - `/proc/lynx/eas_sentinel`: Status penjaga, target schedtune boost, dan jumlah siklus proteksi.
+     - `/proc/lynx/thermal_silencer`: Status mitigasi dan offset margin suhu.
+     - `/proc/lynx/gpu_dvfs_lock`: Frekuensi lantai yang terkunci dan status OPP driver.
+     - `/proc/lynx/mem_cushion`: Ukuran penyangga bantalan RAM dan event mitigasi allocstall.
+
+4. **Penyebaran Penuh ke Penyimpanan Pengguna**:
+   - Seluruh suite modul, skrip eksekusi, dan README.md komprehensif telah di-deploy langsung ke `/storage/emulated/0/Lynx/KPM` pada perangkat fisik Infinix Note 11 Pro untuk akses langsung via Termux, MT Manager, atau terminal root.
+
+---
+
 # Lynx Universal [Multi-Scene Vision AI Classifier, Interstitial Story Auto-Advance & Vision Training Suite] 7.0.0-RC251
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC251** (Lynx Kernel Manager v3.2.85): **Implementasi Mesin Pengenal Adegan Cerdas Multi-Modal (Vision AI Scene Classifier) Pada Auto-Skip Hoyo RPG: Mendeteksi Secara Presisi Adegan Cerita Layar Hitam (Black Interstitial Cutscenes) Dengan Pengenalan Diamond Emas Amber "Tekan untuk melanjutkan", Penekanan Ketukan Otomatis Pada Layar Putih (White Loading Screen Flash Suppression), Proteksi Mutlak Siaga Hening Pada Dunia Terbuka (Open World Zero-Tap Silence), Serta Pustaka Pelatihan & Kalibrasi Citra Otonom (`tools/train_scene_classifier.py`) Demi Menjamin Auto-Skip Bekerja Dinamis, Cerdas, dan Adaptif**.
