@@ -1,3 +1,22 @@
+# Lynx Universal [Qualcomm 4.40V Float Voltage Saturation Ceiling & Step-Charging Bypass Unlock] 7.0.0-RC243
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC243** (Lynx Kernel Manager v3.2.77): **Pembukaan Penuh Plafon Tegangan Saturasi Float Voltage 4.40V (4,400,000 uV) Sesuai Spesifikasi Fisik Sel Baterai Li-Po (BN40/BN4A), Penonaktifan Permanen Software Step-Charging Kernel (`step_charging_enabled=0`) & SW JEITA (`sw_jeita_enabled=0`) Pada Arsitektur Qualcomm Snapdragon (Redmi Note 7 / PM660), Serta Penyelarasan Sintaksis Action-Info Daemon Thermal-Engine**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC243)
+1. **Pelepasan Batas Tegangan Float Voltage (FV) Menuju 4.40V (`charging.rs`, `ExtremeChargingScript.kt`)**:
+   - Menulis dan mengunci nilai tegangan batas akhir penuh 4.40V (`4400000` uV) pada node `/sys/class/power_supply/battery/constant_charge_voltage`, `constant_charge_voltage_max`, dan `voltage_max`.
+   - Mengeliminasi pemotongan arus dini (*premature tapering*) akibat profil kernel OEM yang menurunkan batas float voltage ke 4.33V–4.35V saat mendeteksi suhu hangat moderat.
+   - Memungkinkan arus pengisian cepat tetap bertahan di kisaran **1200 mA – 1500 mA** pada kapasitas 80%–88% sebelum melandai secara alami karena keterbatasan kimiawi sel.
+
+2. **Bypass Penuh Algoritma Step-Charging & SW JEITA Driver QTI**:
+   - Menghalangi eksekusi `STEP_CHG_VOTER` kernel yang secara artifisial memotong arus pengisian berdasarkan tabel SoC bertingkat OEM (70%, 80%, 90%).
+   - Memastikan pengisian daya pada persentase tinggi murni diatur oleh kurva saturasi *Constant Voltage* (CV) alami sel baterai dan bukan oleh pembatasan software OEM yang terlalu konservatif.
+
+3. **Penyelarasan Sintaksis Thermal-Engine Action-Info (`thermal-engine.conf`)**:
+   - Memperbaiki pemetaan `action_info 1 2 4 5 6` pada konfigurasi platform Qualcomm agar valid 100% terhadap parser daemon vendor `ThermalEngine`, mencegah log error *"Invalid input for section BATTERY_CHARGING_CTL"*.
+
+---
+
 # Lynx Universal [Qualcomm 48°C-56°C Thermal Engine Live Bind-Mount & Zero-Latency Floating Badge HUD] 7.0.0-RC242
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC242** (Lynx Kernel Manager v3.2.76): **Penerapan Mekanisme Live Bind-Mount On-The-Fly `/vendor/etc/thermal-engine.conf` dan Trip-Point Shifting `quiet-therm-step` Pada Arsitektur Qualcomm (Redmi Note 7 / PM660) Tanpa Butuh KPM (Kernel Patch Module): Menaikkan Ambang Batas Pengisian Daya `[BATTERY_CHARGING_CTL]` Dari 37°C–43°C Menjadi 48°C–56°C Agar Arus Hyper 3000mA+ (11.2W) Mengalir Stabil Tanpa Penurunan Arus Prematur di 43°C–45°C, Serta Penyempurnaan Zero-Latency Floating Badge & Dedicated In-Game HUD Tools Scene Inspector**.

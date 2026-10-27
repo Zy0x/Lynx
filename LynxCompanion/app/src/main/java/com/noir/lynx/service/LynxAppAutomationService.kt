@@ -16,14 +16,7 @@ import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.*
 
 /**
- * LynxAppAutomationService — Ultra-Efficient Per-App Profile Automation Daemon.
- *
- * Performance Architecture (Anti-Lag Refactor):
- * - Zero Dumpsys In Loop: Eliminates repetitive dumpsys window/activity calls.
- * - Procfs Top-App Detector: Reads /dev/cpuset/top-app/cgroup.procs (<0.05ms) with zero shell execution.
- * - Targeted O(1) Alive Check: Verifies app lifecycle directly via cached PID rather than scanning 700+ /proc dirs.
- * - Memory Shield Integration: Automatically applies optimal VM parameters and prevents kswapd runaway loops.
- * - Strict Watcher Mutual Exclusion: Enforces single-daemon execution to eliminate background shell conflicts.
+ * LynxAppAutomationService — Per-App Profile Automation Daemon.
  */
 class LynxAppAutomationService : Service() {
 
@@ -38,6 +31,30 @@ class LynxAppAutomationService : Service() {
     private var activeCustomPkg: String? = null
     private var activeCustomPid: Int? = null
     private var autoStartedHud = false
+    private var previousHudMode: Int? = null
+
+    private fun restoreOrStopAutoHud() {
+        if (autoStartedHud) {
+            try {
+                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                    action = LynxFloatingHudService.ACTION_STOP
+                }
+                startService(hudIntent)
+                stopService(hudIntent)
+            } catch (_: Exception) {}
+            autoStartedHud = false
+            previousHudMode = null
+        } else if (previousHudMode != null) {
+            try {
+                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                    action = LynxFloatingHudService.ACTION_SET_MODE
+                    putExtra(LynxFloatingHudService.EXTRA_MODE, previousHudMode ?: 0)
+                }
+                startService(hudIntent)
+            } catch (_: Exception) {}
+            previousHudMode = null
+        }
+    }
     private var cooldownJob: Job? = null
     private var rulesCache: List<AppProfileRule> = emptyList()
     private var graphicsRulesCache: List<com.noir.lynx.data.PerAppGraphicsRule> = emptyList()
@@ -52,16 +69,7 @@ class LynxAppAutomationService : Service() {
                     cooldownJob?.cancel()
                     cooldownJob = null
                     if (activeCustomPkg != null) {
-                        if (autoStartedHud) {
-                            try {
-                                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
-                                    action = LynxFloatingHudService.ACTION_STOP
-                                }
-                                startService(hudIntent)
-                                stopService(hudIntent)
-                            } catch (_: Exception) {}
-                            autoStartedHud = false
-                        }
+                        restoreOrStopAutoHud()
                         activeCustomPkg = null
                         activeCustomPid = null
                         val base = if (baselineProfile.isBlank() || baselineProfile == "dormant" || baselineProfile == "powersave") "balance" else baselineProfile
@@ -104,13 +112,7 @@ class LynxAppAutomationService : Service() {
     private fun triggerWakeupBoost() {
         try {
             val lynxdPath = LynxRepository.getLynxdPath()
-            Shell.cmd(
-                "'$lynxdPath' system wakeup-boost 1500 2>/dev/null || " +
-                "(echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; " +
-                "echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; " +
-                "sleep 1; " +
-                "echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null) &"
-            ).submit()
+            Shell.cmd("'$lynxdPath' system wakeup-boost 1500 2>/dev/null || (echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; sleep 1; echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null) &").submit()
         } catch (_: Exception) {}
     }
 
@@ -129,13 +131,7 @@ class LynxAppAutomationService : Service() {
                             LynxMemoryShield.checkAndProtectMemory()
 
                             // 2. Enforce fluid compositor latching during charging to prevent AC ripple touch jank
-                            Shell.cmd(
-                                "setprop debug.sf.latch_unsignaled 1",
-                                "setprop debug.sf.auto_latch_unsignaled 1",
-                                "setprop debug.sf.disable_backpressure 1",
-                                "setprop debug.sf.disable_client_composition_cache 0",
-                                "setprop debug.hwui.target_cpu_time_percent 70"
-                            ).submit()
+                            Shell.cmd("setprop debug.sf.latch_unsignaled 1; setprop debug.sf.auto_latch_unsignaled 1; setprop debug.sf.disable_backpressure 1; setprop debug.sf.disable_client_composition_cache 0; setprop debug.hwui.target_cpu_time_percent 70").submit()
 
                             val state = LynxRepository.readState().charging
                             if (state.extremeChargingEnabled || state.bypassEnabled) {
@@ -530,19 +526,37 @@ class LynxAppAutomationService : Service() {
                 val target = matchingRule.targetProfile
                 Log.i(TAG, "App match detected: $pkg -> activating [$target]")
 
-                if (matchingRule.autoFloatingHud && !LynxFloatingHudService.isRunning) {
+                if (matchingRule.autoFloatingHud) {
                     try {
-                        val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
-                            action = LynxFloatingHudService.ACTION_START
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            startForegroundService(hudIntent)
+                        val isHudAlreadyRunning = LynxFloatingHudService.isRunning
+                        val hudPrefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+                        if (!isHudAlreadyRunning) {
+                            autoStartedHud = true
+                            previousHudMode = null
+                            val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                                action = LynxFloatingHudService.ACTION_START
+                                putExtra(LynxFloatingHudService.EXTRA_MODE, 1)
+                            }
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                startForegroundService(hudIntent)
+                            } else {
+                                startService(hudIntent)
+                            }
                         } else {
-                            startService(hudIntent)
+                            val currentMode = hudPrefs.getInt("hud_mode", 0)
+                            if (currentMode != 1) {
+                                if (previousHudMode == null) {
+                                    previousHudMode = currentMode
+                                }
+                                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
+                                    action = LynxFloatingHudService.ACTION_SET_MODE
+                                    putExtra(LynxFloatingHudService.EXTRA_MODE, 1)
+                                }
+                                startService(hudIntent)
+                            }
                         }
-                        autoStartedHud = true
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to auto-start HUD: ${e.message}")
+                        Log.w(TAG, "Failed to auto-activate HUD: ${e.message}")
                     }
                 }
 
@@ -581,28 +595,10 @@ class LynxAppAutomationService : Service() {
                     val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
                     Log.i(TAG, "Target app [$targetPkg] closed: immediate restoration to baseline [$restoreTarget]")
 
-                    if (autoStartedHud) {
-                        try {
-                            val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
-                                action = LynxFloatingHudService.ACTION_STOP
-                            }
-                            startService(hudIntent)
-                            stopService(hudIntent)
-                        } catch (_: Exception) {}
-                        autoStartedHud = false
-                    }
+                    restoreOrStopAutoHud()
 
-                    baselineRefreshRate?.let { hz ->
-                        serviceScope.launch(Dispatchers.IO) {
-                            LynxRepository.setDisplayRefreshRate(hz)
-                        }
-                    }
-
-                    if (!isNativeDaemonHandlingProfiles()) {
-                        serviceScope.launch(Dispatchers.IO) {
-                            LynxRepository.setProfile(restoreTarget, caller = "watcher")
-                        }
-                    }
+                    baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
+                    if (!isNativeDaemonHandlingProfiles()) serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
                     activeCustomPkg = null
                     activeCustomPid = null
                     val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
@@ -627,28 +623,10 @@ class LynxAppAutomationService : Service() {
                         val restoreTarget = if (baselineProfile.isBlank() || baselineProfile == "dormant") "balance" else baselineProfile
                         Log.i(TAG, "Cooldown finished (${elapsed}ms), restoring baseline [$restoreTarget]")
 
-                        if (autoStartedHud) {
-                            try {
-                                val hudIntent = Intent(this@LynxAppAutomationService, LynxFloatingHudService::class.java).apply {
-                                    action = LynxFloatingHudService.ACTION_STOP
-                                }
-                                startService(hudIntent)
-                                stopService(hudIntent)
-                            } catch (_: Exception) {}
-                            autoStartedHud = false
-                        }
+                        restoreOrStopAutoHud()
 
-                        baselineRefreshRate?.let { hz ->
-                            serviceScope.launch(Dispatchers.IO) {
-                                LynxRepository.setDisplayRefreshRate(hz)
-                            }
-                        }
-
-                        if (!isNativeDaemonHandlingProfiles()) {
-                            serviceScope.launch(Dispatchers.IO) {
-                                LynxRepository.setProfile(restoreTarget, caller = "watcher")
-                            }
-                        }
+                        baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
+                        if (!isNativeDaemonHandlingProfiles()) serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
                         activeCustomPkg = null
                         activeCustomPid = null
                         val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()

@@ -230,6 +230,13 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
         val prefs = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
+        if (intent?.hasExtra(EXTRA_MODE) == true) {
+            val targetMode = intent.getIntExtra(EXTRA_MODE, 0).coerceIn(0, 1)
+            activeModeFlow.value = targetMode
+            open.value = false
+            prefs.edit().putInt("hud_mode", targetMode).apply()
+            view?.post { clamp() }
+        }
         when (intent?.action) {
             ACTION_SET_STYLE -> {
                 activeStyleFlow.value = intent.getIntExtra(EXTRA_STYLE, 1).coerceIn(1, 6)

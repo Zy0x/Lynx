@@ -114,7 +114,20 @@ object ExtremeChargingScript {
                     echo 4000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
-                [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+                [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+
+                # Float Voltage ceiling 4.40V (4400000 uV) & Step-Charging Bypass
+                for node in /sys/class/power_supply/battery/constant_charge_voltage \
+                            /sys/class/power_supply/battery/constant_charge_voltage_max \
+                            /sys/class/power_supply/battery/voltage_max; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 666 "${'$'}node" 2>/dev/null
+                        echo 4400000 > "${'$'}node" 2>/dev/null
+                        chmod 444 "${'$'}node" 2>/dev/null
+                    fi
+                done
+                [ -e /sys/class/power_supply/battery/step_charging_enabled ] && echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+                [ -e /sys/class/power_supply/battery/sw_jeita_enabled ] && echo 0 > /sys/class/power_supply/battery/sw_jeita_enabled 2>/dev/null
 
                 # Live bind-mount elevated thermal-engine.conf if present (bumping [BATTERY_CHARGING_CTL] to 48.0°C-56.0°C)
                 if [ -f /vendor/etc/thermal-engine.conf ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then

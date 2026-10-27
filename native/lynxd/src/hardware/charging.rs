@@ -74,6 +74,9 @@ const CHARGING_SESSION_NODES: &[&str] = &[
     "/sys/class/power_supply/battery/charging_enabled",
     "/sys/class/power_supply/battery/constant_charge_current_max",
     "/sys/class/power_supply/battery/constant_charge_current",
+    "/sys/class/power_supply/battery/constant_charge_voltage",
+    "/sys/class/power_supply/battery/constant_charge_voltage_max",
+    "/sys/class/power_supply/battery/voltage_max",
     "/sys/class/power_supply/battery/current_max",
     "/sys/class/power_supply/battery/input_current_limit",
     "/sys/class/power_supply/battery/charge_control_limit_max",
@@ -85,6 +88,7 @@ const CHARGING_SESSION_NODES: &[&str] = &[
     "/sys/class/power_supply/battery/system_temp_level",
     "/sys/class/power_supply/battery/temp_state",
     "/sys/class/power_supply/battery/step_charging_enabled",
+    "/sys/class/power_supply/battery/sw_jeita_enabled",
     "/sys/class/power_supply/battery/quick_charge_type",
     "/sys/class/power_supply/battery/siop_level",
     "/sys/class/power_supply/battery/store_mode",
@@ -1923,6 +1927,10 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+        Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+        Self::write_node_lock(&format!("{}/constant_charge_voltage", BATT_DIR), "4400000");
+        Self::write_node_lock(&format!("{}/constant_charge_voltage_max", BATT_DIR), "4400000");
+        Self::write_node_lock(&format!("{}/voltage_max", BATT_DIR), "4400000");
         Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
 

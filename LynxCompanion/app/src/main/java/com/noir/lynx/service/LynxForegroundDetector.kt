@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Build
+import android.app.ActivityManager
+import com.topjohnwu.superuser.Shell
 import java.io.File
 
 data class ForegroundAppInfo(
@@ -30,13 +32,22 @@ class LynxForegroundDetector(private val context: Context) {
      * and procfs cgroup lookups (0 forks, <0.1ms latency).
      */
     fun queryTopResumedPackage(): ForegroundAppInfo? {
+        // 1. In-memory UsageStats with 5-minute event window (0 forks, instant)
+        getTopPackageFromUsageStats()?.let { info ->
+            lastDetectedPackage = info.packageName
+            lastDetectedPid = info.pid
+            return info
+        }
+
+        // 2. High-speed Cpuset inspection
         getTopPackageFromCpuset()?.let { info ->
             lastDetectedPackage = info.packageName
             lastDetectedPid = info.pid
             return info
         }
 
-        getTopPackageFromUsageStats()?.let { info ->
+        // 3. Fast Root Query fallback (dumpsys activity activities topResumedActivity)
+        getTopPackageFromRoot()?.let { info ->
             lastDetectedPackage = info.packageName
             lastDetectedPid = info.pid
             return info
@@ -74,7 +85,8 @@ class LynxForegroundDetector(private val context: Context) {
                 val pkg = if (token.contains(':')) token.substringBefore(':') else token
                 if (pkg.isBlank() || pkg == "null" || pkg == "system_server" ||
                     pkg.startsWith("/system/") || pkg.startsWith("/vendor/") ||
-                    pkg.contains("inputmethod") || pkg.contains("keyboard")) continue
+                    pkg.contains("inputmethod") || pkg.contains("keyboard") ||
+                    pkg == context.packageName || pkg.startsWith("${context.packageName}:")) continue
 
                 if (pkg.contains('.')) {
                     return ForegroundAppInfo(pkg, pid)
@@ -90,14 +102,19 @@ class LynxForegroundDetector(private val context: Context) {
         return try {
             val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
             val now = System.currentTimeMillis()
-            val events = usageStatsManager.queryEvents(now - 12000L, now)
+            val events = usageStatsManager.queryEvents(now - 300_000L, now)
             val event = UsageEvents.Event()
             var latestPkg: String? = null
             var latestTimestamp: Long = 0
 
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED && event.timeStamp > latestTimestamp) {
+                val type = event.eventType
+                if ((type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) &&
+                    event.timeStamp >= latestTimestamp &&
+                    event.packageName != context.packageName &&
+                    !event.packageName.startsWith("${context.packageName}:") &&
+                    event.packageName != "com.android.systemui") {
                     latestPkg = event.packageName
                     latestTimestamp = event.timeStamp
                 }
@@ -108,6 +125,20 @@ class LynxForegroundDetector(private val context: Context) {
             } else {
                 null
             }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getTopPackageFromRoot(): ForegroundAppInfo? {
+        return try {
+            val res = Shell.cmd("dumpsys activity activities | grep -m1 topResumedActivity").exec()
+            val line = res.out.firstOrNull() ?: return null
+            val match = Regex("""u0\s+([^/]+)/""").find(line)
+            val pkg = match?.groupValues?.get(1)?.trim() ?: return null
+            if (pkg.isNotBlank() && pkg != "null" && pkg != context.packageName && !pkg.startsWith("${context.packageName}:")) {
+                ForegroundAppInfo(pkg, null)
+            } else null
         } catch (_: Exception) {
             null
         }
@@ -188,25 +219,18 @@ class LynxForegroundDetector(private val context: Context) {
             }
         }
 
-        val topInfo = getTopPackageFromCpuset()
-        if (topInfo != null && topInfo.packageName.equals(pkg, ignoreCase = true)) {
-            return true
-        }
-
-        return try {
-            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return false
-            val now = System.currentTimeMillis()
-            val events = usageStatsManager.queryEvents(now - 10000L, now)
-            val event = UsageEvents.Event()
-            var found = false
-            while (events.hasNextEvent()) {
-                events.getNextEvent(event)
-                if (event.packageName.equals(pkg, ignoreCase = true) &&
-                    (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED || event.eventType == UsageEvents.Event.ACTIVITY_PAUSED)) {
-                    found = true
-                }
+        // Fast root check via pidof/pgrep
+        try {
+            val res = Shell.cmd("pidof '$pkg' || pgrep -f '$pkg'").exec()
+            if (res.isSuccess && res.out.any { it.isNotBlank() }) {
+                return true
             }
-            found
+        } catch (_: Exception) {}
+
+        // Fallback: Check running processes via ActivityManager
+        return try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            am?.runningAppProcesses?.any { it.processName.equals(pkg, ignoreCase = true) || it.processName.startsWith("$pkg:") } == true
         } catch (_: Exception) {
             false
         }
