@@ -155,7 +155,7 @@ internal object LynxCpuBatchProfileRepository {
                     appendLine("[ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo 25 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo 256 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)")
                     appendLine("[ -f /dev/cpuctl/top-app/cpu.uclamp.max ] && (echo max > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null || echo 100 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null)")
                     appendLine("[ -f /proc/sys/kernel/sched_boost ] && echo 2 > /proc/sys/kernel/sched_boost 2>/dev/null")
-                    appendLine("[ -d /dev/stune/top-app ] && echo 80 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
+                    appendLine("[ -d /dev/stune/top-app ] && chmod 666 /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 80 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null && chmod 644 /dev/stune/top-app/schedtune.boost 2>/dev/null && chmod 644 /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/foreground ] && echo 25 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/background ] && echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/background/schedtune.prefer_idle 2>/dev/null")
                     appendLine("for gdir in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/policy*/walt /sys/devices/system/cpu/cpufreq/policy*/sugov_ext; do [ -d \"\$gdir\" ] || continue; echo 0 > \"\$gdir/up_rate_limit_us\" 2>/dev/null; echo 0 > \"\$gdir/down_rate_limit_us\" 2>/dev/null; done")
@@ -170,7 +170,7 @@ internal object LynxCpuBatchProfileRepository {
                     appendLine("[ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo 15 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo 154 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)")
                     appendLine("[ -f /dev/cpuctl/top-app/cpu.uclamp.max ] && (echo max > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null || echo 100 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null)")
                     appendLine("[ -f /proc/sys/kernel/sched_boost ] && echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null")
-                    appendLine("[ -d /dev/stune/top-app ] && echo 50 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
+                    appendLine("[ -d /dev/stune/top-app ] && chmod 666 /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 50 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 1 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 1 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null && chmod 644 /dev/stune/top-app/schedtune.boost 2>/dev/null && chmod 644 /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/foreground ] && echo 15 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/background ] && echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/background/schedtune.prefer_idle 2>/dev/null")
                     appendLine("for gdir in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/policy*/walt /sys/devices/system/cpu/cpufreq/policy*/sugov_ext; do [ -d \"\$gdir\" ] || continue; echo 0 > \"\$gdir/up_rate_limit_us\" 2>/dev/null; echo 20000 > \"\$gdir/down_rate_limit_us\" 2>/dev/null; done")
@@ -184,7 +184,7 @@ internal object LynxCpuBatchProfileRepository {
                     appendLine("[ -f /dev/cpuctl/top-app/cpu.uclamp.min ] && echo 0 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null")
                     appendLine("[ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && echo 0 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null")
                     appendLine("[ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null")
-                    appendLine("[ -d /dev/stune/top-app ] && echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 0 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
+                    appendLine("[ -d /dev/stune/top-app ] && chmod 666 /dev/stune/top-app/schedtune.boost 2>/dev/null && chmod 666 /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && echo 0 > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 0 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
                     appendLine("[ -d /dev/stune/foreground ] && echo 0 > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/background ] && echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/background/schedtune.prefer_idle 2>/dev/null")
                     appendLine("for gdir in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/policy*/walt /sys/devices/system/cpu/cpufreq/policy*/sugov_ext; do [ -d \"\$gdir\" ] || continue; echo 8000 > \"\$gdir/up_rate_limit_us\" 2>/dev/null; echo 500 > \"\$gdir/down_rate_limit_us\" 2>/dev/null; done")
@@ -199,7 +199,7 @@ internal object LynxCpuBatchProfileRepository {
                     appendLine("[ -f /dev/cpuctl/foreground/cpu.uclamp.min ] && (echo ${boostPolicy.foregroundMinPercent} > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null || echo ${boostPolicy.foregroundMinPercent * 10 + 5} > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null)")
                     appendLine("[ -f /dev/cpuctl/top-app/cpu.uclamp.max ] && (echo max > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null || echo 100 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null)")
                     appendLine("[ -f /proc/sys/kernel/sched_boost ] && echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null")
-                    appendLine("[ -d /dev/stune/top-app ] && echo ${boostPolicy.topAppSchedtuneBoost} > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo ${if (boostPolicy.topAppPreferIdle) 1 else 0} > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 0 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
+                    appendLine("[ -d /dev/stune/top-app ] && chmod 666 /dev/stune/top-app/schedtune.boost 2>/dev/null && chmod 666 /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && echo ${boostPolicy.topAppSchedtuneBoost} > /dev/stune/top-app/schedtune.boost 2>/dev/null && echo ${if (boostPolicy.topAppPreferIdle) 1 else 0} > /dev/stune/top-app/schedtune.prefer_idle 2>/dev/null && [ -f /dev/stune/top-app/schedtune.prefer_high_cap ] && echo 0 > /dev/stune/top-app/schedtune.prefer_high_cap 2>/dev/null")
                     appendLine("[ -d /dev/stune/foreground ] && echo ${boostPolicy.foregroundSchedtuneBoost} > /dev/stune/foreground/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/foreground/schedtune.prefer_idle 2>/dev/null")
                     appendLine("[ -d /dev/stune/background ] && echo 0 > /dev/stune/background/schedtune.boost 2>/dev/null && echo 0 > /dev/stune/background/schedtune.prefer_idle 2>/dev/null")
                     appendLine("for gdir in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/policy*/walt /sys/devices/system/cpu/cpufreq/policy*/sugov_ext; do [ -d \"\$gdir\" ] || continue; echo 500 > \"\$gdir/up_rate_limit_us\" 2>/dev/null; echo 10000 > \"\$gdir/down_rate_limit_us\" 2>/dev/null; done")
@@ -357,14 +357,16 @@ internal object LynxCpuBatchProfileRepository {
                     appendLine("[ -f /sys/devices/platform/goodix_ts.0/game_mode ] && echo 1 > /sys/devices/platform/goodix_ts.0/game_mode 2>/dev/null")
                     appendLine("[ -f /sys/devices/platform/tp_wake_switch/game_mode ] && echo 1 > /sys/devices/platform/tp_wake_switch/game_mode 2>/dev/null")
                     // MediaTek PerfMgr EAS_CTRL
-                    val taBoost = if (isExtreme) "80" else "50"
-                    val fgBoostVal = if (isExtreme) "25" else "15"
+                    val taBoost = if (isExtreme) "100" else "60"
+                    val fgBoostVal = if (isExtreme) "50" else "35"
                     appendLine("if [ -d /proc/perfmgr/boost_ctrl/eas_ctrl ]; then")
+                    appendLine("  chmod 664 /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null")
                     appendLine("  echo $taBoost > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null")
+                    appendLine("  chmod 444 /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null")
                     appendLine("  echo $fgBoostVal > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_fg_boost 2>/dev/null")
                     appendLine("  echo 1 > /proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation 2>/dev/null")
-                    appendLine("  echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null")
-                    appendLine("  echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null")
+                    appendLine("  echo 40000 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_down_throttle 2>/dev/null")
+                    appendLine("  echo 500 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_schedplus_up_throttle 2>/dev/null")
                     appendLine("fi")
 
                     // Qualcomm / Exynos / Tensor / Unisoc Devfreq Memory Bus, LLCC, L3 Cache & Load Boost

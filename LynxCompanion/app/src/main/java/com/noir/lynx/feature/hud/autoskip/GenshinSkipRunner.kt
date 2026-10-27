@@ -93,7 +93,7 @@ class GenshinSkipRunner(
         this.screenWidth = width
         this.screenHeight = height
         this.isEnabled = enabled
-        this.speedMs = speedMs.coerceAtLeast(150L)
+        this.speedMs = speedMs.coerceAtLeast(45L)
         this.targetChoiceBottom = targetChoiceBottom
 
         if (!enabled) {
@@ -282,7 +282,8 @@ class GenshinSkipRunner(
                         delay(standbyDelay)
                         continue
                     } else {
-                        burstCountRemaining = 6
+                        val effSpeed = speedMs.coerceAtLeast(45L)
+                        burstCountRemaining = (1200L / effSpeed).toInt().coerceIn(8, 24)
                         consecutiveInactiveCount = 0
                         executingState.value = true
                     }
@@ -311,7 +312,7 @@ class GenshinSkipRunner(
             val advanceTarget = coords.advance
             val narrationTarget = coords.narration
 
-            val effectiveSpeed = speedMs.coerceAtLeast(160L)
+            val effectiveSpeed = speedMs.coerceAtLeast(45L)
 
             // Ultra-fast single-shot touch dispatch: eliminates subshell sleep delays and touch queue choke
             val target = when (cycleIndex % 3) {

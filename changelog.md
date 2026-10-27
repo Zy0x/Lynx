@@ -1,3 +1,51 @@
+# Lynx Universal [Scheduler EAS Margin Lock, Anti-Priority Inversion & Anti-Allocstall Memory Buffer] 7.0.0-RC250
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC250** (Lynx Kernel Manager v3.2.84): **Implementasi Mesin Pelindung Penjadwal Otonom (`SchedulerGuardian`): Mencegah Android Framework (`OomAdjuster`) dan Daemon Vendor OEM (`perfservice`) Membatalkan atau Membalikkan Prioritas EAS Game Saat Terjadi Notifikasi Heads-Up / Multitasking, Perlindungan Izin Node Schedtune (`chmod 644/444`), Watchdog Pemulihan Instan Sub-Siklus, Serta Penyangga Memori Anti-Allocstall (`watermark_scale_factor = 150`, `extra_free_kbytes = 64MB`) Demi Menjamin Gameplay Tetap Buttery Smooth Tanpa Micro-Stuttering**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC250)
+1. **Mesin Pelindung Penjadwal Otonom (`native/lynxd/src/subsystems/scheduler_guardian.rs`)**:
+   - **Eliminasi Masalah Stuttering Pasca-Notifikasi Game**:
+     - Memperbaiki fenomena penurunan performa drastis dan micro-stuttering berkepanjangan pada game berat (seperti Genshin Impact) setelah adanya notifikasi heads-up atau pesan masuk dari aplikasi latar belakang.
+     - Ditemukan akar masalah di mana `system_server` Android mereset `/dev/stune/top-app/schedtune.boost` menjadi 0 dan daemon vendor MediaTek (`perfservice`) membalikkan prioritas dengan menaikkan foreground boost ke 50 dan mematikan `perfserv_ta_boost` ke 0.
+   - **Perlindungan Izin Node Keras (`enforce_permission_shield`)**:
+     - Pada mode **Performance** dan **Extreme**: Mengunci izin `/dev/stune/top-app/schedtune.boost` dan `schedtune.prefer_idle` menjadi `0644` (milik root), sehingga `system_server` (UID 1000) terblokir sepenuhnya dari menghapus EAS boost game.
+     - Mengunci izin node MediaTek `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost` dan `perfserv_ta_uclamp_min` menjadi `0444` (read-only) agar daemon vendor tidak dapat menurunkan prioritas top-app.
+   - **Watchdog Pemulihan Instan Mandiri (`SchedulerGuardian::tick`)**:
+     - Berjalan terpadu dalam siklus daemon aktif saat layar menyala. Memantau kesehatan margin penjadwal secara real-time. Jika terdeteksi penurunan nilai `schedtune.boost` di bawah ambang batas gaming (< 25) atau inversi prioritas MediaTek EAS (`ta_boost < 30` atau `fg_boost > ta_boost`), pelindung seketika membuka proteksi, menulis ulang target boost profil penuh (35-50% schedtune, 60-100% MTK TA boost), dan mengunci kembali izin node dalam hitungan mikrodetik.
+
+2. **Penyangga Memori Anti-Allocstall & Penekanan Direct Compaction (`translator.rs`, `game.rs`)**:
+   - **Pencegahan Latensi Alokasi Memori Sinkron (`allocstall_movable`)**:
+     - Pada perangkat ber-RAM terbatas dengan penggunaan ZRAM/Swap padat (hingga 90%+), alokasi memori mendadak oleh aplikasi notifikasi sebelumnya memicu kernel masuk ke direct reclaim sinkron dan page compaction yang membekukan render thread Unity.
+     - Menetapkan ambang bangun kswapd cerdas (`watermark_scale_factor = 150` pada Performance, `200` pada Extreme) dan penyangga memori dinamis (`extra_free_kbytes = 65536` / 64MB) sehingga kswapd aktif lebih awal di latar belakang secara asinkron sebelum memori bebas menyentuh batas kritis panic threshold.
+     - Menjaga VFS inode cache (`vfs_cache_pressure = 50`) untuk memastikan streaming asset dunia terbuka berjalan tanpa jeda pembacaan storage.
+
+3. **Reversibilitas Dua Arah Bersih 100% (Balanced & Powersave Restorations)**:
+   - Saat keluar dari mode performa kembali ke **Balanced**:
+     - Izin `/dev/stune/top-app/schedtune.boost` dipulihkan ke `0666` (world-writable Android default).
+     - Izin `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost` dipulihkan ke `0664`.
+     - Target penjadwal dinormalkan ke standar seimbang (`PERFMGR_TA_BOOST = 25`, `schedtune.boost = 18`, `schedtune.prefer_high_cap = 0`).
+     - Parameter Virtual Memory dikembalikan ke standar Android OEM (`watermark_scale_factor = 100`, `extra_free_kbytes = 20480`, `vfs_cache_pressure = 100`).
+
+4. **Audit Kepatuhan Penjadwal Terintegrasi (`lynxd verify`)**:
+   - Memperluas verifikator hardware native untuk secara aktif memeriksa integritas `Schedtune Top-App Boost` dan `MTK Perfmgr Top-App Boost` terhadap target profil yang sedang aktif.
+
+5. **Akselerasi Kecepatan Ekstrem Auto-Skip "Cepat" (Turbo Lightning Cadence 70ms) (`GenshinSkipRunner.kt`, `HudAutomationControls.kt`, `HudPreferences.kt`)**:
+   - **Tuning Kecepatan "Cepat" Menjadi Benar-Benar Cepat (True Turbo Skipping)**:
+     - Mengubah preset mode kecepatan "Cepat" dari semula 180ms menjadi **70ms** (~14.3 ketukan per detik).
+     - Menghapus batas minimum buatan (*hardcoded minimum clamp*) `150L`/`160L` pada runner, mengizinkan frekuensi ketukan turun bebas hingga `45ms`.
+     - Siklus lompat dialog (advance text, choice selection, narration) kini berputar penuh hanya dalam 210ms (3x lebih cepat dibanding sebelumnya).
+   - **Penskalaan Otomatis Burst Count Otonom**:
+     - Menyesuaikan jumlah ketukan dalam satu semburan dialog (*burst count*) secara dinamis berdasarkan kecepatan: `(1200L / effectiveSpeed).coerceIn(8, 24)`.
+     - Pada kecepatan "Cepat" (70ms), mesin kini menembakkan 17 ketukan beruntun (~1.2 detik) tanpa jeda tangkapan layar, menghilangkan jeda mikroskopis antar dialog.
+   - **Harmonisasi 3 Spektrum Kecepatan**:
+     - *Cepat*: 70ms (Turbo Lightning Skip - ~14 ketukan/detik untuk dialog panjang/farming).
+     - *Alami*: 200ms (Natural Pace - 5 ketukan/detik yang menyerupai ritme sentuhan jempol manusia).
+     - *Santai*: 380ms (Relaxed Pace - 2.6 ketukan/detik untuk membaca alur sambil santai).
+   - **Migrasi Otomatis Pengaturan Pengguna Lama**:
+     - Preferensi pengguna lama yang menyimpan kecepatan 180ms secara mulus dinaikkan langsung ke 70ms ("Cepat" turbo) tanpa perlu reset data aplikasi.
+
+---
+
 # Lynx Universal [Sidebar Handle Ergonomic Position Memory & Zero-Snap Expand/Collapse Restoration] 7.0.0-RC249
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC249** (Lynx Kernel Manager v3.2.83): **Implementasi Memori Posisi Ergonomis Handle Sidebar Lynx Engine: Mengingat Posisi Y Vertikal Handle Pilihan Pengguna Secara Persisten, Mencegah Penimpaan Koordinat Handle Saat Membuka Laci Menu (Expand), Mencegah Overwrite Fraksi Posisi Oleh Drawer Layar Penuh, Serta Mengembalikan Handle Secara Instan ke Posisi Strategis Semula Saat Sidebar Ditutup (Collapse)**.

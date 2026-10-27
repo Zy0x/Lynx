@@ -47,7 +47,7 @@ internal fun HudAutomationControls(
         }
         HudDisclosure(hudString(R.string.hud_skip_options), expanded) { expanded = !expanded }
         if (expanded) {
-            val speeds = listOf(180L, 250L, 380L)
+            val speeds = listOf(70L, 200L, 380L)
             val labels = listOf(hudString(R.string.hud_autoskip_speed_fast), hudString(R.string.hud_autoskip_speed_normal), hudString(R.string.hud_autoskip_speed_slow))
             HudAdaptiveGrid(labels) { i -> HudChoice(labels[i], prefs.autoSkipSpeedMs == speeds[i], { onSpeed(speeds[i]) }, Modifier.weight(1f), enabled = !busy) }
             val choices = listOf(hudString(R.string.hud_autoskip_choice_top), hudString(R.string.hud_autoskip_choice_bottom))

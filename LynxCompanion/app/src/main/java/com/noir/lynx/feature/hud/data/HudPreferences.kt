@@ -47,7 +47,12 @@ class HudPreferencesStore(context: Context) {
             } }
         }.getOrDefault(emptyMap())
         val autoSkip = prefs.getBoolean("hud_autoskip_enabled", false)
-        val autoSkipSpeed = prefs.getLong("hud_autoskip_speed_ms", 250L)
+        val rawSpeed = prefs.getLong("hud_autoskip_speed_ms", 200L)
+        val autoSkipSpeed = when {
+            rawSpeed <= 180L -> 70L
+            rawSpeed in 181L..280L -> 200L
+            else -> 380L
+        }
         val autoSkipBottom = prefs.getBoolean("hud_autoskip_choice_bottom", false)
         return HudPreferences(pinned, selected, floating, engine, preset, wPct, hPct, dock, sizes, autoSkip, autoSkipSpeed, autoSkipBottom)
     }
