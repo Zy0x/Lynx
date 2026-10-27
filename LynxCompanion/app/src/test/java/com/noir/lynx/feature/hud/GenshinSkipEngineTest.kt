@@ -145,17 +145,17 @@ class GenshinSkipEngineTest {
 
     @Test
     fun minDialogueThresholdScalesDynamicallyWithResolution() {
-        // 1080p baseline requires at least 12 pixels
-        assertEquals(12, GenshinSkipEngine.calculateMinDialogueThreshold(1080))
+        // 1080p baseline requires at least 18 pixels (noise shield)
+        assertEquals(18, GenshinSkipEngine.calculateMinDialogueThreshold(1080))
 
-        // 720p budget display requires at least 8 pixels
-        assertEquals(8, GenshinSkipEngine.calculateMinDialogueThreshold(720))
+        // 720p budget display requires at least 12 pixels
+        assertEquals(12, GenshinSkipEngine.calculateMinDialogueThreshold(720))
 
-        // 1440p (2K) display requires at least 16 pixels
-        assertEquals(16, GenshinSkipEngine.calculateMinDialogueThreshold(1440))
+        // 1440p (2K) display requires at least 24 pixels
+        assertEquals(24, GenshinSkipEngine.calculateMinDialogueThreshold(1440))
 
         // Clamping safeguards against negative or zero dimensions
-        assertTrue(GenshinSkipEngine.calculateMinDialogueThreshold(0) >= 6)
+        assertTrue(GenshinSkipEngine.calculateMinDialogueThreshold(0) >= 10)
     }
 
     @Test
@@ -237,24 +237,59 @@ class GenshinSkipEngineTest {
 
     @Test
     fun promptScanSliceAdaptsToScreenResolutionsAndOrientations() {
-        // Infinix 2460 x 1080 (20.5:9)
-        // y = 944, promptW = 450
-        // xMin = 1230 - 225 = 1005, xMax = 1230 + 225 = 1455
-        // sliceBytes = (1455 - 1005) * 4 = 1800
+        // Spans 80% screen width (xMin = 10% W, xMax = 90% W) to verify margins
+        // Infinix 2460 x 1080: xMin = 246, xMax = 2214, sliceBytes = (2214 - 246) * 4 = 7872L
         val sliceInfinix = GenshinSkipEngine.calculatePromptScanSlice(2460, 1080)
-        assertEquals(1800L, sliceInfinix.second)
+        assertEquals(7872L, sliceInfinix.second)
 
         // Orientation invariance: portrait input resolves identical slice
         val sliceInfinixPortrait = GenshinSkipEngine.calculatePromptScanSlice(1080, 2460)
         assertEquals(sliceInfinix.first, sliceInfinixPortrait.first)
         assertEquals(sliceInfinix.second, sliceInfinixPortrait.second)
 
-        // Standard 16:9 1920 x 1080
-        // y = 944, promptW = 450
-        // xMin = 960 - 225 = 735, xMax = 960 + 225 = 1185
-        // sliceBytes = (1185 - 735) * 4 = 1800
+        // Standard 16:9 1920 x 1080: xMin = 192, xMax = 1728, sliceBytes = (1728 - 192) * 4 = 6144L
         val slice1080p = GenshinSkipEngine.calculatePromptScanSlice(1920, 1080)
-        assertEquals(1800L, slice1080p.second)
+        assertEquals(6144L, slice1080p.second)
+    }
+
+    @Test
+    fun evaluatePromptSliceWithMarginsDistinguishesCutsceneFromGameplay() {
+        val totalBytes = 7872
+        val slice = ByteArray(totalBytes) // all zeros = pitch black
+
+        // Scenario A: Pitch black margins + 20 gold pixels in center prompt
+        // Center prompt for 2460x1080 is at px in [759 until 1209] inside slice
+        val centerByteStart = 760 * 4
+        for (i in 0 until 20) {
+            val idx = centerByteStart + (i * 4)
+            slice[idx] = 235.toByte()     // R
+            slice[idx + 1] = 180.toByte() // G
+            slice[idx + 2] = 2.toByte()   // B
+            slice[idx + 3] = 255.toByte() // A
+        }
+        val cutsceneMetrics = GenshinSkipEngine.evaluatePromptSliceWithMargins(slice, 2460, 1080)
+        assertTrue(cutsceneMetrics.isConfirmedNarration)
+        assertEquals(20, cutsceneMetrics.goldMatches)
+        assertTrue(cutsceneMetrics.marginBlackRatio >= 0.80f)
+
+        // Scenario B: Dark cave gameplay - margins have colored terrain/rocks (R=120, G=100, B=90)
+        val caveSlice = ByteArray(totalBytes)
+        // Fill margins with non-black terrain
+        for (i in 0 until 500) {
+            val idx = i * 4 // in left margin
+            caveSlice[idx] = 120.toByte()
+            caveSlice[idx + 1] = 100.toByte()
+            caveSlice[idx + 2] = 90.toByte()
+        }
+        // Even if a torch has 20 gold pixels in center:
+        for (i in 0 until 20) {
+            val idx = centerByteStart + (i * 4)
+            caveSlice[idx] = 235.toByte()
+            caveSlice[idx + 1] = 180.toByte()
+            caveSlice[idx + 2] = 2.toByte()
+        }
+        val caveMetrics = GenshinSkipEngine.evaluatePromptSliceWithMargins(caveSlice, 2460, 1080)
+        assertFalse(caveMetrics.isConfirmedNarration) // MUST BE REJECTED!
     }
 
     @Test

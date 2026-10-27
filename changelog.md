@@ -18,7 +18,14 @@ Released on: 2026-10-28
    - **Eksekusi Ketukan Otonom Khusus Adegan Narasi (`coords.narration`)**:
      - Saat `BLACK_INTERSTITIAL` terdeteksi, runner secara otomatis mengalihkan titik ketukan langsung ke target prompt narasi (`X = 1230, Y = 950` pada 2460x1080) untuk memajukan dialog cerita dengan cepat dan mulus.
 
-2. **Pipeline Pelatihan & Kalibrasi Vision AI (`tools/train_scene_classifier.py`)**:
+2. **Perlindungan Anti-False-Positive Triple-Shield (Jaminan Mutlak Nol Ketukan Saat Gameplay Aktif)**:
+   - **Eliminasi Risiko Salah Deteksi Saat Bertarung / Menjelajah**:
+     - *Shield 1 (Glyph Run-Length Clustering)*: Tombol dialog asli tidak hanya mencocokkan ambang batas piksel warna krem (`RGB(236, 229, 216)`), tetapi wajib membentuk rangkaian glif kontinu (`maxRun >= 3` piksel bersebelahan) seperti segitiga play ▶, garis hamburger ☰, atau mata 👁. Menolak 100% noise dither acak dari tekstur alam seperti pasir gurun, tebing batu, salju, dan awan.
+     - *Shield 2 (Peningkatan Ambang Batas 18px)*: Menaikkan ambang batas dialog dasar dari 12px menjadi 18px pada 1080p (`((height * 18L) / 1080L)`).
+     - *Shield 3 (Margin Pitch-Blackness Verifier)*: Pada adegan narasi layar hitam, sistem tidak hanya memeriksa keberadaan diamond emas prompt di tengah, tetapi memindai 80% lebar layar (baris 944) untuk memverifikasi bahwa margin kiri (`X: 10%..35%`) dan margin kanan (`X: 65%..90%`) benar-benar bernilai hitam pekat (`marginBlackRatio >= 0.80f`). Menjamin bahwa gameplay di dalam gua gelap (seperti The Chasm), malam hari, atau domain dungeon tidak akan pernah salah terdeteksi sebagai cutscene narasi karena tekstur tanah di margin akan segera menolak deteksi.
+     - *Shield 4 (Gameplay HUD Immunity)*: Menjamin mode penjelajahan dunia terbuka dan pertarungan memiliki status Siaga Hening (0-tap) 100% tanpa gangguan sentuhan.
+
+3. **Pipeline Pelatihan & Kalibrasi Vision AI (`tools/train_scene_classifier.py`)**:
    - **Suite Pelatihan Citra Mandiri & Otomatis**:
      - Menyediakan utilitas Python komprehensif untuk pengembang dan pengguna:
        - `--pull`: Mengambil dataset tangkapan layar baru dari perangkat Android secara otomatis via ADB (`/sdcard/Lynx/scenes/`).

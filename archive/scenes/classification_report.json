@@ -11,29 +11,30 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 17813,
+    "gameplay_shields": {
+      "green_hp_count": 51
+    },
     "global": {
       "mean_rgb": [
         36.0,
         62.7,
         105.3
       ],
-      "black_ratio": 0.108,
+      "black_ratio": 0.018,
       "white_ratio": 0.03
     },
     "classification": {
       "scene_type": "START_SCREEN",
-      "confidence": 0.92,
+      "confidence": 0.95,
       "recommended_action": "suppress_0_tap"
     }
   },
@@ -49,24 +50,25 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 1.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 398520,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         252.9,
         253.0,
         253.0
       ],
-      "black_ratio": 0.004,
+      "black_ratio": 0.0,
       "white_ratio": 0.99
     },
     "classification": {
@@ -87,29 +89,30 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 11176,
+    "gameplay_shields": {
+      "green_hp_count": 63
+    },
     "global": {
       "mean_rgb": [
         36.1,
         83.7,
         156.7
       ],
-      "black_ratio": 0.007,
+      "black_ratio": 0.006,
       "white_ratio": 0.006
     },
     "classification": {
       "scene_type": "START_SCREEN",
-      "confidence": 0.92,
+      "confidence": 0.95,
       "recommended_action": "suppress_0_tap"
     }
   },
@@ -125,29 +128,30 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 13813,
+    "gameplay_shields": {
+      "green_hp_count": 51
+    },
     "global": {
       "mean_rgb": [
         35.6,
         81.6,
         154.4
       ],
-      "black_ratio": 0.007,
+      "black_ratio": 0.002,
       "white_ratio": 0.007
     },
     "classification": {
       "scene_type": "START_SCREEN",
-      "confidence": 0.92,
+      "confidence": 0.95,
       "recommended_action": "suppress_0_tap"
     }
   },
@@ -163,29 +167,30 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 11136,
+    "gameplay_shields": {
+      "green_hp_count": 38
+    },
     "global": {
       "mean_rgb": [
         35.4,
         82.1,
         154.1
       ],
-      "black_ratio": 0.007,
+      "black_ratio": 0.002,
       "white_ratio": 0.006
     },
     "classification": {
       "scene_type": "START_SCREEN",
-      "confidence": 0.92,
+      "confidence": 0.95,
       "recommended_action": "suppress_0_tap"
     }
   },
@@ -201,30 +206,31 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 0.0,
       "white_ratio": 0.174
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 0
+      "gold_matches": 0,
+      "margin_black_ratio": 0.0
     },
-    "center_bright_count": 5838,
+    "gameplay_shields": {
+      "green_hp_count": 3152
+    },
     "global": {
       "mean_rgb": [
         61.9,
         87.1,
         113.5
       ],
-      "black_ratio": 0.003,
+      "black_ratio": 0.0,
       "white_ratio": 0.01
     },
     "classification": {
       "scene_type": "OPEN_WORLD",
-      "confidence": 0.9,
-      "recommended_action": "suppress_0_tap"
+      "confidence": 0.99,
+      "recommended_action": "suppress_0_tap (HP Bar Active)"
     }
   },
   {
@@ -239,17 +245,18 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 1.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 182
+      "gold_matches": 182,
+      "margin_black_ratio": 1.0
     },
-    "center_bright_count": 7994,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         1.4,
@@ -277,17 +284,18 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 1.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 182
+      "gold_matches": 182,
+      "margin_black_ratio": 1.0
     },
-    "center_bright_count": 24926,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         4.2,
@@ -315,17 +323,18 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 1.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 182
+      "gold_matches": 182,
+      "margin_black_ratio": 1.0
     },
-    "center_bright_count": 30686,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         4.8,
@@ -353,24 +362,25 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 1.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 182
+      "gold_matches": 182,
+      "margin_black_ratio": 1.0
     },
-    "center_bright_count": 11638,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         1.9,
         1.8,
         1.6
       ],
-      "black_ratio": 0.99,
+      "black_ratio": 0.989,
       "white_ratio": 0.004
     },
     "classification": {
@@ -391,24 +401,25 @@
       "xmax": 550,
       "pixels": 235,
       "dialogue_matches": 0,
+      "max_glyph_run": 0,
       "black_ratio": 1.0,
       "white_ratio": 0.0
     },
-    "prompt_slice": {
+    "row944_slice": {
       "y": 944,
-      "xmin": 1005,
-      "xmax": 1455,
-      "pixels": 450,
-      "gold_matches": 182
+      "gold_matches": 182,
+      "margin_black_ratio": 1.0
     },
-    "center_bright_count": 21370,
+    "gameplay_shields": {
+      "green_hp_count": 0
+    },
     "global": {
       "mean_rgb": [
         3.8,
         3.8,
         3.6
       ],
-      "black_ratio": 0.98,
+      "black_ratio": 0.979,
       "white_ratio": 0.009
     },
     "classification": {

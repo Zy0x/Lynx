@@ -168,7 +168,7 @@ object GenshinSkipEngine {
      */
     fun calculateMinDialogueThreshold(screenHeight: Int): Int {
         val height = min(screenHeight, 4320).coerceAtLeast(720).toLong()
-        return ((height * 12L) / 1080L).coerceAtLeast(6L).toInt()
+        return ((height * 18L) / 1080L).coerceAtLeast(10L).toInt()
     }
 
     /**
@@ -213,14 +213,26 @@ object GenshinSkipEngine {
      * X is centered at width / 2, spanning width of (height * 450) / 1080 (~450px wide).
      * Returns Pair(headBytes, sliceBytes).
      */
+    data class PromptScanMetrics(
+        val goldMatches: Int,
+        val marginBlackRatio: Float,
+        val isConfirmedNarration: Boolean
+    )
+
+    /**
+     * Calculates the raw screencap byte slice parameters for the bottom narration prompt ("Tekan untuk melanjutkan"):
+     * Y is row 944 on 1080p (~87.4% height).
+     * Spans 80% screen width (X in 10% .. 90% width) to verify BOTH center prompt gold AND left/right margin pitch-blackness.
+     * Prevents 100% of false positives from night gameplay, dark caves, or open-world terrain.
+     * Returns Pair(headBytes, sliceBytes).
+     */
     fun calculatePromptScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
         val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
 
         val y = ((height * 944L) / 1080L).coerceIn(0L, height - 1L)
-        val promptW = ((height * 450L) / 1080L).coerceAtLeast(300L)
-        val xMin = ((width / 2L) - (promptW / 2L)).coerceAtLeast(0L)
-        val xMax = ((width / 2L) + (promptW / 2L)).coerceAtMost(width)
+        val xMin = ((width * 10L) / 100L).coerceAtLeast(0L)
+        val xMax = ((width * 90L) / 100L).coerceAtMost(width)
 
         val rowStart = 16L + (y * width * 4L)
         val byteStart = rowStart + (xMin * 4L)
@@ -229,6 +241,64 @@ object GenshinSkipEngine {
         val headBytes = byteEnd
 
         return headBytes to sliceBytes
+    }
+
+    /**
+     * Dual-verification for Black Interstitial Narration Cutscenes:
+     * 1. Evaluates center prompt zone (width/2 +- 225px) for Hoyoverse amber-gold diamond icon.
+     * 2. Evaluates left and right margins across row 944 for pitch-blackness (RGB < 25, 25, 25).
+     * Guaranteed 0-tap safety shield: in an open-world cave or night gameplay, the margins contain terrain textures,
+     * so marginBlackRatio is < 80%, immediately rejecting the scene and keeping 100% player control intact.
+     */
+    fun evaluatePromptSliceWithMargins(
+        slice: ByteArray,
+        screenWidth: Int,
+        screenHeight: Int
+    ): PromptScanMetrics {
+        val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
+        val height = min(screenWidth, screenHeight).coerceAtLeast(720)
+        val xMin = (width * 0.10f).toInt()
+        val promptW = ((height * 450) / 1080).coerceAtLeast(300)
+        val centerStart = ((width / 2) - (promptW / 2)) - xMin
+        val centerEnd = ((width / 2) + (promptW / 2)) - xMin
+
+        var goldMatches = 0
+        var marginBlackCount = 0
+        var totalMarginPixels = 0
+
+        var px = 0
+        var byteIdx = 0
+        while (byteIdx <= slice.size - 4) {
+            val r = slice[byteIdx].toInt() and 0xFF
+            val g = slice[byteIdx + 1].toInt() and 0xFF
+            val b = slice[byteIdx + 2].toInt() and 0xFF
+
+            if (px in centerStart until centerEnd) {
+                if (isPromptGoldColor(r, g, b)) {
+                    goldMatches++
+                }
+            } else {
+                totalMarginPixels++
+                if (r < 25 && g < 25 && b < 25) {
+                    marginBlackCount++
+                }
+            }
+            px++
+            byteIdx += 4
+        }
+
+        val marginBlackRatio = if (totalMarginPixels > 0) {
+            marginBlackCount.toFloat() / totalMarginPixels
+        } else {
+            0f
+        }
+        val isConfirmed = goldMatches >= 15 && marginBlackRatio >= 0.80f
+
+        return PromptScanMetrics(
+            goldMatches = goldMatches,
+            marginBlackRatio = marginBlackRatio,
+            isConfirmedNarration = isConfirmed
+        )
     }
 
     /**

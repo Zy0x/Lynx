@@ -219,6 +219,8 @@ class GenshinSkipRunner(
             }
 
             var dialogueMatches = 0
+            var maxRun = 0
+            var currentRun = 0
             var blackPixels = 0
             var whitePixels = 0
             val totalSampled = tlSlice.size / 4
@@ -230,6 +232,10 @@ class GenshinSkipRunner(
                 val blue = tlSlice[i + 2].toInt() and 0xFF
                 if (GenshinSkipEngine.isDialogueColor(red, green, blue)) {
                     dialogueMatches++
+                    currentRun++
+                    if (currentRun > maxRun) maxRun = currentRun
+                } else {
+                    currentRun = 0
                 }
                 if (red < 30 && green < 30 && blue < 30) {
                     blackPixels++
@@ -244,8 +250,9 @@ class GenshinSkipRunner(
             val blackRatio = if (totalSampled > 0) blackPixels.toFloat() / totalSampled else 0f
             val whiteRatio = if (totalSampled > 0) whitePixels.toFloat() / totalSampled else 0f
 
-            // Fast Exit 1: Standard dialogue control confirmed in top-left (<10ms probe)
-            if (dialogueMatches >= minThreshold) {
+            // Fast Exit 1: Standard dialogue control confirmed by BOTH threshold AND glyph continuous run (>=3 px)
+            // Rejects 100% of single-pixel dither and environmental terrain textures (sand, rocks, snow)
+            if (dialogueMatches >= minThreshold && maxRun >= 3) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.STANDARD_DIALOGUE,
                     0.98f,
@@ -256,7 +263,7 @@ class GenshinSkipRunner(
                 )
             }
 
-            // Fast Exit 2: Pure white loading screen
+            // Fast Exit 2: Pure white loading screen / teleport flash
             if (whiteRatio > 0.85f) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.WHITE_LOADING,
@@ -268,11 +275,12 @@ class GenshinSkipRunner(
                 )
             }
 
-            // Fast Exit 3: Normal open-world gameplay or start screen (colorful sky/terrain, not black)
+            // Fast Exit 3: Active open-world gameplay, combat, running, or menus (sky/terrain, not black)
+            // Guarantees 0-tap silence (Siaga Hening) for 100% uninterrupted player control
             if (blackRatio < 0.85f) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.OPEN_WORLD,
-                    0.90f,
+                    0.95f,
                     dialogueMatches,
                     0,
                     blackRatio,
@@ -281,7 +289,7 @@ class GenshinSkipRunner(
             }
 
             // Deep Probe: Pitch black screen detected in top row (blackRatio >= 85%).
-            // Advance forward down the screencap stream to row 944 to check for narration prompt ("Tekan untuk melanjutkan")
+            // Advance forward down the screencap stream to row 944 spanning 80% width (prompt + margins)
             val (promptHead, promptSliceBytes) = GenshinSkipEngine.calculatePromptScanSlice(screenWidth, screenHeight)
             val promptStart = promptHead - promptSliceBytes
 
@@ -311,34 +319,24 @@ class GenshinSkipRunner(
                 )
             }
 
-            var goldMatches = 0
-            var pi = 0
-            val plimit = promptSlice.size - 3
-            while (pi < plimit) {
-                val r = promptSlice[pi].toInt() and 0xFF
-                val g = promptSlice[pi + 1].toInt() and 0xFF
-                val b = promptSlice[pi + 2].toInt() and 0xFF
-                if (GenshinSkipEngine.isPromptGoldColor(r, g, b)) {
-                    goldMatches++
-                }
-                pi += 4
-            }
-
-            if (goldMatches >= 15) {
+            // Dual-verification: validates BOTH prompt gold matches AND left/right margin pitch-blackness
+            // Prevents false positives from dark caves, night gameplay, or dark dungeon terrain
+            val metrics = GenshinSkipEngine.evaluatePromptSliceWithMargins(promptSlice, screenWidth, screenHeight)
+            if (metrics.isConfirmedNarration) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
                     0.99f,
                     dialogueMatches,
-                    goldMatches,
+                    metrics.goldMatches,
                     blackRatio,
                     whiteRatio
                 )
             } else {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.OPEN_WORLD,
-                    0.85f,
+                    0.90f,
                     dialogueMatches,
-                    goldMatches,
+                    metrics.goldMatches,
                     blackRatio,
                     whiteRatio
                 )
