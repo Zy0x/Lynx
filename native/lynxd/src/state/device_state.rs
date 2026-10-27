@@ -247,10 +247,10 @@ impl DeviceState {
             ThermalLevel::Normal
         };
 
-        // Workload derivation
-        let workload_level = if raw.gpu.busy_percent > 65 {
+        // Workload derivation (Industrial normalized thresholds: 0-40% Idle, 40-75% Moderate, >75% Heavy)
+        let workload_level = if raw.gpu.busy_percent > 75 {
             WorkloadLevel::Heavy
-        } else if raw.gpu.busy_percent >= 20 {
+        } else if raw.gpu.busy_percent >= 40 {
             WorkloadLevel::Moderate
         } else {
             WorkloadLevel::Idle

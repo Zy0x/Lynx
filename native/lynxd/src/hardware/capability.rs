@@ -113,14 +113,14 @@ impl GpuCapability {
         self.lowest_opp()
     }
 
-    /// Tier 1: Light interaction OPP (~25% quartile, e.g. ~462-495 MHz for tap, photo preview)
+    /// Tier 1: Light interaction OPP (~22% quartile, e.g. ~446-478 MHz for tap, photo preview)
     pub fn light_opp(&self) -> Option<&GpuOppEntry> {
-        self.opp_at_quantile(0.25)
+        self.opp_at_quantile(0.22)
     }
 
-    /// Tier 2: Fluid interaction OPP (~50% median, e.g. ~588-675 MHz for scrolling, rapid fling, video)
+    /// Tier 2: Fluid interaction OPP (~44% quantile, e.g. ~588-617 MHz for scrolling, rapid fling, video)
     pub fn fluid_opp(&self) -> Option<&GpuOppEntry> {
-        self.opp_at_quantile(0.50)
+        self.opp_at_quantile(0.44)
     }
 
     /// Tier 3: Peak OPP (100% quantile, e.g. 950 MHz for heavy 3D rendering)

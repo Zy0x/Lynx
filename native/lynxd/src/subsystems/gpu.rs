@@ -320,7 +320,7 @@ impl GpuController {
         };
 
         let current = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
-        if now_ms.saturating_sub(last) < 60 && current >= (target_state as u8) {
+        if now_ms.saturating_sub(last) < 40 && current >= (target_state as u8) {
             return;
         }
         LAST_TOUCH_BOOST_MS.store(now_ms, Ordering::Relaxed);
@@ -398,29 +398,25 @@ impl GpuController {
         } else {
             // Balance profile: Ultra-Efficient 4-Tier Multi-Factor Decision
             let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
-            let is_touch = crate::daemon::TouchDetector::is_touch_recent(1500);
+            let is_touch = crate::daemon::TouchDetector::is_touch_recent(350);
 
-            match workload {
-                WorkloadLevel::Heavy => {
-                    // Heavy 3D rendering / sustained high GPU compute: Engage Peak (950 MHz)
-                    DynamicGpuState::Peak
-                }
-                WorkloadLevel::Moderate => {
-                    // Moderate rendering / video playback / heavy UI: Engage Fluid (~675 MHz)
-                    DynamicGpuState::Fluid
-                }
-                WorkloadLevel::Idle => {
-                    if is_rapid {
-                        // High-velocity fling / rapid swiping: Engage Fluid (~675 MHz)
-                        DynamicGpuState::Fluid
-                    } else if is_touch {
-                        // Light interaction / single tap / photo preview: Engage Light (~495 MHz)
-                        DynamicGpuState::Light
-                    } else {
-                        // Stationary / reading: Drop to Idle (300 MHz)
-                        DynamicGpuState::Idle
-                    }
-                }
+            // True normalized compute load (MHz) = (current frequency * load %) / 100
+            // Eliminates harmonic oscillation / low-frequency load bias where 20% load at 300MHz (only 60MHz compute)
+            // was previously falsely misclassified as "Moderate" and pushed GPU to 675MHz.
+            let effective_mhz = (gpu.cur_freq_mhz * (gpu.load_pct as u64)) / 100;
+
+            if workload == WorkloadLevel::Heavy || effective_mhz > 520 {
+                // Heavy 3D rendering / sustained high compute (> 520 MHz effective): Engage Peak
+                DynamicGpuState::Peak
+            } else if is_rapid || workload == WorkloadLevel::Moderate || effective_mhz > 280 {
+                // Rapid fling gesture, active high-refresh scrolling, or moderate compute (> 280 MHz effective): Engage Fluid
+                DynamicGpuState::Fluid
+            } else if is_touch || effective_mhz > 160 {
+                // Single tap, interactive touch, or light rendering (> 160 MHz effective): Engage Light
+                DynamicGpuState::Light
+            } else {
+                // Screen stationary, reading, idle background composition: Drop to Idle (300 MHz)
+                DynamicGpuState::Idle
             }
         };
 
@@ -456,8 +452,8 @@ impl GpuController {
             match current_state {
                 DynamicGpuState::Peak => {
                     let last_peak = LAST_PEAK_MS.load(Ordering::Relaxed);
-                    if now_ms.saturating_sub(last_peak) < 800 {
-                        // Hold at Peak during 800ms cooldown window
+                    if now_ms.saturating_sub(last_peak) < 500 {
+                        // Hold at Peak during 500ms cooldown window
                         DynamicGpuState::Peak
                     } else {
                         // Step down to Fluid first
@@ -468,8 +464,8 @@ impl GpuController {
                 DynamicGpuState::Fluid => {
                     let last_fluid = LAST_FLUID_MS.load(Ordering::Relaxed);
                     let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
-                    if now_ms.saturating_sub(last_fluid) < 1000 || is_rapid {
-                        // Hold at Fluid during 1000ms scrolling window
+                    if now_ms.saturating_sub(last_fluid) < 500 || is_rapid {
+                        // Hold at Fluid during 500ms scrolling window
                         DynamicGpuState::Fluid
                     } else {
                         // Step down to Light
@@ -479,9 +475,9 @@ impl GpuController {
                 }
                 DynamicGpuState::Light => {
                     let last_light = LAST_LIGHT_MS.load(Ordering::Relaxed);
-                    let is_touch = crate::daemon::TouchDetector::is_touch_recent(1500);
-                    if now_ms.saturating_sub(last_light) < 1200 || is_touch {
-                        // Hold at Light during 1200ms interaction window
+                    let is_touch = crate::daemon::TouchDetector::is_touch_recent(350);
+                    if now_ms.saturating_sub(last_light) < 400 || is_touch {
+                        // Hold at Light during 400ms interaction / ripple window
                         DynamicGpuState::Light
                     } else {
                         // Cleanly decay down to Idle (300 MHz)

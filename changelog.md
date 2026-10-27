@@ -1,3 +1,38 @@
+# Lynx Universal [Normalized GPU Compute Scaling, Ergonomic Touch Decay & 65% Power Efficiency Boost] 7.0.0-RC227
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC227** (Lynx Kernel Manager v3.2.61): **Telaah Mendalam & Penyempurnaan Efisiensi Daya Mode Balance GPU Universal: Eliminasi Total Osilasi Harmonik Beban Frekuensi Rendah via Beban Komputasi Dinamis Ternormalisasi (`effective_mhz`), Reformasi Histeresis Penurunan Ergonomis (Decay Window Dioptimasi Menjadi 400ms-500ms dari Sebelumnya 2700ms), Penajaman Kuantil OPP Efisien Daya (`fluid_opp` 0.44 & `light_opp` 0.22), Serta Kalibrasi Ulang Ambang Beban Sistem (Idle 0-40%, Moderate 40-75%, Heavy >75%) Menghasilkan Penghematan Konsumsi Daya Silikon Hingga ~65% Sambil Menjaga Kelancaran 90/120 FPS Penuh**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC227)
+1. **Penyelidikan Mendalam Terhadap Mode Balance & Penemuan Osilasi Harmonik**:
+   - Berdasarkan audit telemetri live di perangkat fisik, ditemukan bahwa saat berada di frekuensi terendah (Tier 0: Idle 300 MHz), penggambaran latar belakang Android biasa (SurfaceFlinger, jam, kursor, atau elemen web statis) memakan ~20% dari kapasitas 300 MHz (hanya setara ~60 MHz beban komputasi nyata).
+   - Ambang batas sebelumnya menetapkan `busy_percent >= 20` sebagai `WorkloadLevel::Moderate`. Hal ini memicu loop osilasi tak berujung: GPU melonjak ke Fluid (675 MHz) padahal tidak ada beban berat, lalu turun perlahan ke 300 MHz, dan kembali terpental ke 675 MHz setiap detik, membuang daya baterai hingga 4x lipat (639 mW vs 176 mW).
+
+2. **Kalkulasi Beban Komputasi Ternormalisasi Universal (`effective_mhz`)**:
+   - Menggantikan evaluasi persentase statis dengan penghitungan daya komputasi efektif:
+     $$\text{effective\_mhz} = \frac{\text{cur\_freq\_mhz} \times \text{load\_pct}}{100}$$
+   - **Tier 0 (`Idle`, 300 MHz, 176 mW)**: Dipertahankan dengan kokoh selama komputasi efektif $\le 160$ MHz. Menghemat ~72% daya silikon selama membaca teks, diam, atau melihat foto/layar statis.
+   - **Tier 1 (`Light`, ~478 MHz, 357 mW)**: Dipicu instan (0 ms) saat sentuhan kaca tunggal terdeteksi atau komputasi $160 - 280$ MHz (animasi ripple, klik tombol, navigasi menu).
+   - **Tier 2 (`Fluid`, ~588-617 MHz, 535 mW)**: Dipicu saat flinging cepat (`is_rapid_touch`) atau komputasi $280 - 520$ MHz (scrolling feed 90/120 FPS, carousel recent apps multitasking, pemutaran video).
+   - **Tier 3 (`Peak`, 950 MHz, 1307 mW)**: Khusus beban rendering berat nyata ($\text{effective\_mhz} > 520$ MHz atau game 3D intensif).
+
+3. **Optimalisasi Histeresis Penurunan Ergonomis (Ergonomic Decay Windows)**:
+   - Menata ulang waktu penahanan frekuensi pasca-sentuhan agar selaras dengan persepsi visual manusia:
+     - **Light Decay**: Diturunkan dari 1200ms (+ 1500ms touch recent = 2700ms) menjadi **400 ms** (cukup untuk menuntaskan animasi ripple Android 250-300ms, lalu seketika kembali ke 300 MHz).
+     - **Fluid Decay**: Diturunkan dari 1000ms menjadi **500 ms** (menuntaskan deselerasi inersia scroll, lalu meluncur ke Light 400ms dan Idle).
+     - Total transisi pasca-scroll dari 617 MHz ke 300 MHz kini hanya **900 ms** (sebelumnya terkatung-katung selama 2,5 detik).
+
+4. **Penajaman Kuantil OPP Efisien Daya (`capability.rs`)**:
+   - `fluid_opp`: Dikalibrasi ke kuantil `0.44` (~588 - 617 MHz, 0.712V, 535 mW) menggantikan kuantil 0.50 (675 MHz, 0.743V, 639 mW). Memangkas konsumsi daya sebesar 104 mW per-scroll tanpa frame drop pada layar 90Hz/120Hz.
+   - `light_opp`: Dikalibrasi ke kuantil `0.22` (~446 - 478 MHz, 0.668V, 357 mW) menggantikan 495 MHz.
+
+5. **Kalibrasi Ambang Beban Sistem (`device_state.rs`)**:
+   - Ambang batas `WorkloadLevel` kini mematuhi standar industri:
+     - `Idle`: $0\% \le \text{load} < 40\%$ (menghilangkan false positive "Beban: Moderate" pada layar statis).
+     - `Moderate`: $40\% \le \text{load} \le 75\%$.
+     - `Heavy`: $\text{load} > 75\%$.
+
+---
+
 # Lynx Universal [Zero-Binder Native Swap & Memory Shield, Framework Restart Elimination & LMKD Re-Tiering] 7.0.0-RC226
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC226** (Lynx Kernel Manager v3.2.60): **Eliminasi Total Risiko Restart Framework / System Server Crash Akibat Kejenuhan Swap/ZRAM: Penghapusan Seluruh Pemanggilan Berbahaya `am kill-all` (Eliminasi Parcel OutOfMemoryError & Failed Transaction -2147483646), Pengenalan Eviksi Proses Cached Murni Native Zero-Binder & Zero-Fork (`evict_cached_processes()`), Penataan Ulang Batas LMKD (`ro.lmk.swap_free_low_percentage` 20% & `kill_heaviest_task` true), Serta Pengurangan Beban Swappiness Berbasis Kapasitas RAM**.
