@@ -92,11 +92,11 @@ impl SchedulerGuardian {
                     Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o644);
 
                     Logger::info(ui(
-                        format!(
+                        &format!(
                             "[SCHED-GUARDIAN] Terdeteksi penurunan boost top-app ({} -> {}). Mengunci kembali EAS margin!",
                             cur_val, target_stune_boost
                         ),
-                        format!(
+                        &format!(
                             "[SCHED-GUARDIAN] Detected top-app schedtune boost degradation ({} -> {}). Re-asserting EAS margin!",
                             cur_val, target_stune_boost
                         ),
@@ -130,11 +130,11 @@ impl SchedulerGuardian {
                 }
 
                 Logger::info(ui(
-                    format!(
+                    &format!(
                         "[SCHED-GUARDIAN] Terdeteksi inversi prioritas MediaTek EAS (TA: {}, FG: {}). Memulihkan prioritas game (TA: {})!",
                         cur_ta, cur_fg, target_ta_boost
                     ),
-                    format!(
+                    &format!(
                         "[SCHED-GUARDIAN] Detected MediaTek EAS priority inversion (TA: {}, FG: {}). Restored game priority (TA: {})!",
                         cur_ta, cur_fg, target_ta_boost
                     ),
