@@ -1,19 +1,23 @@
-# Lynx Universal [Qualcomm 4.40V Float Voltage Saturation Ceiling & Step-Charging Bypass Unlock] 7.0.0-RC243
+# Lynx Universal [Per-App Automation Lynx Engine Overlay Auto-Display & Robust Foreground Detection] 7.0.0-RC243
 Released on: 2026-10-28
-> **Lynx Universal v7.0.0-RC243** (Lynx Kernel Manager v3.2.77): **Pembukaan Penuh Plafon Tegangan Saturasi Float Voltage 4.40V (4,400,000 uV) Sesuai Spesifikasi Fisik Sel Baterai Li-Po (BN40/BN4A), Penonaktifan Permanen Software Step-Charging Kernel (`step_charging_enabled=0`) & SW JEITA (`sw_jeita_enabled=0`) Pada Arsitektur Qualcomm Snapdragon (Redmi Note 7 / PM660), Serta Penyelarasan Sintaksis Action-Info Daemon Thermal-Engine**.
+> **Lynx Universal v7.0.0-RC243** (Lynx Kernel Manager v3.2.77): **Perbaikan Total Otomasi Lynx Engine Overlay (OSD Tile Real-Time FPS, Suhu, & Daya Watt) Saat Menjalankan Game: Otomatis Menampilkan Overlay Mengambang (Mode 1 Classic Tile) Melalui Intent Terkoordinasi Baik Saat Service Baru Berjalan Maupun Sedang Aktif di Latar Belakang (Mode 0 Sidebar Handle), Restorasi Status Otomatis Saat Game Ditutup, Serta Resolusi Penuh Pendeteksian Aplikasi Foreground Melalui 5-Minute UsageEvents Window dan Fast Root Ground-Truth Fallback**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC243)
-1. **Pelepasan Batas Tegangan Float Voltage (FV) Menuju 4.40V (`charging.rs`, `ExtremeChargingScript.kt`)**:
+1. **Perbaikan Otomasi Lynx Engine Overlay Pada Game (`LynxAppAutomationService.kt` & `LynxFloatingHudService.kt`)**:
+   - **Tampilan Otomatis Mode 1 (Floating OSD Tile)**: Mengatasi kendala di mana toggle *"Lynx Engine Overlay: Tampilkan overlay FPS, suhu, & daya watt real-time"* aktif pada otomasi aplikasi namun tidak muncul saat game dijalankan.
+   - **Penerapan Intent Mode Terkoordinasi**: Sistem kini mengirimkan sinyal `EXTRA_MODE = 1` ke `LynxFloatingHudService` baik saat service baru diinisialisasi (`ACTION_START`) maupun saat service telah berjalan di latar belakang dalam mode handle (`ACTION_SET_MODE`).
+   - **Restorasi Status Dua Arah Cerdas (*State Preservation*)**: Menyimpan `previousHudMode`. Jika sebelum membuka game HUD aktif dalam Mode 0 (Sidebar Handle), saat game ditutup HUD otomatis kembali ke Mode 0. Jika HUD awalnya mati, HUD akan ditutup secara bersih saat game ditutup atau layar dimatikan.
+
+2. **Resolusi Deteksi Foreground & Eliminasi Premature Timeout (`LynxForegroundDetector.kt`)**:
+   - **Eliminasi Procfs Permission Choke**: Menambahkan pengecualian paket internal (`com.noir.lynx` & `com.noir.lynx:hud`) pada pemindaian cpuset cgroup, mencegah proses pendamping sendiri membajak status deteksi aplikasi teratas.
+   - **Ekspansi Event Window 5 Menit**: Memperluas rentang query `UsageEvents` dari 12 detik menjadi 300.000 ms (5 menit), memastikan game kelas berat (*Genshin Impact*, *Honkai: Star Rail*, dll.) yang memiliki waktu loading panjang atau sesi gameplay tanpa transisi aktivitas tetap terdeteksi 100% akurat.
+   - **Fast Root Ground-Truth Fallback**: Menambahkan mekanisme verifikasi cadangan berlatensi rendah melalui `dumpsys activity activities topResumedActivity` via koneksi persisten `libsu`.
+   - **Deteksi Status Hidup Proses Terverifikasi (*Rock-Solid Process Liveness*)**: Menggantikan timeout 10 detik `isTargetAppAlive()` dengan pemeriksaan langsung `pidof`/`pgrep` root dan `ActivityManager.runningAppProcesses`, menjamin profil performa dan overlay tidak terhenti secara prematur saat pengguna sedang asyik bermain.
+
+3. **Pelepasan Batas Tegangan Float Voltage (FV) Menuju 4.40V & Thermal Engine (`charging.rs`, `ExtremeChargingScript.kt`)**:
    - Menulis dan mengunci nilai tegangan batas akhir penuh 4.40V (`4400000` uV) pada node `/sys/class/power_supply/battery/constant_charge_voltage`, `constant_charge_voltage_max`, dan `voltage_max`.
    - Mengeliminasi pemotongan arus dini (*premature tapering*) akibat profil kernel OEM yang menurunkan batas float voltage ke 4.33V–4.35V saat mendeteksi suhu hangat moderat.
-   - Memungkinkan arus pengisian cepat tetap bertahan di kisaran **1200 mA – 1500 mA** pada kapasitas 80%–88% sebelum melandai secara alami karena keterbatasan kimiawi sel.
-
-2. **Bypass Penuh Algoritma Step-Charging & SW JEITA Driver QTI**:
-   - Menghalangi eksekusi `STEP_CHG_VOTER` kernel yang secara artifisial memotong arus pengisian berdasarkan tabel SoC bertingkat OEM (70%, 80%, 90%).
-   - Memastikan pengisian daya pada persentase tinggi murni diatur oleh kurva saturasi *Constant Voltage* (CV) alami sel baterai dan bukan oleh pembatasan software OEM yang terlalu konservatif.
-
-3. **Penyelarasan Sintaksis Thermal-Engine Action-Info (`thermal-engine.conf`)**:
-   - Memperbaiki pemetaan `action_info 1 2 4 5 6` pada konfigurasi platform Qualcomm agar valid 100% terhadap parser daemon vendor `ThermalEngine`, mencegah log error *"Invalid input for section BATTERY_CHARGING_CTL"*.
+   - Penyelarasan sintaksis konfigurasi platform Qualcomm `action_info` agar kompatibel 100% dengan parser daemon vendor `ThermalEngine`.
 
 ---
 
