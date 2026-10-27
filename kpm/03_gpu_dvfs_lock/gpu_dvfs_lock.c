@@ -19,7 +19,7 @@
 #define MODULE_NAME "gpu_dvfs_lock"
 #define PROC_DIR "lynx"
 #define PROC_NODE "gpu_dvfs_lock"
-#define DEFAULT_FLOOR_MHZ 850
+#define DEFAULT_FLOOR_MHZ 950
 #define PEAK_FLOOR_MHZ 950
 
 MODULE_LICENSE("GPL");
@@ -29,7 +29,7 @@ MODULE_VERSION("1.0.0");
 
 static int locked_freq_mhz = DEFAULT_FLOOR_MHZ;
 module_param(locked_freq_mhz, int, 0644);
-MODULE_PARM_DESC(locked_freq_mhz, "Locked lower-bound GPU frequency in MHz (default: 850)");
+MODULE_PARM_DESC(locked_freq_mhz, "Locked lower-bound GPU frequency in MHz (default: 950)");
 
 static int gpu_lock_enabled = 1;
 module_param(gpu_lock_enabled, int, 0644);

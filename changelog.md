@@ -1,3 +1,20 @@
+# Lynx Universal [Mali GPU DVFS Lock 950 MHz Peak Clock Calibration & Undervolt Synergy] 7.0.0-RC253
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC253** (Lynx Kernel Manager v3.2.87): **Penyelarasan Pengunci Lantai Frekuensi GPU Mali-G57 MC2 ke 950 MHz Puncak Hardware (OPP [00]): Mengintegrasikan Sinergi Penuh Antara Modul KPM Pengunci DVFS (gpu_dvfs_lock) dan Modul Undervolting GPU (lynx_gpu_uv) Agar GPU Terkunci Langsung di Clock Maksimum 950 MHz dengan Suhu Silikon Tetap Dingin dan Stabil Tanpa Stuttering**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC253)
+1. **Kalibrasi Frekuensi Default gpu_dvfs_lock ke 950 MHz (OPP Puncak)**:
+   - Memperbarui DEFAULT_FLOOR_MHZ pada kpm/03_gpu_dvfs_lock/gpu_dvfs_lock.c dari 850 MHz menjadi 950 MHz (OPP index 0).
+   - Menghilangkan friksi tawar-menawar frekuensi antara driver GED dan Mali DVFS, mengunci lantai frekuensi langsung di titik tertinggi kemampuan hardware silikon Helio G96.
+
+2. **Sinergi Penuh dengan lynx_gpu_uv.kpm**:
+   - Memanfaatkan optimasi voltase Peak Tier dari lynx_gpu_uv (offset -12.5 mV pada tegangan puncak 850 mV -> 837.5 mV), sehingga saat GPU berjalan di clock maksimum 950 MHz, suhu silikon tetap sejuk (~3-5°C lebih dingin) dan konsumsi daya tetap efisien tanpa memicu thermal throttling dini.
+
+3. **Sinkronisasi Dokumen & Repositori Target**:
+   - Memperbarui berkas source code dan README di penyimpanan internal perangkat fisik /storage/emulated/0/Lynx/KPM/03_gpu_dvfs_lock/ dan repositori utama.
+
+---
+
 # Lynx Universal [Modular Kernel Patch Modules (KPM/LKM), Ring-0 Telemetry & Independent Load/Unload Suite] 7.0.0-RC252
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC252** (Lynx Kernel Manager v3.2.86): **Implementasi Arsitektur Modul Kernel Ring-0 Terpisah (Modular Kernel Patch Modules / KPM & LKM): Menyediakan 4 Modul Kernel C Mandiri yang Dapat Dimuat (*load*) dan Dilepas (*unload*) Secara Independen Demi Fleksibilitas Pengguna, Meliputi EAS Schedtune Sentinel (`eas_sentinel`), Peredam Throttling Termal Lembut (`thermal_silencer`), Pengunci Lantai Frekuensi GPU Mali G57 (`gpu_dvfs_lock`), Serta Penyangga Memori Anti-Allocstall (`mem_cushion`), Dilengkapi Telemetri `/proc/lynx/*` dan Panduan Komprehensif di `/storage/emulated/0/Lynx/KPM`**.

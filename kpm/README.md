@@ -84,7 +84,7 @@ KPM (Kernel Patch Module) Lynx dirancang secara **terpisah per-fitur**. Setiap f
 - **Node Procfs**: `/proc/lynx/gpu_dvfs_lock`
 - **Kontrol Dinamis**:
   ```bash
-  # Kunci frekuensi lantai GPU ke 850 MHz atau 950 MHz puncak
+  # Kunci frekuensi lantai GPU ke 950 MHz puncak (default) atau 850 MHz
   echo "freq=950" > /proc/lynx/gpu_dvfs_lock
   echo "freq=850" > /proc/lynx/gpu_dvfs_lock
   # Kembalikan ke auto DVFS bawaan
