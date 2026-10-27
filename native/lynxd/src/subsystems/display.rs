@@ -244,6 +244,11 @@ impl DisplayController {
         let cur = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
         if cur != high_hz {
             CURRENT_DISPLAY_HZ.store(high_hz, Ordering::Relaxed);
+            let now_ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
             let hz_str = format!("{}.0", high_hz);
             let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
             let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
@@ -257,6 +262,7 @@ impl DisplayController {
         fg_app: Option<&ForegroundApp>,
         active_profile: &str,
         is_screen_on: bool,
+        is_multitask: bool,
     ) {
         if !is_screen_on {
             return;
@@ -312,10 +318,12 @@ impl DisplayController {
 
         let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
 
-        // Android kinetic scroll (OverScroller fling) lasts between 1500ms and 2200ms.
-        // During the entire kinetic fling motion, display must remain pinned at High Tier (120Hz).
-        let is_kinetic_active = TouchDetector::is_touch_recent(2200)
-            || TouchDetector::is_touch_moving(2200)
+        // Kinetic fling window: 2,200ms for single app scrolling; extended to 3,000ms during multitasking
+        // to prevent multi-layer SurfaceFlinger compositor stutter while switching focus between split windows.
+        let kinetic_window_ms: u64 = if is_multitask { 3000 } else { 2200 };
+
+        let is_kinetic_active = TouchDetector::is_touch_recent(kinetic_window_ms)
+            || TouchDetector::is_touch_moving(kinetic_window_ms)
             || TouchDetector::is_rapid_touch(150, 2);
 
         let target_hz = if active_profile == "powersave" {
@@ -324,10 +332,14 @@ impl DisplayController {
         } else if is_game {
             // Gaming: Lock to High Tier continuously to eliminate panel switching flicker
             high_hz
+        } else if is_multitask && is_kinetic_active {
+            // Multitasking (Split-Screen / Freeform / PiP): Keep pinned at High Tier (120Hz)
+            // during active window interaction to guarantee zero compositor jank
+            high_hz
         } else if is_media {
-            // Video / Streaming (YouTube, Netflix, VLC):
-            // If actively touching / seeking: High Tier (120Hz)
-            // If watching video hands-off: Low Tier (60Hz) to match 24/30/60 FPS video and save ~35% battery
+            // Video / Streaming (YouTube, Netflix, VLC, MX Player):
+            // If actively touching / scrubbing timeline: High Tier (120Hz)
+            // If watching video hands-off: Low Tier (60Hz) to match 24/30/60 FPS video and save ~35-40% battery
             if TouchDetector::is_touch_recent(1500) || TouchDetector::is_touch_moving(1500) {
                 high_hz
             } else {
@@ -344,33 +356,67 @@ impl DisplayController {
         let current_hz = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
         if target_hz != current_hz {
             let last_change = LAST_HZ_CHANGE_MS.load(Ordering::Relaxed);
+            let dwell_ms: u64 = if is_multitask { 2000 } else { 1000 };
             // Instant Ramp-Up (0 ms) when target > current.
-            // Minimum dwell time (1000ms) when stepping down to prevent visual flapping.
-            if target_hz > current_hz || now_ms.saturating_sub(last_change) >= 1000 {
+            // Dwell time (1000ms, or 2000ms in multitask) when stepping down to prevent visual flapping.
+            if target_hz > current_hz || now_ms.saturating_sub(last_change) >= dwell_ms {
                 Self::apply_hz_auto(target_hz, high_hz);
                 CURRENT_DISPLAY_HZ.store(target_hz, Ordering::Relaxed);
                 LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
                 Logger::info(format!(
-                    "[DISPLAY] Dynamic Hz scale: {} Hz -> {} Hz (App: {:?})",
+                    "[DISPLAY] Dynamic Hz scale: {} Hz -> {} Hz (App: {:?}, Multitask: {})",
                     current_hz,
                     target_hz,
-                    fg_app.map(|a| a.package.as_str())
+                    fg_app.map(|a| a.package.as_str()),
+                    is_multitask
                 ));
             }
         }
     }
 
-    /// Toggles touch sampling rate boost across common OEM kernel nodes.
+    /// Toggles touch sampling rate boost across common OEM kernel nodes and framework settings.
     pub fn apply_touch_boost(enable: bool) -> String {
         let val = if enable { "1" } else { "0" };
         let mut count = 0usize;
 
+        // 1. Android Framework High Polling & Sensitivity Settings
+        let _ = Self::run_cmd("settings", &["put", "system", "high_touch_polling_rate_enable", val]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "high_touch_polling_rate_enable", val]);
+        let _ = Self::run_cmd("settings", &["put", "global", "high_touch_polling_rate_enable", val]);
+        let _ = Self::run_cmd("settings", &["put", "system", "high_touch_sensitivity_enable", val]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "high_touch_sensitivity_enable", val]);
+        let _ = Self::run_cmd("settings", &["put", "system", "touch_game_mode", val]);
+
+        // 2. MediaTek Touch Panel Driver (TPD) Low-Latency & Zero-Debounce
+        let debounce_val = if enable { "0" } else { "10" };
+        let tpd_nodes = [
+            "/sys/module/tpd_setting/parameters/tpd_em_debounce_time",
+            "/sys/module/tpd_setting/parameters/tpd_em_debounce_time0",
+            "/sys/module/tpd_setting/parameters/tpd_em_debounce_time1",
+        ];
+        for node in tpd_nodes {
+            if Self::write_opt(node, debounce_val) {
+                count += 1;
+            }
+        }
+        if Self::write_opt("/sys/module/tpd_setting/parameters/tpd_mode", val) {
+            count += 1;
+        }
+
+        // 3. Multi-OEM Hardware Game Mode & Sampling Nodes
         let touch_nodes = [
             "/sys/class/touch/touch_dev/touch_game_mode",
             "/sys/devices/virtual/touch/touch_dev/bump_sample_rate",
             "/proc/touchscreen/game_mode",
+            "/proc/touchpanel/game_switch_enable",
             "/sys/devices/platform/goodix_ts.0/game_mode",
             "/sys/devices/platform/tp_wake_switch/game_mode",
+            "/sys/devices/platform/fts_touch/game_mode",
+            "/sys/devices/platform/soc/soc:touch/game_mode",
+            "/proc/ppm/policy/touch_boost",
+            "/proc/perfmgr/boost_ctrl/eas_ctrl/touch_boost",
+            "/sys/module/perfmgr/parameters/touch_boost",
+            "/sys/module/msm_performance/parameters/touchboost",
         ];
 
         for node in touch_nodes {
@@ -379,10 +425,28 @@ impl DisplayController {
             }
         }
 
-        // Wildcard scan for virtual inputs
+        // 4. Oppo/Realme/OnePlus TP limit override (write 0 to remove throttling)
+        if enable {
+            let _ = Self::write_opt("/proc/touchpanel/oppo_tp_limit_enable", "0");
+        }
+
+        // 5. Wildcard scan for virtual and platform input devices
         if let Ok(entries) = fs::read_dir("/sys/devices/virtual/input") {
             for entry in entries.flatten() {
                 let gm_path = entry.path().join("touch_game_mode");
+                if Self::write_opt(gm_path, val) {
+                    count += 1;
+                }
+                let sr_path = entry.path().join("sample_rate");
+                if enable && Self::write_opt(sr_path, "240") {
+                    count += 1;
+                }
+            }
+        }
+
+        if let Ok(entries) = fs::read_dir("/sys/class/input") {
+            for entry in entries.flatten() {
+                let gm_path = entry.path().join("device").join("game_mode");
                 if Self::write_opt(gm_path, val) {
                     count += 1;
                 }
@@ -390,9 +454,10 @@ impl DisplayController {
         }
 
         format!(
-            "Touch boost set to {} ({} kernel nodes updated).",
+            "Touch boost set to {} ({} kernel nodes updated, framework high-polling set to {}).",
             if enable { "ENABLED" } else { "DISABLED" },
-            count
+            count,
+            val
         )
     }
 

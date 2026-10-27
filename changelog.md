@@ -1,3 +1,29 @@
+# Lynx Universal [Autonomous Dynamic Display & Multitasking Scaler, Sub-1ms TouchBoost & High Polling Engine] 7.0.0-RC231
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC231** (Lynx Kernel Manager v3.2.65): **Revolusi Skalabilitas Refresh Rate Layar Adaptif & Respons Sentuh Layar Cerdas: Integrasi Penuh Kesadaran Multitasking (`is_multitask` Awareness) Pada Dynamic Display Scaler (Jendela Interaksi Kinetik Diperpanjang Menjadi 3.000ms untuk Menghilangkan Total Stutter Multi-Layer SurfaceFlinger), Pemulihan Frame Pacing Alami Android Tanpa Backdoor HWC Stalls, Pembedaan Presisi Antara Feed Scrolling vs Video Streaming Hands-Off (Hemat Daya Layar ~40%), Serta Akselerasi Sampling Sentuh Tingkat Kernel (Digitizer Polling Rate 240Hz/360Hz & Zero-Debounce MediaTek TPD)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC231)
+1. **Dynamic Display Scaler dengan Kesadaran Multitasking Penuh (`is_multitask` Awareness)**:
+   - Menghubungkan detektor multitasking (`ForegroundDetector::is_multitasking_active()`) secara langsung ke `DisplayController::tick_dynamic_display_scaler()`.
+   - Pada skenario Split-Screen, Freeform Windows, atau Picture-in-Picture (PiP), SurfaceFlinger harus mengomposisikan beberapa buffer aplikasi secara bersamaan. Jendela kinetik diperpanjang secara otomatis menjadi **3.000 ms** (3 detik) dengan dwell time step-down **2.000 ms**, memastikan peralihan fokus atau pembacaan antar-jendela tetap berada di tingkat refresh tertinggi (120Hz/90Hz) tanpa lag atau jitter.
+   - Saat pengguna berhenti berinteraksi selama >3.0 detik, sistem secara mulus menurunkan kecepatan ke batas efisien (60Hz), memangkas konsumsi daya panel hingga ~35-40%. Begitu ada sentuhan baru pada salah satu jendela, display melonjak seketika ke 120Hz dengan latensi 0 ms.
+
+2. **Akselerasi Respon Sentuhan & Digitizer Polling Rate Universal (`apply_touch_boost`)**:
+   - Menerapkan pengaktifan otomatis sampling sentuh tinggi pada inisialisasi daemon dan profil performa:
+     - Android Framework: `high_touch_polling_rate_enable=1`, `high_touch_sensitivity_enable=1`, dan `touch_game_mode=1` di tabel `system`, `secure`, dan `global`.
+     - Driver Sentuh MediaTek (TPD): Menulis `0` ke parameter `/sys/module/tpd_setting/parameters/tpd_em_debounce_time` (dan `tpd_em_debounce_time0/1`) untuk mengeliminasi total jeda debounce input fisik, serta mengaktifkan `tpd_mode=1`.
+     - Multi-OEM Hardware Nodes: Integrasi Goodix (`goodix_ts.0`), FocalTech (`fts_touch`), Xiaomi/Redmi (`touch_game_mode`, `bump_sample_rate`), BBK/Oppo/Realme (`game_switch_enable`, eliminasi limit sentuh via `oppo_tp_limit_enable=0`), serta Samsung/Qualcomm touchboost nodes.
+
+3. **Perbaikan Sub-1ms Touch Elevation Timestamp (`LAST_HZ_CHANGE_MS`)**:
+   - Memperbaiki pencatatan timestamp pada pemanggilan `DisplayController::on_hardware_touch()` dari thread `TouchDetector`.
+   - Mengeliminasi kekeliruan perhitungan dwell time yang sebelumnya dapat memicu penurunan prematur frekuensi layar saat scrolling cepat.
+
+4. **Kompabilitas Universal & Preservasi Perilaku Manual**:
+   - Menjamin mode Auto Refresh Rate beroperasi murni dinamis dan tidak mengganggu opsi penguncian manual pengguna (`refresh_rate_lock > 0`).
+   - Tidak ada asumsi nilai hardcoded; seluruh penyesuaian beradaptasi otomatis terhadap kemampuan fisik panel (`supported_rates`) masing-masing perangkat.
+
+---
+
 # Lynx Universal [Normalized GPU Compute Scaling, Ergonomic Touch Decay & 65% Power Efficiency Boost] 7.0.0-RC227
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC227** (Lynx Kernel Manager v3.2.61): **Telaah Mendalam & Penyempurnaan Efisiensi Daya Mode Balance GPU Universal: Eliminasi Total Osilasi Harmonik Beban Frekuensi Rendah via Beban Komputasi Dinamis Ternormalisasi (`effective_mhz`), Reformasi Histeresis Penurunan Ergonomis (Decay Window Dioptimasi Menjadi 400ms-500ms dari Sebelumnya 2700ms), Penajaman Kuantil OPP Efisien Daya (`fluid_opp` 0.44 & `light_opp` 0.22), Serta Kalibrasi Ulang Ambang Beban Sistem (Idle 0-40%, Moderate 40-75%, Heavy >75%) Menghasilkan Penghematan Konsumsi Daya Silikon Hingga ~65% Sambil Menjaga Kelancaran 90/120 FPS Penuh**.

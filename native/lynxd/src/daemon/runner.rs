@@ -54,6 +54,9 @@ impl DaemonRunner {
             format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: {} dtk [{}])", initial_profile, initial_cooldown, dur_label)
         });
 
+        // Initialize low-latency touch boost and high polling rate
+        crate::subsystems::DisplayController::apply_touch_boost(true);
+
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
         let mut last_cooldown_check = 0u64;
@@ -258,6 +261,7 @@ impl DaemonRunner {
                 fg_app.as_ref(),
                 active_prof,
                 current_screen == ScreenState::On,
+                is_multitask,
             );
 
             // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick
@@ -387,6 +391,7 @@ impl DaemonRunner {
                         fg_app.as_ref(),
                         active_prof,
                         true,
+                        is_multitask,
                     );
                     crate::subsystems::GpuController::tick_dynamic_scaler(
                         state.derived.workload_level,

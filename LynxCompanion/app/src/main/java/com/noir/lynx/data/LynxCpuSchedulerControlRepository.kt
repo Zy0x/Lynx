@@ -337,6 +337,21 @@ internal object LynxCpuSchedulerControlRepository {
                 echo "touch_opp $touchOpp" > /proc/perfmgr/tchbst/user/usrtch 2>/dev/null
                 echo "deboost_when_render 0" > /proc/perfmgr/tchbst/user/usrtch 2>/dev/null
             fi
+            # Android framework high polling and sensitivity
+            settings put system high_touch_polling_rate_enable "$valStr" 2>/dev/null
+            settings put secure high_touch_polling_rate_enable "$valStr" 2>/dev/null
+            settings put global high_touch_polling_rate_enable "$valStr" 2>/dev/null
+            settings put system high_touch_sensitivity_enable "$valStr" 2>/dev/null
+            settings put secure high_touch_sensitivity_enable "$valStr" 2>/dev/null
+            settings put system touch_game_mode "$valStr" 2>/dev/null
+
+            # MediaTek Touch Panel Driver zero-debounce
+            debounce_val="${if (enabled) "0" else "10"}"
+            echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time 2>/dev/null
+            echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 2>/dev/null
+            echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 2>/dev/null
+            echo "$valStr" > /sys/module/tpd_setting/parameters/tpd_mode 2>/dev/null
+
             for node in /sys/devices/platform/goodix_ts.0/game_mode \
                         /sys/devices/platform/goodix_ts.*/game_mode \
                         /sys/devices/platform/tp_wake_switch/game_mode \
