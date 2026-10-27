@@ -129,7 +129,8 @@ fun HudSidebar(
             val drawerWidthFloat = (viewport.panelWidth - 15f).coerceAtLeast(1f)
             val drawerWidth = drawerWidthFloat.dp
             val navigationLabels = HudPage.values().map { hudString(it.label) }
-            val layout = HudLayoutPolicy.resolve(drawerWidthFloat, hudLabelWidth(navigationLabels) + 2f)
+            val layout = HudLayoutPolicy.resolve(drawerWidthFloat, hudLabelWidth(navigationLabels) + 2f,
+                preferMenu = !viewport.landscape)
             val inSubscreen = manageApps || page != HudPage.Summary
 
             val drawerSurface: @Composable () -> Unit = {
@@ -148,6 +149,7 @@ fun HudSidebar(
                         HudPanelHeader(
                             appLabel = when {
                                 manageApps -> hudString(R.string.hud_apps_manage)
+                                !layout.useRail && !(page == HudPage.Lab && addinPage >= 0) -> appLabel
                                 page == HudPage.Details -> hudString(R.string.hud_monitor)
                                 page == HudPage.Lab -> hudString(hudAddinTitles.getOrNull(addinPage) ?: R.string.hud_lab)
                                 page == HudPage.Tools -> hudString(R.string.hud_tools)

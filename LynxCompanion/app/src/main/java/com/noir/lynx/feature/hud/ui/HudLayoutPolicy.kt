@@ -14,10 +14,10 @@ internal object HudLayoutPolicy {
     const val RAIL_GAP = 6f
     const val MIN_CONTENT = 176f
 
-    fun resolve(panelWidth: Float, widestLabel: Float): HudPanelLayout {
+    fun resolve(panelWidth: Float, widestLabel: Float, preferMenu: Boolean = false): HudPanelLayout {
         val rail = max(RAIL_WIDTH, widestLabel + 16f)
         val remaining = panelWidth - rail - CONTENT_PADDING * 2 - RAIL_GAP
-        val useRail = remaining >= MIN_CONTENT
+        val useRail = !preferMenu && remaining >= MIN_CONTENT
         return HudPanelLayout(rail, max(0f, if (useRail) remaining else panelWidth - CONTENT_PADDING * 2), useRail)
     }
 

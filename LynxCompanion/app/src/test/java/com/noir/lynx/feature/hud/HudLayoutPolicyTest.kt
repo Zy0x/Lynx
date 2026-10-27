@@ -6,6 +6,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HudLayoutPolicyTest {
+    @Test fun portraitMenuGivesAllUsableWidthBackToTheContent() {
+        for (panel in listOf(240f, 280f, 321f, 336f)) for (label in listOf(48f, 70f, 140f)) {
+            val menu = HudLayoutPolicy.resolve(panel, label, preferMenu = true)
+            assertFalse(menu.useRail)
+            assertEquals(panel - HudLayoutPolicy.CONTENT_PADDING * 2, menu.contentWidth, .001f)
+        }
+        assertTrue(HudLayoutPolicy.resolve(369f, 70f).useRail)
+    }
+
     @Test fun navigationSwitchesExactlyAtMinimumContentWidth() {
         assertTrue(HudLayoutPolicy.resolve(274f, 48f).useRail)
         assertEquals(72f, HudLayoutPolicy.resolve(274f, 48f).railWidth, 0f)

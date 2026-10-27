@@ -92,13 +92,40 @@ impl GpuCapability {
 
     /// Universally resolves the median/mid available hardware OPP entry.
     pub fn mid_opp(&self) -> Option<&GpuOppEntry> {
+        self.opp_at_quantile(0.50)
+    }
+
+    /// Resolves an OPP entry at a given quantile (0.0 = minimum, 1.0 = maximum).
+    /// Mathematical guarantee: always sorted ascending by frequency, immune to vendor ordering.
+    pub fn opp_at_quantile(&self, q: f32) -> Option<&GpuOppEntry> {
         if self.opp_table.is_empty() {
             return None;
         }
         let mut sorted: Vec<&GpuOppEntry> = self.opp_table.iter().collect();
         sorted.sort_by_key(|e| e.freq_mhz);
-        let mid_idx = sorted.len() / 2;
-        sorted.get(mid_idx).copied().or_else(|| self.opp_table.first())
+        let clamped = q.clamp(0.0, 1.0);
+        let idx = ((sorted.len().saturating_sub(1)) as f32 * clamped).round() as usize;
+        sorted.get(idx).copied().or_else(|| self.opp_table.first())
+    }
+
+    /// Tier 0: Idle OPP (minimum frequency, e.g. 300 MHz)
+    pub fn idle_opp(&self) -> Option<&GpuOppEntry> {
+        self.lowest_opp()
+    }
+
+    /// Tier 1: Light interaction OPP (~25% quartile, e.g. ~462-495 MHz for tap, photo preview)
+    pub fn light_opp(&self) -> Option<&GpuOppEntry> {
+        self.opp_at_quantile(0.25)
+    }
+
+    /// Tier 2: Fluid interaction OPP (~50% median, e.g. ~588-675 MHz for scrolling, rapid fling, video)
+    pub fn fluid_opp(&self) -> Option<&GpuOppEntry> {
+        self.opp_at_quantile(0.50)
+    }
+
+    /// Tier 3: Peak OPP (100% quantile, e.g. 950 MHz for heavy 3D rendering)
+    pub fn peak_opp(&self) -> Option<&GpuOppEntry> {
+        self.highest_opp()
     }
 }
 
