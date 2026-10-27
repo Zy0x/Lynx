@@ -222,16 +222,39 @@ impl DisplayController {
         }
 
         // Check user config override (fixed rate vs auto)
-        let is_locked = ConfigStore::get("display_touch.refresh_rate_lock")
+        let lock_cfg = ConfigStore::get("display_touch.refresh_rate_lock")
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(0);
 
-        if is_locked > 0 {
-            // User explicitly locked to a specific refresh rate (e.g. 60, 90, 120)
-            if CURRENT_DISPLAY_HZ.load(Ordering::Relaxed) != is_locked {
-                let sf_id = modes.sf_modes.iter().find(|(hz, _)| *hz == is_locked).map(|(_, id)| *id);
-                Self::apply_hz_hardware(is_locked, sf_id);
-                CURRENT_DISPLAY_HZ.store(is_locked, Ordering::Relaxed);
+        // Also check if system settings have min_refresh_rate == peak_refresh_rate and min > 1.0 (Static fixed mode locked by user)
+        let system_min = Command::new("settings")
+            .args(["get", "system", "min_refresh_rate"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f32>().ok())
+            .unwrap_or(0.0);
+
+        let system_peak = Command::new("settings")
+            .args(["get", "system", "peak_refresh_rate"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f32>().ok())
+            .unwrap_or(0.0);
+
+        let is_system_locked = system_min > 1.0 && (system_min - system_peak).abs() < 0.5;
+
+        if lock_cfg > 0 || is_system_locked {
+            // User explicitly chose a fixed locked rate! DO NOT AUTO-SCALE!
+            let locked_rate = if lock_cfg > 0 {
+                lock_cfg
+            } else {
+                system_peak.round() as u32
+            };
+
+            if CURRENT_DISPLAY_HZ.load(Ordering::Relaxed) != locked_rate {
+                let sf_id = modes.sf_modes.iter().find(|(hz, _)| *hz == locked_rate).map(|(_, id)| *id);
+                Self::apply_hz_hardware(locked_rate, sf_id);
+                CURRENT_DISPLAY_HZ.store(locked_rate, Ordering::Relaxed);
             }
             return;
         }

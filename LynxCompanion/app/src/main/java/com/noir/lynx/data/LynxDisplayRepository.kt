@@ -93,9 +93,12 @@ internal object LynxDisplayRepository {
                 # 5. Notify Native Lynx Daemon Governor (Autonomous Multi-Factor Display Scaler)
                 lock_val="${if (isAuto) "0" else "$hz"}"
                 if [ -x /system/bin/lynxd ]; then
-                    /system/bin/lynxd config set display_touch.refresh_rate_lock "${'$'}lock_val" int 2>/dev/null
+                    /system/bin/lynxd state set display_touch.refresh_rate_lock="${'$'}lock_val" 2>/dev/null
                 elif [ -x /data/adb/modules/Lynx/system/bin/lynxd ]; then
-                    /data/adb/modules/Lynx/system/bin/lynxd config set display_touch.refresh_rate_lock "${'$'}lock_val" int 2>/dev/null
+                    /data/adb/modules/Lynx/system/bin/lynxd state set display_touch.refresh_rate_lock="${'$'}lock_val" 2>/dev/null
+                fi
+                if [ -f /data/adb/lynx/config.json ]; then
+                    sed -i -E 's/"refresh_rate_lock":\s*[0-9]+/"refresh_rate_lock": '"${'$'}lock_val"'/' /data/adb/lynx/config.json 2>/dev/null
                 fi
 
                 echo ok

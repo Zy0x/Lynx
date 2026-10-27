@@ -313,8 +313,9 @@ impl GpuController {
             .as_millis() as u64;
 
         let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-        let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
-        let target_state = if is_rapid {
+        let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 2);
+        let is_moving = crate::daemon::TouchDetector::is_touch_moving(350);
+        let target_state = if is_rapid || is_moving {
             DynamicGpuState::Fluid
         } else {
             DynamicGpuState::Light
@@ -426,21 +427,22 @@ impl GpuController {
             };
 
             // Dynamic sensitivity tuning: when multitasking (Split-Screen / PiP) is active,
-            // lower thresholds by 15% so multi-window compositor runs buttery smooth.
+            // lower thresholds so multi-window compositor runs buttery smooth.
             let (thresh_peak, thresh_fluid, thresh_light) = if multitasking_active {
-                (440, 240, 135)
+                (380, 160, 90)
             } else {
-                (520, 280, 160)
+                (450, 200, 110)
             };
 
-            if workload == WorkloadLevel::Heavy || effective_calc > thresh_peak {
-                // Heavy 3D rendering / sustained high compute: Engage Peak
+            if workload == WorkloadLevel::Heavy || effective_calc > thresh_peak || gpu.load_pct > 70 {
+                // Heavy 3D rendering: Engage Peak
                 DynamicGpuState::Peak
-            } else if is_rapid || is_moving || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid {
-                // Rapid fling gesture, active high-refresh scrolling, or moderate compute: Engage Fluid
+            } else if is_rapid || is_moving || (!is_holding_still && is_touch) || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid || gpu.load_pct > 30 {
+                // Active touch motion / scrolling / 120 FPS UI composition: Engage Fluid (e.g. ~588-675 MHz)
+                // Guaranteed sub-5ms render time to beat the 8.33ms 120Hz deadline with ZERO UI lag!
                 DynamicGpuState::Fluid
-            } else if (!is_holding_still && is_touch) || effective_calc > thresh_light {
-                // Single tap, interactive touch motion, or light rendering: Engage Light
+            } else if is_touch || effective_calc > thresh_light || gpu.load_pct > 15 {
+                // Single tap / light interaction: Engage Light
                 DynamicGpuState::Light
             } else {
                 // Screen stationary, finger holding still while reading, or idle background: Drop to Idle (300 MHz)

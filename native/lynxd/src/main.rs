@@ -1141,7 +1141,7 @@ fn main() {
             let pretty = args.iter().any(|a| a == "--pretty");
             handle_telemetry(pretty);
         }
-        "state" => {
+        "state" | "config" => {
             handle_state(&args);
         }
         "charging" => {
