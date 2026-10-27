@@ -115,14 +115,15 @@ class GenshinSkipEngineTest {
     @Test
     fun dialogueScanSliceAdaptsToScreenResolutionsAndOrientations() {
         // Infinix 2460 x 1080 (20.5:9 ultrawide)
-        // width = 2460, height = 1080
-        // yStart = (1080 * 0.040f).toLong() = 43
-        // yEnd = (1080 * 0.065f).toLong() = 70
-        // headBytes = 16 + (70 * 2460 * 4) = 688816L
-        // sliceBytes = (70 - 43) * 2460 * 4 = 265680L
+        // safeWidth = 1920, pillarbox = 270
+        // xMin = 270 + 45 = 315, xMax = 270 + 280 = 550, y = 56
+        // rowStart = 16 + (56 * 2460 * 4) = 551056L
+        // byteStart = 551056 + (315 * 4) = 552316L
+        // byteEnd = 551056 + (550 * 4) = 553256L
+        // sliceBytes = 553256 - 552316 = 940L
         val sliceInfinix = GenshinSkipEngine.calculateDialogueScanSlice(2460, 1080)
-        assertEquals(688816L, sliceInfinix.first)
-        assertEquals(265680L, sliceInfinix.second)
+        assertEquals(553256L, sliceInfinix.first)
+        assertEquals(940L, sliceInfinix.second)
         assertTrue(sliceInfinix.first > sliceInfinix.second)
 
         // Orientation invariance: passing portrait dimensions (1080, 2460) resolves identical slice params
@@ -131,8 +132,38 @@ class GenshinSkipEngineTest {
         assertEquals(sliceInfinix.second, sliceInfinixPortrait.second)
 
         // Standard 16:9 1920 x 1080
+        // safeWidth = 1920, pillarbox = 0
+        // xMin = 45, xMax = 280, y = 56
+        // rowStart = 16 + (56 * 1920 * 4) = 430096L
+        // byteStart = 430096 + (45 * 4) = 430276L
+        // byteEnd = 430096 + (280 * 4) = 431216L
+        // sliceBytes = 431216 - 430276 = 940L
         val slice1080p = GenshinSkipEngine.calculateDialogueScanSlice(1920, 1080)
-        assertEquals(537616L, slice1080p.first)
-        assertEquals(207360L, slice1080p.second)
+        assertEquals(431216L, slice1080p.first)
+        assertEquals(940L, slice1080p.second)
+    }
+
+    @Test
+    fun minDialogueThresholdScalesDynamicallyWithResolution() {
+        // 1080p baseline requires at least 12 pixels
+        assertEquals(12, GenshinSkipEngine.calculateMinDialogueThreshold(1080))
+
+        // 720p budget display requires at least 8 pixels
+        assertEquals(8, GenshinSkipEngine.calculateMinDialogueThreshold(720))
+
+        // 1440p (2K) display requires at least 16 pixels
+        assertEquals(16, GenshinSkipEngine.calculateMinDialogueThreshold(1440))
+
+        // Clamping safeguards against negative or zero dimensions
+        assertTrue(GenshinSkipEngine.calculateMinDialogueThreshold(0) >= 6)
+    }
+
+    @Test
+    fun countDialogueMatchesAccuratelyCountsPixels() {
+        val sampleHexWithMultiple = "ece5d8ff323232ffece4d8ff323232ffede5daff"
+        assertEquals(3, GenshinSkipEngine.countDialogueMatches(sampleHexWithMultiple))
+
+        val sampleHexZero = "323232ff111111ff000000ff"
+        assertEquals(0, GenshinSkipEngine.countDialogueMatches(sampleHexZero))
     }
 }

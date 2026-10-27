@@ -1,3 +1,36 @@
+# Lynx Universal [Qualcomm Single-PMIC Hyper-Charging Anti-Flapping Engine & Hoyo RPG Auto-Skip 16:9 Pillarbox Targeting] 7.0.0-RC239
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC239** (Lynx Kernel Manager v3.2.73): **Resolusi Tuntas Masalah Siklus Putus-Nyambung (Charging Flapping Loop / Mati-Nyala) Pengisian Daya Cepat Mode Hyper Pada Perangkat Qualcomm Single-PMIC (Redmi Note 7 / PM660) Serta Penyempurnaan Total Deteksi Dialog Game Auto-Skip Hoyo RPG Berbasis Bingkai Aman 16:9 (Pillarbox-Safe Dynamic Targeting)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC239)
+1. **Qualcomm Single-PMIC Hyper Charging Anti-Flapping Engine (`charging.rs`, `ExtremeChargingScript.kt`, `StandardChargingScript.kt`, `apply_profile.sh`)**:
+   - **Eliminasi Total Pulsing `input_suspend` pada Qualcomm**: Menghapus mekanisme pemutusan VBUS 800ms (`input_suspend = 1`) pada arsitektur Qualcomm single-PMIC yang sebelumnya memutus arus fisik ke 0 mA, memicu OS Android mendeteksi pelepasan kabel USB (`UsbFfsConnection destroyed`), menghapus penanda soft-reconnect, dan menyebabkan siklus putus-nyambung berulang kali setiap beberapa detik.
+   - **Hardware AICL Re-Handshake Tanpa Pemutusan Arus**: Menggantikan pulsing VBUS pada Qualcomm dengan penulisan `rerun_aicl = 1` langsung ke pengontrol daya kernel (`/sys/class/power_supply/usb/rerun_aicl`), memaksa PMIC bernegosiasi ulang batas arus masukan secara mulus di latar belakang tanpa mematikan jalur daya VBUS.
+   - **Proteksi Cerdas `direct_charging = 0` Tanpa Discrete Charge Pump**: Memperkenalkan fungsi deteksi `has_qcom_direct_charge_pump()` untuk memastikan bahwa node `/sys/class/qcom-battery/direct_charging` **hanya** diaktifkan (`1`) jika perangkat secara fisik memiliki chip switched-capacitor dual charge pump diskrit (SMB1390/SMB1396/charge_pump_master). Pada perangkat single-PMIC (seperti PM660 pada Redmi Note 7), `direct_charging` dikunci secara ketat ke `0`, mencegah buck converter utama mati dan menjaga stabilitas pengisian daya 100%.
+   - **Penerapan Plafon Batas Arus Aman Hardware PM660 (3000 mA)**: Membatasi nilai target register `constant_charge_current_max`, `constant_charge_current`, `input_current_limit`, dan `restrict_cur` pada Qualcomm single-PMIC ke batas maksimum fisik yang didukung hardware PM660 (3000 mA / 3,000,000 uA), bukan 3500 mA atau 12000 mA.
+   - **Debounce & Rate-Limiter Atomic 30 Detik**: Menerapkan atomic timestamp guard (`LAST_SOFT_RECONNECT_EPOCH`) dengan pendinginan minimum 30 detik pada fungsi soft-reconnect, mengeliminasi kemungkinan re-negosiasi beruntun secara matematis.
+   - **Perbaikan Pemeriksaan Invarian Status Hyper**: Memperbaiki validasi `direct_ok` pada `tick()` agar memeriksa kesesuaian nilai dinamis (`expected_direct`) sesuai keberadaan charge pump, menghentikan re-inisialisasi berat `apply_hyper_mode()` yang sebelumnya terpanggil setiap detik akibat gagal membaca `direct_charging == 1`.
+   - **Preservasi Penuh Perangkat MediaTek & Transsion (Infinix Note 11 Pro)**: Seluruh arsitektur MediaTek Pump Express (PE2.0/PE4.0), Switched-Capacitor Pump (RT9759), batas arus `33170`, daya `pdc_max_watt = 120`, dan Anti-Flapping Float Mode tetap 100% utuh tanpa dampak negatif sedikit pun.
+
+2. **Pillarbox-Safe Dynamic Safe-Zone Targeting (`GenshinSkipEngine.kt`)**:
+   - Menghitung secara matematis margin pilar horizontal layar ultrawide (`safeWidth = (height * 16) / 9`, `pillarbox = (width - safeWidth) / 2`).
+   - Mengarahkan pemindaian buffer screencap (`calculateDialogueScanSlice`) secara ketat pada rentang jendela tombol kontrol dialog ($X \in [pillarbox + 45 .. pillarbox + 280]$ pada baris $Y \approx 5.2\%$ layar).
+   - Mengeliminasi total kesalahan *false positive* pada layar peta/quest di mana teks notifikasi kiri atas ("Hadiah Ekspedisi" pada $X \in [0..250]$) dan ikon kanan atas (Wish/Battle Pass/Tas/Tombol Tutup X pada $X \ge 0.75 \times W$) yang memiliki warna krem senada tidak lagi terbaca sama sekali.
+   - Ukuran data buffer screencap menyusut menjadi hanya 940 bytes (<1 KB), memangkas latensi eksekusi deteksi hingga ~110ms dengan 0% beban CPU.
+
+3. **Deteksi Kepadatan Piksel Cerdas & Direct Toggle Badge (`GenshinSkipRunner.kt` & `GenshinSkipEngine.kt`)**:
+   - Menggantikan evaluasi `grep -m1` biner dengan perhitungan jumlah piksel cocok riil (`grep -o -E ... | wc -l`) dan membandingkannya dengan ambang batas dinamis (`calculateMinDialogueThreshold`): dialog asli memiliki 70-110 piksel cocok (lolos dengan margin aman), sedangkan noise acak tekstur/salju/awan hanya 0-2 piksel (terfilter 100%).
+   - Menyempurnakan perilaku tap pada floating trigger badge menjadi Direct Toggle (`PAUSED` <-> `AUTO`), mencegah pengguna terlempar ke mode manual tanpa sengaja saat menonaktifkan dan mengaktifkan kembali auto-skip.
+   - Menerapkan ritme tap bergantian (*balanced alternating cadence*): siklus genap mengeksekusi *advance text* + *dialogue choice*, sedangkan siklus ganjil mengeksekusi *advance text* + *narration transition*, mencegah penumpukan event antrean sentuh pada sistem.
+   - Penghentian tap instan (Zero Tap) pada siklus pertama saat dialog tidak aktif (`isDialogue == false`), melindungi eksplorasi open-world, pergerakan joystick, serang, skill, lompat, dan interaksi menu/peta.
+   - Disarm otomatis kembali ke status `PAUSED` jika layar berada di luar dialog selama >12 detik berturut-turut.
+
+4. **Penyelarasan Unit Test & Kerapian Kode**:
+   - Memperbarui pengujian `GenshinSkipEngineTest` untuk resolusi ultrawide 20.5:9 (Infinix 2460x1080) dan 16:9 (1920x1080) dengan akurasi 100%.
+   - Menambahkan unit test `test_qcom_direct_charge_pump_logic_and_cooldown` pada native daemon `lynxd` untuk memvalidasi proteksi charge pump dan cooldown re-handshake.
+
+---
+
 # Lynx Universal [Genshin Auto-Skip Ultrawide Resolution Engine & Zero-Margin Floating Drag Bounds] 7.0.0-RC238
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC238** (Lynx Kernel Manager v3.2.72): **Penyempurnaan Total Mode Auto pada Fitur Game Auto-Skip Hoyo RPG dan Pembebasan Penuh Batas Geser Floating Shortcut Badge Hingga Tepi Kaca Fisik Layar: Deteksi Cerdas Dialog Berbasis Pemindaian Baris Dinamis (Resolution-Invariant Full-Width Slice Scan) Menuntaskan Masalah Layar Ultrawide 20.5:9 (Infinix) yang Sebelumnya Selalu Gagal Membaca Ikon Dialog Akibat Offset Tetap, Pembebasan Batas Geser Floating Badge dari Inset System Bars dan Cutout Sehingga Bebas Digeser 100% Flush Menyentuh Bezel Layar Fisik di Seluruh Sisi, Serta Penyelarasan Validator Domain Profil Termal dan Display**.

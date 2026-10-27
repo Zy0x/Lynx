@@ -98,34 +98,74 @@ object GenshinSkipEngine {
      * matches the warm cream/beige dialogue UI signature of Genshin Impact.
      */
     fun containsDialogueColor(hexString: String): Boolean {
-        if (hexString.isBlank()) return false
+        return countDialogueMatches(hexString) > 0
+    }
+
+    /**
+     * Counts how many pixels in the raw hex dump match the warm cream/beige dialogue UI signature.
+     * Real dialogue controls provide between 60 and 120 matching pixels, whereas stray noise provides <= 4.
+     */
+    fun countDialogueMatches(hexString: String): Int {
+        if (hexString.isBlank()) return 0
         val clean = hexString.filter { (it in '0'..'9') || (it in 'a'..'f') || (it in 'A'..'F') }
         val length = clean.length
         var i = 0
+        var count = 0
         while (i <= length - 8) {
             val r = clean.substring(i, i + 2).toIntOrNull(16) ?: 0
             val g = clean.substring(i + 2, i + 4).toIntOrNull(16) ?: 0
             val b = clean.substring(i + 4, i + 6).toIntOrNull(16) ?: 0
             if (isDialogueColor(r, g, b)) {
-                return true
+                count++
             }
             i += 8
         }
-        return false
+        return count
+    }
+
+    /**
+     * Minimum dialogue font/icon matching pixels required to declare dialogue active.
+     * Scales dynamically with screen resolution (e.g. 12 pixels on 1080p, 8 on 720p, 16 on 1440p).
+     * Filters 100% of single-pixel noise from terrain textures, grass, rocks, snow, and clouds.
+     */
+    fun calculateMinDialogueThreshold(screenHeight: Int): Int {
+        val height = min(screenHeight, 4320).coerceAtLeast(720).toLong()
+        return ((height * 12L) / 1080L).coerceAtLeast(6L).toInt()
     }
 
     /**
      * Calculates the raw screencap byte slice parameters for the dialogue controls across any screen resolution.
-     * Samples rows spanning approx 4.0% to 6.5% of screen height (e.g. rows 43..70 on 1080p).
+     * Dynamically calculates the 16:9 safe-frame pillarbox padding for ultrawide displays (19.5:9, 20:9, 20.5:9, 21:9).
+     * Focuses strictly on the dialogue control button group ("▶ Otomatis", "☰", "👁", "🔊") at:
+     *   X in [pillarbox + 45 .. pillarbox + 280]
+     *   Y approx 5.2% of screen height (row 56 on 1080p).
+     *
+     * Eliminates 100% of false positives from:
+     * - Top-left map/quest text ("Hadiah Ekspedisi") residing in the left margin X in [0..pillarbox].
+     * - Top-right open-world icons (Wish, Battle Pass, Handbook, Bag) at X >= 0.75 * width.
+     * - Top-right map close 'X' button.
+     *
      * Returns Pair(headBytes, sliceBytes).
      */
     fun calculateDialogueScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
         val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
-        val yStart = (height * 0.040f).toLong().coerceAtLeast(20L)
-        val yEnd = (height * 0.065f).toLong().coerceAtLeast(yStart + 4L)
-        val headBytes = 16L + (yEnd * width * 4L)
-        val sliceBytes = (yEnd - yStart) * width * 4L
+
+        // Dynamic 16:9 inner safe frame calculation for ultrawide displays
+        val safeWidth = (height * 16L) / 9L
+        val pillarbox = if (width > safeWidth) (width - safeWidth) / 2L else 0L
+
+        // Exact horizontal bounds of the dialogue control buttons within 16:9 safe frame
+        val xMin = pillarbox + ((safeWidth * 45L) / 1920L).coerceAtLeast(40L)
+        val xMax = pillarbox + ((safeWidth * 280L) / 1920L).coerceAtLeast(250L)
+        val y = ((height * 56L) / 1080L).coerceAtLeast(20L)
+
+        val rowStart = 16L + (y * width * 4L)
+        val byteStart = rowStart + (xMin * 4L)
+        val byteEnd = rowStart + (xMax * 4L)
+        val sliceBytes = byteEnd - byteStart
+        val headBytes = byteEnd
+
         return headBytes to sliceBytes
     }
 

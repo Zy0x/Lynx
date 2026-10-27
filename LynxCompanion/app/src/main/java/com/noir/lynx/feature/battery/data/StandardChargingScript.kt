@@ -43,7 +43,11 @@ object StandardChargingScript {
         done
         if [ -d /sys/class/qcom-battery ]; then
             echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-            echo 1 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+            has_cp=0
+            if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
+                has_cp=1
+            fi
+            echo "${'$'}has_cp" > /sys/class/qcom-battery/direct_charging 2>/dev/null
             echo 3000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
             echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
         fi

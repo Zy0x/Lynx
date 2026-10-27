@@ -680,6 +680,18 @@ case "$PROFILE" in
 
             cur_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50)
             if [ "$cfg_bypass" = "true" ] && { [ "$cur_cap" -ge "$cfg_max" ] || [ "$cur_cap" -ge 100 ]; }; then
+                has_hw_bypass=0
+                [ -e /sys/devices/platform/charger/bypass_charger ] && has_hw_bypass=1
+                [ -e /sys/class/power_supply/battery/device/smart_charging ] && has_hw_bypass=1
+                [ -e /sys/class/power_supply/battery/smart_charging_activation ] && has_hw_bypass=1
+                [ -e /sys/class/power_supply/battery/store_mode ] && has_hw_bypass=1
+                [ -e /sys/class/power_supply/battery/batt_slate_mode ] && has_hw_bypass=1
+
+                has_cp=0
+                if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
+                    has_cp=1
+                fi
+
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "6000" "/sys/devices/platform/charger/input_current"
                 write_node "4500000" "/sys/class/power_supply/usb/current_max"
@@ -687,7 +699,7 @@ case "$PROFILE" in
                 write_node "1" "/sys/devices/platform/charger/bypass_charger"
                 write_node "1" "/sys/class/power_supply/battery/device/smart_charging"
                 write_node "1" "/sys/class/power_supply/battery/smart_charging_activation"
-                write_node "1" "/sys/class/qcom-battery/direct_charging"
+                write_node "$has_cp" "/sys/class/qcom-battery/direct_charging"
                 write_node "1" "/sys/class/power_supply/battery/store_mode"
                 write_node "1" "/sys/class/power_supply/battery/batt_slate_mode"
                 write_node "1" "/sys/devices/platform/charger/enable_sc"
@@ -695,9 +707,17 @@ case "$PROFILE" in
                 write_node "0" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "0" "/sys/devices/platform/charger/chg1_current"
                 write_node "0" "/sys/devices/platform/charger/chg2_current"
-                write_node "0" "/sys/class/power_supply/battery/constant_charge_current"
-                write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
-                write_node "0" "/sys/class/power_supply/battery/charging_enabled"
+
+                if [ "$has_hw_bypass" = "1" ]; then
+                    write_node "0" "/sys/class/power_supply/battery/constant_charge_current"
+                    write_node "0" "/sys/class/power_supply/battery/constant_charge_current_max"
+                    write_node "0" "/sys/class/power_supply/battery/charging_enabled"
+                else
+                    # Single-Path Float Mode: Keep charging_enabled=1 and clamp to tiny float current (~100mA)
+                    write_node "100000" "/sys/class/power_supply/battery/constant_charge_current"
+                    write_node "100000" "/sys/class/power_supply/battery/constant_charge_current_max"
+                    write_node "1" "/sys/class/power_supply/battery/charging_enabled"
+                fi
             else
                 write_node "0" "/sys/devices/platform/charger/bypass_charger"
                 write_node "0" "/sys/devices/platform/charger/sw_jeita"

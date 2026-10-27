@@ -101,27 +101,21 @@ class GenshinSkipRunner(
 
     /**
      * Manual user toggle via floating trigger pill.
-     * Alternates through the 4-stage cycle:
-     * [ PAUSE ] -> [ AUTO ] -> [ PAUSE ] -> [ MANUAL ] -> [ PAUSE ] -> [ AUTO ]
+     * Direct toggle between intelligent AUTO dialogue skip and PAUSED.
      */
     fun toggle() {
         when (modeState.value) {
             SkipMode.PAUSED -> {
-                val nextMode = if (previousActiveMode == SkipMode.AUTO) SkipMode.MANUAL else SkipMode.AUTO
-                previousActiveMode = nextMode
-                setMode(nextMode)
+                setMode(SkipMode.AUTO)
             }
             SkipMode.AUTO, SkipMode.MANUAL -> {
-                previousActiveMode = modeState.value
                 setMode(SkipMode.PAUSED)
             }
         }
     }
 
     fun start() {
-        val target = if (previousActiveMode == SkipMode.MANUAL) SkipMode.MANUAL else SkipMode.AUTO
-        previousActiveMode = target
-        setMode(target)
+        setMode(SkipMode.AUTO)
     }
 
     fun stop() {
@@ -170,11 +164,12 @@ class GenshinSkipRunner(
     suspend fun isGenshinDialogueActive(): Boolean = withContext(Dispatchers.IO) {
         try {
             val (headBytes, sliceBytes) = GenshinSkipEngine.calculateDialogueScanSlice(screenWidth, screenHeight)
-            val cmd = "screencap | head -c $headBytes | tail -c $sliceBytes | xxd -p | grep -m1 -E 'ece5d8|ece4d8|ece6d8|ede5da|ede5d8|ede5d9|eee6da|ebe4d7'"
+            val minThreshold = GenshinSkipEngine.calculateMinDialogueThreshold(screenHeight)
+            val cmd = "screencap | head -c $headBytes | tail -c $sliceBytes | xxd -p | grep -o -E 'e[6-f]e[0-8]d[2-d]|ece5d8|ece4d8|ede5da|ede5d8|eee6da|ebe4d7' | wc -l"
             val result = Shell.cmd(cmd).exec()
             if (result.isSuccess && result.out.isNotEmpty()) {
-                val line = result.out.firstOrNull() ?: ""
-                return@withContext line.isNotBlank()
+                val count = result.out.firstOrNull()?.trim()?.toIntOrNull() ?: 0
+                return@withContext count >= minThreshold
             }
         } catch (_: Throwable) {}
         return@withContext false
@@ -214,21 +209,15 @@ class GenshinSkipRunner(
                 checkDuration = System.currentTimeMillis() - t0
                 if (!isDialogue) {
                     consecutiveInactiveCount++
-                    if (consecutiveInactiveCount >= 2) {
-                        // Standby Hening: dialogue is inactive, do NOT send any taps
-                        // Protects player navigation, combat, joystick, and camera movement
-                        delay(250L)
-                        if (consecutiveInactiveCount > 100) {
-                            // After ~25s without dialogue, disarm to PAUSED
-                            setMode(SkipMode.PAUSED)
-                            break
-                        }
-                        continue
-                    } else {
-                        // Single missed check during potential dialogue line transition: wait without tap
-                        delay(150L)
-                        continue
+                    // Standby Hening: dialogue is inactive, immediately suppress all taps.
+                    // Protects player navigation, combat, joystick, camera movement, and open-world HUD.
+                    delay(200L)
+                    if (consecutiveInactiveCount > 60) {
+                        // After ~12s without dialogue, disarm to PAUSED
+                        setMode(SkipMode.PAUSED)
+                        break
                     }
+                    continue
                 } else {
                     consecutiveInactiveCount = 0
                 }
@@ -255,11 +244,15 @@ class GenshinSkipRunner(
 
             val effectiveSpeed = speedMs.coerceAtLeast(150L)
 
-            // Batch advance, choice, and narration transition taps into a single root command
-            // Guarantees 0% frame drops, handles 3D cutscenes, dialogue choices, and narration screens ("Tekan untuk melanjutkan")
-            val cmd = "input tap ${advanceTarget.x} ${advanceTarget.y} >/dev/null 2>&1; sleep 0.03; " +
-                      "input tap ${choiceTarget.x} ${choiceTarget.y} >/dev/null 2>&1; sleep 0.03; " +
-                      "input tap ${narrationTarget.x} ${narrationTarget.y} >/dev/null 2>&1"
+            // Dynamic cadence: alternate between (advance + choice) and (advance + narration)
+            // Guarantees fast dialogue skip without touch event queue congestion
+            val cmd = if (cycleIndex % 2 == 0) {
+                "input tap ${advanceTarget.x} ${advanceTarget.y} >/dev/null 2>&1; sleep 0.04; " +
+                "input tap ${choiceTarget.x} ${choiceTarget.y} >/dev/null 2>&1"
+            } else {
+                "input tap ${advanceTarget.x} ${advanceTarget.y} >/dev/null 2>&1; sleep 0.04; " +
+                "input tap ${narrationTarget.x} ${narrationTarget.y} >/dev/null 2>&1"
+            }
             Shell.cmd(cmd).submit()
 
             cycleIndex++
