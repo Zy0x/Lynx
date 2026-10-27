@@ -221,6 +221,35 @@ impl ProfileVerifier {
                 MtkHardware::PERFMGR_SCHEDPLUS_DOWN_THROTTLE,
                 exp_down_throt,
             );
+            let exp_ta = match profile.name {
+                "extreme" => "100",
+                "performance" => "60",
+                "powersave" => "0",
+                _ => "25",
+            };
+            Self::audit_exact(
+                &mut items,
+                "MTK-EAS",
+                "MTK Perfmgr Top-App Boost",
+                MtkHardware::PERFMGR_TA_BOOST,
+                exp_ta,
+            );
+        }
+
+        if std::path::Path::new("/dev/stune/top-app/schedtune.boost").exists() {
+            let exp_stune = match profile.name {
+                "extreme" => "50",
+                "performance" => "35",
+                "powersave" => "0",
+                _ => "18",
+            };
+            Self::audit_exact(
+                &mut items,
+                "Scheduler",
+                "Schedtune Top-App Boost",
+                "/dev/stune/top-app/schedtune.boost",
+                exp_stune,
+            );
         }
 
         if cap.memory.mglru_supported {
