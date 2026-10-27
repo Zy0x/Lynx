@@ -260,7 +260,10 @@ impl DisplayController {
         let is_touch = TouchDetector::is_touch_recent(500);
         let is_recent = TouchDetector::is_touch_recent(1200);
 
-        let target_hz = if is_game {
+        let target_hz = if active_profile == "powersave" {
+            // Powersave: Lock to Low Tier (60Hz) for maximum battery conservation
+            low_hz
+        } else if is_game {
             // Gaming: Lock to High Tier continuously to eliminate panel switching flicker
             high_hz
         } else if is_media {
