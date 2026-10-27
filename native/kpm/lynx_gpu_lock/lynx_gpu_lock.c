@@ -48,6 +48,8 @@ static int k_str_contains(const char *haystack, const char *needle)
 // 1. Hook for MediaTek mt_gpufreq_target(unsigned int target_freq, unsigned int relation)
 void before_mt_gpufreq_target(hook_fargs2_t *args, void *udata)
 {
+    if (!args) return;
+
     // In Daily Balance mode: zero interference, GPU downclocks to 300 MHz freely
     if (!g_gpu_lock_enabled) return;
 
@@ -66,6 +68,7 @@ void after_mt_gpufreq_target(hook_fargs2_t *args, void *udata)
 // 2. Hook for MediaTek GED DVFS GPU Boost
 void before_ged_dvfs_boost_gpu_freq(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
     if (!g_gpu_lock_enabled) return;
 
     unsigned int freq = (unsigned int)args->arg0;
@@ -81,6 +84,8 @@ void after_ged_dvfs_boost_gpu_freq(hook_fargs1_t *args, void *udata)
 // 3. Dynamic Mode Sync: Hook store_BN_TestMode (called by lynxd/system when mode changes)
 void before_store_bn_test(hook_fargs4_t *args, void *udata)
 {
+    if (!args || !args->arg2 || args->arg3 < 1) return;
+
     const char *buf = (const char *)args->arg2;
     if (buf) {
         if (buf[0] == '1') {

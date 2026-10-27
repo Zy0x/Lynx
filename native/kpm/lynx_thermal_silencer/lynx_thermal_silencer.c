@@ -49,6 +49,8 @@ static int k_str_contains(const char *haystack, const char *needle)
 // 1. Hook for MediaTek mt_ppm_cpu_thermal_protect(unsigned int limited_power)
 void before_mt_ppm_cpu_thermal_protect(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
+
     // In Daily Balance mode: 100% stock OEM thermal throttling, zero extra heat
     if (!g_silencer_enabled) return;
 
@@ -65,6 +67,7 @@ void after_mt_ppm_cpu_thermal_protect(hook_fargs1_t *args, void *udata)
 // 2. Hook for MediaTek mt_gpufreq_thermal_protect(unsigned int limited_power)
 void before_mt_gpufreq_thermal_protect(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
     if (!g_silencer_enabled) return;
 
     unsigned int limited_power = (unsigned int)args->arg0;
@@ -80,6 +83,7 @@ void after_mt_gpufreq_thermal_protect(hook_fargs1_t *args, void *udata)
 // 3. Hook for cpuhvfs_update_imax_thermal_state
 void before_cpuhvfs_update_imax_thermal_state(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
     if (!g_silencer_enabled) return;
     args->arg0 = 0;
 }
@@ -91,6 +95,8 @@ void after_cpuhvfs_update_imax_thermal_state(hook_fargs1_t *args, void *udata)
 // 4. Dynamic Mode Sync: Hook store_BN_TestMode
 void before_store_bn_test(hook_fargs4_t *args, void *udata)
 {
+    if (!args || !args->arg2 || args->arg3 < 1) return;
+
     const char *buf = (const char *)args->arg2;
     if (buf) {
         if (buf[0] == '1') {

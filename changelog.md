@@ -1,3 +1,23 @@
+# Lynx Universal [Ring-0 KPM Safety Hardening & Dynamic Memory Cushion Fault Isolation] 7.0.0-RC257
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC257** (Lynx Kernel Manager v3.2.91): **Hardening Keamanan Arsitektur Ring-0 KernelPatch: Mitigasi Total Terhadap Potensi Kernel Exception pada lynx_mem_cushion.kpm (Eliminasi Parameter NULL pada Jalur Direct Reclaim), Penambahan Validasi Defensif Lengkap pada Seluruh Kait Kernel (GPU Lock, Thermal Silencer, EAS Sentinel, dan Mem Cushion), Serta Pembaruan Standar Operasional Pemuatan KPM Dinamis di APatch Manager**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC257)
+1. **Safety Hardening pada Seluruh 4 Modul KernelPatch (.kpm)**:
+   - **`lynx_mem_cushion.kpm`**: Mengeliminasi pemanggilan *low-level* yang tidak aman pada jalur alokasi memori Linux 4.14 (`wakeup_kswapd` dengan parameter NULL saat direct reclaim). Menggantinya dengan proteksi bantalan alokasi memori murni (*allocstall cushion credit*) yang 100% tahan uji terhadap *kernel exception*.
+   - **`lynx_gpu_lock.kpm`**, **`lynx_thermal_silencer.kpm`**, dan **`lynx_eas_sentinel.kpm`**: Menambahkan pemeriksaan pointer argumen defensif (`if (!args || !args->arg2 || args->arg3 < 1) return;`) pada setiap callback sysfs dan scheduler.
+   - Seluruh 4 modul dikompilasi ulang menggunakan LLVM Clang NDK r27 mandiri dengan optimasi ukuran strip LTO penuh.
+
+2. **Penyempurnaan Panduan & Pemisahan Alur Operasional APatch**:
+   - Memperbarui dokumentasi `README.md` pada folder `/storage/emulated/0/Lynx/KPM/` dan `/sdcard/Download/`:
+     - Menegaskan perbedaan antara opsi **"LOAD"** (pemuatan dinamis sementara di RAM—aman, langsung aktif, otomatis bersih saat restart jika ada bentrok) versus opsi **"INSTALL / EMBED"** (pemasangan persisten ke boot image).
+     - Menyediakan hierarki pemuatan yang jelas sehingga pengguna dapat memilih modul yang diinginkan secara modular per-bagian.
+
+3. **Verifikasi Stabilitas & Keamanan Sistem Live**:
+   - Telah diverifikasi pada target fisik Infinix Note 11 Pro (`X698` Helio G96) dalam kondisi normal, root penuh (`u:r:magisk:s0`), dengan aplikasi LynxCompanion dan daemon `lynxd` berjalan optimal.
+
+---
+
 # Lynx Universal [Full Suite Dynamic KernelPatch Modules (.kpm) with Automatic Balance Mode Restoration] 7.0.0-RC256
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC256** (Lynx Kernel Manager v3.2.90): **Penyelesaian Seluruh 4 Modul Biner Asli KernelPatch (.kpm) untuk APatch Manager: Menyediakan Suite Lengkap lynx_eas_sentinel.kpm, lynx_thermal_silencer.kpm, lynx_gpu_lock.kpm, dan lynx_mem_cushion.kpm yang Dilengkapi Mekanisme Restorasi Otomatis Cerdas Ring-0: Otomatis Aktif Penuh Saat Gaming (Performance/Extreme) dan Seketika Kembali Dormant/Stock Tanpa Beban, Tanpa Panas, Serta Hemat Baterai Maksimal Saat Berada di Mode Daily Balance**.

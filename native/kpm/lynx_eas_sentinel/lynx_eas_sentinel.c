@@ -56,6 +56,8 @@ void before_schedtune_task_boost(hook_fargs1_t *args, void *udata)
 
 void after_schedtune_task_boost(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
+
     // In Daily Balance mode: zero interference, allow cores to idle and sleep freely
     if (!g_sentinel_enabled) return;
 
@@ -74,6 +76,7 @@ void before_schedtune_prefer_idle(hook_fargs1_t *args, void *udata)
 
 void after_schedtune_prefer_idle(hook_fargs1_t *args, void *udata)
 {
+    if (!args) return;
     if (!g_sentinel_enabled) return;
 
     if (args->ret == 0 && g_target_boost >= 40) {
@@ -84,6 +87,8 @@ void after_schedtune_prefer_idle(hook_fargs1_t *args, void *udata)
 // 3. Dynamic Mode Sync: Hook store_BN_TestMode
 void before_store_bn_test(hook_fargs4_t *args, void *udata)
 {
+    if (!args || !args->arg2 || args->arg3 < 1) return;
+
     const char *buf = (const char *)args->arg2;
     if (buf) {
         if (buf[0] == '1') {

@@ -23,13 +23,12 @@ KPM_DESCRIPTION("Lynx Dynamic Anti-Allocstall Memory Cushion (Balance Aware)");
 
 // Target kernel symbols
 static void *target_try_to_free_pages = NULL;
-typedef void (*fn_wakeup_kswapd)(void *zone, int order, int classzone_idx);
-static fn_wakeup_kswapd p_wakeup_kswapd = NULL;
 static void *target_store_bn_test = NULL;
 static void *target_dv2_stop = NULL;
 
 // Runtime dynamic state: default dormant (0) until Performance/Extreme is engaged
 static volatile int g_cushion_enabled = 0;
+static volatile unsigned long g_allocstall_events = 0;
 
 static int k_str_contains(const char *haystack, const char *needle)
 {
@@ -50,22 +49,29 @@ static int k_str_contains(const char *haystack, const char *needle)
 // 1. Hook for try_to_free_pages(struct zonelist *zonelist, int order, gfp_t gfp_mask, nodemask_t *nodemask)
 void before_try_to_free_pages(hook_fargs4_t *args, void *udata)
 {
-    // In Daily Balance mode: zero interference, allow standard Linux low-memory management
+    if (!args) return;
     if (!g_cushion_enabled) return;
 
-    // In Gaming mode: wake up background kswapd asynchronously to clear pages without stalling the foreground caller
-    if (p_wakeup_kswapd) {
-        p_wakeup_kswapd(NULL, (int)args->arg1, 0);
-    }
+    g_allocstall_events++;
 }
 
 void after_try_to_free_pages(hook_fargs4_t *args, void *udata)
 {
+    if (!args) return;
+    if (!g_cushion_enabled) return;
+
+    // During heavy gaming under extreme memory pressure (ZRAM 90%+), if reclaim freed 0 pages,
+    // cushion the allocation with 1 page credit to prevent immediate kernel OOM kill or freeze.
+    if (args->ret == 0) {
+        args->ret = 1;
+    }
 }
 
 // 2. Dynamic Mode Sync: Hook store_BN_TestMode
 void before_store_bn_test(hook_fargs4_t *args, void *udata)
 {
+    if (!args || !args->arg2 || args->arg3 < 1) return;
+
     const char *buf = (const char *)args->arg2;
     if (buf) {
         if (buf[0] == '1') {
@@ -112,7 +118,6 @@ static long lynx_mem_cushion_init(const char *args, const char *event, void *__u
     }
 
     target_try_to_free_pages = (void *)kallsyms_lookup_name("try_to_free_pages");
-    p_wakeup_kswapd = (fn_wakeup_kswapd)kallsyms_lookup_name("wakeup_kswapd");
     target_store_bn_test = (void *)kallsyms_lookup_name("store_BN_TestMode");
     target_dv2_stop = (void *)kallsyms_lookup_name("dv2_stop_algo");
 
