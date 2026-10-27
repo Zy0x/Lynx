@@ -19,14 +19,19 @@ data class RamReclaimResult(
 internal object LynxVmTuningRepository {
     suspend fun cleanRam(): RamReclaimResult = withContext(Dispatchers.IO) {
         try {
-            // Let Android's Activity Manager choose cached processes that are safe to stop.
             // Measure MemAvailable rather than MemFree because it includes reclaimable memory.
+            // Uses zero-binder lynxd native memory clean (compact + drop_caches + native cached eviction)
+            // Completely avoids dangerous 'am kill-all' that can trigger system_server OutOfMemoryError crashes.
             val cmd = """
                 before_kb=${'$'}(/system/bin/awk '${'$'}1 == "MemAvailable:" { print ${'$'}2; exit }' /proc/meminfo 2>/dev/null)
                 case "${'$'}before_kb" in ''|*[!0-9]*) echo LYNX_RAM_RECLAIM_ERROR:meminfo_before; exit 2 ;; esac
-                /system/bin/am kill-all >/dev/null 2>&1
-                am_status=${'$'}?
-                if [ "${'$'}am_status" -ne 0 ]; then echo "LYNX_RAM_RECLAIM_ERROR:activity_manager_${'$'}am_status"; exit "${'$'}am_status"; fi
+                if [ -x '$LYNXD_PATH' ]; then
+                    '$LYNXD_PATH' memory clean >/dev/null 2>&1
+                else
+                    sync
+                    echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+                    echo 1 > /proc/sys/vm/compact_memory 2>/dev/null
+                fi
                 sleep 1
                 after_kb=${'$'}(/system/bin/awk '${'$'}1 == "MemAvailable:" { print ${'$'}2; exit }' /proc/meminfo 2>/dev/null)
                 case "${'$'}after_kb" in ''|*[!0-9]*) echo LYNX_RAM_RECLAIM_ERROR:meminfo_after; exit 3 ;; esac

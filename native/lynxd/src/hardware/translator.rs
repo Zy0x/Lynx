@@ -932,13 +932,13 @@ impl HardwareTranslator {
                 ("50", "50")
             }
         } else if is_powersave {
-            ("80", "120")
+            ("60", "100")
         } else if ram_mb <= 4500 {
             // Balance on <= 4GB RAM: prevent kswapd0 from thrashing anonymous app heaps into ZRAM;
             // reclaim stale VFS/dentry/inode file caches first so WhatsApp/UI stay resident in RAM.
             ("60", "120")
         } else {
-            ("60", "90")
+            ("50", "80")
         };
 
         Self::push_op(&mut ops, "Memory", "VM swappiness (RAM-proportional)", "/proc/sys/vm/swappiness", swappiness, false);

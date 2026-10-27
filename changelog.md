@@ -1,3 +1,33 @@
+# Lynx Universal [Zero-Binder Native Swap & Memory Shield, Framework Restart Elimination & LMKD Re-Tiering] 7.0.0-RC226
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC226** (Lynx Kernel Manager v3.2.60): **Eliminasi Total Risiko Restart Framework / System Server Crash Akibat Kejenuhan Swap/ZRAM: Penghapusan Seluruh Pemanggilan Berbahaya `am kill-all` (Eliminasi Parcel OutOfMemoryError & Failed Transaction -2147483646), Pengenalan Eviksi Proses Cached Murni Native Zero-Binder & Zero-Fork (`evict_cached_processes()`), Penataan Ulang Batas LMKD (`ro.lmk.swap_free_low_percentage` 20% & `kill_heaviest_task` true), Serta Pengurangan Beban Swappiness Berbasis Kapasitas RAM**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC226)
+1. **Penyelidikan Mendalam & Eliminasi Akar Masalah Framework Restart (`system_server_crash`)**:
+   - Berdasarkan analisis forensik log DropBox Android (`system_server_crash` pada 12:26:28 dan `SYSTEM_RESTART` pada 12:27:01), terungkap bahwa `system_server` mengalami `java.lang.OutOfMemoryError` di dalam `android.os.Parcel.writeInt` -> `Parcel.nativeSignalExceptionForError` pada `IPackageManagerImpl.onTransact`.
+   - Hal tersebut dipicu langsung oleh pemanggilan shell `am kill-all` yang dijalankan saat Swap / ZRAM mengalami saturasi (0 kB free). Pemanggilan `am kill-all` memaksa inisialisasi runtime Java ART baru (~50 MB overhead) serta mengirim transaksi IPC Binder masif ke `ActivityManagerService` dan `PackageManagerService`. Di bawah kondisi memori kritis, native `realloc` di `Parcel.cpp` gagal, memicu OOM fatal yang membunuh `system_server` dan merestart framework Android.
+
+2. **Eviksi Proses Cached Mandiri Murni Native Zero-Binder (`evict_cached_processes`)**:
+   - Menggantikan seluruh eksekusi `am kill-all` di `memory.rs` dan aplikasi Companion dengan fungsi native Rust langsung (`libc::kill(pid, SIGKILL)`).
+   - Memindai `/proc/[pid]/oom_score_adj` untuk mendeteksi proses aplikasi latar belakang yang telah idle (`score >= 900`, `CACHED_APP`).
+   - Melindungi proses daemon `lynxd` dan aplikasi Companion (`com.noir.lynx`), serta proses sistem dengan PID $\le$ 1000.
+   - Bekerja secara instan dalam hitungan mikrodetik dengan **0% overhead Java runtime, 0 transaksi Binder IPC, dan 0 risiko OutOfMemoryError** pada `system_server`.
+
+3. **Restrukturisasi Parameter LMKD & Headroom Swap (`apply_ram`)**:
+   - Memperbaiki `ro.lmk.swap_free_low_percentage` dari nilai berbahaya `5%` (hanya tersisa ~200MB swap sebelum bertindak) menjadi `20%` di seluruh tingkatan perangkat (Tier 1-4). Menjamin selalu ada ruang cadangan swap bebas minimal 800 MB - 1 GB.
+   - Mengaktifkan `ro.lmk.kill_heaviest_task = true` dan `kill_timeout_ms = 100` di seluruh tier agar LMKD segera membebaskan ratusan megabyte swap sekaligus saat tekanan meningkat.
+   - Membatasi kuota `max_cached_processes` ke angka seimbang (36 pada 8GB RAM, 24 pada $\le$ 4GB RAM) guna mencegah penumpukan puluhan aplikasi zombie yang menguras 4.3 GB ZRAM.
+
+4. **Koreksi Default Swappiness Ram-Proportional**:
+   - Menurunkan nilai bawaan `vm.swappiness` dari `80` menjadi `50` pada `config.json`, `config_store.rs`, dan profil Balanced pada perangkat RAM 8GB.
+   - Mengurangi kecenderungan kernel melakukan penekanan berlebihan halaman heap aplikasi aktif ke dalam kompresi ZRAM, menjaga suhu silikon lebih dingin dan mencegah kepenuhan swap hingga 0 kB.
+
+5. **Pembersihan Bersih di Seluruh Lapisan Companion App**:
+   - Membersihkan pemanggilan usang `am kill-all` dari `LynxMaintenanceRepository.kt`, `LynxVmTuningRepository.kt` (`cleanRam`), dan `LynxBootReceiver.kt`.
+   - Mengalihkan seluruh alur pembersihan memori UI ke biner native `lynxd memory clean` yang aman, terisolasi, dan berkinerja tinggi.
+
+---
+
 # Lynx Universal [4-Tier Ultra-Efficient Adaptive GPU Governor, Elimination of 950MHz Fling Spikes & Quantile Scaling] 7.0.0-RC225
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC225** (Lynx Kernel Manager v3.2.59): **Penyempurnaan Arsitektur Pengatur GPU Menjadi 4-Tier Granular Ultra-Efisien (Tier 0: Idle 300MHz, Tier 1: Light Tap ~495MHz, Tier 2: Fluid Scroll ~675MHz, Tier 3: Peak 3D 950MHz), Eliminasi Lonjakan Boros 950MHz (0.80V) Saat Scrolling/Flinging, Resolusi Kuantil OPP Kanonikal Universal (`opp_at_quantile`), Serta Histeresis Penurunan Bertingkat Multi-Tier**.

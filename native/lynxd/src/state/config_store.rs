@@ -104,7 +104,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "enabled": false,
     "cpu_floor_ratio": 85,
     "zram_size_mb": 2048,
-    "swappiness": 80,
+    "swappiness": 50,
     "custom_scaling_min": 0,
     "custom_scaling_max": 0
   },
@@ -112,7 +112,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "zram_enabled": true,
     "zram_size_mb": 2048,
     "comp_algorithm": "auto",
-    "swappiness": 80,
+    "swappiness": 50,
     "mglru_enabled": true
   },
   "charging": {

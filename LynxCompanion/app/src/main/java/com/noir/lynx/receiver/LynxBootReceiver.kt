@@ -36,8 +36,8 @@ class LynxBootReceiver : BroadcastReceiver() {
                         mem_free=${'$'}(awk '/^MemFree:/ {print ${'$'}2}' /proc/meminfo 2>/dev/null)
                         if [ -n "${'$'}mem_free" ] && [ "${'$'}mem_free" -lt 150000 ] 2>/dev/null; then
                             sync
-                            echo 1 > /proc/sys/vm/drop_caches 2>/dev/null
-                            am kill-all >/dev/null 2>&1
+                            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+                            if [ -f /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact 2>/dev/null; fi
                         fi
                     """.trimIndent()).exec()
 

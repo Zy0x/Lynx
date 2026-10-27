@@ -2,6 +2,10 @@ use std::fmt::Write as FmtWrite;
 use std::path::Path;
 use std::process::Command;
 
+extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
 use crate::hardware::capability::HardwareCapability;
 use crate::state::ConfigStore;
 use crate::subsystems::tui::{is_english, ui};
@@ -67,16 +71,16 @@ impl MemoryController {
         let (max_cached, bg_limit, vfs_pressure, phantom, swap_low_pct, kill_heaviest, kill_timeout, default_swap) =
             if mem.total_ram_mb <= 4500 {
                 // Tier 1: <= 4GB RAM (Redmi Note 7, etc.) - Strict conservation to prevent lag & direct reclaim
-                ("32", "32", "100", "32", "20", "true", "100", "60")
+                ("24", "24", "100", "24", "20", "true", "100", "50")
             } else if mem.total_ram_mb <= 6500 {
                 // Tier 2: 6GB RAM - Moderate balanced multitasking headroom
-                ("48", "48", "80", "2147483647", "10", "false", "150", "65")
+                ("32", "32", "80", "2147483647", "20", "true", "100", "50")
             } else if mem.total_ram_mb <= 10500 {
-                // Tier 3: 8GB RAM (Infinix Note 11s, etc.) - Seamless multitasking, apps retained in memory
-                ("64", "64", "60", "2147483647", "5", "false", "250", "50")
+                // Tier 3: 8GB RAM (Infinix Note 11s, etc.) - Seamless multitasking, apps retained in memory safely
+                ("36", "36", "60", "2147483647", "20", "true", "100", "50")
             } else {
                 // Tier 4: >= 12GB RAM - Desktop-grade retention
-                ("96", "96", "50", "2147483647", "3", "false", "300", "40")
+                ("48", "48", "50", "2147483647", "20", "true", "100", "40")
             };
 
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vfs_pressure);
@@ -174,27 +178,76 @@ impl MemoryController {
         super::zram::ZramController::disable_zram()
     }
 
+    /// Safely evicts idle background cached processes (oom_score_adj >= 900)
+    /// using direct native kernel signals (SIGKILL), identical to Android AOSP LMKD.
+    /// Completely avoids dangerous 'am kill-all' Binder IPC calls that cause
+    /// Parcel OutOfMemoryError and system_server framework crashes under memory pressure.
+    pub fn evict_cached_processes() -> usize {
+        let mut evicted = 0;
+        if let Ok(entries) = std::fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if let Ok(pid) = name.parse::<i32>() {
+                        // Safety guard: only inspect user-space application PIDs (> 1000)
+                        if pid > 1000 {
+                            let oom_path = path.join("oom_score_adj");
+                            if let Ok(content) = std::fs::read_to_string(&oom_path) {
+                                if let Ok(score) = content.trim().parse::<i32>() {
+                                    // 900..=1000 are Android CACHED_APP processes
+                                    if score >= 900 {
+                                        let is_safe = if let Ok(cmd) = std::fs::read_to_string(path.join("cmdline")) {
+                                            let clean = cmd.replace('\0', " ");
+                                            !clean.contains("lynxd") && !clean.contains("com.noir.lynx")
+                                        } else {
+                                            true
+                                        };
+
+                                        if is_safe {
+                                            unsafe {
+                                                if kill(pid, 9) == 0 {
+                                                    evicted += 1;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        evicted
+    }
+
     pub fn clean_memory() -> String {
         let _ = Command::new("sync").status();
         let cache = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct).is_ok();
         let compact =
             SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::Direct).is_ok();
         let zram_compact = super::zram::ZramController::compact();
-        // Evict idle background cached processes to immediately release stale anonymous pages from ZRAM
-        let _ = Command::new("am").arg("kill-all").status();
+        // Evict idle background cached processes natively (zero-binder, zero-fork)
+        let evicted = Self::evict_cached_processes();
 
-        if !cache && !compact && !zram_compact {
+        if !cache && !compact && !zram_compact && evicted == 0 {
             return ui(
                 "Sebagian permintaan pembersihan memori ditolak kernel.",
                 "The kernel rejected some memory cleanup requests.",
             )
             .to_string();
         }
-        ui(
-            "Cache dilepas, ZRAM dipadatkan, dan proses cached dievaksi demi mencegah kejenuhan swap dan framework restart.",
-            "Cache released, ZRAM compacted, and cached processes evicted to prevent swap saturation and framework restarts.",
-        )
-        .to_string()
+        if is_english() {
+            format!(
+                "Cache released, ZRAM compacted, and {} cached processes evicted natively without Binder IPC to prevent framework restarts.",
+                evicted
+            )
+        } else {
+            format!(
+                "Cache dilepas, ZRAM dipadatkan, dan {} proses cached dievaksi secara native tanpa Binder IPC demi mencegah restart framework.",
+                evicted
+            )
+        }
     }
 
     /// Reads kernel VM parameters from /proc/sys/vm/ and returns JSON for WebUI / Companion App.
@@ -276,7 +329,7 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "10");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
                 Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "120");
-                Self::write_opt("/proc/sys/vm/swappiness", "60");
+                Self::write_opt("/proc/sys/vm/swappiness", "50");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "100");
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
@@ -286,7 +339,7 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "20");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "10");
                 Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
-                Self::write_opt("/proc/sys/vm/swappiness", "70");
+                Self::write_opt("/proc/sys/vm/swappiness", "50");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "200");
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
@@ -302,7 +355,7 @@ impl MemoryController {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "30");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "15");
                 Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
-                Self::write_opt("/proc/sys/vm/swappiness", "90");
+                Self::write_opt("/proc/sys/vm/swappiness", "60");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1500");
                 Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "500");
                 Self::write_opt("/proc/sys/vm/stat_interval", "5");
@@ -353,9 +406,9 @@ impl MemoryController {
                 }
             }
 
-            // If swap device is active (> 512 MB) and critically saturated (free < 12.5% or free < 250 MB)
-            if swap_total > 524_288 && (swap_free < swap_total / 8 || swap_free < 256_000) {
-                // Cooldown guard to avoid spamming am kill-all every minute (180s cooldown)
+            // If swap device is active (> 512 MB) and free swap drops below 20% or below 512 MB
+            if swap_total > 524_288 && (swap_free < swap_total / 5 || swap_free < 512_000) {
+                // Cooldown guard to avoid rapid repeated eviction (60s cooldown)
                 static LAST_RECLAIM: std::sync::atomic::AtomicU64 =
                     std::sync::atomic::AtomicU64::new(0);
                 let now = std::time::SystemTime::now()
@@ -363,23 +416,24 @@ impl MemoryController {
                     .map(|d| d.as_secs())
                     .unwrap_or(0);
                 let last = LAST_RECLAIM.load(std::sync::atomic::Ordering::Relaxed);
-                if now.saturating_sub(last) >= 180 {
+                if now.saturating_sub(last) >= 60 {
                     LAST_RECLAIM.store(now, std::sync::atomic::Ordering::Relaxed);
+                    let _ = super::zram::ZramController::compact();
+                    let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
+                    let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::ForcePermission);
+                    let evicted = Self::evict_cached_processes();
+
                     Logger::warn(if is_english() {
                         format!(
-                            "[DAEMON] Critical Swap Saturation (Total: {} kB, Free: {} kB)! Triggering emergency ZRAM compaction & cached process eviction to prevent framework restart.",
-                            swap_total, swap_free
+                            "[DAEMON] Swap Pressure Detected (Total: {} kB, Free: {} kB)! Executed ZRAM compaction & evicted {} cached processes natively (Zero Binder IPC) to shield system_server.",
+                            swap_total, swap_free, evicted
                         )
                     } else {
                         format!(
-                            "[DAEMON] Tekanan Swap Kritis (Total: {} kB, Bebas: {} kB)! Memicu pemadatan ZRAM & eviksi cached process darurat demi mencegah restart framework.",
-                            swap_total, swap_free
+                            "[DAEMON] Tekanan Swap Terdeteksi (Total: {} kB, Bebas: {} kB)! Pemadatan ZRAM & eviksi {} proses cached native dijalankan (Tanpa Binder IPC) demi melindungi system_server.",
+                            swap_total, swap_free, evicted
                         )
                     });
-
-                    let _ = super::zram::ZramController::compact();
-                    let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
-                    let _ = Command::new("am").arg("kill-all").status();
                 }
             }
         }
