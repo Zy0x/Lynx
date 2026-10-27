@@ -2243,8 +2243,8 @@
     <string name="hud_zonetouch_deadzone">Screen Edge Deadzone: %1$d dp</string>
 
     <!-- TouchShare -->
-    <string name="hud_touchshare_export">Copy Code (TouchShare)</string>
-    <string name="hud_touchshare_import">Paste &amp; Apply</string>
+    <string name="hud_touchshare_export">Copy Code</string>
+    <string name="hud_touchshare_import">Import Code</string>
     <string name="hud_touchshare_dialog_title">Import TouchShare Combo</string>
     <string name="hud_touchshare_dialog_desc">Paste a LYNX-COMBO# string to apply the touch sequence to this slot.</string>
     <string name="hud_touchshare_copied">Combo code copied to Clipboard!</string>

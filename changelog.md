@@ -1,3 +1,26 @@
+# Lynx Universal [High-Precision HUD Gaming Macro Redesign, Bento Status Hub, & Anti-Clutter UI Refactoring] 7.0.0-RC220
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC220** (Lynx Kernel Manager v3.2.54): **Refactoring Menyeluruh & Redesain Antarmuka Gaming HUD Macro Controls (`HudComboControls`) Berbasis Standar Desain Anti-Slop & Redesign-Skill: Eliminasi Tumpang Tindih Kolom 240dp, Segmented Mode Bar 50/50 Full-Width Anti-Squish, Pemisahan Aksi TouchShare Anti-Line Wrap, Pengenalan Slot Tabs Kompak (`C₁`–`C₅`), Bento Status & Recording Hub Terintegrasi, Serta In-Place Expandable Import Box Bebas Window Dismissal Glitch**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC220)
+1. **Redesain Menyeluruh Gaming HUD Macro Controls (`HudComboControls` di `HudGamingCards.kt`)**:
+   - Menerapkan prinsip `/redesign-existing-projects` untuk mengatasi masalah tata letak padat pada drawer sidebar Gaming HUD portrait ($\approx 240\text{ dp}$ lebar konten).
+   - **Segmented Mode Selector 50/50 Full-Width**: Mengatasi tombol mode eksekusi kedua yang terjepit menjadi 10dp (`[ ( | ) ]`) akibat penempatan label teks dan dua `FilterChip` dalam satu baris sempit. Kini label diletakkan di atas dengan bar segmen 50/50 yang seimbang dan responsif (`⚡ 1x Tekan` vs `🔁 Ulang (Loop)`).
+   - **Pemisahan & Penyederhanaan TouchShare Action Buttons**: Menghilangkan pembungkusan teks canggung 4 baris (`Salin / Kode / (TouchS / hare)`) dengan menyederhanakan string menjadi `Salin Kode` dan `Impor Kode` pada baris tombol berdampingan dengan ikon yang jelas.
+   - **Segmented Slot Selector Tabs (`C₁`–`C₅` + `+`)**: Menggantikan deretan chip nama panjang yang berantakan dengan tab slot minimalis dan elegan, dilengkapi inline renamer baris terpisah dan badge target aplikasi (`Penerima Sentuhan`).
+   - **Bento Status & Recording Hub**: Menggabungkan teks status yang sebelumnya terpisah dengan tombol rekam raksasa menjadi satu kartu Bento taktil terpadu: indikator status ketukan (`X Titik Terekam` / `Belum ada ketukan`), ikon sentuh melingkar, dan tombol aksi ringkas `[ 🔴 Rekam ]` / `[ ✎ Edit ]`.
+   - **In-Place Expandable Import Box (`AnimatedVisibility`)**: Menghilangkan dialog pop-up modal eksternal Compose `Dialog` yang rentan ter-dismiss akibat event sentuhan `ACTION_OUTSIDE` di luar jendela overlay HUD, menggantikannya dengan kotak input in-place yang melipat secara halus langsung di dalam drawer.
+
+2. **Penyempurnaan String Sumber Daya Multibahasa**:
+   - Memperbarui `strings.xml` (Indonesia, Default, dan Inggris) untuk `hud_touchshare_export` (`Salin Kode` / `Copy Code`) dan `hud_touchshare_import` (`Impor Kode` / `Import Code`) guna menjamin konsistensi tipografi dan keterbacaan pada rasio layar sempit.
+
+3. **Pembersihan & Eliminasi Redundansi pada Tab Lab GPU & Display (`GpuSubscreen.kt`, `GpuSessionCards.kt`, `TuningTabSubscreenPagers.kt`)**:
+   - **Penghapusan GPU Stability Stress Test ('Uji Beban')**: Menghapus kartu pemicu dan dialog `GpuStabilityStressDialog` yang tidak efektif pada pipeline GPU modern tanpa rendering surface aktif, mengeliminasi kebingungan pengguna dan membebaskan ruang vertikal.
+   - **Eliminasi Redundansi Toggle Lynx Engine In-Game Overlay (`FloatingGameHudCard`)**: Menghilangkan kartu toggle OSD floating dari Tab Lab karena Lynx Engine Floating HUD telah memiliki halaman antarmuka tersendiri yang jauh lebih komprehensif.
+   - **Penyederhanaan Tab Lab Menjadi Fokus Penuh Analisis Frame SurfaceFlinger**: Tab Lab kini langsung menampilkan section 'Analisis Frame SurfaceFlinger' (BLAST Recorder, Ringkasan Sesi, dan Riwayat Perekaman) secara bersih, rapi, dan responsif.
+
+---
+
 # Lynx Universal [Autonomous Swap & ZRAM Saturation Watchdog, Native Hardware Compaction, & Framework Crash Shield] 7.0.0-RC219
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC219** (Lynx Kernel Manager v3.2.53): **Implementasi Mesin Pelindung Framework Android Terpadu Anti-Restart Berbasis Autonomous Swap/ZRAM Saturation Watchdog, Pemadatan Hardware ZRAM Native (`/sys/block/zram0/compact`), dan Eviksi Proses Cached Latar Belakang: Eliminasi Risiko System Server Watchdog Timeout (10000ms Binder Stall & 60s SIGABRT Soft Reboot), Integrasi Penuh Pemadatan ZRAM & `am kill-all` ke Dalam `lynxd memory clean` dan CCleaner, Penambahan Aturan SELinux `sysfs_zram` pada `sepolicy.rule`, Serta Penguatan Lapisan Maintenance Repository pada Companion App**.

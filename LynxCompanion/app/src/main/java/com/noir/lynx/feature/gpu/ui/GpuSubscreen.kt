@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
@@ -288,98 +287,8 @@ fun LazyListScope.tuningGpuCategoryItems(
             }
         }
         2 -> {
-            // ── TAB 2: LAB (PERFORMANCE LAB & IN-GAME OSD) ──
-            // ── SECTION 1: BENCHMARK & OVERLAY ──
-            item(key = "section_header_lab_benchmark") {
-                GpuSectionHeader(
-                    title = "Benchmark & Overlay",
-                    subtitle = "Uji kestabilan GPU 30s/60s & floating telemetry Lynx Engine",
-                    accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
-                    badge = "REAL-TIME TOOLS"
-                )
-            }
-
-            item(key = "gpu_stress_test_trigger") {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF10141E),
-                    border = BorderStroke(0.6.dp, Color(0x1AFFFFFF)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f).padding(end = 8.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = com.noir.lynx.designsystem.theme.AccentOrange.copy(alpha = 0.12f),
-                                border = BorderStroke(0.6.dp, com.noir.lynx.designsystem.theme.AccentOrange.copy(alpha = 0.3f)),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Speed,
-                                        contentDescription = null,
-                                        tint = com.noir.lynx.designsystem.theme.AccentOrange,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Column {
-                                Text(
-                                    text = "GPU Stability Stress Test",
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = com.noir.lynx.designsystem.theme.TextPrimary
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = "Uji siklus beban GPU 30s/60s untuk mengukur thermal throttling & stabilitas clock",
-                                    fontSize = 10.5.sp,
-                                    lineHeight = 14.sp,
-                                    color = com.noir.lynx.designsystem.theme.TextSecondary.copy(alpha = 0.75f)
-                                )
-                            }
-                        }
-                        Button(
-                            onClick = onOpenStressTest,
-                            shape = RoundedCornerShape(9.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = com.noir.lynx.designsystem.theme.AccentOrange),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                "Uji Beban",
-                                color = Color.Black,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-
-            item(key = "gpu_hud_card") {
-                FloatingGameHudCard(
-                    isHudRunning = uiState.isGameHudActive,
-                    hudMode = uiState.hudMode,
-                    hudStyle = uiState.hudStyle,
-                    onToggleHud = { viewModel.toggleGameHud(context, !uiState.isGameHudActive) },
-                    onSetMode = { viewModel.setHudMode(context, it) },
-                    onSetStyle = { viewModel.setHudStyle(context, it) }
-                )
-            }
-
-            // ── SECTION 2: ANALISIS FRAME SURFACEFLINGER ──
+            // ── TAB 2: LAB (PERFORMANCE LAB & FRAME ANALYSIS) ──
+            // ── SECTION: ANALISIS FRAME SURFACEFLINGER ──
             item(key = "section_header_blast_recorder") {
                 GpuSectionHeader(
                     title = "Analisis Frame SurfaceFlinger",
@@ -447,7 +356,6 @@ fun GpuSubscreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showStressDialog by remember { mutableStateOf(false) }
 
     // Auto refresh data on load
     LaunchedEffect(Unit) {
@@ -469,17 +377,7 @@ fun GpuSubscreen(
         tuningGpuCategoryItems(
             uiState = uiState,
             viewModel = viewModel,
-            context = context,
-            onOpenStressTest = { showStressDialog = true }
-        )
-    }
-
-    if (showStressDialog) {
-        GpuStabilityStressDialog(
-            silicon = uiState.gpuSilicon,
-            onStartStressTest = { dur, onComplete -> viewModel.startGpuStabilityBenchmark(dur, onComplete) },
-            onStopStressTest = { viewModel.stopGpuStabilityBenchmark() },
-            onDismiss = { showStressDialog = false }
+            context = context
         )
     }
 }

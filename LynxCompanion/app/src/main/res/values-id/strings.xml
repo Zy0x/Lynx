@@ -2267,8 +2267,8 @@
     <string name="hud_zonetouch_deadzone">Deadzone Tepi Layar: %1$d dp</string>
 
     <!-- TouchShare -->
-    <string name="hud_touchshare_export">Salin Kode (TouchShare)</string>
-    <string name="hud_touchshare_import">Tempel &amp; Pasang</string>
+    <string name="hud_touchshare_export">Salin Kode</string>
+    <string name="hud_touchshare_import">Impor Kode</string>
     <string name="hud_touchshare_dialog_title">Impor Kombo TouchShare</string>
     <string name="hud_touchshare_dialog_desc">Tempel kode string LYNX-COMBO# untuk memasang urutan sentuhan ke slot ini.</string>
     <string name="hud_touchshare_copied">Kode kombo berhasil disalin ke Clipboard!</string>

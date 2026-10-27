@@ -12,7 +12,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -247,135 +255,345 @@ internal fun HudComboControls() {
     selectedIndex = selectedIndex.coerceIn(0, (combos.size - 1).coerceAtLeast(0))
     val currentCombo = combos.getOrElse(selectedIndex) { MacroCombo() }
 
-    var showImportDialog by rememberSaveable { mutableStateOf(false) }
+    var showImportBox by rememberSaveable { mutableStateOf(false) }
+    var isRenaming by remember { mutableStateOf(false) }
+    var editName by remember(currentCombo.id) { mutableStateOf(currentCombo.name) }
 
     val isRunning = activeRunning != null
     val isCurrentRunning = activeRunning == currentCombo.id
 
     val comboInfo = "${hudString(R.string.hud_magic_description)}\n\n" +
-        "• Rekam Sentuhan: Tekan tombol merah untuk merekam koordinat dan urutan ketukan layar.\n\n" +
-        "• Mode Eksekusi: 1x Tekan untuk menjalankan kombo sekali, atau Ulang (Loop) untuk mengeksekusi kombo berulang-ulang selama tombol ditahan.\n\n" +
-        "• Tombol Melayang (C1, C2...): Saat diaktifkan, tombol pintas kecil akan muncul di atas game agar dapat memicu kombo secara instan.\n\n" +
-        "• TouchShare: Bagikan kode kombo ke teman atau impor kombo dari teks salinan.\n\n" +
+        "• Rekam Sentuhan: Tekan tombol Rekam untuk merekam koordinat dan urutan ketukan layar langsung di atas game.\n\n" +
+        "• Mode Eksekusi: '1x Tekan' untuk mengeksekusi kombo satu kali jalan, atau 'Ulang (Loop)' untuk mengulang kombo berulang-ulang selama tombol ditahan.\n\n" +
+        "• Tombol Melayang: Munculkan tombol pintas bulat (C₁, C₂...) di layar game dengan dukungan single-tap eksekusi instan dan long-press untuk memindahkan posisi tombol.\n\n" +
+        "• TouchShare: Bagikan urutan kombo melalui token portabel Base64 (Salin Kode / Impor Kode).\n\n" +
         "• Batasan Sistem: ${hudString(R.string.hud_magic_limits)}"
+
+    val badgeText = when {
+        isCurrentRunning -> "● Berjalan"
+        currentCombo.taps.isNotEmpty() -> "● ${currentCombo.taps.size} Titik"
+        else -> "Siap"
+    }
+    val badgeColor = when {
+        isCurrentRunning -> HudRed
+        currentCombo.taps.isNotEmpty() -> HudCyan
+        else -> HudBlue
+    }
 
     HudSection(
         title = hudString(R.string.hud_magic_title),
-        badge = hudString(if (isRunning) R.string.hud_active else R.string.hud_addin_inactive),
-        accentColor = if (isRunning) HudCyan else HudBlue,
+        badge = badgeText,
+        accentColor = badgeColor,
         info = comboInfo
     ) {
-
+        // --- 1. Compact Slot Selector Tabs (C₁, C₂, C₃, C₄, C₅ + Add) ---
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(pkg.ifBlank { "—" }, fontSize = 12.sp, color = HudBlue)
-            Text(currentCombo.name, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HudCyan)
-        }
-
-        // Horizontal Combo Selector Chips (C₁, C₂, C₃...) + Add Button
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             combos.forEachIndexed { index, c ->
                 val isSelected = selectedIndex == index
-                FilterChip(
+                val hasTaps = c.taps.isNotEmpty()
+                Surface(
                     selected = isSelected,
-                    onClick = { selectedIndex = index },
-                    label = { Text("${c.displayBadge} ${c.name}") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = HudElevated,
-                        labelColor = HudMuted,
-                        selectedContainerColor = HudBlueBadge.copy(alpha = .35f),
-                        selectedLabelColor = Color.White
-                    ),
+                    onClick = {
+                        selectedIndex = index
+                        isRenaming = false
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = when {
+                        isSelected -> HudCyan
+                        hasTaps -> HudBlueBadge.copy(alpha = 0.35f)
+                        else -> HudElevated
+                    },
                     border = BorderStroke(1.dp, if (isSelected) HudCyan else HudBorder),
-                    modifier = Modifier.heightIn(min = 44.dp)
-                )
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = c.displayBadge,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 13.sp,
+                            color = if (isSelected) Color(0xFF0A0E14) else if (hasTaps) Color.White else HudMuted
+                        )
+                    }
+                }
             }
 
             if (combos.size < 5) {
-                IconButton(
+                Surface(
                     onClick = {
-                        val created = comboManager.addCombo()
+                        comboManager.addCombo()
                         selectedIndex = combos.size
+                        isRenaming = false
                     },
-                    modifier = Modifier.size(40.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    color = HudElevated,
+                    border = BorderStroke(1.dp, HudBorder),
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Icon(Icons.Default.AddCircle, contentDescription = "Tambah Kombo", tint = HudCyan)
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Tambah Slot",
+                            tint = HudCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
 
-        // Enable in-game floating trigger button toggle
+        // --- 2. Combo Name & App Target Strip ---
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isRenaming) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    BasicTextField(
+                        value = editName,
+                        onValueChange = { editName = it.take(20) },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(HudElevated)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                    IconButton(
+                        onClick = {
+                            if (editName.isNotBlank()) {
+                                comboManager.updateCombo(currentCombo.copy(name = editName.trim()))
+                            }
+                            isRenaming = false
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = "Simpan", tint = HudCyan, modifier = Modifier.size(16.dp))
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            editName = currentCombo.name
+                            isRenaming = true
+                        }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Text(
+                        text = "Slot ${currentCombo.displayBadge}: ${currentCombo.name}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Ubah Nama",
+                        tint = HudMuted,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+
+            if (pkg.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = HudElevated,
+                    modifier = Modifier.padding(start = 6.dp)
+                ) {
+                    Text(
+                        text = pkg.substringAfterLast('.'),
+                        fontSize = 10.sp,
+                        color = HudBlue,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+
+        // --- 3. In-Game Floating Trigger Toggle ---
         AddinToggle(
-            label = "Tampilkan Tombol Melayang di Game (${currentCombo.displayBadge})",
+            label = "Tombol Melayang di Game (${currentCombo.displayBadge})",
             checked = currentCombo.enabled,
             onChange = { enabled ->
                 comboManager.updateCombo(currentCombo.copy(enabled = enabled))
             }
         )
 
-        // Execution Mode Selector: One-Shot vs Hold Loop
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Mode Eksekusi", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
-                    selected = currentCombo.executionMode == ExecutionMode.ONE_SHOT,
-                    onClick = { comboManager.updateCombo(currentCombo.copy(executionMode = ExecutionMode.ONE_SHOT)) },
-                    label = { Text("1x Tekan", fontSize = 11.5.sp) },
-                    modifier = Modifier.height(36.dp)
-                )
-                FilterChip(
-                    selected = currentCombo.executionMode == ExecutionMode.HOLD_LOOP,
-                    onClick = { comboManager.updateCombo(currentCombo.copy(executionMode = ExecutionMode.HOLD_LOOP)) },
-                    label = { Text("Ulang (Loop)", fontSize = 11.5.sp) },
-                    modifier = Modifier.height(36.dp)
-                )
+        // --- 4. Mode Eksekusi (Full-Width Segmented Bar — Zero Collision) ---
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Mode Eksekusi", fontSize = 11.5.sp, color = HudMuted)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(HudElevated)
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val isOneShot = currentCombo.executionMode == ExecutionMode.ONE_SHOT
+                // Segment 1: 1x Tekan
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isOneShot) HudBlueBadge.copy(alpha = 0.55f) else Color.Transparent,
+                    border = if (isOneShot) BorderStroke(1.dp, HudCyan.copy(alpha = 0.5f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable {
+                            comboManager.updateCombo(currentCombo.copy(executionMode = ExecutionMode.ONE_SHOT))
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "⚡ 1x Tekan",
+                            fontSize = 11.5.sp,
+                            fontWeight = if (isOneShot) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isOneShot) Color.White else HudMuted
+                        )
+                    }
+                }
+                // Segment 2: Ulang (Loop)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (!isOneShot) HudBlueBadge.copy(alpha = 0.55f) else Color.Transparent,
+                    border = if (!isOneShot) BorderStroke(1.dp, HudCyan.copy(alpha = 0.5f)) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable {
+                            comboManager.updateCombo(currentCombo.copy(executionMode = ExecutionMode.HOLD_LOOP))
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "🔁 Ulang (Loop)",
+                            fontSize = 11.5.sp,
+                            fontWeight = if (!isOneShot) FontWeight.Bold else FontWeight.Normal,
+                            color = if (!isOneShot) Color.White else HudMuted
+                        )
+                    }
+                }
             }
         }
 
         if (currentCombo.executionMode == ExecutionMode.HOLD_LOOP) {
-            Text("Jeda Loop: ${currentCombo.loopDelayMs} ms", fontSize = 12.sp, color = HudMuted)
-            Slider(
-                value = currentCombo.loopDelayMs.toFloat(),
-                onValueChange = { comboManager.updateCombo(currentCombo.copy(loopDelayMs = it.toLong())) },
-                valueRange = 50f..1000f,
-                modifier = Modifier.heightIn(min = 44.dp)
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Jeda Antar-Siklus", fontSize = 11.5.sp, color = HudMuted)
+                    Text("${currentCombo.loopDelayMs} ms", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = HudCyan)
+                }
+                Slider(
+                    value = currentCombo.loopDelayMs.toFloat(),
+                    onValueChange = { comboManager.updateCombo(currentCombo.copy(loopDelayMs = it.toLong())) },
+                    valueRange = 50f..1000f,
+                    modifier = Modifier.heightIn(min = 40.dp)
+                )
+            }
         }
 
-        // Tap summary
-        Text(
-            text = "Urutan Sentuhan: ${currentCombo.taps.size} titik terekam",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (currentCombo.taps.isNotEmpty()) HudCyan else HudMuted
-        )
+        // --- 5. Touch Sequence & Recording Bento Card ---
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFF131822),
+            border = BorderStroke(1.dp, if (currentCombo.taps.isNotEmpty()) HudCyan.copy(alpha = 0.25f) else HudBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (currentCombo.taps.isNotEmpty()) HudCyan.copy(alpha = 0.15f) else HudElevated,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.TouchApp,
+                                contentDescription = null,
+                                tint = if (currentCombo.taps.isNotEmpty()) HudCyan else HudMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = if (currentCombo.taps.isEmpty()) "Belum ada ketukan" else "${currentCombo.taps.size} Titik Terekam",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (currentCombo.taps.isEmpty()) "Ketuk Rekam di layar" else "Siap dijalankan di game",
+                            fontSize = 10.5.sp,
+                            color = HudMuted
+                        )
+                    }
+                }
 
-        // Big Action: Rekam / Edit di Layar Penuh
-        HudAction(
-            label = "🔴 Rekam / Edit Kombo di Layar (${currentCombo.displayBadge})",
-            enabled = !isRunning && root,
-            onClick = {
-                comboManager.setEditing(currentCombo.id)
-            },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-            accentColor = HudCyan,
-            icon = Icons.Default.TouchApp
-        )
+                Button(
+                    onClick = { comboManager.setEditing(currentCombo.id) },
+                    enabled = !isRunning && root,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (currentCombo.taps.isEmpty()) HudCyan else HudElevated,
+                        contentColor = if (currentCombo.taps.isEmpty()) Color.Black else HudCyan
+                    ),
+                    border = if (currentCombo.taps.isNotEmpty()) BorderStroke(1.dp, HudCyan.copy(alpha = 0.5f)) else null,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (currentCombo.taps.isEmpty()) Color.Red else HudCyan)
+                        )
+                        Text(
+                            text = if (currentCombo.taps.isEmpty()) "Rekam" else "Edit",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
 
-        // TouchShare Row: Salin & Tempel Passphrase
+        // --- 6. TouchShare Action Buttons (Salin & Impor — Non-Wrapping) ---
         Row(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             HudAction(
@@ -394,14 +612,85 @@ internal fun HudComboControls() {
             HudAction(
                 label = hudString(R.string.hud_touchshare_import),
                 onClick = {
-                    showImportDialog = true
+                    showImportBox = !showImportBox
                 },
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 icon = Icons.Default.ContentPaste
             )
         }
 
-        // Test Run Button
+        // --- 7. In-Place Expandable TouchShare Import Box ---
+        AnimatedVisibility(
+            visible = showImportBox,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            var inputCode by remember { mutableStateOf("") }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF141924),
+                border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        hudString(R.string.hud_touchshare_dialog_title),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    OutlinedTextField(
+                        value = inputCode,
+                        onValueChange = { inputCode = it },
+                        placeholder = { Text("LYNX-COMBO#1#...", color = HudMuted, fontSize = 11.sp) },
+                        maxLines = 2,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = HudCyan,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = { showImportBox = false },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(hudString(R.string.hud_magic_cancel), color = HudMuted, fontSize = 11.5.sp)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Button(
+                            onClick = {
+                                val imported = TouchShareParser.importFromString(inputCode, currentCombo.id)
+                                if (imported != null) {
+                                    comboManager.updateCombo(imported)
+                                    Toast.makeText(context, context.getString(R.string.hud_touchshare_success), Toast.LENGTH_SHORT).show()
+                                    showImportBox = false
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.hud_touchshare_invalid), Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = HudCyan, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Terapkan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 8. Main Execution Action ---
         HudAction(
             label = hudString(if (isCurrentRunning) R.string.hud_magic_stop else R.string.hud_magic_start),
             enabled = isRunning || (root && currentCombo.taps.isNotEmpty()),
@@ -417,78 +706,42 @@ internal fun HudComboControls() {
             accentColor = if (isCurrentRunning) HudRed else HudCyan
         )
 
-        // Delete Combo Button (if > 1)
+        // --- 9. Delete Slot Text Button (if > 1) ---
         if (combos.size > 1) {
-            HudAction(
-                label = "Hapus Slot ${currentCombo.displayBadge}",
-                enabled = !isRunning,
-                onClick = {
-                    comboManager.removeCombo(currentCombo.id)
-                    selectedIndex = 0
-                },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 40.dp),
-                isDanger = true
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        comboManager.removeCombo(currentCombo.id)
+                        selectedIndex = 0
+                    }
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DeleteOutline,
+                        contentDescription = "Hapus",
+                        tint = HudRed.copy(alpha = 0.8f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        "Hapus Slot ${currentCombo.displayBadge}",
+                        fontSize = 11.5.sp,
+                        color = HudRed.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
         }
 
         if (!root) Text(hudString(R.string.hud_cap_needs_root), fontSize = 12.sp, color = HudOrange)
     }
-
-    // TouchShare Import Dialog
-    if (showImportDialog) {
-        var inputCode by remember { mutableStateOf("") }
-        Dialog(onDismissRequest = { showImportDialog = false }) {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Color(0xF216161A),
-                border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.5f)),
-                shadowElevation = 16.dp,
-                modifier = Modifier.fillMaxWidth(0.92f)
-            ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(hudString(R.string.hud_touchshare_dialog_title), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(hudString(R.string.hud_touchshare_dialog_desc), fontSize = 12.sp, color = HudMuted)
-
-                    OutlinedTextField(
-                        value = inputCode,
-                        onValueChange = { inputCode = it },
-                        placeholder = { Text("LYNX-COMBO#1#...", color = HudMuted) },
-                        maxLines = 3,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = HudCyan,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.25f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { showImportDialog = false }) {
-                            Text(hudString(R.string.hud_magic_cancel), color = Color(0xFFAAAAAA))
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                val imported = TouchShareParser.importFromString(inputCode, currentCombo.id)
-                                if (imported != null) {
-                                    comboManager.updateCombo(imported)
-                                    Toast.makeText(context, context.getString(R.string.hud_touchshare_success), Toast.LENGTH_SHORT).show()
-                                    showImportDialog = false
-                                } else {
-                                    Toast.makeText(context, context.getString(R.string.hud_touchshare_invalid), Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = HudCyan, contentColor = Color.Black)
-                        ) {
-                            Text("Terapkan", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
+
 
 /**
  * Universal ZoneTouch Master Controls.

@@ -20,7 +20,6 @@ import com.noir.lynx.feature.battery.ui.batteryInformationItems
 import com.noir.lynx.feature.cpu.ui.CpuTabRow
 import com.noir.lynx.feature.cpu.ui.tuningCpuCategoryItems
 import com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow
-import com.noir.lynx.feature.gpu.ui.GpuStabilityStressDialog
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems
 import com.noir.lynx.feature.network.ui.NetworkAudioTabRow
 import com.noir.lynx.feature.network.ui.TuningNetworkCategory
@@ -82,7 +81,6 @@ fun GpuSwipeableSubscreen(
     val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page3State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
-    var showStressDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshGpuInfo()
@@ -129,24 +127,10 @@ fun GpuSwipeableSubscreen(
                 uiState = uiState,
                 viewModel = viewModel,
                 context = context,
-                targetTab = page,
-                onOpenStressTest = { showStressDialog = true }
+                targetTab = page
             )
             item(key = "gpu_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
         }
-    }
-
-    if (showStressDialog) {
-        GpuStabilityStressDialog(
-            silicon = uiState.gpuSilicon,
-            onStartStressTest = { dur, onComplete ->
-                viewModel.startGpuStabilityBenchmark(dur, onComplete)
-            },
-            onStopStressTest = {
-                viewModel.stopGpuStabilityBenchmark()
-            },
-            onDismiss = { showStressDialog = false }
-        )
     }
 }
 
