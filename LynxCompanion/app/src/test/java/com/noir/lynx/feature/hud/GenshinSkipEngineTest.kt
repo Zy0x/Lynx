@@ -166,4 +166,29 @@ class GenshinSkipEngineTest {
         val sampleHexZero = "323232ff111111ff000000ff"
         assertEquals(0, GenshinSkipEngine.countDialogueMatches(sampleHexZero))
     }
+
+    @Test
+    fun sceneTelemetrySerializesValidJson() {
+        val telemetry = GenshinSkipEngine.SceneTelemetry(
+            timestamp = 1730042100000L,
+            gamePackage = "com.miHoYo.GenshinImpact",
+            width = 2460,
+            height = 1080,
+            safeWidth = 1920L,
+            pillarbox = 270L,
+            xMin = 315L,
+            xMax = 550L,
+            yRow = 56L,
+            sliceBytes = 940L,
+            matchingPixels = 78,
+            thresholdRequired = 12,
+            dialogueDeclared = true,
+            mode = "AUTO"
+        )
+        val json = telemetry.toJson()
+        assertTrue(json.contains("\"game_package\": \"com.miHoYo.GenshinImpact\""))
+        assertTrue(json.contains("\"matching_pixels\": 78"))
+        assertTrue(json.contains("\"dialogue_declared\": true"))
+        assertTrue(json.contains("\"pillarbox_padding\": 270"))
+    }
 }

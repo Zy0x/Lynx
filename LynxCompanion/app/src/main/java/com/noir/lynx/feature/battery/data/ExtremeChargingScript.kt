@@ -73,16 +73,37 @@ object ExtremeChargingScript {
                             /sys/class/power_supply/battery/constant_charge_current \
                             /sys/class/power_supply/battery/input_current_limit \
                             /sys/class/power_supply/battery/charge_control_limit \
-                            /sys/class/power_supply/main/current_max; do
-                    [ -e "${'$'}node" ] && echo 3000000 > "${'$'}node" 2>/dev/null
+                            /sys/class/power_supply/main/current_max \
+                            /sys/class/power_supply/main/constant_charge_current_max \
+                            /sys/class/power_supply/main/input_current_settled \
+                            /sys/class/power_supply/usb/hw_current_max \
+                            /sys/class/power_supply/usb/input_current_settled \
+                            /sys/class/power_supply/dc/current_max \
+                            /sys/class/power_supply/battery_ext/chg_pwr_fcc \
+                            /sys/class/power_supply/battery_ext/chg_pwr_icl \
+                            /sys/class/power_supply/battery_ext/max_charge_current; do
+                    [ -e "${'$'}node" ] && echo 4000000 > "${'$'}node" 2>/dev/null
                 done
-                [ -e /sys/class/power_supply/usb/current_max ] && echo 3000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                [ -e /sys/class/power_supply/usb/current_max ] && echo 4000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/temp_state 2>/dev/null
                 echo -1 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/safety_timer_enabled 2>/dev/null
+                echo 1 > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null
+                echo 1 > /sys/class/power_supply/usb/boost_current 2>/dev/null
+                echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
+                echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/subsystem/usb/pd_allowed 2>/dev/null
+
+                # Relax Qualcomm BMS temperature thresholds (Original Lynx AI Charging Controller)
+                echo 120 > /sys/class/power_supply/bms/temp_cool 2>/dev/null
+                echo 650 > /sys/class/power_supply/bms/temp_hot 2>/dev/null
+                echo 610 > /sys/class/power_supply/bms/temp_warm 2>/dev/null
+                echo 0 > /sys/class/power_supply/bms/temp_cold 2>/dev/null
+
                 if [ -d /sys/class/qcom-battery ]; then
                     has_cp=0
                     if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
@@ -90,7 +111,7 @@ object ExtremeChargingScript {
                     fi
                     echo "${'$'}has_cp" > /sys/class/qcom-battery/direct_charging 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                    echo 3000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                    echo 4000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
                 [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null

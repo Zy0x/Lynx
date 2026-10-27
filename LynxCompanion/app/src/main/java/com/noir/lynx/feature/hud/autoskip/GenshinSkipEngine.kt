@@ -1,5 +1,14 @@
 package com.noir.lynx.feature.hud.autoskip
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import com.topjohnwu.superuser.Shell
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
@@ -178,5 +187,134 @@ object GenshinSkipEngine {
         val x = (width * 0.0305f).toInt()
         val y = (height * 0.0555f).toInt()
         return 16L + (y.toLong() * width.toLong() + x.toLong()) * 4L
+    }
+
+    data class SceneTelemetry(
+        val timestamp: Long,
+        val gamePackage: String,
+        val width: Int,
+        val height: Int,
+        val safeWidth: Long,
+        val pillarbox: Long,
+        val xMin: Long,
+        val xMax: Long,
+        val yRow: Long,
+        val sliceBytes: Long,
+        val matchingPixels: Int,
+        val thresholdRequired: Int,
+        val dialogueDeclared: Boolean,
+        val mode: String
+    ) {
+        fun toJson(): String {
+            return """
+                {
+                  "timestamp": $timestamp,
+                  "game_package": "$gamePackage",
+                  "screen_resolution": {
+                    "width": $width,
+                    "height": $height,
+                    "safe_width_16_9": $safeWidth,
+                    "pillarbox_padding": $pillarbox
+                  },
+                  "scan_parameters": {
+                    "y_row": $yRow,
+                    "x_min": $xMin,
+                    "x_max": $xMax,
+                    "slice_bytes": $sliceBytes
+                  },
+                  "pixel_analysis": {
+                    "matching_pixels": $matchingPixels,
+                    "threshold_required": $thresholdRequired,
+                    "dialogue_declared": $dialogueDeclared
+                  },
+                  "hud_state": {
+                    "mode": "$mode"
+                  }
+                }
+            """.trimIndent()
+        }
+    }
+
+    /**
+     * Captures a complete diagnostic scene bundle for the Scene Vision learning pipeline:
+     * - Full resolution screencap (PNG)
+     * - 16:9 safe-zone cropped slice (PNG)
+     * - Telemetry metadata analysis (JSON)
+     * Saved to /sdcard/Lynx/scenes/ (fallback to external files dir).
+     */
+    fun captureSceneSnapshot(
+        context: Context,
+        screenWidth: Int,
+        screenHeight: Int,
+        packageName: String,
+        mode: String,
+        matchingPixels: Int
+    ): String? {
+        val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
+        val height = min(screenWidth, screenHeight).coerceAtLeast(720)
+        val safeWidth = (height.toLong() * 16L) / 9L
+        val pillarbox = if (width > safeWidth) (width - safeWidth) / 2L else 0L
+        val xMin = pillarbox + ((safeWidth * 45L) / 1920L).coerceAtLeast(40L)
+        val xMax = pillarbox + ((safeWidth * 280L) / 1920L).coerceAtLeast(250L)
+        val y = ((height.toLong() * 56L) / 1080L).coerceAtLeast(20L)
+        val sliceBytes = (xMax - xMin) * 4L
+        val threshold = calculateMinDialogueThreshold(height)
+        val declared = matchingPixels >= threshold
+
+        val dir = File("/sdcard/Lynx/scenes").apply { if (!exists()) mkdirs() }
+        val targetDir = if (dir.canWrite()) dir else context.getExternalFilesDir("scenes") ?: dir
+        if (!targetDir.exists()) targetDir.mkdirs()
+
+        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
+        val timeTag = sdf.format(Date())
+        val baseName = "scene_${timeTag}"
+
+        val fullFile = File(targetDir, "${baseName}_full.png")
+        val jsonFile = File(targetDir, "${baseName}_telemetry.json")
+
+        // 1. Full screenshot
+        Shell.cmd("screencap -p '${fullFile.absolutePath}'").exec()
+
+        // 2. Telemetry metadata
+        val telemetry = SceneTelemetry(
+            timestamp = System.currentTimeMillis(),
+            gamePackage = packageName,
+            width = width,
+            height = height,
+            safeWidth = safeWidth,
+            pillarbox = pillarbox,
+            xMin = xMin,
+            xMax = xMax,
+            yRow = y,
+            sliceBytes = sliceBytes,
+            matchingPixels = matchingPixels,
+            thresholdRequired = threshold,
+            dialogueDeclared = declared,
+            mode = mode
+        )
+        runCatching { jsonFile.writeText(telemetry.toJson()) }
+
+        // 3. Crop slice image if full file exists
+        if (fullFile.exists() && fullFile.length() > 1024L) {
+            runCatching {
+                val bmp = BitmapFactory.decodeFile(fullFile.absolutePath)
+                if (bmp != null) {
+                    val cropY = y.toInt().coerceIn(0, bmp.height - 1)
+                    val cropH = ((height * 28) / 1080).coerceIn(10, 80)
+                    val cropYStart = (cropY - cropH / 2).coerceIn(0, bmp.height - cropH)
+                    val cropW = (xMax - xMin).toInt().coerceIn(10, bmp.width)
+                    val cropXStart = xMin.toInt().coerceIn(0, bmp.width - cropW)
+                    val cropped = Bitmap.createBitmap(bmp, cropXStart, cropYStart, cropW, cropH)
+                    val sliceFile = File(targetDir, "${baseName}_slice.png")
+                    FileOutputStream(sliceFile).use { out ->
+                        cropped.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    }
+                    bmp.recycle()
+                    cropped.recycle()
+                }
+            }
+        }
+
+        return targetDir.absolutePath
     }
 }

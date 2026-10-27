@@ -1,3 +1,34 @@
+# Lynx Universal [Qualcomm Single-PMIC 4000mA Hyper-Charging Unconstrained Silicon & BMS JEITA Unlock & Hoyo RPG Scene Vision] 7.0.0-RC241
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC241** (Lynx Kernel Manager v3.2.75): **Pelepasan Plafon Arus Pengisian Daya Cepat Mode Hyper Hingga 4000mA (4,000,000 uA) Serta Pembukaan Relaksasi Termal BMS JEITA (`temp_hot=650`, `temp_warm=610`, `system_temp_level=0`) Pada Arsitektur Qualcomm Single-PMIC (Redmi Note 7 / PM660) Sesuai Logika Asli AI Charging Controller 4.5 Tanpa Batasan Artifisial Silikon, Serta Perilisan Master Blueprint Dokumen Arsitektur Mesin Vision Auto-Skip (`docs/16_HOYO_AUTOSKIP_SCENE_VISION_ARCHITECTURE.md`) dan Fitur In-Game Diagnostic Snapshot Tracer (Long-Press 0.8s pada Floating Badge)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC241)
+1. **Qualcomm Single-PMIC 4000mA Hyper-Charging & BMS JEITA Expansion (`charging.rs`, `ExtremeChargingScript.kt`, `lynxd`)**:
+   - **Pelepasan Plafon Arus 4000mA / 4500mA**: Mengeliminasi pembatas buatan 3000mA / 3500mA pada arsitektur Qualcomm single-PMIC (PM660 pada Redmi Note 7). Mengembalikan logika akselerasi arus penuh seperti pada skrip lawas `Charging-Controller.sh` (AI Charging Controller 4.5), di mana batas arus diatur ke 4000mA (`4000000` uA) atau unconstrained, sehingga arus pengisian puncak hanya dibatasi oleh kapabilitas fisik silikon dan suhu baterai riil.
+   - **Pembukaan Relaksasi Termal BMS JEITA**: Menulis nilai batas suhu ekspansi pada modul BMS (`temp_hot=650` [65.0°C], `temp_warm=610` [61.0°C], `temp_cool=120` [12.0°C], `temp_cold=0`, dan `system_temp_level=0`), mencegah driver kernel menurunkan arus pengisian secara prematur pada suhu 40-45°C.
+   - **Aktivasi Flag Fast Charge Universal**: Mengaktifkan `allow_hvdcp3=1`, `force_fast_charge=1`, `pd_allowed=1`, `boost_current=1`, serta menonaktifkan `safety_timer_enabled=0` dan `step_charging_enabled=0`.
+   - **Stabilitas Pengisian 100% Bebas Flapping**: Tetap mempertahankan proteksi anti-flapping (tanpa pulsing `input_suspend` pada Qualcomm, menjaga `direct_charging=0` pada single-PMIC non-charge pump, dan rate-limiter 30s) sehingga pengisian arus tinggi berjalan mulus tanpa putus-nyambung.
+   - **Preservasi 100% MediaTek (Infinix Note 11 Pro)**: Seluruh arsitektur MediaTek Pump Express (PE2.0/PE4.0), Switched-Capacitor Pump (RT9759), 33170 mA register, dan Anti-Flapping Float Mode tetap utuh tanpa modifikasi.
+
+2. **Master Blueprint Dokumen Arsitektur (`docs/16_HOYO_AUTOSKIP_SCENE_VISION_ARCHITECTURE.md`)**:
+   - Mendokumentasikan secara mendalam landasan matematika *Pillarbox Safe-Frame 16:9* untuk seluruh rasio layar (16:9, ultrawide 20.5:9, tablet, layar lipat).
+   - Menetapkan taksonomi terstruktur 4 tipe scene: **Tipe A** (Dialog Standar NPC), **Tipe B** (Transisi Layar Hitam Narasi), **Tipe C** (Dialog Bercabang / Komisi Khusus), dan **Tipe D** (Zona Pengecualian Aman seperti Peta, Relic, dan Inventaris dengan proteksi Zero-Tap mutlak).
+   - Menyediakan spesifikasi format data pembelajaran dan integrasi aturan baru.
+
+3. **Fitur In-Game Scene Inspector & Snapshot Tracer (`GenshinSkipEngine.kt` & `LynxFloatingHudService.kt`)**:
+   - Menambahkan interaksi gestur tahan (Long-Press 0.8 detik) pada shortcut floating badge Auto-Skip.
+   - Mengambil bundel diagnosa lengkap ke direktori `/sdcard/Lynx/scenes/`:
+     - `scene_<timestamp>_full.png`: Tangkapan layar penuh fisik game.
+     - `scene_<timestamp>_slice.png`: Crop irisan zona aman dialog 16:9.
+     - `scene_<timestamp>_telemetry.json`: Metadata resolusi, padding pilar, analisis nilai piksel, ambang batas, dan status mode aktif.
+   - Memberikan umpan balik haptic panjang dan notifikasi toast konfirmasi penyimpanan data.
+
+4. **Alur Pembelajaran Hybrid Dual-Layer & Pembaruan Unit Test**:
+   - Mendukung skema override `scene_rules.json` lokal untuk pengujian hot-patching instan tanpa harus recompile APK.
+   - Menambahkan pengujian serialisasi JSON telemetri pada `GenshinSkipEngineTest`.
+
+---
+
 # Lynx Universal [Hoyo RPG Auto-Skip Zero-Lag In-Process Stream & Two-Phase Adaptive Cadence] 7.0.0-RC240
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC240** (Lynx Kernel Manager v3.2.74): **Optimalisasi Kinerja Total dan Eliminasi Stutter/Lag pada Fitur Hoyo RPG Auto-Skip Melalui Mesin Pemindai Aliran Biner Native In-Process (Direct Binary Stream Scanner) dan Pola Deteksi Dua Fase Cerdas (Two-Phase Adaptive Cadence Engine): Menggantikan 6 Subproses Eksternal (head, tail, xxd, grep, wc) dengan Pembaca Aliran Biner Langsung dalam Memori (In-Memory Direct Stream) yang Menutup Pipe Seketika Setelah 940 Bytes Terbaca Tanpa Menyita Bandwidth GPU/SurfaceFlinger, Menerapkan Jeda Pengawasan 1000ms pada Status Diam (Standby Hening) Demi 0% Beban CPU dan Stabilitas 60/120 FPS di Luar Dialog, Serta Fase Burst Skip 6-Tap Cepat Tanpa Interupsi Screencap Saat Berada Dalam Dialog**.

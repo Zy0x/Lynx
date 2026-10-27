@@ -868,7 +868,7 @@ impl ChargingRegulator {
 
         if is_hyper {
             let target_peak_ma = if is_qcom && !Path::new("/sys/class/power_supply/smb1390").exists() && !Path::new("/sys/class/power_supply/charge_pump").exists() {
-                3500
+                4000
             } else if cfg.limit_current_ma >= 2000 {
                 (cfg.limit_current_ma as u32).max(Self::probe_hardware_ceiling_ma())
             } else {
@@ -884,7 +884,7 @@ impl ChargingRegulator {
             };
 
             let target_ua = effective_ma as i64 * 1000;
-            let target_usb_ua = if is_qcom { 3_000_000 } else { target_ua.max(5_000_000) };
+            let target_usb_ua = if is_qcom { (effective_ma as i64 * 1000).min(4_000_000) } else { target_ua.max(5_000_000) };
 
             // Check if kernel or thermal-engine lowered the hardware registers
             let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
@@ -1132,13 +1132,13 @@ impl ChargingRegulator {
         let has_qcom_cp = Self::has_qcom_direct_charge_pump();
         let target_peak_ma = if is_qcom && !has_qcom_cp {
             // Qualcomm single-cell without dual charge pump (e.g. SDM660 PM660, SD845, SM8150 single):
-            // Safe physical hardware ceiling is 3000mA (QC3.0 18W / 5V 3A):
-            if requested_ma >= 3000 {
-                3000
+            // Unrestricted silicon limit (4000mA peak, throttled dynamically only by silicon PMIC & battery heat):
+            if requested_ma >= 4000 {
+                requested_ma.min(4500)
             } else if requested_ma >= 2000 {
-                requested_ma.min(3000)
+                requested_ma.max(4000)
             } else {
-                3000
+                4000
             }
         } else if requested_ma >= 2000 {
             requested_ma.max(hw_ceiling)
@@ -1159,7 +1159,7 @@ impl ChargingRegulator {
             target_peak_ma
         };
         let effective_ua_str = if is_qcom && !has_qcom_cp {
-            effective_ma.min(3000) as u64 * 1000
+            effective_ma.min(4500) as u64 * 1000
         } else {
             effective_ma as u64 * 1000
         }.to_string();
@@ -1231,9 +1231,8 @@ impl ChargingRegulator {
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
         let usb_current_cap_ua = if is_qcom {
-            // Qualcomm USB-PD contract bounds:
-            // Cap to 3000mA for standard single-cell Type-C PHY in uA:
-            "3000000".to_string()
+            // Qualcomm USB-PD contract bounds: uncap to 4000mA peak
+            "4000000".to_string()
         } else if effective_ma > 5000 {
             effective_ua_str.clone()
         } else {
@@ -1360,7 +1359,7 @@ impl ChargingRegulator {
 
         if Self::is_qualcomm_soc() {
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let target_ua = "3000000";
+            let target_ua = "4000000";
             let direct_val = if has_cp { "1" } else { "0" };
 
             // 1. Pre-uncap registers in kernel memory before handshake trigger
@@ -1379,7 +1378,7 @@ impl ChargingRegulator {
             }
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "4000");
             Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
@@ -1914,11 +1913,29 @@ impl ChargingRegulator {
             }
         }
 
-        // 7. Qualcomm Snapdragon Platform Thermal Uncaps
+        // 7. Qualcomm Snapdragon Platform Thermal Uncaps & BMS JEITA Expansion
         Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+        Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+        Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+
+        // Relax Qualcomm BMS / Battery JEITA temperature thresholds (Original Lynx AI Charging Controller)
+        let bms_dir = "/sys/class/power_supply/bms";
+        Self::write_node_lock(&format!("{}/temp_cool", bms_dir), "120");
+        Self::write_node_lock(&format!("{}/temp_hot", bms_dir), "650");
+        Self::write_node_lock(&format!("{}/temp_warm", bms_dir), "610");
+        Self::write_node_lock(&format!("{}/temp_cold", bms_dir), "0");
+
+        // Fast charge and power negotiation boost flags
+        Self::write_node_lock("/sys/kernel/fast_charge/force_fast_charge", "1");
+        Self::write_node_lock("/sys/class/power_supply/usb/boost_current", "1");
+        Self::write_node_lock("/sys/class/power_supply/usb/pd_allowed", "1");
+        Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
+        Self::write_node_lock("/sys/class/power_supply/battery/subsystem/usb/pd_allowed", "1");
+        Self::write_node_lock("/sys/class/power_supply/battery/safety_timer_enabled", "0");
 
         // 7b. Preserve all CPU cores online and prevent thermal isolation while charging
         for i in 0..16 {
@@ -2036,6 +2053,19 @@ impl ChargingRegulator {
 
         // 7. Resume suspended userspace thermal daemons via SIGCONT
         Self::signal_processes(Self::THERMAL_PROCESS_NAMES, false);
+
+        // 7b. Restore Qualcomm BMS / Battery JEITA temperature thresholds
+        let bms_dir = "/sys/class/power_supply/bms";
+        if Path::new(bms_dir).exists() {
+            Self::set_perm(&format!("{}/temp_cool", bms_dir), 0o666);
+            Self::write_node(&format!("{}/temp_cool", bms_dir), "100");
+            Self::set_perm(&format!("{}/temp_hot", bms_dir), 0o666);
+            Self::write_node(&format!("{}/temp_hot", bms_dir), "480");
+            Self::set_perm(&format!("{}/temp_warm", bms_dir), 0o666);
+            Self::write_node(&format!("{}/temp_warm", bms_dir), "450");
+            Self::set_perm(&format!("{}/temp_cold", bms_dir), 0o666);
+            Self::write_node(&format!("{}/temp_cold", bms_dir), "0");
+        }
 
         // 8. Reset Android framework thermal status
         let _ = std::process::Command::new("cmd")

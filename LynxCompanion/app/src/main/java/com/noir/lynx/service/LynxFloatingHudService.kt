@@ -401,6 +401,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         private var startParamX = 0
         private var startParamY = 0
         private var isDragging = false
+        private var isLongPressTriggered = false
+
+        private val longPressRunnable = Runnable {
+            if (!isDragging) {
+                isLongPressTriggered = true
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                controller.triggerSceneSnapshot { dir ->
+                    android.widget.Toast.makeText(
+                        context,
+                        "📸 Scene snapshot tersimpan di $dir",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
 
         override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
             val p = autoSkipParams ?: return super.dispatchTouchEvent(ev)
@@ -415,6 +430,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     startParamX = p.x
                     startParamY = p.y
                     isDragging = false
+                    isLongPressTriggered = false
+                    mainHandler.removeCallbacks(longPressRunnable)
+                    mainHandler.postDelayed(longPressRunnable, 800L)
                     parent?.requestDisallowInterceptTouchEvent(true)
                     return true
                 }
@@ -423,6 +441,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     val dy = ev.rawY - downRawY
                     if (!isDragging && hypot(dx, dy) >= dragSlopPx) {
                         isDragging = true
+                        mainHandler.removeCallbacks(longPressRunnable)
                         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     }
                     if (isDragging) {
@@ -435,17 +454,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!isDragging) {
+                    mainHandler.removeCallbacks(longPressRunnable)
+                    if (!isDragging && !isLongPressTriggered) {
                         performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                         controller.toggleAutoSkip()
-                    } else {
+                    } else if (isDragging) {
                         saveAutoSkipPosition()
                     }
                     isDragging = false
+                    isLongPressTriggered = false
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    mainHandler.removeCallbacks(longPressRunnable)
                     isDragging = false
+                    isLongPressTriggered = false
                     return true
                 }
             }

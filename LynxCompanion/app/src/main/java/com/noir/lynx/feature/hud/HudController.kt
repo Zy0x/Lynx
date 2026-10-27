@@ -13,6 +13,7 @@ import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
 import com.noir.lynx.feature.floating.StandaloneApps
+import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner
 import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.data.HudAppCatalog
@@ -306,6 +307,24 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     fun toggleAutoSkip() { gaming.magic.stop(); skipRunner.toggle() }
     fun stopAutoSkip() { skipRunner.stop() }
+    fun triggerSceneSnapshot(onSaved: (String) -> Unit) {
+        scope.launch(Dispatchers.IO) {
+            val pkg = currentPackage ?: skipContext?.pkg ?: "unknown"
+            val mode = skipRunner.currentMode.value.name
+            val matchingPixels = skipRunner.probeMatchingPixels()
+            val dir = GenshinSkipEngine.captureSceneSnapshot(
+                context = context,
+                screenWidth = skipRunner.screenWidth,
+                screenHeight = skipRunner.screenHeight,
+                packageName = pkg,
+                mode = mode,
+                matchingPixels = matchingPixels
+            )
+            withContext(Dispatchers.Main) {
+                onSaved(dir ?: "/sdcard/Lynx/scenes")
+            }
+        }
+    }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
         if (pkg.isNotBlank()) currentPackage = pkg
         skipContext = SkipContext(pkg, isHudOpen, width, height, prefs)

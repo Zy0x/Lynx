@@ -162,11 +162,10 @@ class GenshinSkipRunner(
         } catch (_: Throwable) {}
     }
 
-    suspend fun isGenshinDialogueActive(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun probeMatchingPixels(): Int = withContext(Dispatchers.IO) {
         var proc: Process? = null
         try {
             val (headBytes, sliceBytes) = GenshinSkipEngine.calculateDialogueScanSlice(screenWidth, screenHeight)
-            val minThreshold = GenshinSkipEngine.calculateMinDialogueThreshold(screenHeight)
             val byteStart = headBytes - sliceBytes
 
             // In-process native binary stream: skips 6 external shell forks (head, tail, xxd, grep, wc)
@@ -182,7 +181,7 @@ class GenshinSkipRunner(
                 if (r <= 0) break
                 skipped += r
             }
-            if (skipped < byteStart) return@withContext false
+            if (skipped < byteStart) return@withContext 0
 
             val slice = ByteArray(sliceBytes.toInt())
             var sliceRead = 0
@@ -197,7 +196,7 @@ class GenshinSkipRunner(
             proc.destroy()
             proc = null
 
-            if (sliceRead < slice.size) return@withContext false
+            if (sliceRead < slice.size) return@withContext 0
 
             // High-speed in-memory pixel density verification (< 0.01 ms execution time)
             var matchCount = 0
@@ -212,12 +211,18 @@ class GenshinSkipRunner(
                 }
                 i += 4
             }
-            return@withContext matchCount >= minThreshold
+            return@withContext matchCount
         } catch (_: Throwable) {
-            return@withContext false
+            return@withContext 0
         } finally {
             runCatching { proc?.destroy() }
         }
+    }
+
+    suspend fun isGenshinDialogueActive(): Boolean {
+        val matches = probeMatchingPixels()
+        val threshold = GenshinSkipEngine.calculateMinDialogueThreshold(screenHeight)
+        return matches >= threshold
     }
 
     private suspend fun runTapLoop() {
