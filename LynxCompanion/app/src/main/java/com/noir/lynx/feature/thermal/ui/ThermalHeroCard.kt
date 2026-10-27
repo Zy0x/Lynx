@@ -26,8 +26,8 @@ import com.noir.lynx.designsystem.theme.*
 
 /**
  * ThermalHeroCard — Zen Reassurance Hero Card for Hardware Thermal Management.
- * Redesigned to match the gold-standard calm aesthetic of TuningProfilesCategory.
- * Anti AI slop, zero redundant clutter, and psychological safety for users.
+ * Streamlined to eliminate redundant metrics that duplicate controls below it.
+ * Focuses on active mode status, live peak temperature badge, and hardware watchdog reassurance.
  */
 @Composable
 internal fun ThermalHeroCard(uiState: LynxUiState) {
@@ -46,24 +46,28 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
         ThermalEngineMode.THERMAL_STABLE -> "Thermal Stabil (Sustained)"
         ThermalEngineMode.PERFORMANCE -> "Performa Kompetitif"
         ThermalEngineMode.DEFAULT_OEM -> "Default OEM (Baseline)"
+        ThermalEngineMode.CUSTOM -> "Mode Kustom (${state.thermal.customTempLimitC}°C)"
     }
     val modeSub = when (mode) {
         ThermalEngineMode.HARDWARE_SAFETY_DOMINANT -> "Software throttling dinonaktifkan • Proteksi silikon & baterai aktif"
-        ThermalEngineMode.THERMAL_STABLE -> "Stabilisasi kurva OPP • Menahan FPS drop • Trip 52-55°C"
-        ThermalEngineMode.PERFORMANCE -> "Toleransi panas tinggi • Kunci clock frekuensi maksimal"
+        ThermalEngineMode.THERMAL_STABLE -> "Stabilisasi kurva OPP • Menahan FPS drop • Trip 52°C"
+        ThermalEngineMode.PERFORMANCE -> "Toleransi panas tinggi • Target Trip 58°C"
         ThermalEngineMode.DEFAULT_OEM -> "Proteksi standar pabrik • OEM throttling aktif"
+        ThermalEngineMode.CUSTOM -> "Mitigasi termal dikustomisasi mandiri oleh pengguna"
     }
     val heroAccent = when (mode) {
         ThermalEngineMode.HARDWARE_SAFETY_DOMINANT -> AccentRed
         ThermalEngineMode.THERMAL_STABLE -> AccentCyan
         ThermalEngineMode.PERFORMANCE -> AccentOrange
         ThermalEngineMode.DEFAULT_OEM -> AccentGreen
+        ThermalEngineMode.CUSTOM -> AccentCyan
     }
     val heroIcon = when (mode) {
         ThermalEngineMode.HARDWARE_SAFETY_DOMINANT -> Icons.Default.LocalFireDepartment
         ThermalEngineMode.THERMAL_STABLE -> Icons.Default.Shield
         ThermalEngineMode.PERFORMANCE -> Icons.Default.Bolt
         ThermalEngineMode.DEFAULT_OEM -> Icons.Default.Tune
+        ThermalEngineMode.CUSTOM -> Icons.Default.Tune
     }
 
     val animatedAccent by animateColorAsState(
@@ -97,7 +101,6 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    // Subtle Zen Pulse Indicator
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
                             shape = CircleShape,
@@ -123,6 +126,7 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
                     isDominant -> "Bypass Throttling"
                     mode == ThermalEngineMode.THERMAL_STABLE -> "Stabil & Dingin"
                     mode == ThermalEngineMode.PERFORMANCE -> "Performa Siaga"
+                    mode == ThermalEngineMode.CUSTOM -> "Tuning Mandiri"
                     else -> "Standar Pabrik"
                 }
                 Surface(
@@ -184,7 +188,7 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
 
                 Spacer(Modifier.width(8.dp))
 
-                // Reassuring Temperature Pill
+                // Reassuring Live Peak Temperature Pill
                 val tempAccent = when {
                     maxTemp >= 60f -> AccentRed
                     maxTemp >= 48f -> AccentOrange
@@ -216,51 +220,8 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
                 }
             }
 
-            // ── 3. Subsystem Telemetry Ribbon (Calm Unified Ribbon) ──
-            Spacer(Modifier.height(13.dp))
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF0C0F17),
-                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val tripText = "${state.thermal.customTempLimitC}°C"
-                    val floorText = "${state.overclock.cpuFloorRatio}%"
-                    val joyoseText = if (state.oemNeutralizer.joyoseNeutralize) "Aktif" else "Off"
-                    val totalZones = if (statusDetails.totalZonesCount > 0) statusDetails.totalZonesCount else validZones.size
-                    val writableZones = if (statusDetails.writableZonesCount > 0) statusDetails.writableZonesCount else validZones.count { it.isWritable }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Batas Trip", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(tripText, color = AccentOrange.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("CPU Floor", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(floorText, color = AccentCyan.copy(alpha = 0.9f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Anti-OEM", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text(joyoseText, color = if (state.oemNeutralizer.joyoseNeutralize) AccentGreen else TextSecondary, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Sensor", color = TextSecondary.copy(alpha = 0.5f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Text("$writableZones/$totalZones RW", color = TextPrimary.copy(alpha = 0.85f), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            // ── 4. Psychological Reassurance Footer ──────────────
-            Spacer(Modifier.height(9.dp))
+            // ── 3. Psychological Reassurance Footer ──────────────
+            Spacer(Modifier.height(11.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -272,17 +233,17 @@ internal fun ThermalHeroCard(uiState: LynxUiState) {
                     imageVector = if (isDominant) Icons.Default.Shield else Icons.Default.CheckCircle,
                     contentDescription = null,
                     tint = if (isDominant) AccentGreen else AccentCyan.copy(alpha = 0.8f),
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Text(
                     text = if (isDominant) {
-                        "Proteksi silikon kernel (LMh) & cutoff baterai (45°C) tetap aktif demi keamanan hardware."
+                        "Proteksi silikon kernel & batas cutoff baterai tetap aktif menjaga hardware."
                     } else {
                         "Thermal governor mengatur clock dinamis sesuai kurva OPP secara otomatis."
                     },
-                    color = TextSecondary.copy(alpha = 0.7f),
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
+                    color = TextSecondary.copy(alpha = 0.75f),
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

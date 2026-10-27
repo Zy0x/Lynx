@@ -1,3 +1,30 @@
+# Lynx Universal [Thermal & Anti-Throttling Redesign, Zero Redundancy & Dynamic Vendor Config Parser] 7.0.0-RC222
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC222** (Lynx Kernel Manager v3.2.56): **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling Berbasis Standar Desain Anti-Slop (/redesign-existing-projects): 4 Mode Cepat Terintegrasi, Slider Suhu Trip Point Dinamis (45°C-75°C), Sinkronisasi Otomatis File Vendor INI di Latar Belakang, Eliminasi Total Redundansi Tweak CPU, dan Penggantian Studio Konfigurasi 1600+ Baris Menjadi Komponen Modular Ringkas Serta Raw Editor Sheet**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC222)
+1. **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling (`ThermalSubscreen.kt`)**:
+   - **4 Mode Cepat Terintegrasi (1-Click Instant Switching)**: Menata ulang 4 mode termal utama (*Default OEM*, *Thermal Stabil*, *Performa*, *Safety Dominant*) dalam grid Bento 2x2 yang taktil dan ergonomis.
+   - **Transisi Mode Kustom Dinamis**: Mengetuk salah satu mode otomatis menyelaraskan slider suhu dan sakelar di bawahnya. Jika pengguna menggeser suhu kustom sendiri, status sistem secara otomatis beralih menjadi *Mode Kustom* dengan feedback visual yang jelas.
+   - **Pembersihan Total Redundansi Tweak**: Menghapus duplikasi pengaturan frekuensi CPU (*Ambang Bawah CPU Floor* dan *Kunci Frekuensi Maksimal*) dari halaman ini karena murni merupakan tanggung jawab domain kategori CPU.
+
+2. **Panel Penyesuaian Fleksibel & Anti-Throttling Terpusat**:
+   - Menghadirkan **SafeSlider Suhu Trip Point Dinamis (45°C - 75°C)** dengan pembacaan nilai real-time dan baris chip preset suhu cepat (`45° OEM`, `50°`, `52° Stabil`, `58° Performa`, `65°`, `75° Dominant`).
+   - Sakelar inline **Netralkan Pembatasan OEM (Joyose / GOS)** untuk mencegah pemotongan refresh rate dan resolusi secara sepihak oleh vendor ponsel.
+   - Sakelar inline **Cegah Layar Meredup (Anti-Dimming Termal)** untuk menjaga kecerahan layar tetap konstan di bawah beban tinggi atau suhu meningkat.
+
+3. **Arsitektur Modular & Parsing Berkas Konfigurasi Termal Vendor (`VendorThermalCard.kt` & `VendorThermalSyncHelper.kt`)**:
+   - **Eliminasi Berkas Raksasa 1600+ Baris**: Menghapus `VendorThermalStudioCard.kt` yang sebelumnya menumpuk ratusan tombol dan opsi membingungkan.
+   - **Kartu Ringkasan Status Bersih (`VendorThermalCard.kt`)**: Menampilkan chip arsitektur (Qualcomm Adreno / MediaTek Dimensity & Helio), target berkas partisi (`.tp/thermal.conf` atau `thermal-engine.conf`), status *Live Bind Mount*, dan status sinkronisasi trip point.
+   - **Parsing Otomatis di Latar Belakang (`VendorThermalSyncHelper.kt`)**: Secara cerdas mencari dan menyesuaikan ambang batas trip point/set point pada berkas INI vendor dan menerapkannya secara senyap tanpa reboot.
+   - **Editor Raw INI Lanjutan (`VendorThermalRawEditorSheet.kt`)**: Menyediakan Modal Bottom Sheet khusus dengan monospace text area untuk pengguna ahli yang ingin melihat atau menyunting langsung berkas INI konfigurasi vendor.
+
+4. **Minimalis & Zen Hero Card (`ThermalHeroCard.kt`)**:
+   - Menghilangkan redundansi ribbon metrik yang menduplikasi angka slider di bawahnya.
+   - Memfokuskan kartu hero pada status proteksi silikon kernel, badge suhu puncak real-time (*live temp*), dan nama mode aktif dengan aksen warna semantik.
+
+---
+
 # Lynx Universal [In-Game HUD Dynamic Profile Override & Multi-Engine Rule Synchronization] 7.0.0-RC221
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC221** (Lynx Kernel Manager v3.2.55): **Resolusi Menyeluruh Masalah Peralihan Profil Mode pada Gaming HUD Saat Berada di Dalam Game Beraturan Khusus: Implementasi Sinkronisasi Dua Arah Rule Per-App Otonom, Penghapusan Konflik Pembalikan Otomatis (Race Revert Condition) Antara `lynxd daemon` & `LynxAppAutomationService`, Preservasi Baseline Mode Idle Tanpa Merusak Status Kembali Aman, Serta Deteksi Mtime Sub-Detik (Millisecond Precision) pada Rules Engine Native**.

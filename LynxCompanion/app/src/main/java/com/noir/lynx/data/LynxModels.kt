@@ -139,18 +139,20 @@ data class OemNeutralizerConfig(
 )
 
 data class ThermalConfig(
-    val mode: String = "stable", // "default", "stable", "performance", "hardware_safety_dominant"
+    val mode: String = "stable", // "default", "stable", "performance", "hardware_safety_dominant", "custom"
     val fullBypass: Boolean = false,
     val customTempLimitC: Int = 52,
     val tripPointOverrideC: Int = 150,
     val hardwareSafetyDominant: Boolean = false,
+    val antiDimming: Boolean = true,
 )
 
 enum class ThermalEngineMode {
     DEFAULT_OEM,
     THERMAL_STABLE,
     PERFORMANCE,
-    HARDWARE_SAFETY_DOMINANT
+    HARDWARE_SAFETY_DOMINANT,
+    CUSTOM
 }
 
 data class ThermalStatusDetails(

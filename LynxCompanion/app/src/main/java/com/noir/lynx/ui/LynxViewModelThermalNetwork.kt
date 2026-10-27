@@ -46,11 +46,23 @@ fun LynxViewModel.setThermalMode(mode: String) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.THERMAL)
     val isDominant = mode == "hardware_safety_dominant" || mode == "unrestricted"
     val isDefault = mode == "default" || mode == "default_oem"
+    val isPerformance = mode == "performance"
+    val isCustom = mode == "custom"
+
     val engineMode = when {
         isDominant -> ThermalEngineMode.HARDWARE_SAFETY_DOMINANT
         isDefault -> ThermalEngineMode.DEFAULT_OEM
-        mode == "performance" -> ThermalEngineMode.PERFORMANCE
+        isPerformance -> ThermalEngineMode.PERFORMANCE
+        isCustom -> ThermalEngineMode.CUSTOM
         else -> ThermalEngineMode.THERMAL_STABLE
+    }
+
+    val presetTempLimit = when {
+        isDominant -> 75
+        isPerformance -> 58
+        isDefault -> 45
+        isCustom -> _uiState.value.state.thermal.customTempLimitC
+        else -> 52
     }
 
     val sdf = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
@@ -61,6 +73,7 @@ fun LynxViewModel.setThermalMode(mode: String) {
             state = current.state.copy(
                 thermal = current.state.thermal.copy(
                     mode = mode,
+                    customTempLimitC = presetTempLimit,
                     fullBypass = isDominant,
                     hardwareSafetyDominant = isDominant
                 )
@@ -76,15 +89,16 @@ fun LynxViewModel.setThermalMode(mode: String) {
     }
 
     setKey("thermal.mode", mode, "str")
+    setKey("thermal.custom_temp_limit_c", presetTempLimit.toString(), "val")
     setKey("thermal.full_bypass", isDominant.toString(), "bool")
 
     viewModelScope.launch(Dispatchers.IO) {
-        val limit = _uiState.value.state.thermal.customTempLimitC
-        val ok = LynxRepository.applyThermalMode(mode, limit)
+        val ok = LynxRepository.applyThermalMode(mode, presetTempLimit)
+        com.noir.lynx.hardware.VendorThermalSyncHelper.syncCustomTempLimitToVendorConfig(presetTempLimit)
         if (ok) {
             com.noir.lynx.safety.LynxPersistenceManager.saveBootConfiguration(
                 mode = mode,
-                tempLimitC = limit,
+                tempLimitC = presetTempLimit,
                 cpuFloorRatio = _uiState.value.state.overclock.cpuFloorRatio
             )
             try {
@@ -96,6 +110,7 @@ fun LynxViewModel.setThermalMode(mode: String) {
                 ThermalEngineMode.THERMAL_STABLE -> "Mode Thermal Stabil diaktifkan (Sustained FPS)"
                 ThermalEngineMode.PERFORMANCE -> "Mode Performa Termal diaktifkan"
                 ThermalEngineMode.DEFAULT_OEM -> "Baseline Pabrik OEM dipulihkan"
+                ThermalEngineMode.CUSTOM -> "Mode Kustom (${presetTempLimit}°C) diaktifkan"
             }
             _uiState.update { it.copy(successMessage = label) }
         }
@@ -104,12 +119,58 @@ fun LynxViewModel.setThermalMode(mode: String) {
 
 fun LynxViewModel.setCustomTempLimit(temp: Int) {
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.THERMAL)
+    val newMode = when (temp) {
+        45 -> "default_oem"
+        52 -> "stable"
+        58 -> "performance"
+        75 -> "hardware_safety_dominant"
+        else -> "custom"
+    }
+    val engineMode = when (newMode) {
+        "default_oem" -> ThermalEngineMode.DEFAULT_OEM
+        "stable" -> ThermalEngineMode.THERMAL_STABLE
+        "performance" -> ThermalEngineMode.PERFORMANCE
+        "hardware_safety_dominant" -> ThermalEngineMode.HARDWARE_SAFETY_DOMINANT
+        else -> ThermalEngineMode.CUSTOM
+    }
     _uiState.update { current ->
-        current.copy(state = current.state.copy(thermal = current.state.thermal.copy(customTempLimitC = temp)))
+        current.copy(
+            state = current.state.copy(
+                thermal = current.state.thermal.copy(
+                    customTempLimitC = temp,
+                    mode = newMode
+                )
+            ),
+            thermalStatusDetails = current.thermalStatusDetails.copy(
+                activeMode = engineMode
+            )
+        )
     }
     setKey("thermal.custom_temp_limit_c", temp.toString(), "val")
+    setKey("thermal.mode", newMode, "str")
     viewModelScope.launch(Dispatchers.IO) {
         LynxRepository.applyCustomTempLimitLive(temp)
+        com.noir.lynx.hardware.VendorThermalSyncHelper.syncCustomTempLimitToVendorConfig(temp)
+    }
+}
+
+fun LynxViewModel.setThermalAntiDimming(enabled: Boolean) {
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.THERMAL)
+    _uiState.update { current ->
+        current.copy(
+            state = current.state.copy(
+                thermal = current.state.thermal.copy(antiDimming = enabled)
+            )
+        )
+    }
+    setKey("thermal.anti_dimming", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val res = com.noir.lynx.hardware.VendorThermalSyncHelper.setAntiDimming(enabled)
+        if (res.isSuccess) {
+            _uiState.update {
+                it.copy(successMessage = if (enabled) "Anti-Dimming Termal diaktifkan" else "Anti-Dimming Termal dinonaktifkan")
+            }
+        }
     }
 }
 

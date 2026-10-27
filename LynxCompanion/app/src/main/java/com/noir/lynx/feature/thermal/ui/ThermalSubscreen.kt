@@ -29,15 +29,18 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.controls.LynxSwitch
+import com.noir.lynx.designsystem.controls.SafeSlider
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.designsystem.tweak.LynxTweakSheet
-import com.noir.lynx.designsystem.tweak.LynxTweakTile
-import com.noir.lynx.designsystem.tweak.TweakConfig
 import com.noir.lynx.ui.LynxViewModel
+import com.noir.lynx.ui.setCustomTempLimit
+import com.noir.lynx.ui.setJoyoseNeutralize
+import com.noir.lynx.ui.setThermalAntiDimming
+import com.noir.lynx.ui.setThermalMode
 
 /**
  * Subscreen 3: Thermal & Anti-Throttling Category Composable
- * Redesigned for visual calm, anti AI slop, zero redundancy, and strict hierarchy.
+ * Redesigned for anti AI slop, zero redundancy, and strict hierarchy.
+ * Features 4 1-click fast modes with dynamic custom slider and background vendor INI parsing.
  */
 @Composable
 fun ThermalSubscreen(
@@ -46,8 +49,8 @@ fun ThermalSubscreen(
     modifier: Modifier = Modifier
 ) {
     val state = uiState.state
-    var activeTweakConfig by remember { mutableStateOf<TweakConfig?>(null) }
     var selectedSensorFilter by remember { mutableStateOf("Semua") }
+    var activeRawEditorContent by remember { mutableStateOf<String?>(null) }
 
     // Auto-refresh thermal capabilities on screen load
     LaunchedEffect(Unit) {
@@ -60,6 +63,7 @@ fun ThermalSubscreen(
     }
 
     val activeMode = uiState.thermalStatusDetails.activeMode
+    val currentTempLimit = state.thermal.customTempLimitC
     val isDominant = activeMode == ThermalEngineMode.HARDWARE_SAFETY_DOMINANT || state.thermal.fullBypass
 
     Column(
@@ -69,7 +73,7 @@ fun ThermalSubscreen(
         // ── 1. Hero Card: Zen Reassurance Status ─────────────────
         ThermalHeroCard(uiState)
 
-        // ── 2. 2x2 Bento Matrix: Pilihan Profil Termal ───────────
+        // ── 2. 2x2 Bento Matrix: 4 Pilihan Mode Cepat ───────────
         Text(
             text = "PILIHAN MODE TERMAL",
             style = MaterialTheme.typography.labelSmall,
@@ -87,10 +91,8 @@ fun ThermalSubscreen(
                 icon = Icons.Default.Tune,
                 accent = AccentGreen,
                 tempLimit = 45,
-                cpuFloor = 60,
-                bypass = false,
-                antiThrottle = false,
                 joyose = false,
+                antiDimming = false,
                 isActive = activeMode == ThermalEngineMode.DEFAULT_OEM
             ),
             ThermalModeItem(
@@ -100,10 +102,8 @@ fun ThermalSubscreen(
                 icon = Icons.Default.Shield,
                 accent = AccentCyan,
                 tempLimit = 52,
-                cpuFloor = 70,
-                bypass = false,
-                antiThrottle = true,
                 joyose = true,
+                antiDimming = true,
                 isActive = activeMode == ThermalEngineMode.THERMAL_STABLE
             ),
             ThermalModeItem(
@@ -113,10 +113,8 @@ fun ThermalSubscreen(
                 icon = Icons.Default.Bolt,
                 accent = AccentOrange,
                 tempLimit = 58,
-                cpuFloor = 80,
-                bypass = false,
-                antiThrottle = true,
                 joyose = true,
+                antiDimming = true,
                 isActive = activeMode == ThermalEngineMode.PERFORMANCE
             ),
             ThermalModeItem(
@@ -126,10 +124,8 @@ fun ThermalSubscreen(
                 icon = Icons.Default.LocalFireDepartment,
                 accent = AccentRed,
                 tempLimit = 75,
-                cpuFloor = 85,
-                bypass = true,
-                antiThrottle = true,
                 joyose = true,
+                antiDimming = true,
                 isActive = isDominant
             )
         )
@@ -151,7 +147,7 @@ fun ThermalSubscreen(
             )
         }
 
-        // Row 2: Performa & Hardware Safety Dominant
+        // Row 2: Performa & Safety Dominant
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -214,98 +210,128 @@ fun ThermalSubscreen(
             }
         }
 
-        // ── 4. Penyesuaian Lanjutan & Anti-Throttling ─────────────
+        // ── 4. Penyesuaian Fleksibel & Anti-Throttling ─────────────
         LynxCard(
-            title = "Penyesuaian Lanjutan & Trip Points",
+            title = "Penyesuaian Fleksibel & Anti-Throttling",
             icon = Icons.Default.Speed,
             accentColor = AccentCyan
         ) {
-            // Custom thermal temperature limit slider tile
-            var tempLimitValue by remember {
-                mutableFloatStateOf(state.thermal.customTempLimitC.toFloat())
-            }
-            LaunchedEffect(state.thermal.customTempLimitC) {
-                if (activeTweakConfig?.id != "temp_limit") {
-                    tempLimitValue = state.thermal.customTempLimitC.toFloat()
+            // Dynamic Trip Point Slider Section
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(
+                            text = "Batas Suhu Thermal (Trip Point)",
+                            color = TextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Ambang batas mitigasi thermal daemon kernel & vendor",
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentOrange.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "${currentTempLimit}°C",
+                            color = AccentOrange,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
                 }
-            }
-            LynxTweakTile(
-                title = "Batas Suhu Thermal Custom (Trip Point)",
-                subtitle = "Ambang batas temperatur trip point mitigasi thermal daemon",
-                displayValue = "${tempLimitValue.toInt()}°C",
-                onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "temp_limit",
-                        title = "Batas Suhu Thermal Custom",
-                        category = "Termal & Anti-Throttling",
-                        description = "Ambang batas temperatur trip point termal SoC sebelum thermal daemon mengambil tindakan perlindungan clock.",
-                        currentValue = tempLimitValue,
-                        defaultValue = 50f,
-                        valueRange = 45f..60f,
-                        steps = 15,
-                        formatDisplay = { v -> "${v.toInt()}°C" },
-                        guideNote = "• Gaming/Kompetitif: 55-60°C (Toleransi tinggi, disarankan pakai cooler)\n• Seimbang: 50°C (Standar harian aman)\n• Sejuk/Hemat: 45°C (Perangkat tetap sejuk, hemat daya)",
-                        statusInfo = if (tempLimitValue >= 55f) "Suhu Tinggi (Cooler Disarankan)" else "Suhu Aman",
-                        onApply = { v ->
-                            tempLimitValue = v
-                            viewModel.setCustomTempLimit(v.toInt())
-                        }
-                    )
-                }
-            )
 
-            // CPU frequency floor slider tile
-            var floorValue by remember {
-                mutableFloatStateOf(state.overclock.cpuFloorRatio.toFloat())
-            }
-            LaunchedEffect(state.overclock.cpuFloorRatio) {
-                if (activeTweakConfig?.id != "cpu_floor") {
-                    floorValue = state.overclock.cpuFloorRatio.toFloat()
-                }
-            }
-            LynxTweakTile(
-                title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
-                subtitle = "Menahan frekuensi CPU agar tidak drop di bawah rasio ini",
-                displayValue = "${floorValue.toInt()}%",
-                onClick = {
-                    activeTweakConfig = TweakConfig(
-                        id = "cpu_floor",
-                        title = "Ambang Bawah Frekuensi CPU (Clock Floor)",
-                        category = "Termal & Anti-Throttling",
-                        description = "Menahan frekuensi CPU agar tidak turun di bawah persentase ini saat game sedang berjalan di foreground.",
-                        currentValue = floorValue,
-                        defaultValue = 60f,
-                        valueRange = 60f..100f,
-                        steps = 8,
-                        formatDisplay = { v -> "${v.toInt()}%" },
-                        guideNote = "• Gaming Berat: 85% (Tahan clock tinggi saat frame drop)\n• Seimbang: 70% (Standar gaming santai)\n• Efisiensi: 60% (Batas aman efisiensi daya)",
-                        statusInfo = if (floorValue >= 80f) "Agresif" else "Standar",
-                        onApply = { v ->
-                            floorValue = v
-                            viewModel.setCpuFloorRatio(v.toInt())
-                        }
-                    )
-                }
-            )
+                SafeSlider(
+                    value = currentTempLimit.toFloat(),
+                    onValueChange = { newVal ->
+                        viewModel.setCustomTempLimit(newVal.toInt())
+                    },
+                    valueRange = 45f..75f,
+                    steps = 29,
+                    colors = SliderDefaults.colors(
+                        thumbColor = AccentOrange,
+                        activeTrackColor = AccentOrange,
+                        inactiveTrackColor = BgSurfaceLowest
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            // CPU Anti-Throttling switch
-            LynxSwitch(
-                label = "Kunci Frekuensi Maksimal (Anti-Throttling)",
-                subLabel = "Cegah penurunan frekuensi clock saat beban gaming berat",
-                checked = state.overclock.enabled,
-                onCheckedChange = { viewModel.setOverclockEnabled(it) },
-            )
+                // Quick Preset Chips
+                val quickTemps = listOf(
+                    45 to "45° OEM",
+                    50 to "50°",
+                    52 to "52° Stabil",
+                    58 to "58° Performa",
+                    65 to "65°",
+                    75 to "75° Dominant"
+                )
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(quickTemps) { (t, label) ->
+                        val isSelected = currentTempLimit == t
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                            border = BorderStroke(
+                                0.6.dp,
+                                if (isSelected) AccentOrange.copy(alpha = 0.7f) else BorderSubtle
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setCustomTempLimit(t) }
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) AccentOrange else TextSecondary,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
 
             // Netralisasi Joyose / OEM Throttling switch
             LynxSwitch(
                 label = "Netralkan Pembatasan OEM (Joyose / GOS)",
                 subLabel = "Cegah pemotongan refresh rate dan resolusi buatan pabrik",
                 checked = state.oemNeutralizer.joyoseNeutralize,
-                onCheckedChange = { viewModel.setJoyoseNeutralize(it) },
+                onCheckedChange = { viewModel.setJoyoseNeutralize(it) }
+            )
+
+            // Anti-Dimming Layar Termal switch
+            LynxSwitch(
+                label = "Cegah Layar Meredup (Anti-Dimming)",
+                subLabel = "Menjaga kecerahan layar tetap stabil saat suhu meningkat",
+                checked = state.thermal.antiDimming,
+                onCheckedChange = { viewModel.setThermalAntiDimming(it) }
             )
         }
 
-        // ── 5. Matriks Sensor Termal Hardware (Live Radar) ───────
+        // ── 5. Integrasi Konfigurasi Termal Vendor ───────────────
+        VendorThermalCard(
+            currentTripTempC = currentTempLimit,
+            onOpenRawEditor = { rawContent ->
+                activeRawEditorContent = rawContent
+            }
+        )
+
+        // ── 6. Matriks Sensor Termal Hardware (Live Radar) ───────
         LynxCard(
             title = "Sensor Termal Hardware",
             icon = Icons.Default.Thermostat,
@@ -317,7 +343,11 @@ fun ThermalSubscreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = androidx.compose.ui.res.pluralStringResource(R.plurals.thermal_sensor_count, validZones.size, validZones.size),
+                    text = androidx.compose.ui.res.pluralStringResource(
+                        R.plurals.thermal_sensor_count,
+                        validZones.size,
+                        validZones.size
+                    ),
                     color = TextPrimary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.sp
@@ -346,7 +376,10 @@ fun ThermalSubscreen(
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = if (isSelected) AccentRed.copy(alpha = 0.16f) else BgElevated,
-                        border = BorderStroke(0.6.dp, if (isSelected) AccentRed.copy(alpha = 0.6f) else BorderSubtle),
+                        border = BorderStroke(
+                            0.6.dp,
+                            if (isSelected) AccentRed.copy(alpha = 0.6f) else BorderSubtle
+                        ),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { selectedSensorFilter = f }
@@ -434,14 +467,11 @@ fun ThermalSubscreen(
             }
         }
 
-        // ── 6. Studio Konfigurasi Thermal Vendor (Magic Mount) ───
-        VendorThermalStudioCard()
-
-        // ── Universal Tweak Bottom Sheet Drawer ──────────────────
-        if (activeTweakConfig != null) {
-            LynxTweakSheet(
-                config = activeTweakConfig!!,
-                onDismiss = { activeTweakConfig = null }
+        // ── Raw INI Editor Sheet ─────────────────────────────────
+        if (activeRawEditorContent != null) {
+            VendorThermalRawEditorSheet(
+                initialContent = activeRawEditorContent!!,
+                onDismiss = { activeRawEditorContent = null }
             )
         }
     }
@@ -467,10 +497,8 @@ private data class ThermalModeItem(
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val accent: Color,
     val tempLimit: Int,
-    val cpuFloor: Int,
-    val bypass: Boolean,
-    val antiThrottle: Boolean,
     val joyose: Boolean,
+    val antiDimming: Boolean,
     val isActive: Boolean
 )
 
@@ -507,7 +535,10 @@ private fun ThermalBentoCard(
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = if (item.isActive) item.accent.copy(alpha = 0.20f) else Color(0x10FFFFFF),
-                border = BorderStroke(0.5.dp, if (item.isActive) item.accent.copy(alpha = 0.3f) else Color(0x15FFFFFF)),
+                border = BorderStroke(
+                    0.5.dp,
+                    if (item.isActive) item.accent.copy(alpha = 0.3f) else Color(0x15FFFFFF)
+                ),
                 modifier = Modifier.size(36.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -567,9 +598,8 @@ private fun ThermalBentoCard(
 private fun applyThermalPreset(viewModel: LynxViewModel, item: ThermalModeItem) {
     viewModel.setThermalMode(item.key)
     viewModel.setCustomTempLimit(item.tempLimit)
-    viewModel.setCpuFloorRatio(item.cpuFloor)
-    viewModel.setOverclockEnabled(item.antiThrottle)
     viewModel.setJoyoseNeutralize(item.joyose)
+    viewModel.setThermalAntiDimming(item.antiDimming)
 }
 
 /**
