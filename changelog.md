@@ -1,3 +1,28 @@
+# Lynx Universal [Qualcomm 48°C-56°C Thermal Engine Live Bind-Mount & Zero-Latency Floating Badge HUD] 7.0.0-RC242
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC242** (Lynx Kernel Manager v3.2.76): **Penerapan Mekanisme Live Bind-Mount On-The-Fly `/vendor/etc/thermal-engine.conf` dan Trip-Point Shifting `quiet-therm-step` Pada Arsitektur Qualcomm (Redmi Note 7 / PM660) Tanpa Butuh KPM (Kernel Patch Module): Menaikkan Ambang Batas Pengisian Daya `[BATTERY_CHARGING_CTL]` Dari 37°C–43°C Menjadi 48°C–56°C Agar Arus Hyper 3000mA+ (11.2W) Mengalir Stabil Tanpa Penurunan Arus Prematur di 43°C–45°C, Serta Penyempurnaan Zero-Latency Floating Badge & Dedicated In-Game HUD Tools Scene Inspector**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC242)
+1. **Qualcomm Thermal Engine Live Bind-Mount & Dynamic Trip Point Shifting (`charging.rs`, `ExtremeChargingScript.kt`, `StandardChargingScript.kt`)**:
+   - **Live Bind-Mount `/vendor/etc/thermal-engine.conf` Otomatis**: Daemon `lynxd` menulis berkas konfigurasi termal virtual di RAM (`/dev/lynx_thermal_engine.conf`) yang merelaksasi `[BATTERY_CHARGING_CTL]` ke ambang batas baru `48000 50000 52000 54000 56000` (thresholds_clr `46000 48000 50000 52000 54000`), lalu mengeksekusi `mount -o bind` di atas berkas vendor dan mengirim sinyal `pkill -HUP -f thermal-engine`. Daemon vendor memuat ulang konfigurasi on-the-fly tanpa reboot dan tanpa merusak IPC socket Thermal HAL Android.
+   - **Trip Point Shifting `quiet-therm-step`**: Menaikkan trip point thermal zone kernel (`thermal_zone20` atau zona sejenis) dari 50°C ke 60°C (`trip_point_0_temp=60000`, `trip_point_1_temp=63000`).
+   - **Pinning Imunitas `cooling_device4` (Battery Cooler)**: Mempertahankan `cur_state = 0` secara konsisten pada loop `tick()` selama suhu berada di bawah ambang darurat fisik (<48.5°C), mencegah arus pengisian drop mendadak ke 1000 mA saat ponsel berada di kisaran 43°C–46°C.
+   - **Reversibilitas Penuh (Safety First)**: Saat charger dicabut atau mode standar dipilih, Lynx otomatis melepas bind-mount (`umount /vendor/etc/thermal-engine.conf`), memulihkan trip point ke 50°C, dan mengirim sinyal `SIGHUP` kembali ke konfigurasi pabrik OEM.
+   - **Preservasi Penuh Perangkat MediaTek (Infinix Note 11 Pro)**: Seluruh arsitektur dual-pump switched capacitor (RT9759), 33170 mA register, dan Anti-Flapping Float Mode tetap 100% utuh tanpa dampak samping.
+
+2. **Pemisahan Domain Interaksi Pemicu Diagnosa (Separation of Concerns)**:
+   - **Floating Shortcut Badge Murni Gameplay (Zero-Latency)**: Mengeliminasi runnable tahan (Long-Press 800ms) dan potensi konflik double-tap dari floating badge. Single tap langsung mengeksekusi perpindahan mode (`PAUSED` $\leftrightarrow$ `AUTO` $\leftrightarrow$ `MANUAL`) dengan latensi 0 ms mutlak. Gestur geser (drag) berjalan instan dan mulus tanpa jeda keraguan ambang waktu hold.
+   - **Tombol Diagnosa Terdedikasi di HUD Tools Panel**: Menambahkan tombol `"📸 Snapshot Diagnosa Scene"` di dalam section expandable *"Hoyo Auto-Skip & Diagnosa"* pada In-Game HUD Sidebar (`HudTools.kt`).
+
+2. **Mekanisme Auto-Hide HUD Overlay (Clean Screen Capture)**:
+   - Saat tombol diagnosa ditekan di HUD, overlay HUD secara otomatis disembunyikan sementara (180ms) ke status transparan (`View.INVISIBLE`), memastikan tangkapan layar `_full.png` dan irisan `_slice.png` murni menangkap elemen visual game tanpa tertutup atau terdistorsi oleh panel HUD Lynx.
+   - Setelah tangkapan layar dan metadata telemetri JSON tersimpan di `/sdcard/Lynx/scenes/`, overlay HUD secara otomatis dipulihkan kembali ke layar disertai notifikasi toast visual interaktif.
+
+3. **Penyelarasan Dokumentasi Arsitektur (`docs/16_HOYO_AUTOSKIP_SCENE_VISION_ARCHITECTURE.md`)**:
+   - Memperbarui panduan pemicu snapshot in-game pada Bab 4 dan Bab 6 untuk merefleksikan alur baru via In-Game HUD Tools Panel.
+
+---
+
 # Lynx Universal [Qualcomm Single-PMIC 4000mA Hyper-Charging Unconstrained Silicon & BMS JEITA Unlock & Hoyo RPG Scene Vision] 7.0.0-RC241
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC241** (Lynx Kernel Manager v3.2.75): **Pelepasan Plafon Arus Pengisian Daya Cepat Mode Hyper Hingga 4000mA (4,000,000 uA) Serta Pembukaan Relaksasi Termal BMS JEITA (`temp_hot=650`, `temp_warm=610`, `system_temp_level=0`) Pada Arsitektur Qualcomm Single-PMIC (Redmi Note 7 / PM660) Sesuai Logika Asli AI Charging Controller 4.5 Tanpa Batasan Artifisial Silikon, Serta Perilisan Master Blueprint Dokumen Arsitektur Mesin Vision Auto-Skip (`docs/16_HOYO_AUTOSKIP_SCENE_VISION_ARCHITECTURE.md`) dan Fitur In-Game Diagnostic Snapshot Tracer (Long-Press 0.8s pada Floating Badge)**.

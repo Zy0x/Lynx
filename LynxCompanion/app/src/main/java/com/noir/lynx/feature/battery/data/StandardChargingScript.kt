@@ -86,6 +86,23 @@ object StandardChargingScript {
                 done
             done
 
+            # Restore Qualcomm thermal-engine bind-mount & quiet-therm trip points if active
+            if grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
+                umount /vendor/etc/thermal-engine.conf 2>/dev/null
+                rm -f /dev/lynx_thermal_engine.conf 2>/dev/null
+                pkill -HUP -f thermal-engine 2>/dev/null
+            fi
+            for tz in /sys/class/thermal/thermal_zone*; do
+                [ -f "${'$'}tz/type" ] || continue
+                read -r t < "${'$'}tz/type" 2>/dev/null
+                case "${'$'}t" in
+                    quiet-therm-step)
+                        [ -f "${'$'}tz/trip_point_0_temp" ] && echo 50000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
+                        [ -f "${'$'}tz/trip_point_1_temp" ] && echo 53000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                        ;;
+                esac
+            done
+
             # Restore thermal policy nodes
             if [ -e /proc/driver/thermal/clabcct ]; then
                 chmod 666 /proc/driver/thermal/clabcct 2>/dev/null

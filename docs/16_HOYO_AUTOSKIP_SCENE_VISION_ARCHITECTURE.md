@@ -64,12 +64,14 @@ Untuk memastikan akurasi deteksi dan respons pengetukan yang tepat, setiap antar
 
 Jika pengguna menemukan scene baru yang **tidak teratasi** (dialog tidak terskip) atau **salah tekan** (tertekan padahal bukan dialog), pengguna dapat langsung mengambil snapshot diagnostik dengan cepat:
 
-### 4.1 Cara Memicu Snapshot Diagnostik (In-Game Trigger)
+### 4.1 Cara Memicu Snapshot Diagnostik (In-Game HUD Tools Panel)
+Untuk memastikan gameplay tidak terganggu dan tombol floating badge tetap **100% zero-latency** (single tap instan tanpa delay hold/double-tap, serta drag bebas hambatan), pemicu snapshot diletakkan di **In-Game HUD Tools Panel**:
 1. Pastikan game sedang aktif dan menampilkan scene bermasalah.
-2. Lakukan **Long-Press (Tahan selama 0.8 detik)** pada shortcut floating badge Auto-Skip.
-3. Ponsel akan bergetar haptic konfirmasi panjang (*strong haptic pulse*).
-4. Muncul notifikasi toast visual:  
-   `📸 Scene snapshot tersimpan di /sdcard/Lynx/scenes/`
+2. Buka In-Game HUD Sidebar (geser dari handle tepi layar), pilih tab **Tools** (ikon obeng/kunci pas).
+3. Buka section **"Hoyo Auto-Skip & Diagnosa"**.
+4. Tekan tombol **`📸 Snapshot Diagnosa Scene`**.
+5. HUD akan menghilang sesaat (180ms) secara transparan agar tidak menutupi game, mengambil tangkapan layar bersih resolusi penuh, mengekstrak slice zona aman 16:9, menyusun telemetri JSON, dan HUD kembali tampil disertai notifikasi toast visual:  
+   `📸 Snapshot diagnosa tersimpan di /sdcard/Lynx/scenes/`
 
 ### 4.2 Struktur Berkas Bundle Diagnostik
 Setiap perekaman menghasilkan satu set berkas lengkap di `/sdcard/Lynx/scenes/`:
@@ -161,7 +163,7 @@ Lynx mendukung **Hybrid Dual-Layer Adaptation**:
 ## 🛠️ 6. Panduan Menangani Scene Baru yang Bermasalah
 
 Jika menemukan scene yang gagal:
-1. Ambil snapshot dengan menahan badge 0.8 detik.
+1. Ambil snapshot via HUD Tools Panel (tombol `📸 Snapshot Diagnosa Scene`).
 2. Ambil berkas bundle dari `/sdcard/Lynx/scenes/` via kabel data atau ADB (`adb pull /sdcard/Lynx/scenes/`).
 3. Periksa `scene_*_telemetry.json`:
    - Jika **matching_pixels < threshold** pada dialog asli: Periksa apakah warna teks/ikon tombol memiliki palet pencahayaan baru (misal cutscene malam/gelap). Perbarui rentang toleransi warna pada `isDialogueColor()`.

@@ -35,7 +35,9 @@ internal fun HudTools(
     onToggleAutoSkip: (Boolean) -> Unit = { store.setAutoSkipEnabled(it) },
     onSetAutoSkipSpeed: (Long) -> Unit = { store.setAutoSkipSpeed(it) },
     onSetAutoSkipChoiceBottom: (Boolean) -> Unit = { store.setAutoSkipChoiceBottom(it) },
-    isSkipping: Boolean = false, isPaused: Boolean = false
+    isSkipping: Boolean = false,
+    isPaused: Boolean = false,
+    onSnapshotScene: () -> Unit = {}
 ) {
     var timerRemainingSec by rememberSaveable { mutableStateOf(0) }
     var timerActivePreset by rememberSaveable { mutableStateOf(0) }
@@ -196,6 +198,42 @@ internal fun HudTools(
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+        }
+
+        HudExpandableSection(
+            title = "Hoyo Auto-Skip & Diagnosa",
+            detail = if (isPaused) "Paused" else if (isSkipping) "Aktif" else "Standby",
+            initiallyOpen = false,
+            info = "Fitur Hoyo RPG Auto-Skip & Diagnosa Scene:\n\nAuto-Skip mendeteksi dialog game secara cerdas. Jika Anda menemukan scene game baru yang tidak terskip atau salah tekan, gunakan tombol di bawah untuk mengambil snapshot diagnosa ke /sdcard/Lynx/scenes/."
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Aktifkan Hoyo Auto-Skip",
+                    fontSize = 13.sp,
+                    color = Color.White
+                )
+                Switch(
+                    checked = prefs.autoSkipEnabled,
+                    onCheckedChange = onToggleAutoSkip,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = HudCyan,
+                        checkedTrackColor = HudCyan.copy(alpha = 0.5f)
+                    )
+                )
+            }
+
+            if (prefs.autoSkipEnabled) {
+                Spacer(modifier = Modifier.height(6.dp))
+                HudAction(
+                    label = "📸 Snapshot Diagnosa Scene",
+                    onClick = onSnapshotScene,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
 

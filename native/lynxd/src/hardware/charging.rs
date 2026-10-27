@@ -866,6 +866,10 @@ impl ChargingRegulator {
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
         let is_qcom = Self::is_qualcomm_soc();
 
+        if is_hyper && is_qcom {
+            Self::apply_qcom_thermal_engine_bind_mount();
+        }
+
         if is_hyper {
             let target_peak_ma = if is_qcom && !Path::new("/sys/class/power_supply/smb1390").exists() && !Path::new("/sys/class/power_supply/charge_pump").exists() {
                 4000
@@ -1937,7 +1941,10 @@ impl ChargingRegulator {
         Self::write_node_lock("/sys/class/power_supply/battery/subsystem/usb/pd_allowed", "1");
         Self::write_node_lock("/sys/class/power_supply/battery/safety_timer_enabled", "0");
 
-        // 7b. Preserve all CPU cores online and prevent thermal isolation while charging
+        // 7b. Qualcomm Snapdragon Dynamic Thermal Engine Live Bind-Mount & Trip Point Expansion
+        Self::apply_qcom_thermal_engine_bind_mount();
+
+        // 7c. Preserve all CPU cores online and prevent thermal isolation while charging
         for i in 0..16 {
             let cpu_isolate = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
             let cpu_online = format!("/sys/devices/system/cpu/cpu{}/online", i);
@@ -2067,10 +2074,154 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/temp_cold", bms_dir), "0");
         }
 
+        // 7c. Restore Qualcomm thermal-engine bind mount & quiet-therm-step trip points
+        Self::restore_qcom_thermal_engine_bind_mount();
+
         // 8. Reset Android framework thermal status
         let _ = std::process::Command::new("cmd")
             .args(["thermalservice", "reset"])
             .output();
+    }
+
+    /// On Qualcomm Snapdragon devices (e.g. Redmi Note 7 SDM660 / PM660):
+    /// Live bind-mounts an elevated thermal-engine configuration over `/vendor/etc/thermal-engine.conf`
+    /// to lift the restrictive 43.0°C [BATTERY_CHARGING_CTL] ceiling to 48.0°C–56.0°C without KPM,
+    /// and raises quiet-therm-step trip points so charging sustains 3000mA+ past 45.0°C safely.
+    pub fn apply_qcom_thermal_engine_bind_mount() {
+        if !Self::is_qualcomm_soc() {
+            return;
+        }
+
+        let stock_conf = "/vendor/etc/thermal-engine.conf";
+        if !Path::new(stock_conf).exists() {
+            return;
+        }
+
+        // Check if already bind-mounted
+        if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
+            if mounts.contains("/dev/lynx_thermal_engine.conf") {
+                return;
+            }
+        }
+
+        // Try reading bundled module Qualcomm thermal-engine.conf first
+        let qcom_mod_conf = "/data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf";
+        let elevated = if Path::new(qcom_mod_conf).exists() {
+            fs::read_to_string(qcom_mod_conf).ok()
+        } else {
+            None
+        };
+
+        let elevated_content = if let Some(content) = elevated {
+            content
+        } else if let Ok(content) = fs::read_to_string(stock_conf) {
+            let mut result = String::new();
+            let mut in_battery_sec = false;
+            let mut replaced_thresh = false;
+            let mut replaced_clr = false;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    in_battery_sec = trimmed.eq_ignore_ascii_case("[BATTERY_CHARGING_CTL]");
+                    result.push_str(line);
+                    result.push('\n');
+                    continue;
+                }
+
+                if in_battery_sec {
+                    if trimmed.starts_with("thresholds ") {
+                        result.push_str("thresholds 48000 50000 52000 54000 56000\n");
+                        replaced_thresh = true;
+                        continue;
+                    } else if trimmed.starts_with("thresholds_clr ") {
+                        result.push_str("thresholds_clr 46000 48000 50000 52000 54000\n");
+                        replaced_clr = true;
+                        continue;
+                    }
+                }
+                result.push_str(line);
+                result.push('\n');
+            }
+
+            if !replaced_thresh || !replaced_clr {
+                content
+                    .replace("thresholds 37000 38000 41000 42000 43000", "thresholds 48000 50000 52000 54000 56000")
+                    .replace("thresholds_clr 36000 37000 39000 40000 41000", "thresholds_clr 46000 48000 50000 52000 54000")
+            } else {
+                result
+            }
+        } else {
+            return;
+        };
+
+        let live_conf = "/dev/lynx_thermal_engine.conf";
+        if fs::write(live_conf, elevated_content).is_ok() {
+            Self::set_perm(live_conf, 0o644);
+            let _ = std::process::Command::new("mount")
+                .args(["-o", "bind", live_conf, stock_conf])
+                .output();
+
+            let _ = std::process::Command::new("pkill")
+                .args(["-HUP", "-f", "thermal-engine"])
+                .output();
+        }
+
+        // Elevate quiet-therm-step trip points (thermal_zone20 or any zone named quiet-therm-step)
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
+                            let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
+                            let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
+                            Self::write_node_lock(&tp0, "60000");
+                            Self::write_node_lock(&tp1, "63000");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Restores stock OEM thermal-engine configuration and quiet-therm-step trip points.
+    pub fn restore_qcom_thermal_engine_bind_mount() {
+        if !Self::is_qualcomm_soc() {
+            return;
+        }
+
+        let stock_conf = "/vendor/etc/thermal-engine.conf";
+        let live_conf = "/dev/lynx_thermal_engine.conf";
+
+        if Path::new(live_conf).exists() {
+            let _ = std::process::Command::new("umount").arg(stock_conf).output();
+            let _ = fs::remove_file(live_conf);
+            let _ = std::process::Command::new("pkill")
+                .args(["-HUP", "-f", "thermal-engine"])
+                .output();
+        }
+
+        // Restore quiet-therm-step trip points to OEM defaults
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
+                            let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
+                            let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
+                            Self::write_node_lock(&tp0, "50000");
+                            Self::write_node_lock(&tp1, "53000");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Continuously synchronizes genuine physical battery temperature (from AuxADC NTC thermistor

@@ -401,21 +401,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         private var startParamX = 0
         private var startParamY = 0
         private var isDragging = false
-        private var isLongPressTriggered = false
-
-        private val longPressRunnable = Runnable {
-            if (!isDragging) {
-                isLongPressTriggered = true
-                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                controller.triggerSceneSnapshot { dir ->
-                    android.widget.Toast.makeText(
-                        context,
-                        "📸 Scene snapshot tersimpan di $dir",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
 
         override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
             val p = autoSkipParams ?: return super.dispatchTouchEvent(ev)
@@ -430,9 +415,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     startParamX = p.x
                     startParamY = p.y
                     isDragging = false
-                    isLongPressTriggered = false
-                    mainHandler.removeCallbacks(longPressRunnable)
-                    mainHandler.postDelayed(longPressRunnable, 800L)
                     parent?.requestDisallowInterceptTouchEvent(true)
                     return true
                 }
@@ -441,7 +423,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     val dy = ev.rawY - downRawY
                     if (!isDragging && hypot(dx, dy) >= dragSlopPx) {
                         isDragging = true
-                        mainHandler.removeCallbacks(longPressRunnable)
                         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     }
                     if (isDragging) {
@@ -454,21 +435,17 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    mainHandler.removeCallbacks(longPressRunnable)
-                    if (!isDragging && !isLongPressTriggered) {
+                    if (!isDragging) {
                         performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                         controller.toggleAutoSkip()
-                    } else if (isDragging) {
+                    } else {
                         saveAutoSkipPosition()
                     }
                     isDragging = false
-                    isLongPressTriggered = false
                     return true
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    mainHandler.removeCallbacks(longPressRunnable)
                     isDragging = false
-                    isLongPressTriggered = false
                     return true
                 }
             }
@@ -898,7 +875,20 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onToggleBrightnessLock = controller::setBrightnessLock,
                     isSkipping = isSkipping,
                     isPaused = isPaused,
-                    onToggleAutoSkip = controller::toggleAutoSkip
+                    onToggleAutoSkip = controller::toggleAutoSkip,
+                    onSnapshotScene = {
+                        host.visibility = View.INVISIBLE
+                        mainHandler.postDelayed({
+                            controller.triggerSceneSnapshot { dir ->
+                                host.visibility = View.VISIBLE
+                                android.widget.Toast.makeText(
+                                    this@LynxFloatingHudService,
+                                    "📸 Snapshot diagnosa tersimpan di $dir",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }, 180L)
+                    }
                 )
             } else {
                 FloatingHudContent(

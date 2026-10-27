@@ -71,7 +71,8 @@ fun HudSidebar(
     onToggleBrightnessLock: (Boolean) -> Unit = {},
     isSkipping: Boolean = false,
     isPaused: Boolean = false,
-    onToggleAutoSkip: () -> Unit = {}
+    onToggleAutoSkip: () -> Unit = {},
+    onSnapshotScene: () -> Unit = {}
 ) {
     val prefs by preferences.changes.collectAsState(initial = preferences.read())
     SideEffect {
@@ -325,7 +326,9 @@ fun HudSidebar(
                                                     },
                                                     onSetAutoSkipSpeed = { preferences.setAutoSkipSpeed(it) },
                                                     onSetAutoSkipChoiceBottom = { preferences.setAutoSkipChoiceBottom(it) },
-                                                    isSkipping = isSkipping, isPaused = isPaused
+                                                    isSkipping = isSkipping,
+                                                    isPaused = isPaused,
+                                                    onSnapshotScene = onSnapshotScene
                                                 )
                                             }
                                         }

@@ -115,6 +115,26 @@ object ExtremeChargingScript {
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
                 [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+
+                # Live bind-mount elevated thermal-engine.conf if present (bumping [BATTERY_CHARGING_CTL] to 48.0°C-56.0°C)
+                if [ -f /vendor/etc/thermal-engine.conf ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
+                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 48000 50000 52000 54000 56000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 46000 48000 50000 52000 54000/g' /vendor/etc/thermal-engine.conf > /dev/lynx_thermal_engine.conf 2>/dev/null
+                    if [ -s /dev/lynx_thermal_engine.conf ]; then
+                        chmod 644 /dev/lynx_thermal_engine.conf 2>/dev/null
+                        mount -o bind /dev/lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
+                        pkill -HUP -f thermal-engine 2>/dev/null
+                    fi
+                fi
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -f "${'$'}tz/type" ] || continue
+                    read -r t < "${'$'}tz/type" 2>/dev/null
+                    case "${'$'}t" in
+                        quiet-therm-step)
+                            [ -f "${'$'}tz/trip_point_0_temp" ] && echo 60000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
+                            [ -f "${'$'}tz/trip_point_1_temp" ] && echo 63000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                            ;;
+                    esac
+                done
             fi
             for c in /sys/devices/system/cpu/cpu[0-9]*; do
                 [ -f "${'$'}c/isolate" ] && echo 0 > "${'$'}c/isolate" 2>/dev/null
