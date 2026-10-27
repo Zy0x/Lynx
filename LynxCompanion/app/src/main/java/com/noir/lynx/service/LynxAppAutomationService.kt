@@ -202,6 +202,10 @@ class LynxAppAutomationService : Service() {
             currentInstance?.reloadRulesInternal()
         }
 
+        fun onGameProfileOverridden(pkg: String, newProfile: String) {
+            currentInstance?.onGameProfileOverriddenInternal(pkg, newProfile)
+        }
+
         val activeGamePackage: String?
             get() = currentInstance?.activeCustomPkg
 
@@ -338,6 +342,44 @@ class LynxAppAutomationService : Service() {
             rulesCache = LynxRepository.readAppProfileRules()
             graphicsRulesCache = LynxRepository.readPerAppGraphicsRules(this@LynxAppAutomationService)
             Log.i(TAG, "Rules reloaded live: ${rulesCache.size} app rules, ${graphicsRulesCache.size} gfx rules")
+        }
+    }
+
+    fun onGameProfileOverriddenInternal(pkg: String, newProfile: String) {
+        serviceScope.launch(Dispatchers.IO) {
+            activeCustomPkg = pkg
+            val existing = rulesCache.firstOrNull { it.packageName.equals(pkg, ignoreCase = true) }
+            val updatedRule = if (existing != null) {
+                existing.copy(targetProfile = newProfile, enabled = true)
+            } else {
+                val appLabel = try {
+                    packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+                } catch (_: Exception) { pkg }
+                AppProfileRule(
+                    packageName = pkg,
+                    appName = appLabel,
+                    targetProfile = newProfile,
+                    enabled = true,
+                    isGame = true
+                )
+            }
+            rulesCache = rulesCache.filter { !it.packageName.equals(pkg, ignoreCase = true) } + updatedRule
+
+            // Save to persistent app rules JSON
+            LynxRepository.saveAppProfileRule(updatedRule)
+
+            // Update live notification
+            val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
+            val tele = notificationHelper.formatTelemetry(pct, tempC)
+            val baseName = notificationHelper.getProfileDisplayName(baselineProfile)
+            val hzStr = updatedRule.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
+            withContext(Dispatchers.Main) {
+                notificationHelper.updateNotification(
+                    notificationHelper.formatModeTitle(newProfile),
+                    "${updatedRule.appName}$hzStr • Kembali ke $baseName$tele",
+                    newProfile
+                )
+            }
         }
     }
 

@@ -1,3 +1,20 @@
+# Lynx Universal [In-Game HUD Dynamic Profile Override & Multi-Engine Rule Synchronization] 7.0.0-RC221
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC221** (Lynx Kernel Manager v3.2.55): **Resolusi Menyeluruh Masalah Peralihan Profil Mode pada Gaming HUD Saat Berada di Dalam Game Beraturan Khusus: Implementasi Sinkronisasi Dua Arah Rule Per-App Otonom, Penghapusan Konflik Pembalikan Otomatis (Race Revert Condition) Antara `lynxd daemon` & `LynxAppAutomationService`, Preservasi Baseline Mode Idle Tanpa Merusak Status Kembali Aman, Serta Deteksi Mtime Sub-Detik (Millisecond Precision) pada Rules Engine Native**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC221)
+1. **Resolusi Konflik Pembalikan Profil Gaming HUD (`HudController.kt` & `LynxAppStateRepository.kt`)**:
+   - Menyelidiki akar masalah ketika pengguna mengganti mode performa via Gaming HUD sidebar saat bermain game yang telah memiliki konfigurasi profil (misal Mobile Legends dengan profil bawaan *Performance* lalu diganti ke *Ekstrem* atau *Hemat*):
+     - Sebelumnya, `HudController` hanya memanggil `setProfile()` umum yang memperlakukan pemilihan sebagai perubahan profil idle (`baseline_profile`), tanpa memperbarui aturan game di `app_rules.json`. Akibatnya, `lynxd daemon` dan `LynxAppAutomationService` mendeteksi adanya ketidaksesuaian antara profil kernel aktif dengan aturan game yang tersimpan, lalu secara otomatis membalikkan (*revert*) mode kembali ke aturan lama dalam hitungan milidetik.
+   - Kini, `HudController` secara presisten mendeteksi aplikasi/game yang sedang berjalan di bawah overlay HUD (`targetPkg`). Jika terdeteksi game aktif:
+     1. Memperbarui dan menyimpan aturan profil game tersebut ke dalam `app_rules.json` dan `app_rules.tsv` via `LynxAppProfileRulesRepository`.
+     2. Memanggil `LynxAppAutomationService.onGameProfileOverridden(pkg, profile)` untuk menyelaraskan cache aturan dan memperbarui notifikasi foreground secara langsung.
+     3. Menerapkan profil kernel dengan flag pemanggil `hud_game` (`LynxRepository.setProfile(profile, caller = "hud_game")`), yang secara cerdas **mempertahankan `baseline_profile` idle** perangkat sehingga ponsel tetap kembali ke mode seimbang saat game ditutup.
+
+2. **Sinkronisasi Otonom Native Rust Daemon (`native/lynxd/src/daemon/runner.rs` & `detector.rs`)**:
+   - **Sinkronisasi Dinamis `active_profile`**: Menambahkan pemantauan real-time berkas `/data/adb/lynx/active_profile` di dalam siklus utama `DaemonRunner`. Setiap kali profil diterapkan oleh HUD atau Companion, mesin keputusan `DecisionEngine` segera memperbarui status internalnya tanpa jeda.
+   - **Presisi Mtime Milidetik (Sub-Second Granularity)**: Mengubah mekanisme deteksi berkas aturan pada `ForegroundDetector::probe_max_rules_mtime()` dari presisi detik (`as_secs()`) menjadi milidetik (`as_millis()`), menjamin modifikasi cepat pada `app_rules.json` langsung terbaca seketika dan cache klasifikasi aplikasi dibersihkan tanpa penundaan.
+
 # Lynx Universal [High-Precision HUD Gaming Macro Redesign, Bento Status Hub, & Anti-Clutter UI Refactoring] 7.0.0-RC220
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC220** (Lynx Kernel Manager v3.2.54): **Refactoring Menyeluruh & Redesain Antarmuka Gaming HUD Macro Controls (`HudComboControls`) Berbasis Standar Desain Anti-Slop & Redesign-Skill: Eliminasi Tumpang Tindih Kolom 240dp, Segmented Mode Bar 50/50 Full-Width Anti-Squish, Pemisahan Aksi TouchShare Anti-Line Wrap, Pengenalan Slot Tabs Kompak (`C₁`–`C₅`), Bento Status & Recording Hub Terintegrasi, Serta In-Place Expandable Import Box Bebas Window Dismissal Glitch**.

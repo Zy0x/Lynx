@@ -82,6 +82,16 @@ impl DaemonRunner {
                 last_cooldown_check = now;
             }
 
+            // Dynamic sync of active profile from external events (HUD, Companion, CLI)
+            if let Ok(active_content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
+                let active_str = active_content.trim();
+                if !active_str.is_empty() && active_str != decision_engine.current_profile() {
+                    if matches!(active_str, "powersave" | "balance" | "performance" | "extreme" | "dormant") {
+                        decision_engine.notify_applied(active_str);
+                    }
+                }
+            }
+
             let current_screen = screen.detect();
 
             // Screen transition tracking

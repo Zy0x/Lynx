@@ -343,8 +343,9 @@ internal object LynxAppStateRepository {
         val safeLynxd = lynxdPath ?: LYNXD_PATH
         LynxRepository.lastActiveProfile = effectiveProfile
 
+        val isGameSessionOverride = caller == "hud_game"
         val targetBaseline = if (profile == "auto") "balance" else profile
-        val baselineCmd = "echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; "
+        val baselineCmd = if (!isGameSessionOverride) "echo '$targetBaseline' > /data/adb/lynx/baseline_profile 2>/dev/null; " else ""
 
         val applyCmd = if (lynxdPath != null) {
             when (profile) {
@@ -357,10 +358,14 @@ internal object LynxAppStateRepository {
         val batchSetup = buildString {
             append("mkdir -p /data/adb/lynx 2>/dev/null; ")
             append("echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; ")
-            append(baselineCmd)
+            if (baselineCmd.isNotBlank()) append(baselineCmd)
             append("setprop lynx.mode '$profile' 2>/dev/null; ")
             if (lynxdPath != null) {
-                append("'$safeLynxd' state set active_profile='$profile' kernel_profile_id='$profile' baseline_profile='$targetBaseline' profile_overrides='' 2>/dev/null; ")
+                if (isGameSessionOverride) {
+                    append("'$safeLynxd' state set active_profile='$profile' kernel_profile_id='$profile' profile_overrides='' 2>/dev/null; ")
+                } else {
+                    append("'$safeLynxd' state set active_profile='$profile' kernel_profile_id='$profile' baseline_profile='$targetBaseline' profile_overrides='' 2>/dev/null; ")
+                }
             }
             if (applyCmd.isNotBlank()) {
                 append(applyCmd)
@@ -369,7 +374,7 @@ internal object LynxAppStateRepository {
 
         try {
             Shell.cmd(batchSetup).exec()
-            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, true)
+            com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, !isGameSessionOverride)
             true
         } catch (e: Exception) {
             Log.e(STATE_TAG, "setProfile error: ${e.message}")

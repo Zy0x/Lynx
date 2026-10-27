@@ -266,9 +266,28 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         StandaloneApps.launch(app, widthPct, heightPct)
     }
 
+    @Volatile
+    var currentPackage: String? = null
+
     fun profile(profile: String) = perform {
         if (profile !in setOf("powersave", "balance", "performance", "auto", "extreme")) return@perform R.string.hud_failed
-        val applied = LynxRepository.setProfile(profile)
+
+        val activePkg = currentPackage ?: skipContext?.pkg ?: com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
+        val isTargetGame = !activePkg.isNullOrBlank() &&
+            activePkg != "com.noir.lynx" &&
+            activePkg != "com.android.systemui" &&
+            !activePkg.contains("launcher")
+
+        val applied = if (isTargetGame) {
+            val pkg = activePkg!!
+            // 1. Update/persist app rule so neither lynxd daemon nor LynxAppAutomationService reverts it
+            com.noir.lynx.service.LynxAppAutomationService.onGameProfileOverridden(pkg, profile)
+            // 2. Set profile with caller = "hud_game" (preserves baseline profile)
+            LynxRepository.setProfile(profile, caller = "hud_game")
+        } else {
+            LynxRepository.setProfile(profile, caller = "user")
+        }
+
         val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
         val expected = if (profile == "auto") "balance" else profile
         val output = Shell.cmd("'$path' profile verify '$expected' --json").exec()
@@ -288,6 +307,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     fun toggleAutoSkip() { gaming.magic.stop(); skipRunner.toggle() }
     fun stopAutoSkip() { skipRunner.stop() }
     fun syncAutoSkip(pkg: String, isHudOpen: Boolean, width: Int, height: Int, prefs: com.noir.lynx.feature.hud.data.HudPreferences) {
+        if (pkg.isNotBlank()) currentPackage = pkg
         skipContext = SkipContext(pkg, isHudOpen, width, height, prefs)
         gaming.update(pkg, isHudOpen, width, height)
         syncSkipRunner()

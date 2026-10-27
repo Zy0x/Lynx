@@ -116,12 +116,12 @@ impl ForegroundDetector {
         for path in &candidates {
             if let Ok(meta) = fs::metadata(path) {
                 if let Ok(mtime) = meta.modified() {
-                    let secs = mtime
+                    let millis = mtime
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs();
-                    if secs > max_mtime {
-                        max_mtime = secs;
+                        .as_millis() as u64;
+                    if millis > max_mtime {
+                        max_mtime = millis;
                     }
                 }
             }
