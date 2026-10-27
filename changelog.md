@@ -1,3 +1,25 @@
+# Lynx Universal [Full 39-Partition Bit-for-Bit Disaster Recovery Suite & Infinix X698 Insurance] 7.0.0-RC258
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC258** (Lynx Kernel Manager v3.2.92): **Penyelesaian Backup Partisi Darurat Menyeluruh (39 Partisi Kritis) untuk Infinix Note 11s / Note 11 Pro (X698 Helio G96): Pencadangan Lengkap Hardware Identity (NVRAM, NVDATA, NVCFG, ProInfo, Protect1/2), Keystore FBE v2 TEE (Persist, Metadata), Bootloader & AVB (VBMeta, LK, DTBO, Logo, Boot, Vendor Boot) dengan Validasi Checksum MD5 Bit-for-Bit 100%, Dilengkapi Skrip Restorasi Otomatis Fastboot & ADB/TWRP**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC258)
+1. **Pencadangan Total 39 Partisi Kritis Perangkat (Zero Data Loss Insurance)**:
+   - **Hardware Identity & Radio (Irreplaceable)**: `nvram`, `nvdata`, `nvcfg`, `proinfo`, `protect1`, `protect2`, `sec1`, `seccfg`. Menjamin nomor IMEI 1/2, alamat MAC Wi-Fi/Bluetooth, serta kalibrasi RF fisik tidak akan pernah hilang.
+   - **TrustZone, Keystore, & Storage Encryption**: `persist` (Trustonic TEE `mcRegistry/Store_1.tf`), `metadata` (master key FBE v2), `tee_a/b`, `scp_a/b`, `sspm_a/b`, `spmfw_a/b`, `gz_a/b`.
+   - **Android Verified Boot & Verification Signatures (AVB)**: `vbmeta_a/b`, `vbmeta_system_a/b`, `vbmeta_vendor_a/b` untuk pencegahan dm-verity red state.
+   - **Kernel, Ramdisk, Bootloader, & Device Tree**: `boot_a/b`, `vendor_boot_a/b`, `dtbo_a/b`, `lk_a/b`, `logo_a/b`, `misc`, `para`, `boot_para`.
+
+2. **Infrastruktur Restorasi 1-Klik**:
+   - `restore_via_fastboot.bat`: Skrip otomatis pemulihan partisi boot saat perangkat berada di mode fastboot.
+   - `restore_via_adb.py`: Utilitas modular untuk flashing balik blok partisi langsung via ADB root atau TWRP recovery.
+   - Penempatan salinan partisi radio & keystore esensial di `/sdcard/TWRP_BACKUPS/ORIGINAL_CRITICAL/` untuk pemulihan mandiri tanpa komputer.
+
+3. **Integritas & Keamanan Perangkat**:
+   - Validasi integritas MD5 bit-for-bit pada seluruh 39 berkas image, dicatat dalam `backup_manifest.json`.
+   - Perangkat tetap berada dalam mode Android normal yang stabil tanpa risiko kerusakan sebelum pengujian TWRP baru dilakukan.
+
+---
+
 # Lynx Universal [Ring-0 KPM Safety Hardening & Dynamic Memory Cushion Fault Isolation] 7.0.0-RC257
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC257** (Lynx Kernel Manager v3.2.91): **Hardening Keamanan Arsitektur Ring-0 KernelPatch: Mitigasi Total Terhadap Potensi Kernel Exception pada lynx_mem_cushion.kpm (Eliminasi Parameter NULL pada Jalur Direct Reclaim), Penambahan Validasi Defensif Lengkap pada Seluruh Kait Kernel (GPU Lock, Thermal Silencer, EAS Sentinel, dan Mem Cushion), Serta Pembaruan Standar Operasional Pemuatan KPM Dinamis di APatch Manager**.
