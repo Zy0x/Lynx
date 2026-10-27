@@ -33,6 +33,8 @@ data class KernelPerformanceProfile(
                 when (domain) {
                     ProfileDomain.CPU -> preset !in setOf("powersave", "battery", "balance", "performance", "extreme")
                     ProfileDomain.GPU -> preset !in setOf("battery", "balanced", "esports", "extreme")
+                    ProfileDomain.THERMAL -> preset !in setOf("default_oem", "default", "stable", "performance", "dominant", "extreme", "balance")
+                    ProfileDomain.DISPLAY -> preset !in setOf("auto", "60", "90", "120", "144")
                     else -> preset !in BUILT_IN_IDS
                 }
             }) return "Preset domain tidak dikenal"

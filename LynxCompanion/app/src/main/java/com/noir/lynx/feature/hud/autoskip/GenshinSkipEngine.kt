@@ -115,6 +115,21 @@ object GenshinSkipEngine {
     }
 
     /**
+     * Calculates the raw screencap byte slice parameters for the dialogue controls across any screen resolution.
+     * Samples rows spanning approx 4.0% to 6.5% of screen height (e.g. rows 43..70 on 1080p).
+     * Returns Pair(headBytes, sliceBytes).
+     */
+    fun calculateDialogueScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
+        val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
+        val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
+        val yStart = (height * 0.040f).toLong().coerceAtLeast(20L)
+        val yEnd = (height * 0.065f).toLong().coerceAtLeast(yStart + 4L)
+        val headBytes = 16L + (yEnd * width * 4L)
+        val sliceBytes = (yEnd - yStart) * width * 4L
+        return headBytes to sliceBytes
+    }
+
+    /**
      * Calculates the raw byte offset for the Auto button pixel in screencap RGBA stream.
      */
     fun calculateAutoButtonOffset(screenWidth: Int, screenHeight: Int): Long {

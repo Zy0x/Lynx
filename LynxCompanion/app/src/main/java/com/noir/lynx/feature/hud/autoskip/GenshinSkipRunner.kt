@@ -89,7 +89,7 @@ class GenshinSkipRunner(
         this.screenWidth = width
         this.screenHeight = height
         this.isEnabled = enabled
-        this.speedMs = speedMs.coerceAtLeast(300L)
+        this.speedMs = speedMs.coerceAtLeast(150L)
         this.targetChoiceBottom = targetChoiceBottom
 
         if (!enabled || !GenshinSkipEngine.isGameSupported(pkg) || packageChanged) {
@@ -169,21 +169,20 @@ class GenshinSkipRunner(
 
     suspend fun isGenshinDialogueActive(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val offset = GenshinSkipEngine.calculateAutoButtonOffset(screenWidth, screenHeight)
-            val endOffset = offset + 256L
-            val cmd = "screencap | head -c $endOffset | tail -c 256 | xxd -p 2>/dev/null"
+            val (headBytes, sliceBytes) = GenshinSkipEngine.calculateDialogueScanSlice(screenWidth, screenHeight)
+            val cmd = "screencap | head -c $headBytes | tail -c $sliceBytes | xxd -p | grep -m1 -E 'ece5d8|ece4d8|ece6d8|ede5da|ede5d8|ede5d9|eee6da|ebe4d7'"
             val result = Shell.cmd(cmd).exec()
             if (result.isSuccess && result.out.isNotEmpty()) {
-                val hex = result.out.joinToString("")
-                return@withContext GenshinSkipEngine.containsDialogueColor(hex)
+                val line = result.out.firstOrNull() ?: ""
+                return@withContext line.isNotBlank()
             }
         } catch (_: Throwable) {}
         return@withContext false
     }
 
     private suspend fun runTapLoop() {
-        val maxDurationMs = 60_000L // 60s auto-disarm safety shield
-        val startTime = System.currentTimeMillis()
+        val maxContinuousManualMs = 60_000L // 60s auto-disarm safety shield for manual non-stop mode
+        val manualStartTime = System.currentTimeMillis()
         var cycleIndex = 0
         var consecutiveInactiveCount = 0
 
@@ -199,32 +198,35 @@ class GenshinSkipRunner(
                 break
             }
 
-            // Safety timeout: automatically stop tapping after 60s to protect open-world gameplay
-            if (System.currentTimeMillis() - startTime > maxDurationMs) {
+            val current = modeState.value
+
+            // Safety timeout: automatically stop tapping after 60s in MANUAL mode to protect open-world gameplay
+            if (current == SkipMode.MANUAL && (System.currentTimeMillis() - manualStartTime > maxContinuousManualMs)) {
                 setMode(SkipMode.PAUSED)
                 break
             }
 
-            val current = modeState.value
-
             // Scene-Aware Auto check for SkipMode.AUTO
+            var checkDuration = 0L
             if (current == SkipMode.AUTO) {
+                val t0 = System.currentTimeMillis()
                 val isDialogue = isGenshinDialogueActive()
+                checkDuration = System.currentTimeMillis() - t0
                 if (!isDialogue) {
                     consecutiveInactiveCount++
                     if (consecutiveInactiveCount >= 2) {
                         // Standby Hening: dialogue is inactive, do NOT send any taps
                         // Protects player navigation, combat, joystick, and camera movement
-                        delay(350L)
+                        delay(250L)
                         if (consecutiveInactiveCount > 100) {
-                            // After ~35s without dialogue, disarm to PAUSED
+                            // After ~25s without dialogue, disarm to PAUSED
                             setMode(SkipMode.PAUSED)
                             break
                         }
                         continue
                     } else {
                         // Single missed check during potential dialogue line transition: wait without tap
-                        delay(200L)
+                        delay(150L)
                         continue
                     }
                 } else {
@@ -251,7 +253,7 @@ class GenshinSkipRunner(
             val advanceTarget = coords.advance
             val narrationTarget = coords.narration
 
-            val effectiveSpeed = speedMs.coerceAtLeast(300L)
+            val effectiveSpeed = speedMs.coerceAtLeast(150L)
 
             // Batch advance, choice, and narration transition taps into a single root command
             // Guarantees 0% frame drops, handles 3D cutscenes, dialogue choices, and narration screens ("Tekan untuk melanjutkan")
@@ -261,7 +263,12 @@ class GenshinSkipRunner(
             Shell.cmd(cmd).submit()
 
             cycleIndex++
-            delay(effectiveSpeed)
+            val remainingDelay = if (current == SkipMode.AUTO) {
+                (effectiveSpeed - checkDuration).coerceAtLeast(60L)
+            } else {
+                effectiveSpeed
+            }
+            delay(remainingDelay)
         }
 
         if (modeState.value != SkipMode.PAUSED) {

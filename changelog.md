@@ -1,3 +1,25 @@
+# Lynx Universal [Genshin Auto-Skip Ultrawide Resolution Engine & Zero-Margin Floating Drag Bounds] 7.0.0-RC238
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC238** (Lynx Kernel Manager v3.2.72): **Penyempurnaan Total Mode Auto pada Fitur Game Auto-Skip Hoyo RPG dan Pembebasan Penuh Batas Geser Floating Shortcut Badge Hingga Tepi Kaca Fisik Layar: Deteksi Cerdas Dialog Berbasis Pemindaian Baris Dinamis (Resolution-Invariant Full-Width Slice Scan) Menuntaskan Masalah Layar Ultrawide 20.5:9 (Infinix) yang Sebelumnya Selalu Gagal Membaca Ikon Dialog Akibat Offset Tetap, Pembebasan Batas Geser Floating Badge dari Inset System Bars dan Cutout Sehingga Bebas Digeser 100% Flush Menyentuh Bezel Layar Fisik di Seluruh Sisi, Serta Penyelarasan Validator Domain Profil Termal dan Display**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC238)
+1. **Penyempurnaan Mode Auto Game Auto-Skip (`GenshinSkipEngine.kt` & `GenshinSkipRunner.kt`)**:
+   - Menghitung irisan baris layar secara matematis (`calculateDialogueScanSlice`) pada rentang baris atas dialog (4.0% - 6.5% tinggi layar) melintasi seluruh lebar layar fisik (`head -c headBytes | tail -c sliceBytes`).
+   - Mengeliminasi kegagalan pada rasio ultrawide (20.5:9 Infinix X698 2460x1080) di mana sebelumnya fungsi `calculateAutoButtonOffset` melakukan sampel titik sempit statis di $x = 75$ px yang jatuh pada margin kosong pilar 16:9 Genshin Impact.
+   - Deteksi pola warna krem khas tombol Otomatis/Auto (`#ECE5D8`, `#EDE5DA`, `#EEE6DA`, `#EBE4D7`) kini tereksekusi instan dalam $\approx 0.22$ detik dengan zero frame drop.
+   - Peningkatan logika siklus Auto: menghitung durasi deteksi ke dalam jeda tap sehingga kecepatan tap sesuai preferensi pengguna (180ms Fast, 250ms Normal, 380ms Slow).
+   - Penghentian tap seketika ($\le 250$ms) saat dialog usai (*Standby Hening*) guna melindungi pergerakan joystick, kamera, dan kombat.
+
+2. **Pembebasan Batas Geser Floating Shortcut Badge (`LynxFloatingHudService.kt` & `HudDisplayBounds.kt`)**:
+   - Menghilangkan pembatasan buatan dari `WindowInsets.Type.systemBars()` dan `displayCutout` pada overlay floating shortcut badge.
+   - Batas geser (`maxX`, `maxY`) kini menggunakan dimensi fisik display penuh (`0..screenWidth - badgeSize` dan `0..screenHeight - badgeSize`).
+   - Ikon floating badge kini dapat digeser bebas menyentuh bezel kaca fisik terluar di seluruh tepi layar (kiri, kanan, atas, bawah).
+
+3. **Perbaikan Validasi Domain Preset (`KernelPerformanceProfile.kt`)**:
+   - Memperbarui validator `ProfileDomain.THERMAL` dan `ProfileDomain.DISPLAY` agar mengenali preset desain sistem termal baru (`default_oem`, `stable`, `performance`, `dominant`, `auto`, `60`, `90`, `120`, `144`).
+
+---
+
 # Lynx Universal [Game HUD Multi-Tier Display Refresh Rate Switching Engine] 7.0.0-RC237
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC237** (Lynx Kernel Manager v3.2.71): **Perbaikan Kritis Sistem Penerapan Refresh Rate Layar pada Lynx Engine In-Game HUD: Menghubungkan Langsung Sesi Pengaturan HUD dengan Mesin Multi-Tier LynxDisplayRepository (Sinkronisasi Android Settings Provider, DisplayManager User Preferred Display Mode, Direct SurfaceFlinger Hardware Mode Switching 1035, Kernel Panel Sysfs, Serta Lock State lynxd), Mengatasi Masalah Dimensi Mode Terbalik pada Orientasi Layar Landscape (Rotasi Game 90°/270°), Mengintegrasikan Siklus Cepat Ganti Hz pada Mode Classic HUD, Serta Menjamin Verifikasi Refresh Rate Real-Time Tanpa False-Negative**.

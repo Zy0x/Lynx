@@ -111,4 +111,28 @@ class GenshinSkipEngineTest {
         // 16 + (59 * 2460 + 75) * 4 = 16 + (145140 + 75) * 4 = 580876L
         assertEquals(580876L, offset)
     }
+
+    @Test
+    fun dialogueScanSliceAdaptsToScreenResolutionsAndOrientations() {
+        // Infinix 2460 x 1080 (20.5:9 ultrawide)
+        // width = 2460, height = 1080
+        // yStart = (1080 * 0.040f).toLong() = 43
+        // yEnd = (1080 * 0.065f).toLong() = 70
+        // headBytes = 16 + (70 * 2460 * 4) = 688816L
+        // sliceBytes = (70 - 43) * 2460 * 4 = 265680L
+        val sliceInfinix = GenshinSkipEngine.calculateDialogueScanSlice(2460, 1080)
+        assertEquals(688816L, sliceInfinix.first)
+        assertEquals(265680L, sliceInfinix.second)
+        assertTrue(sliceInfinix.first > sliceInfinix.second)
+
+        // Orientation invariance: passing portrait dimensions (1080, 2460) resolves identical slice params
+        val sliceInfinixPortrait = GenshinSkipEngine.calculateDialogueScanSlice(1080, 2460)
+        assertEquals(sliceInfinix.first, sliceInfinixPortrait.first)
+        assertEquals(sliceInfinix.second, sliceInfinixPortrait.second)
+
+        // Standard 16:9 1920 x 1080
+        val slice1080p = GenshinSkipEngine.calculateDialogueScanSlice(1920, 1080)
+        assertEquals(537616L, slice1080p.first)
+        assertEquals(207360L, slice1080p.second)
+    }
 }
