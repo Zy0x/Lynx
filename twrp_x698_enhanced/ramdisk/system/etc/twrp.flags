@@ -1,0 +1,33 @@
+# mount point       fstype    device                                                                flags
+/metadata           ext4      /dev/block/platform/bootdevice/by-name/metadata                       flags=display="Metadata";backup=1;wrappedkey
+/data               f2fs      /dev/block/platform/bootdevice/by-name/userdata                       flags=fileencryption=aes-256-xts:aes-256-cts:v2;keydirectory=/metadata/vold/metadata_encryption;fsflags="inlinecrypt"
+/tranfs             ext4      /dev/block/platform/bootdevice/by-name/tranfs                         flags=display="Tranfs";
+/protect_f          ext4      /dev/block/platform/bootdevice/by-name/protect1                       flags=display="Protect_f (IMEI)";backup=1;
+/protect_s          ext4      /dev/block/platform/bootdevice/by-name/protect2                       flags=display="Protect_s (IMEI)";backup=1;
+/nvdata             ext4      /dev/block/platform/bootdevice/by-name/nvdata                         flags=display="Nvdata (IMEI/Radio)";backup=1;
+/nvcfg              ext4      /dev/block/platform/bootdevice/by-name/nvcfg                          flags=display="Nvcfg (Radio Config)";backup=1;
+/persist            ext4      /dev/block/platform/bootdevice/by-name/persist                        flags=display="Persist (Keystore/TEE)";backup=1;
+/persistent         emmc      /dev/block/platform/bootdevice/by-name/frp                            flags=display="FRP";backup=1;flashimg=1;
+/nvram              emmc      /dev/block/platform/bootdevice/by-name/nvram                          flags=display="Nvram (IMEI/MAC)";backup=1;flashimg=1;
+/proinfo            emmc      /dev/block/platform/bootdevice/by-name/proinfo                        flags=display="Proinfo (Serial/Barcode)";backup=1;
+/boot               emmc      /dev/block/platform/bootdevice/by-name/boot                           flags=display="Boot Kernel";flashimg=1;slotselect;backup=1;
+/logo               emmc      /dev/block/platform/bootdevice/by-name/logo                           flags=display="Logo";flashimg=1;
+/expdb              emmc      /dev/block/platform/bootdevice/by-name/expdb
+/seccfg             emmc      /dev/block/platform/bootdevice/by-name/seccfg                         flags=display="Seccfg (Security)";backup=1;
+/scp1               emmc      /dev/block/platform/bootdevice/by-name/scp1                           flags=display="SCP1 (Sensor Hub)";backup=1;
+/scp2               emmc      /dev/block/platform/bootdevice/by-name/scp2                           flags=display="SCP2";backup=1;
+/gz1                emmc      /dev/block/platform/bootdevice/by-name/gz1                   
+/gz2                emmc      /dev/block/platform/bootdevice/by-name/gz2                 
+/spmfw              emmc      /dev/block/platform/bootdevice/by-name/spmfw                  
+/dtbo               emmc      /dev/block/platform/bootdevice/by-name/dtbo                           flags=display="DTBO";flashimg=1;backup=1;
+/otp                emmc      /dev/block/platform/bootdevice/by-name/otp                   
+/tkv                emmc      /dev/block/platform/bootdevice/by-name/tkv                       
+/lk                 emmc      /dev/block/platform/bootdevice/by-name/bootloader                     flags=display="Bootloader (LK)";backup=1;
+/lk2                emmc      /dev/block/platform/bootdevice/by-name/bootloder2                     flags=display="Bootloader 2 (LK2)";backup=1;
+
+# vbmeta
+/vbmeta             emmc      /dev/block/platform/bootdevice/by-name/vbmeta                         flags=display="Vbmeta";
+
+# Removable
+/external_sd        auto      /dev/block/mmcblk1p1	/dev/block/mmcblk1 	     flags=display="MicroSD Card";storage;wipeingui;removable
+/usb-otg            vfat     /dev/block/sdd1  /dev/block/sdd                     flags=display="USB Storage";storage;wipeingui;removable;fsflags="utf8"

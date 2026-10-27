@@ -16,6 +16,8 @@ LynxKernelManager.apk
 *.o
 *.bin
 *.so
+*.cpio
+*.gz
 build-safe.ps1
 
 # ── 2. Android & Gradle Build Systems ─────────────────────────────────────

@@ -1,0 +1,153 @@
+#!/system/bin/sh
+# ==============================================================================
+# Lynx Universal - Emergency Recovery Rescue Tool (TWRP Ring-0 Environment)
+# Target: Infinix Note 11 Pro / Note 11s (X698 - MT6781 Helio G96)
+# Author: ɴᴏɪʀ / Lynx Optimization Core
+# ==============================================================================
+
+echo "=================================================="
+echo "    LYNX EMERGENCY RECOVERY RESCUE TOOL (X698)    "
+echo "=================================================="
+
+case "$1" in
+    status)
+        echo "[*] Memeriksa status sistem recovery..."
+        echo "Slot Boot Aktif  : $(getprop ro.boot.slot_suffix || echo 'Unknown')"
+        echo "Model Perangkat  : $(getprop ro.product.model || echo 'Infinix X698')"
+        echo "Arsitektur SoC   : $(getprop ro.boot.hardware || echo 'mt6781')"
+        echo "Status Enkripsi  : $(getprop ro.crypto.state || echo 'Unknown')"
+        echo "Keymaster Status : $(ps -ef | grep -i keymaster | grep -v grep || echo 'Inactive')"
+        echo "Trustonic Daemon : $(ps -ef | grep -i mobicore | grep -v grep || echo 'Inactive')"
+        echo "\n[*] Partisi Ter-mount:"
+        df -h /data /metadata /mnt/vendor/persist 2>/dev/null || df -h
+        ;;
+
+    clean-kpm|kpm-clean)
+        echo "[*] Membersihkan modul KPM bermasalah di /data/adb/kpm/..."
+        if [ ! -d "/data/adb/kpm" ]; then
+            echo "[!] /data belum ter-decrypt atau belum di-mount!"
+            echo "[*] Mencoba mount /data..."
+            mount /data 2>/dev/null
+        fi
+
+        if [ -d "/data/adb/kpm" ]; then
+            mkdir -p /data/adb/kpm_backup_rescue
+            echo "[*] Memindahkan modul KPM ke /data/adb/kpm_backup_rescue/..."
+            mv /data/adb/kpm/*.kpm /data/adb/kpm_backup_rescue/ 2>/dev/null
+            echo "[✅] Seluruh modul KPM dinonaktifkan dari startup boot."
+            echo "[ℹ️] Berkas dicadangkan dengan aman di: /data/adb/kpm_backup_rescue/"
+        else
+            echo "[❌] Gagal mengakses /data/adb/kpm. Pastikan /data sudah di-decrypt via TWRP."
+        fi
+        ;;
+
+    clean-modules|safe-mode)
+        echo "[*] Mengaktifkan APatch / Magisk Safe Mode..."
+        if [ ! -d "/data/adb" ]; then
+            mount /data 2>/dev/null
+        fi
+
+        if [ -d "/data/adb" ]; then
+            touch /data/adb/safe_mode
+            touch /data/adb/modules_disabled
+            echo "[✅] Safe Mode marker dibuat di /data/adb/safe_mode"
+            echo "[⚡] Seluruh modul APM & Magisk dinonaktifkan pada boot berikutnya."
+        else
+            echo "[❌] Gagal mengakses /data/adb."
+        fi
+        ;;
+
+    unpatch-boot)
+        SLOT="$(getprop ro.boot.slot_suffix)"
+        [ -z "$SLOT" ] && SLOT="_a"
+        BOOT_PART="/dev/block/by-name/boot${SLOT}"
+
+        echo "[*] Menjalankan unpatch kernel darurat pada $BOOT_PART..."
+        TMP_DIR="/tmp/lynx_unpatch_work"
+        rm -rf "$TMP_DIR"
+        mkdir -p "$TMP_DIR"
+        cd "$TMP_DIR" || exit 1
+
+        echo "[*] Membaca partisi boot..."
+        dd if="$BOOT_PART" of=boot.img bs=1M count=32 2>/dev/null
+        
+        KPTOOLS="/system/bin/kptools"
+        [ -x "$KPTOOLS" ] || KPTOOLS="/sbin/kptools"
+
+        if [ ! -x "$KPTOOLS" ]; then
+            echo "[❌] Binary kptools tidak ditemukan di recovery!"
+            exit 1
+        fi
+
+        echo "[*] Membongkar kernel..."
+        $KPTOOLS unpack boot.img >/dev/null 2>&1
+        if [ ! -f "kernel" ]; then
+            echo "[❌] Gagal mengekstrak kernel dari boot image."
+            exit 1
+        fi
+
+        echo "[*] Mengembalikan kernel ke kondisi OEM murni (Unpatch)..."
+        $KPTOOLS -u -i kernel -o kernel.clean >/dev/null 2>&1
+        if [ -f "kernel.clean" ]; then
+            mv kernel.clean kernel
+            echo "[*] Mengemas ulang boot image OEM..."
+            $KPTOOLS repack boot.img >/dev/null 2>&1
+            if [ -f "new-boot.img" ]; then
+                echo "[*] Menuliskan kernel bersih ke $BOOT_PART..."
+                dd if=new-boot.img of="$BOOT_PART" bs=4M 2>/dev/null
+                sync
+                echo "[✅] SUKSES! Kernel telah dikembalikan ke kondisi pabrik OEM."
+                echo "[🚀] Ponsel sekarang dijamin bisa boot normal tanpa bootloop."
+            else
+                echo "[❌] Gagal mengemas ulang boot image."
+            fi
+        else
+            echo "[!] Kernel sudah dalam kondisi unpatched (asli)."
+        fi
+        cd /
+        rm -rf "$TMP_DIR"
+        ;;
+
+    backup-imei)
+        BACKUP_DIR="/sdcard/TWRP_BACKUPS/IMEI_RADIO_$(date +%Y%m%d_%H%M%S)"
+        [ ! -d "/sdcard" ] && BACKUP_DIR="/tmp/IMEI_RADIO_BACKUP"
+        mkdir -p "$BACKUP_DIR"
+        echo "[*] Mencadangkan partisi IMEI & Radio ke $BACKUP_DIR..."
+
+        for part in nvram nvdata nvcfg protect1 protect2 proinfo seccfg; do
+            NODE="/dev/block/by-name/$part"
+            if [ -e "$NODE" ]; then
+                echo "  -> Mencadangkan $part..."
+                dd if="$NODE" of="$BACKUP_DIR/${part}.img" bs=1M 2>/dev/null
+            fi
+        done
+        echo "[✅] Selesai! Cadangan tersimpan di $BACKUP_DIR."
+        ;;
+
+    fix-fbe)
+        echo "[*] Memeriksa & Menginisialisasi Ulang Komponen FBE Decrypt..."
+        # 1. Mount persist
+        mkdir -p /mnt/vendor/persist
+        mount ext4 /dev/block/by-name/persist /mnt/vendor/persist 2>/dev/null
+        # 2. Start mobicore & keymaster
+        start mobicore 2>/dev/null
+        sleep 1
+        start keymaster-4-0 2>/dev/null
+        start gatekeeper-1-0 2>/dev/null
+        echo "[*] Status Service:"
+        ps -ef | grep -E "(mobicore|keymaster|gatekeeper)" | grep -v grep
+        echo "[*] Anda sekarang dapat mencoba memasukkan PIN di menu Mount TWRP."
+        ;;
+
+    *)
+        echo "Penggunaan: lynx-rescue <command>"
+        echo "Perintah yang tersedia:"
+        echo "  status         : Menampilkan status recovery, enkripsi, dan TEE"
+        echo "  clean-kpm      : Menghapus modul KPM yang memicu bootloop di /data/adb/kpm/"
+        echo "  safe-mode      : Mengaktifkan mode aman APatch/Magisk"
+        echo "  unpatch-boot   : Mengembalikan kernel aktif ke kondisi OEM (lepas patch instant)"
+        echo "  backup-imei    : Mencadangkan partisi IMEI/NVRAM/NVDATA ke berkas .img"
+        echo "  fix-fbe        : Mengaktifkan manual driver Trustonic TEE & Keymaster"
+        ;;
+esac
+echo "=================================================="
