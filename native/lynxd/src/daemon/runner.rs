@@ -241,9 +241,10 @@ impl DaemonRunner {
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
 
-            // Autonomous Dynamic GPU Scaler tick (Idle downclock, Touch/Video Mid-OPP, 3D Peak)
+            // Autonomous Universal Multi-Factor Dynamic GPU Governor tick
             crate::subsystems::GpuController::tick_dynamic_scaler(
                 state.derived.workload_level,
+                state.derived.temp_celsius_float,
                 active_prof,
                 current_screen == ScreenState::On,
             );

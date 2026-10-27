@@ -1,117 +1,168 @@
+use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 static LAST_TOUCH_MS: AtomicU64 = AtomicU64::new(0);
 static TOUCH_ACTIVE: AtomicBool = AtomicBool::new(false);
 
+// Ring buffer of last 16 touch event timestamps (in ms) for rapid gesture / velocity detection
+const TOUCH_HISTORY_LEN: usize = 16;
+static TOUCH_HISTORY: [AtomicU64; TOUCH_HISTORY_LEN] = [
+    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
+    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
+    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
+    AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0),
+];
+static TOUCH_HISTORY_HEAD: AtomicUsize = AtomicUsize::new(0);
+static TOUCH_TOTAL_EVENTS: AtomicU64 = AtomicU64::new(0);
+
 pub struct TouchDetector {
     running: Arc<AtomicBool>,
 }
 
 impl TouchDetector {
-    /// Discovers physical touchscreen event device in `/dev/input/` with zero hardcoding.
-    pub fn find_touchscreen_device() -> Option<PathBuf> {
+    /// Discovers all physical touchscreen and digitizer input event devices in `/dev/input/`
+    /// across Qualcomm, MediaTek, Samsung Exynos, Google Tensor, and generic Android platforms.
+    /// Returns a list of valid device paths (supporting foldables, dual-displays, stylus digitizers).
+    pub fn find_touchscreen_devices() -> Vec<PathBuf> {
+        let mut devices = Vec::new();
+
+        // 25+ Touchscreen Driver Identifiers across major OEMs & vendors
+        const TOUCH_KEYWORDS: &[&str] = &[
+            "touch", "tpd", "ts", "touchscreen", "fts", "goodix", "synaptics",
+            "focaltech", "ilitek", "novatek", "sec_touch", "atmel", "cyttsp",
+            "elan", "himax", "melfas", "msg2xxx", "zinitix", "chipone",
+            "parade", "wacom", "stmicro", "gt9xx", "ft5x", "hx83100",
+            "nt36xxx", "gslx680", "ft6336", "mxt",
+        ];
+
         // Priority 1: Check driver / device name in /sys/class/input/event*/device/name
-        if let Ok(entries) = std::fs::read_dir("/sys/class/input") {
+        if let Ok(entries) = fs::read_dir("/sys/class/input") {
             for entry in entries.flatten() {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy();
+                if !file_name_str.starts_with("event") {
+                    continue;
+                }
+
                 let name_path = entry.path().join("device/name");
-                if let Ok(dev_name) = std::fs::read_to_string(&name_path) {
+                if let Ok(dev_name) = fs::read_to_string(&name_path) {
                     let name_lower = dev_name.trim().to_lowercase();
-                    if name_lower.contains("touch")
-                        || name_lower.contains("tpd")
-                        || name_lower.contains("ts")
-                        || name_lower.contains("touchscreen")
-                        || name_lower.contains("fts")
-                        || name_lower.contains("goodix")
-                        || name_lower.contains("synaptics")
-                        || name_lower.contains("focaltech")
-                        || name_lower.contains("ilitek")
-                        || name_lower.contains("novatek")
-                        || name_lower.contains("sec_touch")
-                    {
-                        let file_name = entry.file_name();
-                        let dev_node = PathBuf::from("/dev/input").join(file_name);
-                        if dev_node.exists() {
-                            return Some(dev_node);
+                    if TOUCH_KEYWORDS.iter().any(|&kw| name_lower.contains(kw)) {
+                        let dev_node = PathBuf::from("/dev/input").join(&file_name);
+                        if dev_node.exists() && !devices.contains(&dev_node) {
+                            devices.push(dev_node);
                         }
                     }
                 }
             }
         }
 
-        // Priority 2: Check input devices with non-zero absolute axis (EV_ABS / multi-touch)
-        for idx in (0..=8).rev() {
-            let abs_path = format!("/sys/class/input/event{}/device/capabilities/abs", idx);
-            if let Ok(abs_str) = std::fs::read_to_string(&abs_path) {
-                let trimmed = abs_str.trim();
-                if !trimmed.is_empty() && trimmed != "0" {
-                    let p = PathBuf::from(format!("/dev/input/event{}", idx));
-                    if p.exists() {
-                        return Some(p);
+        // Priority 2: Check input devices with non-zero absolute axis (EV_ABS / multi-touch capabilities)
+        if let Ok(entries) = fs::read_dir("/sys/class/input") {
+            for entry in entries.flatten() {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy();
+                if !file_name_str.starts_with("event") {
+                    continue;
+                }
+
+                let abs_path = entry.path().join("device/capabilities/abs");
+                if let Ok(abs_str) = fs::read_to_string(&abs_path) {
+                    let trimmed = abs_str.trim();
+                    if !trimmed.is_empty() && trimmed != "0" {
+                        let dev_node = PathBuf::from("/dev/input").join(&file_name);
+                        if dev_node.exists() && !devices.contains(&dev_node) {
+                            devices.push(dev_node);
+                        }
                     }
                 }
             }
         }
 
-        None
+        // Priority 3: Fallback check for /dev/input/event0 .. event16 if still empty
+        if devices.is_empty() {
+            for idx in 0..=16 {
+                let p = PathBuf::from(format!("/dev/input/event{}", idx));
+                if p.exists() {
+                    devices.push(p);
+                    break;
+                }
+            }
+        }
+
+        devices.sort();
+        devices
     }
 
-    /// Spawns the zero-CPU blocking touch listener thread.
+    /// Spawns zero-CPU blocking touch listener threads for all discovered touchscreen devices.
     pub fn start() -> Option<Self> {
-        let dev_path = Self::find_touchscreen_device()?;
+        let dev_paths = Self::find_touchscreen_devices();
+        if dev_paths.is_empty() {
+            return None;
+        }
+
         let running = Arc::new(AtomicBool::new(true));
-        let running_clone = running.clone();
-        let path_clone = dev_path.clone();
 
-        std::thread::Builder::new()
-            .name("lynx-touch".to_string())
-            .spawn(move || {
-                let mut buf = [0u8; 24]; // Standard Linux 64-bit input_event struct size
-                while running_clone.load(Ordering::Relaxed) {
-                    match std::fs::File::open(&path_clone) {
-                        Ok(mut file) => {
-                            use std::io::Read;
-                            while running_clone.load(Ordering::Relaxed) {
-                                match file.read_exact(&mut buf) {
-                                    Ok(()) => {
-                                        // On 64-bit Linux / aarch64:
-                                        // struct input_event {
-                                        //   struct timeval time; // 16 bytes (8s + 8us)
-                                        //   __u16 type;          // 2 bytes (offset 16)
-                                        //   __u16 code;          // 2 bytes (offset 18)
-                                        //   __s32 value;         // 4 bytes (offset 20)
-                                        // }
-                                        let ev_type = u16::from_ne_bytes([buf[16], buf[17]]);
-                                        // EV_KEY (1) or EV_ABS (3)
-                                        if ev_type == 1 || ev_type == 3 {
-                                            let now_ms = std::time::SystemTime::now()
-                                                .duration_since(std::time::UNIX_EPOCH)
-                                                .unwrap_or_default()
-                                                .as_millis() as u64;
-                                            LAST_TOUCH_MS.store(now_ms, Ordering::Relaxed);
-                                            TOUCH_ACTIVE.store(true, Ordering::Relaxed);
+        for (idx, path) in dev_paths.into_iter().enumerate() {
+            let running_clone = running.clone();
+            let path_clone = path.clone();
 
-                                            // Immediate zero-latency touch boost notification
-                                            crate::subsystems::GpuController::on_hardware_touch();
+            let _ = std::thread::Builder::new()
+                .name(format!("lynx-touch-{}", idx))
+                .spawn(move || {
+                    let mut buf = [0u8; 24]; // Standard Linux 64-bit input_event struct size
+                    while running_clone.load(Ordering::Relaxed) {
+                        match fs::File::open(&path_clone) {
+                            Ok(mut file) => {
+                                use std::io::Read;
+                                while running_clone.load(Ordering::Relaxed) {
+                                    match file.read_exact(&mut buf) {
+                                        Ok(()) => {
+                                            // On 64-bit Linux / aarch64:
+                                            // struct input_event {
+                                            //   struct timeval time; // 16 bytes (8s + 8us)
+                                            //   __u16 type;          // 2 bytes (offset 16)
+                                            //   __u16 code;          // 2 bytes (offset 18)
+                                            //   __s32 value;         // 4 bytes (offset 20)
+                                            // }
+                                            let ev_type = u16::from_ne_bytes([buf[16], buf[17]]);
+                                            // EV_KEY (1) or EV_ABS (3)
+                                            if ev_type == 1 || ev_type == 3 {
+                                                let now_ms = std::time::SystemTime::now()
+                                                    .duration_since(std::time::UNIX_EPOCH)
+                                                    .unwrap_or_default()
+                                                    .as_millis() as u64;
+
+                                                LAST_TOUCH_MS.store(now_ms, Ordering::Relaxed);
+                                                TOUCH_ACTIVE.store(true, Ordering::Relaxed);
+                                                TOUCH_TOTAL_EVENTS.fetch_add(1, Ordering::Relaxed);
+
+                                                // Record in circular history buffer
+                                                let head = TOUCH_HISTORY_HEAD.fetch_add(1, Ordering::Relaxed) % TOUCH_HISTORY_LEN;
+                                                TOUCH_HISTORY[head].store(now_ms, Ordering::Relaxed);
+
+                                                // Immediate sub-1ms hardware touch boost notification
+                                                crate::subsystems::GpuController::on_hardware_touch();
+                                            }
                                         }
-                                    }
-                                    Err(_) => {
-                                        // Input device suspended / display off
-                                        std::thread::sleep(Duration::from_millis(500));
-                                        break;
+                                        Err(_) => {
+                                            // Input device suspended / display off
+                                            std::thread::sleep(Duration::from_millis(500));
+                                            break;
+                                        }
                                     }
                                 }
                             }
-                        }
-                        Err(_) => {
-                            std::thread::sleep(Duration::from_millis(1000));
+                            Err(_) => {
+                                std::thread::sleep(Duration::from_millis(1000));
+                            }
                         }
                     }
-                }
-            })
-            .ok()?;
+                });
+        }
 
         Some(Self { running })
     }
@@ -129,8 +180,33 @@ impl TouchDetector {
         now.saturating_sub(last) <= window_ms
     }
 
+    /// Detects rapid gesture / fling / multi-finger swipe by checking if at least `min_events`
+    /// occurred within `window_ms` (e.g. 3 events within 150ms).
+    pub fn is_rapid_touch(window_ms: u64, min_events: usize) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let mut count = 0;
+        for slot in &TOUCH_HISTORY {
+            let t = slot.load(Ordering::Relaxed);
+            if t > 0 && now.saturating_sub(t) <= window_ms {
+                count += 1;
+                if count >= min_events {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     pub fn last_touch_ms() -> u64 {
         LAST_TOUCH_MS.load(Ordering::Relaxed)
+    }
+
+    pub fn total_events() -> u64 {
+        TOUCH_TOTAL_EVENTS.load(Ordering::Relaxed)
     }
 
     pub fn stop(&self) {

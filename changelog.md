@@ -1,3 +1,37 @@
+# Lynx Universal [Universal Multi-Factor Autonomous GPU Governor across Qualcomm, MediaTek, Exynos & Tensor] 7.0.0-RC224
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC224** (Lynx Kernel Manager v3.2.58): **Pengembangan Arsitektur Mesin Pengatur GPU Multi-Faktor Otonom yang Benar-Benar Universal untuk Seluruh SoC (Qualcomm Snapdragon Adreno KGSL, MediaTek Mali GED/GPUFreq, Samsung Exynos/AMD Xclipse RDNA, Google Tensor, Unisoc, & Generic Devfreq): Multi-Device Touchscreen Discovery (25+ Vendor Keywords & EV_ABS), Deteksi Kecepatan Gestur / Fling Swiping (`is_rapid_touch`), Two-Tier Staircase Hysteresis (0ms Instant UP, 1000ms Peak Hold, 1500ms Moderate Hold), Proactive Thermal Guard (Auto-Cap Peak at 48°C), Serta Resolusi Kanonikal Bebas Guessing (`lowest_opp`, `mid_opp`, `highest_opp`)**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC224)
+1. **Arsitektur Universal Lintas Seluruh SoC & Vendor Silikon (`gpu.rs`, `capability.rs`)**:
+   - **Qualcomm Snapdragon (Adreno KGSL & Devfreq)**:
+     - Mengimplementasikan kontrol komprehensif pada `min_clock_mhz`, `max_clock_mhz`, `min_pwrlevel`, `max_pwrlevel`, `default_pwrlevel`, `pwrscale`, dan `adrenoboost` (0 = idle, 2 = moderate, 3 = peak).
+     - Deteksi otomatis pengali unit devfreq (`Hz` vs `kHz` vs `MHz`) berdasarkan pemindaian `available_frequencies`.
+     - Sinkronisasi multi-instansi otomatis ke seluruh direktori devfreq `/sys/class/devfreq/*kgsl*/` di latar belakang.
+   - **MediaTek (Mali GED & GPUFreq v1/v2)**:
+     - Menggunakan pemetaan kanonikal OPP hardware nyata (`lowest_opp()`, `mid_opp()`, `highest_opp()`), kebal terhadap urutan tabel driver vendor (ascending maupun descending).
+     - Menyetel parameter kernel `custom_boost_gpu_freq`, `gpu_cust_boost_freq`, `gpu_boost_level` (0 / 35 / 75), `dvfs_margin_value` (50 / 65 / 100), `loading_base_dvfs_step` (4 / 6 / 8), dan `boost_amp` (0 / 1 / 2).
+   - **Samsung Exynos & AMD RDNA Xclipse (`sgpu`)**:
+     - Sinkronisasi langsung ke node `/sys/kernel/gpu/gpu_min_clock`, `/sys/devices/platform/17000000.sgpu/`, dan devfreq `min_freq` dengan unit multi-faktor.
+   - **Google Tensor (Tensor G1-G4 / Mali-G78/G710/G715) & Unisoc Mali**:
+     - Skalabilitas otonom Generic Devfreq dengan auto-detected unit multiplier dan sinkronisasi multi-node devfreq.
+
+2. **Deteksi Multi-Perangkat Layar Sentuh & Kecepatan Gestur (`touch.rs`)**:
+   - **Multi-Device Touchscreen Discovery**: Memindai seluruh `/sys/class/input/event*` dengan 25+ kata kunci driver manufaktur (`goodix`, `synaptics`, `focaltech`, `fts`, `ilitek`, `novatek`, `sec_touch`, `atmel`, `wacom`, dll.) dan kapabilitas `EV_ABS`, mendukung perangkat layar lipat (*foldables*), layar ganda, dan digitizer pena.
+   - **Thread Listener Khusus Tiap Perangkat**: Membuka thread non-blocking CPU 0% untuk setiap perangkat sentuh fisik yang terdeteksi.
+   - **Velocity / Rapid Gesture Awareness (`is_rapid_touch`)**: Menerapkan circular buffer riwayat 16 kejadian sentuhan untuk mendeteksi flinging dan swipe cepat (≥3 sentuhan dalam jendela 150 ms) guna menaikkan frekuensi secara proaktif sebelum frame drop terjadi.
+
+3. **Two-Tier Staircase Hysteresis (Anti-Flapping & Micro-Stutter Eliminator)**:
+   - **Ramp-Up Instan (0 ms)**: Begitu sentuhan kaca terdeteksi atau beban render meningkat, GPU seketika melompat ke Moderate atau Peak tanpa penundaan.
+   - **Penahanan Peak -> Moderate (1000 ms)**: Menahan status Peak selama 1000 ms setelah beban berat selesai sebelum mulai turun ke Moderate, mencegah osilasi frekuensi bolak-balik saat pergantian scene game/UI.
+   - **Penahanan Moderate -> Idle (1500 ms)**: Menahan status Moderate selama 1500 ms setelah sentuhan pengguna berhenti dan beban GPU benar-benar idle, menjamin animasi penutupan jendela dan transisi sistem tetap 60/90/120 FPS tanpa lag.
+   - **Penurunan Instan Saat Layar Mati (0 ms)**: Langsung menurunkan clock ke Idle saat layar mati untuk memaksimalkan deep sleep.
+
+4. **Pengaman Termal Proaktif (Proactive Thermal Guard)**:
+   - Memantau suhu baterai dan SoC secara real-time. Jika suhu mencapai ≥ 48.0°C pada profil selain `extreme`, status Peak otomatis dibatasi ke Moderate untuk mencegah thermal tripping keras dari OEM yang dapat memicu *thermal throttle lock* 100 MHz.
+
+---
+
 # Lynx Universal [Intelligent Dynamic GPU Scaler, Zero UI Lag, TouchBoost & Idle 300MHz Downclock] 7.0.0-RC223
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC223** (Lynx Kernel Manager v3.2.57): **Implementasi Mesin Pengatur GPU Cerdas & Otonom (Intelligent Dynamic GPU Scaler): Eliminasi Kunci Frekuensi Tengah (Locked Mid-Clock Fix), Downclock Instan ke OPP Terendah (300 MHz) Saat Idle Tanpa Sentuhan Demi Penghematan Baterai Maksimal, Respons Sentuhan Sub-Milidetik (Hardware TouchBoost via Blocking Event Thread) Naik ke Frekuensi Tengah (~543-675 MHz) untuk Navigasi UI/Video Tanpa Stuttering, Serta Skalabilitas Otomatis ke Puncak (850-950 MHz) Saat Beban Berat & Game 3D**.

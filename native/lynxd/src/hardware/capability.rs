@@ -79,6 +79,29 @@ pub struct GpuCapability {
     pub num_pwrlevels: usize,
 }
 
+impl GpuCapability {
+    /// Universally resolves the lowest available hardware OPP entry (minimum frequency).
+    pub fn lowest_opp(&self) -> Option<&GpuOppEntry> {
+        self.opp_table.iter().min_by_key(|e| e.freq_mhz)
+    }
+
+    /// Universally resolves the highest available hardware OPP entry (peak frequency).
+    pub fn highest_opp(&self) -> Option<&GpuOppEntry> {
+        self.opp_table.iter().max_by_key(|e| e.freq_mhz)
+    }
+
+    /// Universally resolves the median/mid available hardware OPP entry.
+    pub fn mid_opp(&self) -> Option<&GpuOppEntry> {
+        if self.opp_table.is_empty() {
+            return None;
+        }
+        let mut sorted: Vec<&GpuOppEntry> = self.opp_table.iter().collect();
+        sorted.sort_by_key(|e| e.freq_mhz);
+        let mid_idx = sorted.len() / 2;
+        sorted.get(mid_idx).copied().or_else(|| self.opp_table.first())
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SchedulerCapability {
     pub uclamp_min_node: Option<PathBuf>,
@@ -388,15 +411,6 @@ impl HardwareCapability {
                 max_freq_mhz = locked_f;
             }
 
-            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
-            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(0);
-            if is_cfg_locked && locked_f > 0 {
-                min_freq_mhz = locked_f;
-                max_freq_mhz = locked_f;
-            }
-
             let mut available_governors = Vec::new();
             if let Ok(govs_raw) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_governors") {
                 for g in govs_raw.split_whitespace() {
@@ -669,6 +683,19 @@ impl HardwareCapability {
                 if let (Ok(busy), Ok(total)) = (parts[0].parse::<u64>(), parts[1].parse::<u64>()) {
                     if total > 0 {
                         return ((busy * 100) / total) as u32;
+                    }
+                }
+            }
+        }
+        if let Ok(v) = SysfsReader::read_int::<u32>("/sys/class/kgsl/kgsl-3d0/devfreq/load") {
+            return v.min(100);
+        }
+        if let Ok(entries) = fs::read_dir("/sys/class/devfreq") {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name.contains("kgsl") {
+                    if let Ok(v) = SysfsReader::read_int::<u32>(entry.path().join("load")) {
+                        return v.min(100);
                     }
                 }
             }
