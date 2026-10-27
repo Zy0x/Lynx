@@ -28,6 +28,13 @@ impl DaemonRunner {
         let screen = ScreenDetector::probe();
         let mut fg_detector = ForegroundDetector::new();
         let mut daemon_state = DaemonState::new();
+        let _touch_detector = crate::daemon::TouchDetector::start();
+        if _touch_detector.is_some() {
+            Logger::info(ui(
+                "[DAEMON] Detektor sentuhan fisik aktif (respons sub-milidetik)",
+                "[DAEMON] Physical touch detector active (sub-millisecond response)",
+            ));
+        }
 
         let initial_profile = Self::read_baseline_profile()
             .or_else(|| {
@@ -233,6 +240,13 @@ impl DaemonRunner {
 
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
+
+            // Autonomous Dynamic GPU Scaler tick (Idle downclock, Touch/Video Mid-OPP, 3D Peak)
+            crate::subsystems::GpuController::tick_dynamic_scaler(
+                state.derived.workload_level,
+                active_prof,
+                current_screen == ScreenState::On,
+            );
 
             // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick
             crate::subsystems::AdbController::tick();

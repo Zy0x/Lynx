@@ -1,10 +1,22 @@
 use std::fmt::Write as FmtWrite;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 
-use crate::hardware::capability::{GpuDriver, HardwareCapability};
+use crate::hardware::capability::{GpuCapability, GpuDriver, HardwareCapability};
 use crate::hardware::detector::ScoreBoard;
+use crate::state::device_state::WorkloadLevel;
 use crate::state::ConfigStore;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicGpuState {
+    Idle = 0,     // Lowest OPP (e.g. 300 MHz)
+    Moderate = 1, // Mid OPP (e.g. ~543-675 MHz, responsive boost for touch/video/render)
+    Peak = 2,     // Max OPP (e.g. 850-950 MHz, gaming/heavy compute)
+}
+
+static CURRENT_SCALER_STATE: AtomicU8 = AtomicU8::new(0); // 0 = Idle, 1 = Moderate, 2 = Peak
+static LAST_TOUCH_BOOST_MS: AtomicU64 = AtomicU64::new(0);
 
 pub struct GpuController;
 
@@ -114,8 +126,8 @@ impl GpuController {
                     Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
                     Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
-                    let mid_opp = gpu.opp_table.get(gpu.opp_table.len() / 2).or_else(|| gpu.opp_table.last());
-                    if let Some(boost_opp) = mid_opp {
+                    let lowest_opp = gpu.opp_table.last();
+                    if let Some(boost_opp) = lowest_opp {
                         Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", boost_opp.index.to_string());
                     }
                     if let Some(max_opp) = gpu.opp_table.first() {
@@ -285,5 +297,197 @@ impl GpuController {
         Self::write_opt("/sys/module/ged/parameters/enable_gpu_boost", flag);
         Self::write_opt("/sys/module/ged/parameters/ged_smart_boost", flag);
         format!("MediaTek GED GPU boost set to level {}.", lvl)
+    }
+
+    /// Immediate sub-1ms hardware touch boost notification triggered by TouchDetector thread.
+    pub fn on_hardware_touch() {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
+        if now_ms.saturating_sub(last) < 800 {
+            return;
+        }
+        LAST_TOUCH_BOOST_MS.store(now_ms, Ordering::Relaxed);
+
+        let is_locked = ConfigStore::get("gpu.is_locked")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+        if is_locked {
+            return;
+        }
+
+        // Only boost if currently in Idle state to jump floor up to Moderate
+        if CURRENT_SCALER_STATE.load(Ordering::Relaxed) == 0 {
+            let (vendor, _) = ScoreBoard::evaluate();
+            let gpu = HardwareCapability::resolve_gpu(vendor);
+            if gpu.is_supported && !gpu.opp_table.is_empty() {
+                CURRENT_SCALER_STATE.store(1, Ordering::Relaxed);
+                Self::apply_state_hardware(&gpu, DynamicGpuState::Moderate);
+            }
+        }
+    }
+
+    /// Autonomous Dynamic GPU Governor tick executed on every daemon cycle.
+    pub fn tick_dynamic_scaler(workload: WorkloadLevel, active_profile: &str, is_screen_on: bool) {
+        let is_locked = ConfigStore::get("gpu.is_locked")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false);
+        if is_locked || active_profile == "extreme" {
+            return;
+        }
+
+        let (vendor, _) = ScoreBoard::evaluate();
+        let gpu = HardwareCapability::resolve_gpu(vendor);
+        if !gpu.is_supported || gpu.opp_table.is_empty() {
+            return;
+        }
+
+        if !is_screen_on {
+            if CURRENT_SCALER_STATE.load(Ordering::Relaxed) != 0 {
+                CURRENT_SCALER_STATE.store(0, Ordering::Relaxed);
+                Self::apply_state_hardware(&gpu, DynamicGpuState::Idle);
+            }
+            return;
+        }
+
+        let target_state = if active_profile == "powersave" {
+            DynamicGpuState::Idle
+        } else if active_profile == "performance" {
+            if workload == WorkloadLevel::Heavy {
+                DynamicGpuState::Peak
+            } else {
+                DynamicGpuState::Moderate
+            }
+        } else {
+            // Balance profile (Intelligent Adaptive Scaling: Idle 300MHz, Touch/Video Mid-OPP, 3D Peak)
+            let is_touch = crate::daemon::TouchDetector::is_touch_recent(1500);
+            match workload {
+                WorkloadLevel::Heavy => DynamicGpuState::Peak,
+                WorkloadLevel::Moderate => DynamicGpuState::Moderate,
+                WorkloadLevel::Idle => {
+                    if is_touch {
+                        DynamicGpuState::Moderate
+                    } else {
+                        DynamicGpuState::Idle
+                    }
+                }
+            }
+        };
+
+        let current_u8 = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
+        let target_u8 = match target_state {
+            DynamicGpuState::Idle => 0,
+            DynamicGpuState::Moderate => 1,
+            DynamicGpuState::Peak => 2,
+        };
+
+        if current_u8 != target_u8 {
+            CURRENT_SCALER_STATE.store(target_u8, Ordering::Relaxed);
+            Self::apply_state_hardware(&gpu, target_state);
+        }
+    }
+
+    fn apply_state_hardware(gpu: &GpuCapability, state: DynamicGpuState) {
+        let lowest_opp = gpu.opp_table.last();
+        let highest_opp = gpu.opp_table.first();
+        let mid_opp = gpu.opp_table.get(gpu.opp_table.len() / 2).or(lowest_opp);
+
+        match gpu.driver {
+            GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
+                match state {
+                    DynamicGpuState::Idle => {
+                        if let Some(low) = lowest_opp {
+                            Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", low.index.to_string());
+                            Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", low.freq_khz.to_string());
+                        }
+                        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "0");
+                        Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "50");
+                        Self::write_opt("/sys/module/ged/parameters/boost_amp", "0");
+                        Self::write_opt("/sys/module/ged/parameters/ged_boost_enable", "0");
+                    }
+                    DynamicGpuState::Moderate => {
+                        if let Some(mid) = mid_opp {
+                            Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", mid.index.to_string());
+                            Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", mid.freq_khz.to_string());
+                        }
+                        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "35");
+                        Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "65");
+                        Self::write_opt("/sys/kernel/ged/hal/loading_base_dvfs_step", "6");
+                        Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", "1");
+                        Self::write_opt("/sys/module/ged/parameters/boost_amp", "1");
+                        Self::write_opt("/sys/module/ged/parameters/ged_boost_enable", "1");
+                    }
+                    DynamicGpuState::Peak => {
+                        if let Some(high) = highest_opp {
+                            Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", high.index.to_string());
+                            Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", high.freq_khz.to_string());
+                        }
+                        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "75");
+                        Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "100");
+                        Self::write_opt("/sys/kernel/ged/hal/loading_base_dvfs_step", "8");
+                        Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", "1");
+                        Self::write_opt("/sys/module/ged/parameters/boost_amp", "2");
+                        Self::write_opt("/sys/module/ged/parameters/ged_boost_enable", "1");
+                    }
+                }
+            }
+            GpuDriver::QcomKgsl => {
+                let unit_mult: u64 = if let Ok(avail_str) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies")
+                    .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")) {
+                    if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000_000) {
+                        1_000_000
+                    } else if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000) {
+                        1_000
+                    } else {
+                        1
+                    }
+                } else {
+                    1_000_000
+                };
+
+                match state {
+                    DynamicGpuState::Idle => {
+                        if let Some(low) = lowest_opp {
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", low.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (low.freq_khz * unit_mult / 1000).to_string());
+                        }
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost", "0");
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "0");
+                    }
+                    DynamicGpuState::Moderate => {
+                        if let Some(mid) = mid_opp {
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", mid.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (mid.freq_khz * unit_mult / 1000).to_string());
+                        }
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost", "2");
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "2");
+                    }
+                    DynamicGpuState::Peak => {
+                        if let Some(high) = highest_opp {
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", high.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (high.freq_khz * unit_mult / 1000).to_string());
+                        }
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost", "3");
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "3");
+                    }
+                }
+            }
+            GpuDriver::GenericDevfreq => {
+                if let Some(ref devpath) = gpu.devfreq_path {
+                    let target_opp = match state {
+                        DynamicGpuState::Idle => lowest_opp,
+                        DynamicGpuState::Moderate => mid_opp,
+                        DynamicGpuState::Peak => highest_opp,
+                    };
+                    if let Some(opp) = target_opp {
+                        Self::write_opt(devpath.join("min_freq"), (opp.freq_khz * 1000).to_string());
+                    }
+                }
+            }
+            GpuDriver::Unsupported => {}
+        }
     }
 }

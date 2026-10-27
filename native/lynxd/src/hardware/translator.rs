@@ -349,7 +349,7 @@ impl HardwareTranslator {
                     // When UI touch or rendering activity occurs, GED boosts to target_boost_opp (50% OPP),
                     // guaranteeing fast frame rasterization under vsync deadlines on ANY display Hz (60, 90, 120, 144Hz)
                     // without pinning high clock or causing battery drain.
-                    let balance_boost_opp = {
+                    let _balance_boost_opp = {
                         let mid_idx = cap.gpu.opp_table.len() / 2;
                         cap.gpu.opp_table.get(mid_idx).unwrap_or(lowest_opp)
                     };
@@ -362,7 +362,7 @@ impl HardwareTranslator {
                             let ceil_opp = cap.gpu.opp_table.get(cap_idx).unwrap_or(highest_opp);
                             (lowest_opp, lowest_opp, ceil_opp)
                         }
-                        _ => (lowest_opp, balance_boost_opp, highest_opp),
+                        _ => (lowest_opp, lowest_opp, highest_opp),
                     };
 
                     Self::push_op(
@@ -471,6 +471,12 @@ impl HardwareTranslator {
                 // MediaTek GED DVFS Loading Mode: 1 (load-based scaling) in Balanced, Perf & Extreme so GPU scales instantly with UI load
                 let loading_mode = if is_powersave { "0" } else { "1" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS loading mode", MtkHardware::GED_HAL_DVFS, loading_mode, false);
+
+                // MediaTek GED DVFS Step & Margin (responsive step-up and head-room)
+                let dvfs_step = if is_extreme { "10" } else if is_perf_or_ext { "8" } else if is_powersave { "4" } else { "6" };
+                let dvfs_margin = if is_extreme { "100" } else if is_perf_or_ext { "75" } else if is_powersave { "30" } else { "50" };
+                Self::push_op(&mut ops, "MTK-GPU", "GED DVFS step", "/sys/kernel/ged/hal/loading_base_dvfs_step", dvfs_step, false);
+                Self::push_op(&mut ops, "MTK-GPU", "GED DVFS margin", "/sys/kernel/ged/hal/dvfs_margin_value", dvfs_margin, false);
 
                 // MediaTek CoreLink Interconnect (CCI) & Power Mode
                 let power_mode = if is_perf_or_ext { "3" } else if is_powersave { "1" } else { "0" };

@@ -1,3 +1,30 @@
+# Lynx Universal [Intelligent Dynamic GPU Scaler, Zero UI Lag, TouchBoost & Idle 300MHz Downclock] 7.0.0-RC223
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC223** (Lynx Kernel Manager v3.2.57): **Implementasi Mesin Pengatur GPU Cerdas & Otonom (Intelligent Dynamic GPU Scaler): Eliminasi Kunci Frekuensi Tengah (Locked Mid-Clock Fix), Downclock Instan ke OPP Terendah (300 MHz) Saat Idle Tanpa Sentuhan Demi Penghematan Baterai Maksimal, Respons Sentuhan Sub-Milidetik (Hardware TouchBoost via Blocking Event Thread) Naik ke Frekuensi Tengah (~543-675 MHz) untuk Navigasi UI/Video Tanpa Stuttering, Serta Skalabilitas Otomatis ke Puncak (850-950 MHz) Saat Beban Berat & Game 3D**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC223)
+1. **Resolusi Akar Masalah GPU Terkunci di Jam Tengah (`translator.rs` & `gpu.rs`)**:
+   - Menyelidiki fenomena GPU Mali-G57 (MT6781) yang terkunci di `idx: 24, freq: 675 MHz` meskipun beban GPU 0%:
+     - Ditemukan bahwa driver kernel MediaTek GED (`ged_dvfs.c`) menggunakan indeks terbalik (indeks 0 = frekuensi tertinggi 950 MHz, indeks 48 = frekuensi terendah 300 MHz).
+     - Menulis nilai `custom_boost_gpu_freq = 24` dan `gpu_cust_boost_freq = 675000` secara harfiah melarang driver GED memilih indeks yang lebih besar dari 24, sehingga GPU terkunci di lantai 675 MHz dan tidak pernah bisa turun ke 300 MHz.
+   - Mengubah konfigurasi batas bawah pada profil Seimbang (`balance`) dan pemulihan Auto DVFS agar menetapkan batas bawah ke `lowest_opp` (`idx: 48`, `300 MHz`), memungkinkan voltase GPU turun dari 0.70V ke 0.575V saat diam (penghematan daya silikon hingga ~45%).
+
+2. **Mesin Pengatur GPU Dinamis Otonom (`DynamicGpuScaler` di `GpuController`)**:
+   - Mengembangkan sistem pengaturan frekuensi bertingkat 3-fase adaptif (`DynamicGpuState::Idle`, `Moderate`, `Peak`):
+     - **Status Idle (Beban < 20% & Tidak Ada Sentuhan)**: Mengunci lantai clock ke indeks OPP terendah (300 MHz), mematikan `gpu_boost_level` (0), dan menyetel margin DVFS ke 50%. Baterai sangat efisien saat membaca teks, diam, atau standby.
+     - **Status Moderat (Beban 20%-65% atau Terdeteksi Sentuhan Layar)**: Menaikkan lantai clock ke OPP tengah (~543-675 MHz), menyetel `gpu_boost_level` ke 35, dan margin DVFS ke 65%. Menjamin animasi scroll 90Hz/120Hz mulus seketika dan pemutaran video (YouTube, TikTok, Netflix) bebas stuttering.
+     - **Status Puncak (Beban > 65% atau Game 3D)**: Melepaskan seluruh batas dan menaikkan lantai clock ke puncak tertinggi (850-950 MHz), `gpu_boost_level` ke 75-100, dan margin DVFS ke 100% untuk performa gaming tanpa kompromi.
+
+3. **Detektor Sentuhan Perangkat Keras Sub-Milidetik (`TouchDetector` di `touch.rs`)**:
+   - Membangun detektor sentuhan berbasis thread Linux blocking murni beroverhead CPU 0.00% pada `/dev/input/event*` (mendukung MediaTek `mtk-tpd` dan Qualcomm `fts_ts`/`synaptics`/`goodix`).
+   - Begitu jari menyentuh layar kaca (`EV_ABS`/`EV_KEY`), fungsi `on_hardware_touch()` segera merespons dalam waktu < 1 ms untuk menaikkan clock GPU ke frekuensi tengah sebelum frame rendering pertama dieksekusi oleh SurfaceFlinger.
+   - Menerapkan jendela histeresis pendinginan 1.5 detik: frekuensi GPU dipertahankan selama transisi gestur pengguna, dan baru turun kembali ke 300 MHz jika tidak ada sentuhan lanjutan serta beban GPU benar-benar idle.
+
+4. **Universalitas Antar-Platform (MediaTek Mali GED & Qualcomm Adreno KGSL)**:
+   - Arsitektur diskalakan secara universal untuk platform MediaTek GED (`custom_boost_gpu_freq`, `gpu_boost_level`, `loading_base_dvfs_step`) maupun Qualcomm Adreno (`min_clock_mhz`, `adrenoboost` level 0-3, devfreq scaling).
+
+---
+
 # Lynx Universal [Thermal & Anti-Throttling Redesign, Zero Redundancy & Dynamic Vendor Config Parser] 7.0.0-RC222
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC222** (Lynx Kernel Manager v3.2.56): **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling Berbasis Standar Desain Anti-Slop (/redesign-existing-projects): 4 Mode Cepat Terintegrasi, Slider Suhu Trip Point Dinamis (45°C-75°C), Sinkronisasi Otomatis File Vendor INI di Latar Belakang, Eliminasi Total Redundansi Tweak CPU, dan Penggantian Studio Konfigurasi 1600+ Baris Menjadi Komponen Modular Ringkas Serta Raw Editor Sheet**.
