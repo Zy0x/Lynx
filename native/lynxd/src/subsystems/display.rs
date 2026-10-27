@@ -205,12 +205,11 @@ impl DisplayController {
 
     /// Smooth adaptive rate adjustment for Auto mode without hard SurfaceFlinger 1035 backdoor stalls.
     /// Manages min/peak refresh rate via DisplayModeDirector and panel sysfs.
-    pub fn apply_hz_auto(target_hz: u32, high_hz: u32) {
+    pub fn apply_hz_auto(target_hz: u32, _high_hz: u32) {
         let hz_str = format!("{}.0", target_hz);
-        let peak_str = format!("{}.0", high_hz);
 
         let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &peak_str]);
+        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
         let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
 
         // Kernel / Vendor Panel Sysfs Nodes
@@ -252,6 +251,7 @@ impl DisplayController {
             let hz_str = format!("{}.0", high_hz);
             let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
             let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
+            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_hz.to_string()]);
         }
     }
 
