@@ -148,6 +148,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.setAppForeground(true)
+        viewModel.syncHudPrefs(this)
     }
 
     override fun onStop() {

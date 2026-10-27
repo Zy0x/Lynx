@@ -528,7 +528,10 @@ class LynxAppAutomationService : Service() {
 
                 if (matchingRule.autoFloatingHud) {
                     try {
-                        val isHudAlreadyRunning = LynxFloatingHudService.isRunning
+                        if (!android.provider.Settings.canDrawOverlays(this@LynxAppAutomationService)) {
+                            LynxRepository.grantOverlayPermission()
+                        }
+                        val isHudAlreadyRunning = LynxFloatingHudService.isHudProcessAlive(this@LynxAppAutomationService)
                         val hudPrefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
                         if (!isHudAlreadyRunning) {
                             autoStartedHud = true

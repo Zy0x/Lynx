@@ -158,6 +158,12 @@ class LynxViewModel : ViewModel() {
                             } catch (_: Exception) {}
                         }
                         val isHudRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
+                        val hudPrefs = appContext.getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+                        if (hudPrefs.getBoolean("hud_user_enabled", false) && !isHudRunning) {
+                            try {
+                                toggleGameHud(appContext, true)
+                            } catch (_: Exception) {}
+                        }
 
                         delay(500L)
                         CpuPolicyManager.initialize(appContext)

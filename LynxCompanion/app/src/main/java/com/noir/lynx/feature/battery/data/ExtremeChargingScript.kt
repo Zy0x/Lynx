@@ -114,27 +114,46 @@ object ExtremeChargingScript {
                     echo 4000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
-                [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
-
-                # Float Voltage ceiling 4.40V (4400000 uV) & Step-Charging Bypass
-                for node in /sys/class/power_supply/battery/constant_charge_voltage \
-                            /sys/class/power_supply/battery/constant_charge_voltage_max \
-                            /sys/class/power_supply/battery/voltage_max; do
-                    if [ -e "${'$'}node" ]; then
-                        chmod 666 "${'$'}node" 2>/dev/null
-                        echo 4400000 > "${'$'}node" 2>/dev/null
-                        chmod 444 "${'$'}node" 2>/dev/null
-                    fi
-                done
-                [ -e /sys/class/power_supply/battery/step_charging_enabled ] && echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+                [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+
+
+
+                # Dynamic Float Voltage Discovery (Reads true physical battery design ceiling)
+                target_fv=4400000
+                for vnode in /sys/class/power_supply/battery/voltage_max_design \
+                             /sys/class/power_supply/battery/constant_charge_voltage_max \
+                             /sys/class/power_supply/battery/voltage_max \
+                             /sys/class/power_supply/bms/voltage_max_design; do
+                    if [ -f "${'$'}vnode" ]; then
+                        read -r vval < "${'$'}vnode" 2>/dev/null
+                        if [ "${'$'}vval" -ge 4150000 ] && [ "${'$'}vval" -le 9200000 ]; then
+                            target_fv="${'$'}vval"
+                            break
+                        fi
+                    fi
+                done
+                for node in /sys/class/power_supply/battery/constant_charge_voltage \
+                            /sys/class/power_supply/battery/constant_charge_voltage_max \
+                            /sys/class/power_supply/battery/voltage_max; do
+                    if [ -e "${'$'}node" ]; then
+                        chmod 666 "${'$'}node" 2>/dev/null
+                        echo "${'$'}target_fv" > "${'$'}node" 2>/dev/null
+                        chmod 444 "${'$'}node" 2>/dev/null
+                    fi
+                done
+                [ -e /sys/class/power_supply/battery/step_charging_enabled ] && echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
                 [ -e /sys/class/power_supply/battery/sw_jeita_enabled ] && echo 0 > /sys/class/power_supply/battery/sw_jeita_enabled 2>/dev/null
 
-                # Live bind-mount elevated thermal-engine.conf if present (bumping [BATTERY_CHARGING_CTL] to 48.0°C-56.0°C)
-                if [ -f /vendor/etc/thermal-engine.conf ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
-                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 48000 50000 52000 54000 56000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 46000 48000 50000 52000 54000/g' /vendor/etc/thermal-engine.conf > /dev/lynx_thermal_engine.conf 2>/dev/null
+                # Dynamic Qualcomm thermal-engine config discovery & bind-mount
+                conf_candidate=""
+                for c in /vendor/etc/thermal-engine.conf /system/vendor/etc/thermal-engine.conf /odm/etc/thermal-engine.conf /vendor/etc/thermal/thermal-engine.conf; do
+                    [ -f "${'$'}c" ] && conf_candidate="${'$'}c" && break
+                done
+                if [ -n "${'$'}conf_candidate" ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
+                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 48000 50000 52000 54000 56000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 46000 48000 50000 52000 54000/g' "${'$'}conf_candidate" > /dev/lynx_thermal_engine.conf 2>/dev/null
                     if [ -s /dev/lynx_thermal_engine.conf ]; then
                         chmod 644 /dev/lynx_thermal_engine.conf 2>/dev/null
-                        mount -o bind /dev/lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
+                        mount -o bind /dev/lynx_thermal_engine.conf "${'$'}conf_candidate" 2>/dev/null
                         pkill -HUP -f thermal-engine 2>/dev/null
                     fi
                 fi

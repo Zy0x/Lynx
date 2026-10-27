@@ -1,3 +1,46 @@
+# Lynx Universal [Universal Dynamic Silicon Auto-Discovery, Float Voltage Probing & Adaptive Cooling Sweep] 7.0.0-RC245
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC245** (Lynx Kernel Manager v3.2.79): **Implementasi Penuh Mesin Penjelajah Jalur Driver & Batasan Silikon Universal (Universal Dynamic Silicon Driver Auto-Discovery): Mengeliminasi Seluruh Nilai Hardcoded Pada Pengisian Daya Cepat Hyper Mode, Menyelidiki Langsung Plafon Desain Fisik Tegangan (Float Voltage) dan Arus (Current Ceiling) dari Kernel BMS / Fuel Gauge, Sweeping Pendingin Termal Seluruh Vendor (Cooling Devices Sweep), Serta Deteksi Dinamis Berkas Konfigurasi Daemon Termal Vendor Qualcomm On-The-Fly**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC245)
+1. **Penyelidikan Plafon Desain Tegangan Fisik Dinamis (`probe_hardware_voltage_ceiling_uv`)**:
+   - Mengeliminasi nilai voltase statis/hardcoded (seperti 4.40V).
+   - Daemon `lynxd` dan skrip pendamping kini secara otonom membaca simpul desain fisik kernel: `/sys/class/power_supply/battery/voltage_max_design`, `constant_charge_voltage_max`, `voltage_max`, serta modul Fuel Gauge BMS `/sys/class/power_supply/bms/voltage_max_design`.
+   - Mengidentifikasi secara cerdas apakah sel adalah baterai standar 4.20V/4.35V, high-voltage 4.40V/4.45V, silikon-karbon mutakhir, atau baterai seri dual-cell 2S (7.4V–8.8V), lalu mengonfigurasi batas saturasi tertinggi sesuai kapabilitas fisik sel sebenarnya.
+
+2. **Sweeping Pendingin Termal Multi-Vendor Menyeluruh (`set_bcct_throttle`)**:
+   - Memperluas algoritma penelusuran perangkat pendingin `/sys/class/thermal/cooling_device*` untuk mencakup seluruh tipe vendor: `bcct`, `abcct`, `battery`, `charger`, dan `chg`.
+   - Di mode Hyper, seluruh perangkat pendingin yang mengatur pembatasan arus pengisian daya dinonaktifkan secara otomatis (`cur_state = 0`) tanpa perlu mengetahui nomor indeks cooling device yang berbeda-beda di tiap tipe smartphone.
+
+3. **Deteksi Dinamis Konfigurasi Daemon Termal Vendor Qualcomm (`discover_qcom_thermal_engine_conf_path`)**:
+   - Membaca argumen baris perintah proses aktif `/proc/$pid/cmdline` (`thermal-engine -c <path>`) untuk menemukan berkas konfigurasi termal yang sedang aktif secara riil pada perangkat apa pun (seperti `thermal-engine-8953.conf`, `thermal-engine-sm8250.conf`, dll.).
+   - Menganalisis seluruh blok section pengisian daya secara generik (`BATTERY_CHARGING`, `CHARGING_CTL`, `CHG_CTL`) dan secara dinamis menaikkan ambang batas (*threshold scaling*) berapapun jumlah step yang ditentukan pabrikan, tanpa merusak format `action_info` spesifik vendor.
+
+---
+
+# Lynx Universal [Seamless Post-Install Overlay Auto-Display & Stale Flag Self-Healing] 7.0.0-RC244
+Released on: 2026-10-28
+> **Lynx Universal v7.0.0-RC244** (Lynx Kernel Manager v3.2.78): **Penyempurnaan Total Lifecycle Overlay Lynx Engine Pasca-Instalasi / Pembaruan APK: Eliminasi Ghost Running State via Verifikasi Multi-Process Liveness `/proc/$pid` & Self-Healing Flag, Restorasi Otomatis Layanan via `ACTION_MY_PACKAGE_REPLACED`, Auto-Grant Silent Izin Overlay & UsageStats Berbasis Root Saat Fresh Boot / Startup, Serta Sinkronisasi Dua Arah Tanpa Perlu Aktivasi Ulang Manual**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC244)
+1. **Verifikasi Liveness Multi-Process & Self-Healing Flag File (`LynxFloatingHudService.kt`)**:
+   - **Eliminasi Masalah Stale Flag File**: Sebelumnya berkas `/data/user/0/com.noir.lynx/files/hud_active.flag` tetap tertinggal di penyimpanan internal saat aplikasi diperbarui (`adb install -r`), menyebabkan `isRunning` melaporkan `true` padahal proses isolasi `:hud` telah dihentikan oleh sistem. Hal ini membuat UI menampilkan tombol aktif padahal overlay tidak tampil dan mengharuskan pengguna mematikan-lalu-menyalakan toggle kembali (*reactivate ulang*).
+   - **Verifikasi Liveness Real-Time (`isHudProcessAlive`)**: Sistem kini mencatat PID proses `:hud` ke dalam flag file saat inisialisasi, dan secara berkala memeriksa keberadaan proses di `/proc/$pid` dan `ActivityManager.getRunningServices()`.
+   - **Self-Healing Otomatis**: Jika berkas flag terdeteksi tertinggal sementara proses telah mati, sistem secara otomatis menghapus berkas flag usang, mereset state reaktif, dan menyinkronkan status UI secara instan.
+
+2. **Dukungan Siaran Pembaruan Paket `ACTION_MY_PACKAGE_REPLACED` (`AndroidManifest.xml` & `LynxBootReceiver.kt`)**:
+   - Mendaftarkan penerima siaran `android.intent.action.MY_PACKAGE_REPLACED` pada `LynxBootReceiver`.
+   - Saat APK baru dipasang atau diperbarui, sistem langsung membangkitkan daemon background `lynxd`, memverifikasi profil kernel baseline, serta secara otomatis membangkitkan kembali layanan `LynxAppAutomationService` dan `LynxFloatingHudService` (jika sebelumnya pengguna mengaktifkannya) tanpa butuh intervensi manual atau restart perangkat.
+
+3. **Auto-Grant Izin Kritis Berbasis Root Saat Startup (`LynxApp.kt` & `LynxFloatingHudService.kt`)**:
+   - Saat aplikasi pertama kali dibuka (fresh install), `LynxApp` secara asinkron menjalankan `grantOverlayPermission()` (`appops set SYSTEM_ALERT_WINDOW allow` & `pm grant`) dan `grantUsageStatsPermission()` di latar belakang via root.
+   - Di dalam `LynxFloatingHudService.onCreate()`, jika izin overlay belum aktif saat layanan dipanggil oleh otomasi game, layanan melakukan probing dan auto-grant instan via root sebelum melanjutkan pembuatan jendela overlay, mencegah penghentian prematur `stopSelf()`.
+
+4. **Sinkronisasi UI Responsif Saat Navigasi Kembali (`MainActivity.kt` & `LynxViewModelAutomation.kt`)**:
+   - `MainActivity.onResume()` kini memanggil `viewModel.syncHudPrefs(this)` untuk menjamin status visual kartu hero Lynx Engine selalu segar dan selaras 100% dengan kondisi service riil di perangkat.
+
+---
+
 # Lynx Universal [Per-App Automation Lynx Engine Overlay Auto-Display & Robust Foreground Detection] 7.0.0-RC243
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC243** (Lynx Kernel Manager v3.2.77): **Perbaikan Total Otomasi Lynx Engine Overlay (OSD Tile Real-Time FPS, Suhu, & Daya Watt) Saat Menjalankan Game: Otomatis Menampilkan Overlay Mengambang (Mode 1 Classic Tile) Melalui Intent Terkoordinasi Baik Saat Service Baru Berjalan Maupun Sedang Aktif di Latar Belakang (Mode 0 Sidebar Handle), Restorasi Status Otomatis Saat Game Ditutup, Serta Resolusi Penuh Pendeteksian Aplikasi Foreground Melalui 5-Minute UsageEvents Window dan Fast Root Ground-Truth Fallback**.

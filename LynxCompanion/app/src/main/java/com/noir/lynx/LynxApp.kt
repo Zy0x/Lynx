@@ -2,6 +2,9 @@ package com.noir.lynx
 
 import android.app.Application
 import com.topjohnwu.superuser.Shell
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Lynx Companion Application class.
@@ -29,9 +32,16 @@ class LynxApp : Application() {
         )
         com.noir.lynx.data.LynxRepository.appContext = this
 
-        // Multi-process state synchronization for isolated :hud process
-        if (java.io.File(filesDir, com.noir.lynx.service.LynxFloatingHudService.FLAG_FILE_NAME).exists()) {
-            com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.value = true
+        // Multi-process state synchronization & self-healing for isolated :hud process
+        val isAlive = com.noir.lynx.service.LynxFloatingHudService.isHudProcessAlive(this)
+        com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.value = isAlive
+
+        // Auto-grant critical overlay and usage stats permissions via root asynchronously on startup
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                com.noir.lynx.data.LynxRepository.grantOverlayPermission()
+                com.noir.lynx.data.LynxRepository.grantUsageStatsPermission()
+            }
         }
 
         val hudFilter = android.content.IntentFilter(com.noir.lynx.service.LynxFloatingHudService.ACTION_HUD_STATE_CHANGED)

@@ -508,7 +508,7 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") || t_lower.contains("battery") || t_lower.contains("charger") || t_lower.contains("chg") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             if throttle {
                                 Self::set_perm(&cur_path, 0o666);
@@ -697,6 +697,53 @@ impl ChargingRegulator {
             12000
         } else {
             6000
+        };
+        let _ = fs::write(cache_file, resolved.to_string());
+        resolved
+    }
+
+    /// Dynamically probes the authentic physical battery design saturation ceiling (Float Voltage)
+    /// across all kernel drivers, BMS Fuel Gauge, and 2S dual-cell platforms without hardcoding.
+    pub fn probe_hardware_voltage_ceiling_uv() -> u32 {
+        let cache_file = "/dev/lynx_orig_volt_max";
+        if let Some(cached) = Self::read_i64(cache_file) {
+            if (4100_000..=9200_000).contains(&cached) {
+                return cached as u32;
+            }
+        }
+        let mut max_uv = 0u32;
+        for node in &[
+            "/sys/class/power_supply/battery/voltage_max_design",
+            "/sys/class/power_supply/battery/constant_charge_voltage_max",
+            "/sys/class/power_supply/battery/voltage_max",
+            "/sys/class/power_supply/bms/voltage_max_design",
+            "/sys/class/power_supply/bms/voltage_max",
+            "/sys/class/power_supply/main/voltage_max",
+        ] {
+            if let Some(val) = Self::read_i64(node) {
+                let uv = if val > 1_000_000 {
+                    val as u32
+                } else if val > 1000 {
+                    (val * 1000) as u32
+                } else {
+                    0
+                };
+                if uv > max_uv && uv <= 9_500_000 {
+                    max_uv = uv;
+                }
+            }
+        }
+        // Dual-cell 2S detection (> 7.0V nominal battery voltage)
+        let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
+        let volt_mv = if volt_raw > 100_000 { volt_raw / 1000 } else { volt_raw };
+        let is_dual_cell = volt_mv >= 7000 && volt_mv <= 12000;
+
+        let resolved = if max_uv >= 4150_000 {
+            max_uv
+        } else if is_dual_cell {
+            8800_000 // 8.80V for 2S dual-cell
+        } else {
+            4400_000 // 4.40V standard modern Li-Po high voltage default
         };
         let _ = fs::write(cache_file, resolved.to_string());
         resolved
@@ -1926,11 +1973,12 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        let fv_uv_str = Self::probe_hardware_voltage_ceiling_uv().to_string();
         Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
         Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/constant_charge_voltage", BATT_DIR), "4400000");
-        Self::write_node_lock(&format!("{}/constant_charge_voltage_max", BATT_DIR), "4400000");
-        Self::write_node_lock(&format!("{}/voltage_max", BATT_DIR), "4400000");
+        Self::write_node_lock(&format!("{}/constant_charge_voltage", BATT_DIR), &fv_uv_str);
+        Self::write_node_lock(&format!("{}/constant_charge_voltage_max", BATT_DIR), &fv_uv_str);
+        Self::write_node_lock(&format!("{}/voltage_max", BATT_DIR), &fv_uv_str);
         Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
 
@@ -2091,19 +2139,62 @@ impl ChargingRegulator {
             .output();
     }
 
-    /// On Qualcomm Snapdragon devices (e.g. Redmi Note 7 SDM660 / PM660):
-    /// Live bind-mounts an elevated thermal-engine configuration over `/vendor/etc/thermal-engine.conf`
-    /// to lift the restrictive 43.0°C [BATTERY_CHARGING_CTL] ceiling to 48.0°C–56.0°C without KPM,
-    /// and raises quiet-therm-step trip points so charging sustains 3000mA+ past 45.0°C safely.
+    /// Discovers active Qualcomm thermal-engine configuration file path by inspecting
+    /// `/proc/<pid>/cmdline` or standard OEM paths across all Snapdragon architectures.
+    pub fn discover_qcom_thermal_engine_conf_path() -> Option<String> {
+        // 1. Inspect running thermal-engine process cmdline for explicit config arguments (-c <path>)
+        if let Ok(entries) = fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                let fname = entry.file_name();
+                let pid_str = fname.to_string_lossy();
+                if pid_str.chars().all(|c| c.is_ascii_digit()) {
+                    let cmdline_path = format!("/proc/{}/cmdline", pid_str);
+                    if let Ok(bytes) = fs::read(&cmdline_path) {
+                        let cmdline = String::from_utf8_lossy(&bytes);
+                        if cmdline.contains("thermal-engine") {
+                            let parts: Vec<&str> = cmdline.split('\0').collect();
+                            for i in 0..parts.len() {
+                                if (parts[i] == "-c" || parts[i] == "--config") && i + 1 < parts.len() {
+                                    let path = parts[i + 1].trim();
+                                    if Path::new(path).exists() {
+                                        return Some(path.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback to standard OEM vendor configuration paths
+        const CANDIDATES: &[&str] = &[
+            "/vendor/etc/thermal-engine.conf",
+            "/system/vendor/etc/thermal-engine.conf",
+            "/odm/etc/thermal-engine.conf",
+            "/vendor/etc/thermal/thermal-engine.conf",
+        ];
+        for &c in CANDIDATES {
+            if Path::new(c).exists() {
+                return Some(c.to_string());
+            }
+        }
+        None
+    }
+
+    /// On Qualcomm Snapdragon devices:
+    /// Dynamically discovers and live bind-mounts an elevated thermal-engine configuration
+    /// over the active vendor conf file to lift restrictive charging throttling without KPM,
+    /// and raises quiet-therm-step trip points so charging sustains peak speed past 45.0°C safely.
     pub fn apply_qcom_thermal_engine_bind_mount() {
         if !Self::is_qualcomm_soc() {
             return;
         }
 
-        let stock_conf = "/vendor/etc/thermal-engine.conf";
-        if !Path::new(stock_conf).exists() {
-            return;
-        }
+        let stock_conf = match Self::discover_qcom_thermal_engine_conf_path() {
+            Some(p) => p,
+            None => return,
+        };
 
         // Check if already bind-mounted
         if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
@@ -2122,7 +2213,7 @@ impl ChargingRegulator {
 
         let elevated_content = if let Some(content) = elevated {
             content
-        } else if let Ok(content) = fs::read_to_string(stock_conf) {
+        } else if let Ok(content) = fs::read_to_string(&stock_conf) {
             let mut result = String::new();
             let mut in_battery_sec = false;
             let mut replaced_thresh = false;
@@ -2131,7 +2222,10 @@ impl ChargingRegulator {
             for line in content.lines() {
                 let trimmed = line.trim();
                 if trimmed.starts_with('[') && trimmed.ends_with(']') {
-                    in_battery_sec = trimmed.eq_ignore_ascii_case("[BATTERY_CHARGING_CTL]");
+                    let s_upper = trimmed.to_uppercase();
+                    in_battery_sec = s_upper.contains("BATTERY_CHARGING")
+                        || s_upper.contains("CHARGING_CTL")
+                        || s_upper.contains("CHG_CTL");
                     result.push_str(line);
                     result.push('\n');
                     continue;
@@ -2139,11 +2233,25 @@ impl ChargingRegulator {
 
                 if in_battery_sec {
                     if trimmed.starts_with("thresholds ") {
-                        result.push_str("thresholds 48000 50000 52000 54000 56000\n");
+                        let tokens: Vec<&str> = trimmed["thresholds ".len()..].split_whitespace().collect();
+                        let mut new_tokens = Vec::new();
+                        let mut base = 48000;
+                        for _ in 0..tokens.len() {
+                            new_tokens.push(base.to_string());
+                            base += 2000;
+                        }
+                        result.push_str(&format!("thresholds {}\n", new_tokens.join(" ")));
                         replaced_thresh = true;
                         continue;
                     } else if trimmed.starts_with("thresholds_clr ") {
-                        result.push_str("thresholds_clr 46000 48000 50000 52000 54000\n");
+                        let tokens: Vec<&str> = trimmed["thresholds_clr ".len()..].split_whitespace().collect();
+                        let mut new_tokens = Vec::new();
+                        let mut base = 46000;
+                        for _ in 0..tokens.len() {
+                            new_tokens.push(base.to_string());
+                            base += 2000;
+                        }
+                        result.push_str(&format!("thresholds_clr {}\n", new_tokens.join(" ")));
                         replaced_clr = true;
                         continue;
                     }
@@ -2167,7 +2275,7 @@ impl ChargingRegulator {
         if fs::write(live_conf, elevated_content).is_ok() {
             Self::set_perm(live_conf, 0o644);
             let _ = std::process::Command::new("mount")
-                .args(["-o", "bind", live_conf, stock_conf])
+                .args(["-o", "bind", live_conf, &stock_conf])
                 .output();
 
             let _ = std::process::Command::new("pkill")
@@ -2201,11 +2309,20 @@ impl ChargingRegulator {
             return;
         }
 
-        let stock_conf = "/vendor/etc/thermal-engine.conf";
-        let live_conf = "/dev/lynx_thermal_engine.conf";
+        if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
+            for line in mounts.lines() {
+                if line.contains("/dev/lynx_thermal_engine.conf") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let mount_point = parts[1];
+                        let _ = std::process::Command::new("umount").arg(mount_point).output();
+                    }
+                }
+            }
+        }
 
+        let live_conf = "/dev/lynx_thermal_engine.conf";
         if Path::new(live_conf).exists() {
-            let _ = std::process::Command::new("umount").arg(stock_conf).output();
             let _ = fs::remove_file(live_conf);
             let _ = std::process::Command::new("pkill")
                 .args(["-HUP", "-f", "thermal-engine"])

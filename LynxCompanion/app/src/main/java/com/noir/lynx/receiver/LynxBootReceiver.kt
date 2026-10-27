@@ -20,12 +20,17 @@ class LynxBootReceiver : BroadcastReceiver() {
 
         if (action == Intent.ACTION_BOOT_COMPLETED ||
             action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
-            action == "android.intent.action.QUICKBOOT_POWERON"
+            action == "android.intent.action.QUICKBOOT_POWERON" ||
+            action == Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
             Log.i("LynxBootReceiver", "System/Package broadcast received: $action")
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // Auto-grant critical permissions on boot / app update
+                    LynxRepository.grantOverlayPermission()
+                    LynxRepository.grantUsageStatsPermission()
+
                     LynxRepository.ensureDaemonRunning()
                     val baseline = LynxRepository.readBaselineProfile()
                     Log.i("LynxBootReceiver", "Restoring baseline profile on boot/update: $baseline")
@@ -56,6 +61,21 @@ class LynxBootReceiver : BroadcastReceiver() {
                     if (isEnabled) {
                         Log.i("LynxBootReceiver", "App Automation is enabled, starting daemon and service...")
                         LynxRepository.startAppAutomation(context)
+                    }
+
+                    // Restore Game HUD if user explicitly had it enabled before reboot / package update
+                    val hudPrefs = context.getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+                    val hudUserEnabled = hudPrefs.getBoolean("hud_user_enabled", false)
+                    if (hudUserEnabled && android.provider.Settings.canDrawOverlays(context)) {
+                        Log.i("LynxBootReceiver", "Restoring Lynx Engine Overlay post-boot/update...")
+                        val hudIntent = Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+                            this.action = com.noir.lynx.service.LynxFloatingHudService.ACTION_START
+                        }
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            context.startForegroundService(hudIntent)
+                        } else {
+                            context.startService(hudIntent)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("LynxBootReceiver", "Failed to process boot receiver: ${e.message}")

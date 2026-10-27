@@ -75,13 +75,33 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         const val EXTRA_IS_RUNNING = "extra_is_running"
         const val FLAG_FILE_NAME = "hud_active.flag"
         val isRunningFlow = MutableStateFlow(false)
+        fun isHudProcessAlive(context: Context): Boolean {
+            val file = java.io.File(context.filesDir, FLAG_FILE_NAME)
+            if (!file.exists()) return false
+            val pid = runCatching { file.readText().trim().toIntOrNull() }.getOrNull()
+            if (pid != null && pid > 0) {
+                val procDir = java.io.File("/proc/$pid")
+                if (procDir.exists()) {
+                    val cmdline = runCatching { java.io.File(procDir, "cmdline").readText() }.getOrDefault("")
+                    if (cmdline.contains("com.noir.lynx:hud")) return true
+                }
+            }
+            val am = runCatching { context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager }.getOrNull()
+            if (am != null) {
+                @Suppress("DEPRECATION")
+                val isServiceRunning = runCatching {
+                    am.getRunningServices(50)?.any { it.service.className == LynxFloatingHudService::class.java.name }
+                }.getOrNull() ?: false
+                if (isServiceRunning) return true
+            }
+            runCatching { file.delete() }
+            isRunningFlow.value = false
+            return false
+        }
         val isRunning: Boolean
             get() {
                 val ctx = runCatching { com.noir.lynx.data.LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance }.getOrNull()
-                val fileActive = runCatching {
-                    ctx?.let { java.io.File(it.filesDir, FLAG_FILE_NAME).exists() } ?: false
-                }.getOrDefault(false)
-                return fileActive || isRunningFlow.value
+                return if (ctx != null) isHudProcessAlive(ctx) else isRunningFlow.value
             }
         val activeStyleFlow = MutableStateFlow(1)
         val activeModeFlow = MutableStateFlow(0)
@@ -120,6 +140,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
 
     override fun onCreate() {
         super.onCreate()
+        if (!Settings.canDrawOverlays(this)) {
+            runCatching {
+                com.topjohnwu.superuser.Shell.cmd(
+                    "appops set $packageName SYSTEM_ALERT_WINDOW allow 2>/dev/null",
+                    "pm grant $packageName android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null"
+                ).exec()
+            }
+        }
         if (!Settings.canDrawOverlays(this)) { stopSelf(); return }
         saved.performRestore(null)
         registry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
@@ -214,7 +242,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 }
             }
         }
-        runCatching { java.io.File(filesDir, FLAG_FILE_NAME).createNewFile() }
+        runCatching {
+            val flagFile = java.io.File(filesDir, FLAG_FILE_NAME)
+            flagFile.writeText(android.os.Process.myPid().toString())
+        }
         isRunningFlow.value = true
         scope.launch(Dispatchers.IO) {
             runCatching {

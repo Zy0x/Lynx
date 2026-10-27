@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.toggleGameHud(context: android.content.Context, enable: Boolean) {
         recordStateMutation()
+        context.getSharedPreferences("lynx_hud_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("hud_user_enabled", enable)
+            .apply()
         viewModelScope.launch(Dispatchers.IO) {
             if (enable) {
                 var canDraw = android.provider.Settings.canDrawOverlays(context)
@@ -98,7 +102,7 @@ import kotlinx.coroutines.flow.update
         val pin = prefs.getBoolean("pin_mini_fps", false)
         val feedbackStyle = prefs.getString("mode_feedback_style", "jewel_top") ?: "jewel_top"
         val feedbackDual = prefs.getBoolean("mode_feedback_dual", true)
-        val isRunning = com.noir.lynx.service.LynxFloatingHudService.isRunning
+        val isRunning = com.noir.lynx.service.LynxFloatingHudService.isHudProcessAlive(context)
         _uiState.update {
             it.copy(
                 hudStyle = style,
