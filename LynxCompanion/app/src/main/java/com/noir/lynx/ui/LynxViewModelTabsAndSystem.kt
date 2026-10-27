@@ -13,6 +13,19 @@ import kotlinx.coroutines.flow.update
 
 fun LynxViewModel.selectGpuTab(tab: Int) = setSelectedGpuTab(tab)
 
+fun LynxViewModel.setSelectedThermalTab(tab: Int) {
+    _uiState.update { it.copy(selectedThermalTab = tab) }
+    viewModelScope.launch(Dispatchers.IO) {
+        if (tab == 0) {
+            refreshThermalCapabilities()
+        } else {
+            refreshThermalZones()
+        }
+    }
+}
+
+fun LynxViewModel.selectThermalTab(tab: Int) = setSelectedThermalTab(tab)
+
     fun LynxViewModel.setSelectedProfileTab(tab: Int) {
         _uiState.update { it.copy(selectedProfileTab = tab) }
     }

@@ -472,6 +472,12 @@ fun TuningTabContent(
                                         subscreenFling = subscreenFling,
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
+                                    "thermal" -> ThermalSwipeableSubscreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        subscreenFling = subscreenFling,
+                                        modifier = Modifier.weight(1f).fillMaxWidth()
+                                    )
                                     else -> {
                                         LazyColumn(
                                             state = subscreenLazyState,
@@ -491,7 +497,6 @@ fun TuningTabContent(
                                                         viewModel = viewModel
                                                     )
                                                 }
-                                                "thermal" -> item(key = "subscreen_thermal") { TuningThermalCategory(uiState = uiState, viewModel = viewModel) }
                                                 "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
                                                 "system" -> item(key = "subscreen_system") {
                                                     TuningSystemCategory(

@@ -1,3 +1,33 @@
+# Lynx Universal [Segmented 2-Tab Thermal Architecture & Cascading Master Profile Harmonization] 7.0.0-RC235
+Released on: 2026-10-27
+> **Lynx Universal v7.0.0-RC235** (Lynx Kernel Manager v3.2.69): **Rombak Total Arsitektur Antarmuka Thermal & Anti-Throttling Menjadi 2-Tab Segmented Layout (Mode & Proteksi vs Vendor & Sensor) Mengeliminasi Total Masalah Tumpang Tindih Dok Navigasi Bawah, Serta Harmonisasi Master Profile Bertingkat (Cascading Master Profile Engine) yang Menghubungkan Pengaturan CPU, GPU, Thermal Trip Points, dan Refresh Rate Layar Secara Serempak Dalam Sekali Sentuh**.
+
+## Rangkuman Fitur & Peningkatan (7.0.0-RC235)
+1. **Rombak Total Subscreen Thermal ke 2-Tab Segmented Architecture (`ThermalSwipeableSubscreen`)**:
+   - Berdasarkan masukan pengguna terkait kartu yang terpotong dan antarmuka yang terlalu panjang, antarmuka `ThermalSubscreen` dirombak total menjadi 2 tab navigasi horizontal:
+     - **Tab 0: Mode & Proteksi** (`ThermalTabRow` index 0, Aksen Cyan):
+       - *Thermal Hero Card*: Status proteksi real-time, temperatur SoC, dan profil termal aktif.
+       - *2x2 Bento Mode Matrix*: 4 preset proteksi termal (Default OEM 45°C, Stable Safe 52°C, Performance Unrestricted 58°C, dan Dominant Extreme 75°C).
+       - *Dominant Extreme Safety Alert*: Peringatan visual psikologis dengan petunjuk pendingin eksternal (*cooler*).
+       - *Thermal Flexible Tuning Section*: Slider ambang batas pelambatan (*trip points*) interaktif 40°C–90°C dengan chip pintas (45°, 50°, 52°, 58°, 65°, 75°C), sakelar netralisasi Joyose / vendor daemon, dan sakelar proteksi anti-dimming layar.
+     - **Tab 1: Vendor & Sensor** (`ThermalTabRow` index 1, Aksen Oranye):
+       - *Vendor Thermal Engine Overlay*: Deteksi otomatis dan manipulasi file konfigurasi termal vendor (MediaTek `.tp/thermal.conf` atau Qualcomm `thermal-engine.conf`) dengan modal bottom-sheet Raw INI Editor.
+       - *8-Zone Thermal Sensors Radar Matrix*: Matriks 8 zona sensor temperatur perangkat keras (CPU Little/Big, GPU, Battery, Charger, USB-C, Skin, Ambient) dengan filter kategori dan penyegaran telemetri *live*.
+
+2. **Eliminasi Total Pemotongan Konten Dok Navigasi (Safe Dock Insets)**:
+   - Memperbaiki isu visual di mana kartu bagian bawah terpotong atau tertutup oleh dock navigasi mengambang (*Floating Bottom Navigation Dock*).
+   - Menambahkan padding aman `Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())` pada kedua tab LazyColumn, memastikan seluruh konten kartu dan tombol aksi dapat digeser bebas dengan visibilitas 100%.
+
+3. **Harmonisasi Master Profile Bertingkat (Cascading Master Profile Engine)**:
+   - Pemilihan profil utama pada Dashboard (`KernelPerformanceProfile`) kini secara otomatis menyelaraskan seluruh domain perangkat keras secara kohesif:
+     - **Powersave / Eco**: CPU=powersave, GPU=battery, Thermal=default_oem (45°C), Display=60Hz statis.
+     - **Balance**: CPU=balance, GPU=balanced, Thermal=stable (52°C), Display=Auto Dynamic (0Hz).
+     - **Performance**: CPU=performance, GPU=esports, Thermal=performance (58°C), Display=120Hz statis.
+     - **Extreme**: CPU=extreme, GPU=extreme, Thermal=dominant (75°C), Display=120Hz statis.
+   - Sinkronisasi runtime display langsung diintegrasikan pada `LynxViewModelKernelProfiles.kt` via `LynxRepository.setDisplayRefreshRate(hz, isAuto)`, menjamin pengalaman visual dan termal yang langsung aktif seketika saat profil diubah.
+
+---
+
 # Lynx Universal [Zero-Jitter VSYNC Phase Lock & 8.0s Kinetic Reading Hold Engine] 7.0.0-RC234
 Released on: 2026-10-27
 > **Lynx Universal v7.0.0-RC234** (Lynx Kernel Manager v3.2.68): **Penyempurnaan Tuntas Mode Auto Refresh Rate Menyamai Kemulusan Mutlak 120Hz Full: Eliminasi Total Fluktuasi Fase VsyncModulator Melalui Penguncian Fase Rendah Latensi (App Phase 2.0ms / SF Phase 1.0ms), Penerapan Direct HWC Mode Switching pada 0ms Tanpa Penundaan IPC Java Framework, Pembersihan Konfigurasi GL Backpressure Lawas, Serta Perluasan Jendela Membaca Kinetik Menjadi 8.000ms (10.000ms Multitasking) untuk Menjamin Nol Mikro-Stutter Selama Sesi Membaca dan Multitasking**.

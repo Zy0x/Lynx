@@ -314,6 +314,18 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             runtimeAppliedKeys += "charging.emergency_temp_guard_enabled"
         }
 
+        val displaySettings = if (ProfileDomain.DISPLAY in overrides) emptyMap() else profile.settings.filterKeys { it.startsWith("display_touch.") }
+        if (displaySettings.containsKey("display_touch.refresh_rate_lock")) {
+            val lockHz = displaySettings["display_touch.refresh_rate_lock"]?.toIntOrNull() ?: 0
+            if (lockHz > 0) {
+                LynxRepository.setDisplayRefreshRate(lockHz, isAuto = false)
+            } else {
+                val maxHz = _uiState.value.supportedRefreshRates.maxOrNull() ?: 120
+                LynxRepository.setDisplayRefreshRate(maxHz, isAuto = true)
+            }
+            runtimeAppliedKeys += "display_touch.refresh_rate_lock"
+        }
+
         LynxRepository.writeStateKey("kernel_profile_id", id, "str")
         LynxRepository.writeStateKey("profile_overrides", ProfileOverridesCodec.encode(overrides), "str")
         LynxRepository.setActiveKernelProfile(id)

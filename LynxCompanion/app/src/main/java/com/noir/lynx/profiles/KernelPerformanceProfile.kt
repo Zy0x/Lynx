@@ -137,8 +137,46 @@ data class KernelPerformanceProfile(
                     "performance" -> "esports"
                     "balance" -> "balanced"
                     else -> base
+                },
+                ProfileDomain.THERMAL to when (base) {
+                    "powersave" -> "default_oem"
+                    "performance" -> "performance"
+                    "extreme" -> "dominant"
+                    else -> "stable"
+                },
+                ProfileDomain.DISPLAY to when (base) {
+                    "powersave" -> "60"
+                    "performance", "extreme" -> "120"
+                    else -> "auto"
                 }
-            ), builtIn = true
+            ),
+            settings = when (base) {
+                "powersave" -> mapOf(
+                    "thermal.mode" to "default_oem",
+                    "thermal.custom_temp_limit_c" to "45",
+                    "display_touch.refresh_rate_lock" to "60"
+                )
+                "performance" -> mapOf(
+                    "thermal.mode" to "performance",
+                    "thermal.custom_temp_limit_c" to "58",
+                    "display_touch.refresh_rate_lock" to "120"
+                )
+                "extreme" -> mapOf(
+                    "thermal.mode" to "dominant",
+                    "thermal.custom_temp_limit_c" to "75",
+                    "display_touch.refresh_rate_lock" to "120"
+                )
+                else -> mapOf(
+                    "thermal.mode" to "stable",
+                    "thermal.custom_temp_limit_c" to "52",
+                    "display_touch.refresh_rate_lock" to "0"
+                )
+            },
+            includedSensitiveSettings = setOf(
+                "thermal.mode",
+                "thermal.custom_temp_limit_c"
+            ),
+            builtIn = true
         )
 
         fun fromJson(json: JsonObject): KernelPerformanceProfile? = try {

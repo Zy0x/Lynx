@@ -483,6 +483,7 @@ data class LynxUiState(
     val selectedCpuTab: Int = 0,
     val selectedProfileTab: Int = 0,
     val selectedNetworkTab: Int = 0,
+    val selectedThermalTab: Int = 0,
     val cpuHealthScore: Int = 100,
     val cpuRecommendation: String? = null,
     val isCpuRecommendationDismissed: Boolean = false,
