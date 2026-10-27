@@ -34,6 +34,7 @@ import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -418,6 +419,7 @@ fun GpuOppTableCard(
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentCyan
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
     val freqs = remember(gpuInfo.availFreqsMhz, gpuInfo.maxFreqMhz, gpuInfo.curFreqMhz) {
         if (gpuInfo.availFreqsMhz.isNotEmpty()) {
             gpuInfo.availFreqsMhz.distinct().sortedDescending()
@@ -430,6 +432,9 @@ fun GpuOppTableCard(
 
     val peakFreq = freqs.first()
     val minFreq = freqs.last()
+    val previewCount = 6
+    val shouldLimit = freqs.size > previewCount
+    val displayedFreqs = if (isExpanded || !shouldLimit) freqs else freqs.take(previewCount)
 
     LynxCard(
         title = "Tabel Frekuensi Kernel OPP (DVFS)",
@@ -501,7 +506,7 @@ fun GpuOppTableCard(
             border = BorderStroke(0.8.dp, BorderGlass),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(8.dp).animateContentSize()) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -513,7 +518,7 @@ fun GpuOppTableCard(
                 }
                 HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
 
-                freqs.forEachIndexed { index, freq ->
+                displayedFreqs.forEachIndexed { index, freq ->
                     val isActive = gpuInfo.curFreqMhz == freq
                     val isPeak = freq == peakFreq
                     val isIdle = freq == minFreq
@@ -602,6 +607,40 @@ fun GpuOppTableCard(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
+                        }
+                    }
+                }
+
+                if (shouldLimit) {
+                    Surface(
+                        onClick = { isExpanded = !isExpanded },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isExpanded) BgSurfaceLowest.copy(alpha = 0.5f) else cardAccent.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, if (isExpanded) BorderGlass else cardAccent.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 7.dp, horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isExpanded) "Ciutkan Tabel (${freqs.size} Level)" else "Tampilkan Semua (${freqs.size} Level OPP)",
+                                color = if (isExpanded) TextSecondary else cardAccent,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = if (isExpanded) TextSecondary else cardAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
                 }

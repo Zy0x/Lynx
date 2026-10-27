@@ -19,6 +19,10 @@ Released on: 2026-10-27
    - **Eliminasi Redundansi Toggle Lynx Engine In-Game Overlay (`FloatingGameHudCard`)**: Menghilangkan kartu toggle OSD floating dari Tab Lab karena Lynx Engine Floating HUD telah memiliki halaman antarmuka tersendiri yang jauh lebih komprehensif.
    - **Penyederhanaan Tab Lab Menjadi Fokus Penuh Analisis Frame SurfaceFlinger**: Tab Lab kini langsung menampilkan section 'Analisis Frame SurfaceFlinger' (BLAST Recorder, Ringkasan Sesi, dan Riwayat Perekaman) secara bersih, rapi, dan responsif.
 
+4. **Pembatasan Panjang & Fitur Expand/Collapse Tabel Frekuensi Kernel OPP (`GpuHardwareDiagnostics.kt`)**:
+   - Menghadirkan batas pratinjau adaptif (maksimal 6 baris teratas) pada Tabel Frekuensi Kernel OPP (DVFS) di Tab Info GPU & Display untuk mencegah tabel 49-level menjulur panjang tak terkendali.
+   - Menambahkan tombol interaktif yang ergonomis ('Tampilkan Semua' / 'Ciutkan Tabel') dengan animasi ukuran konten yang mulus (`animateContentSize`) dan indikator panah dinamis, menjaga tata letak layar tetap kompak dan mudah dinavigasi.
+
 ---
 
 # Lynx Universal [Autonomous Swap & ZRAM Saturation Watchdog, Native Hardware Compaction, & Framework Crash Shield] 7.0.0-RC219
