@@ -90,6 +90,14 @@ internal object LynxDisplayRepository {
                     fi
                 done
 
+                # 5. Notify Native Lynx Daemon Governor (Autonomous Multi-Factor Display Scaler)
+                lock_val="${if (isAuto) "0" else "$hz"}"
+                if [ -x /system/bin/lynxd ]; then
+                    /system/bin/lynxd config set display_touch.refresh_rate_lock "${'$'}lock_val" int 2>/dev/null
+                elif [ -x /data/adb/modules/Lynx/system/bin/lynxd ]; then
+                    /data/adb/modules/Lynx/system/bin/lynxd config set display_touch.refresh_rate_lock "${'$'}lock_val" int 2>/dev/null
+                fi
+
                 echo ok
             """.trimIndent()
             val r = Shell.cmd(script).exec()

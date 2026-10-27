@@ -970,6 +970,10 @@ fn handle_display(args: &[String]) {
         "restore-refresh-rate" | "restore" => {
             println!("{}", DisplayController::restore_refresh_rate());
         }
+        "auto" | "dynamic" => {
+            let _ = crate::state::ConfigStore::set("display_touch.refresh_rate_lock", "0", "int");
+            println!("{}", DisplayController::restore_refresh_rate());
+        }
         "touch-boost" | "touch" => {
             let enable = args.get(3).map(|s| s == "1" || s == "true" || s == "on").unwrap_or(true);
             println!("{}", DisplayController::apply_touch_boost(enable));

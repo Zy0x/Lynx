@@ -5,7 +5,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 static LAST_TOUCH_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_MOTION_MS: AtomicU64 = AtomicU64::new(0);
 static TOUCH_ACTIVE: AtomicBool = AtomicBool::new(false);
+static IS_FINGER_DOWN: AtomicBool = AtomicBool::new(false);
 
 // Ring buffer of last 16 touch event timestamps (in ms) for rapid gesture / velocity detection
 const TOUCH_HISTORY_LEN: usize = 16;
@@ -129,12 +131,24 @@ impl TouchDetector {
                                             //   __s32 value;         // 4 bytes (offset 20)
                                             // }
                                             let ev_type = u16::from_ne_bytes([buf[16], buf[17]]);
+                                            let ev_code = u16::from_ne_bytes([buf[18], buf[19]]);
+                                            let ev_value = i32::from_ne_bytes([buf[20], buf[21], buf[22], buf[23]]);
+
                                             // EV_KEY (1) or EV_ABS (3)
                                             if ev_type == 1 || ev_type == 3 {
                                                 let now_ms = std::time::SystemTime::now()
                                                     .duration_since(std::time::UNIX_EPOCH)
                                                     .unwrap_or_default()
                                                     .as_millis() as u64;
+
+                                                if ev_type == 1 && ev_code == 330 {
+                                                    // BTN_TOUCH: finger down / up
+                                                    IS_FINGER_DOWN.store(ev_value > 0, Ordering::Relaxed);
+                                                } else if ev_type == 3 {
+                                                    // EV_ABS: finger moving / coordinates update
+                                                    LAST_MOTION_MS.store(now_ms, Ordering::Relaxed);
+                                                    IS_FINGER_DOWN.store(true, Ordering::Relaxed);
+                                                }
 
                                                 LAST_TOUCH_MS.store(now_ms, Ordering::Relaxed);
                                                 TOUCH_ACTIVE.store(true, Ordering::Relaxed);
@@ -178,6 +192,24 @@ impl TouchDetector {
             .unwrap_or_default()
             .as_millis() as u64;
         now.saturating_sub(last) <= window_ms
+    }
+
+    /// Checks if active touch motion / swipe / drag was registered within `window_ms`.
+    pub fn is_touch_moving(window_ms: u64) -> bool {
+        let last = LAST_MOTION_MS.load(Ordering::Relaxed);
+        if last == 0 {
+            return false;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        now.saturating_sub(last) <= window_ms
+    }
+
+    /// Checks if a finger is currently held down on the physical panel.
+    pub fn is_finger_down() -> bool {
+        IS_FINGER_DOWN.load(Ordering::Relaxed)
     }
 
     /// Detects rapid gesture / fling / multi-finger swipe by checking if at least `min_events`

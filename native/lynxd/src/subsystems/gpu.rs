@@ -22,6 +22,7 @@ static LAST_TOUCH_BOOST_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_PEAK_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_FLUID_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_LIGHT_MS: AtomicU64 = AtomicU64::new(0);
+static SMOOTHED_EFFECTIVE_MHZ: AtomicU64 = AtomicU64::new(0);
 
 pub struct GpuController;
 
@@ -356,6 +357,7 @@ impl GpuController {
         temp_c: f32,
         active_profile: &str,
         is_screen_on: bool,
+        multitasking_active: bool,
     ) {
         let is_locked = ConfigStore::get("gpu.is_locked")
             .map(|v| v == "true" || v == "1")
@@ -398,24 +400,50 @@ impl GpuController {
         } else {
             // Balance profile: Ultra-Efficient 4-Tier Multi-Factor Decision
             let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
+            let is_moving = crate::daemon::TouchDetector::is_touch_moving(400);
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(350);
+            let is_finger_down = crate::daemon::TouchDetector::is_finger_down();
+            let is_holding_still = is_finger_down && !is_moving;
 
             // True normalized compute load (MHz) = (current frequency * load %) / 100
-            // Eliminates harmonic oscillation / low-frequency load bias where 20% load at 300MHz (only 60MHz compute)
-            // was previously falsely misclassified as "Moderate" and pushed GPU to 675MHz.
             let effective_mhz = (gpu.cur_freq_mhz * (gpu.load_pct as u64)) / 100;
 
-            if workload == WorkloadLevel::Heavy || effective_mhz > 520 {
-                // Heavy 3D rendering / sustained high compute (> 520 MHz effective): Engage Peak
+            // EWMA anti-flapping filter:
+            // - Instant 0 ms bypass on touch, motion, or rapid gesture
+            // - Smooth 3-frame rolling filter when untouched to filter out isolated 1-frame micro-spikes
+            let effective_calc = if is_touch || is_rapid || is_moving {
+                SMOOTHED_EFFECTIVE_MHZ.store(effective_mhz, Ordering::Relaxed);
+                effective_mhz
+            } else {
+                let prev = SMOOTHED_EFFECTIVE_MHZ.load(Ordering::Relaxed);
+                let smoothed = if prev == 0 {
+                    effective_mhz
+                } else {
+                    (prev * 2 + effective_mhz * 3) / 5
+                };
+                SMOOTHED_EFFECTIVE_MHZ.store(smoothed, Ordering::Relaxed);
+                smoothed
+            };
+
+            // Dynamic sensitivity tuning: when multitasking (Split-Screen / PiP) is active,
+            // lower thresholds by 15% so multi-window compositor runs buttery smooth.
+            let (thresh_peak, thresh_fluid, thresh_light) = if multitasking_active {
+                (440, 240, 135)
+            } else {
+                (520, 280, 160)
+            };
+
+            if workload == WorkloadLevel::Heavy || effective_calc > thresh_peak {
+                // Heavy 3D rendering / sustained high compute: Engage Peak
                 DynamicGpuState::Peak
-            } else if is_rapid || workload == WorkloadLevel::Moderate || effective_mhz > 280 {
-                // Rapid fling gesture, active high-refresh scrolling, or moderate compute (> 280 MHz effective): Engage Fluid
+            } else if is_rapid || is_moving || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid {
+                // Rapid fling gesture, active high-refresh scrolling, or moderate compute: Engage Fluid
                 DynamicGpuState::Fluid
-            } else if is_touch || effective_mhz > 160 {
-                // Single tap, interactive touch, or light rendering (> 160 MHz effective): Engage Light
+            } else if (!is_holding_still && is_touch) || effective_calc > thresh_light {
+                // Single tap, interactive touch motion, or light rendering: Engage Light
                 DynamicGpuState::Light
             } else {
-                // Screen stationary, reading, idle background composition: Drop to Idle (300 MHz)
+                // Screen stationary, finger holding still while reading, or idle background: Drop to Idle (300 MHz)
                 DynamicGpuState::Idle
             }
         };
@@ -652,11 +680,12 @@ impl GpuController {
                     }
                 }
 
-                // Sync all /sys/class/devfreq/*kgsl* instances
+                // Sync all /sys/class/devfreq/*kgsl* and interconnect bus instances
                 if let Ok(entries) = std::fs::read_dir("/sys/class/devfreq") {
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.to_string_lossy().contains("kgsl") {
+                        let path_str = path.to_string_lossy();
+                        if path_str.contains("kgsl") {
                             let target_f = match state {
                                 DynamicGpuState::Idle => idle_opp.map(|e| e.freq_khz * unit_mult / 1000).unwrap_or(0),
                                 DynamicGpuState::Light => light_opp.map(|e| e.freq_khz * unit_mult / 1000).unwrap_or(0),
@@ -664,6 +693,23 @@ impl GpuController {
                                 DynamicGpuState::Peak => peak_opp.map(|e| e.freq_khz * unit_mult / 1000).unwrap_or(0),
                             };
                             Self::write_opt(path.join("min_freq"), target_f.to_string());
+                        } else if path_str.contains("gpubw") || path_str.contains("gpu-dram-lat") {
+                            match state {
+                                DynamicGpuState::Idle | DynamicGpuState::Light => {
+                                    // Memory bus floor power save
+                                    Self::write_opt(path.join("min_freq"), "0");
+                                }
+                                DynamicGpuState::Fluid | DynamicGpuState::Peak => {
+                                    // Memory bus floor boost to eliminate DDR latency bottleneck
+                                    if let Ok(avail) = SysfsReader::read_trimmed(path.join("available_frequencies")) {
+                                        let freqs: Vec<&str> = avail.split_whitespace().collect();
+                                        if !freqs.is_empty() {
+                                            let mid_idx = freqs.len() / 2;
+                                            Self::write_opt(path.join("min_freq"), freqs[mid_idx]);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

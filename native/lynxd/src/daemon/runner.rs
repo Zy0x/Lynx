@@ -241,10 +241,21 @@ impl DaemonRunner {
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
 
+            // Check if multitasking is active (Split-Screen / Freeform / PiP)
+            let is_multitask = fg_detector.is_multitasking_active();
+
             // Autonomous Universal Multi-Factor Dynamic GPU Governor tick
             crate::subsystems::GpuController::tick_dynamic_scaler(
                 state.derived.workload_level,
                 state.derived.temp_celsius_float,
+                active_prof,
+                current_screen == ScreenState::On,
+                is_multitask,
+            );
+
+            // Autonomous Universal Dynamic Display Governor tick (Auto 60 <-> 90 <-> 120Hz)
+            crate::subsystems::DisplayController::tick_dynamic_display_scaler(
+                fg_app.as_ref(),
                 active_prof,
                 current_screen == ScreenState::On,
             );
@@ -370,6 +381,20 @@ impl DaemonRunner {
                         break;
                     }
                     sleep(Duration::from_millis(250));
+
+                    // Sub-cycle dynamic display & GPU scaler responsiveness (every 250ms chunk)
+                    crate::subsystems::DisplayController::tick_dynamic_display_scaler(
+                        fg_app.as_ref(),
+                        active_prof,
+                        true,
+                    );
+                    crate::subsystems::GpuController::tick_dynamic_scaler(
+                        state.derived.workload_level,
+                        state.derived.temp_celsius_float,
+                        active_prof,
+                        true,
+                        is_multitask,
+                    );
                 }
             }
         }

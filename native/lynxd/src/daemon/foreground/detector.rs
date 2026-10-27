@@ -105,6 +105,47 @@ impl ForegroundDetector {
         }
     }
 
+    /// Detects if multitasking (Split-Screen / Freeform / PiP) is actively running
+    /// by checking for multiple distinct user packages in the top-app / foreground cgroup.
+    pub fn is_multitasking_active(&self) -> bool {
+        let mut active_packages = std::collections::HashSet::new();
+
+        for node_path in &self.cgroup_nodes {
+            if let Ok(content) = fs::read_to_string(node_path) {
+                for line in content.lines() {
+                    let pid_str = line.trim();
+                    if pid_str.is_empty() {
+                        continue;
+                    }
+
+                    let oom_adj_path = format!("/proc/{}/oom_score_adj", pid_str);
+                    let oom_adj = fs::read_to_string(&oom_adj_path)
+                        .ok()
+                        .and_then(|s| s.trim().parse::<i32>().ok())
+                        .unwrap_or(999);
+
+                    if oom_adj <= 100 {
+                        let cmdline_path = format!("/proc/{}/cmdline", pid_str);
+                        if let Ok(cmd_bytes) = fs::read(&cmdline_path) {
+                            if !cmd_bytes.is_empty() {
+                                let cmd_str = String::from_utf8_lossy(&cmd_bytes);
+                                let first_token = cmd_str.split('\0').next().unwrap_or("").trim();
+                                if Self::is_valid_user_package(first_token) {
+                                    let clean_pkg = first_token.split(':').next().unwrap_or(first_token).to_string();
+                                    active_packages.insert(clean_pkg);
+                                    if active_packages.len() >= 2 {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
     fn probe_max_rules_mtime(&self) -> u64 {
         let candidates = [
             "/data/adb/lynx/app_rules.json",
