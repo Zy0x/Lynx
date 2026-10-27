@@ -405,6 +405,8 @@ impl GpuController {
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(350);
             let is_finger_down = crate::daemon::TouchDetector::is_finger_down();
             let is_holding_still = is_finger_down && !is_moving;
+            let is_kinetic_motion = crate::daemon::TouchDetector::is_touch_recent(2000)
+                || crate::daemon::TouchDetector::is_touch_moving(2000);
 
             // True normalized compute load (MHz) = (current frequency * load %) / 100
             let effective_mhz = (gpu.cur_freq_mhz * (gpu.load_pct as u64)) / 100;
@@ -437,7 +439,7 @@ impl GpuController {
             if workload == WorkloadLevel::Heavy || effective_calc > thresh_peak || gpu.load_pct > 70 {
                 // Heavy 3D rendering: Engage Peak
                 DynamicGpuState::Peak
-            } else if is_rapid || is_moving || (!is_holding_still && is_touch) || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid || gpu.load_pct > 30 {
+            } else if is_rapid || is_moving || (!is_holding_still && is_touch) || is_kinetic_motion || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid || gpu.load_pct > 30 {
                 // Active touch motion / scrolling / 120 FPS UI composition: Engage Fluid (e.g. ~588-675 MHz)
                 // Guaranteed sub-5ms render time to beat the 8.33ms 120Hz deadline with ZERO UI lag!
                 DynamicGpuState::Fluid
@@ -493,9 +495,11 @@ impl GpuController {
                 }
                 DynamicGpuState::Fluid => {
                     let last_fluid = LAST_FLUID_MS.load(Ordering::Relaxed);
+                    let is_kinetic_motion = crate::daemon::TouchDetector::is_touch_recent(2000)
+                        || crate::daemon::TouchDetector::is_touch_moving(2000);
                     let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
-                    if now_ms.saturating_sub(last_fluid) < 500 || is_rapid {
-                        // Hold at Fluid during 500ms scrolling window
+                    if now_ms.saturating_sub(last_fluid) < 2000 || is_kinetic_motion || is_rapid {
+                        // Hold at Fluid during 2000ms scrolling / fling window
                         DynamicGpuState::Fluid
                     } else {
                         // Step down to Light

@@ -1047,6 +1047,16 @@ fn handle_applist(args: &[String]) {
 }
 
 fn main() {
+    // Ensure standard Android binary paths are always available to lynxd and child processes
+    let cur_path = env::var("PATH").unwrap_or_default();
+    let essential_paths = "/system/bin:/system/xbin:/vendor/bin:/apex/com.android.runtime/bin:/data/adb/modules/Lynx/system/bin";
+    let new_path = if cur_path.is_empty() {
+        essential_paths.to_string()
+    } else {
+        format!("{}:{}", essential_paths, cur_path)
+    };
+    env::set_var("PATH", new_path);
+
     // Gracefully handle BrokenPipe (e.g. piped to head, grep, or reader closed stream)
     // to prevent SIGABRT tombstones on Android.
     let default_hook = std::panic::take_hook();

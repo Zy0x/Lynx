@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,6 +13,7 @@ use crate::utils::Logger;
 
 static CURRENT_DISPLAY_HZ: AtomicU32 = AtomicU32::new(0);
 static LAST_HZ_CHANGE_MS: AtomicU64 = AtomicU64::new(0);
+static BACKDOOR_RELEASED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Default)]
 pub struct DisplayModeTable {
@@ -34,6 +35,17 @@ impl DisplayController {
         }
     }
 
+    /// Robust command execution using exact /system/bin/ absolute path fallback
+    pub fn run_cmd(bin: &str, args: &[&str]) -> Result<std::process::Output, std::io::Error> {
+        let direct = format!("/system/bin/{}", bin);
+        let path = if Path::new(&direct).exists() {
+            &direct
+        } else {
+            bin
+        };
+        Command::new(path).args(args).output()
+    }
+
     /// Automatically probes physical display refresh rates and SurfaceFlinger mode IDs.
     /// Runs once at startup and caches the result with zero continuous shell overhead.
     pub fn probe_display_modes() -> DisplayModeTable {
@@ -41,7 +53,7 @@ impl DisplayController {
         let mut sf_modes = Vec::new();
 
         // 1. Try dumpsys SurfaceFlinger (Direct HWC mode indices)
-        if let Ok(out) = Command::new("dumpsys").arg("SurfaceFlinger").output() {
+        if let Ok(out) = Self::run_cmd("dumpsys", &["SurfaceFlinger"]) {
             let text = String::from_utf8_lossy(&out.stdout);
             for line in text.lines() {
                 if line.contains("refreshRate=") && line.contains("id=") {
@@ -80,7 +92,7 @@ impl DisplayController {
 
         // 2. Fallback to dumpsys display if SurfaceFlinger parsing didn't find modes
         if supported_rates.is_empty() {
-            if let Ok(out) = Command::new("dumpsys").arg("display").output() {
+            if let Ok(out) = Self::run_cmd("dumpsys", &["display"]) {
                 let text = String::from_utf8_lossy(&out.stdout);
                 for line in text.lines() {
                     if line.contains("fps=") || line.contains("renderFrameRate") {
@@ -129,10 +141,7 @@ impl DisplayController {
         // Backup original min refresh rate once
         let orig_path = Path::new("/dev/lynx_orig_min_rr");
         if !orig_path.exists() {
-            if let Ok(out) = Command::new("settings")
-                .args(["get", "system", "min_refresh_rate"])
-                .output()
-            {
+            if let Ok(out) = Self::run_cmd("settings", &["get", "system", "min_refresh_rate"]) {
                 let cur = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 let val_to_save = if cur.is_empty() || cur == "null" {
                     "60.0".to_string()
@@ -158,9 +167,7 @@ impl DisplayController {
             if let Ok(orig_val) = fs::read_to_string(orig_path) {
                 let trimmed = orig_val.trim();
                 if !trimmed.is_empty() {
-                    let _ = Command::new("settings")
-                        .args(["put", "system", "min_refresh_rate", trimmed])
-                        .output();
+                    let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", trimmed]);
                 }
             }
             let _ = fs::remove_file(orig_path);
@@ -171,25 +178,18 @@ impl DisplayController {
     }
 
     /// Universally configures hardware composer, Android framework settings, and panel sysfs nodes.
+    /// Used when a static fixed refresh rate is locked by the user.
     pub fn apply_hz_hardware(target_hz: u32, sf_id: Option<i32>) {
         // 1. Direct SurfaceFlinger HWC mode switch (sub-ms instant physical mode change)
         if let Some(id) = sf_id {
-            let _ = Command::new("service")
-                .args(["call", "SurfaceFlinger", "1035", "i32", &id.to_string()])
-                .output();
+            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
         }
 
         // 2. Universal Android settings provider
         let hz_str = format!("{}.0", target_hz);
-        let _ = Command::new("settings")
-            .args(["put", "system", "min_refresh_rate", &hz_str])
-            .output();
-        let _ = Command::new("settings")
-            .args(["put", "system", "peak_refresh_rate", &hz_str])
-            .output();
-        let _ = Command::new("settings")
-            .args(["put", "secure", "user_refresh_rate", &target_hz.to_string()])
-            .output();
+        let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
 
         // 3. Kernel / Vendor Panel Sysfs Nodes
         let nodes = [
@@ -200,6 +200,53 @@ impl DisplayController {
         ];
         for node in nodes {
             Self::write_opt(node, &target_hz.to_string());
+        }
+    }
+
+    /// Smooth adaptive rate adjustment for Auto mode without hard SurfaceFlinger 1035 backdoor stalls.
+    /// Manages min/peak refresh rate via DisplayModeDirector and panel sysfs.
+    pub fn apply_hz_auto(target_hz: u32, high_hz: u32) {
+        let hz_str = format!("{}.0", target_hz);
+        let peak_str = format!("{}.0", high_hz);
+
+        let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &peak_str]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
+
+        // Kernel / Vendor Panel Sysfs Nodes
+        let nodes = [
+            "/sys/devices/virtual/graphics/fb0/mode",
+            "/sys/class/graphics/fb0/mode",
+            "/proc/driver/disp_fps",
+            "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
+        ];
+        for node in nodes {
+            Self::write_opt(node, &target_hz.to_string());
+        }
+    }
+
+    /// Immediate sub-1ms hardware touch boost notification triggered by TouchDetector thread.
+    /// Elevates min_refresh_rate to high_hz ceiling with zero latency on touch contact.
+    pub fn on_hardware_touch() {
+        let modes = Self::get_display_modes();
+        if modes.supported_rates.len() <= 1 {
+            return;
+        }
+
+        let lock_cfg = ConfigStore::get("display_touch.refresh_rate_lock")
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(0);
+        if lock_cfg > 0 {
+            return;
+        }
+
+        let high_hz = modes.supported_rates.last().copied().unwrap_or(60);
+        let cur = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
+        if cur != high_hz {
+            CURRENT_DISPLAY_HZ.store(high_hz, Ordering::Relaxed);
+            let hz_str = format!("{}.0", high_hz);
+            let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
+            let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
         }
     }
 
@@ -222,34 +269,16 @@ impl DisplayController {
         }
 
         // Check user config override (fixed rate vs auto)
+        // 0 = Auto (Dynamic Adaptive), >0 = Explicitly locked rate (e.g. 60, 90, 120, 144)
         let lock_cfg = ConfigStore::get("display_touch.refresh_rate_lock")
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(0);
 
-        // Also check if system settings have min_refresh_rate == peak_refresh_rate and min > 1.0 (Static fixed mode locked by user)
-        let system_min = Command::new("settings")
-            .args(["get", "system", "min_refresh_rate"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f32>().ok())
-            .unwrap_or(0.0);
-
-        let system_peak = Command::new("settings")
-            .args(["get", "system", "peak_refresh_rate"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<f32>().ok())
-            .unwrap_or(0.0);
-
-        let is_system_locked = system_min > 1.0 && (system_min - system_peak).abs() < 0.5;
-
-        if lock_cfg > 0 || is_system_locked {
+        if lock_cfg > 0 {
             // User explicitly chose a fixed locked rate! DO NOT AUTO-SCALE!
-            let locked_rate = if lock_cfg > 0 {
-                lock_cfg
-            } else {
-                system_peak.round() as u32
-            };
+            let locked_rate = lock_cfg;
+
+            BACKDOOR_RELEASED.store(false, Ordering::Relaxed);
 
             if CURRENT_DISPLAY_HZ.load(Ordering::Relaxed) != locked_rate {
                 let sf_id = modes.sf_modes.iter().find(|(hz, _)| *hz == locked_rate).map(|(_, id)| *id);
@@ -259,13 +288,18 @@ impl DisplayController {
             return;
         }
 
+        // ── Auto (Dynamic / Adaptive) Mode ─────────────────────────────────
+        // In Auto Mode, release SurfaceFlinger backdoor so Android's native
+        // Choreographer and DisplayModeDirector handle frame pacing smoothly without HWC stall glitches.
+        if !BACKDOOR_RELEASED.load(Ordering::Relaxed) {
+            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", "-1"]);
+            let _ = Self::run_cmd("cmd", &["display", "clear-user-preferred-display-mode", "0"]);
+            BACKDOOR_RELEASED.store(true, Ordering::Relaxed);
+            Logger::info("[DISPLAY] SurfaceFlinger backdoor released for seamless dynamic frame pacing.");
+        }
+
         let low_hz = modes.supported_rates.first().copied().unwrap_or(60);
         let high_hz = modes.supported_rates.last().copied().unwrap_or(60);
-        let mid_hz = if modes.supported_rates.len() >= 3 {
-            modes.supported_rates[1]
-        } else {
-            high_hz
-        };
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -278,10 +312,11 @@ impl DisplayController {
 
         let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
 
-        let is_rapid = TouchDetector::is_rapid_touch(150, 2);
-        let is_moving = TouchDetector::is_touch_moving(400);
-        let is_touch = TouchDetector::is_touch_recent(500);
-        let is_recent = TouchDetector::is_touch_recent(1200);
+        // Android kinetic scroll (OverScroller fling) lasts between 1500ms and 2200ms.
+        // During the entire kinetic fling motion, display must remain pinned at High Tier (120Hz).
+        let is_kinetic_active = TouchDetector::is_touch_recent(2200)
+            || TouchDetector::is_touch_moving(2200)
+            || TouchDetector::is_rapid_touch(150, 2);
 
         let target_hz = if active_profile == "powersave" {
             // Powersave: Lock to Low Tier (60Hz) for maximum battery conservation
@@ -291,19 +326,16 @@ impl DisplayController {
             high_hz
         } else if is_media {
             // Video / Streaming (YouTube, Netflix, VLC):
-            // If actively touching (seeking, browsing), ramp up to High Tier;
-            // Otherwise, pulldown to Low Tier (60Hz) to match video frame rate and save ~35% battery.
-            if is_touch || is_moving {
+            // If actively touching / seeking: High Tier (120Hz)
+            // If watching video hands-off: Low Tier (60Hz) to match 24/30/60 FPS video and save ~35% battery
+            if TouchDetector::is_touch_recent(1500) || TouchDetector::is_touch_moving(1500) {
                 high_hz
             } else {
                 low_hz
             }
-        } else if is_rapid || is_moving || is_touch {
-            // Active interaction / scrolling / fling gesture: Zero Latency (0 ms) High Tier
+        } else if is_kinetic_active {
+            // Active touch / scrolling / fling gesture: Zero Latency (0 ms) High Tier
             high_hz
-        } else if is_recent {
-            // Decaying / gliding interaction: Mid Tier
-            mid_hz
         } else {
             // Stationary reading / idle: Drop to Low Tier (60Hz) for maximum panel power savings
             low_hz
@@ -313,10 +345,9 @@ impl DisplayController {
         if target_hz != current_hz {
             let last_change = LAST_HZ_CHANGE_MS.load(Ordering::Relaxed);
             // Instant Ramp-Up (0 ms) when target > current.
-            // Minimum dwell time (400ms) when stepping down to prevent visual flapping.
-            if target_hz > current_hz || now_ms.saturating_sub(last_change) >= 400 {
-                let sf_id = modes.sf_modes.iter().find(|(hz, _)| *hz == target_hz).map(|(_, id)| *id);
-                Self::apply_hz_hardware(target_hz, sf_id);
+            // Minimum dwell time (1000ms) when stepping down to prevent visual flapping.
+            if target_hz > current_hz || now_ms.saturating_sub(last_change) >= 1000 {
+                Self::apply_hz_auto(target_hz, high_hz);
                 CURRENT_DISPLAY_HZ.store(target_hz, Ordering::Relaxed);
                 LAST_HZ_CHANGE_MS.store(now_ms, Ordering::Relaxed);
                 Logger::info(format!(
@@ -367,17 +398,13 @@ impl DisplayController {
 
     /// Returns current refresh rate settings as JSON.
     pub fn info_json() -> String {
-        let min_rr = Command::new("settings")
-            .args(["get", "system", "min_refresh_rate"])
-            .output()
+        let min_rr = Self::run_cmd("settings", &["get", "system", "min_refresh_rate"])
             .ok()
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
             .filter(|s| !s.is_empty() && s != "null")
             .unwrap_or_else(|| "60.0".to_string());
 
-        let peak_rr = Command::new("settings")
-            .args(["get", "system", "peak_refresh_rate"])
-            .output()
+        let peak_rr = Self::run_cmd("settings", &["get", "system", "peak_refresh_rate"])
             .ok()
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
             .filter(|s| !s.is_empty() && s != "null")

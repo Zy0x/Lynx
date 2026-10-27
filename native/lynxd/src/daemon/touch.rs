@@ -160,6 +160,7 @@ impl TouchDetector {
 
                                                 // Immediate sub-1ms hardware touch boost notification
                                                 crate::subsystems::GpuController::on_hardware_touch();
+                                                crate::subsystems::DisplayController::on_hardware_touch();
                                             }
                                         }
                                         Err(_) => {

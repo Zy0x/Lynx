@@ -297,7 +297,7 @@ impl RulesEngine {
             }
         }
 
-        // ── Tier 4: Exact Known Media Signatures ────────────────────────────
+        // ── Tier 4: Exact Known Media / Video Streaming Signatures ──────────
         const MEDIA_APPS: &[&str] = &[
             "com.spotify.music",
             "com.google.android.youtube",
@@ -307,13 +307,10 @@ impl RulesEngine {
             "com.apple.android.music",
             "org.videolan.vlc",
             "tv.twitch.android.app",
-            "com.twitter.android",
-            "com.twitter.android.lite",
-            "com.zhiliaoapp.musically",
-            "com.ss.android.ugc.trill",
-            "com.instagram.android",
-            "com.facebook.katana",
-            "com.facebook.lite",
+            "com.mxtech.videoplayer.ad",
+            "com.mxtech.videoplayer.pro",
+            "com.disney.disneyplus",
+            "com.amazon.avod.thirdpartyclient",
         ];
         if MEDIA_APPS.contains(&pkg_lower.as_str()) {
             return ForegroundApp {

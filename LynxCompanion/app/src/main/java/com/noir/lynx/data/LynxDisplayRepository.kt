@@ -26,7 +26,14 @@ internal object LynxDisplayRepository {
 
     suspend fun readIsAutoRefreshRate(): Boolean = withContext(Dispatchers.IO) {
         try {
-            // If backdoor is active, display is hard-locked to a specific mode (not auto)
+            // 1. Check lynxd configuration state (Ground truth daemon lock)
+            val lynxLock = Shell.cmd("/data/adb/modules/Lynx/system/bin/lynxd state get display_touch.refresh_rate_lock 2>/dev/null").exec()
+            val lockVal = lynxLock.out.firstOrNull()?.trim()?.toIntOrNull()
+            if (lockVal != null) {
+                return@withContext lockVal == 0
+            }
+
+            // 2. If backdoor is active, display is hard-locked to a specific mode (not auto)
             val backdoor = Shell.cmd("dumpsys SurfaceFlinger 2>/dev/null | grep -i 'debugDisplayModeSetByBackdoor=true'").exec()
             if (backdoor.isSuccess && backdoor.out.isNotEmpty()) {
                 return@withContext false
@@ -34,20 +41,21 @@ internal object LynxDisplayRepository {
 
             val r = Shell.cmd("settings get system min_refresh_rate 2>/dev/null").exec()
             val minRate = r.out.firstOrNull()?.trim()?.toFloatOrNull() ?: 60f
-            minRate <= 1.0f
+            val peakRate = Shell.cmd("settings get system peak_refresh_rate 2>/dev/null").exec().out.firstOrNull()?.trim()?.toFloatOrNull() ?: 60f
+            minRate <= 1.0f || (peakRate > minRate)
         } catch (e: Exception) { false }
     }
 
     suspend fun setDisplayRefreshRate(hz: Int, isAuto: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         try {
-            val minVal = if (isAuto) "0.0" else "$hz.0"
+            val minVal = if (isAuto) "60.0" else "$hz.0"
             val peakVal = "$hz.0"
             val script = """
                 # 1. Standard Android Settings Provider
                 settings put system min_refresh_rate $minVal 2>/dev/null
                 settings put system peak_refresh_rate $peakVal 2>/dev/null
-                settings put secure user_refresh_rate $hz 2>/dev/null
-                settings put global user_refresh_rate $hz 2>/dev/null
+                settings put secure user_refresh_rate ${if (isAuto) "0" else "$hz"} 2>/dev/null
+                settings put global user_refresh_rate ${if (isAuto) "0" else "$hz"} 2>/dev/null
 
                 # 2. Android DisplayManager User Preferred Display Mode (Android 11+)
                 if [ "$isAuto" = "true" ]; then
