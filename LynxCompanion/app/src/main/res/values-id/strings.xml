@@ -2388,4 +2388,20 @@
     <string name="hud_overlay_needed">Perlu izin overlay</string>
     <string name="hud_sidebar_description">Panel di tepi layar dengan pintasan dan telemetri langsung.</string>
     <string name="hud_classic_description">Jendela metrik kecil yang tetap terlihat saat bermain.</string>
+
+    <!-- Grouped game panel navigation. -->
+    <string name="hud_nav_boost">Boost</string>
+    <string name="hud_tool_display">Layar &amp; kecerahan</string>
+    <string name="hud_tool_overlay">Overlay &amp; jendela</string>
+    <string name="hud_tool_automation">Otomasi</string>
+    <string name="hud_tool_navigation_hint">Pilih kategori untuk membuka pengaturan.</string>
+    <string name="hud_tool_refresh_help">Pilih refresh rate panel yang tersedia. Nilai aktif ditampilkan dari pembacaan layar.</string>
+    <string name="hud_tool_scene_title">Diagnosa dialog</string>
+    <string name="hud_tool_scene_help">Ambil snapshot untuk memeriksa pengenalan dialog. Berkas diagnosa disimpan di /sdcard/Lynx/scenes/.</string>
+    <string name="hud_tool_scene_capture">Snapshot diagnosa</string>
+    <string name="hud_skip_paused">Dijeda</string>
+    <string name="hud_skip_running">Melewati dialog</string>
+    <string name="hud_skip_standby">Siaga</string>
+    <string name="hud_done">Selesai</string>
+    <string name="hud_profile_help">Hemat mengurangi konsumsi daya. Seimbang untuk pemakaian harian. Performa untuk bermain game. Auto mengikuti aplikasi aktif. Extreme memerlukan perhatian khusus dan pendingin eksternal.</string>
 </resources>

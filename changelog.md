@@ -1,3 +1,15 @@
+# Lynx Universal [Compact Game Boost Panel & Portrait Navigation] 7.0.0-RC259
+Released on: 2026-10-28
+> Lynx Kernel Manager v3.2.93
+
+- Menata ulang Lynx Engine menjadi panel game dengan tab samping tetap, ringkasan singkat, dan grid Boost terkelompok.
+- Memisahkan Alat ke subhalaman Layar & Kecerahan, Overlay & Jendela, Otomasi, Timer, dan Aplikasi; navigasi kembali mengikuti hierarki halaman.
+- Menempatkan panel portrait di bagian bawah area layar aman dengan tinggi maksimal 600 dp; pesan aksi tidak menutupi konten.
+- Menyediakan tab horizontal yang dapat digeser pada jendela sempit, target sentuh minimal 48 dp, serta katalog Indonesia/Inggris untuk navigasi baru.
+- Validasi dilakukan secara lokal dengan build dan unit test Release. Pengujian visual/fungsional di perangkat ditunda atas instruksi pengguna; Infinix tidak digunakan selama validasi akhir.
+
+---
+
 # Lynx Universal [Full 39-Partition Bit-for-Bit Disaster Recovery Suite & Infinix X698 Insurance] 7.0.0-RC258
 Released on: 2026-10-28
 > **Lynx Universal v7.0.0-RC258** (Lynx Kernel Manager v3.2.92): **Penyelesaian Backup Partisi Darurat Menyeluruh (39 Partisi Kritis) untuk Infinix Note 11s / Note 11 Pro (X698 Helio G96): Pencadangan Lengkap Hardware Identity (NVRAM, NVDATA, NVCFG, ProInfo, Protect1/2), Keystore FBE v2 TEE (Persist, Metadata), Bootloader & AVB (VBMeta, LK, DTBO, Logo, Boot, Vendor Boot) dengan Validasi Checksum MD5 Bit-for-Bit 100%, Dilengkapi Skrip Restorasi Otomatis Fastboot & ADB/TWRP**.

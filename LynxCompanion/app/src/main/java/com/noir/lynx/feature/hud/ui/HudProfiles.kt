@@ -27,12 +27,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
         else -> null
     }
 
-    val profilesInfo = "Profil Pengoptimalan Kernel:\n\n" +
-        "• Powersave (Hemat): Menurunkan frekuensi CPU/GPU dan menghemat daya baterai.\n\n" +
-        "• Balanced (Seimbang): Keseimbangan dinamis responsivitas dan konsumsi baterai.\n\n" +
-        "• Performance (Performa): Kunci frekuensi tinggi untuk kelancaran game yang konsisten.\n\n" +
-        "• Auto (AI): Berpindah profil otomatis mendeteksi game yang sedang aktif di layar.\n\n" +
-        "• Extreme: Mengunci frekuensi clock maksimum tanpa batas termal (disarankan menggunakan pendingin eksternal)."
+    val profilesInfo = hudString(R.string.hud_profile_help)
 
     HudSection(
         title = hudString(R.string.hud_profile),
@@ -48,15 +43,9 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
         ) {
             val primary = listOf("powersave" to hudString(R.string.hud_save), "balance" to hudString(R.string.hud_balanced),
                 "performance" to hudString(R.string.hud_performance))
-            val cell = hudLabelWidth(primary.map { it.second }) + 16f
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                if (HudLayoutPolicy.fits(maxWidth.value, List(3) { cell }, gap = 6f)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        primary.forEach { (key, label) -> HudChoice(label, current == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy) }
-                    }
-                } else Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    primary.forEach { (key, label) -> HudChoice(label, current == key, { onProfile(key) }, Modifier.fillMaxWidth(), enabled = !busy) }
-                }
+            HudAdaptiveGrid(primary.map { it.second }, maximum = 2) { index ->
+                val (key, label) = primary[index]
+                HudChoice(label, current == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy)
             }
             var more by rememberSaveable { mutableStateOf(false) }
             HudDisclosure(hudString(R.string.hud_profile_more), more) { more = !more }

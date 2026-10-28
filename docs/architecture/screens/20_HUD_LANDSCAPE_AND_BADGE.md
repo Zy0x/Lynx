@@ -2,7 +2,7 @@
 
 ## 1. Identity and layout
 
-`HudSummaryContent` preserves the portrait order and gives landscape a separate compact composition: FPS/frame time/Display Hz first, CPU/GPU cards next, then profiles. The shortcut grid and installed-app dock remain available in an in-panel Quick actions disclosure. Text measurements decide whether metric cells share a row; narrow widths and larger fonts stack them without clipping. Sidebar width no longer has an unconditional 240 dp minimum that could exceed a smaller safe viewport.
+`HudSummaryContent` now uses the shared compact game-panel home in both orientations: FPS and CPU/GPU load, a collapsed profile group, then quick actions. Detailed frame/clock readings remain in Monitor. Applications are in their own Tools destination. The grouped panel contract is documented in `21_LYNX_ENGINE_GAME_PANEL.md`. Sidebar width has no unconditional 240 dp minimum that could exceed a smaller safe viewport.
 
 `HudAutoSkipWindow` owns only the external badge window and drag behavior. `HudSmartTriggerOverlay` retains a 38 dp visual within a 48 dp touch target. At the bounds, its visual aligns to the corresponding edge of that target, removing the previous transparent gap without moving any part of the window outside the display.
 
@@ -26,4 +26,4 @@ Panel safe bounds retain their conservative system-bars/cutout policy. `HudDispl
 
 ## Portrait follow-up
 
-Portrait now explicitly prefers the inline page menu, giving its entire usable width to the content instead of reserving a side rail. At a 321 dp drawer the usable body is 301 dp before card padding. Landscape retains the measured rail only while at least 176 dp of content remains. Header text shows the active app for top-level menu pages; the page selector identifies the page without repeating its title. Add-in child headings and Back behavior remain intact. The new policy test checks portrait widths 240/280/321/336 dp with short and long labels.
+Portrait and landscape retain a compact labeled rail while at least 176 dp of content remains. The rail is bounded to 64–88 dp; long labels wrap. Smaller windows use horizontally scrollable tabs. Portrait is bottom-anchored inside the existing safe bounds and capped at 600 dp tall. Child headings and Back follow the category hierarchy. Layout tests check rail boundaries, label growth, density-aware bottom positioning and landscape's unchanged top anchor.

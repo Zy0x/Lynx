@@ -81,13 +81,13 @@ internal fun HudQuickTileRow(
     val selected = listOf(false, isRecording, false, pinned, autoSkipEnabled, focusActive)
     val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val columns = HudLayoutPolicy.columns(maxWidth.value, 56f * scale, gap = 6f, maximum = 3)
+        val columns = HudLayoutPolicy.columns(maxWidth.value, 80f * scale, gap = 6f, maximum = 2)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             labels.indices.chunked(columns).forEach { indices ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     indices.forEach { i ->
                         HudActionTile(icons[i], labels[i], selected[i], isDanger = i == 1 && isRecording,
-                            enabled = !busy || (i == 1 && isRecording), onClick = callbacks[i], modifier = Modifier.weight(1f))
+                            enabled = !busy || (i == 1 && isRecording), onClick = callbacks[i], modifier = Modifier.weight(1f).fillMaxHeight())
                     }
                     repeat(columns - indices.size) { Spacer(Modifier.weight(1f)) }
                 }

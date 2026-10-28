@@ -6,31 +6,46 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HudLayoutPolicyTest {
-    @Test fun portraitMenuGivesAllUsableWidthBackToTheContent() {
-        for (panel in listOf(240f, 280f, 321f, 336f)) for (label in listOf(48f, 70f, 140f)) {
-            val menu = HudLayoutPolicy.resolve(panel, label, preferMenu = true)
-            assertFalse(menu.useRail)
-            assertEquals(panel - HudLayoutPolicy.CONTENT_PADDING * 2, menu.contentWidth, .001f)
+    @Test fun portraitKeepsCompactRailAndProtectsReadableContent() {
+        for (panel in listOf(291f, 321f, 336f)) for (label in listOf(48f, 70f, 140f)) {
+            val layout = HudLayoutPolicy.resolve(panel, label)
+            assertTrue(layout.useRail)
+            assertTrue(layout.railWidth in 64f..88f)
+            assertTrue(layout.contentWidth >= HudLayoutPolicy.MIN_CONTENT)
         }
-        assertTrue(HudLayoutPolicy.resolve(369f, 70f).useRail)
+        assertFalse(HudLayoutPolicy.resolve(240f, 48f).useRail)
     }
 
     @Test fun navigationSwitchesExactlyAtMinimumContentWidth() {
-        assertTrue(HudLayoutPolicy.resolve(274f, 48f).useRail)
-        assertEquals(72f, HudLayoutPolicy.resolve(274f, 48f).railWidth, 0f)
-        assertEquals(176f, HudLayoutPolicy.resolve(274f, 48f).contentWidth, 0f)
-        val narrower = HudLayoutPolicy.resolve(273.9f, 48f)
+        assertTrue(HudLayoutPolicy.resolve(266f, 48f).useRail)
+        assertEquals(64f, HudLayoutPolicy.resolve(266f, 48f).railWidth, 0f)
+        assertEquals(176f, HudLayoutPolicy.resolve(266f, 48f).contentWidth, 0f)
+        val narrower = HudLayoutPolicy.resolve(265.9f, 48f)
         assertFalse(narrower.useRail)
-        assertEquals(253.9f, narrower.contentWidth, 0.001f)
+        assertEquals(245.9f, narrower.contentWidth, 0.001f)
     }
 
-    @Test fun measuredLabelsGrowRailWithoutClippingOrStealingMinimumContent() {
+    @Test fun longTranslationsWrapWithinBoundedRail() {
         val short = HudLayoutPolicy.resolve(336f, 40f)
         val long = HudLayoutPolicy.resolve(336f, 90f)
         assertEquals(HudLayoutPolicy.RAIL_WIDTH, short.railWidth, 0f)
-        assertEquals(106f, long.railWidth, 0f)
+        assertEquals(88f, long.railWidth, 0f)
         assertTrue(long.useRail)
-        assertFalse(HudLayoutPolicy.resolve(336f, 134f).useRail)
+        assertEquals(long, HudLayoutPolicy.resolve(336f, 240f))
+    }
+
+    @Test fun portraitPanelStaysAtBottomOfSafeAreaWithoutMovingLandscape() {
+        for (density in listOf(1f, 2.625f, 3f)) {
+            for (height in listOf(480f, 800f, 1200f)) {
+                val portrait = HudViewport(360f, height)
+                val safeHeight = (height * density).toInt()
+                val top = portrait.panelTop(72, safeHeight, density)
+                assertTrue(top >= 72)
+                assertTrue(top + kotlin.math.ceil(portrait.panelHeight * density).toInt() <= 72 + safeHeight)
+                assertTrue(portrait.panelHeight <= 600f)
+            }
+            assertEquals(72, HudViewport(800f, 360f).panelTop(72, (360f * density).toInt(), density))
+        }
     }
 
     @Test fun safeWindowAndScaledLabelMatrixStaysWithinExistingOverlayLimits() {

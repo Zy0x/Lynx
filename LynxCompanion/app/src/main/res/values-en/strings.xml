@@ -2364,4 +2364,20 @@
     <string name="hud_overlay_needed">Overlay permission needed</string>
     <string name="hud_sidebar_description">Edge panel with shortcuts and live telemetry.</string>
     <string name="hud_classic_description">Small metrics window that stays visible while playing.</string>
+
+    <!-- Grouped game panel navigation. -->
+    <string name="hud_nav_boost">Boost</string>
+    <string name="hud_tool_display">Display &amp; brightness</string>
+    <string name="hud_tool_overlay">Overlay &amp; windows</string>
+    <string name="hud_tool_automation">Automation</string>
+    <string name="hud_tool_navigation_hint">Choose a category to open its settings.</string>
+    <string name="hud_tool_refresh_help">Choose an available panel refresh rate. The active value comes from the display readback.</string>
+    <string name="hud_tool_scene_title">Dialogue diagnostics</string>
+    <string name="hud_tool_scene_help">Capture a snapshot to inspect dialogue recognition. Diagnostic files are saved in /sdcard/Lynx/scenes/.</string>
+    <string name="hud_tool_scene_capture">Diagnostic snapshot</string>
+    <string name="hud_skip_paused">Paused</string>
+    <string name="hud_skip_running">Skipping dialogue</string>
+    <string name="hud_skip_standby">Standby</string>
+    <string name="hud_done">Done</string>
+    <string name="hud_profile_help">Save reduces power consumption. Balanced is for daily use. Performance is for gaming. Auto follows the active app. Extreme requires extra care and external cooling.</string>
 </resources>

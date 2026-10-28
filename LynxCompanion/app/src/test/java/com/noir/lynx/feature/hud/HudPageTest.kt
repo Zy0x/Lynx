@@ -14,7 +14,7 @@ class HudPageTest {
         assertEquals(listOf(HudPage.Summary, HudPage.Details, HudPage.Lab, HudPage.Tools), pages)
         assertEquals(R.string.hud_summary, HudPage.Summary.label)
         assertEquals(R.string.hud_monitor, HudPage.Details.label)
-        assertEquals(R.string.hud_lab, HudPage.Lab.label)
+        assertEquals(R.string.hud_nav_boost, HudPage.Lab.label)
         assertEquals(R.string.hud_tools, HudPage.Tools.label)
     }
 }
