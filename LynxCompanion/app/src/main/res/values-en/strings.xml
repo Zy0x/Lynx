@@ -2380,4 +2380,34 @@
     <string name="hud_skip_standby">Standby</string>
     <string name="hud_done">Done</string>
     <string name="hud_profile_help">Save reduces power consumption. Balanced is for daily use. Performance is for gaming. Auto follows the active app. Extreme requires extra care and external cooling.</string>
+
+    <!-- Focused HUD detail pages. -->
+    <string name="hud_detail_controls">Controls</string>
+    <string name="hud_detail_readings">Readings</string>
+    <string name="hud_detail_options">Settings</string>
+    <string name="hud_detail_test">Test</string>
+    <string name="hud_detail_zones">Zones</string>
+    <string name="hud_detail_focus">Focus</string>
+    <string name="hud_detail_glow">Glow</string>
+    <string name="hud_detail_connection">Connection</string>
+    <string name="hud_detail_share">Share</string>
+    <string name="hud_detail_video">Video</string>
+    <string name="hud_detail_advanced">Advanced</string>
+    <string name="hud_detail_diagnostics">Diagnostics</string>
+    <string name="hud_combo_add">Add slot</string>
+    <string name="hud_combo_points">%1$d recorded points</string>
+    <string name="hud_combo_record">Record touches</string>
+    <string name="hud_combo_edit">Edit touches</string>
+    <string name="hud_combo_name">Slot name</string>
+    <string name="hud_combo_save_name">Save name</string>
+    <string name="hud_combo_floating">Floating trigger %1$s</string>
+    <string name="hud_combo_execution">Execution mode</string>
+    <string name="hud_combo_once">Run once</string>
+    <string name="hud_combo_loop">Repeat while held</string>
+    <string name="hud_combo_delay">Delay between cycles: %1$d ms</string>
+    <string name="hud_combo_delete">Delete slot %1$s</string>
+    <string name="hud_combo_code">TouchShare code</string>
+    <string name="hud_network_cellular_help">Requests that the mobile connection stay available while using Wi-Fi. Switching time depends on Android and the network.</string>
+    <string name="hud_network_tcp_help">Applies TCP settings through the existing network controller. Results depend on system support and the connection.</string>
+    <string name="hud_detail_engine">Engine</string>
 </resources>

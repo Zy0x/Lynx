@@ -17,62 +17,30 @@ import com.noir.lynx.feature.hud.data.*
 
 @Composable
 internal fun HudDetails(snapshot: HudSnapshot) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        HudExpandableSection(
-            title = hudString(R.string.hud_group_frame),
-            initiallyOpen = true
-        ) {
-            HudFrameChart(snapshot)
-            listOf(
-                HudMetric.FPS,
-                HudMetric.FRAME_TIME,
-                HudMetric.DISPLAY_HZ,
-                HudMetric.FRAME_AVERAGE,
-                HudMetric.FPS_LOW
-            ).forEach { metric ->
-                HudReadingLine(hudString(metric.label), snapshot[metric])
+    HudSubpages(listOf(R.string.hud_group_frame, R.string.hud_cpu, R.string.hud_gpu,
+        R.string.hud_group_memory_temperature, R.string.hud_group_battery, R.string.hud_detail_diagnostics)) { section ->
+        when (section) {
+            0 -> HudSection(hudString(R.string.hud_group_frame)) {
+                HudFrameChart(snapshot)
+                listOf(HudMetric.FPS, HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ, HudMetric.FRAME_AVERAGE, HudMetric.FPS_LOW)
+                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
             }
+            1 -> HudProcessorDetails(snapshot, cpu = true)
+            2 -> HudProcessorDetails(snapshot, cpu = false)
+            3 -> HudSection(hudString(R.string.hud_group_memory_temperature)) {
+                listOf(HudMetric.RAM_USED, HudMetric.CPU_TEMP, HudMetric.SOC_TEMP, HudMetric.GPU_TEMP)
+                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+            }
+            4 -> HudSection(hudString(R.string.hud_group_battery), badge = hudString(when (snapshot.charging) {
+                    true -> R.string.hud_charging
+                    false -> R.string.hud_discharging
+                    else -> R.string.hud_unsupported
+                })) {
+                listOf(HudMetric.BATTERY_LEVEL, HudMetric.BATTERY_TEMP, HudMetric.BATTERY_CURRENT, HudMetric.BATTERY_VOLTAGE, HudMetric.BATTERY_POWER)
+                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+            }
+            5 -> HudDetailDiagnostics(snapshot)
         }
-
-        HudProcessorDetails(snapshot)
-
-        HudExpandableSection(
-            title = hudString(R.string.hud_group_memory_temperature),
-            initiallyOpen = false
-        ) {
-            listOf(
-                HudMetric.RAM_USED,
-                HudMetric.CPU_TEMP,
-                HudMetric.SOC_TEMP,
-                HudMetric.GPU_TEMP
-            ).forEach { metric ->
-                HudReadingLine(hudString(metric.label), snapshot[metric])
-            }
-        }
-
-        val chargingDetail = hudString(
-            when (snapshot.charging) {
-                true -> R.string.hud_charging
-                false -> R.string.hud_discharging
-                else -> R.string.hud_unsupported
-            }
-        )
-        HudExpandableSection(
-            title = hudString(R.string.hud_group_battery),
-            detail = chargingDetail,
-            initiallyOpen = false
-        ) {
-            listOf(
-                HudMetric.BATTERY_LEVEL,
-                HudMetric.BATTERY_TEMP,
-                HudMetric.BATTERY_CURRENT,
-                HudMetric.BATTERY_VOLTAGE,
-                HudMetric.BATTERY_POWER
-            ).forEach { metric ->
-                HudReadingLine(hudString(metric.label), snapshot[metric])
-            }
-        }
-        HudDetailDiagnostics(snapshot)
     }
 }
 
@@ -91,9 +59,9 @@ private fun HudFrameChart(snapshot: HudSnapshot) {
         )
         Canvas(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(34.dp)
-                .semantics { contentDescription = description }
+            .fillMaxWidth()
+            .height(34.dp)
+            .semantics { contentDescription = description }
         ) {
             val max = high.coerceAtLeast(1f)
             val path = Path()

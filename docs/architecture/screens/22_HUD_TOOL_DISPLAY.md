@@ -19,3 +19,7 @@ The existing display controller owns Android physical display mode requests and 
 ## 5. Safety and verification
 
 No supported rates produces the existing unsupported state. Opening this page does not change refresh rate or brightness. Capability guards, failed-write reporting and restoration remain in the existing controller. Release compilation and host tests are local; actual display switching remains unverified in this task at the user's request.
+
+## Compact detail follow-up
+
+RC260 separates Refresh and Brightness into compact tabs, retaining one corresponding disclosure/body at a time. Refresh choices use a maximum of two columns. Brightness starts expanded inside its selected group. Dynamic supported rates, actual/requested separation and controller callbacks are unchanged.

@@ -52,37 +52,45 @@ internal fun HudTools(
             HudToolDisplay(rates, activeHz, action, onHz, brightnessLocked, onToggleBrightnessLock)
         }
         if (selectedPage == HudToolPage.Overlay) {
-            HudExpandableSection(
-                title = hudString(R.string.hud_mini_title),
-                detail = hudString(R.string.hud_selected_count, prefs.selected.size),
-                initiallyOpen = false
-            ) {
-                HudMetricSelection(prefs, store, showPin = false)
-            }
+            HudSubpages(listOf(R.string.hud_mini_title, R.string.hud_floating_short)) { section ->
+                if (section == 0) {
+                    HudExpandableSection(
+                        title = hudString(R.string.hud_mini_title),
+                        detail = hudString(R.string.hud_selected_count, prefs.selected.size),
+                        initiallyOpen = false
+                    ) {
+                        HudMetricSelection(prefs, store, showPin = false)
+                    }
 
-            HudExpandableSection(
-                title = hudString(R.string.hud_floating_short),
-                detail = hudString(
-                    if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
-                ),
-                initiallyOpen = false
-            ) {
-                HudFloatingSettings(prefs, store)
+                } else {
+                    HudExpandableSection(
+                        title = hudString(R.string.hud_floating_short),
+                        detail = hudString(
+                        if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
+                    ),
+                        initiallyOpen = false
+                    ) {
+                        HudFloatingSettings(prefs, store)
+                    }
+                }
             }
         }
         if (selectedPage == HudToolPage.Automation) {
-            HudAutomationControls(
-                prefs = prefs,
-                busy = action.busy,
-                isSkipping = isSkipping,
-                isPaused = isPaused,
-                isTappingLive = isTappingLive,
-                onEnabled = onToggleAutoSkip,
-                onSpeed = onSetAutoSkipSpeed,
-                onChoice = onSetAutoSkipChoiceBottom
-            )
+            HudSubpages(listOf(R.string.hud_detail_controls, R.string.hud_detail_options, R.string.hud_detail_diagnostics)) { section ->
+                if (section != 2) HudAutomationControls(
+                    showOptions = section == 1,
+                    prefs = prefs,
+                    busy = action.busy,
+                    isSkipping = isSkipping,
+                    isPaused = isPaused,
+                    isTappingLive = isTappingLive,
+                    onEnabled = onToggleAutoSkip,
+                    onSpeed = onSetAutoSkipSpeed,
+                    onChoice = onSetAutoSkipChoiceBottom
+                )
 
-            HudSceneDiagnostics(prefs.autoSkipEnabled, isPaused, isTappingLive, onSnapshotScene, sceneResult)
+                else HudSceneDiagnostics(prefs.autoSkipEnabled, isPaused, isTappingLive, onSnapshotScene, sceneResult)
+            }
         }
         if (selectedPage == HudToolPage.Timer) {
             HudToolTimer(timerRemainingSec, timerActivePreset) { seconds ->

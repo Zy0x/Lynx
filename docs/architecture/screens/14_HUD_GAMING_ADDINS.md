@@ -46,3 +46,7 @@ Release builds and unit tests passed on the implementation snapshot before the f
 - [HUD session](17_HUD_SESSION.md)
 
 The shared visual refresh uses compact 14 dp cards, a two-line header, adaptive labelled quick actions, separate FPS/frame-time/display-rate values, responsive CPU/GPU gauges and three primary profile choices. Auto and Extreme remain behind More Profiles, with the existing Extreme warning. A page selector replaces unreadable compressed tabs when the navigation rail would leave less than 176 dp of content. Classic floating styles and WebUI are not redesigned.
+
+## Compact detail follow-up
+
+RC260 splits the old `HudLab` monolith into dedicated [Bypass](27_HUD_BYPASS_DETAIL.md), [Touch](28_HUD_TOUCH_DETAIL.md), [Focus](29_HUD_FOCUS_DETAIL.md) and [Network](30_HUD_NETWORK_DETAIL.md) pages. Each shows one compact internal group at a time. [Combo controls](31_HUD_COMBO_CONTROLS.md), [Combo settings](32_HUD_COMBO_SETTINGS.md) and [Combo sharing](33_HUD_COMBO_SHARE.md) replace the previous long combined form. Existing backend/session APIs remain unchanged. Shared detail navigation is documented in `37_HUD_DETAIL_NAVIGATION.md`.

@@ -19,3 +19,7 @@ Metric configuration filters existing snapshot presentation. External applicatio
 ## 5. Safety and verification
 
 Capability checks, root access and unsupported states remain owned by the existing backends. Categories do not imply backend support. Local Release validation does not establish IME, floating-app or touch behavior on a physical device.
+
+## Compact detail follow-up
+
+RC260 separates Mini and Floating windows into compact tabs. `HudMetricSelection` additionally chooses one metric category at a time rather than stacking all category disclosures. `HudFloatingSettings` has Engine / Size / Applications / Information groups. Size uses a stacked label/value, two-column presets and 48 dp custom-size sliders. Existing preference defaults, size bounds and backends remain unchanged; these shared components also apply in Companion settings.

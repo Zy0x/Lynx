@@ -74,6 +74,15 @@ class HudLayoutPolicyTest {
         assertTrue(HudLayoutPolicy.fits(0f, emptyList()))
     }
 
+    @Test fun detailGridsIncludeTheirActualSixDpSpacing() {
+        assertEquals(1, HudLayoutPolicy.columns(165f, 80f, gap = 6f, maximum = 2))
+        assertEquals(2, HudLayoutPolicy.columns(166f, 80f, gap = 6f, maximum = 2))
+        for (width in listOf(176f, 220f, 280f)) for (cell in listOf(80f, 104f, 160f)) {
+            val columns = HudLayoutPolicy.columns(width, cell, gap = 6f, maximum = 2)
+            if (columns > 1) assertTrue(HudLayoutPolicy.fits(width, List(columns) { cell }, 6f))
+        }
+    }
+
     @Test fun compactGridsRespectMeasuredCellsAtSmallAndScaledWidths() {
         assertEquals(3, HudLayoutPolicy.columns(176f, 48f))
         assertEquals(2, HudLayoutPolicy.columns(176f, 80f))

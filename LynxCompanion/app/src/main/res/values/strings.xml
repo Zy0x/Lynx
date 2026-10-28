@@ -2404,4 +2404,34 @@
     <string name="hud_skip_standby">Siaga</string>
     <string name="hud_done">Selesai</string>
     <string name="hud_profile_help">Hemat mengurangi konsumsi daya. Seimbang untuk pemakaian harian. Performa untuk bermain game. Auto mengikuti aplikasi aktif. Extreme memerlukan perhatian khusus dan pendingin eksternal.</string>
+
+    <!-- Focused HUD detail pages. -->
+    <string name="hud_detail_controls">Kontrol</string>
+    <string name="hud_detail_readings">Pembacaan</string>
+    <string name="hud_detail_options">Pengaturan</string>
+    <string name="hud_detail_test">Uji</string>
+    <string name="hud_detail_zones">Zona</string>
+    <string name="hud_detail_focus">Fokus</string>
+    <string name="hud_detail_glow">Glow</string>
+    <string name="hud_detail_connection">Koneksi</string>
+    <string name="hud_detail_share">Berbagi</string>
+    <string name="hud_detail_video">Video</string>
+    <string name="hud_detail_advanced">Lanjutan</string>
+    <string name="hud_detail_diagnostics">Diagnostik</string>
+    <string name="hud_combo_add">Tambah slot</string>
+    <string name="hud_combo_points">%1$d titik terekam</string>
+    <string name="hud_combo_record">Rekam sentuhan</string>
+    <string name="hud_combo_edit">Edit sentuhan</string>
+    <string name="hud_combo_name">Nama slot</string>
+    <string name="hud_combo_save_name">Simpan nama</string>
+    <string name="hud_combo_floating">Tombol melayang %1$s</string>
+    <string name="hud_combo_execution">Mode eksekusi</string>
+    <string name="hud_combo_once">Sekali jalan</string>
+    <string name="hud_combo_loop">Ulang saat ditahan</string>
+    <string name="hud_combo_delay">Jeda antar-siklus: %1$d ms</string>
+    <string name="hud_combo_delete">Hapus slot %1$s</string>
+    <string name="hud_combo_code">Kode TouchShare</string>
+    <string name="hud_network_cellular_help">Meminta koneksi seluler tetap tersedia saat memakai Wi-Fi. Waktu perpindahan bergantung pada Android dan jaringan.</string>
+    <string name="hud_network_tcp_help">Menerapkan pengaturan TCP melalui pengontrol jaringan yang ada. Hasil bergantung pada dukungan sistem dan koneksi.</string>
+    <string name="hud_detail_engine">Engine</string>
 </resources>

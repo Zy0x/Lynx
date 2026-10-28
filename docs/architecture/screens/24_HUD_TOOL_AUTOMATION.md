@@ -19,3 +19,7 @@ No sysfs path is added. The existing controller/recognizer owns screen inspectio
 ## 5. Safety and verification
 
 The redesign preserves package guards and existing scene-verdict semantics. It reports matching-pixel/threshold/zone telemetry without changing recognition thresholds. No diagnostics capture, automated game interaction or device storage operation is exercised in final validation for this task.
+
+## Compact detail follow-up
+
+RC260 separates Controls, Settings and Diagnostics into compact tabs. Only one body is composed at a time. The master/status appears in Controls, speed and choice position in Settings, and the explicit diagnostic capture in Diagnostics. Internal saveable drafts survive group changes; explicit navigation returns outer scroll to the top.

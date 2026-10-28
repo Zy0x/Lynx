@@ -2,7 +2,7 @@
 
 ## 1. Identity and structure
 
-`HudDetails` presents frame statistics, separate `HudProcessorDetails` CPU/GPU cards, collapsed RAM/sensor and battery groups, and `HudDetailDiagnostics`. Cards use the shared OLED surfaces, thin dividers, 12 sp labels, stable numeric typography and a restrained load bar. Actual clock and load appear beside each other only when their measured text fits; otherwise they stack. Labels and values wrap without ellipsizing.
+`HudDetails` uses compact Frame / CPU / GPU / Memory and temperature / Battery / Diagnostics tabs, composing only one group at a time. CPU and GPU retain their separate readings and measured clock/load reflow. `HudDetailDiagnostics` groups metric sources and displays only the selected metric or policy source, availability and age. Package/layer/collection metadata stays in its own disclosure; explanatory notes remain available through the info action. Labels and values wrap without ellipsizing.
 
 ## 2. Reactive data
 
@@ -10,7 +10,7 @@ All readings come from the existing fresh `HudSnapshot`. No new shell calls, har
 
 ## 3. Controls and defaults
 
-Frame statistics and CPU/GPU cards are directly visible. CPU policy clocks, RAM/sensor details, battery and diagnostics expand in place. The page uses the existing per-page saved scroll state and bounded panel. All disclosures have at least 48 dp touch targets.
+Frame opens first. All other groups are one tab away; inactive groups no longer create a long vertical stack. CPU policy clocks retain their existing disclosure. Diagnostics uses category tabs and a two-column metric selector, including live CPU policies in the processor category. No tuning controls are exposed. Shared detail navigation/state behavior is documented in `37_HUD_DETAIL_NAVIGATION.md`.
 
 ## 4. Physical mapping
 

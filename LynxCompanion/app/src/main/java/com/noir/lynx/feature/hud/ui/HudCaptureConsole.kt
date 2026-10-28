@@ -45,8 +45,8 @@ internal fun HudRecordingBar() {
         Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(8.dp)
-                    .background(HudRed, CircleShape)
+                .size(8.dp)
+                .background(HudRed, CircleShape)
             )
             Spacer(Modifier.width(8.dp))
             val label = when(state.phase) {
@@ -70,19 +70,24 @@ internal fun HudConsoleControls(brightnessLocked: Boolean, onBrightness: (Boolea
     val volumeLabel = hudString(R.string.hud_console_volume)
     LaunchedEffect(runtime) { while (true) { runtime.console.refreshVolume(); delay(1000) } }
     val consoleInfo = "${hudString(R.string.hud_console_brief)}\n\n• ${hudString(R.string.hud_console_restore_note)}"
-    HudSection(hudString(R.string.hud_console_title), info = consoleInfo) {
-        Text(if (state.maxVolume > 0) hudString(R.string.hud_console_volume_value, state.volume, state.maxVolume) else "—", fontSize = 12.sp, color = HudBlue)
-        if (state.maxVolume > 0) Slider(state.volume.toFloat(), { runtime.console.setVolume(it.toInt()) },
-            valueRange = 0f..state.maxVolume.toFloat(), enabled = !state.fixedVolume, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = volumeLabel })
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(hudString(R.string.hud_brightness_lock_title), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
-            Switch(brightnessLocked, onBrightness, enabled = root, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
+    HudSubpages(listOf(R.string.hud_record_audio, R.string.hud_tool_display)) { section ->
+        HudSection(hudString(R.string.hud_console_title), info = consoleInfo) {
+            if (section == 0) {
+                Text(if (state.maxVolume > 0) hudString(R.string.hud_console_volume_value, state.volume, state.maxVolume) else "—", fontSize = 12.sp, color = HudBlue)
+                if (state.maxVolume > 0) Slider(state.volume.toFloat(), { runtime.console.setVolume(it.toInt()) },
+                    valueRange = 0f..state.maxVolume.toFloat(), enabled = !state.fixedVolume, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = volumeLabel })
+            } else {
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(hudString(R.string.hud_brightness_lock_title), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
+                    Switch(brightnessLocked, onBrightness, enabled = root, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
+                }
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(hudString(R.string.hud_console_awake), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
+                    Switch(state.awakeRequested, runtime::setAwake, enabled = root, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
+                }
+            }
+            Text(hudString(R.string.hud_console_restore_note), fontSize = 12.sp, color = HudMuted)
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(hudString(R.string.hud_console_awake), fontSize = 12.sp, color = Color.White, modifier = Modifier.weight(1f))
-            Switch(state.awakeRequested, runtime::setAwake, enabled = root, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = HudBlueBadge))
-        }
-        Text(hudString(R.string.hud_console_restore_note), fontSize = 12.sp, color = HudMuted)
     }
 }
 

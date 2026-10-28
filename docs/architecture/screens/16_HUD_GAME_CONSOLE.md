@@ -19,3 +19,7 @@ Audio uses `AudioManager.STREAM_MUSIC` with the normal MODIFY_AUDIO_SETTINGS per
 ## 5. Restoration and errors
 
 A per-key write-ahead journal preserves the previous value and the exact last owned value. An external user change wins over teardown restoration. Failed writes do not replace a valid earlier ownership record. Missing root disables display controls; missing/fixed audio capability disables the media slider. The existing Tools brightness control uses this same controller, avoiding a second source of truth.
+
+## Compact detail follow-up
+
+The RC260 layout uses Audio / Display tabs. Audio contains only actual volume and its slider; Display contains brightness lock and the existing screen-timeout request. The restoration note remains visible. Switching tabs does not change settings or stop the existing session. Shared navigation uses `HudSubpages`; details are in `37_HUD_DETAIL_NAVIGATION.md`.

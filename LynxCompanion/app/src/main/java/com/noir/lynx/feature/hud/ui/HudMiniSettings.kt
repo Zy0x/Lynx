@@ -38,12 +38,12 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
             fontSize = 11.5.sp,
             color = HudMuted
         )
-        hudMetricGroups.forEach { (title, metrics) ->
+        HudSubpages(hudMetricGroups.map { it.first }) { group ->
+            val (title, metrics) = hudMetricGroups[group]
             val count = metrics.count { it.key in prefs.selected }
-            HudExpandableSection(
+            HudSection(
                 title = hudString(title),
-                detail = hudString(R.string.hud_metric_group_count, count, metrics.size),
-                initiallyOpen = title == R.string.hud_group_frame
+                badge = hudString(R.string.hud_metric_group_count, count, metrics.size)
             ) {
                 val labels = metrics.map { hudString(it.label) }
                 HudAdaptiveGrid(labels, maximum = 2, minCell = 80f) { index ->
@@ -71,10 +71,10 @@ internal fun HudMetricSelection(prefs: HudPreferences, store: HudPreferencesStor
 internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(vertical = 2.dp),
+        .fillMaxWidth()
+        .heightIn(min = 48.dp)
+        .toggleable(checked, role = Role.Switch, onValueChange = onCheckedChange)
+        .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -87,11 +87,11 @@ internal fun HudPreferenceToggle(label: String, checked: Boolean, onCheckedChang
             checked = checked,
             onCheckedChange = null,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = HudBlueBadge,
-                uncheckedThumbColor = HudMuted,
-                uncheckedTrackColor = HudElevated
-            )
+            checkedThumbColor = Color.White,
+            checkedTrackColor = HudBlueBadge,
+            uncheckedThumbColor = HudMuted,
+            uncheckedTrackColor = HudElevated
+        )
         )
     }
 }

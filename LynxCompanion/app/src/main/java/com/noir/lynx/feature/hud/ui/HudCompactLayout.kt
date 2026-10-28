@@ -29,7 +29,7 @@ internal fun HudAdaptiveGrid(
 ) {
     val cell = maxOf(minCell, hudLabelWidth(labels) + 16f)
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val columns = HudLayoutPolicy.columns(maxWidth.value, cell, maximum = maximum)
+        val columns = HudLayoutPolicy.columns(maxWidth.value, cell, gap = 6f, maximum = maximum)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             labels.indices.chunked(columns).forEach { indices ->
                 Row(
@@ -64,8 +64,8 @@ internal fun HudExpandableSection(
                 onClick = { open = !open },
                 color = Color.Transparent,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),

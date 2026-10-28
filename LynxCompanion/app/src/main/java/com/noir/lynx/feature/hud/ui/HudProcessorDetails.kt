@@ -16,13 +16,13 @@ import com.noir.lynx.feature.hud.data.*
 
 /** Keeps measured clock, utilization and sensor readings separate. No shell or guessed values. */
 @Composable
-internal fun HudProcessorDetails(snapshot: HudSnapshot) {
-    ProcessorCard(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_CLOCK], snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_TEMP], HudBlue) {
+internal fun HudProcessorDetails(snapshot: HudSnapshot, cpu: Boolean) {
+    if (cpu) ProcessorCard(hudString(R.string.hud_cpu), snapshot[HudMetric.CPU_CLOCK], snapshot[HudMetric.CPU_LOAD], snapshot[HudMetric.CPU_TEMP], HudBlue) {
         if (snapshot.policies.isNotEmpty()) HudExpandableSection(hudString(R.string.hud_cpu_policies)) {
             snapshot.policies.forEach { (id, clock) -> HudReadingLine(id, clock) }
         }
     }
-    ProcessorCard(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_CLOCK], snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_TEMP], HudCyan)
+    else ProcessorCard(hudString(R.string.hud_gpu), snapshot[HudMetric.GPU_CLOCK], snapshot[HudMetric.GPU_LOAD], snapshot[HudMetric.GPU_TEMP], HudCyan)
 }
 
 @Composable

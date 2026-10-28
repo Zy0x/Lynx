@@ -129,35 +129,37 @@ fun HudSidebar(
                         page == HudPage.Tools && toolPage != null -> toolScrolls.getValue(toolPage!!)
                         else -> scrolls.getValue(page)
                     }
-                    Column(Modifier.fillMaxWidth().verticalScroll(scroll).padding(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        when (page) {
-                            HudPage.Summary -> HudHomePage(
-                                snapshot, action, prefs, preferences, focusActive, onProfile,
-                                { page = HudPage.Details }, onCapture, onBoostRam, onToggleFocus, { onOpen(false) }
-                            )
-                            HudPage.Details -> HudDetails(snapshot)
-                            HudPage.Lab -> HudLab(
-                                snapshot = snapshot, bypassStatus = bypassStatus, busy = action.busy,
-                                onToggleBypass = onToggleBypass, onRefreshBypass = onRefreshBypass,
-                                onProbeNetwork = onProbeNetwork, touchStatus = touchStatus, shieldStatus = shieldStatus,
-                                onToggleTouchBoost = onToggleTouchBoost, onToggleHeadsUpShield = onToggleHeadsUpShield,
-                                onSelectFocusLevel = onSelectFocusLevel, selectedAddin = addinPage,
-                                onSelectAddin = { addinPage = it }, brightnessLocked = brightnessLocked,
-                                onToggleBrightnessLock = onToggleBrightnessLock
-                            )
-                            HudPage.Tools -> HudTools(
-                                selectedPage = toolPage, onSelectPage = { toolPage = it },
-                                onApps = { manageApps = true }, prefs = prefs, store = preferences,
-                                rates = rates, activeHz = snapshot[HudMetric.DISPLAY_HZ], action = action,
-                                onHz = onHz, onStop = onStop, brightnessLocked = brightnessLocked,
-                                onToggleBrightnessLock = onToggleBrightnessLock,
-                                onToggleAutoSkip = preferences::setAutoSkipEnabled,
-                                onSetAutoSkipSpeed = preferences::setAutoSkipSpeed,
-                                onSetAutoSkipChoiceBottom = preferences::setAutoSkipChoiceBottom,
-                                isSkipping = isSkipping, isPaused = isPaused, isTappingLive = isTappingLive,
-                                onSnapshotScene = onSnapshotScene, sceneResult = sceneResult
-                            )
+                    CompositionLocalProvider(LocalHudPageScroll provides scroll) {
+                        Column(Modifier.fillMaxWidth().verticalScroll(scroll).padding(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            when (page) {
+                                HudPage.Summary -> HudHomePage(
+                                    snapshot, action, prefs, preferences, focusActive, onProfile,
+                                    { page = HudPage.Details }, onCapture, onBoostRam, onToggleFocus, { onOpen(false) }
+                                )
+                                HudPage.Details -> HudDetails(snapshot)
+                                HudPage.Lab -> HudLab(
+                                    snapshot = snapshot, bypassStatus = bypassStatus, busy = action.busy,
+                                    onToggleBypass = onToggleBypass, onRefreshBypass = onRefreshBypass,
+                                    onProbeNetwork = onProbeNetwork, touchStatus = touchStatus, shieldStatus = shieldStatus,
+                                    onToggleTouchBoost = onToggleTouchBoost, onToggleHeadsUpShield = onToggleHeadsUpShield,
+                                    onSelectFocusLevel = onSelectFocusLevel, selectedAddin = addinPage,
+                                    onSelectAddin = { addinPage = it }, brightnessLocked = brightnessLocked,
+                                    onToggleBrightnessLock = onToggleBrightnessLock
+                                )
+                                HudPage.Tools -> HudTools(
+                                    selectedPage = toolPage, onSelectPage = { toolPage = it },
+                                    onApps = { manageApps = true }, prefs = prefs, store = preferences,
+                                    rates = rates, activeHz = snapshot[HudMetric.DISPLAY_HZ], action = action,
+                                    onHz = onHz, onStop = onStop, brightnessLocked = brightnessLocked,
+                                    onToggleBrightnessLock = onToggleBrightnessLock,
+                                    onToggleAutoSkip = preferences::setAutoSkipEnabled,
+                                    onSetAutoSkipSpeed = preferences::setAutoSkipSpeed,
+                                    onSetAutoSkipChoiceBottom = preferences::setAutoSkipChoiceBottom,
+                                    isSkipping = isSkipping, isPaused = isPaused, isTappingLive = isTappingLive,
+                                    onSnapshotScene = onSnapshotScene, sceneResult = sceneResult
+                                )
+                            }
                         }
                     }
                 }

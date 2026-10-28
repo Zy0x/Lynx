@@ -20,73 +20,79 @@ internal fun HudToolDisplay(
     rates: List<Float>, activeHz: HudReading, action: HudActionState, onHz: (Float) -> Unit,
     brightnessLocked: Boolean, onToggleBrightnessLock: (Boolean) -> Unit
 ) {
-    HudExpandableSection(
-        title = hudString(R.string.hud_refresh),
-        detail = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
-        initiallyOpen = true,
-        info = hudString(R.string.hud_tool_refresh_help)
-    ) {
-        action.requestedHz?.let {
-            Text(
-                text = hudString(
-                    R.string.hud_requested_hz,
-                    HudReading(it.toDouble(), "Hz", status = "valid").text()
-                ),
-                fontSize = 11.5.sp,
-                color = HudCyan
-            )
-        }
-        if (rates.isEmpty()) {
-            Text(
-                text = hudString(R.string.hud_unsupported),
-                color = HudMuted,
-                fontSize = 12.sp
-            )
+    HudSubpages(listOf(R.string.hud_refresh, R.string.hud_brightness_lock_title)) { section ->
+        if (section == 0) {
+            HudExpandableSection(
+                title = hudString(R.string.hud_refresh),
+                detail = hudString(R.string.hud_value, activeHz.text(), activeHz.unit),
+                initiallyOpen = true,
+                info = hudString(R.string.hud_tool_refresh_help)
+            ) {
+                action.requestedHz?.let {
+                    Text(
+                        text = hudString(
+                        R.string.hud_requested_hz,
+                        HudReading(it.toDouble(), "Hz", status = "valid").text()
+                    ),
+                        fontSize = 11.5.sp,
+                        color = HudCyan
+                    )
+                }
+                if (rates.isEmpty()) {
+                    Text(
+                        text = hudString(R.string.hud_unsupported),
+                        color = HudMuted,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    val labels = rates.map { hz ->
+                        hudString(R.string.hud_value, HudReading(hz.toDouble(), "Hz", status = "valid").text(), "Hz")
+                    }
+                    HudAdaptiveGrid(labels, maximum = 2) { i ->
+                        val isSelected = activeHz.status == "valid" && activeHz.value?.let { abs(it - rates[i]) < 0.05 } == true
+                        HudChoice(
+                            label = labels[i],
+                            selected = isSelected,
+                            onClick = { onHz(rates[i]) },
+                            modifier = Modifier.weight(1f),
+                            enabled = !action.busy
+                        )
+                    }
+                }
+            }
+
         } else {
-            val labels = rates.map { hz ->
-                hudString(R.string.hud_value, HudReading(hz.toDouble(), "Hz", status = "valid").text(), "Hz")
+            // Game Brightness Lock
+            HudExpandableSection(
+                title = hudString(R.string.hud_brightness_lock_title),
+                detail = hudString(if (brightnessLocked) R.string.hud_active else R.string.hud_skip_off),
+                initiallyOpen = true
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = hudString(R.string.hud_brightness_lock_desc),
+                        fontSize = 11.5.sp,
+                        color = HudMuted,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = brightnessLocked,
+                        onCheckedChange = { onToggleBrightnessLock(it) },
+                        enabled = !action.busy,
+                        colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = HudBlueBadge,
+                        uncheckedThumbColor = HudMuted,
+                        uncheckedTrackColor = HudElevated
+                    )
+                    )
+                }
             }
-            HudAdaptiveGrid(labels, maximum = 4) { i ->
-                val isSelected = activeHz.status == "valid" && activeHz.value?.let { abs(it - rates[i]) < 0.05 } == true
-                HudChoice(
-                    label = labels[i],
-                    selected = isSelected,
-                    onClick = { onHz(rates[i]) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !action.busy
-                )
-            }
+
         }
     }
-
-    // Game Brightness Lock
-    HudExpandableSection(
-        title = hudString(R.string.hud_brightness_lock_title),
-        detail = hudString(if (brightnessLocked) R.string.hud_active else R.string.hud_skip_off)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = hudString(R.string.hud_brightness_lock_desc),
-                fontSize = 11.5.sp,
-                color = HudMuted,
-                modifier = Modifier.weight(1f)
-            )
-            Switch(
-                checked = brightnessLocked,
-                onCheckedChange = { onToggleBrightnessLock(it) },
-                enabled = !action.busy,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = HudBlueBadge,
-                    uncheckedThumbColor = HudMuted,
-                    uncheckedTrackColor = HudElevated
-                )
-            )
-        }
-    }
-
 }

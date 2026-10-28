@@ -19,3 +19,7 @@ The UI introduces no tapping engine, shell execution or new game package support
 ## 5. Errors and accessibility
 
 All new labels and the floating token's status/gesture description exist in default, Indonesian and English catalogs. Standby is explicitly distinct from active skipping. Missing hardware metrics remain unavailable. Physical UI checks stay within foreground Lynx; replaying dialogue automation inside a game is outside this UI validation.
+
+## Compact detail follow-up
+
+The RC260 Tools Automation route uses Controls / Settings / Diagnostics tabs. `HudAutomationControls(showOptions)` renders either the master/status or speed/choice configuration; Diagnostics uses the existing explicit scene-capture action. This removes the settings disclosure from the master card and avoids stacking diagnostics below it. Existing preference bounds, runner guards and package behavior are unchanged.

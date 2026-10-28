@@ -7,7 +7,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -29,10 +28,9 @@ internal fun HudToolTimer(timerRemainingSec: Int, timerActivePreset: Int, onSetT
         info = hudString(R.string.hud_timer_desc)
     ) {
 
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = String.format("%02d:%02d", mins, secs),
@@ -47,7 +45,7 @@ internal fun HudToolTimer(timerRemainingSec: Int, timerActivePreset: Int, onSetT
                 onClick = {
                     onSetTimer(0)
                 },
-                modifier = Modifier.width(82.dp),
+                modifier = Modifier.fillMaxWidth(),
                 enabled = timerRemainingSec > 0
             )
         }

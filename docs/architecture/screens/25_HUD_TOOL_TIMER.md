@@ -19,3 +19,7 @@ No kernel, Android settings, root, wakelock or external storage access is used.
 ## 5. Safety and verification
 
 The value is clamped at zero. Opening the page does not start a timer. Release build/tests cover integration; elapsed-time behavior and large-font rendering have not been physically verified in this task.
+
+## Compact detail follow-up
+
+RC260 places the remaining-time value above a full-width Reset action so scaled text cannot collide with a fixed-width reset button. Preset behavior, range, countdown state and local-only lifetime remain unchanged.

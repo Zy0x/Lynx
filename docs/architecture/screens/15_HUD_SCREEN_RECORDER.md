@@ -27,3 +27,7 @@ X698 rejected the default hardware encoder (`-38`) even from ADB shell, includin
 ## Current UI validation scope
 
 The shared settings expose backend configuration while omitting the unused target-FPS preference. Frame rate is explicitly described as encoder/content dependent and separate from game FPS. Audio source and secure-overlay options were introduced in a separate concurrent change; the earlier successful signed video-only recorder tests (manual stop: 2.5313 s, 560×1280, 19 video samples; time limit: 3.2602 s, 560×1280, 33 samples) do not validate microphone, internal audio or mixed audio. No microphone or notification access was granted during this UI task. Those tests wrote only unique Debug MP4s, which were pulled and immediately deleted, and the signed probe APK was removed.
+
+## Compact detail follow-up
+
+The RC260 layout replaces the expanded settings stack with Controls / Video / Audio / Advanced tabs in the shared `HudRecorderControls`. Controls retains actual resolution, start/stop, errors and last-output access. [Video](34_HUD_RECORD_VIDEO.md), [Audio](35_HUD_RECORD_AUDIO.md) and [Advanced](36_HUD_RECORD_ADVANCED.md) have separate specifications. Quality and bitrate controls reflow into at most two columns. Inactive UI groups are uncomposed without stopping the recorder. No backend or capture capability is changed by navigation.

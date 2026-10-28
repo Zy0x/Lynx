@@ -1,3 +1,15 @@
+# Lynx Universal [Focused Game Panel Detail Pages] 7.0.0-RC260
+Released on: 2026-10-28
+> Lynx Kernel Manager v3.2.94
+
+- Memisahkan halaman detail Monitor, Bypass, Touch, Fokus, Jaringan, Combo, Rekaman, Konsol, Layar, Overlay, dan Otomasi dengan tab compact per-kelompok.
+- Menyusun ulang Combo menjadi Kontrol, Pengaturan, dan Berbagi; slot digeser horizontal dengan target sentuh minimal 48 dp, serta tombol aksi tidak dipadatkan dalam satu baris.
+- Mengganti deret statistik sempit dengan grid adaptif dua kolom dan memperbaiki perhitungan jarak grid 6 dp.
+- Menjaga state form setiap tab serta mengembalikan posisi konten ke atas saat berganti kelompok; pengontrol hardware tetap melalui jalur yang ada.
+- Build dan pengujian hanya lokal varian Release; Infinix tidak digunakan atas instruksi pengguna.
+
+---
+
 # Lynx Universal [Compact Game Boost Panel & Portrait Navigation] 7.0.0-RC259
 Released on: 2026-10-28
 > Lynx Kernel Manager v3.2.93
