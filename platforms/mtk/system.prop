@@ -23,3 +23,12 @@ debug.sf.high_fps_early_phase_offset_ns=1000000
 debug.sf.high_fps_early_app_phase_offset_ns=1500000
 debug.sf.early_gl_phase_offset_ns=1000000
 debug.sf.early_gl_app_phase_offset_ns=1500000
+
+
+# ── 4. Touch Digitizer (Novatek NT36672C) 1:1 Precision & Zero-Acceleration ────
+view.touch_slop=1
+view.scroll_friction=0.005
+ro.input.resampling=0
+persist.sys.touch.latency=0
+debug.touch.frequency.boost=1
+persist.device_config.input_native_boot.velocitytracker_strategy=lsq2
