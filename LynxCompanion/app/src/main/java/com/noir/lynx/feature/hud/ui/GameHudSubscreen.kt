@@ -53,7 +53,7 @@ fun GameHudSubscreen(uiState: LynxUiState, viewModel: LynxViewModel, modifier: M
                     context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
                 }, modifier = Modifier.fillMaxWidth())
             }
-            HudSubpages(listOf(R.string.hud_mode_title, R.string.hud_mini_title, R.string.hud_floating_short, R.string.hud_record_title)) { page ->
+            HudSubpages(listOf(R.string.hud_settings_appearance, R.string.hud_pin_fps_short, R.string.hud_settings_windows, R.string.hud_record_short)) { page ->
                 when (page) {
                     0 -> HudSection(hudString(R.string.hud_mode_title)) {
                         val labels = listOf(hudString(R.string.hud_sidebar), hudString(R.string.hud_classic))

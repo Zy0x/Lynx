@@ -4,7 +4,7 @@
 # Lynx Universal - Hardware Bypass Charging Orchestrator
 # Target: MediaTek Helio G96 (MT6781) & Qualcomm Snapdragon
 # Dual-Layer: KernelPatch Module (KPM) + MediaTek/Transsion PMIC Sysfs
-# Author: ɴᴏɪʀ
+# Author: É´á´ÉªÊ€
 # ==============================================================================
 
 LOG_TAG="LynxBypass"
@@ -75,7 +75,7 @@ enable_bypass() {
         echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
     fi
     if [ -f "/proc/mtk_battery_cmd/current_cmd" ]; then
-        echo "2500 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+        echo "0 1" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
     fi
 
     # Keep Input Current Rail alive at 2.5A for Motherboard Load (Anti-Brownout)
@@ -84,32 +84,64 @@ enable_bypass() {
         echo 25000 > /sys/devices/platform/charger/input_current 2>/dev/null
     fi
 
-    # Cut battery charging current to 0 mA (BATFET Isolation)
+    # Keep Switching Buck Converter (RT9471) active to feed Motherboard Vsys directly
+    # CRITICAL: Setting chg1_current to 0 turns off the buck converter, cutting all power to Vsys!
     if [ -f "/sys/devices/platform/charger/chg1_current" ]; then
-        echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+        echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
     fi
     if [ -f "/sys/devices/platform/charger/chg2_current" ]; then
-        echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+        echo 24576 > /sys/devices/platform/charger/chg2_current 2>/dev/null
     fi
 
     # Transsion Direct Pump Current Limit to 0 mA
     if [ -f "/sys/devices/platform/charger/enable_sc" ]; then
-        echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
+        echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
     fi
     if [ -f "/sys/devices/platform/charger/sc_ibat_limit" ]; then
         echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
     fi
 
-    # Transsion Charger Full Flag
+    # Transsion Charger Full Flag & Battery Notify
     if [ -f "/sys/devices/platform/charger/tran_charger_full" ]; then
-        echo 1 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
+        echo 0 > /sys/devices/platform/charger/tran_charger_full 2>/dev/null
+    fi
+    if [ -f "/sys/devices/platform/charger/BatteryNotify" ]; then
+        echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+    fi
+    if [ -f "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState" ]; then
+        echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+    fi
+    if [ -f "/sys/devices/platform/tran_battery/Charging_CallState" ]; then
+        echo 1 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
+    fi
+    if [ -f "/proc/driver/thermal/clabcct" ]; then
+        echo "0 1 42000 1000 200000 0 0" > /proc/driver/thermal/clabcct 2>/dev/null
+    fi
+    if [ -f "/proc/driver/thermal/clbcct" ]; then
+        echo 3 > /proc/driver/thermal/clbcct 2>/dev/null
+    fi
+
+    # Qualcomm Snapdragon Direct Power Path
+    if [ -d "/sys/class/qcom-battery" ]; then
+        echo 1 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+        echo 0 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+        echo 0 > /sys/class/qcom-battery/direct_charging 2>/dev/null
+    fi
+    if [ -f "/sys/class/power_supply/battery/constant_charge_current_max" ]; then
+        echo 0 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+        echo 0 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+    fi
+    if [ -f "/sys/class/power_supply/battery/input_current_limit" ]; then
+        echo 2500000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
     fi
 
     # Universal Linux Power Supply Fallback nodes
     for node in /sys/class/power_supply/battery/charging_enabled \
                  /sys/class/power_supply/charger/charging_enabled \
                  /sys/devices/platform/charger/charging_enabled \
-                 /sys/class/power_supply/battery/battery_charging_enabled; do
+                 /sys/class/power_supply/battery/battery_charging_enabled \
+                 /sys/class/power_supply/battery/charge_control_limit \
+                 /sys/class/power_supply/battery/charge_control_limit_max; do
         if [ -w "$node" ]; then
             echo 0 > "$node" 2>/dev/null
         fi
@@ -118,11 +150,8 @@ enable_bypass() {
     # 4. State Marker untuk Lynx Daemon & Companion App
     echo 1 > /dev/lynx_bypass_active 2>/dev/null
 
-    # 5. Android Battery HAL Synchronization (Notify AC connected, 0 charge rate)
-    if is_charger_connected; then
-        dumpsys battery set status 4 2>/dev/null # 4 = NOT_CHARGING
-        dumpsys battery set ac 1 2>/dev/null
-    fi
+    # 5. Android Battery HAL Synchronization (Live uevent sync, zero mock)
+    dumpsys battery reset 2>/dev/null
 
     log_success "Hardware Bypass Charging AKTIF!"
     log_info "Arus Baterai Sekarang: $(cat /sys/class/power_supply/battery/current_now 2>/dev/null) uA"
@@ -160,7 +189,7 @@ disable_bypass() {
         echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
     fi
     if [ -f "/proc/mtk_battery_cmd/current_cmd" ]; then
-        echo "0 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+        echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
     fi
     if [ -f "/proc/mtk_battery_cmd/en_power_path" ]; then
         echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
@@ -175,8 +204,24 @@ disable_bypass() {
         fi
     done
 
+    # Restore Transsion & MTK Thermal Throttling
+    if [ -f "/sys/devices/platform/charger/BatteryNotify" ]; then
+        echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+    fi
+    if [ -f "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState" ]; then
+        echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+    fi
+    if [ -f "/proc/driver/thermal/clbcct" ]; then
+        echo 0 > /proc/driver/thermal/clbcct 2>/dev/null
+    fi
+    if [ -d "/sys/class/qcom-battery" ]; then
+        echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+    fi
+
     # 4. Hapus State Marker
     rm -f /dev/lynx_bypass_active 2>/dev/null
+    rm -f /dev/lynx_bypass_telemetry 2>/dev/null
+    dumpsys battery reset 2>/dev/null
 
     # 5. Reset Android Battery HAL
     dumpsys battery reset 2>/dev/null

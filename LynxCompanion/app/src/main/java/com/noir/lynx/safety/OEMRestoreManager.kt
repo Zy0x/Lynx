@@ -227,6 +227,10 @@ EOF
                 done
             done
             for c in /sys/class/thermal/cooling_device*; do
+                if [ -f "${'$'}c/type" ]; then
+                    read -r t < "${'$'}c/type" 2>/dev/null
+                    case "${'$'}t" in *sysrst*|*shutdown*|*rst*) continue ;; esac
+                fi
                 [ -f "${'$'}c/cur_state" ] && echo "0" > "${'$'}c/cur_state" 2>/dev/null
             done
             [ -f /proc/cpufreq/cpufreq_imax_thermal_protect ] && echo "1" > /proc/cpufreq/cpufreq_imax_thermal_protect 2>/dev/null

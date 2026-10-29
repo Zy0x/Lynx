@@ -311,6 +311,8 @@ impl RulesEngine {
             "com.mxtech.videoplayer.pro",
             "com.disney.disneyplus",
             "com.amazon.avod.thirdpartyclient",
+            "com.twitter.android",
+            "com.zhiliaoapp.musically",
         ];
         if MEDIA_APPS.contains(&pkg_lower.as_str()) {
             return ForegroundApp {

@@ -126,6 +126,10 @@ impl ThermalController {
             let cdev_type_path = format!("/sys/class/thermal/cooling_device{}/type", id);
             if let Some(c_type) = Self::read_trimmed(&cdev_type_path) {
                 let lower = c_type.to_lowercase();
+                // CRITICAL SAFETY GUARD: NEVER touch sysrst, shutdown, or reset cooling devices!
+                if lower.contains("sysrst") || lower.contains("shutdown") || lower.contains("rst") {
+                    continue;
+                }
                 if lower.contains("isolate")
                     || lower.contains("thermal-cpufreq")
                     || lower.contains("battery")

@@ -2438,4 +2438,6 @@
     <string name="hud_detail_engine">Engine</string>
     <string name="hud_fps_unit">FPS</string>
     <string name="hud_pin_fps_short">Pin FPS</string>
+    <string name="hud_settings_appearance">Tampilan</string>
+    <string name="hud_settings_windows">Jendela</string>
 </resources>

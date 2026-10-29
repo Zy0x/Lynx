@@ -176,7 +176,8 @@ object ExtremeChargingScript {
                 if [ -f "${'$'}cd/type" ]; then
                     read -r t < "${'$'}cd/type" 2>/dev/null
                     case "${'$'}t" in
-                        *isolate*|*thermal-cpufreq*|battery|*batt*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                        *sysrst*|*shutdown*|*rst*) ;; # CRITICAL: NEVER write to kernel reset devices!
+                        *isolate*|*thermal-cpufreq*|battery|*bcct*|*abcct*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
                     esac
                 fi
             done

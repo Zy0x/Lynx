@@ -44,7 +44,7 @@ internal fun HudMiniOverlay(
     onOpen: () -> Unit, dockRight: Boolean = false
 ) {
     val metrics = HudMiniPolicy.metrics(prefs.selected)
-    val labels = metrics.map { hudString(it.label) }
+    val labels = metrics.map { hudString(if (it == HudMetric.FPS) R.string.hud_fps_unit else it.label) }
     val values = metrics.map { snapshot[it].let { reading ->
         if (reading.status == "valid") hudString(R.string.hud_value, reading.text(), reading.unit) else "—"
     } }

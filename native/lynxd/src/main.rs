@@ -808,6 +808,7 @@ fn handle_charging(args: &[String]) {
         "cool" => {
             let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(1000);
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_standard_charging");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "cool".to_string(), Some("str".to_string())),
                 ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -815,11 +816,12 @@ fn handle_charging(args: &[String]) {
                 ("charging.limit_current_ma".to_string(), limit.to_string(), Some("val".to_string())),
                 ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
             ]);
-            ChargingRegulator::apply_from_config();
+            ChargingRegulator::apply_cool_mode(limit);
             println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian", "Charging Mode"), limit);
         }
         "standard" => {
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_standard_charging");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
                 ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -827,7 +829,7 @@ fn handle_charging(args: &[String]) {
                 ("charging.limit_current_ma".to_string(), "2000".to_string(), Some("val".to_string())),
                 ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
             ]);
-            ChargingRegulator::apply_from_config();
+            ChargingRegulator::apply_standard_mode();
             println!("[OK] {}: STANDARD", ui("Mode Pengisian", "Charging Mode"));
         }
         "hyper" => {
@@ -866,6 +868,10 @@ fn handle_charging(args: &[String]) {
                 ));
                 std::process::exit(1);
             }
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
+            ]);
             ChargingRegulator::apply_bypass_charging();
             println!("[OK] {}", ui("Bypass pengisian hardware aktif (arus ke sel baterai 0 mA)", "Hardware Bypass Charging engaged (0 mA battery cell cutoff)"));
         }

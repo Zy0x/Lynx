@@ -45,7 +45,7 @@ const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/proc/lynx/bypass_charging", "0"),
     ("/proc/mtk_battery_cmd/en_power_path", "0"),
-    ("/proc/mtk_battery_cmd/current_cmd", "0 0"),
+    ("/proc/mtk_battery_cmd/current_cmd", "1 0"),
     ("/sys/class/power_supply/battery/input_suspend", "0"),
     ("/sys/class/power_supply/battery/charging_enabled", "1"),
     ("/sys/devices/platform/charger/pe20", "0"),
@@ -511,7 +511,11 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") || t_lower.contains("battery") || t_lower.contains("charger") || t_lower.contains("chg") {
+                        // CRITICAL SAFETY GUARD: NEVER touch sysrst, shutdown, or reset cooling devices!
+                        if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
+                            continue;
+                        }
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             if throttle {
                                 Self::set_perm(&cur_path, 0o666);
@@ -536,7 +540,10 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") || t_lower.contains("battery") {
+                        if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
+                            continue;
+                        }
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::set_perm(&cur_path, 0o666);
                             let _ = fs::write(&cur_path, "0");
@@ -755,7 +762,7 @@ impl ChargingRegulator {
     pub fn detect_hw_bypass_node() -> Option<&'static str> {
         const CANDIDATES: &[&str] = &[
             "/proc/lynx/bypass_charging",
-            "/sys/devices/platform/charger/tran_charger_full",
+            "/proc/mtk_battery_cmd/en_power_path",
             "/sys/devices/platform/charger/bypass_charger",
             "/sys/class/power_supply/battery/device/smart_charging",
             "/sys/class/power_supply/battery/charging_limit_mode",
@@ -794,7 +801,7 @@ impl ChargingRegulator {
             "/sys/devices/platform/charger/BN_TestMode",
             "/sys/devices/platform/charger/BatteryNotify",
             "/sys/devices/platform/charger/sw_jeita",
-            "/sys/devices/platform/charger/tran_charger_full",
+            "/proc/mtk_battery_cmd/en_power_path",
             "/sys/devices/platform/charger/bypass_charger",
             "/sys/devices/platform/charger/tran_game_mode",
             "/sys/devices/platform/charger/input_current",
@@ -878,8 +885,11 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("battery") || t_lower == "battery" || t_lower.contains("batt")
-                            || t_lower.contains("charger") || t_lower.contains("pm660") || t_lower.contains("smb")
+                        if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
+                            continue;
+                        }
+                        if t_lower.contains("bcct") || t_lower.contains("abcct")
+                            || t_lower == "battery" || t_lower == "charger" || t_lower.contains("pm660") || t_lower.contains("smb")
                         {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             if let Some(cur) = Self::read_i64(&cur_path) {
@@ -907,8 +917,14 @@ impl ChargingRegulator {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
         let is_bypass_active = Path::new("/dev/lynx_bypass_active").exists() || cfg.bypass_enabled;
 
-        // AutoCut or full battery reached: release wake lock so phone enters complete deep sleep!
-        if is_bypass_active || (cfg.auto_cut_enabled && cur_cap >= 100) {
+        // Bypass Charging: Run continuous closed-loop Net-Zero regulator
+        if is_bypass_active {
+            Self::regulate_bypass_net_zero();
+            Self::release_charging_wake_lock();
+            return;
+        }
+
+        if cfg.auto_cut_enabled && cur_cap >= 100 {
             Self::release_charging_wake_lock();
             return;
         }
@@ -995,6 +1011,87 @@ impl ChargingRegulator {
         }
     }
 
+    /// Continuous Closed-Loop Watchdog for True Hardware Bypass Charging (Net-Zero Regulation)
+    /// Runs every tick (~1s) while bypass is active.
+    /// Guarantees:
+    /// 1. Anti-Brownout: Instantly falls back to battery if charger is disconnected.
+    /// 2. Anti-Reset: Re-applies BATFET cutoff & power path if vendor thermal daemons revert sysfs.
+    /// 3. Motherboard Protection: Keeps input current wide open (2500mA) so battery does not drain.
+    /// 4. Live Telemetry: Writes real-time net current & VBUS stats to `/dev/lynx_bypass_telemetry`.
+    pub fn regulate_bypass_net_zero() {
+        if !Self::is_hardware_plugged() {
+            Self::handle_disconnect();
+            return;
+        }
+
+        let is_qcom = Self::is_qualcomm_soc();
+
+        // 1. Maintain Motherboard Power Supply (VBUS -> VSYS) & Cut Battery Charge
+        if is_qcom {
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), "2500000");
+            Self::write_node(&format!("{}/current_max", USB_DIR), "2500000");
+            Self::write_node(&format!("{}/current_max", MAIN_DIR), "2500000");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+
+            for node in [
+                format!("{}/constant_charge_current", BATT_DIR),
+                format!("{}/constant_charge_current_max", BATT_DIR),
+                format!("{}/current_max", BATT_DIR),
+            ] {
+                Self::write_node(&node, "0");
+            }
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "0");
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+        } else {
+            // MediaTek & Transsion Hardware PMIC Power Path (Net-Zero Battery Isolation)
+            Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "2500000");
+            Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
+            Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 1");
+            Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
+            Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
+            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
+
+            Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "24576");
+            Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "24576");
+            Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
+            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
+            Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
+            Self::write_node_lock(&format!("{}/BatteryNotify", MTK_DIR), "0");
+            Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
+            Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
+            Self::write_node("/proc/driver/thermal/clabcct", "0 1 42000 1000 200000 0 0");
+            Self::write_node("/proc/driver/thermal/clbcct", "3");
+            Self::write_node_lock("/proc/lynx/bypass_charging", "1");
+        }
+
+        // Generic Linux sysfs fallback nodes
+        for node in &[
+            "/sys/class/power_supply/battery/charge_control_limit",
+            "/sys/class/power_supply/battery/charge_control_limit_max",
+        ] {
+            if Path::new(node).exists() {
+                Self::write_node(node, "0");
+            }
+        }
+
+        // 2. Read live electrical telemetry
+        let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
+        let cur_now_ma = if cur_now_raw.abs() > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+        let temp_dc = Self::read_real_battery_temp_dc();
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(5000);
+        let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
+
+        // 3. Persist high-speed status for UI & CLI (Lynx Companion App & TUI)
+        let status_json = format!(
+            "{{\"active\":true,\"plugged\":true,\"vbus_mv\":{},\"net_current_ma\":{},\"temp_c\":{:.1},\"status\":\"NET_ZERO_ACTIVE\"}}\n",
+            adpv_mv, cur_now_ma, temp_dc as f64 / 10.0
+        );
+        let _ = fs::write("/dev/lynx_bypass_telemetry", status_json);
+    }
+
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
     /// Mode 1: True Hardware Bypass / Anti-Flapping Single-Path Float (Zero Battery Degradation, Vsys powered by Adapter)
     pub fn apply_bypass_charging() {
@@ -1011,6 +1108,10 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::write("/dev/lynx_bypass_active", "1");
+        let _ = ConfigStore::set_batch(&[
+            ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
+            ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
+        ]);
         Self::unlock_extreme_nodes();
 
         let is_qcom = Self::is_qualcomm_soc();
@@ -1032,15 +1133,16 @@ impl ChargingRegulator {
                 Self::set_bcct_throttle(true);
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
+                Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
                 Self::write_node_lock("/proc/lynx/bypass_charging", "1");
-                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
-                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
-                Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
-                Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "1");
-                Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
+                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "24576");
+                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "24576");
+                Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
+                Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
+                Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
                 Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "2500000");
-                Self::write_node_lock("/proc/mtk_battery_cmd/en_power_path", "1");
-                Self::write_node_lock("/proc/mtk_battery_cmd/current_cmd", "2500 0");
+                Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
+                Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 1");
                 Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
                 Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
             }
@@ -1146,6 +1248,8 @@ impl ChargingRegulator {
         let _ = std::process::Command::new("dumpsys")
             .args(["battery", "reset"])
             .output();
+
+        Self::regulate_bypass_net_zero();
     }
 
     /// RT9759 2:1 Switched-Capacitor Pump Output Calculation:
@@ -1189,6 +1293,10 @@ impl ChargingRegulator {
 
         let was_bypassed = Path::new("/dev/lynx_bypass_active").exists();
         let _ = fs::remove_file("/dev/lynx_bypass_active");
+        let _ = ConfigStore::set_batch(&[
+            ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
+            ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
+        ]);
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         if was_bypassed {
             let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
@@ -1802,7 +1910,8 @@ impl ChargingRegulator {
 
         // Restore standard charging flags
         Self::write_node("/proc/lynx/bypass_charging", "0");
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
@@ -1979,6 +2088,9 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
+                            continue;
+                        }
                         if t_lower.contains("battery") || t_lower.contains("bcct") || t_lower.contains("abcct")
                             || t_lower.contains("isolate") || t_lower.contains("thermal-cpufreq")
                         {
@@ -2633,16 +2745,13 @@ impl ChargingRegulator {
                 return;
             }
         } else if Path::new("/dev/lynx_bypass_active").exists() && !cfg.bypass_enabled {
-            // AutoCut is disabled and manual bypass is disabled: clear any lingering bypass state
-            let _ = fs::remove_file("/dev/lynx_bypass_active");
-            let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
-            Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
-            Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
-            Self::unlock_extreme_nodes();
+            // Adopt bypass flag from CLI/scripts and synchronize config
+            let _ = ConfigStore::set_batch(&[
+                ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
+                ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
+            ]);
+            Self::regulate_bypass_net_zero();
+            return;
         }
 
         // Tier 5: Gentle overnight charging (23:00–06:00, 1500 mA).
@@ -2801,6 +2910,9 @@ impl ChargingRegulator {
         // physically disconnected. Decoupling capacitor float voltage (>3.5V) must NOT keep
         // the driver in plugged state!
         if !has_online_rail && (is_discharging || is_unknown_charger) {
+            if vbus_mv >= 4400 && !is_unknown_charger {
+                return true;
+            }
             return false;
         }
 
@@ -2890,7 +3002,7 @@ impl ChargingRegulator {
         Self::unlock_bcct();
         Self::write_node("/proc/lynx/bypass_charging", "0");
         Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 0");
+        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");

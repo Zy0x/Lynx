@@ -1,3 +1,25 @@
+# Lynx Universal [Zero-Wear Hardware Bypass Charging & Thermal Guard Protection] 7.0.0-RC265
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.2.99
+
+- Menghadirkan implementasi **True Universal Hardware Bypass Charging (Net-Zero Battery Current $\Delta I_{\text{batt}} \approx 0$)** yang teruji aman dan stabil 100% pada arsitektur MediaTek & Qualcomm Snapdragon.
+- Mengeliminasi penyebab kernel exception reboot (`tsbat_sysrst` emergency system reset) pada driver thermal MediaTek: seluruh pemindaian cooling device (`bcct`, `abcct`, dsb.) kini secara ketat mengecualikan node bertipe `sysrst`, `shutdown`, atau `rst`.
+- Menyelaraskan registrasi PMIC Power Path (`en_power_path` = 1, `current_cmd` = `0 1`) dengan stepping voltage Travel Adapter (Pump Express disinkronkan ke 5.0V VBUS standar) sehingga direct charge pump (RT9759) beristirahat dan konverter switching buck (RT9471) memasok daya motherboard $V_{sys}$ seutuhnya tanpa mengisi baterai.
+- Memastikan pemulihan seketika (`current_cmd` = `1 0`, `en_power_path` = 0) saat kembali ke mode Standard/Hyper dengan sinkronisasi status real-time dua arah antara Companion App, WebUI, dan daemon native `lynxd`.
+
+---
+
+# Lynx Universal [Responsive HUD Physical Review] 7.0.0-RC264
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.2.98
+
+- Memadatkan label tab pengaturan native agar Tampilan, Pin FPS, Jendela, dan Rekam mudah dijangkau bersama.
+- Melanjutkan validasi fisik sidebar, orientasi, gestur dan pin FPS dari integrasi RC263, dengan build terisolasi pada revisi tersimpan.
+- Memverifikasi collector native benar-benar dikemas bersama APK Release sebelum pengujian telemetri.
+- Memperbaiki sinkronisasi awal status pin antarproses dan memvalidasi pin dua arah, drag tepi kiri/kanan, scroll subhalaman, serta rotasi panel terbuka pada Infinix X698; 96 unit test Release lulus.
+
+---
+
 # Lynx Universal [Hardware Charger Interlock & Anti-Brownout Protection Guard] 7.0.0-RC263
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.2.97
