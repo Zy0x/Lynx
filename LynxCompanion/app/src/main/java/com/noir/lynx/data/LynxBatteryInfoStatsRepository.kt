@@ -545,11 +545,12 @@ internal object LynxBatteryInfoStatsRepository {
 
                 // 6. Status & Power Source
                 val isCharging = currentDetails?.isCharging == true
-                val isBypass = currentDetails?.isBypassActive == true ||
+                val isCurrentChargingStrong = (currentDetails?.currentMa ?: 0) > 150
+                val isBypass = !isCurrentChargingStrong && (currentDetails?.isBypassActive == true ||
                     currentDetails?.isSmartLimitLatched == true ||
                     currentDetails?.isOvernightBypassLatched == true ||
                     currentDetails?.status?.contains("bypass", ignoreCase = true) == true ||
-                    (isCharging && (currentDetails?.currentMa ?: -999) in -50..50)
+                    (isCharging && (currentDetails?.currentMa ?: -999) in -50..50))
 
                 val powerSource = when {
                     isAc -> "Adaptor Dinding (AC)"

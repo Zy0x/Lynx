@@ -755,6 +755,7 @@ fn handle_charging(args: &[String]) {
             let m = args.get(3).map(|s| s.as_str()).unwrap_or("standard");
             let target_ma = args.get(4).and_then(|s| s.parse::<u32>().ok()).unwrap_or(if m == "cool" { 1000 } else { 2000 });
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_charging_state");
             match m {
                 "cool" => {
                     ChargingRegulator::clear_bypass_hardware_state();
@@ -812,6 +813,7 @@ fn handle_charging(args: &[String]) {
         "cool" => {
             let limit = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(1000);
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_charging_state");
             let _ = std::fs::remove_file("/dev/lynx_standard_charging");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "cool".to_string(), Some("str".to_string())),
@@ -825,6 +827,7 @@ fn handle_charging(args: &[String]) {
         }
         "standard" => {
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_charging_state");
             let _ = std::fs::remove_file("/dev/lynx_standard_charging");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
@@ -838,6 +841,7 @@ fn handle_charging(args: &[String]) {
         }
         "hyper" => {
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_charging_state");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "hyper".to_string(), Some("str".to_string())),
                 ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -851,6 +855,7 @@ fn handle_charging(args: &[String]) {
         "custom" => {
             let target_ma = args.get(3).and_then(|s| s.parse::<u32>().ok()).unwrap_or(2500);
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
+            let _ = std::fs::remove_file("/dev/lynx_charging_state");
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "custom".to_string(), Some("str".to_string())),
                 ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),

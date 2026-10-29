@@ -1291,6 +1291,7 @@ impl ChargingRegulator {
     /// ODM in-call states, and clears bypass markers so normal or hyper charging resumes instantly.
     pub fn clear_bypass_hardware_state() {
         let _ = fs::remove_file("/dev/lynx_bypass_active");
+        let _ = fs::remove_file("/dev/lynx_charging_state");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
@@ -1349,6 +1350,17 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
         Self::set_perm(&format!("{}/input_suspend", BATT_DIR), 0o666);
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+
+        // 6. Qualcomm Snapdragon un-restrict and direct charging restore
+        if Self::is_qualcomm_soc() {
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
+            Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        }
     }
 
     /// Mode: request the fastest charging mode supported by hardware without arbitrary limits.
@@ -2811,7 +2823,7 @@ impl ChargingRegulator {
                 Self::apply_bypass_charging();
                 return;
             }
-        } else if Path::new("/dev/lynx_bypass_active").exists() && !cfg.bypass_enabled {
+        } else if (Path::new("/dev/lynx_bypass_active").exists() || Self::read_node("/dev/lynx_charging_state").map(|s| s.contains("bypass")).unwrap_or(false)) && !cfg.bypass_enabled {
             // Config explicitly requested bypass disabled: purge stale bypass marker and clear hardware bypass state
             Self::clear_bypass_hardware_state();
         }

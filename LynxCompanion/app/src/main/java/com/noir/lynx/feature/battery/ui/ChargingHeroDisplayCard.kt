@@ -338,9 +338,10 @@ fun ChargingHeroDisplayCard(
                             else -> ""
                         }
                         liveBypassActive = rawMode.startsWith("bypass")
+                    } else {
+                        liveBypassActive = File("/dev/lynx_bypass_active").exists()
                     }
-                }
-                if (!liveBypassActive) {
+                } else {
                     liveBypassActive = File("/dev/lynx_bypass_active").exists()
                 }
             } catch (_: Exception) {}
@@ -367,8 +368,11 @@ fun ChargingHeroDisplayCard(
     val isPlugged = (isHwPlugged || (isHwStatusCharging && rawCurrentMa > 50)) &&
             !(isHwStatusDischarging && !isHwPlugged && rawCurrentMa <= 0)
 
-    val isBypass = (isPlugged && !isHwStatusCharging && (batt.isBypassActive || chargingConfig.bypassEnabled || batt.isSmartLimitLatched)) ||
-            (isPlugged && liveBypassActive)
+    // Ground-Truth Physical Electrical Flow Guard:
+    // A battery cannot be in bypass (0mA) if the kernel reports active Charging status and significant electrical current (>150mA) is flowing into it.
+    val isHardwareActivelyCharging = isHwStatusCharging && rawCurrentMa > 150
+    val hasBypassIntentOrMarker = liveBypassActive || batt.isBypassActive || chargingConfig.bypassEnabled || batt.isSmartLimitLatched
+    val isBypass = isPlugged && hasBypassIntentOrMarker && !isHardwareActivelyCharging
 
     // Charging is strictly active ONLY if plugged, not in bypass, and electrical flow is positive or not discharging
     val isCharging = isPlugged && !isBypass && (!isHwStatusDischarging || rawCurrentMa > 50)

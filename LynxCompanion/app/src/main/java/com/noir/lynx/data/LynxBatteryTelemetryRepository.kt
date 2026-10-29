@@ -272,10 +272,12 @@ internal object LynxBatteryTelemetryRepository {
 
                     val isPlugged = parts.getOrNull(24)?.trim() == "1"
                     val rawBpa = parts.getOrNull(25)?.trim() == "1"
-                    val isBypassActive = rawBpa || chgState.contains("bypass")
+                    val rawIsBypass = rawBpa || chgState.contains("bypass")
+                    val isHardwareActivelyCharging = stat.equals("Charging", ignoreCase = true) && curMa > 150
+                    val isBypassActive = rawIsBypass && !isHardwareActivelyCharging
                     val isCharging = isPlugged && (curMa > 50 || stat.equals("Charging", ignoreCase = true))
                     val isOvernightLatched = isPlugged && (cap >= 100 || stat.equals("Full", ignoreCase = true) || chgState.contains("bypass_100"))
-                    val isLimitLatched = isPlugged && (chgState.contains("bypass_limit") || (isBypassActive && !isOvernightLatched && !chgState.contains("bypass_forced")))
+                    val isLimitLatched = isPlugged && !isHardwareActivelyCharging && (chgState.contains("bypass_limit") || (isBypassActive && !isOvernightLatched && !chgState.contains("bypass_forced")))
                     val isTapering = isPlugged && (chgState.contains("tapering") || (cap in 90..99 && isCharging))
 
                     val cal = java.util.Calendar.getInstance()

@@ -1,3 +1,14 @@
+# Lynx Universal [Electrical Ground-Truth Bypass Guard & Qualcomm Snapdragon De-Latch] 7.0.0-RC267
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.3.1
+
+- Menyelesaikan anomali tampilan visual pada antarmuka pengisian daya ("Tertahan di Bypass"): kartu hero pengisian daya sebelumnya dapat menampilkan status palsu "⚡ BYPASS CHARGING (0 mA)" dan "0.0 W" meskipun perangkat fisik sebenarnya sedang aktif melakukan pengisian cepat dengan arus tinggi (>2.5A).
+- Menerapkan **Electrical Ground-Truth Flow Guard**: status Bypass kini secara ketat divalidasi silang terhadap arus listrik nyata (`rawCurrentMa` / `battCurrentMa`). Jika kernel melaporkan status aktif `Charging` dan arus terukur melebihi ambang batas (>150 mA), status Bypass secara tegas ditolak dan UI menampilkan arus nyata, daya watt riil, serta protokol pengisian aktual.
+- Menambahkan pemulihan lengkap registrasi pengisian daya Qualcomm Snapdragon pada `clear_bypass_hardware_state()` di daemon native `lynxd`, skrip charging, dan Companion App: memulihkan `restricted_charging = 0`, `restrict_cur = 3000`, `direct_charging = 1/0`, serta membersihkan `/dev/lynx_charging_state` dan `/dev/lynx_bypass_active`.
+- Menghapus adopsi otomatis penanda bypass usang saat file status `/dev/lynx_charging_state` melaporkan mode reguler atau saat bypass dinonaktifkan dalam konfigurasi pengguna.
+
+---
+
 # Lynx Universal [Seamless Bypass-to-Hyper Transition & Non-Destructive Power Handshake] 7.0.0-RC266
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.3.0
