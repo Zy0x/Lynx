@@ -82,7 +82,8 @@ enable_esports_touch() {
 }
 
 disable_esports_touch() {
-    setprop view.touch_slop 8
+    resetprop --delete view.touch_slop 2>/dev/null || setprop view.touch_slop ""
+    resetprop --delete touch.pressure.scale 2>/dev/null
     setprop debug.touch.frequency.boost 0
     apply_node 0 /proc/touch_report_rate
     apply_node 0 /proc/driver/touchpanel/game_switch_enable

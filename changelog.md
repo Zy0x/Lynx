@@ -1,3 +1,17 @@
+# Lynx Universal [Touch Digitizer Stabilization & Fast Typing Collision Elimination] 7.0.0-RC270
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.4
+
+- Menyelesaikan anomali layar sentuh ("sesekali ghost touch, multiple touch bertabrakan, atau salah ketik saat mengetik cepat / fast touch") pada keyboard perangkat lunak dan interaksi multi-touch.
+- Menghapus override properti agresif `view.touch_slop=1`, `view.scroll_friction=0.005`, `ro.input.resampling=0`, dan `velocitytracker_strategy=lsq2` dari `platforms/mtk/system.prop`:
+  - Mengembalikan nilai toleransi pergeseran sentuhan (`touch_slop`) ke standar bawaan density-scaled Android Framework (8dp = ~24px pada layar 1080p 480dpi) sehingga mikrogoyangan alami ujung jari (1–3px) saat menekan tombol keyboard tidak lagi terdeteksi keliru sebagai gesture swipe / drag yang memicu salah ketik atau pembatalan input tombol.
+  - Memastikan `ro.input.resampling=1` aktif untuk mengeliminasi input jitter dan menyelaraskan event sentuh secara mulus dengan refresh rate VSYNC 120Hz.
+  - Menghapus strategi velocity quadratic (`lsq2`) yang memicu lonjakan kecepatan ekstrem pada gerakan mikro.
+- Menghapus berkas konfigurasi IDC usang `platforms/mtk/system/usr/idc/mtk-tpd.idc`: mengeliminasi `touch.gestureMode = spots` yang sebelumnya secara keliru memerintahkan Android InputReader memperlakukan layar sentuh langsung sebagai trackpad virtual mouse, serta menghapus skala area/pressure artifisial yang memicu tabrakan identitas pointer (*pointer tracking ID collision*) saat dua jari menekan layar secara berdekatan.
+- Memperbarui `HudZoneTouchManager.kt` dan `core/touch_tuning.sh`: menggunakan `resetprop --delete view.touch_slop` saat menonaktifkan mode sentuh Esports alih-alih mengunci statis ke `8px`, mengembalikan sistem ke toleransi bawaan pabrikan ROM.
+
+---
+
 # Lynx Universal [MediaTek Transsion Active Charging Restoration & Power Path Invariant] 7.0.0-RC269
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.3

@@ -104,7 +104,7 @@ class HudZoneTouchManager(
                 Shell.cmd(cmd).submit()
             } else {
                 val restoreCmd = """
-                    setprop view.touch_slop 8
+                    resetprop --delete view.touch_slop 2>/dev/null || setprop view.touch_slop ""
                     setprop debug.touch.frequency.boost 0
                     [ -e /proc/touch_report_rate ] && echo 0 > /proc/touch_report_rate 2>/dev/null
                     [ -e /proc/driver/touchpanel/game_switch_enable ] && echo 0 > /proc/driver/touchpanel/game_switch_enable 2>/dev/null
