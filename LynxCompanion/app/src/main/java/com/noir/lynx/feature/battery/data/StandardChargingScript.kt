@@ -10,6 +10,13 @@ object StandardChargingScript {
     fun buildOemStandardChargingScript(): String = """
         applied=0
         failed=0
+        rm -f /dev/lynx_bypass_active /dev/lynx_extreme_charging
+        echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+        echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+        echo 0 > /proc/lynx/bypass_charging 2>/dev/null
+        chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
+        echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+        echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
         # Resume legacy OEM services using exact process names.
         for process in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine; do
             for pid in ${'$'}(pidof "${'$'}process" 2>/dev/null); do
@@ -77,6 +84,9 @@ object StandardChargingScript {
 
         return """
             rm -f /dev/lynx_extreme_charging /dev/lynx_bypass_active 2>/dev/null
+            echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+            echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+            echo 0 > /proc/lynx/bypass_charging 2>/dev/null
 
             # Unfreeze OEM thermal daemons so normal safety protections operate
             for p in thermalloadalgod com.xiaomi.joyose mi_thermald thermal-engine; do
@@ -197,6 +207,12 @@ object StandardChargingScript {
 
         return """
             rm -f /dev/lynx_bypass_active 2>/dev/null
+            echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+            echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+            echo 0 > /proc/lynx/bypass_charging 2>/dev/null
+            chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
+            echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+            echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
 
             for node in /sys/devices/platform/charger/enable_sc \
                         /sys/devices/platform/charger/pe20 \

@@ -208,8 +208,14 @@ disable_bypass() {
     if [ -f "/sys/devices/platform/charger/BatteryNotify" ]; then
         echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
     fi
-    if [ -f "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState" ]; then
-        echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+    chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
+    echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
+    echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
+    if [ -f "/sys/devices/platform/charger/pe20" ]; then
+        echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
+    fi
+    if [ -f "/sys/devices/platform/charger/pe40" ]; then
+        echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null
     fi
     if [ -f "/proc/driver/thermal/clbcct" ]; then
         echo 0 > /proc/driver/thermal/clbcct 2>/dev/null

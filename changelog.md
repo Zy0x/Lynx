@@ -1,3 +1,14 @@
+# Lynx Universal [Seamless Bypass-to-Hyper Transition & Non-Destructive Power Handshake] 7.0.0-RC266
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.3.0
+
+- Menyelesaikan masalah arus pengisian daya yang memantul atau drop ("masuk tetapi langsung balik") saat berpindah langsung dari mode Bypass ke mode Hyper/Extreme tanpa mencabut dan mencolok kembali kabel charger (Zero-Unplug Instant Transition).
+- Menghadirkan fungsi terpusat pemulihan hardware bypass `clear_bypass_hardware_state()` di daemon native `lynxd`, skrip shell, dan Kotlin Companion App: memulihkan registrasi baterai MediaTek (`current_cmd = "1 0"`, `en_power_path = 0`), membuka izin serta mereset status panggilan ODM (`Charging_CallState = 0`), dan me-reset node bypass OEM ke kondisi normal.
+- Mengeliminasi pulsa pemutus arus VBUS (`input_suspend = 1` 500ms) pada soft re-handshake: negosiasi ulang kini dilakukan secara murni non-destruktif (`pe20 = 1`, `pe40 = 1`, `BN_TestMode = 1`, `Pump_Express = 1/2` di MediaTek, serta `rerun_aicl = 1` di Qualcomm) sehingga adaptor pengisian cepat (PE 4.0 / QC / USB-PD) tidak mengalami brownout/reset dan dapat langsung menaikkan tegangan ke 9V+ dengan arus puncak stabil (>2.3A / 21W+ terverifikasi).
+- Memperbaiki sinkronisasi status konfigurasi pada `apply_extreme_charging()` dan `apply_from_config()`: menghilangkan penimpaan mode menjadi "standard" yang tidak disengaja serta mengeliminasi adopsi otomatis penanda usang `/dev/lynx_bypass_active` saat bypass dinonaktifkan.
+
+---
+
 # Lynx Universal [Zero-Wear Hardware Bypass Charging & Thermal Guard Protection] 7.0.0-RC265
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.2.99

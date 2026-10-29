@@ -757,6 +757,7 @@ fn handle_charging(args: &[String]) {
             let _ = std::fs::remove_file("/dev/lynx_bypass_active");
             match m {
                 "cool" => {
+                    ChargingRegulator::clear_bypass_hardware_state();
                     let _ = ConfigStore::set_batch(&[
                         ("charging.charging_mode".to_string(), "cool".to_string(), Some("str".to_string())),
                         ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -768,6 +769,7 @@ fn handle_charging(args: &[String]) {
                     println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 "standard" => {
+                    ChargingRegulator::clear_bypass_hardware_state();
                     let _ = ConfigStore::set_batch(&[
                         ("charging.charging_mode".to_string(), "standard".to_string(), Some("str".to_string())),
                         ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -779,6 +781,7 @@ fn handle_charging(args: &[String]) {
                     println!("[OK] {}: STANDARD ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Adaptif OEM", "OEM Adaptive"));
                 }
                 "hyper" => {
+                    ChargingRegulator::clear_bypass_hardware_state();
                     let _ = ConfigStore::set_batch(&[
                         ("charging.charging_mode".to_string(), "hyper".to_string(), Some("str".to_string())),
                         ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
@@ -790,6 +793,7 @@ fn handle_charging(args: &[String]) {
                     println!("[OK] {}: HYPER ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Puncak Tanpa Batas", "Unconstrained Peak"));
                 }
                 "custom" => {
+                    ChargingRegulator::clear_bypass_hardware_state();
                     let _ = ConfigStore::set_batch(&[
                         ("charging.charging_mode".to_string(), "custom".to_string(), Some("str".to_string())),
                         ("charging.bypass_enabled".to_string(), "false".to_string(), Some("bool".to_string())),
