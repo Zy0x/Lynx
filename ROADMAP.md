@@ -1,295 +1,239 @@
-# 🗺️ Lynx V7 - Deity Master Engineering Roadmap & Next-Gen Milestones
-> **Target Release Line**: Lynx V7 Generation (`7.0.0-RC252+` Uncapped RC Cycle)  
-> **Repository**: [Zy0x/Lynx](https://github.com/Zy0x/Lynx)  
-> **Primary Interfaces**: Native Android Companion App (`LynxCompanion` / Jetpack Compose) & Native Rust Kernel Daemon (`lynxd`)  
-> **Hardware Architectures**: Hybrid Qualcomm Snapdragon & MediaTek (Helio / Dimensity) with Generic Linux Fallback  
+# 🗺️ Lynx V7 - Deity Master Engineering Roadmap
+> **Target Release**: Lynx V7 Generation (`7.0.0-RC252+` Uncapped RC Cycle)  
+> **Repository**: [Zy0x/Lynx](https://github.com/Zy0x/Lynx) | **Base**: `main` <- **Head**: `roadmap/v7-deity-master-milestones`  
+> **Architectures**: Hybrid Qualcomm Snapdragon & MediaTek (Helio / Dimensity) with Generic Linux Fallback  
+> ⚠️ **Governance Rule**: All tasks MUST remain unchecked (`- [ ]`). Checking off items (`- [x]`) is strictly reserved for explicit human user command.
 
 ---
 
-## 📌 Ringkasan Eksekutif & Visi Pengembangan
-
-Dokumen ini merupakan **Cetak Biru Teknik Resmi (Master Engineering Roadmap)** untuk rilis kenaikan versi berikutnya dari **Lynx V7 - Deity**. Seluruh rencana kerja di bawah ini dirancang secara terperinci, komprehensif, dan siap dieksekusi secara berurutan sesuai prinsip arsitektur *Native-First*, *Hardware Ground Truth*, dan *Safety First*.
-
-Roadmap ini disinkronkan secara langsung dengan **Pull Request di GitHub** sebagai *Living Master Work Board*. Setiap sub-tugas dan sub-sub bagian dilengkapi dengan kotak centang (*interactive checklist*) yang akan diperbarui secara kontinu seiring diselesaikannya implementasi kode.
-
----
-
-## 🏗️ 4 Fase Rekayasa Terstruktur (Phased Engineering Breakdown)
+## 🏗️ Execution Pipeline
 
 ```mermaid
 flowchart LR
-    Fase1["⚡ FASE 1: Mesin lynxd & Hardware Foundation"] --> Fase2["🎮 FASE 2: Inovasi HUD Lynx Engine"]
-    Fase2 --> Fase3["🎨 FASE 3: Revamp Visual Halaman Compose"]
-    Fase3 --> Fase4["🧪 FASE 4: Lab Verification & Production Release"]
+    Fase1["⚡ Phase 1: lynxd & Hardware Foundation"] --> Fase2["🎮 Phase 2: In-Game HUD & Vision AI"]
+    Fase2 --> Fase3["🎨 Phase 3: Compose UI Total Revamp"]
+    Fase3 --> Fase4["🧪 Phase 4: Hardware Lab & Release"]
 ```
 
 ---
 
-## ⚡ FASE 1: Mesin Native Rust `lynxd` & Hardware Foundation
-
-Fase ini berfokus pada penguatan fondasi sistem di lapisan kernel dan daemon native (`native/lynxd/`), menyatukan kontrol pengisian daya universal, bypass charging, optimasi latensi jaringan Wi-Fi, serta penyetelan performa CPU & GPU terpadu.
+## ⚡ Phase 1: Native Rust `lynxd` & Hardware Foundation
 
 ### 1.1 Universal CPU & EAS Scheduler Engine (`native/lynxd/src/subsystems/cpu.rs`)
-- [ ] **Penyempurnaan Pelindung Penjadwal Otonom (*Scheduler Guardian v2*)**
-  - [ ] Implementasi penguncian izin atomik (`0644`/`0444`) untuk `/dev/stune/top-app/schedtune.boost` dan `/dev/stune/top-app/schedtune.prefer_idle` di seluruh profil performa.
-  - [ ] Pemantauan sub-siklus (*watchdog loop*) setiap 500ms saat layar menyala untuk memulihkan margin boost yang dibatalkan oleh `system_server` atau OEM power HAL.
-  - [ ] Penambahan dukungan *Energy Aware Scheduling (EAS)* untuk kluster CPU Tri-Cluster (Prime + Gold + Silver / Cortex-X + Cortex-A7xx + Cortex-A5xx).
-  - [ ] Pengikatan afinitas thread game render (*Core Affinity Packing*) ke kluster performa secara dinamis tanpa mengorbankan thread audio.
-- [ ] **Penyetelan Governor CPUFreq Dinamis**
-  - [ ] Integrasi governor `schedutil` dengan parameter adaptif: `up_rate_limit_us` (500us saat game) dan `down_rate_limit_us` (4000us untuk stabilitas frekuensi).
-  - [ ] MediaTek PPM (Power Policy Manager) deep control: override `/proc/ppm/policy/userlimit_cpu_core` dan `policy_status`.
-  - [ ] Fallback profil hemat daya otomatis saat suhu baterai menyentuh batas kritis (>46°C).
+- [ ] **Autonomous Scheduler Guardian v2**
+  - [ ] Enforce atomic permissions (`0644`/`0444`) on `/dev/stune/top-app/schedtune.boost` and `schedtune.prefer_idle`.
+  - [ ] 500ms watchdog loop while screen-on to restore boost values against OEM power HAL overrides.
+  - [ ] EAS Tri-Cluster topology awareness (Prime + Gold + Silver / Cortex-X + A7xx + A5xx).
+  - [ ] Dynamic core affinity binding for game render threads without starving audio threads.
+- [ ] **Dynamic CPUFreq Governor Tuning**
+  - [ ] Adaptive `schedutil` rates: `up_rate_limit_us=500` (in-game) and `down_rate_limit_us=4000` (stability).
+  - [ ] MediaTek PPM deep control: override `/proc/ppm/policy/userlimit_cpu_core` and `policy_status`.
+  - [ ] Autonomous thermal fallback throttle when battery exceeds 46°C.
 
-### 1.2 Universal GPU & Graphics Compositor Engine (`native/lynxd/src/subsystems/gpu.rs`)
-- [ ] **Subsystem Khusus Qualcomm Adreno (KGSL)**
-  - [ ] Kontrol devfreq bus clock override pada `/sys/class/kgsl/kgsl-3d0/devfreq/min_freq` dan `max_freq`.
-  - [ ] Penyetelan parameter latensi bus KGSL (`bus_split`, `force_bus_on`, `force_rail_on`, `force_clk_on`) untuk eliminasi micro-stuttering.
-  - [ ] Adreno GPU governor optimizer: transisi mulus antara `msm-adreno-tz` dan `performance`.
-  - [ ] Prapemanasan cache shader (*Shader Cache Pre-warming*) via penulisan properti `debug.hwui.use_gpu_pixel_buffers = true`.
-- [ ] **Subsystem Khusus MediaTek Mali (GED / FPSGO)**
-  - [ ] Akselerasi MediaTek GED driver via `/proc/ged/hal/custom_upbound_gpu_freq` dan `/proc/ged/hal/custom_boost_gpu_freq`.
-  - [ ] Penyetelan MTK FPSGO: override target frame rate dan boost threshold (`/sys/module/mtk_fpsgo/parameters/`).
-  - [ ] ARM Mali Kbase scheduling priority boost via sysfs `/sys/devices/platform/13040000.mali/dvfs_enable`.
+### 1.2 Universal GPU & Compositor Engine (`native/lynxd/src/subsystems/gpu.rs`)
+- [ ] **Qualcomm Adreno Subsystem (KGSL)**
+  - [ ] Override devfreq bus clock on `/sys/class/kgsl/kgsl-3d0/devfreq/min_freq` and `max_freq`.
+  - [ ] Tune KGSL bus latency nodes (`bus_split`, `force_bus_on`, `force_rail_on`, `force_clk_on`).
+  - [ ] Smooth transition governor: `msm-adreno-tz` (balanced) <-> `performance` (gaming).
+  - [ ] Shader cache pre-warming via `debug.hwui.use_gpu_pixel_buffers = true`.
+- [ ] **MediaTek Mali Subsystem (GED / FPSGO)**
+  - [ ] Boost MTK GED via `/proc/ged/hal/custom_upbound_gpu_freq` and `custom_boost_gpu_freq`.
+  - [ ] Tune MTK FPSGO: target framerate and boost thresholds in `/sys/module/mtk_fpsgo/parameters/`.
+  - [ ] ARM Mali Kbase scheduling priority boost via `/sys/devices/platform/13040000.mali/dvfs_enable`.
 - [ ] **Generic Linux Devfreq Driver Fallback**
-  - [ ] Pendeteksian node devfreq universal `/sys/class/devfreq/` jika GPU vendor khusus tidak teridentifikasi.
-  - [ ] Verifikasi izin tulis transaksi (*Transaction Write Verification*) sebelum menerapkan clock GPU.
+  - [ ] Automatic fallback to `/sys/class/devfreq/` if vendor nodes are unavailable.
+  - [ ] Transaction write verification on all clock applied nodes.
 
-### 1.3 Pengisian Daya Cepat Universal (MediaTek PumpExpress & Multi-OEM Fast Charging)
-- [ ] **Arsitektur Pengontrol Arus Terpadu (`native/lynxd/src/hardware/charging.rs`)**
-  - [ ] Deteksi otomatis protokol pengisian daya: MediaTek PumpExpress (PE+ 1.0/2.0/3.0/4.0), Qualcomm Quick Charge (QC 3.0/4.0/5.0), USB Power Delivery (USB-PD PPS), dan OEM Proprietary (Transsion Ultra Charge, Xiaomi HyperCharge, VOOC/Dart/Warp).
-  - [ ] Penyelaman node sysfs arus baterai universal:
+### 1.3 Universal Fast Charging (PumpExpress & Multi-OEM)
+- [ ] **Unified Current Control Architecture (`native/lynxd/src/hardware/charging.rs`)**
+  - [ ] Auto-detect charging protocols: MediaTek PumpExpress (PE+ 1.0–4.0), Qualcomm QC (3.0–5.0), USB-PD PPS, and OEM proprietary (Transsion, Xiaomi, VOOC).
+  - [ ] Universal battery current node hooks:
     - [ ] `/sys/class/power_supply/battery/current_max`
     - [ ] `/sys/class/power_supply/battery/constant_charge_current_max`
     - [ ] `/sys/class/power_supply/main/current_max`
     - [ ] `/sys/class/power_supply/usb/current_max`
     - [ ] `/sys/devices/platform/charger/charging_current`
     - [ ] `/sys/class/power_supply/battery/step_charging_enabled`
-  - [ ] Preset arus bertingkat aman:
-    - [ ] *Standard Safe*: 1500mA – 2000mA (Temperatur rendah, menjaga usia sel baterai).
-    - [ ] *Turbo Fast*: 2500mA – 3300mA (Pengisian cepat harian teroptimasi).
-    - [ ] *Extreme Unrestricted*: Hingga 4500mA+ (Batas penuh OEM jika kabel & adaptor mendukung, dengan disclaimer pendingin eksternal).
-- [ ] **Manajemen Termal Pengisian Daya Pintar (*Thermal-Aware Step Charging*)**
-  - [ ] Pemantauan suhu sel baterai setiap 2 detik saat terhubung ke charger.
-  - [ ] Kurva penyesuaian arus dinamis:
-    - [ ] Suhu < 38°C: Arus penuh sesuai preset aktif.
-    - [ ] Suhu 38°C – 42°C: Penurunan bertahap 15% untuk mencegah lonjakan panas.
-    - [ ] Suhu 42°C – 45°C: Pembatasan ke 1500mA (Mode aman OEM).
-    - [ ] Suhu > 45°C: Proteksi darurat, pembatasan ke 1000mA hingga suhu turun di bawah 40°C.
+  - [ ] Safe Current Presets:
+    - [ ] *Standard Safe*: 1500mA – 2000mA (Low temp, battery longevity).
+    - [ ] *Turbo Fast*: 2500mA – 3300mA (Optimized daily fast charge).
+    - [ ] *Extreme Unrestricted*: Up to 4500mA+ (Full OEM spec, requires external cooling).
+- [ ] **Thermal-Aware Step Charging**
+  - [ ] 2-second battery temperature polling during active charging.
+  - [ ] Dynamic current derating curve:
+    - [ ] `< 38°C`: Full preset current.
+    - [ ] `38°C – 42°C`: -15% gradual reduction to prevent thermal spikes.
+    - [ ] `42°C – 45°C`: Clamp to 1500mA (OEM safety threshold).
+    - [ ] `> 45°C`: Emergency throttle to 1000mA until cooled below 40°C.
 
-### 1.4 Bypass Charging (Penyuplai Daya Langsung Motherboard)
-- [ ] **Mesin Penonaktifan Pengisian Sel Baterai (*Battery Charge Suspend*)**
-  - [ ] Deteksi dan penguncian node hardware bypass universal:
+### 1.4 True Bypass Charging (Direct Motherboard Power)
+- [ ] **Battery Charge Suspend Engine**
+  - [ ] Target universal hardware bypass nodes:
     - [ ] `/sys/class/power_supply/battery/charging_enabled` -> `0`
     - [ ] `/sys/class/power_supply/battery/battery_charging_enabled` -> `0`
     - [ ] `/sys/class/power_supply/battery/input_suspend` -> `1`
     - [ ] `/sys/class/power_supply/battery/charge_control_limit_max` -> `0`
-    - [ ] `/sys/class/power_supply/battery/store_mode` -> `1` (Mode pameran/toko Sony/Samsung/Infinix)
+    - [ ] `/sys/class/power_supply/battery/store_mode` -> `1` (Sony/Samsung/Infinix demo mode)
     - [ ] `/sys/class/power_supply/main/charging_enabled` -> `0`
-  - [ ] Verifikasi status hardware: Arus baterai wajib bernilai `0 mA` atau mendekati netral (`±50 mA`) saat charger tetap terpasang memasok daya motherboard.
-- [ ] **Modul Tambal Kernel KPM (*Kernel Patch Module*) Fallback**
-  - [ ] Penyempurnaan biner KPM `native/kpm/lynx_bypass_charge/lynx_bypass_charge.c` untuk kernel OEM yang mengunci node sysfs baterai pada level driver Linux.
-  - [ ] Auto-hook pada fungsi kernel `power_supply_set_property` dan `charger_manager`.
-- [ ] **Pemicu Otomatis Cerdas Saat Bermain Game (*Smart In-Game Auto-Bypass*)**
-  - [ ] Deteksi otomatis ketika game berat (Genshin Impact, HSR, WuWa, PUBG, MLBB) aktif di layar depan DAN charger terpasang.
-  - [ ] Jika persentase baterai telah mencapai ambang batas aman pengguna (misal: >= 80%), mesin secara otonom mengaktifkan Bypass Charging.
-  - [ ] Pemulihan pengisian normal seketika saat game ditutup atau pengguna mencabut charger.
+  - [ ] Hardware verification: Battery current MUST read `0 mA` (or net `±50 mA`) while charger powers system.
+- [ ] **Kernel Patch Module (KPM) Fallback**
+  - [ ] C-based KPM driver in `native/kpm/lynx_bypass_charge/` for OEM kernels locking sysfs nodes at driver level.
+  - [ ] Hook into kernel `power_supply_set_property` and `charger_manager`.
+- [ ] **Smart In-Game Auto-Bypass Trigger**
+  - [ ] Auto-detect heavy games (Genshin, HSR, WuWa, PUBG, MLBB) foregrounded with charger plugged.
+  - [ ] Auto-engage bypass when battery level reaches target threshold (e.g. >= 80%).
+  - [ ] Instant charge restoration upon game exit or charger disconnect.
 
-### 1.5 Wi-Fi & Jaringan Gaming Rendah Latensi (Low-Latency Network Engine)
-- [ ] **Penyetelan Driver Wi-Fi Chipset (Qualcomm & MediaTek)**
-  - [ ] Penonaktifan mode hemat daya Wi-Fi (*Wi-Fi Power Save Mode / PSM*) saat game aktif untuk mencegah lonjakan jitter paket.
-  - [ ] Penyetelan WCNSS bonding pada Qualcomm (`platforms/qcom/system/vendor/firmware/wlan/`).
-  - [ ] Optimasi MediaTek Wi-Fi driver cfg (`/vendor/firmware/wifi.cfg` dan node `/proc/net/wlan/`).
-- [ ] **Optimasi Tumpukan Protokol Jaringan Kernel (*Kernel TCP/IP Stack*)**
-  - [ ] Pengaktifan algoritma *TCP BBR (Bottleneck Bandwidth and RTT)* atau *Westwood* untuk meminimalkan *packet loss* pada koneksi nirkabel.
-  - [ ] Penskalaan buffer socket TCP gaming:
-    - [ ] `net.core.rmem_max = 8388608` (8 MB buffer terima)
-    - [ ] `net.core.wmem_max = 8388608` (8 MB buffer kirim)
+### 1.5 Low-Latency Gaming Wi-Fi & Network Stack
+- [ ] **Chipset Wi-Fi Driver Optimization**
+  - [ ] Disable Wi-Fi Power Save Mode (PSM) during active gameplay to eliminate jitter spikes.
+  - [ ] Tune Qualcomm WCNSS bonding in `platforms/qcom/system/vendor/firmware/wlan/`.
+  - [ ] Optimize MediaTek Wi-Fi config (`/vendor/firmware/wifi.cfg` and `/proc/net/wlan/`).
+- [ ] **Kernel TCP/IP Stack Tuning**
+  - [ ] Enable TCP BBR or Westwood congestion control for minimal wireless packet loss.
+  - [ ] Gaming socket buffer scaling:
+    - [ ] `net.core.rmem_max = 8388608` (8 MB receive buffer)
+    - [ ] `net.core.wmem_max = 8388608` (8 MB transmit buffer)
     - [ ] `net.ipv4.tcp_rmem = 4096 87380 8388608`
     - [ ] `net.ipv4.tcp_wmem = 4096 65536 8388608`
-  - [ ] Penyetelan antrean paket *FQ-CoDel (Fair Queueing Controlled Delay)* untuk mencegah *bufferbloat*.
-  - [ ] Penyetelan ARP cache timeout dan penonaktifan *TCP Slow Start Pasca-Idle*.
+  - [ ] FQ-CoDel packet scheduling to prevent bufferbloat.
+  - [ ] Tune ARP cache timeouts and disable TCP slow start after idle.
 
-### 1.6 Memori Virtual & Penyangga Anti-Allocstall
-- [ ] **Penyetelan Kompresi ZRAM / ZSWAP Tingkat Lanjut**
-  - [ ] Penggunaan algoritma kompresi berkecepatan tinggi `lz4` atau `zstd` dengan alokator `zsmalloc`.
-  - [ ] Penskalaan disk ZRAM dinamis (50%–75% dari RAM fisik) dengan prioritas swap `32767`.
-- [ ] **Pencegahan Latensi Alokasi Memori (*Anti-Allocstall Guard*)**
-  - [ ] Mempertahankan penyangga `extra_free_kbytes = 65536` (64 MB) dan `watermark_scale_factor = 150` pada profil performa.
-  - [ ] Penyetelan `vfs_cache_pressure = 50` untuk menjaga inode dunia terbuka tetap di-cache dalam RAM.
-  - [ ] Penekanan pemadatan halaman memori sinkron (*direct compaction suppression*) saat render thread game aktif.
-
----
-
-## 🎮 FASE 2: Inovasi HUD Lynx Engine & Floating Overlay
-
-Fase ini memfokuskan pengembangan pada antarmuka *in-game* mengambang (*Freeform Floating HUD*), menghadirkan kontrol cepat satu sentuhan, telemetri real-time, ergonomi handle bilah sisi, serta perluasan kecerdasan Vision AI Auto-Skip ke berbagai game RPG populer.
-
-### 2.1 Ergonomi Handle Bilah Sisi (*Sidebar Handle & Touch Ergonomics*)
-- [ ] **Memori Posisi Spasial Dua Arah (Landscape & Portrait Separation)**
-  - [ ] Penyimpanan koordinat sumbu Y handle yang terpisah secara independen untuk orientasi Lanskap dan Potret pada `HudPreferences.kt`.
-  - [ ] Restorasi posisi handle instan tanpa efek *snap back* atau *jump* saat bilah sisi ditutup kembali oleh pengguna.
-  - [ ] Batasan margin aman layar (*Safe-area padding bounds clamp*) agar handle tidak tertutup lubang kamera (*punch hole*) atau navigasi gestur sistem.
-- [ ] **Desain Visual & Interaksi Sentuhan Handle**
-  - [ ] Visual kapsul bilah sisi Cyberpunk OLED transparan dengan garis aksen Cyan yang elegan.
-  - [ ] Efek haptik mikro (*tactile vibration feedback*) saat handle disentuh, digeser, atau dilepas.
-  - [ ] Pengaturan tingkat transparansi (*opacity dial*) saat handle dalam kondisi diam (*idle state*).
-
-### 2.2 Dashboard Telemetri Mengambang (*Floating Live Telemetry Cards*)
-- [ ] **Pengukur Latensi & Frame Rate Real-Time**
-  - [ ] Analisis frame rate instan via SurfaceFlinger pipe parser (<1% CPU overhead).
-  - [ ] Grafik sparkline riwayat FPS dengan deteksi micro-stuttering visual.
-- [ ] **Monitor Beban Hardware & Suhu Multi-Sensor**
-  - [ ] Tampilan persentase beban CPU per kluster (LITTLE / MID / BIG) dengan indikator frekuensi MHz aktif.
-  - [ ] Monitor utilisasi GPU (%) dan frekuensi clock aktif.
-  - [ ] Suhu SoC nyata (*die temperature*), suhu baterai, serta laju arus pengisian/pengurasan daya nyata dalam satuan miliampere (mA).
-
-### 2.3 Kontrol Cepat Dalam Game (*In-Game Quick Action Toggles*)
-- [ ] **1-Tap Profile Switcher Cepat**
-  - [ ] Tombol pintas melingkar untuk beralih mode profil instan: *Balanced* <-> *Performance* <-> *Extreme* tanpa keluar dari game.
-- [ ] **1-Tap Bypass Charging Toggle**
-  - [ ] Sakelar cepat aktivasi Bypass Charging langsung dari jendela mengambang saat bermain sambil mengisi daya.
-- [ ] **1-Tap Network Gaming Latency Booster**
-  - [ ] Tombol purifikasi paket Wi-Fi dan reset buffer TCP gaming sekali sentuh.
-- [ ] **1-Tap RAM Purge & Cache Cleaner**
-  - [ ] Pembersihan aman memori latar belakang tanpa mematikan proses game aktif di layar depan.
-
-### 2.4 Ekspansi Mesin Cerdas Vision AI Auto-Skip Multi-Game
-- [ ] **Penyempurnaan Arsitektur Triple-Shield Vision AI**
-  - [ ] Penguatan deteksi glif tombol dialog beruntun (`maxRun >= 3` piksel bersebelahan) dan ambang batas dinamis 18px pada 1080p.
-  - [ ] Evaluasi margin hitam 80% pada baris prompt untuk membedakan adegan narasi vs gameplay gelap di dalam gua.
-- [ ] **Ekspansi Basis Data Game Hoyoverse & RPG Baru**
-  - [ ] Dukungan modul auto-skip untuk **Honkai: Star Rail** (dialog cerita dan transisi dialog pilihan).
-  - [ ] Dukungan modul auto-skip untuk **Zenless Zone Zero** (dialog komik dan percakapan kota).
-  - [ ] Dukungan modul auto-skip untuk **Wuthering Waves** (dialog NPC dan cutscene narasi).
-- [ ] **Antarmuka Kalibrasi Citra Mandiri di Aplikasi Companion (*Vision AI Calibration GUI*)**
-  - [ ] Layar pratinjau koordinat pemindaian langsung di atas tangkapan layar game.
-  - [ ] Slider visual interaktif untuk mengatur toleransi warna dan batas irisan tanpa edit skrip manual.
+### 1.6 Virtual Memory & Anti-Allocstall Guard
+- [ ] **Advanced ZRAM / ZSWAP Tuning**
+  - [ ] High-speed compression via `lz4` or `zstd` with `zsmalloc` allocator.
+  - [ ] Dynamic ZRAM disk scaling (50%–75% of physical RAM) with swap priority `32767`.
+- [ ] **Anti-Allocstall Guard**
+  - [ ] Maintain `extra_free_kbytes = 65536` (64 MB) and `watermark_scale_factor = 150` on performance profiles.
+  - [ ] Set `vfs_cache_pressure = 50` to retain open-world inodes in RAM.
+  - [ ] Suppress synchronous direct compaction while game render threads are active.
 
 ---
 
-## 🎨 FASE 3: Revamp Visual Total Per-Halaman Compose (`LynxCompanion`)
+## 🎮 Phase 2: In-Game HUD & Vision AI Engine
 
-Fase ini merevolusi seluruh halaman antarmuka pengguna pada aplikasi Native Android (`LynxCompanion` / Jetpack Compose), mengimplementasikan desain Cyberpunk OLED Dark yang konsisten, komponen Bento Grid modern, animasi halus berkecepatan 60/120 FPS, dan target sentuh ergonomis >= 48dp.
+### 2.1 Sidebar Handle & Touch Ergonomics
+- [ ] **Dual-Orientation Coordinate Persistence**
+  - [ ] Independent Y-axis handle coordinate storage for Portrait and Landscape in `HudPreferences.kt`.
+  - [ ] Instant handle position restoration with zero jumping or snapping upon sidebar close.
+  - [ ] Safe-area bounds clamping against punch-hole cameras and system gesture zones.
+- [ ] **Handle Visuals & Feedback**
+  - [ ] Cyberpunk OLED translucent capsule with subtle cyan accent lines.
+  - [ ] Haptic tick on touch, drag, and release.
+  - [ ] Idle opacity dial for distraction-free gaming.
 
-### 3.1 Standardisasi Sistem Desain & Token Visual Cyberpunk OLED
-- [ ] **Palet Warna & Token Kontras Tinggi**
-  - [ ] Latar belakang hitam murni OLED (`#050505` dan `#0A0A0A`) untuk efisiensi daya layar AMOLED.
-  - [ ] Kartu kontras bergradasi lembut (`#121212` s/d `#181818`) dengan batas halus 1dp (`#262626`).
-  - [ ] Warna aksen semantik: *Neon Cyan* (`#00FFAA`) untuk status aktif/efisien, *Electric Blue* (`#0099FF`) untuk navigasi utama, *Amber Gold* (`#FFB800`) untuk peringatan/bypass, dan *Crimson Red* (`#FF3366`) untuk mode ekstrem.
-- [ ] **Ergonomi Sentuhan & Tipografi Semantik**
-  - [ ] Seluruh target interaktif (tombol, sakelar, slider) memiliki ukuran sentuh minimal **48×48 dp** tanpa risiko *miss-touch*.
-  - [ ] Tata letak stabil dan presisi pada seluruh rasio layar non-reguler (1080×2400, 1080×2460, 20:9, 20.5:9, 21:9) hingga tablet.
-  - [ ] Transisi mikro-animasi Compose responsif dengan durasi **150–250 ms** yang ringan tanpa memicu lonjakan Garbage Collection (GC).
+### 2.2 Floating Live Telemetry Cards
+- [ ] **Real-Time Framerate & Latency Gauge**
+  - [ ] SurfaceFlinger pipe parser (<1% CPU overhead) for live FPS calculation.
+  - [ ] Real-time frametime sparkline with micro-stutter spike detection.
+- [ ] **Hardware Load & Multi-Sensor Monitoring**
+  - [ ] Per-cluster CPU load breakdown (LITTLE / MID / BIG) with live MHz indicators.
+  - [ ] GPU utilization (%) and active clock frequency.
+  - [ ] Real-time SoC die temperature, battery temperature, and live charge/discharge current (mA).
 
-### 3.2 Revamp Visual Halaman Tab 0 (Dashboard & Sistem Overview)
-- [ ] **Kartu Hero Status Sistem (*System Identity Hero Card*)**
-  - [ ] Lencana arsitektur chipset dinamis beranimasi halus: *Qualcomm Snapdragon* vs *MediaTek Helio/Dimensity*.
-  - [ ] Tampilan status daemon native `lynxd` (PID, uptime, memori residen, arsitektur AArch64).
-  - [ ] Indikator status root universal (KernelSU / APatch / Magisk) dengan verifikasi izin eksekusi.
-- [ ] **Pengukur Metrik Hardware Real-Time (*Live Gauge Bento Tiles*)**
-  - [ ] Cincin progres melingkar interaktif untuk utilisasi CPU, frekuensi GPU, dan pemakaian RAM.
-  - [ ] Kartu status baterai: persentase, voltase (mV), suhu (°C), dan indikator status pengisian/bypass aktif.
-- [ ] **Pemilih Profil Utama 1-Sentuh (*Master Profile Carousel Card*)**
-  - [ ] Kartu Bento pilihan 4 profil: *Powersave*, *Balanced*, *Performance*, *Extreme Unrestricted*.
-  - [ ] Aksen visual dinamis yang berubah warna sesuai profil aktif dengan konfirmasi instan.
+### 2.3 In-Game Quick Action Toggles
+- [ ] **1-Tap Profile Switcher**: Rapid toggle between *Balanced*, *Performance*, and *Extreme*.
+- [ ] **1-Tap Bypass Charging**: Toggle direct motherboard power without leaving the game.
+- [ ] **1-Tap Network Latency Booster**: Flush Wi-Fi packet queues and reset gaming TCP buffers.
+- [ ] **1-Tap RAM Purge**: Safe background cache reclamation without killing foreground game process.
 
-### 3.3 Revamp Visual Halaman Tab 1 (Tuning Hub & Kontrol Hardware)
-- [ ] **Kategori Tuning CPU (*CpuMasterTunerCard*)**
-  - [ ] Pemilih frekuensi minimum dan maksimum per-kluster CPU (LITTLE / MID / BIG) dengan slider presisi.
-  - [ ] Sakelar penguncian frekuensi (*Core Clock Lock*) dengan konfirmasi batas keamanan.
-- [ ] **Kategori Tuning GPU (*GpuMasterTunerCard & AdaptiveGpuHardwareCard*)**
-  - [ ] Pemilih OPP clock GPU fisik (MHz picker) dengan grafik beban real-time kurva Bezier.
-  - [ ] Pengaturan eksklusif driver sysfs GPU (Adreno KGSL bus split vs MediaTek GED boost).
-- [ ] **Kategori Baterai & Pengisian Daya (*TuningChargingCategory*)**
-  - [ ] Kartu kendali Pengisian Cepat Universal: slider pilihan batas arus (1000mA s/d 4500mA+).
-  - [ ] Sakelar Bypass Charging mandiri dengan kartu status pengiriman daya motherboard secara langsung.
-  - [ ] Dialog batas arus kustom (*CustomCurrentLimitDialog*) dengan validasi rentang hardware.
-- [ ] **Kategori Layar, Refresh Rate & Sentuhan (*DisplayRefreshRateTouchCard*)**
-  - [ ] Sakelar physical mode HWC SurfaceFlinger (60Hz / 90Hz / 120Hz / 144Hz).
-  - [ ] Multi-OEM TouchBoost optimizer dan DC Dimming hardware toggle.
-- [ ] **Kategori Jaringan & Wi-Fi (*NetworkLatencyTunerCard*)**
-  - [ ] Sakelar Wi-Fi Gaming Low Latency dan pemilihan algoritma TCP Congestion Control (BBR / Cubic).
-
-### 3.4 Revamp Visual Halaman Tab 2 (Telemetri Hardware & Spesifikasi Murni)
-- [ ] **Status Murni Read-Only (Domain Isolation Tab 2)**
-  - [ ] Menegakkan isolasi domain: Tab 2 murni berstatus Read-Only tanpa tombol interaktif pengubah kernel.
-  - [ ] Tabel spesifikasi mendalam: Detail node DTB kernel, GPU renderer string, Vulkan API version, OpenCL extensions.
-  - [ ] Matriks sensor termal lengkap: CPU clusters, GPU, battery, charger IC, skin temperature.
-  - [ ] Diagnostik storage I/O: UFS / eMMC health status, throughput baca/tulis IOPS.
-
-### 3.5 Revamp Visual Halaman Tab 3 (Profil Per-Aplikasi & Lab Eksperimental)
-- [ ] **Hub Pengaturan Per-Aplikasi (*Per-App Graphics & Profile Hub*)**
-  - [ ] Daftar aplikasi dan game terpasang dengan filter pencarian instan.
-  - [ ] Penetapan profil performa otomatis per-aplikasi (misal: YouTube -> Powersave, Genshin -> Extreme).
-  - [ ] Penetapan refresh rate layar dinamis per-paket aplikasi.
-- [ ] **Laboratorium Pengujian Baterai (*BatteryLabSubscreen*)**
-  - [ ] Simulator pengurasan daya dan pemantauan degradasi kapasitas baterai nyata (mAh).
-  - [ ] Riwayat pengisian daya dengan grafik gelombang sparkline waktu nyata.
-- [ ] **Penjadwal Otomasi Harian (*Cron Schedule Manager*)**
-  - [ ] Konfigurasi jadwal pembersihan cache berkala dan pemulihan profil harian.
-
-### 3.6 Revamp Halaman Pengaturan, OTA & Manajemen Modul
-- [ ] **Pengelola Pembaruan OTA Terintegrasi (*In-App OTA Updater*)**
-  - [ ] Pengecekan versi rilis baru langsung ke API GitHub Releases.
-  - [ ] Tampilan catatan rilis (*Changelog Viewer*) dengan format Markdown interaktif di dalam aplikasi.
-  - [ ] Pengunduhan paket ZIP modul dan file APK dengan verifikasi checksum SHA-256.
-- [ ] **Pusat Pencadangan & Restorasi Konfigurasi (*Backup & Restore*)**
-  - [ ] Ekspor dan impor seluruh setelan ke berkas `lynx_config.json`.
-  - [ ] Tombol reset ke setelan pabrik (*Factory Reset Safemode*) dengan konfirmasi ganda.
+### 2.4 Multi-Game Vision AI Auto-Skip Expansion
+- [ ] **Triple-Shield Vision AI Refinement**
+  - [ ] Multi-pixel glyph check (`maxRun >= 3` contiguous pixels) with 18px dynamic threshold on 1080p.
+  - [ ] 80% black margin evaluation on prompt rows to distinguish dialogue bars from dark caves.
+- [ ] **RPG Database Expansion**
+  - [ ] **Honkai: Star Rail**: Story dialogue and option prompt detection.
+  - [ ] **Zenless Zone Zero**: Comic panel dialogues and city NPC chats.
+  - [ ] **Wuthering Waves**: NPC dialogues and narrative sequences.
+- [ ] **Vision AI Calibration GUI in Companion App**
+  - [ ] On-device screenshot preview with bounding box overlays.
+  - [ ] Interactive sliders for color tolerance and slice thresholds.
 
 ---
 
-## 🧪 FASE 4: Pengujian Lab Hardware Fisik, Safety Fallback & Rilis Produksi
+## 🎨 Phase 3: Total Compose UI Revamp (`LynxCompanion`)
 
-Fase ini menjamin seluruh fitur yang dibangun diuji secara ketat pada perangkat keras nyata (MediaTek & Qualcomm), bebas dari risiko bootloop, stabil pada penggunaan gaming jangka panjang, dan siap dirilis ke publik.
+### 3.1 Design System & Cyberpunk OLED Tokens
+- [ ] **OLED Palette & High-Contrast Tokens**
+  - [ ] Pure black backgrounds (`#050505` / `#0A0A0A`) for AMOLED power savings.
+  - [ ] Layered contrast cards (`#121212` to `#181818`) with crisp 1dp borders (`#262626`).
+  - [ ] Semantic accents: Neon Cyan (`#00FFAA`), Electric Blue (`#0099FF`), Amber Gold (`#FFB800`), Crimson Red (`#FF3366`).
+- [ ] **Touch Ergonomics & Motion**
+  - [ ] Strict 48×48dp minimum touch targets on all interactive elements.
+  - [ ] Pixel-stable layouts across non-standard aspect ratios (20:9, 20.5:9, 21:9) and tablets.
+  - [ ] 150–250ms Compose micro-animations with zero GC pressure.
 
-### 4.1 Matriks Perangkat Uji Fisik (*Ground Truth Hardware Staging*)
-- [ ] **Pengujian MediaTek (Perangkat Utama: Infinix Note 11 Pro / X698 - Helio G96, Mali-G57 MC2, 2460×1080)**
-  - [ ] Uji coba deteksi SoC anti-spoofing via driver kernel DTB dan node GPU `/dev/mali0` / `/dev/ged`.
-  - [ ] Verifikasi MediaTek PumpExpress fast charging dan bypass charging pada controller charger Transsion.
-  - [ ] Uji stabilitas frame rate Genshin Impact 60 FPS pada profil *Performance* dan *Extreme*.
-- [ ] **Pengujian Qualcomm (Perangkat Sekunder: Redmi Note 7 - SDM660, Adreno 512, 2340×1080)**
-  - [ ] Uji coba deteksi node hardware Adreno `/dev/kgsl-3d0` dan sysfs devfreq bus boost.
-  - [ ] Verifikasi Qualcomm Quick Charge dan USB-PD step charging.
-- [ ] **Pengujian Fallback Generic Linux**
-  - [ ] Uji coba fungsionalitas aman pada perangkat non-QCOM/non-MTK tanpa crash atau bootloop.
+### 3.2 Tab 0: System Identity Dashboard
+- [ ] **System Identity Hero Card**
+  - [ ] Dynamic animated SoC architecture badge: Qualcomm Snapdragon vs MediaTek Helio/Dimensity.
+  - [ ] Native `lynxd` daemon telemetry (PID, uptime, RSS memory, AArch64 target).
+  - [ ] Universal root status badge (KernelSU / APatch / Magisk).
+- [ ] **Live Gauge Bento Tiles**
+  - [ ] Circular progress meters for CPU load, GPU clock, and RAM consumption.
+  - [ ] Live battery tile: percentage, mV, °C, and bypass active indicator.
+- [ ] **Master Profile Carousel**: 1-tap selector for *Powersave*, *Balanced*, *Performance*, *Extreme*.
 
-### 4.2 Uji Stres Termal & Daya Tahan Baterai (*Thermal & Endurance Stress Trials*)
-- [ ] **Uji Stres Gaming 60 Menit (Genshin Impact / Wuthering Waves)**
-  - [ ] Pengukuran kestabilan frekuensi clock CPU/GPU tanpa thermal throttling prematur.
-  - [ ] Pengujian suhu sel baterai: Verifikasi penurunan arus pengisian daya otomatis saat menyentuh 42°C.
-- [ ] **Uji Ketahanan Bypass Charging 3 Jam**
-  - [ ] Verifikasi persentase baterai tetap konstan (delta = 0%) selama sesi gaming 3 jam penuh dengan charger terpasang.
-  - [ ] Pengecekan suhu baterai: Verifikasi suhu baterai lebih dingin minimal 4°C–6°C dibanding mode pengisian standar.
+### 3.3 Tab 1: Unified Hardware Tuning Hub
+- [ ] **CPU Tuning Hub (`CpuMasterTunerCard`)**: Per-cluster min/max clock sliders and core lock toggles.
+- [ ] **GPU Tuning Hub (`GpuMasterTunerCard` & `AdaptiveGpuHardwareCard`)**: Physical OPP clock picker with Bezier load waveform and isolated sysfs driver controls.
+- [ ] **Charging & Battery Hub (`TuningChargingCategory`)**: Universal fast charge slider (1000–4500mA+) and bypass charge toggle with safety dialogs.
+- [ ] **Display & Touch Hub (`DisplayRefreshRateTouchCard`)**: SurfaceFlinger HWC mode switcher (60/90/120/144Hz) and TouchBoost tuner.
+- [ ] **Network Hub (`NetworkLatencyTunerCard`)**: Gaming Wi-Fi toggle and TCP congestion control picker (BBR / Cubic).
 
-### 4.3 Protokol Keselamatan & Mitigasi Bootloop (*Safety Failsafe Protocols*)
-- [ ] **Mekanisme Darurat Tombol Volume (*Emergency Hardware Disarm*)**
-  - [ ] Penekanan tombol `Volume Down` saat cold-boot secara otomatis menonaktifkan modul dan mereset profil ke mode *Safe Balanced*.
-- [ ] **Status Aman Boot Pertama (*Dormant First-Boot Protocol*)**
-  - [ ] Modul diinstal dalam status `"active_profile": "dormant"`, dilarang menerapkan clock ekstrem sebelum dibuka oleh pengguna.
-- [ ] **Verifikasi Pembersihan Total Saat Uninstall (`uninstall.sh`)**
-  - [ ] Pemulihan 100% parameter global sistem Android, sysfs kernel, dan properti vendor ke kondisi pabrik saat modul dihapus.
+### 3.4 Tab 2: Pure Read-Only Diagnostics
+- [ ] **Domain Isolation**: Tab 2 strictly read-only with zero interactive mutation controls.
+- [ ] **Deep Hardware Specs**: Kernel DTB nodes, GPU renderer string, Vulkan API, OpenCL extensions.
+- [ ] **Thermal Matrix**: CPU clusters, GPU, battery, charger IC, and skin sensors.
+- [ ] **Storage I/O Diagnostics**: UFS/eMMC health report, read/write IOPS throughput.
 
-### 4.4 Otomasi Rilis & Pemaketan Produksi
-- [ ] **Pemeriksaan Standar Kode & Batas Berkas**
-  - [ ] Seluruh berkas Kotlin berada di bawah batas ketat 699 baris kode.
-  - [ ] Kompilasi biner Native Rust `lynxd` berstatus release ter-strip dengan LTO (*Link-Time Optimization*).
-- [ ] **Pemaketan Rilis Terpadu (Dual-Artifact Release Pipeline)**
-  - [ ] Pembangunan berkas APK Rilis minifikasi R8 (`LynxKernelManager.apk`).
-  - [ ] Pembangunan berkas ZIP modul Magisk/KernelSU/APatch universal.
-  - [ ] Pembaruan berkas riwayat rilis resmi di `changelog.md` dan metadata `module.prop`.
+### 3.5 Tab 3: Per-App Graphics Hub & Experimental Lab
+- [ ] **Per-App Profile Hub**: Package list with search filter; assign performance mode and refresh rate per game.
+- [ ] **Battery Lab (`BatteryLabSubscreen`)**: Power drain simulator, true capacity health tracker, and sparkline charge history.
+- [ ] **Cron Automation Manager**: Scheduled cache trimming and daily profile reset.
+
+### 3.6 Settings, OTA Updater & Backup
+- [ ] **In-App OTA Updater**: Direct GitHub Releases API integration with in-app changelog viewer and SHA-256 validation.
+- [ ] **Backup & Restore**: Export/import `lynx_config.json` and 2-step factory reset failsafe.
+
+---
+
+## 🧪 Phase 4: Hardware Lab, Failsafes & Production Release
+
+### 4.1 Physical Hardware Test Matrix
+- [ ] **MediaTek Validation (Infinix Note 11 Pro / X698 — Helio G96, Mali-G57 MC2, 2460×1080)**
+  - [ ] Anti-spoofing detection via kernel DTB and GPU nodes (`/dev/mali0`, `/dev/ged`).
+  - [ ] MediaTek PumpExpress fast charging and Transsion charger bypass verification.
+  - [ ] Genshin Impact 60 FPS thermal and frametime stability on Performance & Extreme.
+- [ ] **Qualcomm Validation (Xiaomi Redmi Note 7 — SDM660, Adreno 512, 2340×1080)**
+  - [ ] Passive read-only verification of Adreno nodes (`/dev/kgsl-3d0`, devfreq bus).
+  - [ ] Quick Charge and USB-PD step charging inspection.
+- [ ] **Generic Linux Fallback**: Graceful functionality without crashes on generic devices.
+
+### 4.2 Thermal & Endurance Trials
+- [ ] **60-Minute Gaming Stress Test**: Sustained CPU/GPU clock without premature throttling; thermal clamp at 42°C.
+- [ ] **3-Hour Bypass Endurance Trial**: 0% battery delta over 3 hours of continuous gaming on charger; verify 4°C–6°C cooler battery temps.
+
+### 4.3 Safety Failsafes & Bootloop Mitigation
+- [ ] **Emergency Hardware Disarm**: Pressing `Volume Down` on boot disables module and resets to *Safe Balanced*.
+- [ ] **Dormant First-Boot Protocol**: Module installs with `"active_profile": "dormant"`, forbidding aggressive clocks until user activation.
+- [ ] **Uninstall Rollback (`uninstall.sh`)**: 100% restoration of OEM kernel parameters and Android settings.
+
+### 4.4 Packaging & Release Pipeline
+- [ ] **Code Hygiene**: All Kotlin files strictly under 699 lines; Rust `lynxd` binary stripped with LTO.
+- [ ] **Dual-Artifact Pipeline**: Release APK (`LynxKernelManager.apk`) with R8 minification + Universal Magisk/KSU/APatch ZIP module.
+- [ ] **Release Metadata**: Synchronize version tags across `module.prop`, `changelog.md`, and Companion app Gradle script.
 
 ---
 
-## 📊 Matriks Progres & Status Pelacakan
+## 📊 Milestone Tracking Matrix
 
-| Fase Rekayasa | Fokus Domain | Jumlah Sub-Tugas | Status Eksekusi |
-| :--- | :--- | :--- | :--- |
-| **Fase 1** | Mesin Native Rust `lynxd`, Fast Charging, Bypass & Wi-Fi | 32 Sub-Tugas | 🟡 *Dalam Perencanaan / Siap Eksekusi* |
-| **Fase 2** | Inovasi HUD Lynx Engine & Multi-Game Vision AI | 22 Sub-Tugas | 🟡 *Dalam Perencanaan / Siap Eksekusi* |
-| **Fase 3** | Revamp Visual Total Halaman Compose (Tab 0–3 & Settings) | 36 Sub-Tugas | 🟡 *Dalam Perencanaan / Siap Eksekusi* |
-| **Fase 4** | Lab Testing Fisik, Failsafe Bootloop & Rilis Produksi | 18 Sub-Tugas | 🟡 *Dalam Perencanaan / Siap Eksekusi* |
-| **TOTAL** | **Lynx V7 - Deity Master Engineering Roadmap** | **108 Sub-Tugas** | 🟡 **0 / 108 Selesai (0%)** |
+| Phase | Focus Domain | Sub-Tasks | Status |
+| :--- | :--- | :---: | :---: |
+| **Phase 1** | Native Rust `lynxd`, Fast Charging, Bypass & Wi-Fi | 32 Sub-Tasks | 🟡 *Ready for Execution* |
+| **Phase 2** | In-Game HUD, Telemetry & Multi-Game Vision AI | 22 Sub-Tasks | 🟡 *Ready for Execution* |
+| **Phase 3** | Total Compose UI Revamp (Tabs 0–3 & Settings) | 36 Sub-Tasks | 🟡 *Ready for Execution* |
+| **Phase 4** | Physical Lab Validation, Failsafes & Production Release | 18 Sub-Tasks | 🟡 *Ready for Execution* |
+| **TOTAL** | **Lynx V7 - Deity Master Engineering Roadmap** | **108 Sub-Tasks** | 🟡 **0 / 108 (0%)** |
 
 ---
-*Roadmap ini dikelola secara terpusat oleh Antigravity AI Coding Agent & Tim Inti Lynx.*
+*Maintained under Lynx strict engineering governance. Checking tasks is reserved exclusively for explicit user instructions.*
