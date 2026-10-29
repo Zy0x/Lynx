@@ -24,7 +24,8 @@ data class HudBypassStatus(
     val active: Boolean = false,
     val chipSummary: String = "",
     val thresholdPct: Int = 40,
-    val thermalCutActive: Boolean = false
+    val thermalCutActive: Boolean = false,
+    val isPlugged: Boolean = false
 )
 
 data class HudTouchStatus(

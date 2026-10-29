@@ -56,15 +56,21 @@ internal object LynxBatteryTelemetryRepository {
                     [ -z "${'$'}full" ] && full=0
 
                     uon=${'$'}(cat /sys/class/power_supply/usb/online 2>/dev/null || cat /sys/class/power_supply/ac/online 2>/dev/null || echo 0)
+                    chgtyp=${'$'}(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || cat /sys/class/power_supply/usb/type 2>/dev/null || echo "")
+                    adpv_probe=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
+                    [ "${'$'}adpv_probe" -gt 100000 ] 2>/dev/null && adpv_probe=${'$'}(( adpv_probe / 1000 ))
+
                     is_plugged=0
-                    if [ "${'$'}uon" = "1" ] || [ "${'$'}stat" = "Charging" ] || [ "${'$'}stat" = "Full" ] || [ "${'$'}stat" = "Not charging" ]; then
+                    if [ "${'$'}uon" = "1" ]; then
                         is_plugged=1
-                    fi
-                    if [ "${'$'}stat" = "Discharging" ] && [ "${'$'}uon" != "1" ]; then
-                        is_plugged=0
+                    elif [ "${'$'}adpv_probe" -gt 3500 ] && [ "${'$'}chgtyp" != "0" ] && [ -n "${'$'}chgtyp" ] && [ "${'$'}chgtyp" != "Unknown" ]; then
+                        is_plugged=1
                     fi
 
                     if [ "${'$'}is_plugged" = "0" ]; then
+                        if [ "${'$'}cur" -lt 0 ] 2>/dev/null || [ "${'$'}cur" -eq 0 ]; then
+                            stat="Discharging"
+                        fi
                         adpv=0
                         raw_ibus=0
                         ibus=0

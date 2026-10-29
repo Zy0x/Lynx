@@ -1,14 +1,12 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.noir.lynx.R
@@ -25,7 +23,7 @@ internal fun HudPanelShell(
 ) {
     var info by remember { mutableStateOf<HudInfoData?>(null) }
     val shape = RoundedCornerShape(22.dp)
-    val width = (viewport.panelWidth - 15f).coerceAtLeast(1f)
+    val width = viewport.panelWidth
     val labels = HudPage.values().map { hudString(it.label) }
     val layout = HudLayoutPolicy.resolve(width, hudLabelWidth(labels))
     val drawer: @Composable () -> Unit = {
@@ -62,9 +60,5 @@ internal fun HudPanelShell(
             }
         }
     }
-    Row(Modifier.width(viewport.panelWidth.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (dockRight) SidekickEdgeTab(true, Modifier.clickable(onClick = onClose))
-        drawer()
-        if (!dockRight) SidekickEdgeTab(false, Modifier.clickable(onClick = onClose))
-    }
+    drawer()
 }

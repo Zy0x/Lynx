@@ -69,19 +69,19 @@ internal fun HudQuickTileRow(
     isRecording: Boolean = false, recordDuration: String? = null,
     onCapture: () -> Unit, onToggleRecord: () -> Unit, onBoostRam: () -> Unit,
     onTogglePin: () -> Unit, onToggleFocus: () -> Unit,
-    autoSkipEnabled: Boolean = false, onToggleAutoSkip: () -> Unit = {}
+    autoSkipEnabled: Boolean = false, onToggleAutoSkip: () -> Unit = {}, landscape: Boolean = false
 ) {
     val icons = listOf(Icons.Default.CameraAlt, if (isRecording) Icons.Default.StopCircle else Icons.Default.Videocam,
         Icons.Default.Bolt, Icons.Default.Speed, Icons.Default.FastForward, Icons.Default.DoNotDisturbOn)
     val labels = listOf(hudString(R.string.hud_capture_compact),
         if (isRecording) recordDuration ?: hudString(R.string.hud_record_stop) else hudString(R.string.hud_record_short),
-        hudString(R.string.hud_clean_ram_short), hudString(R.string.hud_fps_short),
+        hudString(R.string.hud_clean_ram_short), hudString(R.string.hud_pin_fps_short),
         hudString(R.string.hud_autoskip_short), hudString(R.string.hud_focus_short))
     val callbacks = listOf(onCapture, onToggleRecord, onBoostRam, onTogglePin, onToggleAutoSkip, onToggleFocus)
     val selected = listOf(false, isRecording, false, pinned, autoSkipEnabled, focusActive)
     val scale = androidx.compose.ui.platform.LocalDensity.current.fontScale
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val columns = HudLayoutPolicy.columns(maxWidth.value, 80f * scale, gap = 6f, maximum = 2)
+        val columns = HudLayoutPolicy.columns(maxWidth.value, 80f * scale, gap = 6f, maximum = if (landscape) 3 else 2)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             labels.indices.chunked(columns).forEach { indices ->
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

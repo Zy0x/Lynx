@@ -97,3 +97,7 @@ The modern sidebar no longer ellipsizes user-facing labels or numbers. Headers, 
 
 - [Performance details](18_HUD_PERFORMANCE_DETAILS.md)
 - [Automation controls](19_HUD_AUTOMATION_CONTROLS.md)
+
+## Responsive window follow-up
+
+RC261 uses the full drawer width, updates requested WindowManager width on every clamp, and delegates touch arbitration to `HudSidebarHostView`. Collapsed grip taps now open the panel. It reuses `HudAutoSkipWindow`, safe-bounds and foreground-notification helpers; duplicated badge/gesture implementations are removed. Geometry, pin paging and cross-process preference patches are documented in `38_HUD_RESPONSIVE_WINDOWS.md`.

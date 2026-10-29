@@ -28,19 +28,28 @@ import com.noir.lynx.feature.hud.data.*
 internal fun HudBypassPage(snapshot: HudSnapshot, bypassStatus: HudBypassStatus, busy: Boolean,
     onToggleBypass: (Boolean) -> Unit, onRefreshBypass: () -> Unit) {
     LaunchedEffect(Unit) { onRefreshBypass() }
-    val capText = hudString(
+    val isPlugged = bypassStatus.isPlugged
+    val capText = if (bypassStatus.capability == HudCapability.READY && !isPlugged) {
+        "COLOK CHARGER"
+    } else {
+        hudString(
+            when (bypassStatus.capability) {
+                HudCapability.READY -> R.string.hud_cap_ready
+                HudCapability.NEEDS_ROOT -> R.string.hud_cap_needs_root
+                HudCapability.UNSUPPORTED -> R.string.hud_cap_unsupported
+                HudCapability.CHECKING -> R.string.hud_cap_checking
+            }
+        )
+    }
+    val capColor = if (bypassStatus.capability == HudCapability.READY && !isPlugged) {
+        HudOrange
+    } else {
         when (bypassStatus.capability) {
-            HudCapability.READY -> R.string.hud_cap_ready
-            HudCapability.NEEDS_ROOT -> R.string.hud_cap_needs_root
-            HudCapability.UNSUPPORTED -> R.string.hud_cap_unsupported
-            HudCapability.CHECKING -> R.string.hud_cap_checking
+            HudCapability.READY -> HudCyan
+            HudCapability.NEEDS_ROOT -> HudOrange
+            HudCapability.UNSUPPORTED -> HudMuted
+            HudCapability.CHECKING -> HudBlue
         }
-    )
-    val capColor = when (bypassStatus.capability) {
-        HudCapability.READY -> HudCyan
-        HudCapability.NEEDS_ROOT -> HudOrange
-        HudCapability.UNSUPPORTED -> HudMuted
-        HudCapability.CHECKING -> HudBlue
     }
 
     val bypassInfo = hudString(R.string.hud_lab_bypass_desc)
@@ -75,17 +84,25 @@ internal fun HudBypassPage(snapshot: HudSnapshot, bypassStatus: HudBypassStatus,
                                 color = HudBlue
                             )
                         }
+                        if (!isPlugged) {
+                            Text(
+                                text = "⚠️ Colok charger untuk mengaktifkan Bypass",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = HudOrange
+                            )
+                        }
                     }
                     Switch(
-                        checked = bypassStatus.enabled || bypassStatus.active,
+                        checked = (bypassStatus.enabled || bypassStatus.active) && isPlugged,
                         onCheckedChange = { onToggleBypass(it) },
-                        enabled = bypassStatus.capability == HudCapability.READY && !busy,
+                        enabled = bypassStatus.capability == HudCapability.READY && isPlugged && !busy,
                         colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = HudBlueBadge,
-                        uncheckedThumbColor = HudMuted,
-                        uncheckedTrackColor = HudElevated
-                    )
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = HudBlueBadge,
+                            uncheckedThumbColor = HudMuted,
+                            uncheckedTrackColor = HudElevated
+                        )
                     )
                 }
 

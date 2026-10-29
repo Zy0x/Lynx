@@ -1,7 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,27 +35,26 @@ private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
         shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
     ) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val fps = snapshot[HudMetric.FPS]
-            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(fps.text(), fontSize = 28.sp, fontFamily = FontFamily.Monospace, color = HudCyan,
-                    modifier = Modifier.weight(1f))
-                Text(hudString(R.string.hud_fps_short), fontSize = 12.sp, color = HudMuted)
-                androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    hudString(R.string.hud_monitor), tint = HudMuted, modifier = Modifier.size(18.dp)
-                )
-            }
-            val metrics = listOf(HudMetric.CPU_LOAD, HudMetric.GPU_LOAD)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                metrics.forEachIndexed { index, metric ->
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(hudString(if (index == 0) R.string.hud_cpu else R.string.hud_gpu), fontSize = 12.sp, color = HudMuted)
-                        val reading = snapshot[metric]
-                        Text(if (reading.status == "valid") hudString(R.string.hud_value, reading.text(), reading.unit) else "—",
-                            fontSize = 12.sp, color = Color.White)
-                    }
+        val metrics = listOf(HudMetric.FPS, HudMetric.CPU_LOAD, HudMetric.GPU_LOAD)
+        val labels = listOf(hudString(R.string.hud_fps_unit), hudString(R.string.hud_cpu), hudString(R.string.hud_gpu))
+        val values = metrics.map { metric -> snapshot[metric].let {
+            if (it.status == "valid") it.text() + if (metric == HudMetric.FPS) "" else " %" else "—"
+        } }
+        val widths = values.map { hudLabelWidth(listOf(it), 16, numeric = true) + 12f }
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(10.dp)) {
+            val cell: @Composable (Int, Modifier) -> Unit = { index, modifier ->
+                Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(labels[index], fontSize = 11.sp, color = HudMuted)
+                    Text(values[index], fontSize = 16.sp, fontFamily = FontFamily.Monospace,
+                        color = if (index == 0) HudCyan else Color.White)
                 }
+            }
+            if (HudLayoutPolicy.fits(maxWidth.value, widths, 8f)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    metrics.indices.forEach { cell(it, Modifier.weight(widths[it].coerceAtLeast(1f))) }
+                }
+            } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                metrics.indices.forEach { cell(it, Modifier.fillMaxWidth()) }
             }
         }
     }

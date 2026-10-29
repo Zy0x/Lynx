@@ -98,6 +98,14 @@ class ChargingRepository(
         isLaptopPort: Boolean = false
     ): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (bypass) {
+                val isPlugged = Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
+                if (!isPlugged) {
+                    android.util.Log.w("ChargingRepo", "Refusing bypass charging: Charger not connected (Brownout Guard).")
+                    return@withContext false
+                }
+            }
+
             val effectiveMa = if (isLaptopPort) 1500 else if (isUnconstrainedMaxHw) 6000 else limitMa.coerceIn(500, 6000)
             val allowUnconstrained = isUnconstrainedMaxHw && extremeCharging
             val nativeCmd = """
@@ -132,7 +140,7 @@ class ChargingRepository(
                         echo 0 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
                         echo 0 > /sys/devices/platform/charger/chg1_current 2>/dev/null
                         echo 0 > /sys/devices/platform/charger/chg2_current 2>/dev/null
-                        echo 0 > /sys/devices/platform/charger/input_current 2>/dev/null
+                        echo 2500000 > /sys/devices/platform/charger/input_current 2>/dev/null
                         echo "[30,0,35,0,0]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
                         echo 1 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
 

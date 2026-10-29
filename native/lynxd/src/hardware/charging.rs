@@ -43,6 +43,9 @@ const CLABCCT_NODE: &str = "/proc/driver/thermal/clabcct";
 const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 
 const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
+    ("/proc/lynx/bypass_charging", "0"),
+    ("/proc/mtk_battery_cmd/en_power_path", "0"),
+    ("/proc/mtk_battery_cmd/current_cmd", "0 0"),
     ("/sys/class/power_supply/battery/input_suspend", "0"),
     ("/sys/class/power_supply/battery/charging_enabled", "1"),
     ("/sys/devices/platform/charger/pe20", "0"),
@@ -751,6 +754,8 @@ impl ChargingRegulator {
 
     pub fn detect_hw_bypass_node() -> Option<&'static str> {
         const CANDIDATES: &[&str] = &[
+            "/proc/lynx/bypass_charging",
+            "/sys/devices/platform/charger/tran_charger_full",
             "/sys/devices/platform/charger/bypass_charger",
             "/sys/class/power_supply/battery/device/smart_charging",
             "/sys/class/power_supply/battery/charging_limit_mode",
@@ -993,6 +998,15 @@ impl ChargingRegulator {
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
     /// Mode 1: True Hardware Bypass / Anti-Flapping Single-Path Float (Zero Battery Degradation, Vsys powered by Adapter)
     pub fn apply_bypass_charging() {
+        // Hardware Interlock / Brownout Protection Guard:
+        // Genuine Bypass mode requires external VBUS power from a connected charger.
+        // Isolating the battery without external power drops VSYS to 0V and triggers an instant hardware brownout/reboot.
+        if !Self::is_hardware_plugged() {
+            eprintln!("[LynxCharging] Refusing bypass charging: Charger not connected (Brownout Guard).");
+            let _ = fs::remove_file("/dev/lynx_bypass_active");
+            return;
+        }
+
         Self::release_charging_wake_lock();
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
@@ -1018,9 +1032,15 @@ impl ChargingRegulator {
                 Self::set_bcct_throttle(true);
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
+                Self::write_node_lock("/proc/lynx/bypass_charging", "1");
+                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "0");
+                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "0");
                 Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
-                Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
+                Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "1");
                 Self::write_node_lock(&format!("{}/tran_charger_full", MTK_DIR), "1");
+                Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "2500000");
+                Self::write_node_lock("/proc/mtk_battery_cmd/en_power_path", "1");
+                Self::write_node_lock("/proc/mtk_battery_cmd/current_cmd", "2500 0");
                 Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
                 Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "1");
             }
@@ -1781,6 +1801,8 @@ impl ChargingRegulator {
         Self::unlock_bcct();
 
         // Restore standard charging flags
+        Self::write_node("/proc/lynx/bypass_charging", "0");
+        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 0");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
@@ -2866,6 +2888,9 @@ impl ChargingRegulator {
 
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
         Self::unlock_bcct();
+        Self::write_node("/proc/lynx/bypass_charging", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 0");
         Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");

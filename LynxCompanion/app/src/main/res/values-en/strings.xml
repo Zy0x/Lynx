@@ -145,6 +145,8 @@
     <string name="battery_protection_bypass_title" formatted="false">Battery Protection &amp; Direct Power</string>
     <string name="battery_bypass_switch" formatted="false">Direct Power to Phone (Bypass)</string>
     <string name="battery_bypass_desc" formatted="false">Routes charger power directly to the phone without charging the battery. Useful while gaming to reduce phone heat and battery wear.</string>
+    <string name="battery_bypass_plug_required_toast">⚠️ Connect charger first! Bypass Charging requires adapter power to keep motherboard running.</string>
+    <string name="battery_bypass_unplugged_sublabel">⚠️ Connect charger to activate Bypass</string>
     <string name="battery_smart_charge_limit" formatted="false">Smart Charging Limit</string>
     <string name="battery_smart_limit_switch_desc" formatted="false">Limit battery charging to a specific percentage to extend battery lifespan.</string>
     <string name="battery_smart_limit_disabled_note" formatted="false">Disabled (Standard charging up to 100%)</string>
@@ -2410,4 +2412,6 @@
     <string name="hud_network_cellular_help">Requests that the mobile connection stay available while using Wi-Fi. Switching time depends on Android and the network.</string>
     <string name="hud_network_tcp_help">Applies TCP settings through the existing network controller. Results depend on system support and the connection.</string>
     <string name="hud_detail_engine">Engine</string>
+    <string name="hud_fps_unit">FPS</string>
+    <string name="hud_pin_fps_short">Pin FPS</string>
 </resources>

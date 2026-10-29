@@ -43,8 +43,11 @@ fun BatteryProtectionCard(
     modifier: Modifier = Modifier
 ) {
     val state = uiState.state
+    val context = LocalContext.current
+    val isPlugged = uiState.batteryDetails?.isPlugged == true
     var showSmartLimitWarningDialog by remember { mutableStateOf(false) }
     var showBypassWarningDialog by remember { mutableStateOf(false) }
+    var showBypassRequiresChargerDialog by remember { mutableStateOf(false) }
 
     LynxCard(
         title = stringResource(R.string.battery_protection_bypass_title),
@@ -55,12 +58,25 @@ fun BatteryProtectionCard(
         // 1. Motherboard Bypass Switch
         LynxSwitch(
             label = stringResource(R.string.battery_bypass_switch),
-            subLabel = stringResource(R.string.battery_bypass_desc),
-            checked = state.charging.bypassEnabled,
+            subLabel = if (!isPlugged) {
+                stringResource(R.string.battery_bypass_unplugged_sublabel)
+            } else {
+                stringResource(R.string.battery_bypass_desc)
+            },
+            checked = state.charging.bypassEnabled && isPlugged,
             optimistic = false,
             onCheckedChange = { checked ->
                 if (checked) {
-                    showBypassWarningDialog = true
+                    if (!isPlugged) {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.battery_bypass_plug_required_toast),
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        showBypassRequiresChargerDialog = true
+                    } else {
+                        showBypassWarningDialog = true
+                    }
                 } else {
                     viewModel.setBypassCharging(false)
                 }
@@ -272,6 +288,41 @@ fun BatteryProtectionCard(
             dismissButton = {
                 TextButton(onClick = { showBypassWarningDialog = false }) {
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary
+        )
+    }
+
+    // Warning Dialog when Bypass is attempted without a Charger
+    if (showBypassRequiresChargerDialog) {
+        AlertDialog(
+            onDismissRequest = { showBypassRequiresChargerDialog = false },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            title = {
+                Text(
+                    text = "Charger Belum Terhubung",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Fitur Real Hardware Bypass Charging membutuhkan pasokan daya listrik langsung dari adaptor/kabel charger.\n\nJika bypass diaktifkan saat kabel belum terhubung, baterai akan terisolasi sementara tidak ada pasokan listrik eksternal, sehingga ponsel seketika mengalami brownout (drop daya) dan langsung mati/reboot.\n\nSilakan colokkan kabel charger terlebih dahulu sebelum mengaktifkan fitur ini.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showBypassRequiresChargerDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
+                ) {
+                    Text("Mengerti", fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = BgCard,

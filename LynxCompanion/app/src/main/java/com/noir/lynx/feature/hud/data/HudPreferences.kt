@@ -27,6 +27,7 @@ data class HudPreferences(
 
 class HudPreferencesStore(context: Context) {
     private val prefs = context.getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+    init { HudPreferenceSync.connect(context, prefs) }
 
     fun read(): HudPreferences {
         val pinned = prefs.getBoolean("pin_mini_fps", false)

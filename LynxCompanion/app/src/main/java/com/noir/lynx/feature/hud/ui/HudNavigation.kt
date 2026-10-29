@@ -90,7 +90,7 @@ internal fun HudNavigationRail(
                 .padding(vertical = 6.dp, horizontal = 3.dp)
                 .selectableGroup(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom)
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
         ) {
             HudPage.values().forEach { page ->
                 val active = selected == page
@@ -108,7 +108,7 @@ internal fun HudNavigationRail(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 60.dp)
+                        .heightIn(min = 52.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .selectable(
                             selected = active,
@@ -136,7 +136,7 @@ internal fun HudNavigationRail(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = title,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (active) Color.White else HudMuted,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

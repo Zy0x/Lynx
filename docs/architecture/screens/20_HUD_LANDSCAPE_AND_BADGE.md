@@ -27,3 +27,7 @@ Panel safe bounds retain their conservative system-bars/cutout policy. `HudDispl
 ## Portrait follow-up
 
 Portrait and landscape retain a compact labeled rail while at least 176 dp of content remains. The rail is bounded to 64–88 dp; long labels wrap. Smaller windows use horizontally scrollable tabs. Portrait is bottom-anchored inside the existing safe bounds and capped at 600 dp tall. Child headings and Back follow the category hierarchy. Layout tests check rail boundaries, label growth, density-aware bottom positioning and landscape's unchanged top anchor.
+
+## Responsive window follow-up
+
+RC261 supersedes the earlier 336/384 dp and 600 dp panel limits: full-width drawer caps are now 360 dp portrait / 440 dp landscape; portrait height is capped at 480 dp. The compact FPS/CPU/GPU row and three-column landscape quick actions avoid placing the final action row below the viewport at normal text scale. The service now actually instantiates the extracted `HudAutoSkipWindow` and forwards current mode/executing state. See `38_HUD_RESPONSIVE_WINDOWS.md`.

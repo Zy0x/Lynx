@@ -243,6 +243,8 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
  * Prioritizes native lynxd daemon topology crawling, then checks multi-vendor hardware bypass nodes.
  */
 class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", listOf(
+    "/proc/lynx/bypass_charging",
+    "/sys/devices/platform/charger/tran_charger_full",
     "/sys/devices/platform/charger/bypass_charger",
     "/sys/class/power_supply/battery/device/smart_charging",
     "/sys/class/power_supply/battery/charging_limit_mode",
@@ -285,6 +287,7 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
         if (!root()) return HudBypassStatus(capability = HudCapability.NEEDS_ROOT)
         val threshold = getThreshold()
         val isThermalCut = journal.getBoolean("thermal_cut_active", false)
+        val isPlugged = Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
 
         // 1. Check Native Lynx Daemon (lynxd / liblynxhud.so)
         val bin = binaryPath()
@@ -302,7 +305,8 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                         enabled = isEffectiveEnabled,
                         active = isEffectiveActive,
                         thresholdPct = threshold,
-                        thermalCutActive = isThermalCut
+                        thermalCutActive = isThermalCut,
+                        isPlugged = isPlugged
                     )
                 }
             }
@@ -321,6 +325,8 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                 val isEffectiveEnabled = isEffectiveActive || journal.getBoolean("enabled", false)
 
                 val chipLabel = when {
+                    candidate.contains("proc/lynx") -> "Lynx True Hardware KPM Bypass"
+                    candidate.contains("tran_charger_full") -> "Transsion Dual-Pump Hardware Bypass"
                     candidate.contains("bypass_charger") -> "Transsion Dual-Pump Bypass"
                     candidate.contains("smart_charging") -> "ASUS ROG Smart Bypass"
                     candidate.contains("charging_limit") -> "Xiaomi Charging Limit"
@@ -337,7 +343,8 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                     active = isEffectiveActive,
                     chipSummary = chipLabel,
                     thresholdPct = threshold,
-                    thermalCutActive = isThermalCut
+                    thermalCutActive = isThermalCut,
+                    isPlugged = isPlugged
                 )
             }
         }
@@ -345,13 +352,21 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
         return HudBypassStatus(
             capability = HudCapability.UNSUPPORTED,
             thresholdPct = threshold,
-            thermalCutActive = isThermalCut
+            thermalCutActive = isThermalCut,
+            isPlugged = isPlugged
         )
     }
 
     @Synchronized
     override fun set(enabled: Boolean): Boolean {
         if (!root()) return false
+        if (enabled) {
+            val isPlugged = Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
+            if (!isPlugged) {
+                android.util.Log.w("HudBypassSession", "Refusing bypass activation: Charger not connected (Brownout Guard).")
+                return false
+            }
+        }
         journal.edit().putBoolean("enabled", enabled).putBoolean("active", enabled).commit()
 
         val bin = binaryPath()

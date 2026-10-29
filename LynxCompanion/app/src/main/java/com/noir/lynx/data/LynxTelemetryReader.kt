@@ -339,7 +339,7 @@ internal object LynxTelemetryReader {
             val rawCurrentNow = bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: 0
             val battCurrentMa = if (Math.abs(rawCurrentNow) > 10000) rawCurrentNow / 1000 else rawCurrentNow
             val battStatus = bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_STATUS) ?: android.os.BatteryManager.BATTERY_STATUS_UNKNOWN
-            val isCharging = battStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING || battCurrentMa > 0
+            val isCharging = battCurrentMa > 50 || (battStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING && battCurrentMa >= 0)
 
             var tempStr = "38.0"
             val tempCandidates = listOf(

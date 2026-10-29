@@ -12,7 +12,7 @@ import java.util.Locale
 /** Frequent game actions stay together; configuration and application management live in Tools. */
 @Composable
 internal fun HudHomePage(
-    snapshot: HudSnapshot, action: HudActionState, prefs: HudPreferences, store: HudPreferencesStore,
+    landscape: Boolean, snapshot: HudSnapshot, action: HudActionState, prefs: HudPreferences, store: HudPreferencesStore,
     focusActive: Boolean, onProfile: (String) -> Unit, onDetails: () -> Unit,
     onCapture: () -> Unit, onBoostRam: () -> Unit, onToggleFocus: () -> Unit, onClose: () -> Unit
 ) {
@@ -35,7 +35,7 @@ internal fun HudHomePage(
     }
     HudSummaryContent(snapshot, action, onProfile, onDetails) {
         HudQuickTileRow(
-            pinned = prefs.pinned, focusActive = focusActive, busy = action.busy,
+            landscape = landscape, pinned = prefs.pinned, focusActive = focusActive, busy = action.busy,
             isRecording = isRecording, recordDuration = duration, onCapture = onCapture,
             onToggleRecord = {
                 if (isRecording) recorder?.stop()

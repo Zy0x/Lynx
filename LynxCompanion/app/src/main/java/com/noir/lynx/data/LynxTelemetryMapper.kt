@@ -193,17 +193,19 @@ internal object LynxTelemetryMapper {
             val parsedTemp = tel.temp.toFloatOrNull() ?: 0f
             val tempFloat = if (parsedTemp > 0f) parsedTemp else (existingBatt?.tempC ?: 35.0f)
 
-            val isDischargingHardware = !tel.isCharging && tel.battCurrentMa < 0
+            val isDischargingHardware = tel.battCurrentMa < -50
             val isBypass = existingBatt?.isBypassActive == true
             val isPlugged = when {
                 isDischargingHardware && !isBypass -> false
-                tel.isCharging -> true
-                isBypass -> true
+                tel.battCurrentMa > 50 -> true
+                tel.isCharging && tel.battCurrentMa >= 0 -> true
+                isBypass -> existingBatt?.isPlugged == true
                 else -> existingBatt?.isPlugged == true && tel.battCurrentMa >= 0
             }
             val statusStr = when {
-                tel.isCharging -> "Charging"
+                isDischargingHardware && !isBypass -> "Discharging"
                 isBypass -> "Not charging"
+                isPlugged && tel.battCurrentMa > 50 -> "Charging"
                 else -> "Discharging"
             }
 

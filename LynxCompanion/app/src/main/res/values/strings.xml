@@ -155,6 +155,8 @@
     <string name="battery_protection_bypass_title">Proteksi Baterai &amp; Daya Langsung</string>
     <string name="battery_bypass_switch">Daya Langsung ke Mesin (Bypass)</string>
     <string name="battery_bypass_desc">Mengalirkan listrik charger langsung ke mesin tanpa mengisi baterai. Sangat berguna saat bermain game agar suhu ponsel tetap dingin dan baterai tidak cepat aus.</string>
+    <string name="battery_bypass_plug_required_toast">⚠️ Hubungkan charger terlebih dahulu! Bypass Charging memerlukan daya adaptor untuk menghidupkan motherboard.</string>
+    <string name="battery_bypass_unplugged_sublabel">⚠️ Hubungkan kabel charger untuk mengaktifkan Bypass</string>
     <string name="battery_smart_charge_limit">Batas Pengisian Cerdas</string>
     <string name="battery_smart_limit_switch_desc">Batasi pengisian daya baterai pada persentase tertentu untuk memperpanjang usia baterai.</string>
     <string name="battery_smart_limit_disabled_note">Nonaktif (Pengisian normal hingga 100%)</string>
@@ -2434,4 +2436,6 @@
     <string name="hud_network_cellular_help">Meminta koneksi seluler tetap tersedia saat memakai Wi-Fi. Waktu perpindahan bergantung pada Android dan jaringan.</string>
     <string name="hud_network_tcp_help">Menerapkan pengaturan TCP melalui pengontrol jaringan yang ada. Hasil bergantung pada dukungan sistem dan koneksi.</string>
     <string name="hud_detail_engine">Engine</string>
+    <string name="hud_fps_unit">FPS</string>
+    <string name="hud_pin_fps_short">Pin FPS</string>
 </resources>

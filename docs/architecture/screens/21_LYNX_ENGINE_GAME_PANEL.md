@@ -33,3 +33,7 @@ Local validation on 2026-10-28 for V7 RC259 / Companion 3.2.93: `tools/build_apk
 ## Compact detail follow-up
 
 RC260 extends the same compact grouping into detail pages; see `37_HUD_DETAIL_NAVIGATION.md`. The main rail and category routes retain the RC259 behavior, while per-domain internal tabs replace the remaining settings/telemetry stacks. Historical RC259 validation above does not establish physical testing of these new internal tab layouts.
+
+## Responsive window follow-up
+
+RC261 replaces the protruding ear on the expanded drawer with its existing Close/header gestures and uses all panel width for content/navigation. The rail is centered with 52 dp minimum targets; the home readout is one compact measured row. The current geometry and physical-test results supersede RC259/RC260 layout-only claims and are documented in `38_HUD_RESPONSIVE_WINDOWS.md`.

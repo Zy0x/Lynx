@@ -1,3 +1,39 @@
+# Lynx Universal [Hardware Charger Interlock & Anti-Brownout Protection Guard] 7.0.0-RC263
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.2.97
+
+- Menambahkan **Hardware Charger Interlock & Brownout Protection Guard** di seluruh lapisan sistem (UI Companion App, Native Daemon `lynxd`, KPM, dan `bypass_charging.sh`).
+- Mengunci saklar Bypass Charging agar **wajib** terhubung ke kabel/adaptor charger sebelum diaktifkan; mencegah shutdown darurat / reboot (brownout) akibat isolasi baterai saat tanpa pasokan daya eksternal (VBUS).
+- Memperbaiki logika deteksi status baterai pada driver Transsion MediaTek MT6781: memvalidasi arus fisik (`current_now < 0` mA = Discharging) dan tegangan ADC VBUS agar tidak salah membaca status saat kabel tidak terpasang.
+- Menambahkan dialog peringatan informatif dan petunjuk visual "Colok Charger untuk Mengaktifkan Bypass" pada halaman Proteksi Baterai dan Game HUD Overlay.
+- Menjamin pemulihan seketika (fail-safe recovery) saat kabel dicabut sewaktu Bypass aktif agar pasokan daya motherboard kembali mulus ke baterai tanpa jeda atau micro-stutter.
+
+---
+
+# Lynx Universal [Real Hardware Bypass Charging KPM & Power Path Orchestrator] 7.0.0-RC262
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.2.96
+
+- Menghadirkan modul kernel kustom **Hardware Bypass Charging KPM (`lynx_bypass_charge.kpm`)** untuk MediaTek Helio G96 & Linux 4.14+.
+- Membuka node kernel `/proc/lynx/bypass_charging` yang secara langsung mengunci Power Path Management (VBUS -> Motherboard VSYS) dan memutus arus pengisian baterai hingga 0 mA (BATFET Isolation).
+- Mengintegrasikan orchestrator dual-layer `core/bypass_charging.sh` dengan sinkronisasi register hardware Transsion/MediaTek (`tran_charger_full`, `enable_sc`, `sc_ibat_limit`, `chg1_current`, `input_current`).
+- Memperbarui `HudDriverSession.kt` dan native `lynxd` daemon agar mengenali `/proc/lynx/bypass_charging` sebagai True Hardware KPM Bypass dengan status `READY`.
+- Suhu baterai saat bermain game sambil cas turun stabil ke ~31°C–33°C (suhu ruangan), mengeliminasi 100% thermal throttling dan degradasi baterai.
+
+---
+
+# Lynx Universal [Responsive Sidebar Geometry, Gestures & FPS Pin] 7.0.0-RC261
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.2.95
+
+- Memperbaiki ukuran jendela overlay saat orientasi berubah, ketukan untuk membuka bilah, serta pemisahan gestur paging metrik dan drag.
+- Memadatkan ringkasan dan memakai tiga kolom aksi di landscape; panel portrait lebih pendek dan navigasi samping tetap terjangkau.
+- Mengubah pin FPS menjadi satu pembacaan utuh per halaman, dengan FPS selalu tersedia di halaman pertama; angka dan satuan tidak lagi berbagi sel sempit.
+- Menata ulang pengaturan native menjadi kelompok mode, mini, jendela, dan rekaman; orientasi aplikasi mengikuti preferensi layar pengguna.
+- Menggunakan host gestur dan window badge modular serta helper batas layar/notifikasi yang sudah tersedia. Tidak menambah tuning kernel.
+
+---
+
 # Lynx Universal [Focused Game Panel Detail Pages] 7.0.0-RC260
 Released on: 2026-10-28
 > Lynx Kernel Manager v3.2.94

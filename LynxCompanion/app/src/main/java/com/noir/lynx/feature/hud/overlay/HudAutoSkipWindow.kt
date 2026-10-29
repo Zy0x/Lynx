@@ -24,7 +24,8 @@ internal class HudAutoSkipWindow(
     lifecycle: LifecycleOwner, savedState: SavedStateRegistryOwner,
     skipping: StateFlow<Boolean>, paused: StateFlow<Boolean>, visible: Flow<Boolean>,
     private val onToggle: () -> Unit,
-    mode: StateFlow<com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner.SkipMode>? = null
+    mode: StateFlow<com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner.SkipMode>? = null,
+    executing: StateFlow<Boolean>? = null
 ) {
     private val windows = context.getSystemService(WindowManager::class.java)
     private val preferences = context.getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
@@ -74,9 +75,10 @@ internal class HudAutoSkipWindow(
         host.setOnClickListener { onToggle() }
         compose.setContent {
             val modeState = mode?.collectAsState()?.value
+            val tapping = executing?.collectAsState()?.value ?: false
             val active by skipping.collectAsState(); val idle by paused.collectAsState(); val position by alignment.collectAsState()
             if (modeState != null) {
-                HudSmartTriggerOverlay(modeState, contentAlignment = BiasAlignment(position.edgeX, position.edgeY))
+                HudSmartTriggerOverlay(modeState, isExecuting = tapping, contentAlignment = BiasAlignment(position.edgeX, position.edgeY))
             } else {
                 HudSmartTriggerOverlay(active, idle, contentAlignment = BiasAlignment(position.edgeX, position.edgeY))
             }

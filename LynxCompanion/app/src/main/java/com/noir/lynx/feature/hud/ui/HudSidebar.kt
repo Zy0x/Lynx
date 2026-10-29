@@ -25,7 +25,6 @@ fun HudSidebar(
     apps: List<HudApp>,
     rates: List<Float>,
     onOpen: (Boolean) -> Unit,
-    onDrag: (Float) -> Unit,
     onProfile: (String) -> Unit,
     onHz: (Float) -> Unit,
     onCapture: () -> Unit,
@@ -33,8 +32,6 @@ fun HudSidebar(
     onStop: () -> Unit,
     onBoostRam: () -> Unit = {},
     dockRight: Boolean = false,
-    onDrag2D: ((Float, Float) -> Unit)? = null,
-    onDragEnd: () -> Unit = {},
     bypassStatus: HudBypassStatus = HudBypassStatus(),
     focusActive: Boolean = false,
     onToggleFocus: () -> Unit = {},
@@ -86,8 +83,7 @@ fun HudSidebar(
         if (!open) {
             HudMiniOverlay(
                 snapshot = snapshot, prefs = prefs, viewport = viewport, onOpen = { onOpen(true) },
-                onDrag = onDrag, dockRight = dockRight, onDrag2D = onDrag2D, onDragEnd = onDragEnd,
-                isSkipping = isSkipping, isPaused = isPaused, onToggleAutoSkip = onToggleAutoSkip
+                dockRight = dockRight
             )
         } else {
             val title = when {
@@ -134,7 +130,7 @@ fun HudSidebar(
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             when (page) {
                                 HudPage.Summary -> HudHomePage(
-                                    snapshot, action, prefs, preferences, focusActive, onProfile,
+                                    viewport.landscape, snapshot, action, prefs, preferences, focusActive, onProfile,
                                     { page = HudPage.Details }, onCapture, onBoostRam, onToggleFocus, { onOpen(false) }
                                 )
                                 HudPage.Details -> HudDetails(snapshot)

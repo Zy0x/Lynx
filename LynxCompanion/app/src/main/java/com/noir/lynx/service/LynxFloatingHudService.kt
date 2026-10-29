@@ -5,8 +5,6 @@ import android.content.*
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.graphics.Region
-import java.lang.reflect.Proxy
 import android.hardware.display.DisplayManager
 import android.os.*
 import android.provider.Settings
@@ -16,8 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.*
 import androidx.savedstate.*
-import com.noir.lynx.R
-import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.feature.floating.FloatingToolType
 import com.noir.lynx.feature.floating.LynxFloatingWindowManager
 import com.noir.lynx.feature.floating.LynxFreeformManager
@@ -26,10 +22,10 @@ import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.feature.hud.ui.*
+import com.noir.lynx.feature.hud.overlay.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlin.math.abs
-import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /** Bounded overlay host. Native collection is read-only and scoped to screen-on lifetime. */
@@ -46,8 +42,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private lateinit var controller: HudController
     private var view: View? = null
     private var params: WindowManager.LayoutParams? = null
-    private var autoSkipView: View? = null
-    private var autoSkipParams: WindowManager.LayoutParams? = null
+    private var autoSkipWindow: HudAutoSkipWindow? = null
+    private var dragStartY = 0
     private var magicPinWindow: com.noir.lynx.feature.hud.overlay.HudMagicBoxPinWindow? = null
     private var comboRecorderWindow: com.noir.lynx.feature.hud.overlay.HudComboRecorderWindow? = null
     private var comboTriggersOverlay: com.noir.lynx.feature.hud.overlay.HudComboTriggersOverlay? = null
@@ -68,49 +64,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private var screenHeight = 0
     private var registered = false
     private val foregroundDetector by lazy { LynxForegroundDetector(this) }
-
-    private fun resolveActivePackage(samplePkg: String): String {
-        if (samplePkg.isNotBlank()) return samplePkg
-        controller.currentPackage?.takeIf { it.isNotBlank() }?.let { return it }
-        com.noir.lynx.service.LynxAppAutomationService.activeGamePackage?.takeIf { it.isNotBlank() }?.let { return it }
-        return foregroundDetector.queryTopResumedPackage()?.packageName ?: ""
-    }
-
-    private enum class GestureMode { UNDECIDED, SWIPE_OPEN, DRAG_MOVE, PASS_THROUGH }
+    private fun resolveActivePackage(samplePkg: String): String = samplePkg.takeIf { it.isNotBlank() }
+        ?: controller.currentPackage?.takeIf { it.isNotBlank() }
+        ?: LynxAppAutomationService.activeGamePackage?.takeIf { it.isNotBlank() }
+        ?: foregroundDetector.queryTopResumedPackage()?.packageName.orEmpty()
 
     companion object {
         const val ACTION_HUD_STATE_CHANGED = "com.noir.lynx.HUD_STATE_CHANGED"
         const val EXTRA_IS_RUNNING = "extra_is_running"
         const val FLAG_FILE_NAME = "hud_active.flag"
         val isRunningFlow = MutableStateFlow(false)
-        fun isHudProcessAlive(context: Context): Boolean {
-            val file = java.io.File(context.filesDir, FLAG_FILE_NAME)
-            if (!file.exists()) return false
-            val pid = runCatching { file.readText().trim().toIntOrNull() }.getOrNull()
-            if (pid != null && pid > 0) {
-                val procDir = java.io.File("/proc/$pid")
-                if (procDir.exists()) {
-                    val cmdline = runCatching { java.io.File(procDir, "cmdline").readText() }.getOrDefault("")
-                    if (cmdline.contains("com.noir.lynx:hud")) return true
-                }
-            }
-            val am = runCatching { context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager }.getOrNull()
-            if (am != null) {
-                @Suppress("DEPRECATION")
-                val isServiceRunning = runCatching {
-                    am.getRunningServices(50)?.any { it.service.className == LynxFloatingHudService::class.java.name }
-                }.getOrNull() ?: false
-                if (isServiceRunning) return true
-            }
-            runCatching { file.delete() }
-            isRunningFlow.value = false
-            return false
+        fun isHudProcessAlive(context: Context): Boolean = hudProcessAlive(context, FLAG_FILE_NAME).also {
+            if (!it) isRunningFlow.value = false
         }
-        val isRunning: Boolean
-            get() {
-                val ctx = runCatching { com.noir.lynx.data.LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance }.getOrNull()
-                return if (ctx != null) isHudProcessAlive(ctx) else isRunningFlow.value
-            }
+        val isRunning: Boolean get() = runCatching {
+            com.noir.lynx.data.LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+        }.getOrNull()?.let { isHudProcessAlive(it) } ?: false
         val activeStyleFlow = MutableStateFlow(1)
         val activeModeFlow = MutableStateFlow(0)
         val pinMiniFpsFlow = MutableStateFlow(false)
@@ -334,34 +303,24 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     @Suppress("DEPRECATION")
     private fun updateBounds() {
         val density = resources.displayMetrics.density
-        if (Build.VERSION.SDK_INT >= 30) {
-            val metrics = windows.currentWindowMetrics
-            screenWidth = metrics.bounds.width(); screenHeight = metrics.bounds.height()
-            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-            safeLeft = insets.left; safeRight = insets.right; safeTop = insets.top
-            safeWidth = screenWidth - insets.left - insets.right
-            safeHeight = screenHeight - insets.top - insets.bottom
-        } else {
-            val metrics = android.util.DisplayMetrics()
-            windows.defaultDisplay.getRealMetrics(metrics)
-            screenWidth = metrics.widthPixels; screenHeight = metrics.heightPixels
-            val insets = view?.rootWindowInsets
-            safeLeft = insets?.stableInsetLeft ?: 0
-            safeRight = insets?.stableInsetRight ?: 0
-            safeTop = insets?.stableInsetTop ?: 0
-            safeWidth = screenWidth - safeLeft - safeRight
-            safeHeight = screenHeight - safeTop - (insets?.stableInsetBottom ?: 0)
-        }
+        val bounds = readHudPanelBounds(windows, view?.rootWindowInsets)
+        safeLeft = bounds.left; safeRight = bounds.rightInset; safeTop = bounds.top
+        safeWidth = bounds.width; safeHeight = bounds.height
+        screenWidth = safeLeft + safeWidth + safeRight
+        screenHeight = safeTop + safeHeight
+        val rotated = viewport.value.landscape != (safeWidth > safeHeight)
         viewport.value = HudViewport(safeWidth / density, safeHeight / density)
+        if (rotated && !open.value) params?.y = safeTop + (safeHeight * getSavedHandleYFraction()).roundToInt()
         com.noir.lynx.feature.floating.StandaloneApps.viewportChanged()
         clamp()
-        clampAutoSkip()
+        autoSkipWindow?.updateBounds()
     }
 
     private fun updateExclusionRects(v: View) {
         if (Build.VERSION.SDK_INT >= 29) {
             v.systemGestureExclusionRects = if (activeModeFlow.value == 0 && !open.value && v.width > 0 && v.height > 0) {
-                listOf(Rect(0, 0, v.width, v.height))
+                val grip = (48f * resources.displayMetrics.density).roundToInt().coerceAtMost(v.width)
+                listOf(if (dockRight.value) Rect(v.width - grip, 0, v.width, v.height) else Rect(0, 0, grip, v.height))
             } else {
                 emptyList()
             }
@@ -383,7 +342,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val nextX: Int
         val nextY: Int
         val density = resources.displayMetrics.density
-
         if (activeModeFlow.value == 0) {
             nextGravity = Gravity.TOP or if (dockRight.value) Gravity.RIGHT else Gravity.LEFT
             nextX = if (dockRight.value) safeRight else safeLeft
@@ -406,7 +364,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             nextY = p.y.coerceIn(safeTop, (safeTop + safeHeight - v.height).coerceAtLeast(safeTop))
         }
 
-        if (p.gravity != nextGravity || p.x != nextX || p.y != nextY) {
+        val nextWidth = if (activeModeFlow.value == 0 && open.value) (viewport.value.panelWidth * density).roundToInt()
+            else WindowManager.LayoutParams.WRAP_CONTENT
+        if (p.gravity != nextGravity || p.x != nextX || p.y != nextY || p.width != nextWidth) {
+            p.width = nextWidth
             p.gravity = nextGravity
             p.x = nextX
             p.y = nextY
@@ -446,218 +407,15 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         pref.apply()
     }
 
-    private fun loadAutoSkipPosition(p: WindowManager.LayoutParams) {
-        val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            (screenWidth > screenHeight && screenWidth > 0) ||
-            viewport.value.landscape
-        val xKey = if (isLandscape) "autoskip_x_landscape_fraction" else "autoskip_x_portrait_fraction"
-        val yKey = if (isLandscape) "autoskip_y_landscape_fraction" else "autoskip_y_portrait_fraction"
-        val density = resources.displayMetrics.density
-        val badgeSize = (48f * density).roundToInt()
-        val w = if (screenWidth > 0) screenWidth else resources.displayMetrics.widthPixels
-        val h = if (screenHeight > 0) screenHeight else resources.displayMetrics.heightPixels
-        val availW = (w - badgeSize).coerceAtLeast(1)
-        val availH = (h - badgeSize).coerceAtLeast(1)
-        val defaultX = if (isLandscape) 0.94f else 0.88f
-        val defaultY = if (isLandscape) 0.20f else 0.65f
-        val xFrac = pref.getFloat(xKey, defaultX).coerceIn(0f, 1f)
-        val yFrac = pref.getFloat(yKey, defaultY).coerceIn(0f, 1f)
-        p.x = (availW * xFrac).roundToInt()
-        p.y = (availH * yFrac).roundToInt()
-    }
-
-    private fun saveAutoSkipPosition() {
-        val p = autoSkipParams ?: return
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
-            (screenWidth > screenHeight && screenWidth > 0) ||
-            viewport.value.landscape
-        val xKey = if (isLandscape) "autoskip_x_landscape_fraction" else "autoskip_x_portrait_fraction"
-        val yKey = if (isLandscape) "autoskip_y_landscape_fraction" else "autoskip_y_portrait_fraction"
-        val density = resources.displayMetrics.density
-        val badgeSize = (48f * density).roundToInt()
-        val w = if (screenWidth > 0) screenWidth else resources.displayMetrics.widthPixels
-        val h = if (screenHeight > 0) screenHeight else resources.displayMetrics.heightPixels
-        val availW = (w - badgeSize).coerceAtLeast(1)
-        val availH = (h - badgeSize).coerceAtLeast(1)
-        val xFrac = (p.x.toFloat() / availW).coerceIn(0f, 1f)
-        val yFrac = (p.y.toFloat() / availH).coerceIn(0f, 1f)
-        getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
-            .putFloat(xKey, xFrac)
-            .putFloat(yKey, yFrac)
-            .apply()
-    }
-
-    private fun clampAutoSkip() {
-        val p = autoSkipParams ?: return
-        val v = autoSkipView ?: return
-        val density = resources.displayMetrics.density
-        val badgeSize = (48f * density).roundToInt()
-        val w = if (screenWidth > 0) screenWidth else resources.displayMetrics.widthPixels
-        val h = if (screenHeight > 0) screenHeight else resources.displayMetrics.heightPixels
-        if (p.x == 0 && p.y == 0 && w > 0 && h > 0) {
-            loadAutoSkipPosition(p)
-            runCatching { windows.updateViewLayout(v, p) }
-            return
-        }
-        val maxX = (w - badgeSize).coerceAtLeast(0)
-        val maxY = (h - badgeSize).coerceAtLeast(0)
-        val nextX = p.x.coerceIn(0, maxX)
-        val nextY = p.y.coerceIn(0, maxY)
-        if (p.x != nextX || p.y != nextY) {
-            p.x = nextX
-            p.y = nextY
-            runCatching { windows.updateViewLayout(v, p) }
-        }
-    }
-
-    private inner class AutoSkipHostView(context: Context) : FrameLayout(context) {
-        private var downRawX = 0f
-        private var downRawY = 0f
-        private var startParamX = 0
-        private var startParamY = 0
-        private var isDragging = false
-
-        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-            val p = autoSkipParams ?: return super.dispatchTouchEvent(ev)
-            val density = resources.displayMetrics.density
-            val dragSlopPx = 8f * density
-            val badgeSize = (48f * density).roundToInt()
-
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downRawX = ev.rawX
-                    downRawY = ev.rawY
-                    startParamX = p.x
-                    startParamY = p.y
-                    isDragging = false
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                    super.dispatchTouchEvent(ev)
-                    return true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = ev.rawX - downRawX
-                    val dy = ev.rawY - downRawY
-                    if (!isDragging && hypot(dx, dy) >= dragSlopPx) {
-                        isDragging = true
-                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        val cancelEvent = MotionEvent.obtain(ev).apply { action = MotionEvent.ACTION_CANCEL }
-                        super.dispatchTouchEvent(cancelEvent)
-                        cancelEvent.recycle()
-                    }
-                    if (isDragging) {
-                        val currentW = width.takeIf { it > 0 } ?: badgeSize
-                        val currentH = height.takeIf { it > 0 } ?: badgeSize
-                        val maxX = (screenWidth - currentW).coerceAtLeast(0)
-                        val maxY = (screenHeight - currentH).coerceAtLeast(0)
-                        p.x = (startParamX + dx).roundToInt().coerceIn(0, maxX)
-                        p.y = (startParamY + dy).roundToInt().coerceIn(0, maxY)
-                        runCatching { windows.updateViewLayout(this, p) }
-                        return true
-                    }
-                    return super.dispatchTouchEvent(ev)
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!isDragging) {
-                        performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                        controller.toggleAutoSkip()
-                    } else {
-                        saveAutoSkipPosition()
-                    }
-                    isDragging = false
-                    return true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    isDragging = false
-                    return super.dispatchTouchEvent(ev)
-                }
-            }
-            return super.dispatchTouchEvent(ev)
-        }
-
-        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-            super.onSizeChanged(w, h, oldw, oldh)
-            val p = autoSkipParams ?: return
-            if (w > 0 && h > 0 && (w != oldw || h != oldh)) {
-                val maxX = (screenWidth - w).coerceAtLeast(0)
-                val maxY = (screenHeight - h).coerceAtLeast(0)
-                var changed = false
-                if (p.x > maxX) {
-                    p.x = maxX
-                    changed = true
-                }
-                if (p.y > maxY) {
-                    p.y = maxY
-                    changed = true
-                }
-                if (changed) {
-                    runCatching { windows.updateViewLayout(this, p) }
-                }
-            }
-        }
-    }
-
     private fun createAutoSkipOverlay() {
-        autoSkipParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            title = "LynxAutoSkipBadge"
-            gravity = Gravity.TOP or Gravity.LEFT
-            if (Build.VERSION.SDK_INT >= 30) {
-                setFitInsetsTypes(0)
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            } else if (Build.VERSION.SDK_INT >= 28) {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            }
-            loadAutoSkipPosition(this)
+        val visible = combine(rendered, preferences.changes, interactive) { sample, prefs, isInteractive ->
+            val pkg = resolveActivePackage(sample.packageName)
+            if (pkg.isNotBlank() && controller.currentPackage != pkg) controller.currentPackage = pkg
+            prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(pkg) && isInteractive
         }
-
-        val composeView = ComposeView(this).apply {
-            setContent {
-                val mode by controller.autoSkipMode.collectAsState()
-                val isExecuting by controller.autoSkipExecuting.collectAsState()
-
-                HudSmartTriggerOverlay(
-                    mode = mode,
-                    isExecuting = isExecuting
-                )
-            }
-        }
-
-        val host = AutoSkipHostView(this).apply {
-            setViewTreeLifecycleOwner(this@LynxFloatingHudService)
-            setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
-            addView(
-                composeView,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-        autoSkipView = host
-        host.visibility = View.GONE
-        runCatching { windows.addView(host, autoSkipParams) }
-
-        scope.launch {
-            combine(rendered, preferences.changes, interactive) { sample, prefs, isInteractive ->
-                val activePkg = resolveActivePackage(sample.packageName)
-                if (activePkg.isNotBlank() && controller.currentPackage != activePkg) {
-                    controller.currentPackage = activePkg
-                }
-                val supported = prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(activePkg)
-                supported && isInteractive
-            }.collect { visible ->
-                autoSkipView?.visibility = if (visible) View.VISIBLE else View.GONE
-            }
-        }
+        autoSkipWindow = HudAutoSkipWindow(this, scope, this, this, controller.isSkipping,
+            controller.isPaused, visible, controller::toggleAutoSkip,
+            mode = controller.autoSkipMode, executing = controller.autoSkipExecuting)
     }
 
     private fun createMagicPinOverlay() {
@@ -693,223 +451,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
     }
 
-    private inner class HudHostView(context: Context) : FrameLayout(context) {
-        private var downRawX = 0f
-        private var downRawY = 0f
-        private var downLocalX = 0f
-        private var downLocalY = 0f
-        private var startWindowY = 0
-        private var gestureMode = GestureMode.UNDECIDED
-        private var childCancelled = false
-
-        private val holdToDragRunnable = Runnable {
-            if (gestureMode == GestureMode.UNDECIDED && activeModeFlow.value == 0 && !open.value) {
-                gestureMode = GestureMode.DRAG_MOVE
-                cancelChildTouch()
-                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            }
-        }
-
-        private fun cancelChildTouch() {
-            if (!childCancelled) {
-                childCancelled = true
-                val now = SystemClock.uptimeMillis()
-                val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
-                super.dispatchTouchEvent(cancel)
-                cancel.recycle()
-            }
-        }
-
-        override fun onAttachedToWindow() {
-            super.onAttachedToWindow()
-            setupTouchableInsets()
-        }
-
-        private fun setupTouchableInsets() {
-            try {
-                val listenerClass = Class.forName("android.view.ViewTreeObserver\$OnComputeInternalInsetsListener")
-                val addMethod = ViewTreeObserver::class.java.getMethod("addOnComputeInternalInsetsListener", listenerClass)
-                val insetsInfoClass = Class.forName("android.view.ViewTreeObserver\$InternalInsetsInfo")
-                val setTouchableInsets = insetsInfoClass.getMethod("setTouchableInsets", Int::class.javaPrimitiveType)
-                val touchableRegionField = insetsInfoClass.getField("touchableRegion")
-
-                val proxy = Proxy.newProxyInstance(
-                    listenerClass.classLoader,
-                    arrayOf(listenerClass)
-                ) { _, method, args ->
-                    if (method.name == "onComputeInternalInsets" && args != null && args.isNotEmpty()) {
-                        val info = args[0]
-                        if (open.value) {
-                            setTouchableInsets.invoke(info, 0)
-                        } else {
-                            setTouchableInsets.invoke(info, 3)
-                            val region = touchableRegionField.get(info) as? Region ?: Region()
-                            val density = resources.displayMetrics.density
-                            val handleHeight = (72f * density).toInt()
-                            val handleWidth = width.coerceAtLeast(1)
-                            region.set(0, 0, handleWidth, handleHeight)
-                        }
-                    }
-                    null
-                }
-                addMethod.invoke(viewTreeObserver, proxy)
-            } catch (_: Throwable) {}
-        }
-
-        override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-            super.onLayout(changed, left, top, right, bottom)
-            updateExclusionRects(this)
-        }
-
-        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-            if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) {
-                open.value = false
-                return false
-            }
-            if (activeModeFlow.value != 0) {
-                return super.dispatchTouchEvent(ev)
-            }
-
-            val density = resources.displayMetrics.density
-            val dragSlopPx = 8f * density
-            val swipeOpenThresholdPx = 16f * density
-            val isExpanded = open.value
-
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    mainHandler.removeCallbacks(holdToDragRunnable)
-                    downRawX = ev.rawX
-                    downRawY = ev.rawY
-                    downLocalX = ev.x
-                    downLocalY = ev.y
-                    startWindowY = params?.y ?: safeTop
-                    childCancelled = false
-
-                    if (isExpanded) {
-                        val earWidthPx = 22f * density
-                        val onInnerEar = if (dockRight.value) downLocalX <= earWidthPx else downLocalX >= (width - earWidthPx)
-                        val inHeaderArea = downLocalY <= 48f * density && downLocalX < (width - 76f * density)
-                        gestureMode = if (onInnerEar || inHeaderArea) GestureMode.UNDECIDED else GestureMode.PASS_THROUGH
-                    } else {
-                        val handleHeightPx = 72f * density
-                        val isInsideHandle = downLocalY <= handleHeightPx
-                        if (isInsideHandle) {
-                            gestureMode = GestureMode.UNDECIDED
-                            mainHandler.postDelayed(holdToDragRunnable, 220L)
-                        } else {
-                            return false
-                        }
-                    }
-                    val handled = super.dispatchTouchEvent(ev)
-                    return if (gestureMode == GestureMode.PASS_THROUGH) handled else true
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (gestureMode == GestureMode.PASS_THROUGH || gestureMode == GestureMode.SWIPE_OPEN) {
-                        return if (childCancelled) true else super.dispatchTouchEvent(ev)
-                    }
-
-                    val dx = ev.rawX - downRawX
-                    val dy = ev.rawY - downRawY
-                    val absDx = abs(dx)
-                    val absDy = abs(dy)
-
-                    if (gestureMode == GestureMode.UNDECIDED) {
-                        if (isExpanded) {
-                            val outwardDx = if (dockRight.value) dx else -dx
-                            if (outwardDx >= swipeOpenThresholdPx && absDx > absDy * 1.2f) {
-                                gestureMode = GestureMode.SWIPE_OPEN
-                                cancelChildTouch()
-                                open.value = false
-                                return true
-                            }
-                            if (hypot(dx, dy) >= dragSlopPx) {
-                                gestureMode = GestureMode.DRAG_MOVE
-                                cancelChildTouch()
-                            }
-                        } else {
-                            val inwardDx = if (dockRight.value) -dx else dx
-                            val selectedCount = preferences.read().selected.size
-                            val isPinnedMultiPage = pinMiniFpsFlow.value && selectedCount > 2
-                            val handleStripPx = 28f * density
-                            val touchedHandleStrip = if (dockRight.value) {
-                                downLocalX >= (width - handleStripPx)
-                            } else {
-                                downLocalX <= handleStripPx
-                            }
-
-                            if (!touchedHandleStrip && isPinnedMultiPage && absDx >= dragSlopPx && absDx > absDy * 1.2f) {
-                                mainHandler.removeCallbacks(holdToDragRunnable)
-                                gestureMode = GestureMode.PASS_THROUGH
-                                return super.dispatchTouchEvent(ev)
-                            }
-
-                            if (inwardDx >= swipeOpenThresholdPx && absDx > absDy * 1.2f) {
-                                mainHandler.removeCallbacks(holdToDragRunnable)
-                                gestureMode = GestureMode.SWIPE_OPEN
-                                cancelChildTouch()
-                                open.value = true
-                                return true
-                            }
-
-                            if (absDy >= dragSlopPx && absDy >= absDx) {
-                                mainHandler.removeCallbacks(holdToDragRunnable)
-                                gestureMode = GestureMode.DRAG_MOVE
-                                cancelChildTouch()
-                            } else if (inwardDx <= -dragSlopPx * 1.5f) {
-                                mainHandler.removeCallbacks(holdToDragRunnable)
-                                gestureMode = GestureMode.DRAG_MOVE
-                                cancelChildTouch()
-                            }
-                        }
-                    }
-
-                    if (gestureMode == GestureMode.DRAG_MOVE) {
-                        val p = params ?: return true
-                        val maxY = (safeTop + safeHeight - height).coerceAtLeast(safeTop)
-                        val isRight = if (dockRight.value) {
-                            ev.rawX >= safeLeft + safeWidth * 0.40f
-                        } else {
-                            ev.rawX > safeLeft + safeWidth * 0.60f
-                        }
-                        if (dockRight.value != isRight) {
-                            dockRight.value = isRight
-                        }
-                        val nextGravity = Gravity.TOP or if (isRight) Gravity.RIGHT else Gravity.LEFT
-                        val nextX = if (isRight) safeRight else safeLeft
-                        val nextY = (startWindowY + dy.toInt()).coerceIn(safeTop, maxY)
-                        if (p.gravity != nextGravity || p.x != nextX || p.y != nextY) {
-                            p.gravity = nextGravity
-                            p.x = nextX
-                            p.y = nextY
-                            runCatching { windows.updateViewLayout(this, p) }
-                        }
-                        return true
-                    }
-
-                    return if (childCancelled) true else super.dispatchTouchEvent(ev)
-                }
-
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    mainHandler.removeCallbacks(holdToDragRunnable)
-                    val finishedMode = gestureMode
-                    gestureMode = GestureMode.UNDECIDED
-                    if (finishedMode == GestureMode.DRAG_MOVE) {
-                        savePositionPrefs()
-                        clamp()
-                        return true
-                    }
-                    if (!isExpanded && finishedMode == GestureMode.UNDECIDED) {
-                        cancelChildTouch()
-                        return true
-                    }
-                    return if (childCancelled) true else super.dispatchTouchEvent(ev)
-                }
-            }
-            return if (childCancelled) true else super.dispatchTouchEvent(ev)
-        }
-    }
-
     private fun createOverlay() {
         val pref = getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE)
         val initial = getSavedHandleYFraction()
@@ -923,6 +464,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             PixelFormat.TRANSLUCENT
         ).apply {
             title = WINDOW_TITLE
+            if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
             if (activeModeFlow.value == 0) {
                 gravity = Gravity.TOP or if (dockRight.value) Gravity.RIGHT else Gravity.LEFT
                 x = if (dockRight.value) safeRight else safeLeft
@@ -933,7 +475,24 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             y = safeTop + (safeHeight * initial).roundToInt()
         }
         val composeView = ComposeView(this)
-        val host = HudHostView(this).apply {
+        val host = HudSidebarHostView(
+            context = this,
+            sidebar = { activeModeFlow.value == 0 }, expanded = { open.value }, right = { dockRight.value },
+            paged = { pinMiniFpsFlow.value && HudMiniPolicy.metrics(preferences.read().selected).size > 1 },
+            onOpen = { open.value = it }, onDragStart = { dragStartY = params?.y ?: safeTop },
+            onDrag = { _, dy, rawX ->
+                val p = params
+                if (p != null) {
+                    val nextRight = if (dockRight.value) rawX >= safeLeft + safeWidth * .4f else rawX > safeLeft + safeWidth * .6f
+                    dockRight.value = nextRight
+                    p.gravity = Gravity.TOP or if (nextRight) Gravity.RIGHT else Gravity.LEFT
+                    p.x = if (nextRight) safeRight else safeLeft
+                    p.y = (dragStartY + dy.toInt()).coerceIn(safeTop, (safeTop + safeHeight - (view?.height ?: 0)).coerceAtLeast(safeTop))
+                    view?.let { runCatching { windows.updateViewLayout(it, p) } }
+                }
+            }, onDragEnd = { savePositionPrefs(); clamp() },
+            onBoundsChanged = { view?.let { updateExclusionRects(it) }; clamp() }
+        ).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
             addView(
@@ -943,7 +502,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     FrameLayout.LayoutParams.WRAP_CONTENT
                 )
             )
-            addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> post { clamp() } }
             setOnApplyWindowInsetsListener { _, insets -> post { updateBounds() }; insets }
         }
         composeView.setContent {
@@ -988,7 +546,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     apps = apps,
                     rates = supported,
                     onOpen = { open.value = it },
-                    onDrag = {},
                     onProfile = controller::profile,
                     onHz = { targetHz ->
                         controller.refresh(targetHz, supported.ifEmpty { listOf(60f, 90f, 120f) }, targetDisplay()) {
@@ -1011,8 +568,6 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     onStop = { stopSelf() },
                     onBoostRam = controller::boostRam,
                     dockRight = isDockRight,
-                    onDrag2D = null,
-                    onDragEnd = {},
                     bypassStatus = bypassStatus,
                     focusActive = focusActive,
                     onToggleFocus = controller::toggleFocus,
@@ -1098,34 +653,13 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateBounds(); updateDisplay()
-        params?.y = safeTop + (safeHeight * getSavedHandleYFraction()).roundToInt()
+        if (!open.value) params?.y = safeTop + (safeHeight * getSavedHandleYFraction()).roundToInt()
         view?.post { clamp(); params?.let { p -> runCatching { windows.updateViewLayout(view, p) } } }
-        autoSkipView?.post {
-            autoSkipParams?.let { p ->
-                loadAutoSkipPosition(p)
-                clampAutoSkip()
-                runCatching { windows.updateViewLayout(autoSkipView, p) }
-            }
-        }
+        autoSkipWindow?.updateBounds()
     }
 
     private fun startNotification() {
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, AppLocale.getString(this, R.string.floating_hud_channel_name), NotificationManager.IMPORTANCE_LOW))
-        val launch = Intent(this, com.noir.lynx.ui.MainActivity::class.java)
-        val pending = PendingIntent.getActivity(this, 0, launch, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val stop = PendingIntent.getService(this, 1, Intent(this, javaClass).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        startForeground(
-            8801,
-            Notification.Builder(this, CHANNEL)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(AppLocale.getString(this, R.string.floating_hud_notification_title))
-                .setContentText(AppLocale.getString(this, R.string.floating_hud_notification_tap_close))
-                .setContentIntent(pending)
-                .setOngoing(true)
-                .addAction(Notification.Action.Builder(null, AppLocale.getString(this, R.string.floating_hud_action_close), stop).build())
-                .build()
-        )
+        startForeground(8801, hudForegroundNotification(this, CHANNEL, Intent(this, javaClass).setAction(ACTION_STOP)))
     }
 
     override fun onDestroy() {
@@ -1142,11 +676,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
         }
         view = null
-        autoSkipView?.let {
-            runCatching { windows.removeView(it) }
-            ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
-        }
-        autoSkipView = null
+        autoSkipWindow?.close()
+        autoSkipWindow = null
         magicPinWindow?.close()
         magicPinWindow = null
         comboRecorderWindow?.close()

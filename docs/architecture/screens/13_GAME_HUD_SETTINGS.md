@@ -35,3 +35,7 @@ Grid policy tests cover small/scaled measured widths. App and library catalogs a
 Release build and parser/policy fixtures do not establish pixel-perfect rendering, touch/scroll behavior or complete Android 10–17 compatibility. Physical X698 checks remain necessary; Redmi keeps its authorized install-only/no-launch boundary. Full results and artifact checksums are recorded in the floating audit.
 
 The recorder uses `HudRecorderMasterCard` and the shared `HudRecorderControls` used in the Add-in subpage. Resolution and start/stop remain visible; audio, bitrate, overlay privacy and codec choices expand under Recording settings. The previous target-FPS picker was removed because the backend never consumed the saved preference. Existing preferences and backend APIs remain compatible. A recorder created for this screen is disposed when the screen leaves; a recorder borrowed from the HUD service is not closed by the screen.
+
+## Responsive window follow-up
+
+RC261 replaces the remaining native settings stack with a compact master plus Mode / Mini / Windows / Recorder tabs. MainActivity no longer forces portrait. Pin/metric preferences now synchronize live app and :hud process caches through same-UID typed patches. The UI does not turn on auto-rotation. See `38_HUD_RESPONSIVE_WINDOWS.md` for lifecycle, geometry and physical validation scope.

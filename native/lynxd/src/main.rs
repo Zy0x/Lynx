@@ -859,6 +859,13 @@ fn handle_charging(args: &[String]) {
             ChargingRegulator::reapply_lock();
         }
         "bypass" => {
+            if !ChargingRegulator::is_hardware_plugged() {
+                eprintln!("[ERROR] {}", ui(
+                    "Gagal: Kabel charger / adaptor tidak terhubung! Hubungkan charger sebelum mengaktifkan Bypass.",
+                    "Failed: Charger not connected! Connect charger before engaging Bypass."
+                ));
+                std::process::exit(1);
+            }
             ChargingRegulator::apply_bypass_charging();
             println!("[OK] {}", ui("Bypass pengisian hardware aktif (arus ke sel baterai 0 mA)", "Hardware Bypass Charging engaged (0 mA battery cell cutoff)"));
         }
