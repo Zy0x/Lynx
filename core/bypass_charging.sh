@@ -183,16 +183,16 @@ disable_bypass() {
         echo 2000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
     fi
     if [ -f "/sys/devices/platform/charger/chg1_current" ]; then
-        echo 24576 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+        echo 3000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
     fi
     if [ -f "/sys/devices/platform/charger/input_current" ]; then
-        echo 24576 > /sys/devices/platform/charger/input_current 2>/dev/null
+        echo 3000 > /sys/devices/platform/charger/input_current 2>/dev/null
     fi
     if [ -f "/proc/mtk_battery_cmd/current_cmd" ]; then
         echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
     fi
     if [ -f "/proc/mtk_battery_cmd/en_power_path" ]; then
-        echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+        echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
     fi
 
     for node in /sys/class/power_supply/battery/charging_enabled \

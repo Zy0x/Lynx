@@ -20,7 +20,7 @@ object ExtremeChargingScript {
             applied=0
             rm -f /dev/lynx_bypass_active /dev/lynx_standard_charging
             echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
-            echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+            echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
             echo 0 > /proc/lynx/bypass_charging 2>/dev/null
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \

@@ -351,7 +351,7 @@ class ChargingRepository(
             Shell.cmd(
                 "rm -f /dev/lynx_bypass_active /dev/lynx_charging_state /dev/lynx_standard_charging; " +
                 "echo '1 0' > /proc/mtk_battery_cmd/current_cmd 2>/dev/null; " +
-                "echo 0 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null; " +
+                "echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null; " +
                 "chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null; " +
                 "echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null; " +
                 "echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null; " +

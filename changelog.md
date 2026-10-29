@@ -1,3 +1,15 @@
+# Lynx Universal [MediaTek Transsion Active Charging Restoration & Power Path Invariant] 7.0.0-RC269
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.3
+
+- Memperbaiki kegagalan pengisian daya pada chipset MediaTek / Transsion (Infinix & Tecno) di mana arus pengisian negatif/habis terkuras saat kabel charger dicolok ("saya sudah colok tapi tak masuk").
+- Menyelesaikan kekeliruan logika pada node kernel MediaTek `/proc/mtk_battery_cmd/en_power_path`: nilai `0` secara keliru memerintahkan driver charger IC (RT9471) untuk mengaktifkan High-Impedance Mode (`__rt9471_enable_hz en = 1`) yang memutus input VBUS secara fisik pada level PMIC. Nilai `en_power_path` kini dipastikan selalu bernilai `1` pada seluruh profil charging, fail-safe disconnect reset, dan restore bypass agar jalur daya switching PMIC tetap aktif mengalirkan arus.
+- Memperbaiki evaluasi status terpasang (`evaluate_plugged_state`) di daemon native `lynxd`: mengenali status pengisian daya MediaTek / Transsion secara akurat meskipun `Charger_Type` bernilai `0` (`CHARGER_UNKNOWN`) dan node rail `online` belum diperbarui oleh kernel, dengan mendeteksi tegangan adapter riil ($V_{\text{BUS}} \ge 4600\text{ mV}$) dan status `Charging` pada fuel gauge untuk mencegah siklus disconnect palsu yang memicu isolasi Hi-Z berulang.
+- Mengoreksi satuan batas arus input MediaTek (`input_current`, `chg1_current`, `chg2_current`, `sc_ibat_limit`) dari mikroampere ke batas riil miliampere (hingga 6000 mA), serta menghapus nilai statis yang membatasi input ke 200 mA.
+- Menyelaraskan seluruh skrip charging fallback pada Kotlin Companion App (`ChargingRepository.kt`, `ExtremeChargingScript.kt`, `StandardChargingScript.kt`, dan `core/bypass_charging.sh`) agar menggunakan `en_power_path = 1`.
+
+---
+
 # Lynx Universal [Universal USB Power Delivery & Anti-Sawtooth Contract Stabilization] 7.0.0-RC268
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.3.2

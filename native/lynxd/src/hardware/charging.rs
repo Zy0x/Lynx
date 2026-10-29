@@ -45,7 +45,7 @@ const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 
 const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/proc/lynx/bypass_charging", "0"),
-    ("/proc/mtk_battery_cmd/en_power_path", "0"),
+    ("/proc/mtk_battery_cmd/en_power_path", "1"),
     ("/proc/mtk_battery_cmd/current_cmd", "1 0"),
     ("/sys/class/power_supply/battery/input_suspend", "0"),
     ("/sys/class/power_supply/battery/charging_enabled", "1"),
@@ -862,7 +862,6 @@ impl ChargingRegulator {
     pub fn detect_hw_bypass_node() -> Option<&'static str> {
         const CANDIDATES: &[&str] = &[
             "/proc/lynx/bypass_charging",
-            "/proc/mtk_battery_cmd/en_power_path",
             "/sys/devices/platform/charger/bypass_charger",
             "/sys/class/power_supply/battery/device/smart_charging",
             "/sys/class/power_supply/battery/charging_limit_mode",
@@ -1480,7 +1479,7 @@ impl ChargingRegulator {
         Self::set_perm("/proc/lynx/bypass_charging", 0o666);
         Self::write_node("/proc/lynx/bypass_charging", "0");
         Self::set_perm("/proc/mtk_battery_cmd/en_power_path", 0o666);
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
         Self::set_perm("/proc/mtk_battery_cmd/current_cmd", 0o666);
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
 
@@ -1736,13 +1735,12 @@ impl ChargingRegulator {
         Self::uncap_usb_pd_protocol(effective_ma);
 
         // MediaTek PMIC Power Path: ensure battery charging is permitted!
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
 
         // 2. MediaTek Platform Enforcements & Dual Pump (Thermal & JEITA completely bypassed!)
         Self::set_bcct_throttle(false);
 
-        let is_tapered = effective_ma <= 2200;
         let is_trickle = effective_ma < 1500;
         let pe_protocol = if is_trickle { "0" } else { "1" };
 
@@ -1777,14 +1775,8 @@ impl ChargingRegulator {
         // R2 Thermal Neutralization
         Self::apply_charger_thermal_neutralization();
 
-        // Active Maximum Push to MediaTek hardware registers
-        let mtk_input_str = if is_tapered {
-            effective_ma_str.clone()
-        } else if effective_ma > 33170 {
-            effective_ma_str.clone()
-        } else {
-            "33170".to_string()
-        };
+        // Active Maximum Push to MediaTek hardware registers (MTK expects mA up to 6000mA ceiling)
+        let mtk_input_str = effective_ma.clamp(500, 6000).to_string();
         Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
         Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
@@ -2014,7 +2006,7 @@ impl ChargingRegulator {
         }
 
         // 2. Ensure PMIC power path and battery charging are permitted
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::set_perm("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
@@ -2150,7 +2142,7 @@ impl ChargingRegulator {
         let effective_ua_str = (effective_ma as u64 * 1000).to_string();
         let effective_ma_str = effective_ma.to_string();
 
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
@@ -2313,7 +2305,7 @@ impl ChargingRegulator {
 
         // Restore standard charging flags
         Self::write_node("/proc/lynx/bypass_charging", "0");
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
+        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
@@ -3311,36 +3303,39 @@ impl ChargingRegulator {
         charger_type: &str,
         vbus_mv: i64,
     ) -> bool {
+        // 1. Verified online power supply rail across USB, AC, Charger, MAIN, DC
+        if has_online_rail {
+            return true;
+        }
+
+        // 2. Verified battery charging current into cell:
+        // If fuel gauge / kernel battery driver reports "Charging", external power is actively supplying the battery.
+        if batt_status.eq_ignore_ascii_case("charging") {
+            return true;
+        }
+
+        // 3. Actively driven adapter voltage:
+        // Battery cell voltage never exceeds 4.45V, so any VBUS >= 4600mV CANNOT be capacitor float
+        // or battery back-feed -- it is physically driven by an active 5V/9V/12V external charger!
+        // This is critical for MediaTek / Transsion devices where Charger_Type may report "0" / unknown
+        // or online rails remain 0 until fast charging handshake completes.
+        if vbus_mv >= 4600 {
+            return true;
+        }
+
         let is_discharging = batt_status.eq_ignore_ascii_case("discharging");
         let is_unknown_charger = charger_type == "0"
             || charger_type.eq_ignore_ascii_case("unknown")
             || charger_type.eq_ignore_ascii_case("none")
             || charger_type.is_empty();
 
-        // 1. Triple-Vector Invariant: If no power supply rails are online AND either the battery
-        // is discharging or the charger protocol has dropped to unknown/0, the cable is
-        // physically disconnected. Decoupling capacitor float voltage (>3.5V) must NOT keep
-        // the driver in plugged state!
-        if !has_online_rail && (is_discharging || is_unknown_charger) {
+        // 4. Decoupling capacitor float after physical unplug: VBUS floats between 3.5V and 4.4V
+        // while rails are 0 and charger type dropped to unknown/0 or discharging.
+        if is_discharging || is_unknown_charger {
             if vbus_mv >= 4400 && !is_unknown_charger {
                 return true;
             }
             return false;
-        }
-
-        // 2. Verified online power supply rail
-        if has_online_rail {
-            return true;
-        }
-
-        // 3. Verified battery charging current into cell
-        if batt_status.eq_ignore_ascii_case("charging") {
-            return true;
-        }
-
-        // 4. Actively driven adapter voltage fallback (>4500 mV on non-discharging battery)
-        if vbus_mv >= 4500 && !is_unknown_charger && !is_discharging {
-            return true;
         }
 
         false
@@ -4181,6 +4176,12 @@ mod tests {
 
         // Battery reports Charging even before online rail sysfs updates
         assert!(ChargingRegulator::evaluate_plugged_state(false, "Charging", "9", 5000));
+
+        // MediaTek / Transsion: rails remain 0, Charger_Type reports "0", but VBUS is 5200mV and status is Charging
+        assert!(ChargingRegulator::evaluate_plugged_state(false, "Charging", "0", 5200));
+
+        // MediaTek / Transsion in bypass mode: rails 0, Charger_Type "0", Discharging, but active 5.2V adapter present
+        assert!(ChargingRegulator::evaluate_plugged_state(false, "Discharging", "0", 5200));
     }
 
     #[test]
