@@ -1,3 +1,17 @@
+# Lynx Universal [MediaTek TPD Keypad Mode Elimination & Anti-Drop Joystick Debounce] 7.0.0-RC271
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.5
+
+- Mengeliminasi anomali tombol keyboard menjadi tertahan / hold ("huruf bisa menjadi hold"), ghost touch silang jarak jauh (misalnya antara huruf 'F' dan 'H'), serta joystick game yang terlepas sendiri ("game controller lepas sendiri padahal jari masih menempel").
+- Menghapus aktivasi keliru `tpd_mode = 1` pada subsistem driver MediaTek TPD (`native/lynxd/src/subsystems/display.rs` dan `LynxCpuSchedulerControlRepository.kt`):
+  - `tpd_mode = 1` adalah mode warisan (*Keypad Mode*) yang mengelompokkan area layar bawah (Y: 1230–2460, lokasi tepat keyboard virtual) dengan toleransi matriks tombol kaku 729px. Hal ini menyebabkan ketukan cepat pada keyboard dideteksi sebagai penekanan keypad ganda yang menahan input huruf (*stuck hold*) atau memicu ghost touch silang pada jalur sense yang sama.
+  - Mengunci `tpd_mode = 0` secara permanen untuk memastikan layar beroperasi murni pada mode *Direct Linear Multi-Touch* 1:1 di seluruh area layar.
+- Mengoreksi ambang batas debounce filter MediaTek TPD (`tpd_em_debounce_time`):
+  - Mengubah nilai dari `0` ke nilai penyangga aman `1` (sub-frame ~4ms).
+  - Nilai `0` sebelumnya secara keliru mematikan seluruh filter de-jitter hardware: fluktuasi mikroskopis pada kapasitansi ujung jari (akibat tekstur kulit atau keringat) saat menahan joystick virtual seketika terbaca sebagai jari terangkat (`ACTION_UP`), menyebabkan joystick terlepas sendiri di tengah permainan. Penyangga `1` menjamin sentuhan tetap stabil tanpa menambah latensi input.
+
+---
+
 # Lynx Universal [Touch Digitizer Stabilization & Fast Typing Collision Elimination] 7.0.0-RC270
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.4

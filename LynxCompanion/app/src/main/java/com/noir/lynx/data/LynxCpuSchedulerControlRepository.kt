@@ -345,12 +345,12 @@ internal object LynxCpuSchedulerControlRepository {
             settings put secure high_touch_sensitivity_enable "$valStr" 2>/dev/null
             settings put system touch_game_mode "$valStr" 2>/dev/null
 
-            # MediaTek Touch Panel Driver zero-debounce
-            debounce_val="${if (enabled) "0" else "10"}"
+            # MediaTek Touch Panel Driver anti-jitter debounce & pure direct multi-touch
+            debounce_val="${if (enabled) "1" else "4"}"
             echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time 2>/dev/null
             echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 2>/dev/null
             echo "${'$'}debounce_val" > /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 2>/dev/null
-            echo "$valStr" > /sys/module/tpd_setting/parameters/tpd_mode 2>/dev/null
+            echo "0" > /sys/module/tpd_setting/parameters/tpd_mode 2>/dev/null
 
             for node in /sys/devices/platform/goodix_ts.0/game_mode \
                         /sys/devices/platform/goodix_ts.*/game_mode \

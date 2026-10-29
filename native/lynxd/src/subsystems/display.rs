@@ -406,8 +406,10 @@ impl DisplayController {
         let _ = Self::run_cmd("settings", &["put", "secure", "high_touch_sensitivity_enable", val]);
         let _ = Self::run_cmd("settings", &["put", "system", "touch_game_mode", val]);
 
-        // 2. MediaTek Touch Panel Driver (TPD) Low-Latency & Zero-Debounce
-        let debounce_val = if enable { "0" } else { "10" };
+        // 2. MediaTek Touch Panel Driver (TPD) Low-Latency & Anti-Jitter Debounce
+        // Note: debounce must NOT be 0 (0 causes joystick drops & tracking loss on finger micro-tremors).
+        // tpd_mode MUST ALWAYS be 0 (0 = Pure Direct Multi-Touch. 1 = Legacy Resistive Keypad Mode which distorts lower screen touches).
+        let debounce_val = if enable { "1" } else { "4" };
         let tpd_nodes = [
             "/sys/module/tpd_setting/parameters/tpd_em_debounce_time",
             "/sys/module/tpd_setting/parameters/tpd_em_debounce_time0",
@@ -418,7 +420,7 @@ impl DisplayController {
                 count += 1;
             }
         }
-        if Self::write_opt("/sys/module/tpd_setting/parameters/tpd_mode", val) {
+        if Self::write_opt("/sys/module/tpd_setting/parameters/tpd_mode", "0") {
             count += 1;
         }
 
