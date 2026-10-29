@@ -387,6 +387,8 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
    - **Alasan Teknis & Kinerja**: Varian Release mengaktifkan optimasi penuh R8, ProGuard shrinking, dead-code elimination, dan resource minification (menghasilkan ukuran APK ramping ~2.8 MB dibanding ~19.5 MB pada Debug, 7x lebih hemat memori). Ini memastikan setiap pengujian mencerminkan stabilitas dan performa produksi nyata serta mencegah bug/crash tersembunyi akibat minifikasi R8.
    - **Larangan Keras Varian Debug**: Dilarang keras mengompilasi atau memasang varian Debug (`assembleDebug`), **KECUALI** jika pengguna secara EKSPLISIT menginstruksikan varian debug atau kondisi troubleshooting darurat yang sangat memerlukan debug symbols.
    - **Penyelarasan Utilitas Otomatis**: Skrip otomatisasi build `tools/build_apk.ps1` secara baku mengompilasi varian Release (`assembleRelease`) dan menyalin hasil `app-release.apk` langsung ke root `LynxKernelManager.apk`.
+9. **Kewenangan Terbatas Terkait Roadmap & Larangan Mencentang Mandiri (Strict Human-Authorized Roadmap Completion)**:
+   - Agen AI **DILARANG KERAS** menandai, mengklaim, atau mencentang (`[x]`) sub-tugas pada berkas roadmap (`ROADMAP.md`) maupun Pull Request/Issue GitHub tanpa perintah dan izin tertulis langsung dari pengguna. Agen hanya diperbolehkan mengusulkan dan menambahkan rencana to-do baru (`[ ]`), sedangkan validasi dan wewenang menandai penyelesaian adalah hak prerogatif mutlak pengguna (lihat Sub-bab 9.6).
 
 ### 9.1 Protokol Pengujian Aplikasi Tanpa Modul (Standalone Root Testing Protocol — Khusus Infinix X698)
 Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion pada **Infinix X698** tanpa memodifikasi sistem root:
@@ -493,10 +495,32 @@ Untuk menjamin kejelasan teknis, transparansi penuh, dan kemudahan audit proyek:
 
 ---
 
-### 9.6 Kepatuhan Mutlak & Disiplin Eksekusi pada Setiap Chat & Perintah (Strict Compliance Mandate)
+### 9.6 Tata Kelola Roadmap & Otoritas Penyelesaian Mutlak Pengguna (Human-Authorized Roadmap Completion Protocol)
+
+Untuk menjamin integritas pelacakan proyek, akuntabilitas hasil kerja, dan kendali mutlak pengguna atas tonggak pencapaian (*milestones*):
+
+1. **Larangan Keras Menyatakan / Mencentang Selesai Secara Sepihak (Strict Prohibition on Self-Checking Tasks)**:
+   - Agen AI **JANGAN PERNAH SEKALIPUN** mengubah status kotak centang dari belum selesai (`- [ ]`) menjadi selesai (`- [x]`), atau menuliskan klaim bahwa suatu fitur/sub-tugas roadmap telah rampung (*completed*), baik di dalam berkas [`ROADMAP.md`](file:///e:/Data/GitHub/Lynx/ROADMAP.md), di badan Pull Request GitHub (seperti PR #3), maupun di Issue repositori, **KECUALI JIKA PENGGUNA SENDIRI SECARA EKSPLISIT DAN TERTULIS MEMBERIKAN PERINTAH UNTUK MENCENTANGNYA**.
+   - Sekalipun agen telah menyelesaikan implementasi kode, melewati pengujian unit, atau memvalidasi fitur di perangkat fisik, status di roadmap **HARUS TETAP TIDAK TERCETANG (`- [ ]`)** sampai pengguna secara sadar menguji sendiri dan memberikan instruksi langsung: *"Centang bagian X di roadmap"*.
+
+2. **Kewenangan Terbatas Agen Terkait Roadmap (Add-Only / Proposal Authority)**:
+   - Agen AI **HANYA BERWENANG** untuk:
+     - Mengusulkan atau menambahkan item rencana to-do baru, perincian sub-sub tugas, atau rancangan arsitektur baru ke dalam roadmap dalam status belum selesai (`- [ ]`).
+     - Menyempurnakan rincian teknis, pemetaan node sysfs, atau dependensi arsitektur pada item yang belum selesai.
+   - Segala bentuk penambahan to-do baru wajib mempertahankan format checklist standar GitHub Markdown.
+
+3. **Integritas Sinkronisasi Antara `ROADMAP.md` dan GitHub PR**:
+   - Jika dan hanya jika pengguna memberikan instruksi untuk mencentang suatu item atau menambahkan to-do baru, perubahan pada `ROADMAP.md` wajib disinkronkan ke badan Pull Request GitHub terkait (misalnya PR #3) via GitHub CLI (`gh pr edit`), sehingga dokumen lokal dan status daring di GitHub selalu mencerminkan data yang identik.
+
+4. **Sanksi & Mitigasi Pelanggaran Protokol**:
+   - Mencentang kotak tugas roadmap secara sepihak tanpa perintah pengguna dikategorikan sebagai pelanggaran protokol tata kelola kritis (*Critical Governance Breach*). Jika agen tidak sengaja mencentang item, agen wajib segera membatalkannya (*revert to uncheck*) dan meminta maaf serta menunggu instruksi resmi dari pengguna.
+
+---
+
+### 9.7 Kepatuhan Mutlak & Disiplin Eksekusi pada Setiap Chat & Perintah (Strict Compliance Mandate)
 
 1. Seluruh pedoman di dalam `AGENTS.md` ini berstatus **HUKUM TERTINGGI PROYEK (NON-NEGOTIABLE)**.
-2. Agen AI **WAJIB** membaca dan mematuhi aturan ini secara konsisten pada setiap chat, perintah, dan interaksi tanpa mengabaikan prinsip Native-First, proteksi Redmi Note 7 (Zero-Touch), Zero-Trace debugging di Infinix X698, serta kebersihan repositori Git.
+2. Agen AI **WAJIB** membaca dan mematuhi aturan ini secara konsisten pada setiap chat, perintah, dan interaksi tanpa mengabaikan prinsip Native-First, proteksi Redmi Note 7 (Zero-Touch), Zero-Trace debugging di Infinix X698, kebersihan repositori Git, serta tata kelola roadmap (Human-Authorized Completion Only).
 3. Kepatuhan terhadap aturan ini dievaluasi secara otomatis pada setiap iterasi pengembangan.
 
 ---
