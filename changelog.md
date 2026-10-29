@@ -1,3 +1,16 @@
+# Lynx Universal [Universal USB Power Delivery & Anti-Sawtooth Contract Stabilization] 7.0.0-RC268
+Released on: 2026-10-29
+> Lynx Kernel Manager v3.3.2
+
+- Menyelesaikan masalah fluktuasi arus pengisian daya ("naik turun arus nya dan tidak mau masuk dan naik tinggi") pada protokol USB Power Delivery (USB-PD / PPS / Type-C PD) lintas platform Qualcomm Snapdragon, MediaTek, dan Universal.
+- Menghadirkan **Anti-Sawtooth Rate Limiter & Healthy Current Guard**: mencegah penulisan berulang setiap detik ke node pengisian (`constant_charge_current_max` / `fcc`) saat arus sedang mengalir aktif ($\ge 1500\text{ mA}$); mengeliminasi siklus reset ramp soft-start internal PMIC yang sebelumnya memicu gelombang gergaji arus naik-turun.
+- Menerapkan fungsi deteksi terpadu `is_usb_pd_active()` yang memindai seluruh atribut Type-C dan sysfs (`pd_active`, `supports_usb_power_delivery`, `real_type`, `Charger_Type`, dan `qc_type` 4/5) secara instan.
+- Melindungi mesin status negosiasi USB-PD: secara tegas menonaktifkan trigger `rerun_aicl` dan `Pump_Express` saat terhubung ke charger USB-PD untuk mencegah tabrakan sinyal D+/D- pada jalur komunikasi CC (Configuration Channel) yang sebelumnya menyebabkan charger eksternal melakukan Soft/Hard Reset kembali ke 5V.
+- Menghapus penulisan berbahaya `quick_charge_type = 1` dari uncap USB-PD yang sebelumnya menurunkan koneksi Type-C ke mode warisan QC2.0 lambat.
+- Memperluas deteksi telemetri protokol fisik pada `ChargingHeroDisplayCard`: memeriksa kapabilitas USB Power Delivery dari mitra Type-C (`port0-partner/supports_usb_power_delivery`), `pd_active`, dan rincian `usb_type` untuk pengenalan protokol USB-PD & PPS yang akurat.
+
+---
+
 # Lynx Universal [Electrical Ground-Truth Bypass Guard & Qualcomm Snapdragon De-Latch] 7.0.0-RC267
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.3.1

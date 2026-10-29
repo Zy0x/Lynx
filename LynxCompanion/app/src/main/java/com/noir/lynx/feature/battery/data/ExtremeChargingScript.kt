@@ -62,6 +62,9 @@ object ExtremeChargingScript {
             echo 33170 > /sys/devices/platform/charger/chg1_current 2>/dev/null
             echo 33170 > /sys/devices/platform/charger/chg2_current 2>/dev/null
             echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            echo 20000 > /sys/devices/platform/charger/pd_vbus_upper_bound 2>/dev/null
+            echo 5000 > /sys/devices/platform/charger/pd_vbus_low_bound 2>/dev/null
+            echo 6000 > /sys/devices/platform/charger/pd_input_current 2>/dev/null
             is_qcom=false
             if [ -d /sys/class/qcom-battery ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || [ -d /sys/devices/soc0 ]; then
                 is_qcom=true
@@ -85,9 +88,9 @@ object ExtremeChargingScript {
                             /sys/class/power_supply/battery_ext/chg_pwr_fcc \
                             /sys/class/power_supply/battery_ext/chg_pwr_icl \
                             /sys/class/power_supply/battery_ext/max_charge_current; do
-                    [ -e "${'$'}node" ] && echo 4000000 > "${'$'}node" 2>/dev/null
+                    [ -e "${'$'}node" ] && echo 4500000 > "${'$'}node" 2>/dev/null
                 done
-                [ -e /sys/class/power_supply/usb/current_max ] && echo 4000000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                [ -e /sys/class/power_supply/usb/current_max ] && echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
@@ -100,6 +103,13 @@ object ExtremeChargingScript {
                 echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
                 echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/subsystem/usb/pd_allowed 2>/dev/null
+                echo 20000000 > /sys/class/power_supply/usb/pd_voltage_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/pd_current_max 2>/dev/null
+                echo 6000000 > /sys/class/power_supply/usb/apdo_max 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/turbo_power 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/soc_decimal 2>/dev/null
+                echo 0 > /sys/class/power_supply/battery/night_charging 2>/dev/null
 
                 # Relax Qualcomm BMS temperature thresholds (Original Lynx AI Charging Controller)
                 echo 120 > /sys/class/power_supply/bms/temp_cool 2>/dev/null
@@ -114,10 +124,19 @@ object ExtremeChargingScript {
                     fi
                     echo "${'$'}has_cp" > /sys/class/qcom-battery/direct_charging 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                    echo 4000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                    echo 4500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
-                [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+                is_pd=0
+                if [ -f /sys/class/power_supply/usb/pd_active ] && [ "${'$'}(cat /sys/class/power_supply/usb/pd_active 2>/dev/null)" != "0" ]; then
+                    is_pd=1
+                fi
+                if [ -f /sys/class/typec/port0-partner/supports_usb_power_delivery ] && [ "${'$'}(cat /sys/class/typec/port0-partner/supports_usb_power_delivery 2>/dev/null)" = "yes" ]; then
+                    is_pd=1
+                fi
+                if [ "${'$'}is_pd" -eq 0 ] && [ -e /sys/class/power_supply/usb/rerun_aicl ]; then
+                    echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
+                fi
 
 
 

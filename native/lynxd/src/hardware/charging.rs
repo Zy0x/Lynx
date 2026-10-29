@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::state::ConfigStore;
 
 static LAST_SOFT_RECONNECT_EPOCH: AtomicU64 = AtomicU64::new(0);
+static LAST_FCC_WRITE_EPOCH: AtomicU64 = AtomicU64::new(0);
 
 fn can_soft_reconnect() -> bool {
     let now = SystemTime::now()
@@ -203,6 +204,21 @@ impl ChargingRegulator {
             "factory_mode",
             "authenticate",
             "input_current_settled",
+            "pd_allowed",
+            "pd_active",
+            "pd_voltage_max",
+            "pd_current_max",
+            "pd_limit_current",
+            "allow_hvdcp3",
+            "hvdcp3_type",
+            "hvdcp_opti_allowed",
+            "apdo_max",
+            "rerun_aicl",
+            "typec_mode",
+            "soc_decimal",
+            "night_charging",
+            "smart_chg",
+            "is_turbo_charging",
         ];
 
         if let Ok(entries) = fs::read_dir(PS_DIR) {
@@ -226,6 +242,11 @@ impl ChargingRegulator {
         // 2. Scan MTK platform charger nodes (/sys/devices/platform/charger/*)
         const MTK_NODES: &[&str] = &[
             "/sys/devices/platform/charger/pdc_max_watt",
+            "/sys/devices/platform/charger/pd_input_current",
+            "/sys/devices/platform/charger/pd_vbus_upper_bound",
+            "/sys/devices/platform/charger/pd_vbus_low_bound",
+            "/sys/devices/platform/charger/pdc_mode",
+            "/sys/devices/platform/charger/Pump_Express",
             "/sys/devices/platform/charger/pe20",
             "/sys/devices/platform/charger/pe40",
             "/sys/devices/platform/charger/enable_sc",
@@ -615,7 +636,7 @@ impl ChargingRegulator {
     /// Checks if connected power source is a laptop / computer USB port (SDP/CDP).
     pub fn is_laptop_port() -> bool {
         let chg_type = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)).unwrap_or_default();
-        if chg_type == "4" || chg_type == "9" || chg_type == "5" {
+        if chg_type == "4" || chg_type == "9" || chg_type == "5" || chg_type == "7" {
             return false;
         }
         let ptyp = Self::read_node(&format!("{}/type", USB_DIR))
@@ -623,7 +644,86 @@ impl ChargingRegulator {
             .or_else(|| Self::read_node(&format!("{}/Charger_Type", MTK_DIR)))
             .unwrap_or_default()
             .to_uppercase();
+        if ptyp.contains("PD") || ptyp.contains("DCP") || ptyp.contains("HVDCP") {
+            return false;
+        }
+        if Self::read_node(&format!("{}/pd_active", USB_DIR)).map(|v| v.trim() != "0" && !v.is_empty()).unwrap_or(false) {
+            return false;
+        }
+        if Self::read_node("/sys/class/typec/port0-partner/supports_usb_power_delivery").map(|v| v.trim() == "yes").unwrap_or(false) {
+            return false;
+        }
         ptyp.contains("SDP") || ptyp.contains("CDP") || ptyp.contains("PC")
+    }
+
+    /// Detects whether an active USB Power Delivery (USB-PD / Type-C PD / PPS) contract is established.
+    pub fn is_usb_pd_active() -> bool {
+        // 1. Direct sysfs pd_active markers
+        for path in &[
+            format!("{}/pd_active", USB_DIR),
+            format!("{}/pd_active", BATT_DIR),
+            format!("{}/pd_active", MAIN_DIR),
+            "/sys/class/typec/pd_active".to_string(),
+        ] {
+            if let Some(val) = Self::read_node(path) {
+                let v = val.trim();
+                if v == "1" || v == "2" {
+                    return true;
+                }
+            }
+        }
+
+        // 2. Type-C Partner PD support
+        for path in &[
+            "/sys/class/typec/port0-partner/supports_usb_power_delivery",
+            "/sys/class/typec/port0/partner/supports_usb_power_delivery",
+            "/sys/class/typec/port1-partner/supports_usb_power_delivery",
+        ] {
+            if let Some(val) = Self::read_node(path) {
+                if val.trim().eq_ignore_ascii_case("yes") {
+                    return true;
+                }
+            }
+        }
+
+        // 3. USB type strings (contains "PD" or "PPS")
+        for path in &[
+            format!("{}/real_type", USB_DIR),
+            format!("{}/type", USB_DIR),
+            format!("{}/usb_type", USB_DIR),
+            format!("{}/typec_mode", USB_DIR),
+            format!("{}/real_type", MAIN_DIR),
+        ] {
+            if let Some(val) = Self::read_node(path) {
+                let u = val.to_uppercase();
+                if u.contains("PD") || u.contains("PPS") || u.contains("POWER DELIVERY") {
+                    return true;
+                }
+            }
+        }
+
+        // 4. MediaTek Charger_Type (4 = PD, 7 = Type-C PD, 10 = MTK PD)
+        if let Some(chg_type) = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)) {
+            let t = chg_type.trim();
+            if t == "4" || t == "7" || t == "10" {
+                return true;
+            }
+        }
+
+        // 5. QC 4 / 4+ / 5 (which run natively over USB-PD / PPS)
+        for path in &[
+            format!("{}/quick_charge_type", USB_DIR),
+            format!("{}/qc_type", QC_DIR),
+        ] {
+            if let Some(val) = Self::read_node(path) {
+                let v = val.trim();
+                if v == "4" || v == "5" || v.contains("QC4") || v.contains("QC5") {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     /// Checks if device is in USB OTG or Reverse Charging host mode.
@@ -959,28 +1059,84 @@ impl ChargingRegulator {
                 target_peak_ma
             };
 
+            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+                .unwrap_or(0);
+            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            let is_pd_active = Self::is_usb_pd_active();
+            let is_high_voltage = adpv_clean >= 6500 || is_pd_active;
+
             let target_ua = effective_ma as i64 * 1000;
-            let target_usb_ua = if is_qcom { (effective_ma as i64 * 1000).min(4_000_000) } else { target_ua.max(5_000_000) };
+            let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
+                (effective_ma as i64 * 1000).min(4_500_000)
+            } else if is_qcom {
+                (effective_ma as i64 * 1000).max(6_000_000)
+            } else {
+                target_ua.max(5_000_000)
+            };
 
             // Check if kernel or thermal-engine lowered the hardware registers
             let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
             let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
             let cur_in_lim = Self::read_i64(&format!("{}/input_current_limit", BATT_DIR)).unwrap_or(0);
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+            let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
 
-            let fcc_needs_reapply = cur_fcc > 0 && cur_fcc < (target_ua - 400_000);
-            let usb_needs_reapply = cur_usb > 0 && cur_usb < (target_usb_ua - 400_000);
-            let in_lim_needs_reapply = cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000);
+            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
+            let fcc_cooldown_expired = now_sec.saturating_sub(last_fcc) >= 15;
+
+            // Anti-Sawtooth Rate Limiter:
+            // If current is actively flowing (> 1500mA) or cur_fcc >= 2000mA, do NOT touch hardware.
+            // Continuously rewriting sysfs resets the PMIC soft-start ramp causing sawtooth oscillation!
+            let fcc_needs_reapply = if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
+                false
+            } else if fcc_cooldown_expired {
+                cur_fcc > 0 && cur_fcc < (target_ua - 400_000)
+            } else {
+                false
+            };
+
+            let usb_needs_reapply = if is_high_voltage || is_pd_active {
+                // High-voltage PD or QC contract active: input current is governed by the negotiated PDO.
+                // Avoid repeatedly writing to USB current_max to prevent resetting the USB-PD state machine!
+                false
+            } else if cur_now_ma >= 1500 || cur_usb >= 2_000_000 {
+                false
+            } else if fcc_cooldown_expired {
+                cur_usb > 0 && cur_usb < (target_usb_ua - 400_000)
+            } else {
+                false
+            };
+
+            let in_lim_needs_reapply = if is_high_voltage || is_pd_active {
+                false
+            } else if cur_now_ma >= 1500 || cur_in_lim >= 2_000_000 {
+                false
+            } else if fcc_cooldown_expired {
+                cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000)
+            } else {
+                false
+            };
 
             if fcc_needs_reapply || usb_needs_reapply || in_lim_needs_reapply {
+                LAST_FCC_WRITE_EPOCH.store(now_sec, Ordering::Relaxed);
                 let effective_ua_str = target_ua.to_string();
                 let effective_usb_str = target_usb_ua.to_string();
                 let effective_ma_str = effective_ma.to_string();
 
-                Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-                Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-                Self::write_node_lock(&format!("{}/current_max", USB_DIR), &effective_usb_str);
-                Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-                Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+                if usb_needs_reapply {
+                    Self::write_node(&format!("{}/current_max", USB_DIR), &effective_usb_str);
+                }
+                Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+                if in_lim_needs_reapply {
+                    Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                }
 
                 if is_qcom {
                     let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
@@ -996,17 +1152,40 @@ impl ChargingRegulator {
         } else if cfg.charging_mode == "custom" {
             let target_ma = cfg.custom_limit_current_ma.clamp(500, 25000) as u32;
             let target_ua = target_ma as i64 * 1000;
-            let target_usb_ua = if is_qcom { (target_ma as i64 * 1000).min(3_000_000) } else { target_ua };
+            let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
+                (target_ma as i64 * 1000).min(4_500_000)
+            } else {
+                target_ua
+            };
+
+            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+                .unwrap_or(0);
+            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            let is_pd_active = Self::is_usb_pd_active();
+            let is_high_voltage = adpv_clean >= 6500 || is_pd_active;
 
             let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
-            if cur_fcc > 0 && cur_fcc < (target_ua - 200_000) {
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+            let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
+            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
+            let fcc_cooldown_expired = now_sec.saturating_sub(last_fcc) >= 15;
+
+            if (cur_now_ma < 1200 || cur_fcc < 1_500_000) && fcc_cooldown_expired && cur_fcc > 0 && cur_fcc < (target_ua - 200_000) {
+                LAST_FCC_WRITE_EPOCH.store(now_sec, Ordering::Relaxed);
                 let target_ua_str = target_ua.to_string();
                 let target_usb_str = target_usb_ua.to_string();
-                Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &target_ua_str);
-                Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &target_ua_str);
-                Self::write_node_lock(&format!("{}/current_max", USB_DIR), &target_usb_str);
-                Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &target_ua_str);
-                Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &target_usb_str);
+                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &target_ua_str);
+                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &target_ua_str);
+                if !is_high_voltage && !is_pd_active {
+                    Self::write_node(&format!("{}/current_max", USB_DIR), &target_usb_str);
+                    Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &target_usb_str);
+                }
+                Self::write_node(&format!("{}/current_max", MAIN_DIR), &target_ua_str);
             }
         }
     }
@@ -1363,6 +1542,124 @@ impl ChargingRegulator {
         }
     }
 
+    /// Universal High-Current USB Power Delivery (USB-PD / PPS / Type-C) Handshake & Rail Uncap
+    /// Unlocks full USB Power Delivery (PDO/APDO negotiation up to 20V / 6A / 120W+),
+    /// clears AICL droop clamps, enables HVDCP3 / Quick Charge 4+, and sets Xiaomi TurboCharge flags.
+    pub fn uncap_usb_pd_protocol(target_ma: u32) {
+        let is_qcom = Self::is_qualcomm_soc();
+        let safe_target_ma = target_ma.clamp(500, 25000);
+        let target_ma_str = safe_target_ma.to_string();
+
+        // 1. Universal USB Power Delivery Permission Flags (Allow PDOs & APDO negotiation)
+        for node in &[
+            format!("{}/pd_allowed", USB_DIR),
+            format!("{}/pd_allowed", BATT_DIR),
+            format!("{}/pd_allowed", MAIN_DIR),
+            "/sys/class/power_supply/battery/subsystem/usb/pd_allowed".to_string(),
+            "/sys/class/power_supply/allow_hvdcp3".to_string(),
+            format!("{}/allow_hvdcp3", USB_DIR),
+            format!("{}/allow_hvdcp3", BATT_DIR),
+            format!("{}/hvdcp_opti_allowed", USB_DIR),
+            "/sys/kernel/fast_charge/force_fast_charge".to_string(),
+            format!("{}/boost_current", USB_DIR),
+            format!("{}/boost_current", BATT_DIR),
+            format!("{}/fast_charge", BATT_DIR),
+            format!("{}/fastcharge_mode", BATT_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, "1");
+            }
+        }
+
+        // 2. High-Voltage Ceilings (Allows 9V, 12V, 15V, and 20V PD contracts)
+        for node in &[
+            format!("{}/pd_voltage_max", USB_DIR),
+            format!("{}/pd_voltage_max", BATT_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, "20000000");
+            }
+        }
+
+        // 3. High-Current & PPS Augmented PDO Ceilings (Up to 6000mA / 6A)
+        let pd_cur_limit = (safe_target_ma as u64 * 1000).max(6_000_000).to_string();
+        for node in &[
+            format!("{}/pd_current_max", USB_DIR),
+            format!("{}/pd_limit_current", USB_DIR),
+            format!("{}/pd_current_max", BATT_DIR),
+            format!("{}/apdo_max", USB_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, &pd_cur_limit);
+            }
+        }
+
+        // 4. MediaTek Power Delivery Controller (PDC) & Voltage Boundaries
+        if Path::new(MTK_DIR).exists() {
+            Self::set_perm(&format!("{}/pdc_max_watt", MTK_DIR), 0o666);
+            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "120");
+
+            for (node, val) in &[
+                (format!("{}/pd_vbus_upper_bound", MTK_DIR), "20000"),
+                (format!("{}/pd_vbus_low_bound", MTK_DIR), "5000"),
+                (format!("{}/pd_input_current", MTK_DIR), "6000"),
+                (format!("{}/pdc_mode", MTK_DIR), "1"),
+            ] {
+                if Path::new(node).exists() {
+                    Self::set_perm(node, 0o666);
+                    Self::write_node(node, val);
+                }
+            }
+        }
+
+        // 5. Xiaomi / POCO / HyperOS TurboCharge & PD Boost
+        for (node, val) in &[
+            (format!("{}/turbo_power", BATT_DIR), "1"),
+            (format!("{}/is_turbo_charging", BATT_DIR), "1"),
+            (format!("{}/soc_decimal", BATT_DIR), "1"),
+            (format!("{}/night_charging", BATT_DIR), "0"),
+            (format!("{}/smart_chg", BATT_DIR), "0"),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, val);
+            }
+        }
+
+        // 6. Neutralize Thermal Input Throttling & Clamped Voters
+        for node in &[
+            format!("{}/thermal_input_current_limit", BATT_DIR),
+            format!("{}/thermal_input_current_limit", USB_DIR),
+            format!("{}/thermal_input_current_limit", MAIN_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, "-1");
+            }
+        }
+
+        for node in &[
+            format!("{}/system_temp_level", BATT_DIR),
+            format!("{}/temp_state", BATT_DIR),
+            format!("{}/step_charging_enabled", BATT_DIR),
+            format!("{}/charge_control_limit", BATT_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, "0");
+            }
+        }
+
+        if is_qcom {
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+        }
+    }
+
     /// Mode: request the fastest charging mode supported by hardware without arbitrary limits.
     /// Supports up to 240W, dual-cell 2S, and un-caps third-party USB-PD / PPS chargers (Ugreen, Anker, etc.).
     pub fn apply_extreme_charging(target_soc: u32, _allow_lockout_bypass: bool, requested_ma: u32) {
@@ -1435,6 +1732,9 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "1");
         Self::write_node(&format!("{}/boost_current", BATT_DIR), "1");
 
+        // 1b. Proactively uncap USB Power Delivery (USB-PD / PPS) across all platforms & vendors
+        Self::uncap_usb_pd_protocol(effective_ma);
+
         // MediaTek PMIC Power Path: ensure battery charging is permitted!
         Self::write_node("/proc/mtk_battery_cmd/en_power_path", "0");
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
@@ -1497,13 +1797,11 @@ impl ChargingRegulator {
         }
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
-        let usb_current_cap_ua = if is_qcom {
-            // Qualcomm USB-PD contract bounds: uncap to 4000mA peak
-            "4000000".to_string()
-        } else if effective_ma > 5000 {
-            effective_ua_str.clone()
+        let usb_current_cap_ua = if is_qcom && !has_qcom_cp {
+            // Qualcomm single-cell without dual charge pump: 4500mA peak
+            "4500000".to_string()
         } else {
-            "5000000".to_string()
+            (effective_ma as u64 * 1000).max(6_000_000).to_string()
         };
 
         let direct_val = if has_qcom_cp { "1" } else { "0" };
@@ -1544,10 +1842,12 @@ impl ChargingRegulator {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
                 "constant_charge_current_max" | "constant_charge_current" | "current_max" => {
+                    let is_usb_input_node = node.contains("/usb/") || node.contains("/main/");
+                    let val_to_write = if is_usb_input_node { &usb_current_cap_ua } else { &effective_ua_str };
                     if is_qcom {
-                        Self::write_node(&node, &effective_ua_str);
+                        Self::write_node(&node, val_to_write);
                     } else {
-                        Self::write_node_lock(&node, &effective_ua_str);
+                        Self::write_node_lock(&node, val_to_write);
                     }
                 }
                 "input_current_limit" | "hw_current_max" => {
@@ -1565,13 +1865,37 @@ impl ChargingRegulator {
                         Self::write_node_lock(&node, &effective_ua_str);
                     }
                 }
-                "fastcharge_mode" | "fast_charge" | "boost_current" | "turbo_power" => {
+                "fastcharge_mode" | "fast_charge" | "boost_current" | "turbo_power" | "is_turbo_charging" | "soc_decimal" => {
+                    Self::write_node_lock(&node, "1");
+                }
+                "pd_allowed" | "allow_hvdcp3" | "hvdcp_opti_allowed" => {
+                    Self::write_node_lock(&node, "1");
+                }
+                "pd_voltage_max" => {
+                    Self::write_node_lock(&node, "20000000");
+                }
+                "pd_current_max" | "pd_limit_current" | "apdo_max" => {
+                    Self::write_node_lock(&node, "6000000");
+                }
+                "pd_vbus_upper_bound" => {
+                    Self::write_node_lock(&node, "20000");
+                }
+                "pd_vbus_low_bound" => {
+                    Self::write_node_lock(&node, "5000");
+                }
+                "pd_input_current" => {
+                    Self::write_node_lock(&node, "6000");
+                }
+                "pdc_max_watt" => {
+                    Self::write_node_lock(&node, "120");
+                }
+                "pdc_mode" => {
                     Self::write_node_lock(&node, "1");
                 }
                 "charging_enabled" => {
                     Self::write_node(&node, "1");
                 }
-                "input_suspend" => {
+                "input_suspend" | "night_charging" | "smart_chg" => {
                     Self::write_node(&node, "0");
                 }
                 "thermal_input_current_limit" => {
@@ -1615,8 +1939,8 @@ impl ChargingRegulator {
     /// Momentarily toggles input charging FET or kicks Pump_Express / rerun_aicl
     /// to reset PMIC Type-C / BC1.2 state machine without physical cable replugging.
     pub fn trigger_charger_soft_reconnect() {
-        // Never pulse if connected to a PC / laptop USB port
-        if Self::is_laptop_port() {
+        // Never pulse if connected to a PC / laptop USB port or if USB-PD contract is active
+        if Self::is_laptop_port() || Self::is_usb_pd_active() {
             return;
         }
 
@@ -2002,12 +2326,18 @@ impl ChargingRegulator {
         } else {
             let cur = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
             if cur == 0 || cur > 120 {
-                Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "33");
+                Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "68");
             }
         }
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+        Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+        Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "1");
+        Self::write_node(&format!("{}/fast_charge", BATT_DIR), "1");
+        Self::write_node(&format!("{}/pd_allowed", USB_DIR), "1");
+        Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+        Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
         Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
@@ -2077,6 +2407,7 @@ impl ChargingRegulator {
         let clamped = target_ma.clamp(500, 25000);
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=custom_{} cap={}\n", clamped, cur_cap));
+        Self::uncap_usb_pd_protocol(clamped);
         if clamped >= 5000 {
             Self::apply_extreme_charging(100, true, clamped);
         } else {
@@ -2902,10 +3233,11 @@ impl ChargingRegulator {
                 } else {
                     true
                 };
+                let is_pd = Self::is_usb_pd_active();
                 let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
-                let fcc_ok = cur_fcc == 0 || cur_fcc >= 2_000_000;
+                let fcc_ok = cur_fcc == 0 || cur_fcc >= 1_500_000 || is_pd;
                 let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
-                let usb_ok = cur_usb == 0 || cur_usb >= 1_500_000;
+                let usb_ok = cur_usb == 0 || cur_usb >= 1_500_000 || is_pd;
                 susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 
@@ -3334,64 +3666,42 @@ impl ChargingRegulator {
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
 
-        let (platform, _, _) = Self::detect_charging_platform();
-        let is_qcom = Self::is_qualcomm_soc();
-        let is_pe_platform = !is_qcom && (platform == ChargingHardwarePlatform::Transsion
-            || Path::new(MTK_DIR).exists()
-            || Path::new("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger").exists());
         let reconnect_already_done = Path::new("/dev/lynx_soft_reconnect_done").exists();
+        let is_pd_active = Self::is_usb_pd_active();
 
-        if is_hyper && !reconnect_already_done && cur_cap < 80 && !Self::is_laptop_port() {
-            if is_pe_platform {
-                let chg_type = Self::read_node(&format!("{}/Charger_Type", MTK_DIR)).unwrap_or_default();
-                let is_fast_charger = chg_type == "9" || chg_type == "4";
+        let is_fast_mode = is_hyper || cfg.charging_mode == "custom";
+        if is_fast_mode && !reconnect_already_done && cur_cap < 85 && !Self::is_laptop_port() && !is_pd_active {
+            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+                .unwrap_or(0);
+            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
 
-                if !is_fast_charger {
-                    // Not a fast charger: do NOT attempt soft reconnect!
+            let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(2000000);
+            let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(2000000);
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+            let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
+
+            // Stalled 5V check: If charger voltage is stuck at standard 5V USB (< 6000 mV)
+            // while current draw is constrained (< 2200 mA), or PMIC registers are choked (< 1500 mA)
+            let is_stalled_5v = (adpv_clean > 3500 && adpv_clean < 6000 && cur_now_ma < 2200)
+                || (cur_usb <= 1000000 && cur_fcc <= 1000000);
+
+            if is_stalled_5v {
+                let marker_path = "/dev/lynx_stalled_5v_count";
+                let count = Self::read_i64(marker_path).unwrap_or(0);
+                if count >= 3 {
+                    let _ = fs::remove_file(marker_path);
                     let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
-                    let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+                    Self::uncap_usb_pd_protocol(12000);
+                    Self::trigger_charger_soft_reconnect();
                 } else {
-                    let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-                        .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-                        .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-                        .unwrap_or(0);
-                    let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-
-                    // If plugged, hyper mode active, battery < 80%, but PE adapter stuck in standard 5V USB (< 6000 mV)
-                    if adpv_clean > 3500 && adpv_clean < 6000 {
-                        let marker_path = "/dev/lynx_stalled_5v_count";
-                        let count = Self::read_i64(marker_path).unwrap_or(0);
-                        if count >= 4 {
-                            let _ = fs::remove_file(marker_path);
-                            let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
-                            Self::trigger_charger_soft_reconnect();
-                        } else {
-                            let _ = fs::write(marker_path, (count + 1).to_string());
-                        }
-                    } else {
-                        let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
-                    }
+                    let _ = fs::write(marker_path, (count + 1).to_string());
                 }
-            } else if is_qcom {
-                // Qualcomm QC 3.0 / PD Automated AICL kick if choked
-                let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(2000000);
-                let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(2000000);
-
-                // If hyper mode is active, battery < 80%, but input or charge current is choked <= 1000mA
-                let is_choked = cur_usb <= 1000000 && cur_fcc <= 1000000;
-                if is_choked {
-                    let marker_path = "/dev/lynx_stalled_5v_count";
-                    let count = Self::read_i64(marker_path).unwrap_or(0);
-                    if count >= 4 {
-                        let _ = fs::remove_file(marker_path);
-                        let _ = fs::write("/dev/lynx_soft_reconnect_done", "1");
-                        Self::trigger_charger_soft_reconnect();
-                    } else {
-                        let _ = fs::write(marker_path, (count + 1).to_string());
-                    }
-                } else {
-                    let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
-                }
+            } else {
+                let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
             }
         } else {
             let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
@@ -3399,8 +3709,8 @@ impl ChargingRegulator {
 
         // Qualcomm Autonomous Anti-Throttle & AICL Recovery:
         // If device is plugged into AC charger, but PMIC input current or charge current is choked (< 500mA),
-        // autonomously un-choke voters and rerun AICL so charging flows at full speed.
-        if Self::is_qualcomm_soc() && !Self::is_laptop_port() && !Path::new("/dev/lynx_bypass_active").exists() {
+        // autonomously un-choke voters and rerun AICL so charging flows at full speed (do NOT pulse on USB-PD!).
+        if Self::is_qualcomm_soc() && !Self::is_laptop_port() && !is_pd_active && !Path::new("/dev/lynx_bypass_active").exists() {
             let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(2000000);
             let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(2000000);
             let qcom_stalled = (cur_usb > 0 && cur_usb < 500_000) || (cur_fcc > 0 && cur_fcc < 500_000);
@@ -3409,10 +3719,16 @@ impl ChargingRegulator {
                 let count = Self::read_i64(marker_path).unwrap_or(0);
                 if count >= 3 {
                     let _ = fs::remove_file(marker_path);
-                    let rerun_node = format!("{}/rerun_aicl", USB_DIR);
-                    if Path::new(&rerun_node).exists() {
-                        Self::set_perm(&rerun_node, 0o666);
-                        Self::write_node(&rerun_node, "1");
+                    Self::uncap_usb_pd_protocol(6000);
+                    for rerun in &[
+                        format!("{}/rerun_aicl", USB_DIR),
+                        format!("{}/rerun_aicl", BATT_DIR),
+                        format!("{}/rerun_aicl", MAIN_DIR),
+                    ] {
+                        if Path::new(rerun).exists() {
+                            Self::set_perm(rerun, 0o666);
+                            Self::write_node(rerun, "1");
+                        }
                     }
                     for node in &[
                         format!("{}/constant_charge_current_max", BATT_DIR),
@@ -3424,12 +3740,13 @@ impl ChargingRegulator {
                     ] {
                         if Path::new(node).exists() {
                             Self::set_perm(node, 0o666);
-                            Self::write_node(node, "3000000");
+                            Self::write_node(node, "4500000");
                         }
                     }
                     let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
                     Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), "4500");
                     Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
                     Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
@@ -3516,6 +3833,10 @@ impl ChargingRegulator {
         let is_oppo_realme = platform == ChargingHardwarePlatform::Oplus;
         let is_samsung = platform == ChargingHardwarePlatform::Samsung;
 
+        let is_pd_active = Self::read_node(&format!("{}/pd_active", USB_DIR)).map(|v| v.trim() != "0" && !v.is_empty()).unwrap_or(false)
+            || Self::read_node("/sys/class/typec/port0-partner/supports_usb_power_delivery").map(|v| v.trim() == "yes").unwrap_or(false)
+            || chgtyp.to_uppercase().contains("PD");
+
         let (active_ic, protocol) = if is_chg {
             let ic = if !topology.summary.is_empty() && topology.summary != "Unknown" && !topology.summary.starts_with("Switching Buck Converter (Universal") {
                 topology.summary.clone()
@@ -3545,11 +3866,11 @@ impl ChargingRegulator {
                 }
             } else if is_xiaomi && (adpv > 8000 || Path::new("/sys/class/power_supply/battery/fastcharge_mode").exists()) {
                 if c_clean >= 4500 || adpv > 15000 {
-                    "Xiaomi 67W / 120W HyperCharge"
+                    "Xiaomi 67W / 120W HyperCharge (PD/PPS)"
                 } else if c_clean >= 2500 || adpv > 9500 {
-                    "Xiaomi 33W TurboCharge"
-                } else if adpv > 8000 {
-                    "Xiaomi Fast Charge (QC / PD)"
+                    "Xiaomi 33W TurboCharge (PD)"
+                } else if is_pd_active || adpv > 8000 {
+                    "Xiaomi Fast Charge (PD / QC)"
                 } else {
                     "Xiaomi TurboCharge"
                 }
@@ -3557,9 +3878,21 @@ impl ChargingRegulator {
                 "SuperVOOC / Dart Charge"
             } else if is_samsung && adpv > 8000 {
                 if c_clean >= 3500 {
-                    "Samsung Super Fast Charging 2.0 (45W)"
+                    "Samsung Super Fast Charging 2.0 (45W PD)"
                 } else {
-                    "Samsung Super Fast Charging (25W)"
+                    "Samsung Super Fast Charging (25W PD)"
+                }
+            } else if is_pd_active || chgtyp == "4" || chgtyp == "7" || chgtyp.to_uppercase().contains("PD") {
+                if adpv > 15000 {
+                    "USB Power Delivery (15V/20V High-Power)"
+                } else if adpv > 9500 {
+                    "USB Power Delivery (12V Fast Charge)"
+                } else if adpv > 8000 {
+                    "USB Power Delivery (9V Fast Charge)"
+                } else if c_clean >= 2500 {
+                    "USB Power Delivery (PPS High Current)"
+                } else {
+                    "USB Power Delivery / PPS"
                 }
             } else if (Path::new("/sys/class/qcom-battery").exists() || Self::is_qualcomm_soc()) && adpv > 8000 {
                 "Qualcomm Quick Charge (QC 3.0 / 4+)"
@@ -3594,7 +3927,7 @@ impl ChargingRegulator {
         let effective_temp_dc = if temp_raw > 0 { temp_raw } else { real_dc };
 
         format!(
-            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"detected_hardware_chips\": \"{}\",\n  \"dynamic_scanned_nodes_count\": {},\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"hardware_platform\": \"{}\",\n  \"is_props_spoofed\": {},\n  \"spoof_detail\": \"{}\",\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {},\n  \"auto_cut_enabled\": {}\n}}",
+            "{{\n  \"capacity\": {},\n  \"status\": \"{}\",\n  \"health\": \"{}\",\n  \"temperature_c\": {:.1},\n  \"real_physical_temp_c\": {:.1},\n  \"voltage_mv\": {},\n  \"current_ma\": {},\n  \"adapter_voltage_mv\": {},\n  \"adapter_current_ma\": {},\n  \"active_ic\": \"{}\",\n  \"detected_hardware_chips\": \"{}\",\n  \"dynamic_scanned_nodes_count\": {},\n  \"fast_charge_protocol\": \"{}\",\n  \"rfc_authenticated\": {},\n  \"hardware_platform\": \"{}\",\n  \"is_props_spoofed\": {},\n  \"spoof_detail\": \"{}\",\n  \"emergency_guard_active\": {},\n  \"overnight_bypass_latched\": {},\n  \"smart_limit_latched\": {},\n  \"bypass_active\": {},\n  \"smart_tapering_active\": {},\n  \"pd_contract_active\": {},\n  \"charging_mode\": \"{}\",\n  \"bypass_enabled\": {},\n  \"extreme_charging_enabled\": {},\n  \"limit_current_ma\": {},\n  \"max_battery_percent\": {},\n  \"high_current_target_percent\": {},\n  \"temp_cutoff_c\": {},\n  \"thermal_lockout_bypass_enabled\": {},\n  \"smart_tapering_enabled\": {},\n  \"emergency_temp_guard_enabled\": {},\n  \"night_sleep_guard_enabled\": {},\n  \"auto_cut_enabled\": {}\n}}",
             cap,
             stat,
             hlth,
@@ -3617,6 +3950,7 @@ impl ChargingRegulator {
             is_limit_latched,
             is_bypass_active,
             is_tapering,
+            is_pd_active,
             cfg.charging_mode,
             cfg.bypass_enabled,
             cfg.extreme_charging_enabled,

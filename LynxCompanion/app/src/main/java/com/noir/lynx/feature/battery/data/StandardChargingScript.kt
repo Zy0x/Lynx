@@ -60,6 +60,9 @@ object StandardChargingScript {
         fi
         echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
         echo -1 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
+        echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
+        echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
+        echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
         [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
         for cd in /sys/class/thermal/cooling_device*; do
             if [ -f "${'$'}cd/type" ]; then
@@ -222,6 +225,18 @@ object StandardChargingScript {
                     echo $enableSc > "${'$'}node" 2>/dev/null
                 fi
             done
+
+            echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
+            echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
+            echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+            echo 20000 > /sys/devices/platform/charger/pd_vbus_upper_bound 2>/dev/null
+            echo 5000 > /sys/devices/platform/charger/pd_vbus_low_bound 2>/dev/null
+            echo 6000 > /sys/devices/platform/charger/pd_input_current 2>/dev/null
+            echo 20000000 > /sys/class/power_supply/usb/pd_voltage_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/usb/pd_current_max 2>/dev/null
+            echo 6000000 > /sys/class/power_supply/usb/apdo_max 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/turbo_power 2>/dev/null
+            echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
 
             for node in /sys/devices/platform/charger/BatteryNotify \
                         /sys/devices/platform/charger/sw_jeita \

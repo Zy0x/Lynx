@@ -302,6 +302,8 @@ fun ChargingHeroDisplayCard(
                     val qcomQc = safeRead("/sys/class/qcom-battery/qc_type")
                     val pdActive = safeRead("/sys/class/power_supply/usb/pd_active")
                     val typecPd = safeRead("/sys/class/typec/pd_active")
+                    val typecPartnerPd = safeRead("/sys/class/typec/port0-partner/supports_usb_power_delivery")
+                    val usbTypeDetails = safeRead("/sys/class/power_supply/usb/usb_type")
                     val vooc = safeRead("/sys/class/power_supply/battery/vooc_charging")
                     val miFast = safeRead("/sys/class/power_supply/battery/fastcharge_mode")
 
@@ -316,7 +318,9 @@ fun ChargingHeroDisplayCard(
                         mtkChgType = mtkChgType,
                         peSig = peNode,
                         voocSig = vooc,
-                        miSig = miFast
+                        miSig = miFast,
+                        typecPartnerPd = typecPartnerPd,
+                        usbTypeDetails = usbTypeDetails
                     )
                 } catch (_: Exception) {}
             } else {
@@ -1559,7 +1563,9 @@ private fun resolveHardwareProtocolDirect(
     mtkChgType: String,
     peSig: String,
     voocSig: String,
-    miSig: String
+    miSig: String,
+    typecPartnerPd: String = "",
+    usbTypeDetails: String = ""
 ): String {
     val ptypUpper = rawPtyp.uppercase(Locale.US)
     val qcUpper = qcSig.uppercase(Locale.US)
@@ -1626,8 +1632,11 @@ private fun resolveHardwareProtocolDirect(
             "Qualcomm QC"
         }
         // USB Power Delivery & PPS
-        mtkChgType == "4" || mtkChgType == "7" || pdSig == "1" || pdSig == "2" || ptypUpper.contains("PD") || ptypUpper.contains("PPS") -> {
-            if (pdSig == "2" || ptypUpper.contains("PPS")) "USB-PD / PPS"
+        mtkChgType == "4" || mtkChgType == "7" || pdSig == "1" || pdSig == "2" ||
+        typecPartnerPd.equals("yes", ignoreCase = true) ||
+        usbTypeDetails.contains("PD", ignoreCase = true) ||
+        ptypUpper.contains("PD") || ptypUpper.contains("PPS") -> {
+            if (pdSig == "2" || ptypUpper.contains("PPS") || usbTypeDetails.contains("PPS", ignoreCase = true)) "USB-PD / PPS"
             else "USB-PD"
         }
         // SuperVOOC / Dart Charge (OPPO / Realme / OnePlus)

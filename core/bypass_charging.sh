@@ -222,7 +222,19 @@ disable_bypass() {
     fi
     if [ -d "/sys/class/qcom-battery" ]; then
         echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+        echo 4500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
     fi
+    if [ -f "/sys/class/power_supply/battery/constant_charge_current_max" ]; then
+        echo 4500000 > /sys/class/power_supply/battery/constant_charge_current_max 2>/dev/null
+        echo 4500000 > /sys/class/power_supply/battery/constant_charge_current 2>/dev/null
+    fi
+    if [ -f "/sys/class/power_supply/battery/input_current_limit" ]; then
+        echo 4500000 > /sys/class/power_supply/battery/input_current_limit 2>/dev/null
+    fi
+    if [ -f "/sys/class/power_supply/usb/current_max" ]; then
+        echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+    fi
+    [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
 
     # 4. Hapus State Marker
     rm -f /dev/lynx_bypass_active 2>/dev/null
