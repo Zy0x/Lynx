@@ -21,18 +21,18 @@ import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
 // Opaque graphite surfaces keep game content separate from the overlay controls.
-internal val HudCyan = Color(0xFF00F0FF)
-internal val HudBlue = Color(0xFF60A5FA)
-internal val HudBlueBadge = Color(0x400284C7)
+internal val HudCyan = Color(0xFFF1F5F9)
+internal val HudBlue = Color(0xFF93C5FD)
+internal val HudBlueBadge = Color(0x3338BDF8)
 internal val HudOrange = Color(0xFFFBBF24)
 internal val HudRed = Color(0xFFF87171)
 internal val HudPurple = Color(0xFFC084FC)
-internal val HudBackground = Color(0xD90C121B)
-internal val HudCard = Color(0x66182333)
-internal val HudElevated = Color(0x8C243347)
-internal val HudHandleSurface = Color(0x6612151B)
-internal val HudBorder = Color(0x2EFFFFFF)
-internal val HudAccentBorder = Color(0x5900F0FF)
+internal val HudBackground = Color(0xD4111318)
+internal val HudCard = Color(0x1FFFFFFF)
+internal val HudElevated = Color(0x2EFFFFFF)
+internal val HudHandleSurface = Color(0x5916181D)
+internal val HudBorder = Color(0x26FFFFFF)
+internal val HudAccentBorder = Color(0x52FFFFFF)
 internal val HudMuted = Color(0xFF94A3B8)
 
 @Composable

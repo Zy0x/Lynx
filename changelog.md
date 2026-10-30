@@ -1,3 +1,16 @@
+# Lynx Universal [Luxury Frosted Smoked Glass HUD Theme] 7.0.0-RC282
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.15
+
+- Menghadirkan transformasi estetika visual **Luxury Frosted Smoked Glass (Liquid Glass)** pada HUD Sidebar / Lynx Engine Overlay:
+  - **Eliminasi Nuansa Cyberpunk Neon**: Mengganti aksen neon cyan mencolok dengan palet mewah netral *Crystal Platinum White* (`#F1F5F9`) dan *Soft Glacier Ice Blue* (`#93C5FD`), memberikan visual elegan, bersih, dan berkelas tinggi.
+  - **Kaca Obsidian Asap Netral (`HudBackground`)**: Menerapkan latar belakang kaca arang gelap transparan 83% (`#D4111318`) tanpa bias warna kehijauan/kebiruan, menyajikan kedalaman visual yang tenang.
+  - **Lempengan Kaca Akrilik Frosted Bersih (`HudCard`)**: Menggunakan lapisan putih frosted transparan 12% (`#1FFFFFFF`) di atas kaca gelap, menghasilkan tekstur kaca buram optik alami yang mewah.
+  - **Tepian Pembias Kaca Halus (`HudBorder`)**: Garis batas *hairline specular rim* putih 15% (`#26FFFFFF`) yang presisi membingkai setiap kartu tanpa kesan kaku atau kasar.
+  - **Zero Layout Shift**: Menjaga 100% tata letak grid Bento, ukuran tombol, slider, dan navigasi tetap presisi seperti sebelumnya.
+
+---
+
 # Lynx Universal [Eliminate Profile Toast Flip-Flop & Synchronize Baseline Engine] 7.0.0-RC281
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.14
