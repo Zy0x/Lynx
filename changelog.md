@@ -1,3 +1,14 @@
+# Lynx Universal [MediaTek RT9759 33W Direct Charge Restoration & Hex-uA Register Fix] 7.0.0-RC273
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.6
+
+- Memulihkan kecepatan penuh **33W Super Charge / Direct Charge (`RT9759` 2:1 Charge Pump ~3800–4500 mA @ 8.88V)** pada perangkat MediaTek Transsion/Infinix (`X698` Helio G96) yang sebelumnya tertahan lambat di ~1250–1350 mA @ 4.84V pasca commit `aded6995`:
+  - **Eliminasi 1 Hz Infinite Re-Init Storm yang Menggagalkan `dv2_algo_task` (`RT9759`)**: Memperbaiki pengecekan `invariants_intact` di `apply_from_config()` (`native/lynxd/src/hardware/charging.rs`) yang sebelumnya memeriksa kondisi mustahil pada kernel MediaTek (`en_power_path == "0"` saat pengisian aktif yang seharusnya bernilai `"1"`, serta `enable_sc == "1"` padahal fungsi kernel `store_enable_sc` adalah *no-op stub* yang selalu membaca `"0"`). Kegagalan invariant tersebut sebelumnya memicu eksekusi ulang `apply_hyper_mode()` $\to$ `clear_bypass_hardware_state()` setiap 1 detik tanpa henti, yang menulis `"1 0"` ke `/proc/mtk_battery_cmd/current_cmd` dan `"0"` ke `OTG_CTL`, memaksa buck converter 5V (`rt9471`) menyala kembali dan membatalkan pompa `RT9759` (`dv2_stop_algo`).
+  - **Koreksi Format Hexadecimal Microampere ($\mu\text{A}$ Base-16) pada Register Charger MediaTek**: Berdasarkan hasil *disassembly* fungsi kernel `store_input_current`, `store_chg1_current`, dan `store_chg2_current` (`kstrtouint(buf, 16, &reg)`), driver kernel MediaTek membaca input penulisan dalam **basis-16 (heksadesimal) satuan mikroampere ($\mu\text{A}$)** namun menampilkan output pembacaan (`show_*`) dalam desimal $\mu\text{A}$. Penulisan string desimal `"6000"` sebelumnya diterjemahkan oleh kernel sebagai `0x6000` = **`24.576` $\mu\text{A}$ (`24,5 mA`)**, dan `"24576"` sebagai `0x24576` = **`148.854` $\mu\text{A}$ (`148,8 mA`)**. Menambahkan helper `format_mtk_charger_hex_ua()` yang mengonversi target mA ke heksadesimal $\mu\text{A}$ secara presisi (contoh: `6000 mA` $\to$ `6.000.000` $\mu\text{A}$ $\to$ `"5b8d80"`).
+  - **Idempotent Power Path Guard (`ensure_mtk_power_path_enabled`)**: Memeriksa status aktual `/proc/mtk_battery_cmd/en_power_path`, `/proc/mtk_battery_cmd/current_cmd`, dan `OTG_CTL` sebelum menulis, sehingga `lynxd` tidak pernah mengganggu transaksi I2C pompa `RT9759` yang sedang berjalan.
+
+---
+
 # Lynx Universal [Anchored Elegant HUD Drawer & MediaTek RT9471 Charging Safeguard] 7.0.0-RC272
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.6

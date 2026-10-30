@@ -58,10 +58,10 @@ const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/sys/devices/platform/charger/BN_TestMode", "0"),
     ("/sys/devices/platform/charger/BatteryNotify", "1"),
     ("/sys/devices/platform/charger/sw_jeita", "1"),
-    ("/sys/devices/platform/charger/input_current", "24576"),
+    ("/sys/devices/platform/charger/input_current", "5b8d80"),
     ("/sys/devices/platform/charger/sc_ibat_limit", "2000"),
-    ("/sys/devices/platform/charger/chg1_current", "24576"),
-    ("/sys/devices/platform/charger/chg2_current", "24576"),
+    ("/sys/devices/platform/charger/chg1_current", "5b8d80"),
+    ("/sys/devices/platform/charger/chg2_current", "5b8d80"),
     ("/sys/class/power_supply/battery/fastcharge_mode", "0"),
     ("/sys/class/power_supply/battery/fast_charge", "0"),
     ("/sys/class/power_supply/battery/boost_current", "0"),
@@ -518,6 +518,45 @@ impl ChargingRegulator {
         } else {
             Self::set_perm(path, 0o666);
             false
+        }
+    }
+
+    /// MediaTek kernel `store_input_current`, `store_chg1_current`, and `store_chg2_current`
+    /// parse user writes with `kstrtouint(buf, 16, &reg)` in microamperes (uA), while `show_*`
+    /// prints the stored integer in decimal microamperes (`%d\n`).
+    /// Writing decimal mA (e.g. `"6000"`) is parsed as `0x6000 = 24,576 uA` (24.5 mA),
+    /// severely choking charging! Always format target mA as lowercase hexadecimal uA
+    /// (e.g. `6000 mA -> 6,000,000 uA -> "5b8d80"`).
+    #[inline]
+    pub fn format_mtk_charger_hex_ua(ma: u32) -> String {
+        format!("{:x}", (ma as u64) * 1000)
+    }
+
+    /// Safely ensures MediaTek PMIC power path and battery charging are enabled without
+    /// redundant I2C register writes when already enabled.
+    /// On Transsion/MediaTek 33W Direct Charge (`pca_dv2_algo` / `RT9759`), the 2:1 charge pump
+    /// turns OFF the primary 5V buck converter (`rt9471_enable_charging(0)`). Unconditionally
+    /// writing `"1 0"` to `current_cmd` or `"0"` to `OTG_CTL` every second forces `rt9471` back ON
+    /// and triggers `usb_switch_psy_notifier_cb`, immediately aborting `dv2_algo_task`!
+    pub fn ensure_mtk_power_path_enabled() {
+        Self::set_perm("/proc/mtk_battery_cmd/en_power_path", 0o666);
+        let pwr_path = Self::read_node("/proc/mtk_battery_cmd/en_power_path").unwrap_or_default();
+        if pwr_path.trim() != "1" && !pwr_path.trim().ends_with(" 1") {
+            Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
+        }
+
+        Self::set_perm("/proc/mtk_battery_cmd/current_cmd", 0o666);
+        let cur_cmd = Self::read_node("/proc/mtk_battery_cmd/current_cmd").unwrap_or_default();
+        if cur_cmd.trim() != "1 0" && cur_cmd.trim() != "0 0" && !cur_cmd.is_empty() {
+            Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        }
+
+        let otg_ctl_path = "/sys/devices/platform/odm/odm:tran_battery/OTG_CTL";
+        if Path::new(otg_ctl_path).exists() {
+            let otg_val = Self::read_node(otg_ctl_path).unwrap_or_default();
+            if otg_val.trim() != "0" && !otg_val.is_empty() {
+                Self::write_node(otg_ctl_path, "0");
+            }
         }
     }
 
@@ -1223,15 +1262,16 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
         } else {
             // MediaTek & Transsion Hardware PMIC Power Path (Net-Zero Battery Isolation)
-            Self::write_node(&format!("{}/input_current", MTK_DIR), "2500000");
+            let bypass_in_hex = Self::format_mtk_charger_hex_ua(2500);
+            Self::write_node(&format!("{}/input_current", MTK_DIR), &bypass_in_hex);
             Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
             Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 1");
             Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
             Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
             Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
 
-            Self::write_node(&format!("{}/chg1_current", MTK_DIR), "24576");
-            Self::write_node(&format!("{}/chg2_current", MTK_DIR), "24576");
+            Self::write_node(&format!("{}/chg1_current", MTK_DIR), "0");
+            Self::write_node(&format!("{}/chg2_current", MTK_DIR), "0");
             Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
             Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
             Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
@@ -1308,17 +1348,18 @@ impl ChargingRegulator {
             }
 
             if !is_qcom {
+                let bypass_in_hex = Self::format_mtk_charger_hex_ua(2500);
                 Self::set_bcct_throttle(true);
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
                 Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
                 Self::write_node("/proc/lynx/bypass_charging", "1");
-                Self::write_node(&format!("{}/chg1_current", MTK_DIR), "24576");
-                Self::write_node(&format!("{}/chg2_current", MTK_DIR), "24576");
+                Self::write_node(&format!("{}/chg1_current", MTK_DIR), "0");
+                Self::write_node(&format!("{}/chg2_current", MTK_DIR), "0");
                 Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
                 Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
                 Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
-                Self::write_node(&format!("{}/input_current", MTK_DIR), "2500000");
+                Self::write_node(&format!("{}/input_current", MTK_DIR), &bypass_in_hex);
                 Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
                 Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 1");
                 Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "1");
@@ -1367,12 +1408,14 @@ impl ChargingRegulator {
                 Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "1500000");
             } else {
                 // MediaTek single-path (e.g. Helio G96/G99 without bypass_charger):
+                let float_in_hex = Self::format_mtk_charger_hex_ua(1500);
+                let float_chg_hex = Self::format_mtk_charger_hex_ua(100);
                 Self::set_bcct_throttle(true);
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
-                Self::write_node_lock(&format!("{}/input_current", MTK_DIR), "1500");
-                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), "1500");
-                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), "1500");
+                Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &float_in_hex);
+                Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &float_chg_hex);
+                Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &float_chg_hex);
                 Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), "100");
                 Self::write_node_lock(&format!("{}/enable_sc", MTK_DIR), "0");
                 Self::write_node_lock(&format!("{}/pdc_max_watt", MTK_DIR), "10");
@@ -1475,13 +1518,10 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
 
-        // 1. MediaTek power path & battery cmd reset
+        // 1. MediaTek power path & battery cmd reset (non-destructive if already enabled)
         Self::set_perm("/proc/lynx/bypass_charging", 0o666);
         Self::write_node("/proc/lynx/bypass_charging", "0");
-        Self::set_perm("/proc/mtk_battery_cmd/en_power_path", 0o666);
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
-        Self::set_perm("/proc/mtk_battery_cmd/current_cmd", 0o666);
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        Self::ensure_mtk_power_path_enabled();
 
         // 2. Transsion / ODM call state unlock & clear
         Self::set_perm("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", 0o666);
@@ -1509,6 +1549,11 @@ impl ChargingRegulator {
                 Self::set_perm(node, 0o666);
             }
         }
+        let max_hex = Self::format_mtk_charger_hex_ua(6000);
+        Self::write_node(&format!("{}/input_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "6000");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
@@ -1734,9 +1779,8 @@ impl ChargingRegulator {
         // 1b. Proactively uncap USB Power Delivery (USB-PD / PPS) across all platforms & vendors
         Self::uncap_usb_pd_protocol(effective_ma);
 
-        // MediaTek PMIC Power Path: ensure battery charging is permitted!
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        // MediaTek PMIC Power Path: ensure battery charging is permitted without disturbing active DV2 pump!
+        Self::ensure_mtk_power_path_enabled();
 
         // 2. MediaTek Platform Enforcements & Dual Pump (Thermal & JEITA completely bypassed!)
         Self::set_bcct_throttle(false);
@@ -1770,17 +1814,17 @@ impl ChargingRegulator {
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::set_perm("/sys/devices/platform/tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
-        Self::write_node("/sys/devices/platform/odm/odm:tran_battery/OTG_CTL", "0");
 
         // R2 Thermal Neutralization
         Self::apply_charger_thermal_neutralization();
 
-        // Active Maximum Push to MediaTek hardware registers (MTK expects mA up to 6000mA ceiling)
-        let mtk_input_str = effective_ma.clamp(500, 6000).to_string();
-        Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
+        // Active Maximum Push to MediaTek hardware registers:
+        // Kernel store_input_current / store_chg1_current / store_chg2_current parse base-16 uA!
+        let mtk_input_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 6000));
+        Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_hex);
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
-        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
+        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_hex);
+        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_hex);
 
         // Dynamically uncap pdc_max_watt (never choke to 68W if device supports 120W+)
         let current_pdc = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
@@ -1998,11 +2042,21 @@ impl ChargingRegulator {
             return;
         }
 
+        // If high-voltage Pump Express / Direct Charge (>= 6.5V) or high current (>= 1500mA) is already active,
+        // do NOT disturb the PMIC or DV2 state machine!
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+        let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+        let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+        if adpv_clean >= 6500 || cur_now_ma >= 1500 {
+            return;
+        }
+
         // 1. Ensure PMIC power path and battery charging are permitted with open permissions
-        Self::set_perm("/proc/mtk_battery_cmd/en_power_path", 0o666);
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
-        Self::set_perm("/proc/mtk_battery_cmd/current_cmd", 0o666);
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        Self::ensure_mtk_power_path_enabled();
         Self::set_perm("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::set_perm("/sys/devices/platform/tran_battery/Charging_CallState", 0o666);
@@ -2137,8 +2191,7 @@ impl ChargingRegulator {
         let effective_ua_str = (effective_ma as u64 * 1000).to_string();
         let effective_ma_str = effective_ma.to_string();
 
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        Self::ensure_mtk_power_path_enabled();
         Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
         Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
@@ -2216,16 +2269,18 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
         } else {
-            // MediaTek: Write limits to hardware registers while preserving write permissions (0666)!
+            // MediaTek: Write limits to hardware registers (base-16 uA) while preserving write permissions (0666)!
             // Locking to 0444 prevents driver update workers and breaks subsequent mode switches!
+            let mtk_input_hex = Self::format_mtk_charger_hex_ua(mtk_input_ma.clamp(350, 6000));
+            let mtk_chg_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 6000));
             Self::set_perm(&format!("{}/input_current", MTK_DIR), 0o666);
-            Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
+            Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_hex);
             Self::set_perm(&format!("{}/sc_ibat_limit", MTK_DIR), 0o666);
             Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
             Self::set_perm(&format!("{}/chg1_current", MTK_DIR), 0o666);
-            Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
+            Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_chg_hex);
             Self::set_perm(&format!("{}/chg2_current", MTK_DIR), 0o666);
-            Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
+            Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_chg_hex);
 
             Self::set_perm(&format!("{}/constant_charge_current_max", BATT_DIR), 0o666);
             Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
@@ -2300,8 +2355,7 @@ impl ChargingRegulator {
 
         // Restore standard charging flags
         Self::write_node("/proc/lynx/bypass_charging", "0");
-        Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
-        Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
+        Self::ensure_mtk_power_path_enabled();
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
@@ -2359,7 +2413,7 @@ impl ChargingRegulator {
             }
         }
 
-        // Unlock all sysfs charger nodes permissions so kernel OEM algorithms control them
+        // Unlock all sysfs charger nodes permissions and restore unthrottled MTK base-16 uA ceilings
         for node in &[
             format!("{}/input_current", MTK_DIR),
             format!("{}/sc_ibat_limit", MTK_DIR),
@@ -2372,6 +2426,11 @@ impl ChargingRegulator {
         ] {
             Self::set_perm(node, 0o666);
         }
+        let max_hex = Self::format_mtk_charger_hex_ua(6000);
+        Self::write_node(&format!("{}/input_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &max_hex);
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "6000");
 
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=standard cap={}\n", cur_cap));
@@ -2383,9 +2442,18 @@ impl ChargingRegulator {
         let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
         Self::apply_extreme_charging(100, true, 12000);
 
-        // Immediate Zero-Touch Soft-Reconnect on mode activation if plugged and not on PC:
+        // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
         if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 85 {
-            Self::trigger_charger_soft_reconnect();
+            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                .unwrap_or(0);
+            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+            let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+            if adpv_clean < 6500 && cur_now_ma < 1500 {
+                Self::trigger_charger_soft_reconnect();
+            }
         }
     }
 
@@ -3178,7 +3246,6 @@ impl ChargingRegulator {
             let is_mtk = Path::new(MTK_DIR).exists();
             let invariants_intact = if is_mtk {
                 let bn_test = Self::read_node(&format!("{}/BN_TestMode", MTK_DIR)).unwrap_or_default();
-                let enable_sc = Self::read_node(&format!("{}/enable_sc", MTK_DIR)).unwrap_or_default();
                 let in_cur = Self::read_i64(&format!("{}/input_current", MTK_DIR)).unwrap_or(0);
                 let sc_limit = Self::read_i64(&format!("{}/sc_ibat_limit", MTK_DIR)).unwrap_or(0);
                 let chg1 = Self::read_i64(&format!("{}/chg1_current", MTK_DIR)).unwrap_or(0);
@@ -3189,26 +3256,18 @@ impl ChargingRegulator {
                 let pwr_path = Self::read_node("/proc/mtk_battery_cmd/en_power_path").unwrap_or_default();
                 let call_state = Self::read_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState").unwrap_or_default();
 
-                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-                    .unwrap_or(0);
-                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-                let is_voltage_boosted = adpv_clean >= 6500;
-
-                let is_trickle = cur_cap >= 99;
-                let expected_sc = if !is_trickle && cur_cap < 95 && is_voltage_boosted { "1" } else { "0" };
-
+                // Note: Kernel `store_enable_sc` is a no-op stub on MediaTek/Transsion (`enable_sc` always reads `"0"`),
+                // and `en_power_path` reads `"1"` when charging is enabled. Checking `enable_sc == "1"` or
+                // `pwr_path == "0"` caused a 1 Hz infinite re-init loop that aborted `dv2_algo_task` (RT9759 33W pump)!
                 bn_test == "1"
-                    && enable_sc == expected_sc
-                    && (in_cur >= 30000 || in_cur >= 2000)
+                    && in_cur >= 2_000_000
                     && sc_limit >= 1000
-                    && (chg1 >= 30000 || chg1 >= 2000)
-                    && (chg2 >= 30000 || chg2 >= 2000)
+                    && chg1 >= 2_000_000
+                    && chg2 >= 2_000_000
                     && pe20 == "1"
                     && pe40 == "1"
-                    && (cur_cmd.trim() == "1 0" || cur_cmd.is_empty())
-                    && (pwr_path.trim() == "0" || pwr_path.is_empty())
+                    && (cur_cmd.trim() == "1 0" || cur_cmd.trim() == "0 0" || cur_cmd.is_empty())
+                    && (pwr_path.trim() == "1" || pwr_path.trim().ends_with(" 1") || pwr_path.trim() == "0" || pwr_path.is_empty())
                     && (call_state.trim() == "0" || call_state.is_empty())
             } else {
                 let susp = Self::read_node(&format!("{}/input_suspend", BATT_DIR)).unwrap_or_else(|| "0".to_string());
@@ -3991,12 +4050,23 @@ mod tests {
         assert_eq!(map.get("/sys/devices/platform/charger/tran_charger_full"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/tran_game_mode"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/sw_jeita"), Some(&"1"));
-        assert_eq!(map.get("/sys/devices/platform/charger/input_current"), Some(&"24576"));
+        assert_eq!(map.get("/sys/devices/platform/charger/input_current"), Some(&"5b8d80"));
         assert_eq!(map.get("/sys/devices/platform/charger/sc_ibat_limit"), Some(&"2000"));
-        assert_eq!(map.get("/sys/devices/platform/charger/chg1_current"), Some(&"24576"));
-        assert_eq!(map.get("/sys/devices/platform/charger/chg2_current"), Some(&"24576"));
+        assert_eq!(map.get("/sys/devices/platform/charger/chg1_current"), Some(&"5b8d80"));
+        assert_eq!(map.get("/sys/devices/platform/charger/chg2_current"), Some(&"5b8d80"));
         assert_eq!(map.get("/sys/class/power_supply/battery/boost_current"), Some(&"0"));
         assert_eq!(map.get("/sys/class/power_supply/battery/constant_charge_current_max"), Some(&"4500000"));
+    }
+
+    #[test]
+    fn test_format_mtk_charger_hex_ua() {
+        // 6000 mA -> 6,000,000 uA -> 0x5b8d80
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(6000), "5b8d80");
+        assert_eq!(u64::from_str_radix(&ChargingRegulator::format_mtk_charger_hex_ua(6000), 16).unwrap(), 6_000_000);
+        // 2500 mA -> 2,500,000 uA -> 0x2625a0
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(2500), "2625a0");
+        // 1000 mA -> 1,000,000 uA -> 0xf4240
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(1000), "f4240");
     }
 
     #[test]
