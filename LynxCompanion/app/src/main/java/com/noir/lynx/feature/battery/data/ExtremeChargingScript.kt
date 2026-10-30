@@ -75,6 +75,16 @@ object ExtremeChargingScript {
                 done
             else
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+                has_cp=0
+                if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
+                    has_cp=1
+                fi
+                qcom_ua=3000000
+                qcom_ma=3000
+                if [ "${'$'}has_cp" -eq 1 ]; then
+                    qcom_ua=6000000
+                    qcom_ma=6000
+                fi
                 for node in /sys/class/power_supply/battery/constant_charge_current_max \
                             /sys/class/power_supply/battery/constant_charge_current \
                             /sys/class/power_supply/battery/input_current_limit \
@@ -88,9 +98,9 @@ object ExtremeChargingScript {
                             /sys/class/power_supply/battery_ext/chg_pwr_fcc \
                             /sys/class/power_supply/battery_ext/chg_pwr_icl \
                             /sys/class/power_supply/battery_ext/max_charge_current; do
-                    [ -e "${'$'}node" ] && echo 4500000 > "${'$'}node" 2>/dev/null
+                    [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo "${'$'}qcom_ua" > "${'$'}node" 2>/dev/null
                 done
-                [ -e /sys/class/power_supply/usb/current_max ] && echo 4500000 > /sys/class/power_supply/usb/current_max 2>/dev/null
+                [ -e /sys/class/power_supply/usb/current_max ] && chmod 666 /sys/class/power_supply/usb/current_max 2>/dev/null && echo "${'$'}qcom_ua" > /sys/class/power_supply/usb/current_max 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
@@ -124,7 +134,7 @@ object ExtremeChargingScript {
                     fi
                     echo "${'$'}has_cp" > /sys/class/qcom-battery/direct_charging 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
-                    echo 4500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                    echo "${'$'}qcom_ma" > /sys/class/qcom-battery/restrict_cur 2>/dev/null
                     echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 fi
                 is_pd=0
@@ -199,7 +209,11 @@ object ExtremeChargingScript {
                     read -r t < "${'$'}cd/type" 2>/dev/null
                     case "${'$'}t" in
                         *sysrst*|*shutdown*|*rst*) ;; # CRITICAL: NEVER write to kernel reset devices!
-                        *isolate*|*thermal-cpufreq*|battery|*bcct*|*abcct*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                        *isolate*|*thermal-cpufreq*|battery|*bcct*|*abcct*)
+                            chmod 666 "${'$'}cd/cur_state" 2>/dev/null
+                            echo 0 > "${'$'}cd/cur_state" 2>/dev/null
+                            chmod 444 "${'$'}cd/cur_state" 2>/dev/null
+                            ;;
                     esac
                 fi
             done

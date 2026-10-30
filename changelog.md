@@ -1,3 +1,15 @@
+# Lynx Universal [Hyper Charging Peak Enforcer & Qualcomm PM660 3A Uncap] 7.0.0-RC283
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.16
+
+- **Pemaksaan Arus Pengisian Puncak Tanpa Kompromi pada Mode Hyper**:
+  - **Eliminasi Bug Over-Vote Qualcomm PM660 (-EINVAL Reject)**: Memperbaiki kesalahan penulisan arus 4500mA/4000mA pada perangkat Qualcomm single-PMIC (seperti Redmi Note 7 SDM660/PM660) yang melampaui batas keras register AICR hardware (3000mA). Mengunci batas atas ke **3000 mA (3,000,000 uA)** yang valid dan diakui penuh oleh driver kernel `smb-lib.c`, mencegah *voting failure* dan *fallback* ke mode USB 1500mA.
+  - **Penjagaan Arus Puncak Tanpa Penurunan (Continuous Peak Lock)**: Menghapus pembatasan *rate-limiter* pada mode Hyper. Daemon `lynxd` dan skrip Companion App secara aktif memantau register FCC dan AICR; jika arus atau register turun di bawah batas puncak target (atau < 1800 mA saat baterai < 85%), sistem seketika mengeksekusi re-latch dan memicu `rerun_aicl = 1` untuk memaksa PM660 mengalirkan arus maksimal kembali.
+  - **Netralisasi Penuh Perangkat Pendingin Baterai (`cooling_device4` / `battery`)**: Mengunci status `cur_state = 0` dengan izin `0444` pada seluruh cooling device termal baterai dan menetapkan `system_temp_level = 0`, `temp_state = 0`, `thermal_input_current_limit = -1`, `step_charging_enabled = 0`, serta `sw_jeita_enabled = 0` agar derating termal kernel OEM tidak memotong arus saat baterai menghangat.
+  - **Akselerasi Protokol Quick Charge 3.0 (HVDCP 3.0 / USB-PD)**: Membuka penuh negosiasi tegangan tinggi HVDCP 3.0 (9V) dan boost current, memungkinkan transfer daya hingga 18W (2000–3000 mA pada sel baterai).
+
+---
+
 # Lynx Universal [Luxury Frosted Smoked Glass HUD Theme] 7.0.0-RC282
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.15
