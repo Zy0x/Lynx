@@ -9,11 +9,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,13 +26,13 @@ import com.noir.lynx.feature.hud.data.*
 import com.noir.lynx.core.locale.LynxText as Text
 import kotlin.math.min
 
-/** Google Play Games Sidekick & Lynx Cyberpunk semi-oval ergonomic edge tab with directional cue. */
+/** Google Play Games Sidekick semi-oval translucent edge handle tab with elegant white pill. */
 @Composable
 internal fun SidekickEdgeTab(dockRight: Boolean, modifier: Modifier = Modifier) {
     val tabShape = if (dockRight) {
-        RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+        RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp, topEnd = 0.dp, bottomEnd = 0.dp)
     } else {
-        RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp, topStart = 0.dp, bottomStart = 0.dp)
+        RoundedCornerShape(topEnd = 18.dp, bottomEnd = 18.dp, topStart = 0.dp, bottomStart = 0.dp)
     }
 
     Box(
@@ -45,50 +42,22 @@ internal fun SidekickEdgeTab(dockRight: Boolean, modifier: Modifier = Modifier) 
         contentAlignment = if (dockRight) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         Surface(
-            color = HudHandleSurface,
             shape = tabShape,
-            border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.40f)),
-            shadowElevation = 6.dp,
+            color = HudHandleSurface,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+            shadowElevation = 4.dp,
             modifier = Modifier
-                .width(18.dp)
-                .height(56.dp)
+                .width(15.dp)
+                .height(54.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 1.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (dockRight) {
-                    Icon(
-                        imageVector = Icons.Default.ChevronLeft,
-                        contentDescription = null,
-                        tint = HudCyan,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(Modifier.width(1.dp))
-                    Box(
-                        Modifier
-                            .width(2.5.dp)
-                            .height(24.dp)
-                            .background(HudCyan, CircleShape)
-                    )
-                } else {
-                    Box(
-                        Modifier
-                            .width(2.5.dp)
-                            .height(24.dp)
-                            .background(HudCyan, CircleShape)
-                    )
-                    Spacer(Modifier.width(1.dp))
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = HudCyan,
-                        modifier = Modifier.size(13.dp)
-                    )
-                }
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .width(2.5.dp)
+                        .height(22.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.90f))
+                )
             }
         }
     }

@@ -388,7 +388,9 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
    - **Larangan Keras Varian Debug**: Dilarang keras mengompilasi atau memasang varian Debug (`assembleDebug`), **KECUALI** jika pengguna secara EKSPLISIT menginstruksikan varian debug atau kondisi troubleshooting darurat yang sangat memerlukan debug symbols.
    - **Penyelarasan Utilitas Otomatis**: Skrip otomatisasi build `tools/build_apk.ps1` secara baku mengompilasi varian Release (`assembleRelease`) dan menyalin hasil `app-release.apk` langsung ke root `LynxKernelManager.apk`.
 9. **Strict Human-Only Roadmap Completion**:
-   - Agents MUST NEVER mark (`[x]`) roadmap tasks in `ROADMAP.md` or GitHub PRs/issues on their own. Agents may only propose or append uncompleted (`[ ]`) to-do items. Checking off completed tasks is strictly reserved for the user (see Section 9.6).
+   - **Never mark tasks done**: Agents must NEVER mark any task as completed (`[x]`) in `ROADMAP.md`, GitHub PRs, or issues under any circumstance, even after implementing and verifying the work.
+   - **Append-only authority**: Agents are only permitted to propose or append new to-do items (`[ ]`).
+   - **Explicit user command required**: Checking off any task (`[x]`) is strictly reserved for the human user. Agents may only check off a task when the user explicitly gives the direct command (see Section 9.6).
 
 ### 9.1 Protokol Pengujian Aplikasi Tanpa Modul (Standalone Root Testing Protocol — Khusus Infinix X698)
 Untuk memverifikasi stabilitas dan fungsionalitas Lynx Companion pada **Infinix X698** tanpa memodifikasi sistem root:
@@ -495,19 +497,22 @@ Untuk menjamin kejelasan teknis, transparansi penuh, dan kemudahan audit proyek:
 
 ---
 
-### 9.6 Roadmap Governance & Human-Only Task Completion
+### 9.6 Roadmap Governance: Human-Only Task Completion
 
-To maintain truthful project tracking and prevent hallucinated progress:
+To prevent fake progress tracking and ensure absolute human verification:
 
 1. **Zero Self-Completion**:
-   - Agents MUST NEVER mark roadmap checkboxes as completed (`- [x]`) in `ROADMAP.md`, GitHub PRs, or issues.
-   - Even after implementing code, passing tests, or verifying hardware on-device, tasks MUST remain unchecked (`- [ ]`) until the user explicitly commands: *"Check off task X in roadmap"*.
+   - AI Agents MUST NEVER check off roadmap items (`- [x]`) in `ROADMAP.md`, GitHub PRs, or issues.
+   - Code completion, passing builds, or successful device tests do NOT grant authority to mark a task as done.
+   - Every task must remain strictly unchecked (`- [ ]`).
 2. **Append-Only Authority**:
-   - Agents may only propose, append, or detail uncompleted tasks (`- [ ]`).
-3. **PR Synchronization**:
-   - When the user explicitly instructs to check an item or add tasks, update `ROADMAP.md` and sync the GitHub PR body (`gh pr edit <PR#> --body-file ROADMAP.md`).
-4. **Immediate Reversal on Breach**:
-   - Any accidental self-checking must be immediately reverted to `- [ ]`.
+   - Agents may only add or detail new to-do tasks (`- [ ]`).
+3. **Explicit User Command Only**:
+   - A task may ONLY be checked off (`- [x]`) when the human user explicitly commands it in chat.
+4. **Pull Request Sync**:
+   - Sync PR description (`gh pr edit <PR#> --body-file ROADMAP.md`) whenever the user commands roadmap changes. All items must remain `- [ ]` unless explicitly ordered otherwise.
+5. **Immediate Reversion**:
+   - If an agent accidentally checks any item, it must immediately revert it to `- [ ]`.
 
 ---
 

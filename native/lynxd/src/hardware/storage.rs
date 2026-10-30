@@ -41,10 +41,39 @@ impl StoragePolicy {
             };
         }
 
-        // 2. Multi-tier MMC Detection (Dynamic & Zero-Hardcoded)
-        // Evaluates MMC subsystem candidates without assuming index numbers (mmcblk0 vs mmcblk1).
+        // 2. Check UFS, NVMe, and USB Controllers first to prevent SCSI disks from being mistaken for MMC
+        for ancestor in real.ancestors() {
+            let subsystem = fs::read_link(ancestor.join("subsystem")).ok();
+            let subsystem = subsystem
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str());
+            if subsystem == Some("usb") {
+                return BlockDeviceType::Usb;
+            }
+            if subsystem == Some("nvme") {
+                return BlockDeviceType::Nvme;
+            }
+
+            let driver = fs::read_link(ancestor.join("driver")).ok();
+            let driver_name = driver
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+            if driver_name.starts_with("ufshcd")
+                || driver_name.starts_with("ufs-")
+                || ancestor.join("device_descriptor/ufs_features").exists()
+                || ancestor.join("clkgate_delay_ms").exists()
+                || ancestor.join("manual_gc_status").exists()
+            {
+                return BlockDeviceType::Ufs;
+            }
+        }
+
+        // 3. Multi-tier MMC Detection (Dynamic & Zero-Hardcoded)
+        // Strictly evaluates MMC subsystem candidates (mmcblk*, /mmc_host/, /bus/mmc/)
         let is_mmc_candidate = block_name.starts_with("mmcblk")
-            || block.join("device/type").exists()
             || real.to_string_lossy().contains("/mmc_host/")
             || real.to_string_lossy().contains("/bus/mmc/");
 
@@ -89,47 +118,16 @@ impl StoragePolicy {
             if real_str.contains("externdevice") || real_str.contains("external") {
                 return BlockDeviceType::Sd;
             }
-            if real_str.contains("bootdevice") {
+            if real_str.contains("bootdevice") || real_str.contains("emmc") {
                 return BlockDeviceType::Emmc;
             }
             if SysfsReader::read_trimmed(block.join("removable")).ok().as_deref() == Some("1") {
                 return BlockDeviceType::Sd;
             }
+
+            return BlockDeviceType::Emmc;
         }
 
-        // 3. SCSI disk names are shared by UFS, USB, SATA and other transports.
-        // Inspect controller ancestry instead of treating every sd* disk as UFS.
-        for ancestor in real.ancestors() {
-            let subsystem = fs::read_link(ancestor.join("subsystem")).ok();
-            let subsystem = subsystem
-                .as_ref()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str());
-            if subsystem == Some("usb") {
-                return BlockDeviceType::Usb;
-            }
-        }
-        for ancestor in real.ancestors() {
-            if fs::read_link(ancestor.join("subsystem"))
-                .ok()
-                .and_then(|p| p.file_name().map(|n| n == "nvme"))
-                .unwrap_or(false)
-            {
-                return BlockDeviceType::Nvme;
-            }
-            let driver = fs::read_link(ancestor.join("driver")).ok();
-            let driver = driver
-                .as_ref()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
-            if driver.starts_with("ufshcd")
-                || driver.starts_with("ufs-")
-                || ancestor.join("device_descriptor/ufs_features").exists()
-            {
-                return BlockDeviceType::Ufs;
-            }
-        }
         BlockDeviceType::Unknown
     }
 

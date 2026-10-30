@@ -489,52 +489,77 @@ case "$PROFILE" in
                 loop*|ram*|zram*) echo "virtual"; return ;;
             esac
 
-            # 2. Check SCSI / UFS / NVMe
+            # 2. Check SCSI / UFS / NVMe / USB
             local real_path
             real_path=$(readlink -f "$dev_dir" 2>/dev/null)
             case "$real_path" in
                 *nvme*) echo "nvme"; return ;;
                 *usb*) echo "usb"; return ;;
             esac
-            if [ -e "$dev_dir/device/model" ]; then
+
+            # Check UFS Host Controller ancestry (ufshcd, clkgate, ufs_features, ufshci)
+            for anc in "$dev_dir" "$dev_dir/device" "$dev_dir/device/.." "$dev_dir/device/../.." "$dev_dir/device/../../.." "$dev_dir/device/../../../.."; do
+                [ -d "$anc" ] || continue
                 local drv
-                drv=$(readlink "$dev_dir/device/driver" 2>/dev/null)
+                drv=$(readlink "$anc/driver" 2>/dev/null)
                 case "$drv" in
                     *ufshcd*|*ufs*) echo "ufs"; return ;;
                 esac
-            fi
+                if [ -e "$anc/clkgate_delay_ms" ] || [ -e "$anc/manual_gc_status" ] || [ -e "$anc/device_descriptor/ufs_features" ]; then
+                    echo "ufs"; return
+                fi
+                local of_n
+                of_n=$(readlink "$anc/of_node" 2>/dev/null)
+                case "$of_n" in
+                    *ufs*) echo "ufs"; return ;;
+                esac
+            done
 
             # 3. Dynamic MMC Multi-Tier Ground Truth (eMMC vs MicroSD)
-            if [ -f "$dev_dir/device/type" ]; then
-                local dev_type
-                dev_type=$(cat "$dev_dir/device/type" 2>/dev/null | tr '[:lower:]' '[:upper:]')
-                if [ "$dev_type" = "MMC" ]; then
+            # Only evaluate MMC subsystem candidates (mmcblk*, /mmc_host/, /bus/mmc/)
+            local is_mmc=0
+            case "$dev_name" in
+                mmcblk*) is_mmc=1 ;;
+            esac
+            case "$real_path" in
+                */mmc_host/*|*/bus/mmc/*) is_mmc=1 ;;
+            esac
+
+            if [ "$is_mmc" = "1" ]; then
+                # Tier 1: Kernel MMC Driver Card Type
+                if [ -f "$dev_dir/device/type" ]; then
+                    local dev_type
+                    dev_type=$(cat "$dev_dir/device/type" 2>/dev/null | tr '[:lower:]' '[:upper:]')
+                    if [ "$dev_type" = "MMC" ]; then
+                        echo "emmc"; return
+                    elif [ "$dev_type" = "SD" ] || [ "$dev_type" = "SDCOMBO" ]; then
+                        echo "sd"; return
+                    fi
+                fi
+
+                # Tier 2: JEDEC Register vs SD Spec Probing
+                if [ -f "$dev_dir/device/ext_csd" ] || [ -f "$dev_dir/device/life_time" ]; then
                     echo "emmc"; return
-                elif [ "$dev_type" = "SD" ] || [ "$dev_type" = "SDCOMBO" ]; then
+                fi
+                if [ -f "$dev_dir/device/scr" ] || [ -f "$dev_dir/device/ssr" ] || [ -f "$dev_dir/device/speedclass" ]; then
                     echo "sd"; return
                 fi
-            fi
 
-            # Tier 2: JEDEC Register vs SD Spec Probing
-            if [ -f "$dev_dir/device/ext_csd" ] || [ -f "$dev_dir/device/life_time" ]; then
+                # Tier 3: Companion Boot / RPMB Hardware Partitions
+                if [ -e "/sys/block/${dev_name}boot0" ] || [ -e "/sys/block/${dev_name}rpmb" ]; then
+                    echo "emmc"; return
+                fi
+
+                # Tier 4: Ancestry & Removable Flag
+                case "$real_path" in
+                    *externdevice*|*external*) echo "sd"; return ;;
+                    *bootdevice*|*emmc*) echo "emmc"; return ;;
+                esac
+                if [ "$(cat "$dev_dir/removable" 2>/dev/null)" = "1" ]; then
+                    echo "sd"; return
+                fi
+
                 echo "emmc"; return
-            fi
-            if [ -f "$dev_dir/device/scr" ] || [ -f "$dev_dir/device/ssr" ] || [ -f "$dev_dir/device/speedclass" ]; then
-                echo "sd"; return
-            fi
-
-            # Tier 3: Companion Boot / RPMB Hardware Partitions
-            if [ -e "/sys/block/${dev_name}boot0" ] || [ -e "/sys/block/${dev_name}rpmb" ]; then
-                echo "emmc"; return
-            fi
-
-            # Tier 4: Ancestry & Removable Flag
-            case "$real_path" in
-                *externdevice*|*external*) echo "sd"; return ;;
-                *bootdevice*) echo "emmc"; return ;;
-            esac
-            if [ "$(cat "$dev_dir/removable" 2>/dev/null)" = "1" ]; then
-                echo "sd"; return
             fi
 
             echo "generic"

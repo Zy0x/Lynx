@@ -1,3 +1,21 @@
+# Lynx Universal [eMMC 5.1 Flash Shield & Zero-Hardcoded Storage Disambiguation] 7.0.0-RC277
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.10
+
+- Menghadirkan **eMMC 5.1 Flash Shield** & subsistem deteksi media penyimpanan terpadu zero-hardcoding:
+  - **4-Tier Hardware Ground Truth Disambiguation**: Membedakan secara mutlak antara internal eMMC (`/sys/block/mmcblk*` internal), MicroSD external (`mmcblk*`), dan UFS storage (`sd*` SCSI disk via kontroler `ufshcd` / `11270000.ufshci`) berbasis register fisik kernel (`ext_csd`, `life_time` JEDEC JESD84 vs `scr`, `ssr`, `speedclass` SD Association) serta partisi pendamping hardware (`boot0`, `boot1`, `rpmb`).
+  - **Mitigasi Total Lockup & Freezing Deep Sleep eMMC**:
+    - Membatasi queue read-ahead eMMC secara dinamis ke 128 KiB (64 KiB powersave) guna mencegah saturasi antrean serial Half-Duplex dan kehabisan memori crypto worker (`blk_crypto_wq`).
+    - Eliminasi cache dropping destruktif (`echo 1 > /proc/sys/vm/drop_caches`) saat layar menyala (*wakeup boost*), mempertahankan dentry/inode SQLite keystore di RAM.
+    - Penyelarasan asinkron VM writeback (`dirty_ratio=10`, `dirty_background_ratio=5`, `dirty_expire_centisecs=200`, `vfs_cache_pressure=50`), mencegah I/O spike masif saat bangun dari deep sleep.
+    - Peningkatan prioritas I/O proses kritis UI (`system_server`, `surfaceflinger`, `keystore2`) via `ionice Real-Time / High Best-Effort`.
+  - **Dual-Section MountX Card UI**:
+    - Kartu penyimpanan cerdas dengan badge `🛡️ eMMC 5.1 Flash Shield` atau `⚡ UFS High-Throughput`.
+    - Menampilkan telemetri JEDEC eMMC Device Health (umur pakai, pre-EOL) dan kontrol optimalisasi I/O MicroSD card mandiri.
+  - **Penegasan Aturan Roadmap Governance (Anti-AI-Slop)**: Mengunci aturan bahwa seluruh roadmap checklist hanya dapat dicentang (`[x]`) atas perintah langsung pengguna. Agen AI hanya berhak menambahkan to-do baru (`[ ]`).
+
+---
+
 # Lynx Universal [HUD Sidebar Ergonomic Handle, Fluid Gestures & Dynamic eMMC Storage Engine] 7.0.0-RC276
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.9
