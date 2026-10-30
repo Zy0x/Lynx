@@ -1,3 +1,21 @@
+# Lynx Universal [Relocate Gaming Addins to Tools & Refocus Boost Center] 7.0.0-RC280
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.13
+
+- Restrukturisasi antarmuka navigasi **HUD Sidebar / Lynx Engine Overlay**:
+  - **Pemindahan Seluruh Alat Bermain ke Halaman Alat (`HudTools`)**: Menyatukan seluruh utilitas gaming dan add-in ke dalam satu pusat kendali (*Tools Hub*) terpadu:
+    - **Kategori Alat Bermain**: Menampung *GameShift* (Turbo frame spike burst), *Mode Fokus* (Heads-up shield & DND), *Touch Boost* (ZoneTouch sampling & ultra latency), *Jaringan Game* (TCP latency probe & Wi-Fi boost), *Bypass Charging* (Direct power supply), *Magic Box* (Macro combo clicker), *Perekam Layar* (Game screen recorder), *Konsol Game* (Quick adjustment HUD console), dan *Sesi Game* (Gaming session duration & drain tracker).
+    - **Kategori Alat Sistem & Tampilan**: Menampung *Layar & Hz* (Display refresh rate & brightness lock), *Pengaturan Overlay* (Mini HUD metrics & floating engine selector), *Otomasi Dialog* (Genshin/Star Rail auto-skip engine), *Timer Bermain* (Game timer presets), serta *Kelola Aplikasi* (App dock manager).
+    - **Aksi Cepat Berhenti**: Tombol bahaya *Hentikan Overlay* di bagian bawah menu utama alat.
+  - **Pemurnian Halaman Boost (`HudLab`) Menjadi Pusat Akselerasi Performa Murni**:
+    - **Banner Status Lynx Engine**: Menampilkan status Lynx Deity Engine, hardware governor, dan badge profil aktif dengan glowing cyberpunk accent.
+    - **Pemilih Profil Performa Lengkap**: Menghadirkan selektor profil langsung (*Powersave*, *Balanced*, *Performance*, *Auto/AI*, *Extreme*) lengkap dengan dialog konfirmasi bahaya untuk mode ekstrem.
+    - **Booster Memori Cepat (RAM & Kernel Cache Purge)**: Visualisasi kapasitas RAM terpakai dan tombol interaktif `⚡ Bersihkan RAM & Cache` dengan umpan balik pembersihan real-time.
+    - **Thermal & Power Headroom Telemetry**: Pemantau langsung suhu inti CPU/SoC dan temperatur baterai untuk memastikan keamanan termal perangkat saat akselerasi performa berlangsung.
+  - **Penyelarasan Navigasi Shell**: Tombol kembali (*Back button*) pada header secara mulus mengembalikan pengguna dari subhalaman alat apa pun ke menu utama *Tools Hub*.
+
+---
+
 # Lynx Universal [Guaranteed Post-Execution Dynamic Island & Profile Feedback Engine] 7.0.0-RC279
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.12

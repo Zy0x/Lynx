@@ -146,9 +146,16 @@ impl DaemonLifecycle {
                 signal(1, 1); // SIGHUP -> SIG_IGN
             }
             let pid_str = std::process::id().to_string();
+
+            // 1. Extreme OOM Immunity: Set oom_score_adj to -1000 (OOM_SCORE_ADJ_MIN)
+            // Renders lynxd completely unkillable by Linux kernel LMK and Android lmkd under memory pressure.
+            let _ = fs::write("/proc/self/oom_score_adj", "-1000");
+
+            // 2. Escape from Android app / freezer cgroups into root system cgroups
             let _ = fs::create_dir_all("/acct/uid_0");
             for cgroup_file in &[
                 "/sys/fs/cgroup/cgroup.procs",
+                "/sys/fs/cgroup/uid_0/cgroup.procs",
                 "/acct/cgroup.procs",
                 "/acct/uid_0/cgroup.procs",
                 "/dev/cpuset/system-background/tasks",
@@ -157,6 +164,15 @@ impl DaemonLifecycle {
                 if std::path::Path::new(cgroup_file).exists() {
                     let _ = fs::write(cgroup_file, &pid_str);
                 }
+            }
+
+            // 3. Doze Mode / Battery Optimization Whitelist for Lynx Companion App
+            for pkg in &["com.noir.lynx", "com.noir.lynx.debug"] {
+                let _ = std::process::Command::new("dumpsys")
+                    .args(["deviceidle", "whitelist", &format!("+{}", pkg)])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
             }
         }
     }

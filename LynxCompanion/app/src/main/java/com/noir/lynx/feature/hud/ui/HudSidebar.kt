@@ -60,9 +60,7 @@ fun HudSidebar(
     }
     var page by rememberSaveable { mutableStateOf(HudPage.Summary) }
     var manageApps by rememberSaveable { mutableStateOf(false) }
-    var addinPage by rememberSaveable { mutableIntStateOf(-1) }
     var toolPage by rememberSaveable { mutableStateOf<HudToolPage?>(null) }
-    val addinScrolls = (0..8).associateWith { rememberScrollState() }
     val toolScrolls = HudToolPage.values().associateWith { rememberScrollState() }
     val scrolls = HudPage.values().associateWith { rememberScrollState() }
     val appScroll = rememberScrollState()
@@ -88,7 +86,6 @@ fun HudSidebar(
         } else {
             val title = when {
                 manageApps -> hudString(R.string.hud_apps_manage)
-                page == HudPage.Lab && addinPage >= 0 -> hudString(hudAddinTitles[addinPage])
                 page == HudPage.Tools && toolPage != null -> hudString(toolPage!!.title)
                 page == HudPage.Summary -> appLabel
                 else -> hudString(page.label)
@@ -100,14 +97,12 @@ fun HudSidebar(
                 onBack = {
                     when {
                         manageApps -> manageApps = false
-                        page == HudPage.Lab && addinPage >= 0 -> addinPage = -1
                         page == HudPage.Tools && toolPage != null -> toolPage = null
                         else -> page = HudPage.Summary
                     }
                 },
                 onSelect = {
                     manageApps = false
-                    addinPage = -1
                     toolPage = null
                     page = it
                 },
@@ -121,7 +116,6 @@ fun HudSidebar(
                     }
                 } else pageState.SaveableStateProvider(page.name) {
                     val scroll = when {
-                        page == HudPage.Lab && addinPage >= 0 -> addinScrolls.getValue(addinPage)
                         page == HudPage.Tools && toolPage != null -> toolScrolls.getValue(toolPage!!)
                         else -> scrolls.getValue(page)
                     }
@@ -135,25 +129,42 @@ fun HudSidebar(
                                 )
                                 HudPage.Details -> HudDetails(snapshot)
                                 HudPage.Lab -> HudLab(
-                                    snapshot = snapshot, bypassStatus = bypassStatus, busy = action.busy,
-                                    onToggleBypass = onToggleBypass, onRefreshBypass = onRefreshBypass,
-                                    onProbeNetwork = onProbeNetwork, touchStatus = touchStatus, shieldStatus = shieldStatus,
-                                    onToggleTouchBoost = onToggleTouchBoost, onToggleHeadsUpShield = onToggleHeadsUpShield,
-                                    onSelectFocusLevel = onSelectFocusLevel, selectedAddin = addinPage,
-                                    onSelectAddin = { addinPage = it }, brightnessLocked = brightnessLocked,
-                                    onToggleBrightnessLock = onToggleBrightnessLock
+                                    snapshot = snapshot,
+                                    action = action,
+                                    onProfile = onProfile,
+                                    onBoostRam = onBoostRam
                                 )
                                 HudPage.Tools -> HudTools(
-                                    selectedPage = toolPage, onSelectPage = { toolPage = it },
-                                    onApps = { manageApps = true }, prefs = prefs, store = preferences,
-                                    rates = rates, activeHz = snapshot[HudMetric.DISPLAY_HZ], action = action,
-                                    onHz = onHz, onStop = onStop, brightnessLocked = brightnessLocked,
+                                    selectedPage = toolPage,
+                                    onSelectPage = { toolPage = it },
+                                    onApps = { manageApps = true },
+                                    prefs = prefs,
+                                    store = preferences,
+                                    rates = rates,
+                                    activeHz = snapshot[HudMetric.DISPLAY_HZ],
+                                    action = action,
+                                    onHz = onHz,
+                                    onStop = onStop,
+                                    brightnessLocked = brightnessLocked,
                                     onToggleBrightnessLock = onToggleBrightnessLock,
                                     onToggleAutoSkip = preferences::setAutoSkipEnabled,
                                     onSetAutoSkipSpeed = preferences::setAutoSkipSpeed,
                                     onSetAutoSkipChoiceBottom = preferences::setAutoSkipChoiceBottom,
-                                    isSkipping = isSkipping, isPaused = isPaused, isTappingLive = isTappingLive,
-                                    onSnapshotScene = onSnapshotScene, sceneResult = sceneResult
+                                    isSkipping = isSkipping,
+                                    isPaused = isPaused,
+                                    isTappingLive = isTappingLive,
+                                    onSnapshotScene = onSnapshotScene,
+                                    sceneResult = sceneResult,
+                                    snapshot = snapshot,
+                                    bypassStatus = bypassStatus,
+                                    onToggleBypass = onToggleBypass,
+                                    onRefreshBypass = onRefreshBypass,
+                                    onProbeNetwork = onProbeNetwork,
+                                    touchStatus = touchStatus,
+                                    shieldStatus = shieldStatus,
+                                    onToggleTouchBoost = onToggleTouchBoost,
+                                    onToggleHeadsUpShield = onToggleHeadsUpShield,
+                                    onSelectFocusLevel = onSelectFocusLevel
                                 )
                             }
                         }

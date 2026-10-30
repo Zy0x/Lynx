@@ -275,6 +275,11 @@ impl DaemonRunner {
                 crate::subsystems::MemoryController::check_vma_health();
             }
 
+            // Autonomous Companion App Shield & OOM Immunity Watchdog tick (every ~30 cycles)
+            if daemon_state.cycle_count % 30 == 0 {
+                Self::shield_companion_app();
+            }
+
             // Native Daily Maintenance Scheduler (replaces legacy crond & core/cron/root)
             if current_screen == ScreenState::Off && now.saturating_sub(last_maintenance_ts) >= 86400 {
                 Logger::info(ui("[DAEMON] Menjalankan pemeliharaan penyimpanan dan memori terjadwal 24 jam...", "[DAEMON] Executing scheduled 24h storage and memory maintenance..."));
@@ -595,6 +600,16 @@ impl DaemonRunner {
             }
         }
         None
+    }
+
+    /// Protects the Companion App (com.noir.lynx) by setting its OOM score to -900 (system critical).
+    pub fn shield_companion_app() {
+        for pkg in &["com.noir.lynx", "com.noir.lynx.debug"] {
+            if let Some(pid) = crate::subsystems::GameController::find_pid_for_package(pkg) {
+                let oom_path = format!("/proc/{}/oom_score_adj", pid);
+                let _ = std::fs::write(&oom_path, "-900");
+            }
+        }
     }
 }
 

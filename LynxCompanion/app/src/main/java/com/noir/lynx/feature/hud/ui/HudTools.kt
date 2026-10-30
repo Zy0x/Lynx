@@ -68,29 +68,29 @@ internal fun HudTools(
                 // 🎮 Alat Bermain (Gaming Add-ins)
                 HudToolPage.GameShift -> HudGameShiftControls()
                 HudToolPage.Focus -> HudFocusPage(
-                    shield = shieldStatus,
+                    shieldStatus = shieldStatus,
                     busy = action.busy,
-                    onToggleHeadsUp = onToggleHeadsUpShield,
-                    onSelectLevel = onSelectFocusLevel
+                    onToggleHeadsUpShield = onToggleHeadsUpShield,
+                    onSelectFocusLevel = onSelectFocusLevel
                 )
                 HudToolPage.Touch -> HudTouchPage(
                     touchStatus = touchStatus,
                     busy = action.busy,
-                    onToggleTouch = onToggleTouchBoost
+                    onToggleTouchBoost = onToggleTouchBoost
                 )
                 HudToolPage.Network -> HudNetworkPage(onProbeNetwork = onProbeNetwork)
                 HudToolPage.Bypass -> HudBypassPage(
                     snapshot = snapshot,
-                    bypass = bypassStatus,
+                    bypassStatus = bypassStatus,
                     busy = action.busy,
-                    onToggle = onToggleBypass,
-                    onRefresh = onRefreshBypass
+                    onToggleBypass = onToggleBypass,
+                    onRefreshBypass = onRefreshBypass
                 )
                 HudToolPage.Combo -> HudComboControls()
                 HudToolPage.Recorder -> HudRecorderControls()
                 HudToolPage.Console -> HudConsoleControls(
                     brightnessLocked = brightnessLocked,
-                    onToggleBrightness = onToggleBrightnessLock
+                    onBrightness = onToggleBrightnessLock
                 )
                 HudToolPage.Session -> HudSessionControls(snapshot = snapshot)
 
