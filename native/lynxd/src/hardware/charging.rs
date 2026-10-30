@@ -283,6 +283,11 @@ impl ChargingRegulator {
         const EXTRA_VENDORS: &[&str] = &[
             "/proc/driver/thermal/clabcct",
             "/proc/driver/thermal/clabcct_lcmoff",
+            "/sys/class/power_supply/battery/system_temp_level",
+            "/sys/class/qcom-battery/system_temp_level",
+            "/sys/class/power_supply/battery/thermal_input_current_limit",
+            "/sys/class/power_supply/battery/sw_jeita_enabled",
+            "/sys/class/power_supply/battery/temp_state",
             "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
@@ -980,6 +985,11 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/factory_mode",
             "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
             "/sys/devices/platform/tran_battery/Charging_CallState",
+            "/sys/class/power_supply/battery/system_temp_level",
+            "/sys/class/qcom-battery/system_temp_level",
+            "/sys/class/power_supply/battery/thermal_input_current_limit",
+            "/sys/class/power_supply/battery/sw_jeita_enabled",
+            "/sys/class/power_supply/battery/temp_state",
             "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/pca_dv2_algo/dv2_debug",
@@ -1853,19 +1863,21 @@ impl ChargingRegulator {
 
         let direct_val = if has_qcom_cp { "1" } else { "0" };
         if is_qcom {
-            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
-            Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
-            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
         } else {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
@@ -1891,26 +1903,14 @@ impl ChargingRegulator {
                 "constant_charge_current_max" | "constant_charge_current" | "current_max" => {
                     let is_usb_input_node = node.contains("/usb/") || node.contains("/main/");
                     let val_to_write = if is_usb_input_node { &usb_current_cap_ua } else { &effective_ua_str };
-                    if is_qcom {
-                        Self::write_node(&node, val_to_write);
-                    } else {
-                        Self::write_node_lock(&node, val_to_write);
-                    }
+                    Self::write_node_lock(&node, val_to_write);
                 }
                 "input_current_limit" | "hw_current_max" => {
                     let in_limit = if is_qcom { &usb_current_cap_ua } else { &effective_ua_str };
-                    if is_qcom {
-                        Self::write_node(&node, in_limit);
-                    } else {
-                        Self::write_node_lock(&node, in_limit);
-                    }
+                    Self::write_node_lock(&node, in_limit);
                 }
                 "charge_control_limit" => {
-                    if is_qcom {
-                        Self::write_node(&node, &effective_ua_str);
-                    } else {
-                        Self::write_node_lock(&node, &effective_ua_str);
-                    }
+                    Self::write_node_lock(&node, &effective_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" | "boost_current" | "turbo_power" | "is_turbo_charging" | "soc_decimal" => {
                     Self::write_node_lock(&node, "1");

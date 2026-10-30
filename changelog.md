@@ -1,3 +1,14 @@
+# Lynx Universal [Qualcomm PM660 Hardware-Only Thermal Enforcement & Software Throttling Neutralization] 7.0.0-RC274
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.7
+
+- Mengoptimalkan mode pengisian daya Hyper pada chipset Qualcomm Snapdragon (mis. Redmi Note 7 `lavender` SD660 / PMIC PM660) agar beroperasi pada performa maksimal tanpa terhambat throttling perangkat lunak:
+  - **Netralisasi Throttling Software Termal via Izin Read-Only (`write_node_lock` `0444`)**: Menolak intervensi daemons userspace (`thermal-engine`, `system_temp_level`, dan software JEITA step-charging) yang sebelumnya secara sepihak memotong arus pengisian daya dari ~1800–2000 mA ke ~1000 mA saat suhu baterai mencapai 42°C.
+  - **Perlindungan Hardware Murni 100% Tetap Aktif**: Memastikan proteksi fisik tingkat silikon PMIC Qualcomm PM660 (hardware thermal OTP comparator ~140°C junction) serta hardware PCM/OTP fuse pack baterai (~60°C) tetap aktif sepenuhnya untuk keamanan fisik baterai jangka panjang.
+  - **Restorasi Izin Penuh Saat Keluar Mode Hyper**: Fungsi `unlock_extreme_nodes()` mengembalikan hak akses sysfs ke `0666` saat beralih ke mode Standard/Cool atau saat kabel dicabut, memastikan manajemen daya bawaan OEM dapat kembali mengontrol sistem secara normal.
+
+---
+
 # Lynx Universal [MediaTek RT9759 33W Direct Charge Restoration & Hex-uA Register Fix] 7.0.0-RC273
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.6
