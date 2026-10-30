@@ -2,7 +2,9 @@
 > **Target Release**: Lynx V7 Generation (`7.0.0-RC252+` Uncapped RC Cycle)  
 > **Repository**: [Zy0x/Lynx](https://github.com/Zy0x/Lynx) | **Base**: `main` <- **Head**: `roadmap/v7-deity-master-milestones`  
 > **Architectures**: Hybrid Qualcomm Snapdragon & MediaTek (Helio / Dimensity) with Generic Linux Fallback  
-> ⚠️ **Governance Rule**: All tasks MUST remain unchecked (`- [ ]`). Checking off items (`- [x]`) is strictly reserved for explicit human user command.
+> ⚠️ **Strict Roadmap Governance Rule**:
+> - **Human-Only Completion**: All checklist tasks MUST strictly remain unchecked (`- [ ]`). AI agents are FORBIDDEN from checking off any item (`- [x]`), regardless of whether code is implemented or tested, unless explicitly ordered by the human user.
+> - **Append-Only Authority**: Agents are only permitted to propose or add new uncompleted to-do items (`- [ ]`).
 
 ---
 
@@ -108,6 +110,17 @@ flowchart LR
   - [ ] Set `vfs_cache_pressure = 50` to retain open-world inodes in RAM.
   - [ ] Suppress synchronous direct compaction while game render threads are active.
 
+### 1.7 eMMC 5.1 Flash Shield & Zero-Hardcoded Storage Architecture (`native/lynxd/src/hardware/storage.rs`)
+- [ ] **Multi-Tier Hardware Storage Disambiguation**
+  - [ ] 4-Tier ground truth classification separating internal eMMC (`/sys/block/mmcblk*`), external MicroSD (`mmcblk*`), and SCSI UFS disks (`sd*` backed by `ufshcd`).
+  - [ ] JEDEC JESD84 register probing (`ext_csd`, `life_time`) vs SD Association registers (`scr`, `ssr`, `speedclass`).
+  - [ ] Companion partition detection (`<dev>boot0`, `<dev>rpmb`) and `/proc/mounts` `/data` ancestry traversal.
+- [ ] **eMMC 5.1 Half-Duplex Anti-Freezing & Anti-Lockup Shield**
+  - [ ] Strict read-ahead clamping (128 KiB balanced/extreme, 64 KiB powersave) to prevent `blk_crypto_wq` and SQLite dentry starvation.
+  - [ ] Zero destructive cache dropping (`echo 1 > /proc/sys/vm/drop_caches`) on screen-on wakeup boost.
+  - [ ] Safe asynchronous VM writeback: `dirty_ratio=10`, `dirty_background_ratio=5`, `dirty_expire_centisecs=200`, `vfs_cache_pressure=50`.
+  - [ ] Dynamic UI process I/O elevation (`system_server`, `surfaceflinger`, `keystore2`) via `ionice` Real-Time / High Best-Effort.
+
 ---
 
 ## 🎮 Phase 2: In-Game HUD & Vision AI Engine
@@ -194,6 +207,12 @@ flowchart LR
 ### 3.6 Settings, OTA Updater & Backup
 - [ ] **In-App OTA Updater**: Direct GitHub Releases API integration with in-app changelog viewer and SHA-256 validation.
 - [ ] **Backup & Restore**: Export/import `lynx_config.json` and 2-step factory reset failsafe.
+
+### 3.7 Hardware-Aware Storage Shield Card (`MountXStorageCard.kt`)
+- [ ] **Dual-Section Storage Architecture UI**
+  - [ ] Dynamic Primary System Storage banner: `🛡️ eMMC 5.1 Flash Shield` vs `⚡ UFS High-Throughput`.
+  - [ ] Real-time JEDEC eMMC Device Health telemetry (name, lifetime estimate, pre-EOL status).
+  - [ ] Independent External MicroSD Card optimizer with F2FS/EXT4 partition detection and 256 KiB prefetch capping.
 
 ---
 
