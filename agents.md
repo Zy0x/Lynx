@@ -437,21 +437,22 @@ Sesuai instruksi dan ketetapan mutlak pemilik proyek, arsitektur penomoran versi
 | :--- | :--- | :--- |
 | **SoC / Arsitektur** | MediaTek Helio G96 (`mt6781`) | Qualcomm Snapdragon 660 (`sdm660`) |
 | **Metode Koneksi** | Wireless ADB (Port `5555`) | Wireless ADB (Port `5555`) & Kabel USB |
-| **Status Root** | Magisk Root (`su`) | Rooted (`su` tersedia untuk baca node terproteksi) |
-| **Peran & Otoritas** | **Active Read-Write Test Device** | **🔒 STRICT READ-ONLY REFERENCE (ZERO-TOUCH)** |
-| **Instalasi APK / UI Test** | ✅ Diizinkan (`adb install -r`) | ❌ **DILARANG KERAS** |
-| **Modifikasi Sysfs / Prop** | ✅ Diizinkan (Pengujian Tweak) | ❌ **DILARANG KERAS** |
-| **Penulisan File di Device** | ✅ Diizinkan hanya di `/sdcard/Debug/` (Wajib langsung dibersihkan pasca-pull) | ❌ **DILARANG KERAS (0 Byte Written)** |
+| **Status Root** | Magisk Root (`su`) | Rooted (`su` tersedia untuk observasi) |
+| **Peran & Otoritas** | **Active Testing & Module Host** | **Daily Driver & Companion Target** |
+| **Instalasi APK (`LynxKernelManager.apk`)** | ✅ **WAJIB SELALU DIPASANG** (`adb install -r`) | ✅ **WAJIB SELALU DIPASANG** (`adb install -r`) |
+| **Flashing / Push Modul Root (`/data/adb/modules/`)** | ✅ **DIRESTUI & DIIZINKAN** (Modul Host) | ❌ **DILARANG KERAS (HANYA UNTUK INFINIX)** |
+| **Modifikasi Sysfs Shell / Push File Manual** | ✅ Diizinkan hanya di `/sdcard/Debug/` | ❌ **DILARANG KERAS (0 Byte File Push)** |
 | **Lokasi Simpan Sampel** | `/storage/emulated/0/Debug/` (Device) | `archive/device_reference/redmi_note_7_sdm660/` (PC Lokal) |
 
 #### Aturan Mutlak Interaksi dengan Redmi Note 7 (`lavender` / `sdm660`):
-1. **Hanya untuk Pengambilan Sampel & Referensi Arsitektur Snapdragon (`qcom`)**:
-   - Redmi Note 7 digunakan **murni sebagai sumber observasi pasif** guna mempelajari jalur sysfs/procfs nyata pada kernel Qualcomm Snapdragon (seperti `/sys/class/kgsl/kgsl-3d0/`, `/sys/class/devfreq/`, `/sys/devices/system/cpu/cpufreq/`, `/sys/class/qcom-battery/`, `/sys/class/power_supply/`, `/sys/class/thermal/`, dan `getprop`).
-2. **Daftar Perintah yang DILARANG KERAS pada Redmi Note 7 (Zero-Write Policy)**:
-   - **Dilarang mengubah nilai kernel/sistem**: Haram menjalankan `echo ... > ...`, `printf ... > ...`, `tee`, `sysctl -w`, `setprop`, `settings put`, `cmd`, `service call`, atau `content insert/update/delete`.
-   - **Dilarang mengubah izin/atribut file**: Haram menjalankan `chmod`, `chown`, `chgrp`, `chcon`, `restorecon`, `mount`, `umount`, `remount`.
-   - **Dilarang menulis/menghapus berkas di storage perangkat**: Haram menjalankan `mkdir`, `touch`, `rm`, `mv`, `cp`, `dd`, `tar`, `unzip`, `adb push`, termasuk **DILARANG** membuat folder `/storage/emulated/0/Debug/` atau `/data/local/tmp/` di Redmi Note 7.
-   - **Dilarang mengintervensi proses atau paket**: Haram menjalankan `adb install`, `adb uninstall`, `pm`, `am`, `kill`, `killall`, `pkill`, `stop`, `start`, `reboot`, `input keyevent/tap/swipe`.
+1. **Kebijakan Instalasi APK Dual-Device Mandat Penuh**:
+   - Setiap kali rilis atau build baru `LynxKernelManager.apk` selesai dikompilasi, agen **WAJIB SELALU** memasang APK ke **KEDUA PERANGKAT** (`adb -s 192.168.1.9:5555 install -r LynxKernelManager.apk` dan `adb -s 192.168.1.5:5555 install -r LynxKernelManager.apk`).
+2. **Larangan Keras Flashing / Modifikasi Modul Root pada Redmi Note 7**:
+   - Flashing modul ZIP, injeksi berkas root module (`/data/adb/modules/Lynx/`), atau instalasi daemon root manual **HANYA DIIZINKAN UNTUK INFINIX X698**.
+   - Dilarang keras melakukan flash atau push berkas modul root ke Redmi Note 7 demi menjaga stabilitas boot perangkat utama.
+3. **Daftar Perintah yang DILARANG KERAS pada Redmi Note 7**:
+   - **Dilarang manipulasi berkas sistem root manual**: Dilarang menjalankan `adb push`, `mkdir`, `touch`, `rm`, `mv`, `cp`, `dd`, `tar`, `unzip` ke direktori sistem atau `/data/adb/modules/` di RN7.
+   - **Dilarang shell sysfs injection manual**: Pengujian tweak sysfs manual via shell su dilarang; seluruh kontrol harus murni berjalan melalui aplikasi resmi `LynxKernelManager.apk` yang telah terverifikasi.
 3. **Daftar Perintah yang DIIZINKAN pada Redmi Note 7 (Passive Stdout Read-Only)**:
    - Hanya perintah pembacaan pasif tanpa efek samping: `cat`, `ls`, `find`, `grep`, `awk`, `sed` (tanpa `-i`), `head`, `tail`, `stat`, `id`, `uname -a`, `getprop` (tanpa argumen tulis), dan `dumpsys` (tanpa flag pengubah status).
    - Penggunaan `su -c "<perintah_baca>"` diizinkan **HANYA** untuk membaca (`cat` / `ls` / `find`) node sysfs/procfs yang memiliki permission terbatas (misal `0400` atau `0600` milik root) dan wajib diverifikasi bahwa string perintah di dalam `su -c` tidak mengandung operator redirect tulis (`>`, `>>`) atau perintah mutasi.
