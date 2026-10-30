@@ -1,3 +1,14 @@
+# Lynx Universal [Qualcomm HVDCP Voltage Uncap & Battery Thermal Cooling Device Neutralization] 7.0.0-RC275
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.8
+
+- Mengeliminasi hambatan negosiasi tegangan tinggi Qualcomm Quick Charge 3.0 / HVDCP dan pembatasan arus kernel pada chipset Qualcomm Snapdragon (PMIC PM660):
+  - **Uncap Batas Tegangan Input Adaptor (`voltage_max` 12V)**: Membuka dan mengunci node `/sys/class/power_supply/usb/voltage_max`, `voltage_max_design`, `voltage_max_limit`, dan `/sys/class/power_supply/main/voltage_max` ke `12000000` (12V) via `write_node_lock`, mengizinkan PMIC menegosiasikan tegangan tinggi 9V/12V QC 3.0 dengan adaptor alih-alih terkunci pada 5V standar USB.
+  - **Netralisasi Kernel Cooling Device `battery`**: Menyelaraskan fungsi `set_bcct_throttle` agar tidak hanya menyasar perangkat pendingin MediaTek (`bcct`/`abcct`), melainkan juga mengunci *cooling device* tipe `battery` dan `charge` pada Qualcomm (`/sys/class/thermal/cooling_device*/cur_state = 0`) dengan izin *read-only* (`0444`), mencegah *step-wise thermal governor* memotong arus input.
+  - **Uncap Arus Input Tambahan**: Menambahkan penguncian penuh pada `input_current_limit` di subsistem `usb` dan `main` hingga 4500 mA.
+
+---
+
 # Lynx Universal [Qualcomm PM660 Hardware-Only Thermal Enforcement & Software Throttling Neutralization] 7.0.0-RC274
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.7

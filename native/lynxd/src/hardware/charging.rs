@@ -288,6 +288,12 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/thermal_input_current_limit",
             "/sys/class/power_supply/battery/sw_jeita_enabled",
             "/sys/class/power_supply/battery/temp_state",
+            "/sys/class/power_supply/usb/voltage_max",
+            "/sys/class/power_supply/usb/voltage_max_design",
+            "/sys/class/power_supply/usb/voltage_max_limit",
+            "/sys/class/power_supply/usb/input_current_limit",
+            "/sys/class/power_supply/main/voltage_max",
+            "/sys/class/power_supply/main/input_current_limit",
             "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
@@ -580,13 +586,18 @@ impl ChargingRegulator {
                         if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
                             continue;
                         }
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
+                        if t_lower.contains("bcct")
+                            || t_lower.contains("abcct")
+                            || t_lower == "battery"
+                            || t_lower.contains("battery_charge")
+                            || t_lower.contains("charging")
+                        {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             if throttle {
                                 Self::set_perm(&cur_path, 0o666);
                                 Self::write_node(&cur_path, val);
                             } else {
-                                Self::write_node_lock(&cur_path, val);
+                                Self::write_node_lock(&cur_path, "0");
                             }
                         }
                     }
@@ -608,7 +619,12 @@ impl ChargingRegulator {
                         if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
                             continue;
                         }
-                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
+                        if t_lower.contains("bcct")
+                            || t_lower.contains("abcct")
+                            || t_lower == "battery"
+                            || t_lower.contains("battery_charge")
+                            || t_lower.contains("charging")
+                        {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::set_perm(&cur_path, 0o666);
                             let _ = fs::write(&cur_path, "0");
@@ -990,6 +1006,12 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/thermal_input_current_limit",
             "/sys/class/power_supply/battery/sw_jeita_enabled",
             "/sys/class/power_supply/battery/temp_state",
+            "/sys/class/power_supply/usb/voltage_max",
+            "/sys/class/power_supply/usb/voltage_max_design",
+            "/sys/class/power_supply/usb/voltage_max_limit",
+            "/sys/class/power_supply/usb/input_current_limit",
+            "/sys/class/power_supply/main/voltage_max",
+            "/sys/class/power_supply/main/input_current_limit",
             "/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/tran_battery/pcb_thermal_debug",
             "/sys/devices/platform/pca_dv2_algo/dv2_debug",
@@ -1865,6 +1887,12 @@ impl ChargingRegulator {
         if is_qcom {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/voltage_max", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max_design", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max", MAIN_DIR), "12000000");
             Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
             Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
             Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
