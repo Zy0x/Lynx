@@ -241,7 +241,11 @@ data class MountXStorageInfo(
     val dirtyBackgroundBytes: Long = 0L,
     val dirtyBytes: Long = 0L,
     val isOptimized: Boolean = false,
-    val targetReadAheadKb: Int? = null
+    val targetReadAheadKb: Int? = null,
+    val isPrimaryEmmc: Boolean = false,
+    val primaryStorageType: String = "",
+    val emmcName: String = "",
+    val emmcLifeTime: String = ""
 )
 
 // ============================================================

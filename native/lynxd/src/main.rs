@@ -1526,11 +1526,14 @@ fn main() {
         "media" => {
             std::process::exit(crate::subsystems::media::MediaController::cli(&args[2..]));
         }
-        "io" => {
+        "io" | "storage" => {
             let sub = args.get(2).map(|s| s.as_str()).unwrap_or("apply");
             match sub {
                 "info" => {
                     println!("{}", IoController::info_json());
+                }
+                "emmc-health" | "emmc" => {
+                    println!("{}", IoController::emmc_health_json());
                 }
                 "mountx-info" | "mountx" => {
                     println!("{}", IoController::mountx_info_json());

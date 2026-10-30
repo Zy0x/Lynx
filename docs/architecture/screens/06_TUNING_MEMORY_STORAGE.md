@@ -11,10 +11,11 @@ Sub-halaman Memory & Storage bertanggung jawab atas optimalisasi subsistem penyi
 
 ## 2. Struktur Visual & Komposisi UI
 1. **MountX Universal Storage Engine Card (`MountXStorageCard`)**:
-   - Menampilkan tipe media penyimpanan terdeteksi:
-     - `Tier 1: High-Speed UFS` (UFS 2.1 / 3.0 / 3.1 / 4.0)
-     - `Tier 2: Legacy eMMC 5.1`
-     - `Tier 3: External MicroSD Storage`
+   - Menampilkan tipe media penyimpanan terdeteksi dengan verifikasi 4-tier perangkat keras:
+     - `Tier 1: High-Speed UFS` (UFS 2.1 / 3.0 / 3.1 / 4.0 - Full-Duplex)
+     - `Tier 2: eMMC 5.1 Flash Shield` (Half-Duplex Serial Bus dengan bound 128KB anti-starvation & zero drop_caches)
+     - `Tier 3: External MicroSD Storage` (Removable Media dengan 256–512KB sequential burst read)
+   - Dokumentasi lengkap tersedia di [ARCHITECTURE_STORAGE_EMMC.md](file:///e:/Data/GitHub/Lynx/docs/architecture/screens/ARCHITECTURE_STORAGE_EMMC.md).
    - **F2FS Dynamic IPU Optimization Toggle**: Mengaktifkan In-Place Updates cerdas pada sistem berkas F2FS untuk mengurangi latensi tulis acak saat bermain game.
    - **Device-Mapper Queue Tuning**: Penyetelan queue depth dan request size untuk partisi terenkripsi Android (`dm-0`, `dm-1`).
 2. **I/O Scheduler & Readahead Controls**:

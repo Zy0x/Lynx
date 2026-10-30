@@ -34,8 +34,48 @@ object LynxKernelCapabilityRepository {
                 thermalDir.listFiles { f -> f.name.startsWith("thermal_zone") }?.size ?: 0
             } else 0
             val ioDirect = runCatching {
-                val mmc = File("/sys/block/mmcblk0/queue/scheduler")
-                if (mmc.exists()) mmc.readText().trim() else File("/sys/block/sda/queue/scheduler").readText().trim()
+                // Find primary storage device scheduler dynamically with zero hardcoded device names.
+                // Prioritize UFS / NVMe, then verified eMMC (MMC type or ext_csd), then generic.
+                var chosenSched = ""
+                val blockDir = File("/sys/block")
+                if (blockDir.isDirectory) {
+                    val blocks = blockDir.listFiles() ?: emptyArray()
+                    // 1. Check UFS / NVMe
+                    for (b in blocks) {
+                        val sPath = File(b, "queue/scheduler")
+                        if (!sPath.exists()) continue
+                        val drv = runCatching { File(b, "device/driver").canonicalPath }.getOrDefault("")
+                        if (drv.contains("ufshcd") || drv.contains("ufs") || b.name.startsWith("nvme")) {
+                            chosenSched = sPath.readText().trim()
+                            break
+                        }
+                    }
+                    // 2. If no UFS, check verified eMMC
+                    if (chosenSched.isBlank()) {
+                        for (b in blocks) {
+                            val sPath = File(b, "queue/scheduler")
+                            if (!sPath.exists()) continue
+                            val devType = runCatching { File(b, "device/type").readText().trim().uppercase() }.getOrDefault("")
+                            val hasExtCsd = File(b, "device/ext_csd").exists()
+                            if (devType == "MMC" || hasExtCsd) {
+                                chosenSched = sPath.readText().trim()
+                                break
+                            }
+                        }
+                    }
+                    // 3. Fallback to any physical block device
+                    if (chosenSched.isBlank()) {
+                        for (b in blocks) {
+                            if (b.name.startsWith("loop") || b.name.startsWith("ram") || b.name.startsWith("zram")) continue
+                            val sPath = File(b, "queue/scheduler")
+                            if (sPath.exists()) {
+                                chosenSched = sPath.readText().trim()
+                                break
+                            }
+                        }
+                    }
+                }
+                chosenSched
             }.getOrDefault("")
 
             if (relDirect.isNotBlank() || zramDirect.isNotBlank() || tzCountDirect > 0) {
@@ -83,8 +123,24 @@ object LynxKernelCapabilityRepository {
                 echo "tcp:${'$'}tcp"
                 tz_count=${'$'}(ls -d /sys/class/thermal/thermal_zone* 2>/dev/null | wc -l)
                 echo "thermal:${'$'}tz_count"
-                sched=${'$'}(cat /sys/block/mmcblk0/queue/scheduler 2>/dev/null)
+                sched=""
+                for u in /sys/block/sd*/queue/scheduler /sys/block/nvme*/queue/scheduler; do
+                    if [ -f "${'$'}u" ]; then
+                        b_dir=${'$'}(dirname ${'$'}(dirname "${'$'}u"))
+                        drv=${'$'}(readlink "${'$'}b_dir/device/driver" 2>/dev/null)
+                        case "${'$'}drv" in *ufshcd*|*ufs*) sched=${'$'}(cat "${'$'}u" 2>/dev/null); break ;; esac
+                    fi
+                done
+                if [ -z "${'$'}sched" ]; then
+                    for m in /sys/block/mmcblk*/queue/scheduler; do
+                        b_dir=${'$'}(dirname ${'$'}(dirname "${'$'}m"))
+                        if [ "${'$'}(cat "${'$'}b_dir/device/type" 2>/dev/null | tr '[:lower:]' '[:upper:]')" = "MMC" ] || [ -f "${'$'}b_dir/device/ext_csd" ]; then
+                            sched=${'$'}(cat "${'$'}m" 2>/dev/null); break
+                        fi
+                    done
+                fi
                 [ -z "${'$'}sched" ] && sched=${'$'}(cat /sys/block/sda/queue/scheduler 2>/dev/null)
+                [ -z "${'$'}sched" ] && sched=${'$'}(cat /sys/block/mmcblk0/queue/scheduler 2>/dev/null)
                 echo "io:${'$'}sched"
             """.trimIndent()
             val r = Shell.cmd(script).exec()

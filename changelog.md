@@ -1,3 +1,20 @@
+# Lynx Universal [HUD Sidebar Ergonomic Handle, Fluid Gestures & Dynamic eMMC Storage Engine] 7.0.0-RC276
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.9
+
+- Memulihkan estetika futuristik dan ergonomi sentuh pada handle HUD Sidebar / Lynx Engine overlay:
+  - **Restorasi Handle Ergonomis Semi-Oval (Cyberpunk OLED & Sidekick Style)**: Menggantikan balok kaku flat 12dp dengan tab semi-oval melengkung berpresisi tinggi (18×56 dp di dalam touch target aman 48×72 dp) yang menempel sempurna pada bezel layar (RoundedCornerShape 16 dp ke arah dalam layar).
+  - **Indikator Arah Neon Cyan & Directional Affordance**: Menambahkan aksen pendaran neon mint/cyan (HudCyan #43E5C1) dengan kontur border halus serta mikro-chevron terarah (ChevronLeft jika di dock kanan, ChevronRight jika di dock kiri) dan vertical glow bar, mempertegas identitas visual Lynx Engine serta memberikan isyarat visual instan bahwa handle dapat ditarik ke tengah layar.
+  - **Overhaul Gesture Engine Buka/Tutup & Reposisi Tanpa Lag**:
+    - Mengeliminasi timer delay 220ms yang kaku pada HudSidebarHostView: membuka HUD kini merespons tarikan horizontal/diagonal alami jempol secara instan (inward >= 10dp dengan toleransi sudut sentuh hingga ~60°).
+    - Memisahkan secara tegas antara gesture buka drawer dengan gesture reposisi vertikal (abs(dy) > slop && abs(dy) > abs(dx) * 1.3f), mengeliminasi bug di mana tarikan diagonal gamer untuk membuka HUD keliru terbaca sebagai pergeseran handle naik/turun di pinggir layar.
+    - Menghilangkan anomali sentuhan mati (dead touches): ketukan langsung (tap) atau pelepasan sentuhan tanpa pergeseran kini 100% membuka drawer seketika (zero-latency toggle).
+- Optimasi Dynamic Multi-Tier Storage & eMMC Half-Duplex Engine:
+  - Klasifikasi hardware storage dinamis berbasis ground truth (JEDEC Ext_CSD/life_time vs SD SCR/SSR) tanpa hardcoded device path.
+  - Penyelarasan I/O scheduler (BFQ slice idle, low latency, WBT latency) untuk mencegah micro-stuttering pada penyimpanan internal flash eMMC.
+
+---
+
 # Lynx Universal [Qualcomm HVDCP Voltage Uncap & Battery Thermal Cooling Device Neutralization] 7.0.0-RC275
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.8

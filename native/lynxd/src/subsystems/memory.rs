@@ -31,19 +31,24 @@ impl MemoryController {
             Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "1000");
         }
 
-        // Dynamic RAM-proportional dirty ratios
-        let (dirty_bg, dirty_ratio) = if mem.total_ram_mb <= 4500 {
-            ("5", "15")
+        // Dynamic Hardware-Aware Storage & RAM Proportional Dirty Ratios:
+        // On eMMC (Half-Duplex), large dirty accumulation triggers massive writeback bursts that starve reads.
+        // We enforce frequent, small asynchronous writebacks (5% bg / 10% ratio) and keep dentry/inode caches in RAM (vfs=50).
+        let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
+        let (dirty_bg, dirty_ratio, dirty_expire, dirty_writeback) = if is_emmc {
+            ("5", "10", "200", "100")
+        } else if mem.total_ram_mb <= 4500 {
+            ("5", "15", "500", "200")
         } else if mem.total_ram_mb <= 6500 {
-            ("8", "20")
+            ("8", "20", "500", "200")
         } else {
-            ("10", "20")
+            ("10", "20", "500", "200")
         };
 
         Self::write_opt("/proc/sys/vm/dirty_background_ratio", dirty_bg);
         Self::write_opt("/proc/sys/vm/dirty_ratio", dirty_ratio);
-        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
-        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "200");
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", dirty_expire);
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", dirty_writeback);
         Self::write_opt("/proc/sys/vm/extfrag_threshold", "100");
         Self::write_opt("/proc/sys/vm/oom_kill_allocating_task", "0");
         Self::write_opt("/proc/sys/vm/oom_dump_tasks", "0");
@@ -71,7 +76,9 @@ impl MemoryController {
         let (max_cached, bg_limit, vfs_pressure, phantom, swap_low_pct, kill_heaviest, kill_timeout, default_swap) =
             if mem.total_ram_mb <= 4500 {
                 // Tier 1: <= 4GB RAM (Redmi Note 7, etc.) - Strict conservation to prevent lag & direct reclaim
-                ("24", "24", "100", "24", "20", "true", "100", "50")
+                // If storage is eMMC, preserve vfs_cache_pressure=50 to prevent SQLite page thrashing on slow flash!
+                let vfs = if is_emmc { "50" } else { "100" };
+                ("24", "24", vfs, "24", "20", "true", "100", "50")
             } else if mem.total_ram_mb <= 6500 {
                 // Tier 2: 6GB RAM - Moderate balanced multitasking headroom
                 ("32", "32", "80", "2147483647", "20", "true", "100", "50")

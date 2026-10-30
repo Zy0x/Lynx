@@ -32,22 +32,70 @@ object LynxMemoryShield {
             }
 
             val script = """
-                # 1. Optimal Virtual Memory (VM) tuning (Fallback for standalone mode)
-                echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                # 1. Dynamic Virtual Memory (VM) tuning with eMMC 5.1 Flash Protection
+                is_emmc=0
+                for blk in /sys/block/mmcblk*; do
+                    [ -f "${'$'}blk/device/ext_csd" ] && is_emmc=1
+                    [ "$(cat ${'$'}blk/device/type 2>/dev/null)" = "MMC" ] && is_emmc=1
+                done
+
+                if [ "${'$'}is_emmc" = "1" ]; then
+                    echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                    echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                    echo 200 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                    echo 100 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                else
+                    echo 60 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    echo 15 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                    echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                fi
+
                 echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-                echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
-                echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
                 echo 24300 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
                 echo 16 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
 
-                # 2. Storage read-ahead buffer optimization (prevents eMMC 5.1 queue saturation)
-                for q in /sys/block/mmcblk*/queue/read_ahead_kb /sys/block/sd*/queue/read_ahead_kb; do
-                    [ -f "${'$'}q" ] && echo 512 > "${'$'}q" 2>/dev/null
-                done
+                # 2. Dynamic Block Device Queue Tuning (Strict Separation: eMMC vs MicroSD vs UFS)
+                for blk in /sys/block/*; do
+                    [ -d "${'$'}blk/queue" ] || continue
+                    [ "$(cat ${'$'}blk/ro 2>/dev/null)" = "1" ] && continue
 
-                # 3. Increase block queue depth for smoother concurrent I/O
-                for n in /sys/block/mmcblk*/queue/nr_requests /sys/block/sd*/queue/nr_requests; do
-                    [ -f "${'$'}n" ] && echo 128 > "${'$'}n" 2>/dev/null
+                    # Identify media type dynamically
+                    b_type="unknown"
+                    if [ -f "${'$'}blk/device/type" ]; then
+                        t=${'$'}(cat "${'$'}blk/device/type" 2>/dev/null | tr '[:lower:]' '[:upper:]')
+                        [ "${'$'}t" = "MMC" ] && b_type="emmc"
+                        [ "${'$'}t" = "SD" ] || [ "${'$'}t" = "SDCOMBO" ] && b_type="sd"
+                    fi
+                    if [ "${'$'}b_type" = "unknown" ]; then
+                        [ -f "${'$'}blk/device/ext_csd" ] && b_type="emmc"
+                        [ -f "${'$'}blk/device/scr" ] && b_type="sd"
+                    fi
+                    if [ "${'$'}b_type" = "unknown" ]; then
+                        drv=${'$'}(readlink "${'$'}blk/device/driver" 2>/dev/null)
+                        case "${'$'}drv" in
+                            *ufshcd*|*ufs*) b_type="ufs" ;;
+                        esac
+                    fi
+
+                    case "${'$'}b_type" in
+                        "emmc")
+                            # eMMC 5.1: Bound read-ahead to 128KB, queue depth to 64
+                            echo 128 > "${'$'}blk/queue/read_ahead_kb" 2>/dev/null
+                            echo 64 > "${'$'}blk/queue/nr_requests" 2>/dev/null
+                            echo 75000 > "${'$'}blk/queue/wbt_lat_usec" 2>/dev/null
+                            ;;
+                        "sd")
+                            # External MicroSD: Sequential read-ahead 256KB
+                            echo 256 > "${'$'}blk/queue/read_ahead_kb" 2>/dev/null
+                            echo 128 > "${'$'}blk/queue/nr_requests" 2>/dev/null
+                            ;;
+                        "ufs")
+                            # UFS: Direct Queue 512KB
+                            echo 512 > "${'$'}blk/queue/read_ahead_kb" 2>/dev/null
+                            echo 128 > "${'$'}blk/queue/nr_requests" 2>/dev/null
+                            ;;
+                    esac
                 done
             """.trimIndent()
 

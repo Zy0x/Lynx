@@ -331,7 +331,11 @@ import kotlinx.coroutines.flow.update
                         dirtyBackgroundBytes = json.optLong("dirty_background_bytes", 0L),
                         dirtyBytes = json.optLong("dirty_bytes", 0L),
                         isOptimized = json.optBoolean("is_optimized", false),
-                        targetReadAheadKb = if (json.isNull("target_read_ahead_kb")) null else json.optInt("target_read_ahead_kb")
+                        targetReadAheadKb = if (json.isNull("target_read_ahead_kb")) null else json.optInt("target_read_ahead_kb"),
+                        isPrimaryEmmc = json.optBoolean("is_primary_emmc", false),
+                        primaryStorageType = json.optString("primary_storage_type", ""),
+                        emmcName = json.optString("emmc_name", ""),
+                        emmcLifeTime = json.optString("emmc_life_time", "")
                     )
                     _uiState.update { it.copy(mountXStorageInfo = info) }
                 } catch (e: Exception) {

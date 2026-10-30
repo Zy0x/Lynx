@@ -68,7 +68,7 @@ internal class HudSidebarHostView(
                 handle = if (right()) event.x >= width - 48f * density else event.x <= 48f * density
                 val header = event.y <= 56f * density && event.x >= 48f * density && event.x <= width - 48f * density
                 gesture = if (expanded() && !header) Gesture.Forward else Gesture.Pending
-                if (!expanded()) { onDragStart(); handler.postDelayed(hold, 220L) }
+                if (!expanded()) { onDragStart(); handler.postDelayed(hold, 300L) }
                 val handled = super.dispatchTouchEvent(event)
                 return if (gesture == Gesture.Forward) handled else true
             }
@@ -79,17 +79,27 @@ internal class HudSidebarHostView(
                 if (gesture == Gesture.Pending) {
                     if (expanded()) {
                         val outward = if (right()) dx else -dx
-                        if (outward > 16f * density && abs(dx) > abs(dy) * 1.2f) {
+                        if (outward > 14f * density && abs(dx) > abs(dy) * 0.8f) {
                             gesture = Gesture.Open; cancelChild(); onOpen(false)
+                            return true
                         }
-                    } else if (!handle && paged() && abs(dx) > slop && abs(dx) > abs(dy) * 1.2f) {
+                    } else if (!handle && paged() && abs(dx) > slop && abs(dx) > abs(dy) * 1.1f) {
                         handler.removeCallbacks(hold); gesture = Gesture.Forward
                         return super.dispatchTouchEvent(event)
                     } else {
                         val inward = if (right()) -dx else dx
-                        if (handle && inward > 16f * density && abs(dx) > abs(dy) * 1.2f) {
+                        val inwardThreshold = maxOf(slop, 10f * density)
+                        // 1. Natural inward pull/swipe gesture (allows thumb arc up to ~60 degrees):
+                        if (handle && inward >= inwardThreshold && inward > abs(dy) * 0.5f) {
                             handler.removeCallbacks(hold); gesture = Gesture.Open; cancelChild(); onOpen(true)
-                        } else if (hypot(dx, dy) > slop) {
+                            return true
+                        }
+                        // 2. Deliberate vertical repositioning drag along the screen bezel:
+                        else if (abs(dy) > slop && abs(dy) > abs(dx) * 1.3f) {
+                            handler.removeCallbacks(hold); gesture = Gesture.Drag; cancelChild()
+                        }
+                        // 3. Outward cross-screen drag (e.g. dragging handle across screen to switch sides):
+                        else if (abs(dx) > slop && inward < -slop) {
                             handler.removeCallbacks(hold); gesture = Gesture.Drag; cancelChild()
                         }
                     }
@@ -101,9 +111,20 @@ internal class HudSidebarHostView(
                 handler.removeCallbacks(hold)
                 val completed = gesture
                 gesture = Gesture.Pending
-                if (completed == Gesture.Drag) { onDragEnd(); return true }
-                if (event.actionMasked == MotionEvent.ACTION_UP && !expanded() && completed == Gesture.Pending) {
-                    cancelChild(); performClick(); return true
+                if (completed == Gesture.Drag) {
+                    val totalDist = hypot(event.rawX - downX, event.rawY - downY)
+                    if (totalDist < slop) {
+                        cancelChild(); performClick(); return true
+                    }
+                    onDragEnd(); return true
+                }
+                if (event.actionMasked == MotionEvent.ACTION_UP && !expanded()) {
+                    if (completed == Gesture.Pending || completed == Gesture.Forward) {
+                        val totalDist = hypot(event.rawX - downX, event.rawY - downY)
+                        if (totalDist < slop * 1.5f) {
+                            cancelChild(); performClick(); return true
+                        }
+                    }
                 }
                 return if (cancelled || completed == Gesture.Open) true else super.dispatchTouchEvent(event)
             }

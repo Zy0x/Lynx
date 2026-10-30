@@ -309,18 +309,10 @@ impl SystemController {
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "0");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "0");
 
-        // 3. Low-RAM Emergency Relief: if MemFree < 80 MB, drop clean pagecache (1) so kswapd0 doesn't stall wakeup/launch
-        if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
-            let mem_free_kb = meminfo
-                .lines()
-                .find(|l| l.starts_with("MemFree:"))
-                .and_then(|l| l.split_whitespace().nth(1))
-                .and_then(|v| v.parse::<u64>().ok())
-                .unwrap_or(500_000);
-            if mem_free_kb < 80_000 {
-                Self::write_opt("/proc/sys/vm/drop_caches", "1");
-            }
-        }
+        // 3. Dynamic I/O Priority Elevation (Anti-Lockscreen Freeze):
+        // Elevate I/O priority for UI critical processes (keystore2, system_server, surfaceflinger).
+        // Strictly ban drop_caches on eMMC to prevent I/O avalanche & SQLite lockups!
+        Self::elevate_ui_io_priority();
 
         match vendor {
             crate::hardware::detector::Vendor::Qualcomm => {
@@ -422,6 +414,46 @@ impl SystemController {
 
         let _ = std::fs::remove_dir_all(&tmp_dir);
         final_out
+    }
+
+    /// Dynamically elevates I/O priority for lockscreen & UI render critical processes
+    /// to Real-Time class (or High Best-Effort), eliminating lockscreen lag on eMMC half-duplex bus.
+    pub fn elevate_ui_io_priority() {
+        let ionice_bin = if Path::new("/system/bin/ionice").exists() {
+            "/system/bin/ionice"
+        } else if Path::new("/vendor/bin/ionice").exists() {
+            "/vendor/bin/ionice"
+        } else {
+            "ionice"
+        };
+
+        let target_procs = ["keystore2", "android.system.keystore2", "system_server", "surfaceflinger"];
+        if let Ok(entries) = std::fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                if let Ok(file_name) = entry.file_name().into_string() {
+                    if let Ok(pid) = file_name.parse::<i32>() {
+                        let cmd_path = entry.path().join("cmdline");
+                        if let Ok(cmd_bytes) = std::fs::read(&cmd_path) {
+                            let cmd = String::from_utf8_lossy(&cmd_bytes);
+                            for target in &target_procs {
+                                if cmd.contains(target) {
+                                    let pid_str = pid.to_string();
+                                    let rt_res = Command::new(ionice_bin)
+                                        .args(["-c", "1", "-n", "0", "-p", &pid_str])
+                                        .output();
+                                    if rt_res.is_err() || !rt_res.as_ref().map(|o| o.status.success()).unwrap_or(false) {
+                                        let _ = Command::new(ionice_bin)
+                                            .args(["-c", "2", "-n", "0", "-p", &pid_str])
+                                            .output();
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

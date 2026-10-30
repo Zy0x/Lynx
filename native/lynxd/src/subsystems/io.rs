@@ -23,6 +23,10 @@ pub struct MountXInfo {
     pub dirty_bytes: u64,
     pub is_optimized: bool,
     pub target_read_ahead_kb: Option<u32>,
+    pub is_primary_emmc: bool,
+    pub primary_storage_type: String,
+    pub emmc_name: String,
+    pub emmc_life_time: String,
 }
 
 fn json_string(value: &str) -> String {
@@ -46,11 +50,16 @@ pub struct IoController;
 impl IoController {
     pub fn info_json() -> String {
         let storage = HardwareCapability::resolve_storage();
+        let primary_info = StoragePolicy::primary_storage(&storage);
         let mut out = String::from("{\"devices\":[");
         for (idx, dev) in storage.devices.iter().enumerate() {
             if idx > 0 {
                 out.push(',');
             }
+            let is_primary = match primary_info {
+                Some((prim_idx, _)) => prim_idx == idx,
+                None => dev.device_type == BlockDeviceType::Ufs || dev.device_type == BlockDeviceType::Emmc,
+            };
             let scheds: Vec<String> = dev
                 .available_schedulers
                 .iter()
@@ -59,14 +68,46 @@ impl IoController {
             let current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok();
             let target = StoragePolicy::read_ahead_target(dev);
             let _ = write!(out,
-                "{{\"name\":{},\"type\":{},\"current_scheduler\":{},\"available_schedulers\":[{}],\"current_read_ahead_kb\":{},\"target_read_ahead_kb\":{},\"policy\":{}}}",
-                json_string(&dev.name), json_string(dev.device_type.as_str()), json_string(&dev.current_scheduler),
+                "{{\"name\":{},\"type\":{},\"is_primary\":{},\"current_scheduler\":{},\"available_schedulers\":[{}],\"current_read_ahead_kb\":{},\"target_read_ahead_kb\":{},\"policy\":{}}}",
+                json_string(&dev.name), json_string(dev.device_type.as_str()), is_primary, json_string(&dev.current_scheduler),
                 scheds.join(","), current.map(|n| n.to_string()).unwrap_or_else(|| "null".into()),
                 target.map(|n| n.to_string()).unwrap_or_else(|| "null".into()),
                 json_string(if target.is_some() { "sd_prefetch_cap" } else { "preserve_kernel" }));
         }
         out.push_str("]}");
         out
+    }
+
+    /// Returns dynamic eMMC health telemetry: JEDEC life_time (pre_eol, type A, type B) and primary OS mount status.
+    pub fn emmc_health_json() -> String {
+        let storage = HardwareCapability::resolve_storage();
+        let emmc_dev = storage.devices.iter().find(|d| d.device_type == BlockDeviceType::Emmc);
+        let block_path = emmc_dev.and_then(|d| d.queue_path.parent());
+
+        let life_time = block_path
+            .and_then(|p| SysfsReader::read_trimmed(p.join("device/life_time")).ok())
+            .unwrap_or_default();
+        let pre_eol = block_path
+            .and_then(|p| SysfsReader::read_trimmed(p.join("device/pre_eol_info")).ok())
+            .unwrap_or_default();
+        let rev = block_path
+            .and_then(|p| SysfsReader::read_trimmed(p.join("device/rev")).ok())
+            .unwrap_or_default();
+        let name = block_path
+            .and_then(|p| SysfsReader::read_trimmed(p.join("device/name")).ok())
+            .unwrap_or_default();
+
+        let is_primary_emmc = StoragePolicy::is_primary_system_emmc();
+
+        format!(
+            "{{\"is_emmc_present\":{},\"is_primary\":{},\"name\":{},\"life_time\":{},\"pre_eol_info\":{},\"rev\":{}}}",
+            emmc_dev.is_some(),
+            is_primary_emmc,
+            json_string(&name),
+            json_string(&life_time),
+            json_string(&pre_eol),
+            json_string(&rev)
+        )
     }
 
     /// Apply the same media policy used by profiles, with verified writes and recovery.
@@ -143,13 +184,40 @@ impl IoController {
         format!("{{\"ok\":{},\"updated\":{}}}", updated > 0, updated)
     }
 
-    /// Legacy MountX endpoint: report only a verified, mounted SD backing device.
+    /// Enhanced Storage endpoint: reports primary system flash (eMMC/UFS) and external MicroSD.
     pub fn detect_mountx() -> MountXInfo {
         let mut info = MountXInfo::default();
         let storage = HardwareCapability::resolve_storage();
+
+        // 1. Resolve Primary Storage Hardware Telemetry
+        let is_primary_emmc = StoragePolicy::is_primary_system_emmc();
+        info.is_primary_emmc = is_primary_emmc;
+        if let Some((_, dev_type)) = StoragePolicy::primary_storage(&storage) {
+            info.primary_storage_type = match dev_type {
+                BlockDeviceType::Emmc => "eMMC 5.1 Flash Shield".to_string(),
+                BlockDeviceType::Ufs => "UFS High-Throughput".to_string(),
+                BlockDeviceType::Nvme => "NVMe Solid State".to_string(),
+                BlockDeviceType::Sd => "MicroSD Card".to_string(),
+                _ => "Generic Block Device".to_string(),
+            };
+        } else if is_primary_emmc {
+            info.primary_storage_type = "eMMC 5.1 Flash Shield".to_string();
+        }
+
+        if let Some(emmc_dev) = storage.devices.iter().find(|d| d.device_type == BlockDeviceType::Emmc) {
+            if let Some(p) = emmc_dev.queue_path.parent() {
+                info.emmc_name = SysfsReader::read_trimmed(p.join("device/name")).unwrap_or_default();
+                info.emmc_life_time = SysfsReader::read_trimmed(p.join("device/life_time")).unwrap_or_default();
+            }
+        }
+
+        // 2. Resolve External MicroSD Card (if mounted)
         let (index, partition, mount_point, fs_type) = match StoragePolicy::mounted_sd(&storage) {
             Some(mounted) => mounted,
-            None => return info,
+            None => {
+                info.mmcqd_pids = Self::find_mmcqd_pids();
+                return info;
+            }
         };
         let dev = &storage.devices[index];
         info.is_detected = true;
@@ -198,12 +266,15 @@ impl IoController {
         let pids: Vec<String> = info.mmcqd_pids.iter().map(|p| p.to_string()).collect();
         format!(concat!("{{\"is_detected\":{},\"mount_point\":{},\"partition_name\":{},\"parent_device\":{},",
             "\"fs_type\":{},\"f2fs_sysfs_exists\":{},\"mmcqd_pids\":[{}],\"current_read_ahead_kb\":{},",
-            "\"current_scheduler\":{},\"dirty_background_bytes\":{},\"dirty_bytes\":{},\"is_optimized\":{},\"target_read_ahead_kb\":{}}}"),
+            "\"current_scheduler\":{},\"dirty_background_bytes\":{},\"dirty_bytes\":{},\"is_optimized\":{},\"target_read_ahead_kb\":{},",
+            "\"is_primary_emmc\":{},\"primary_storage_type\":{},\"emmc_name\":{},\"emmc_life_time\":{}}}"),
             info.is_detected, json_string(&info.mount_point), json_string(&info.partition_name),
             json_string(&info.parent_device), json_string(&info.fs_type), info.f2fs_sysfs_exists,
             pids.join(","), info.current_read_ahead_kb, json_string(&info.current_scheduler),
             info.dirty_background_bytes, info.dirty_bytes, info.is_optimized,
-            info.target_read_ahead_kb.map(|n| n.to_string()).unwrap_or_else(|| "null".into()))
+            info.target_read_ahead_kb.map(|n| n.to_string()).unwrap_or_else(|| "null".into()),
+            info.is_primary_emmc, json_string(&info.primary_storage_type), json_string(&info.emmc_name),
+            json_string(&info.emmc_life_time))
     }
 
     /// Keep existing command names, but retire the unmeasured filesystem/VM/thread bundle.

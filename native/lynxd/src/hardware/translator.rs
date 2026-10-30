@@ -1110,19 +1110,29 @@ impl HardwareTranslator {
                     false,
                 );
 
-                // Select preferred scheduler if available, or best fallback
-                let chosen_sched = if dev.available_schedulers.iter().any(|s| s == params.scheduler) {
-                    params.scheduler
-                } else if params.scheduler == "none" && dev.available_schedulers.iter().any(|s| s == "noop") {
-                    "noop"
-                } else if dev.available_schedulers.iter().any(|s| s == "mq-deadline") {
-                    "mq-deadline"
-                } else if dev.available_schedulers.iter().any(|s| s == "deadline") {
-                    "deadline"
-                } else {
-                    ""
+                // Dynamic Adaptive Scheduler Selection:
+                // Evaluates device-appropriate candidate list against actual dev.available_schedulers.
+                let candidate_schedulers: &[&str] = match dev.device_type {
+                    crate::hardware::capability::BlockDeviceType::Emmc => {
+                        &["bfq", "mq-deadline", "deadline", "cfq", "noop", "none"]
+                    }
+                    crate::hardware::capability::BlockDeviceType::Ufs
+                    | crate::hardware::capability::BlockDeviceType::Nvme => {
+                        &["none", "noop", "mq-deadline", "kyber", "deadline"]
+                    }
+                    crate::hardware::capability::BlockDeviceType::Sd => {
+                        &["mq-deadline", "deadline", "bfq", "noop", "none"]
+                    }
+                    _ => &["mq-deadline", "deadline", "noop", "none"],
                 };
-                if !chosen_sched.is_empty() {
+
+                let chosen_sched = candidate_schedulers
+                    .iter()
+                    .find(|&&cand| dev.available_schedulers.iter().any(|s| s == cand))
+                    .copied()
+                    .unwrap_or("");
+
+                if !chosen_sched.is_empty() && dev.current_scheduler != chosen_sched {
                     Self::push_op(
                         &mut ops,
                         "Storage",
@@ -1194,6 +1204,62 @@ impl HardwareTranslator {
                             format!("Block {} ({}): iosched writes_starved", dev.name, dev.device_type.as_str()),
                             p,
                             starv.to_string(),
+                            false,
+                        );
+                    }
+                }
+
+                // BFQ scheduler tunables (verified dynamically before pushing ops)
+                if let Some(slice_idle) = params.bfq_slice_idle_us {
+                    let p = q_dir.join("iosched/slice_idle");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): bfq slice_idle", dev.name, dev.device_type.as_str()),
+                            p,
+                            slice_idle.to_string(),
+                            false,
+                        );
+                    }
+                }
+                if let Some(low_lat) = params.bfq_low_latency {
+                    let p = q_dir.join("iosched/low_latency");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): bfq low_latency", dev.name, dev.device_type.as_str()),
+                            p,
+                            low_lat.to_string(),
+                            false,
+                        );
+                    }
+                }
+                if let Some(to_sync) = params.bfq_timeout_sync_ms {
+                    let p = q_dir.join("iosched/timeout_sync");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): bfq timeout_sync", dev.name, dev.device_type.as_str()),
+                            p,
+                            to_sync.to_string(),
+                            false,
+                        );
+                    }
+                }
+
+                // Write-back throttling (WBT) latency target
+                if let Some(wbt) = params.wbt_lat_usec {
+                    let p = q_dir.join("wbt_lat_usec");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): wbt_lat_usec", dev.name, dev.device_type.as_str()),
+                            p,
+                            wbt.to_string(),
                             false,
                         );
                     }

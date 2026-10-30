@@ -477,23 +477,147 @@ case "$PROFILE" in
         write_node "512" "/proc/sys/kernel/random/read_wakeup_threshold"
         write_node "2048" "/proc/sys/kernel/random/write_wakeup_threshold"
 
-        # Storage I/O Optimization (Zero Stutter Streaming for 3D Game Worlds)
-        ra_val=1024
-        [ "$PROFILE" = "extreme" ] && ra_val=2048
-        for queue in /sys/block/*/queue; do
-            [ -d "$queue" ] || continue
-            write_node "0" "$queue/add_random"
-            write_node "0" "$queue/iostats"
-            write_node "0" "$queue/nomerges"
-            write_node "0" "$queue/rotational"
-            write_node "2" "$queue/rq_affinity"
-            write_node "512" "$queue/nr_requests"
-        done
-        for q in /sys/block/*/queue/scheduler; do
-            [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
-        done
-        for ra in /sys/block/sd*/queue/read_ahead_kb /sys/block/mmcblk*/queue/read_ahead_kb; do
-            write_node "$ra_val" "$ra"
+        # Universal Dynamic Multi-Tier Storage Classifier (Anti-Hardcode & Anti-Freeze)
+        classify_storage_device() {
+            local dev_dir="$1"
+            local dev_name
+            dev_name=$(basename "$dev_dir")
+
+            # 1. Skip virtual, loop, and zram
+            [ -d "$dev_dir/loop" ] && echo "virtual" && return
+            case "$dev_name" in
+                loop*|ram*|zram*) echo "virtual"; return ;;
+            esac
+
+            # 2. Check SCSI / UFS / NVMe
+            local real_path
+            real_path=$(readlink -f "$dev_dir" 2>/dev/null)
+            case "$real_path" in
+                *nvme*) echo "nvme"; return ;;
+                *usb*) echo "usb"; return ;;
+            esac
+            if [ -e "$dev_dir/device/model" ]; then
+                local drv
+                drv=$(readlink "$dev_dir/device/driver" 2>/dev/null)
+                case "$drv" in
+                    *ufshcd*|*ufs*) echo "ufs"; return ;;
+                esac
+            fi
+
+            # 3. Dynamic MMC Multi-Tier Ground Truth (eMMC vs MicroSD)
+            if [ -f "$dev_dir/device/type" ]; then
+                local dev_type
+                dev_type=$(cat "$dev_dir/device/type" 2>/dev/null | tr '[:lower:]' '[:upper:]')
+                if [ "$dev_type" = "MMC" ]; then
+                    echo "emmc"; return
+                elif [ "$dev_type" = "SD" ] || [ "$dev_type" = "SDCOMBO" ]; then
+                    echo "sd"; return
+                fi
+            fi
+
+            # Tier 2: JEDEC Register vs SD Spec Probing
+            if [ -f "$dev_dir/device/ext_csd" ] || [ -f "$dev_dir/device/life_time" ]; then
+                echo "emmc"; return
+            fi
+            if [ -f "$dev_dir/device/scr" ] || [ -f "$dev_dir/device/ssr" ] || [ -f "$dev_dir/device/speedclass" ]; then
+                echo "sd"; return
+            fi
+
+            # Tier 3: Companion Boot / RPMB Hardware Partitions
+            if [ -e "/sys/block/${dev_name}boot0" ] || [ -e "/sys/block/${dev_name}rpmb" ]; then
+                echo "emmc"; return
+            fi
+
+            # Tier 4: Ancestry & Removable Flag
+            case "$real_path" in
+                *externdevice*|*external*) echo "sd"; return ;;
+                *bootdevice*) echo "emmc"; return ;;
+            esac
+            if [ "$(cat "$dev_dir/removable" 2>/dev/null)" = "1" ]; then
+                echo "sd"; return
+            fi
+
+            echo "generic"
+        }
+
+        # Apply profile-specific dynamic storage tuning per classified device
+        for blk in /sys/block/*; do
+            [ -d "$blk/queue" ] || continue
+            # Skip read-only devices (EROFS, read-only system)
+            [ "$(cat "$blk/ro" 2>/dev/null)" = "1" ] && continue
+
+            local st_type
+            st_type=$(classify_storage_device "$blk")
+            [ "$st_type" = "virtual" ] && continue
+
+            local q="$blk/queue"
+            write_node "0" "$q/add_random"
+            write_node "0" "$q/rotational"
+            write_node "2" "$q/rq_affinity"
+            [ "$PROFILE" = "extreme" ] && write_node "0" "$q/iostats"
+
+            case "$st_type" in
+                "emmc")
+                    # eMMC 5.1: Half-Duplex serial bus. Bound read-ahead to 128KB to prevent I/O starvation
+                    local emmc_ra=128
+                    [ "$PROFILE" = "powersave" ] && emmc_ra=64
+                    write_node "$emmc_ra" "$q/read_ahead_kb"
+                    write_node "64" "$q/nr_requests"
+                    [ "$PROFILE" = "extreme" ] && write_node "128" "$q/nr_requests"
+                    write_node "75000" "$q/wbt_lat_usec"
+
+                    # Select best available scheduler for eMMC dynamically
+                    local avail_sched
+                    avail_sched=$(cat "$q/scheduler" 2>/dev/null)
+                    for s in bfq mq-deadline deadline cfq noop; do
+                        if echo "$avail_sched" | grep -qw "$s"; then
+                            write_node "$s" "$q/scheduler"
+                            break
+                        fi
+                    done
+                    # Tune BFQ / Deadline if exposed
+                    write_node "0" "$q/iosched/slice_idle"
+                    write_node "1" "$q/iosched/low_latency"
+                    write_node "120" "$q/iosched/timeout_sync"
+                    write_node "80" "$q/iosched/read_expire"
+                    write_node "2" "$q/iosched/writes_starved"
+                    ;;
+                "sd")
+                    # External MicroSD: Sequential throughput for game OBB/assets
+                    local sd_ra=256
+                    [ "$PROFILE" = "extreme" ] && sd_ra=512
+                    [ "$PROFILE" = "powersave" ] && sd_ra=128
+                    write_node "$sd_ra" "$q/read_ahead_kb"
+                    write_node "128" "$q/nr_requests"
+
+                    local avail_sched
+                    avail_sched=$(cat "$q/scheduler" 2>/dev/null)
+                    for s in mq-deadline deadline bfq noop; do
+                        if echo "$avail_sched" | grep -qw "$s"; then
+                            write_node "$s" "$q/scheduler"
+                            break
+                        fi
+                    done
+                    ;;
+                "ufs"|"nvme"|*)
+                    # UFS / NVMe: High-Throughput multi-queue
+                    local ufs_ra=512
+                    [ "$PROFILE" = "extreme" ] && ufs_ra=1024
+                    [ "$PROFILE" = "powersave" ] && ufs_ra=256
+                    write_node "$ufs_ra" "$q/read_ahead_kb"
+                    write_node "128" "$q/nr_requests"
+                    [ "$PROFILE" = "extreme" ] && write_node "256" "$q/nr_requests"
+
+                    local avail_sched
+                    avail_sched=$(cat "$q/scheduler" 2>/dev/null)
+                    for s in none noop mq-deadline kyber deadline; do
+                        if echo "$avail_sched" | grep -qw "$s"; then
+                            write_node "$s" "$q/scheduler"
+                            break
+                        fi
+                    done
+                    ;;
+            esac
         done
         for ufs in /sys/devices/platform/soc/*ufshc* /sys/devices/platform/bootdevice /sys/devices/platform/*ufshc*; do
             [ -d "$ufs" ] || continue
