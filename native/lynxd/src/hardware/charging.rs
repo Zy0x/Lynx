@@ -901,6 +901,7 @@ impl ChargingRegulator {
     pub fn detect_hw_bypass_node() -> Option<&'static str> {
         const CANDIDATES: &[&str] = &[
             "/proc/lynx/bypass_charging",
+            "/proc/mtk_battery_cmd/current_cmd",
             "/sys/devices/platform/charger/bypass_charger",
             "/sys/class/power_supply/battery/device/smart_charging",
             "/sys/class/power_supply/battery/charging_limit_mode",
@@ -1263,6 +1264,7 @@ impl ChargingRegulator {
         } else {
             // MediaTek & Transsion Hardware PMIC Power Path (Net-Zero Battery Isolation)
             let bypass_in_hex = Self::format_mtk_charger_hex_ua(2500);
+            let buck_keepalive_hex = Self::format_mtk_charger_hex_ua(600);
             Self::write_node(&format!("{}/input_current", MTK_DIR), &bypass_in_hex);
             Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
             Self::write_node("/proc/mtk_battery_cmd/current_cmd", "0 1");
@@ -1270,8 +1272,8 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
             Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
 
-            Self::write_node(&format!("{}/chg1_current", MTK_DIR), "0");
-            Self::write_node(&format!("{}/chg2_current", MTK_DIR), "0");
+            Self::write_node(&format!("{}/chg1_current", MTK_DIR), &buck_keepalive_hex);
+            Self::write_node(&format!("{}/chg2_current", MTK_DIR), &buck_keepalive_hex);
             Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
             Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
             Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
@@ -1336,12 +1338,15 @@ impl ChargingRegulator {
         let hw_bypass_node = Self::detect_hw_bypass_node();
         let has_hw_bypass = hw_bypass_node.is_some();
 
-        // 1. Hardware Bypass Path (Devices with physical bypass switches: Transsion, ROG, Sony, Samsung Store, Pixel)
+        // 1. Hardware Bypass Path (Devices with physical bypass switches: Transsion, ROG, Sony, Samsung Store, Pixel, MTK current_cmd)
         if has_hw_bypass {
             if let Some(byp_node) = hw_bypass_node {
                 if byp_node.contains("charge_stop_level") {
                     let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(80);
                     Self::write_node(byp_node, &cur_cap.to_string());
+                } else if byp_node.contains("current_cmd") {
+                    Self::set_perm(byp_node, 0o666);
+                    Self::write_node(byp_node, "0 1");
                 } else {
                     Self::write_node(byp_node, "1");
                 }
@@ -1349,13 +1354,14 @@ impl ChargingRegulator {
 
             if !is_qcom {
                 let bypass_in_hex = Self::format_mtk_charger_hex_ua(2500);
+                let buck_keepalive_hex = Self::format_mtk_charger_hex_ua(600);
                 Self::set_bcct_throttle(true);
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
                 Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
                 Self::write_node("/proc/lynx/bypass_charging", "1");
-                Self::write_node(&format!("{}/chg1_current", MTK_DIR), "0");
-                Self::write_node(&format!("{}/chg2_current", MTK_DIR), "0");
+                Self::write_node(&format!("{}/chg1_current", MTK_DIR), &buck_keepalive_hex);
+                Self::write_node(&format!("{}/chg2_current", MTK_DIR), &buck_keepalive_hex);
                 Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
                 Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
                 Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
@@ -1558,11 +1564,13 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
 
-        // 4. Reset hardware bypass OEM nodes (ROG, Sony, Pixel, Samsung, etc.)
+        // 4. Reset hardware bypass OEM nodes (ROG, Sony, Pixel, Samsung, MediaTek, etc.)
         if let Some(byp_node) = Self::detect_hw_bypass_node() {
             Self::set_perm(byp_node, 0o666);
             if byp_node.contains("charge_stop_level") {
                 Self::write_node(byp_node, "100");
+            } else if byp_node.contains("current_cmd") {
+                Self::write_node(byp_node, "1 0");
             } else {
                 Self::write_node(byp_node, "0");
             }
