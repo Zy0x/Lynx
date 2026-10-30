@@ -482,11 +482,6 @@ internal fun LazyListScope.dashboardHeaderItem(
                         )
                         Surface(
                             onClick = {
-                                viewModel.triggerModeFeedback(
-                                    modeId = item.id,
-                                    modeLabel = item.label,
-                                    accentColorHex = item.accentColor.toHexLong()
-                                )
                                 if (item.id == "extreme" && !isPhysicallyActive) {
                                     onExtremeConfirmRequired()
                                 } else {

@@ -343,10 +343,23 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             current.copy(
                 state = refreshed.copy(activeProfile = id, profileOverrides = overrides),
                 kernelProfileCatalog = catalog.copy(activeId = id),
-                successMessage = if (note.isBlank()) "Profil ${profile.name} diterapkan"
+                successMessage = if (note.isBlank()) null
                     else "${profile.name} diterapkan; domain perlu adaptasi: $note"
             )
         }
+
+        // ── Post-Execution Dispatch: Trigger Dynamic Island ONLY AFTER script execution completes ──
+        val accentHex = when (id.lowercase()) {
+            "extreme" -> 0xFFFF3366L
+            "performance" -> 0xFFFF9900L
+            "powersave" -> 0xFF00E676L
+            else -> 0xFF00A3FFL
+        }
+        triggerModeFeedback(
+            modeId = id,
+            modeLabel = profile.name,
+            accentColorHex = accentHex
+        )
 
         // ── Phase 4: Dynamic Baseline & Automation Service Coordination ──
         if (id == "auto") {

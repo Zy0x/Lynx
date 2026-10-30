@@ -2350,6 +2350,7 @@
     <string name="hud_session_note">Waktu dimulai saat HUD aktif. Level awal memakai sampel baterai valid pertama; data yang tidak tersedia ditampilkan sebagai —.</string>
     <string name="hud_addin_group_game">Fokus &amp; performa</string>
     <string name="hud_addin_group_tools">Alat bermain</string>
+    <string name="hud_tool_group_system">Alat sistem &amp; tampilan</string>
     <string name="hud_soc_short">SoC</string>
     <string name="hud_pages">Pilih halaman</string>
     <string name="hud_mini_short">Mini HUD</string>

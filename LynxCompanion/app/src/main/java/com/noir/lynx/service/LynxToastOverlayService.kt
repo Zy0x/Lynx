@@ -145,7 +145,7 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         // Schedule automatic dismissal
         dismissJob?.cancel()
         dismissJob = serviceScope.launch {
-            delay(2200L) // visible duration
+            delay(2400L) // visible duration
             isVisibleFlow.value = false // exit animation
             delay(250L) // wait for animation exit
             cleanUpAndStop()

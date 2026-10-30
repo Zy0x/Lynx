@@ -1,3 +1,15 @@
+# Lynx Universal [Guaranteed Post-Execution Dynamic Island & Profile Feedback Engine] 7.0.0-RC279
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.12
+
+- Menghadirkan **Arsitektur Umpan Balik Dynamic Island Bergaransi Pasca-Eksekusi (Guaranteed Post-Execution Dispatch)**:
+  - **Garansi Selesai Eksekusi Dahulu**: Memindahkan pemanggilan Dynamic Island / Jewel HUD langsung ke dalam akhir `selectKernelPerformanceProfile`. Notifikasi hanya dipicu setelah seluruh script penalaan CPU, GPU, Thermal, dan sysfs selesai dieksekusi 100% dan status fisik kernel terverifikasi.
+  - **Eliminasi Toast Prematur pada Mode Extreme**: Menghilangkan toast prematur saat tombol Extreme pertama kali ditekan. Pengguna kini dapat membaca dialog konfirmasi bahaya dengan tenang; Dynamic Island Extreme (Merah) akan muncul tepat setelah pengguna menekan "Aktifkan Extreme" dan eksekusi selesai.
+  - **Integrasi Quick Settings Tile Status Bar**: Menghubungkan pergantian profil dari bilah status Android (`LynxProfileTileService`) dengan penyiaran broadcast `com.noir.lynx.PROFILE_CHANGED` pasca-eksekusi `setProfile()`, memunculkan Dynamic Island melayang di atas antarmuka sistem/game saat berganti profil dari QS Tile.
+  - **Optimalisasi Durasi Tampilan & Anti-Collision**: Menyesuaikan durasi tampilan Dynamic Island dari 1,8s ke 2,4s untuk kenyamanan visual di perangkat eMMC/60Hz, serta menonaktifkan penimpaan toast hijau generik `successMessage` saat beralih profil.
+
+---
+
 # Lynx Universal [Cross-Window Split Touch & Multi-Touch HUD Overlay Support] 7.0.0-RC278
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.11

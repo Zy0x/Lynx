@@ -819,7 +819,7 @@ class LynxViewModel : ViewModel() {
             )
         }
         modeToastJob = viewModelScope.launch {
-            delay(1800L)
+            delay(2400L)
             _uiState.update { it.copy(activeModeToast = null) }
         }
     }

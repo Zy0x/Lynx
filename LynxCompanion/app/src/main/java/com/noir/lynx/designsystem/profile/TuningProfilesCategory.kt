@@ -528,21 +528,6 @@ fun LazyListScope.tuningProfilesCategoryItems(
                         gpuPlatform = uiState.gpuInfo.platform,
                         state = state,
                         onProfileSelected = { id, clearOverrides ->
-                            val colorHex = when (id.lowercase()) {
-                                "powersave" -> 0xFF00E676L
-                                "balance" -> 0xFF00A3FFL
-                                "performance" -> 0xFFFF9100L
-                                "extreme" -> 0xFFFF3D00L
-                                else -> 0xFF00E5FFL
-                            }
-                            val labelResource = mapOf(
-                                "powersave" to com.noir.lynx.R.string.audit_mode_powersave,
-                                "balance" to com.noir.lynx.R.string.audit_mode_balance,
-                                "performance" to com.noir.lynx.R.string.audit_mode_performance,
-                                "extreme" to com.noir.lynx.R.string.audit_mode_extreme
-                            )[id.lowercase()]
-                            val label = labelResource?.let(context::getString) ?: id
-                            viewModel.triggerModeFeedback(id, label, colorHex)
                             viewModel.selectKernelPerformanceProfile(id, context, clearOverrides)
                         },
                         onExtremeConfirmRequired = onExtremeConfirmRequired,

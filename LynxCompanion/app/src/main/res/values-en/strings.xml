@@ -2326,6 +2326,7 @@
     <string name="hud_session_note">Timing starts when the HUD starts. The initial level uses the first valid battery sample; unavailable data appears as —.</string>
     <string name="hud_addin_group_game">Focus &amp; performance</string>
     <string name="hud_addin_group_tools">Gaming tools</string>
+    <string name="hud_tool_group_system">System &amp; display tools</string>
     <string name="hud_soc_short">SoC</string>
     <string name="hud_pages">Choose page</string>
     <string name="hud_mini_short">Mini HUD</string>

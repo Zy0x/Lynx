@@ -185,7 +185,7 @@ fun LynxAppContent(uiState: LynxUiState, viewModel: LynxViewModel) {
             val msg = uiState.successMessage
             if (!msg.isNullOrBlank()) {
                 val isProfileSwitch = (msg.contains("Profil", ignoreCase = true) || msg.contains("Mode", ignoreCase = true)) && msg.contains("diterapkan", ignoreCase = true)
-                if (!isProfileSwitch || uiState.activeModeToast == null) {
+                if (!isProfileSwitch) {
                     viewModel.triggerUniversalToast(
                         title = msg,
                         statusTag = "SUKSES",

@@ -37,6 +37,12 @@ class LynxProfileTileService : TileService() {
                 else -> "balance"
             }
             LynxRepository.setProfile(nextProfile)
+            val toastIntent = android.content.Intent("com.noir.lynx.PROFILE_CHANGED").apply {
+                setPackage(packageName)
+                putExtra("profile", nextProfile)
+                putExtra("reason", "Quick Settings Tile")
+            }
+            sendBroadcast(toastIntent)
             launch(Dispatchers.Main) {
                 updateTileState()
             }
