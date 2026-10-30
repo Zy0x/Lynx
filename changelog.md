@@ -1,3 +1,14 @@
+# Lynx Universal [Cross-Window Split Touch & Multi-Touch HUD Overlay Support] 7.0.0-RC278
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.11
+
+- Mengaktifkan dukungan sentuhan simultan lintas jendela (**Cross-Window Split Touch**) pada HUD Sidebar / Lynx Engine Overlay:
+  - **Dukungan Multi-Window Split Touch (FLAG_SPLIT_TOUCH)**: Menambahkan flag WindowManager.LayoutParams.FLAG_SPLIT_TOUCH pada konfigurasi jendela overlay LynxFloatingHudService. Mengeliminasi pemblokiran sistem Android OS InputDispatcher saat ada jari yang sedang menahan layar game (seperti menahan virtual joystick, tombol aim, atau kontrol game lainnya), sehingga pengguna dapat membuka dan menyentuh sidebar secara instan menggunakan jari kedua.
+  - **Multi-Touch Pointer Tracking (ACTION_POINTER_DOWN / ACTION_POINTER_UP)**: Memperbarui HudSidebarHostView agar mampu mengenali dan melacak pointer sentuh sekunder (ctivePointerId) secara independen menggunakan koordinat pointer riil, mencegah sentuhan sekunder terlewat atau salah terhitung.
+  - **Sanitasi ACTION_OUTSIDE**: Memastikan event sentuh di luar overlay hanya menutup panel saat drawer dalam kondisi terbuka (expanded()), mencegah pembatalan gestur saat handle dalam kondisi collapsed.
+
+---
+
 # Lynx Universal [eMMC 5.1 Flash Shield & Zero-Hardcoded Storage Disambiguation] 7.0.0-RC277
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.10

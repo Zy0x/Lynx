@@ -1,6 +1,7 @@
 package com.noir.lynx.feature.hud.overlay
 
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
@@ -9,7 +10,7 @@ import android.widget.FrameLayout
 import kotlin.math.abs
 import kotlin.math.hypot
 
-/** Separates handle opening, metric paging and dragging before forwarding touch to Compose. */
+/** Separates handle opening, metric paging and dragging before forwarding touch to Compose. Supports multi-touch & split touch. */
 internal class HudSidebarHostView(
     context: Context,
     private val sidebar: () -> Boolean,
@@ -27,6 +28,7 @@ internal class HudSidebarHostView(
     private var downX = 0f
     private var downY = 0f
     private var handle = false
+    private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var cancelled = false
     private val handler = Handler(Looper.getMainLooper())
     private val hold = Runnable {
@@ -57,12 +59,16 @@ internal class HudSidebarHostView(
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) { onOpen(false); return false }
+        if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+            if (expanded()) onOpen(false)
+            return false
+        }
         if (!sidebar()) return super.dispatchTouchEvent(event)
         val density = resources.displayMetrics.density
         val slop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                activePointerId = event.getPointerId(0)
                 handler.removeCallbacks(hold)
                 downX = event.rawX; downY = event.rawY; cancelled = false
                 handle = if (right()) event.x >= width - 48f * density else event.x <= 48f * density
@@ -72,10 +78,30 @@ internal class HudSidebarHostView(
                 val handled = super.dispatchTouchEvent(event)
                 return if (gesture == Gesture.Forward) handled else true
             }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                val actionIdx = event.actionIndex
+                val px = event.getX(actionIdx)
+                val py = event.getY(actionIdx)
+                val onHandle = if (right()) px >= width - 48f * density else px <= 48f * density
+                if (onHandle && (!handle || activePointerId == MotionEvent.INVALID_POINTER_ID || gesture == Gesture.Forward)) {
+                    activePointerId = event.getPointerId(actionIdx)
+                    handler.removeCallbacks(hold)
+                    downX = if (Build.VERSION.SDK_INT >= 29) event.getRawX(actionIdx) else event.rawX + (px - event.x)
+                    downY = if (Build.VERSION.SDK_INT >= 29) event.getRawY(actionIdx) else event.rawY + (py - event.y)
+                    handle = true; cancelled = false
+                    gesture = Gesture.Pending
+                    if (!expanded()) { onDragStart(); handler.postDelayed(hold, 300L) }
+                    return true
+                }
+            }
             MotionEvent.ACTION_MOVE -> {
+                val pointerIdx = if (activePointerId != MotionEvent.INVALID_POINTER_ID) event.findPointerIndex(activePointerId) else 0
+                if (pointerIdx == -1) return super.dispatchTouchEvent(event)
                 if (gesture == Gesture.Forward) return super.dispatchTouchEvent(event)
                 if (gesture == Gesture.Open) return true
-                val dx = event.rawX - downX; val dy = event.rawY - downY
+                val curRawX = if (Build.VERSION.SDK_INT >= 29) event.getRawX(pointerIdx) else event.rawX + (event.getX(pointerIdx) - event.x)
+                val curRawY = if (Build.VERSION.SDK_INT >= 29) event.getRawY(pointerIdx) else event.rawY + (event.getY(pointerIdx) - event.y)
+                val dx = curRawX - downX; val dy = curRawY - downY
                 if (gesture == Gesture.Pending) {
                     if (expanded()) {
                         val outward = if (right()) dx else -dx
@@ -104,13 +130,42 @@ internal class HudSidebarHostView(
                         }
                     }
                 }
-                if (gesture == Gesture.Drag) { onDrag(dx, dy, event.rawX); return true }
+                if (gesture == Gesture.Drag) { onDrag(dx, dy, curRawX); return true }
                 return if (cancelled) true else super.dispatchTouchEvent(event)
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                val actionIdx = event.actionIndex
+                val pointerId = event.getPointerId(actionIdx)
+                if (pointerId == activePointerId) {
+                    handler.removeCallbacks(hold)
+                    val curRawX = if (Build.VERSION.SDK_INT >= 29) event.getRawX(actionIdx) else event.rawX + (event.getX(actionIdx) - event.x)
+                    val curRawY = if (Build.VERSION.SDK_INT >= 29) event.getRawY(actionIdx) else event.rawY + (event.getY(actionIdx) - event.y)
+                    val completed = gesture
+                    gesture = Gesture.Pending
+                    activePointerId = MotionEvent.INVALID_POINTER_ID
+                    if (completed == Gesture.Drag) {
+                        val totalDist = hypot(curRawX - downX, curRawY - downY)
+                        if (totalDist < slop) {
+                            cancelChild(); performClick(); return true
+                        }
+                        onDragEnd(); return true
+                    }
+                    if (!expanded()) {
+                        if (completed == Gesture.Pending || completed == Gesture.Forward) {
+                            val totalDist = hypot(curRawX - downX, curRawY - downY)
+                            if (totalDist < slop * 1.5f) {
+                                cancelChild(); performClick(); return true
+                            }
+                        }
+                    }
+                    return if (cancelled || completed == Gesture.Open) true else super.dispatchTouchEvent(event)
+                }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 handler.removeCallbacks(hold)
                 val completed = gesture
                 gesture = Gesture.Pending
+                activePointerId = MotionEvent.INVALID_POINTER_ID
                 if (completed == Gesture.Drag) {
                     val totalDist = hypot(event.rawX - downX, event.rawY - downY)
                     if (totalDist < slop) {
