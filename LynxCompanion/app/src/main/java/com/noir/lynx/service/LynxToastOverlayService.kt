@@ -99,8 +99,13 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val profile = intent?.getStringExtra(EXTRA_PROFILE) ?: "balance"
-        val style = intent?.getStringExtra(EXTRA_STYLE) ?: "jewel_top"
+        val profile = intent?.getStringExtra(EXTRA_PROFILE)
+            ?: intent?.getStringExtra("profile")
+            ?: intent?.getStringExtra("extra_profile")
+            ?: "balance"
+        val style = intent?.getStringExtra(EXTRA_STYLE)
+            ?: intent?.getStringExtra("style")
+            ?: "jewel_top"
         currentStyle = style
 
         if (style == "system_toast") {

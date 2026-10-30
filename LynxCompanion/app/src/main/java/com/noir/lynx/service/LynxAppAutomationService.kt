@@ -647,10 +647,11 @@ class LynxAppAutomationService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        Log.i(TAG, "onTaskRemoved: Ensuring mutual exclusion (pkill lynx_watcher.sh)")
+        Log.i(TAG, "onTaskRemoved: Ensuring native lynxd daemon continues autonomously")
         serviceScope.launch(Dispatchers.IO) {
             try {
                 Shell.cmd("pkill -f lynx_watcher.sh 2>/dev/null").exec()
+                LynxRepository.ensureDaemonRunning()
             } catch (_: Exception) {}
         }
     }

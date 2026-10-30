@@ -71,7 +71,7 @@ impl DaemonRunner {
                 .unwrap_or_default()
                 .as_secs();
 
-            // Dynamic cooldown duration & baseline profile reload from Companion App / WebUI config
+            // Dynamic cooldown duration reload from Companion App / WebUI config
             if now.saturating_sub(last_cooldown_check) >= 2 {
                 let target_cooldown = Self::read_cooldown_duration();
                 if target_cooldown != decision_engine.cooldown_duration() {
@@ -79,17 +79,19 @@ impl DaemonRunner {
                     let label = if target_cooldown == 0 { "Persistent (RAM)".to_string() } else { format!("{}s", target_cooldown) };
                     Logger::info(format!("[DAEMON] Durasi histeresis keluar diperbarui: {}", label));
                 }
-                if let Some(target_baseline) = Self::read_baseline_profile() {
-                    if target_baseline != decision_engine.baseline_profile() {
-                        Logger::info(if is_english() {
-                            format!("[DAEMON] Dynamic baseline profile updated: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
-                        } else {
-                            format!("[DAEMON] Profil dasar dinamis diperbarui: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
-                        });
-                        decision_engine.update_baseline_profile(&target_baseline);
-                    }
-                }
                 last_cooldown_check = now;
+            }
+
+            // Dynamic baseline profile reload (checked every cycle, zero lag)
+            if let Some(target_baseline) = Self::read_baseline_profile() {
+                if target_baseline != decision_engine.baseline_profile() {
+                    Logger::info(if is_english() {
+                        format!("[DAEMON] Dynamic baseline profile updated: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
+                    } else {
+                        format!("[DAEMON] Profil dasar dinamis diperbarui: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
+                    });
+                    decision_engine.update_baseline_profile(&target_baseline);
+                }
             }
 
             // Dynamic sync of active profile from external events (HUD, Companion, CLI)
@@ -98,6 +100,11 @@ impl DaemonRunner {
                 if !active_str.is_empty() && active_str != decision_engine.current_profile() {
                     if matches!(active_str, "powersave" | "balance" | "performance" | "extreme" | "dormant") {
                         decision_engine.notify_applied(active_str);
+                        // When external active profile changes outside a game, align baseline immediately to prevent false reversion
+                        if decision_engine.last_target_app().is_none() && active_str != "dormant" {
+                            decision_engine.update_baseline_profile(active_str);
+                            let _ = std::fs::write("/data/adb/lynx/baseline_profile", active_str);
+                        }
                     }
                 }
             }
@@ -500,7 +507,7 @@ impl DaemonRunner {
         }
     }
 
-    fn notify_profile_transition(profile: &str, reason: &str) {
+    pub fn notify_profile_transition(profile: &str, reason: &str) {
         #[cfg(target_os = "android")]
         {
             let feedback_style = std::fs::read_to_string("/data/adb/lynx/feedback_style")

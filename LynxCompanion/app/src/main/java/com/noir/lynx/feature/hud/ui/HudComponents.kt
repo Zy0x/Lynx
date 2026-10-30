@@ -1,6 +1,7 @@
 package com.noir.lynx.feature.hud.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,19 +21,19 @@ import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
 // Opaque graphite surfaces keep game content separate from the overlay controls.
-internal val HudCyan = Color(0xFF43E5C1)
-internal val HudBlue = Color(0xFF87B8DD)
-internal val HudBlueBadge = Color(0xFF134D74)
+internal val HudCyan = Color(0xFF00F0FF)
+internal val HudBlue = Color(0xFF60A5FA)
+internal val HudBlueBadge = Color(0x400284C7)
 internal val HudOrange = Color(0xFFFBBF24)
 internal val HudRed = Color(0xFFF87171)
 internal val HudPurple = Color(0xFFC084FC)
-internal val HudBackground = Color(0xFF0A0F14)
-internal val HudCard = Color(0xFF131B23)
-internal val HudElevated = Color(0xFF1A252F)
+internal val HudBackground = Color(0xD90C121B)
+internal val HudCard = Color(0x66182333)
+internal val HudElevated = Color(0x8C243347)
 internal val HudHandleSurface = Color(0x6612151B)
-internal val HudBorder = Color(0x18FFFFFF)
-internal val HudAccentBorder = Color(0x3343E5C1)
-internal val HudMuted = Color(0xFF9AAAB7)
+internal val HudBorder = Color(0x2EFFFFFF)
+internal val HudAccentBorder = Color(0x5900F0FF)
+internal val HudMuted = Color(0xFF94A3B8)
 
 @Composable
 internal fun hudString(@StringRes id: Int, vararg args: Any): String =
@@ -95,7 +96,7 @@ internal fun HudAction(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
-        color = containerColor,
+        color = containerColor, border = BorderStroke(1.dp, if (isDanger) HudRed.copy(alpha = 0.35f) else HudBorder),
         modifier = modifier.heightIn(min = 48.dp)
     ) {
         Row(

@@ -361,6 +361,14 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             accentColorHex = accentHex
         )
 
+        // Dispatch broadcast to trigger floating Dynamic Island overlay if enabled
+        val toastIntent = android.content.Intent("com.noir.lynx.PROFILE_CHANGED").apply {
+            putExtra("profile", id)
+            putExtra("reason", "Manual")
+            setPackage(context.packageName)
+        }
+        context.sendBroadcast(toastIntent)
+
         // ── Phase 4: Dynamic Baseline & Automation Service Coordination ──
         if (id == "auto") {
             if (!com.noir.lynx.service.LynxAppAutomationService.isRunning) {

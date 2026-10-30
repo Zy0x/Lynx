@@ -205,6 +205,15 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     p.width = WindowManager.LayoutParams.WRAP_CONTENT
                     p.height = WindowManager.LayoutParams.WRAP_CONTENT
                 }
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    if (isOpen) {
+                        p.flags = p.flags or android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+                        p.blurBehindRadius = 45
+                    } else {
+                        p.flags = p.flags and android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+                        p.blurBehindRadius = 0
+                    }
+                }
                 runCatching { windows.updateViewLayout(v, p) }
                 v.post { clamp() }
             }

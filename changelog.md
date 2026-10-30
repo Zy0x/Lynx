@@ -1,3 +1,23 @@
+# Lynx Universal [Eliminate Profile Toast Flip-Flop & Synchronize Baseline Engine] 7.0.0-RC281
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.14
+
+- Perbaikan tuntas masalah glitch visual toast/Dynamic Island yang menampilkan profil *Balance* sebelum berpindah ke *Extreme*:
+  - **Sinkronisasi Instan Baseline Profile Native Engine (`lynxd`)**: Menghapus pembatasan throttle 2 detik pada pembacaan `baseline_profile` di `DaemonRunner`, memproses pembaruan profil dasar setiap siklus loop (sub-millisecond) untuk mencegah desinkronisasi status.
+  - **Penyelarasan Atomik Profil Eksternal & Baseline**: Menyelaraskan `baseline_profile` secara langsung pada `decision_engine` saat terjadi perubahan `active_profile` dari Companion App, HUD, atau CLI tanpa sesi game aktif. Mencegah mesin inferensi keliru menganggap profil manual sebagai *orphan boost* yang harus dikembalikan ke *Balance*.
+  - **Atomic Post-Commit Persistence (`ProfileExecutor`)**: Memastikan eksekutor profil menulis berkas `/data/adb/lynx/active_profile` dan `/data/adb/lynx/baseline_profile` secara bersamaan saat profil dieksekusi via CLI maupun daemon.
+  - **Penyiaran Broadcast Terjamin Pasca-Eksekusi di Companion App**: Menambahkan penyiaran broadcast `com.noir.lynx.PROFILE_CHANGED` secara langsung dari `selectKernelPerformanceProfile()` setelah Phase 3 selesai, menjamin Dynamic Island di perangkat tanpa modul Magisk (seperti RN7) langsung menerima profil target yang benar tanpa bergantung pada siklus loop daemon.
+  - **Dukungan Kunci Ekstra Ganda Overlay HUD**: Menjamin pembacaan intent pada `LynxToastOverlayService` memeriksa kunci `extra_profile` maupun `profile` guna mencegah *fallback* default tidak disengaja.
+
+- Estetika Visual **Cyberpunk Obsidian Glassmorphism** pada HUD Sidebar / Lynx Engine Overlay:
+  - **Lapisan Kaca Obsidian Transparan (`HudBackground`)**: Mengganti latar belakang hitam solid dengan kaca obsidian semi-transparan beropasitas 85% (`#D90C121B`), memungkinkan visual game di balik HUD tampak berkabut halus tanpa mengorbankan kontras.
+  - **Kartu Akrilik Frosted Melayang (`HudCard`)**: Mentransformasi kartu Bento grid menjadi lempengan kaca akrilik semi-transparan 40% (`#66182333`), menciptakan efek kedalaman dimensi berlapis (*optical glass-stacking*).
+  - **Tepian Pembias Cahaya Kaca Presisi (`HudBorder`)**: Menerapkan garis tepi kaca (*crisp specular rim*) putih 18% (`#2EFFFFFF`) untuk menangkap bias cahaya di sepanjang batas kartu, memberikan siluet kaca presisi ala UI visionOS/Acrylic.
+  - **Hardware-Accelerated Blur Behind (Android 12+ / API 31+)**: Mengaktifkan `WindowManager.LayoutParams.FLAG_BLUR_BEHIND` dengan `blurBehindRadius = 45px` secara otomatis saat drawer HUD terbuka, memburamkan layar game secara native melalui GPU compositor SurfaceFlinger.
+  - **Readability First & Zero Layout Shift**: Mempertahankan 100% tata letak, ukuran tombol, dan susunan grid yang ada, dengan teks putih berkontras tinggi dan aksen *Electric Neon Cyan* (`#00F0FF`).
+
+---
+
 # Lynx Universal [Relocate Gaming Addins to Tools & Refocus Boost Center] 7.0.0-RC280
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.13

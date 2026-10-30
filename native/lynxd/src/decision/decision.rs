@@ -61,6 +61,10 @@ impl DecisionEngine {
         }
     }
 
+    pub fn last_target_app(&self) -> Option<&str> {
+        self.last_target_app.as_deref()
+    }
+
     pub fn current_modifier(&self) -> ModifierLevel {
         self.adaptive.current_modifier()
     }

@@ -370,6 +370,7 @@ fn handle_profile_apply(name: &str, dry_run: bool) {
         Ok(report) => {
             if !dry_run {
                 println!("{}", report.display());
+                DaemonRunner::notify_profile_transition(&plan.profile_name, "CLI Manual Apply");
             }
         }
         Err(e) => {
