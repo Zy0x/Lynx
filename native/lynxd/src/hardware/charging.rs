@@ -1495,19 +1495,22 @@ impl ChargingRegulator {
 
     /// Evaluates electrochemical CC to CV boundaries and tapering thresholds:
     /// - >= 100% SoC: Bypass AutoCut ("bypass_100", 0 mA)
-    /// - 95% to 99% SoC: Saturation trickle step-down ("tapering_95", 1000 mA)
-    /// - 90% to 94% SoC: Moderate step-down ("tapering_90", 2200 mA)
-    /// - 80% to 89% SoC: High sustained ~80% speed ("tapering_80", 3200 mA, Direct Pump active)
+    /// - 96% to 99% SoC: Saturation trickle step-down ("tapering_96", 1200 mA)
+    /// - 92% to 95% SoC: Controlled late-stage decay ("tapering_92", 2000 mA)
+    /// - 86% to 91% SoC: Optimized mid-saturation ("tapering_86", 3000 mA)
+    /// - 80% to 85% SoC: Sustained high-speed Direct Pump ("tapering_80", 4200 mA)
     /// - 0% to 79% SoC: Full Max Watt unconstrained peak ("hyper", 12000 mA)
     pub fn determine_taper_state(soc: u32, _vbat_mv: u32) -> (&'static str, u32) {
         if soc >= 100 {
             ("bypass_100", 0)
-        } else if soc >= 95 {
-            ("tapering_95", 1000)
-        } else if soc >= 90 {
-            ("tapering_90", 2200)
+        } else if soc >= 96 {
+            ("tapering_96", 1200)
+        } else if soc >= 92 {
+            ("tapering_92", 2000)
+        } else if soc >= 86 {
+            ("tapering_86", 3000)
         } else if soc >= 80 {
-            ("tapering_80", 3200)
+            ("tapering_80", 4200)
         } else {
             ("hyper", 12000)
         }
@@ -1555,11 +1558,11 @@ impl ChargingRegulator {
                 Self::set_perm(node, 0o666);
             }
         }
-        let max_hex = Self::format_mtk_charger_hex_ua(6000);
+        let max_hex = Self::format_mtk_charger_hex_ua(7000);
         Self::write_node(&format!("{}/input_current", MTK_DIR), &max_hex);
         Self::write_node(&format!("{}/chg1_current", MTK_DIR), &max_hex);
         Self::write_node(&format!("{}/chg2_current", MTK_DIR), &max_hex);
-        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "6000");
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
@@ -1828,7 +1831,7 @@ impl ChargingRegulator {
 
         // Active Maximum Push to MediaTek hardware registers:
         // Kernel store_input_current / store_chg1_current / store_chg2_current parse base-16 uA!
-        let mtk_input_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 6000));
+        let mtk_input_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 7000));
         Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_hex);
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
         Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_hex);
@@ -2279,8 +2282,8 @@ impl ChargingRegulator {
         } else {
             // MediaTek: Write limits to hardware registers (base-16 uA) while preserving write permissions (0666)!
             // Locking to 0444 prevents driver update workers and breaks subsequent mode switches!
-            let mtk_input_hex = Self::format_mtk_charger_hex_ua(mtk_input_ma.clamp(350, 6000));
-            let mtk_chg_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 6000));
+            let mtk_input_hex = Self::format_mtk_charger_hex_ua(mtk_input_ma.clamp(350, 7000));
+            let mtk_chg_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 7000));
             Self::set_perm(&format!("{}/input_current", MTK_DIR), 0o666);
             Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_hex);
             Self::set_perm(&format!("{}/sc_ibat_limit", MTK_DIR), 0o666);
@@ -2434,11 +2437,11 @@ impl ChargingRegulator {
         ] {
             Self::set_perm(node, 0o666);
         }
-        let max_hex = Self::format_mtk_charger_hex_ua(6000);
+        let max_hex = Self::format_mtk_charger_hex_ua(7000);
         Self::write_node(&format!("{}/input_current", MTK_DIR), &max_hex);
         Self::write_node(&format!("{}/chg1_current", MTK_DIR), &max_hex);
         Self::write_node(&format!("{}/chg2_current", MTK_DIR), &max_hex);
-        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "6000");
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
 
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=standard cap={}\n", cur_cap));
@@ -2500,21 +2503,21 @@ impl ChargingRegulator {
     ];
 
     pub fn apply_charger_thermal_neutralization() {
-        // 1. Transsion Motherboard PCB Thermal Throttling: In Hyper Mode, allow full 6000mA at all temps
+        // 1. Transsion Motherboard PCB Thermal Throttling: In Hyper Mode, allow full 7000mA at all temps
         for node in &[
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_ODM_DIR),
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_DIR),
         ] {
             if Path::new(node).exists() {
-                Self::write_node_lock(node, "[95,6000,100,6000,6000000]");
+                Self::write_node_lock(node, "[95,7000,100,7000,7000000]");
             }
         }
 
-        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table: Override thresholds & currents to 6000mA
+        // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table: Override thresholds & currents to 7000mA
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
-            Self::write_node_lock(&dv2_debug, "[101,85,88,90,6000,6000,6000]");
-            Self::write_node_lock(&dv2_debug, "[102,85,88,90,6000,6000,6000]");
+            Self::write_node_lock(&dv2_debug, "[101,85,88,90,7000,7000,7000]");
+            Self::write_node_lock(&dv2_debug, "[102,85,88,90,7000,7000,7000]");
         }
 
         // 3. Lock Charging_CallState to 0 to prevent dv2_algo_task screen-on clamp (1500mA)
@@ -2526,10 +2529,10 @@ impl ChargingRegulator {
 
         // 5. MediaTek ABCCT PID Thermal Derater Neutralization: verified syntax
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
-            Self::write_node_lock(CLABCCT_LCMOFF_NODE, "1 70000 1000 200000 6000 6000 0 6000 0");
+            Self::write_node_lock(CLABCCT_LCMOFF_NODE, "1 70000 1000 200000 7000 7000 0 7000 0");
         }
         if Path::new(CLABCCT_NODE).exists() {
-            Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 6000 6000 0 1 1 0");
+            Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 7000 7000 0 1 1 0");
         }
 
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
@@ -4068,6 +4071,9 @@ mod tests {
 
     #[test]
     fn test_format_mtk_charger_hex_ua() {
+        // 7000 mA -> 7,000,000 uA -> 0x6acfc0
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(7000), "6acfc0");
+        assert_eq!(u64::from_str_radix(&ChargingRegulator::format_mtk_charger_hex_ua(7000), 16).unwrap(), 7_000_000);
         // 6000 mA -> 6,000,000 uA -> 0x5b8d80
         assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(6000), "5b8d80");
         assert_eq!(u64::from_str_radix(&ChargingRegulator::format_mtk_charger_hex_ua(6000), 16).unwrap(), 6_000_000);
@@ -4194,21 +4200,25 @@ mod tests {
         assert_eq!(ChargingRegulator::determine_taper_state(78, 4470), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(79, 4480), ("hyper", 12000));
 
-        // High Sustained Phase: 80% to 89% SoC -> 3200 mA (~80% speed with Direct Pump active)
-        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("tapering_80", 3200));
-        assert_eq!(ChargingRegulator::determine_taper_state(85, 4450), ("tapering_80", 3200));
-        assert_eq!(ChargingRegulator::determine_taper_state(88, 4460), ("tapering_80", 3200));
-        assert_eq!(ChargingRegulator::determine_taper_state(89, 4470), ("tapering_80", 3200));
+        // High Sustained Phase: 80% to 85% SoC -> 4200 mA (Sustained speed with Direct Pump active)
+        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("tapering_80", 4200));
+        assert_eq!(ChargingRegulator::determine_taper_state(83, 4450), ("tapering_80", 4200));
+        assert_eq!(ChargingRegulator::determine_taper_state(85, 4455), ("tapering_80", 4200));
 
-        // Moderate Step-down: 90% to 94% SoC -> 2200 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(90, 4470), ("tapering_90", 2200));
-        assert_eq!(ChargingRegulator::determine_taper_state(92, 4475), ("tapering_90", 2200));
-        assert_eq!(ChargingRegulator::determine_taper_state(94, 4480), ("tapering_90", 2200));
+        // Mid-Saturation Sustained Phase: 86% to 91% SoC -> 3000 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(86, 4460), ("tapering_86", 3000));
+        assert_eq!(ChargingRegulator::determine_taper_state(89, 4470), ("tapering_86", 3000));
+        assert_eq!(ChargingRegulator::determine_taper_state(91, 4475), ("tapering_86", 3000));
 
-        // Saturation Trickle: 95% to 99% SoC -> 1000 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_95", 1000));
-        assert_eq!(ChargingRegulator::determine_taper_state(98, 4490), ("tapering_95", 1000));
-        assert_eq!(ChargingRegulator::determine_taper_state(99, 4495), ("tapering_95", 1000));
+        // Late-Stage Decay: 92% to 95% SoC -> 2000 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(92, 4475), ("tapering_92", 2000));
+        assert_eq!(ChargingRegulator::determine_taper_state(94, 4480), ("tapering_92", 2000));
+        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_92", 2000));
+
+        // Saturation Trickle: 96% to 99% SoC -> 1200 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(96, 4485), ("tapering_96", 1200));
+        assert_eq!(ChargingRegulator::determine_taper_state(98, 4490), ("tapering_96", 1200));
+        assert_eq!(ChargingRegulator::determine_taper_state(99, 4495), ("tapering_96", 1200));
 
         // Full battery AutoCut: 100% SoC -> bypass 0 mA
         assert_eq!(ChargingRegulator::determine_taper_state(100, 4500), ("bypass_100", 0));
