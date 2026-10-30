@@ -19,20 +19,20 @@ import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.HudReading
 
-// Google Play Games Sidekick Material 3 Dark Palette (High-Readability Tonal Contrast)
-internal val HudCyan = Color(0xFF43E5C1)            // Play Games Emerald Mint
-internal val HudBlue = Color(0xFF74B9FF)            // Sidekick Sky Blue Link/Accent
-internal val HudBlueBadge = Color(0xFF134D74)       // Sidekick Top Pill Cobalt Blue
+// Opaque graphite surfaces keep game content separate from the overlay controls.
+internal val HudCyan = Color(0xFF43E5C1)
+internal val HudBlue = Color(0xFF87B8DD)
+internal val HudBlueBadge = Color(0xFF134D74)
 internal val HudOrange = Color(0xFFFBBF24)
 internal val HudRed = Color(0xFFF87171)
 internal val HudPurple = Color(0xFFC084FC)
-internal val HudBackground = Color(0xFF0B1016)      // 93% Deep Obsidian Drawer (prevents background text bleed-through)
-internal val HudCard = Color(0xFF171E27)            // 96% Matte Bento Card Surface
-internal val HudElevated = Color(0xFF202B37)        // Elevated Pill Surface
-internal val HudHandleSurface = Color(0x6612151B)   // 40% Frosted Edge Handle Tab
-internal val HudBorder = Color(0x18FFFFFF)          // Subtle 9% divider hairline
-internal val HudAccentBorder = Color(0x338AB4F8)
-internal val HudMuted = Color(0xFF9BAABD)           // Material 3 Neutral Slate
+internal val HudBackground = Color(0xFF0A0F14)
+internal val HudCard = Color(0xFF131B23)
+internal val HudElevated = Color(0xFF1A252F)
+internal val HudHandleSurface = Color(0xCC12191F)
+internal val HudBorder = Color(0x18FFFFFF)
+internal val HudAccentBorder = Color(0x3343E5C1)
+internal val HudMuted = Color(0xFF9AAAB7)
 
 @Composable
 internal fun hudString(@StringRes id: Int, vararg args: Any): String =

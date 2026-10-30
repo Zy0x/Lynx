@@ -2,6 +2,7 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -76,71 +77,42 @@ internal fun HudNavigationRail(
     selected: HudPage,
     width: Float,
     onSelect: (HudPage) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    dockRight: Boolean = false
 ) {
-    Surface(
-        modifier = modifier.width(width.dp).fillMaxHeight(),
-        color = HudCard,
-        shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier.width(width.dp).fillMaxHeight().verticalScroll(rememberScrollState())
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 6.dp, horizontal = 3.dp)
-                .selectableGroup(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
-        ) {
-            HudPage.values().forEach { page ->
-                val active = selected == page
-                val title = hudString(page.label)
-                val pillColor by animateColorAsState(
-                    targetValue = if (active) HudCyan.copy(alpha = 0.14f) else Color.Transparent,
-                    animationSpec = tween(200),
-                    label = "rail_pill_$title"
-                )
-                val iconTint by animateColorAsState(
-                    targetValue = if (active) HudCyan else HudMuted,
-                    animationSpec = tween(200),
-                    label = "rail_icon_$title"
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .selectable(
-                            selected = active,
-                            onClick = { onSelect(page) },
-                            role = Role.Tab
-                        )
-                        .padding(vertical = 4.dp, horizontal = 2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 44.dp, height = 30.dp)
-                            .clip(RoundedCornerShape(15.dp))
-                            .background(pillColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = page.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = iconTint
-                        )
+        HudPage.values().forEach { page ->
+            val active = selected == page
+            val title = hudString(page.label)
+            val tint by animateColorAsState(if (active) HudCyan else HudMuted, tween(180), label = title)
+            val background by animateColorAsState(
+                if (active) HudCyan.copy(alpha = .10f) else Color.Transparent, tween(180), label = title)
+            Surface(
+                color = background,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, if (active) HudCyan.copy(alpha = .20f) else Color.Transparent),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .selectable(active, role = Role.Tab, onClick = { onSelect(page) })
+            ) {
+                Box {
+                    Box(Modifier.align(if (dockRight) Alignment.CenterEnd else Alignment.CenterStart)
+                        .width(3.dp).height(18.dp).clip(RoundedCornerShape(2.dp))
+                        .background(if (active) HudCyan else Color.Transparent))
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Icon(page.icon, null, tint = tint, modifier = Modifier.size(20.dp))
+                        Text(title, fontSize = 10.sp,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (active) Color.White else HudMuted,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = title,
-                        fontSize = 11.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (active) Color.White else HudMuted,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
                 }
             }
         }

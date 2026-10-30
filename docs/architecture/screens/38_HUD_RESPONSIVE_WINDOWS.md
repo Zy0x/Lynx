@@ -4,7 +4,7 @@
 
 Physical review of RC260 found wrapped numeric units in the two-cell pinned capsule, a tall home composition clipping its final action row in landscape, an inert collapsed-handle tap, and window width not being updated by the orientation clamp. Native MainActivity also requested portrait explicitly, producing a letterboxed/narrow settings view on a rotated display.
 
-`HudViewport.kt` owns safe geometry. `HudPanelShell` uses the complete panel width without a protruding extra ear. The labeled rail is centered and has 52 dp minimum destinations. The home readout puts FPS/CPU/GPU in one measured row when space permits; landscape quick actions use up to three columns, portrait up to two. Larger text reflows to fewer columns. Drawer and mini surfaces are opaque to prevent underlying text from bleeding through.
+`HudViewport.kt` owns safe geometry. `HudPanelShell` uses the complete panel width without a protruding extra ear. The labeled rail is top-aligned and has 60 dp minimum destinations (RC272 refinement). The home readout puts FPS/CPU/GPU in one measured row when space permits; landscape quick actions use up to three columns, portrait up to two. Larger text reflows to fewer columns. Drawer and mini surfaces are opaque to prevent underlying text from bleeding through.
 
 `HudMiniOverlay` shows one complete reading per pager page. FPS is always the first page, followed by selected optional metrics in catalog order. `HudMiniPolicy` supplies that shared selection to both Compose and touch arbitration, including the case of only one non-FPS optional selection. A 48×72 dp handle target contains the 12×48 dp visual grip. A tap opens the drawer; swiping its grip inward opens it, while swiping a multi-page capsule pages metrics.
 
@@ -20,7 +20,7 @@ The service uses the existing `HudAutoSkipWindow`, display-bounds and foreground
 
 ## 3. Geometry and configuration
 
-Panel width is `min(safeWidth - 8, 360)` dp in portrait and `min(safeWidth - 8, 440)` dp in landscape. Portrait height is `min(safeHeight * .65, 480)` dp and anchors at the safe bottom. Landscape uses safe height and anchors at the safe top. Every clamp recomputes both requested pixel width and position, so an already-open drawer resizes on rotation. Manual safe insets are applied once; the host disables the additional WindowManager fit-inset pass.
+Panel width is `min(safeWidth - 8, 360)` dp in portrait and `min(safeWidth - 8, 440)` dp in landscape. Portrait height is `min(safeHeight * .65, 440)` dp. Its header follows the saved handle position, clamped inside the safe display (RC272 refinement). Landscape uses safe height and anchors at the safe top. Every clamp recomputes both requested pixel width and position, so an already-open drawer resizes on rotation. Manual safe insets are applied once; the host disables the additional WindowManager fit-inset pass.
 
 Pin width is measured from localized labels and numeric strings with explicit padding, capped at 216 dp while reserving the 48 dp grip and gap. A value and unit occupy one line in one page rather than competing for half a row. Optional selection remains stored unchanged; pinning an empty optional selection still exposes FPS. The pin action label explicitly says Pin FPS. Gesture exclusion covers only the grip, not the entire metric capsule.
 
@@ -56,3 +56,14 @@ Installed and reviewed directly on Infinix X698 / mt6781, Android 14, 1080×2460
 No Lynx fatal entry was observed in the bounded AndroidRuntime crash buffer inspected at the end. Screenshots were streamed directly to the PC and removed after visual analysis; no device screenshot or UI dump files were created. This validates layout/interaction on the listed device and configuration. Larger font sizes, other physical devices and actual gameplay performance were not part of this physical review; no tuning or charging action was executed.
 
 The full locale validator remains failing with 1,242 existing findings when compared against the exact saved `8970956` baseline: zero added and zero removed by this final HUD patch. Default/Indonesian/English catalogs contain both new tab keys. All three manually changed Kotlin files remain below 700 lines (83, 81 and 92 lines). The repository-wide line audit still finds oversized files outside this HUD patch. The shared repository subsequently integrated these HUD edits into `1ed45b0` alongside RC265 charging work; the installed/reviewed APK and hash above refer specifically to isolated Companion 3.2.98.
+
+
+## 6. Anchored drawer refinement — RC272 / Companion 3.3.6
+
+The previous portrait drawer always opened at the bottom of the safe area, disconnected from the collapsed handle. The new portrait placement aligns the 56 dp header center with the 72 dp grip center using the saved orientation-specific handle fraction, then clamps the entire panel within the safe display. Closing restores the saved collapsed position; expanding never saves the expanded panel position as the handle location. Landscape continues to occupy the safe display height. Portrait height is now capped at 440 dp; widths remain 360/440 dp.
+
+The outer shape attaches to the selected dock with 6 dp edge corners and 24 dp interior corners. A 220 ms entrance moves inward from the selected edge and fades in, using a Compose graphics layer without changing measured window bounds. Android's window still intercepts the expanded rectangle throughout that entrance. The animation does not run for telemetry updates or page selection. Closing remains immediate so no invisible expanded window intercepts input.
+
+The navigation rail uses top-aligned 60 dp minimum destinations with a restrained mint surface/border and an edge marker for the active tab. It no longer fills the entire rail with a tall pill or centers four tabs in a large empty column. Navigation remains on the dock side and content scroll stays independent. A thin divider separates the header from the content. Graphite surfaces reduce the blue contrast between tiles; FPS/CPU/GPU readings use equal measured columns when each numeric value fits and stack when they do not. Quick action touch targets remain at least 56 dp high.
+
+This refinement changes window geometry and presentation only. Existing profile, root, charging, recording and automation handlers remain unchanged. Tests cover handle-following geometry, monotonic placement through the safe area, clamping at the bottom and landscape invariance across densities. Final Release and physical review results are recorded below after validation.

@@ -192,7 +192,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                                 .putBoolean("hud_dock_right", dockRight.value)
                                 .apply()
                         }
-                        p.y = viewport.value.panelTop(safeTop, safeHeight, dm.density)
+                        p.y = viewport.value.panelTop(safeTop, safeHeight, dm.density, getSavedHandleYFraction())
                     } else {
                         // Restore collapsed handle to user's saved strategic position
                         val frac = getSavedHandleYFraction()
@@ -346,7 +346,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             nextGravity = Gravity.TOP or if (dockRight.value) Gravity.RIGHT else Gravity.LEFT
             nextX = if (dockRight.value) safeRight else safeLeft
             if (open.value) {
-                nextY = viewport.value.panelTop(safeTop, safeHeight, density)
+                nextY = viewport.value.panelTop(safeTop, safeHeight, density, getSavedHandleYFraction())
             } else {
                 val handleHeight = if (v.height in 1..(120f * density).toInt()) v.height else (72f * density).roundToInt()
                 val maxY = (safeTop + safeHeight - handleHeight).coerceAtLeast(safeTop)

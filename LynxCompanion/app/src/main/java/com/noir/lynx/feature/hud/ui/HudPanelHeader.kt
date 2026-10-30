@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -39,22 +40,24 @@ internal fun HudPanelHeader(
     onBack: () -> Unit = {},
     onClose: () -> Unit
 ) {
-    val description = hudString(R.string.hud_drag)
     val bypassBadgeText = hudString(R.string.hud_bypass_badge)
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (canNavigateBack) IconButton(onBack, Modifier.size(48.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, hudString(R.string.hud_back), tint = HudCyan, modifier = Modifier.size(20.dp))
-        } else Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.SportsEsports, contentDescription = null, tint = HudCyan, modifier = Modifier.size(22.dp))
+        } else Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(HudCyan.copy(alpha = .10f)),
+                contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.SportsEsports, contentDescription = null, tint = HudCyan, modifier = Modifier.size(19.dp))
+            }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(appLabel.ifBlank { hudString(R.string.hud_unknown_app) }, fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold, color = Color.White)
+                fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(buildString {
                 append(if (battery.status == "valid") "${battery.text()}%" else "—")
                 if (batteryTemp?.status == "valid") append(" · ${batteryTemp.text()}°C")
                 if (bypassActive) append(" · $bypassBadgeText")
-            }, fontSize = 12.sp, color = if (charging == true) HudCyan else HudMuted)
+            }, fontSize = 10.sp, color = if (charging == true) HudCyan else HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClose, Modifier.size(48.dp)) {
             Icon(Icons.Default.Close, hudString(R.string.hud_close), tint = HudMuted, modifier = Modifier.size(20.dp))
@@ -114,7 +117,7 @@ private fun HudActionTile(
     val targetStroke = when {
         isDanger -> HudRed.copy(alpha = 0.7f)
         highlighted -> HudCyan.copy(alpha = 0.6f)
-        else -> Color(0xFF1E2638)
+        else -> HudBorder
     }
     val targetIcon = when {
         isDanger -> HudRed
@@ -132,7 +135,7 @@ private fun HudActionTile(
         color = bgColor,
         shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, strokeColor),
-        modifier = modifier.heightIn(min = 52.dp)
+        modifier = modifier.heightIn(min = 56.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
@@ -148,8 +151,8 @@ private fun HudActionTile(
             Spacer(Modifier.height(3.dp))
             Text(
                 label,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
                 color = Color.White,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )

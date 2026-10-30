@@ -1998,41 +1998,36 @@ impl ChargingRegulator {
             return;
         }
 
-        // 1. Reset enable_sc to 0 first to prevent UVLO reverse-current fault during re-handshake
-        let sc_node = format!("{}/enable_sc", MTK_DIR);
-        if Path::new(&sc_node).exists() {
-            Self::set_perm(&sc_node, 0o666);
-            let _ = fs::write(&sc_node, "0");
-        }
-
-        // 2. Ensure PMIC power path and battery charging are permitted
+        // 1. Ensure PMIC power path and battery charging are permitted with open permissions
+        Self::set_perm("/proc/mtk_battery_cmd/en_power_path", 0o666);
         Self::write_node("/proc/mtk_battery_cmd/en_power_path", "1");
+        Self::set_perm("/proc/mtk_battery_cmd/current_cmd", 0o666);
         Self::write_node("/proc/mtk_battery_cmd/current_cmd", "1 0");
         Self::set_perm("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::set_perm("/sys/devices/platform/tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
 
-        // 3. Re-assert Pump Express protocols and test mode
+        // 2. Re-assert Pump Express protocols and test mode
+        Self::set_perm(&format!("{}/pe20", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/pe40", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/BN_TestMode", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "1");
 
-        // 4. Kick Qualcomm rerun_aicl if present (generic platform fallback)
+        // 3. Kick Qualcomm rerun_aicl if present (generic platform fallback)
         let rerun_node = format!("{}/rerun_aicl", USB_DIR);
         if Path::new(&rerun_node).exists() {
             Self::write_node(&rerun_node, "1");
         }
 
-        // 5. Kick MediaTek Pump_Express renegotiation if present
-        let pe_node = format!("{}/Pump_Express", MTK_DIR);
-        if Path::new(&pe_node).exists() {
-            Self::write_node(&pe_node, "1");
-        }
+        // CRITICAL MEDIATEK SAFETY:
+        // NEVER write "1" to /sys/devices/platform/charger/Pump_Express during active charging!
+        // In the MediaTek RT9471 driver, writing to Pump_Express forces rt9471_enable_powerpath=0
+        // and rt9471_enable_hz=1 (Hi-Z), which disconnects VBUS and causes chg_in=0, permanently
+        // breaking charging until the user physically replugs the USB cable!
 
-        // NOTE: Strictly avoid cutting VBUS via input_suspend!
-        // Dropping VBUS breaks external charger brick negotiation (PE 4.0 / PD / QC)
-        // and drops adapter voltage back to 5V, causing current to collapse!
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
     }
@@ -2168,14 +2163,10 @@ impl ChargingRegulator {
         if effective_ma <= 1500 {
             // Tight Cool Mode throttling (strictly clamps to ~1.0A 5V, suppresses direct pump)
             Self::set_bcct_throttle(true);
-            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "5");
+            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
+            Self::write_node(&format!("{}/pdc_max_watt", MTK_DIR), "10");
             Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "2");
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "2");
-            if adpv_clean >= 6000 {
-                // High voltage detected while Cool/Low current requested:
-                // Soft-reconnect to force adapter down to 5V standard USB
-                Self::trigger_charger_soft_reconnect();
-            }
         } else {
             Self::set_bcct_throttle(false);
             let watt = ((effective_ma * 5) / 1000).max(10).min(68);
@@ -2225,18 +2216,28 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
         } else {
-            // Actively write limit to hardware registers with permission lock on MediaTek!
-            Self::write_node_lock(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
-            Self::write_node_lock(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-            Self::write_node_lock(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
-            Self::write_node_lock(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
+            // MediaTek: Write limits to hardware registers while preserving write permissions (0666)!
+            // Locking to 0444 prevents driver update workers and breaks subsequent mode switches!
+            Self::set_perm(&format!("{}/input_current", MTK_DIR), 0o666);
+            Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_str);
+            Self::set_perm(&format!("{}/sc_ibat_limit", MTK_DIR), 0o666);
+            Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
+            Self::set_perm(&format!("{}/chg1_current", MTK_DIR), 0o666);
+            Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_str);
+            Self::set_perm(&format!("{}/chg2_current", MTK_DIR), 0o666);
+            Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_str);
 
-            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
-            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
-            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+            Self::set_perm(&format!("{}/constant_charge_current_max", BATT_DIR), 0o666);
+            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::set_perm(&format!("{}/constant_charge_current", BATT_DIR), 0o666);
+            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::set_perm(&format!("{}/current_max", USB_DIR), 0o666);
+            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_max_ua_str);
+            Self::set_perm(&format!("{}/current_max", MAIN_DIR), 0o666);
+            Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::set_perm(&format!("{}/input_current_limit", BATT_DIR), 0o666);
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), qc_restricted);
         }
 
@@ -2245,18 +2246,12 @@ impl ChargingRegulator {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
                 "constant_charge_current_max" | "constant_charge_current" => {
-                    if is_qcom {
-                        Self::write_node(&node, &effective_ua_str);
-                    } else {
-                        Self::write_node_lock(&node, &effective_ua_str);
-                    }
+                    Self::set_perm(&node, 0o666);
+                    Self::write_node(&node, &effective_ua_str);
                 }
                 "current_max" | "input_current_limit" | "hw_current_max" => {
-                    if is_qcom {
-                        Self::write_node(&node, &usb_max_ua_str);
-                    } else {
-                        Self::write_node_lock(&node, &usb_max_ua_str);
-                    }
+                    Self::set_perm(&node, 0o666);
+                    Self::write_node(&node, &usb_max_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" => {
                     Self::write_node(&node, if is_qcom && effective_ma >= 2000 { "1" } else { "0" });
@@ -3679,10 +3674,11 @@ impl ChargingRegulator {
             let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
             let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
 
-            // Stalled 5V check: If charger voltage is stuck at standard 5V USB (< 6000 mV)
-            // while current draw is constrained (< 2200 mA), or PMIC registers are choked (< 1500 mA)
-            let is_stalled_5v = (adpv_clean > 3500 && adpv_clean < 6000 && cur_now_ma < 2200)
-                || (cur_usb <= 1000000 && cur_fcc <= 1000000);
+            // Stalled check: Only consider stalled if voltage is present (> 3500 mV)
+            // but charging is virtually stopped / choked (< 400 mA) AND PMIC registers are choked (< 1000 mA).
+            // A current of 1500–2200 mA on standard 5V USB is healthy, normal charging!
+            let is_stalled_5v = adpv_clean > 3500 && cur_now_ma < 400
+                && (cur_usb <= 1000000 && cur_fcc <= 1000000);
 
             if is_stalled_5v {
                 let marker_path = "/dev/lynx_stalled_5v_count";

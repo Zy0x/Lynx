@@ -101,3 +101,8 @@ The modern sidebar no longer ellipsizes user-facing labels or numbers. Headers, 
 ## Responsive window follow-up
 
 RC261 uses the full drawer width, updates requested WindowManager width on every clamp, and delegates touch arbitration to `HudSidebarHostView`. Collapsed grip taps now open the panel. It reuses `HudAutoSkipWindow`, safe-bounds and foreground-notification helpers; duplicated badge/gesture implementations are removed. Geometry, pin paging and cross-process preference patches are documented in `38_HUD_RESPONSIVE_WINDOWS.md`.
+
+
+### RC272 anchored drawer
+
+Portrait expansion now aligns its header with the saved handle position and clamps the full 440 dp capped panel within the safe display. Landscape remains safe-height, with dock-aware entrance motion and mirrored attached corners. The compact rail is top-aligned with 60 dp destinations; content scroll stays independent. See `38_HUD_RESPONSIVE_WINDOWS.md` for geometry, interaction boundaries and physical review evidence.

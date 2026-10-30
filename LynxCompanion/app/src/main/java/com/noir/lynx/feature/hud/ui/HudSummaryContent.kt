@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -23,7 +24,7 @@ internal fun HudSummaryContent(
         hudString(R.string.hud_profile),
         detail = hudString(hudProfileLabel(snapshot.profile))
     ) { HudProfiles(snapshot.profile, action.busy, onProfile) }
-    Text(hudString(R.string.hud_quick_actions), fontSize = 12.sp, color = HudMuted)
+    Text(hudString(R.string.hud_quick_actions), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = HudMuted)
     quickAccess()
 }
 
@@ -40,18 +41,18 @@ private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
         val values = metrics.map { metric -> snapshot[metric].let {
             if (it.status == "valid") it.text() + if (metric == HudMetric.FPS) "" else " %" else "—"
         } }
-        val widths = values.map { hudLabelWidth(listOf(it), 16, numeric = true) + 12f }
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(10.dp)) {
+        val widths = values.map { hudLabelWidth(listOf(it), 20, numeric = true) + 8f }
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(12.dp)) {
             val cell: @Composable (Int, Modifier) -> Unit = { index, modifier ->
                 Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(labels[index], fontSize = 11.sp, color = HudMuted)
-                    Text(values[index], fontSize = 16.sp, fontFamily = FontFamily.Monospace,
+                    Text(values[index], fontSize = 20.sp, fontWeight = FontWeight.Medium, fontFamily = FontFamily.Monospace,
                         color = if (index == 0) HudCyan else Color.White)
                 }
             }
-            if (HudLayoutPolicy.fits(maxWidth.value, widths, 8f)) {
+            if (widths.all { it <= (maxWidth.value - 16f) / 3f }) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    metrics.indices.forEach { cell(it, Modifier.weight(widths[it].coerceAtLeast(1f))) }
+                    metrics.indices.forEach { cell(it, Modifier.weight(1f)) }
                 }
             } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 metrics.indices.forEach { cell(it, Modifier.fillMaxWidth()) }

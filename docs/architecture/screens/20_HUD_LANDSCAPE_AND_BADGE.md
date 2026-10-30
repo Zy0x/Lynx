@@ -31,3 +31,8 @@ Portrait and landscape retain a compact labeled rail while at least 176 dp of co
 ## Responsive window follow-up
 
 RC261 supersedes the earlier 336/384 dp and 600 dp panel limits: full-width drawer caps are now 360 dp portrait / 440 dp landscape; portrait height is capped at 480 dp. The compact FPS/CPU/GPU row and three-column landscape quick actions avoid placing the final action row below the viewport at normal text scale. The service now actually instantiates the extracted `HudAutoSkipWindow` and forwards current mode/executing state. See `38_HUD_RESPONSIVE_WINDOWS.md`.
+
+
+### RC272 anchored drawer
+
+Portrait expansion now aligns its header with the saved handle position and clamps the full 440 dp capped panel within the safe display. Landscape remains safe-height, with dock-aware entrance motion and mirrored attached corners. The compact rail is top-aligned with 60 dp destinations; content scroll stays independent. See `38_HUD_RESPONSIVE_WINDOWS.md` for geometry, interaction boundaries and physical review evidence.

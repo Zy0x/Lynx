@@ -1,3 +1,17 @@
+# Lynx Universal [Anchored Elegant HUD Drawer & MediaTek RT9471 Charging Safeguard] 7.0.0-RC272
+Released on: 2026-10-30
+> Lynx Kernel Manager v3.3.6
+
+- Mengeliminasi anomali pengisian daya terputus dan siklus Hi-Z disconnect loop pada IC charger Richtek RT9471 / RT9759 (MediaTek Helio G96 Infinix):
+  - Menghapus eksekusi berbahaya pemicu soft-reconnect `Pump_Express = 1` yang secara keliru memaksa register hardware `rt9471_enable_powerpath = 0` dan `__rt9471_enable_hz = 1`, memutus jalur VBUS (`chg_in = 0`) dan mengharuskan pencabutan/pemasangan ulang kabel fisik (*replug*).
+  - Mengoreksi ambang batas deteksi pengisian macet (*stalled 5V watchdog*) dari `< 2200 mA` menjadi `< 400 mA` dengan verifikasi register PMIC, sehingga arus pengisian normal 5V (1500–2100 mA) diakui sebagai status sehat tanpa memutus arus.
+  - Menghapus penguncian hak akses read-only `0444` (`write_node_lock`) pada node kontrol arus MediaTek (`input_current`, `sc_ibat_limit`, `chg1_current`), mempertahankan izin terbuka `0666` agar transisi antar mode (Hyper, Standard, Cool) berjalan mulus tanpa kegagalan izin (EACCES).
+- Menyelaraskan posisi pembukaan sidebar HUD dengan handle tersimpan dan membatasi panel ke area layar aman.
+- Merapikan rail navigasi compact di bagian atas, header, telemetri, serta grid alat cepat dengan warna graphite dan aksen mint.
+- Menambahkan transisi masuk sesuai sisi dock dan mempertahankan subhalaman serta scroll konten terpisah.
+
+---
+
 # Lynx Universal [MediaTek TPD Keypad Mode Elimination & Anti-Drop Joystick Debounce] 7.0.0-RC271
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.5

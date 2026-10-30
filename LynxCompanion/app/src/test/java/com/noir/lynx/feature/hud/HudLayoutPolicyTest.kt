@@ -34,18 +34,26 @@ class HudLayoutPolicyTest {
         assertEquals(long, HudLayoutPolicy.resolve(336f, 240f))
     }
 
-    @Test fun portraitPanelStaysAtBottomOfSafeAreaWithoutMovingLandscape() {
+    @Test fun portraitExpansionFollowsHandleAndClampsAtBothScreenEdges() {
         for (density in listOf(1f, 2.625f, 3f)) {
             for (height in listOf(480f, 800f, 1200f)) {
                 val portrait = HudViewport(360f, height)
                 val safeHeight = (height * density).toInt()
-                val top = portrait.panelTop(72, safeHeight, density)
-                assertTrue(top >= 72)
-                assertTrue(top + kotlin.math.ceil(portrait.panelHeight * density).toInt() <= 72 + safeHeight)
-                assertTrue(portrait.panelHeight <= 600f)
+                var previousTop = 72
+                for (fraction in listOf(0f, .05f, .2f, .4f, .7f, .95f, 1f)) {
+                    val top = portrait.panelTop(72, safeHeight, density, fraction)
+                    assertTrue(top >= previousTop)
+                    assertTrue(top + kotlin.math.ceil(portrait.panelHeight * density).toInt() <= 72 + safeHeight)
+                    previousTop = top
+                }
+                assertTrue(portrait.panelHeight <= 440f)
             }
-            assertEquals(72, HudViewport(800f, 360f).panelTop(72, (360f * density).toInt(), density))
+            assertEquals(72, HudViewport(800f, 360f).panelTop(72, (360f * density).toInt(), density, .8f))
         }
+        val panel = HudViewport(400f, 900f)
+        assertEquals(208, panel.panelTop(20, 900, 1f, .2f))
+        assertEquals(416, panel.panelTop(40, 1800, 2f, .2f))
+        assertEquals(480, panel.panelTop(20, 900, 1f, 1f))
     }
 
     @Test fun safeWindowAndScaledLabelMatrixStaysWithinExistingOverlayLimits() {
