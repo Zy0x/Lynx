@@ -2571,13 +2571,30 @@ impl ChargingRegulator {
         // 4. In Hyper Mode, lock Battery_Temperature to 25°C with 0444 so kernel battery driver never derates current
         Self::write_node_lock(BATT_TEMP_NODE, "25");
 
-        // 5. MediaTek ABCCT PID Thermal Derater Neutralization: verified syntax
+        // 5. MediaTek ABCCT PID & BTS Thermal Derater Neutralization:
+        // A. Remove abcct and abcct_lcmoff from thermal_zone1 (mtktsAP) trip points
+        let tzbts_cmd = "1 100000 0 mtktsAP-sysrst 95000 0 mtk-cl-kshutdown00 95000 0 mtk-cl-cam00 99000 0 no-cooler 99000 0 no-cooler 95000 0 no-cooler 90000 0 no-cooler 85000 0 no-cooler 80000 0 no-cooler 75000 0 no-cooler 1000";
+        Self::write_node("/proc/driver/thermal/tzbts", tzbts_cmd);
+
+        let tzbtspa_cmd = "1 120000 0 mtk-cl-kshutdown02 110000 0 no-cooler 100000 0 no-cooler 99000 0 no-cooler 99000 0 no-cooler 95000 0 no-cooler 90000 0 no-cooler 85000 0 no-cooler 80000 0 no-cooler 75000 0 no-cooler 1000";
+        Self::write_node("/proc/driver/thermal/tzbtspa", tzbtspa_cmd);
+
+        // B. Uncap battery charging current limits in clbcct
+        Self::write_node("/proc/driver/thermal/clbcct", "0 7000 7000 7000");
+
+        // C. PID controllers for clabcct (12 args) and clabcct_lcmoff (9 args)
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
             Self::write_node_lock(CLABCCT_LCMOFF_NODE, "1 70000 1000 200000 7000 7000 0 7000 0");
         }
         if Path::new(CLABCCT_NODE).exists() {
-            Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 7000 7000 0 1 1 0");
+            Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 7000 7000 0 1 1 0 7000 7000 0");
         }
+
+        // D. Transsion BatteryNotify & BN_TestMode: neutralize userspace thermal notification clamps
+        Self::write_node_lock(&format!("{}/BatteryNotify", MTK_DIR), "0");
+        Self::write_node_lock(&format!("{}/BN_TestMode", MTK_DIR), "1");
+        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
+        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
 
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
         Self::set_bcct_throttle(false);
@@ -3342,8 +3359,9 @@ impl ChargingRegulator {
                 susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 
-            // If hyper mode is already active and critical invariants are intact, skip heavy re-init
+            // If hyper mode is already active and critical invariants are intact, keep thermal neutralization clamped!
             if marker.starts_with("hyper-") && invariants_intact {
+                Self::apply_charger_thermal_neutralization();
                 return;
             }
 

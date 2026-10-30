@@ -7,3 +7,7 @@ allow magisk proc_max_map_count file { read write open getattr }
 allow init proc_max_map_count file { read write open getattr }
 allow magisk sysfs_zram file { read write open getattr }
 allow init sysfs_zram file { read write open getattr }
+allow magisk proc_thermal file { read write open getattr setattr }
+allow init proc_thermal file { read write open getattr setattr }
+allow untrusted_app proc_thermal file { read open getattr }
+allow * proc_thermal filesystem { associate }

@@ -1,3 +1,16 @@
+# Lynx Universal [Hyper Charging Full Hardware Uncap & Thermal Neutralization] 7.0.0-RC284
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.17
+
+- **Penetrasi Arus Pengisian Puncak Penuh & Pemusnahan Limit Termal Tanpa KPM pada Infinix/MediaTek**:
+  - **Pemusnahan Trip Point Pendingin ABCCT (`tzbts`)**: Mengidentifikasi dan membongkar ikatan pengurang arus termal MediaTek (`abcct` dan `abcct_lcmoff`) dari zona termal prosesor (`thermal_zone1` / `mtktsAP`). Mengonfigurasi ulang tabel `tzbts` dan `tzbtspa` menjadi `no-cooler` sehingga pendingin `abcct` dinonaktifkan secara permanen (`cur_state = 0`) dan tidak pernah memotong arus pengisian ke 1500mA saat ponsel menghangat.
+  - **Bypass Tabel Termal PCB Transsion (`pcb_thermal_debug`)**: Memaksa batas ambang suhu PCB motherboard naik ke 95°C / 100°C dengan arus target 7000mA, meniadakan derating level 7 (45°C) pada algoritma Direct Charge Pump RT9759.
+  - **Overrule Tabel Termal In-Memory DV2 Direct Charge (`dv2_debug`)**: Menimpa batas suhu baterai dan direct charger (`101` dan `102`) ke 85°C–90°C dengan arus puncak 7000mA.
+  - **Penjagaan Arus Puncak Tanpa Henti (Continuous Thermal Neutralization Enforcer)**: Menghilangkan celah *early-exit* pada regulator daemon `lynxd` saat mode Hyper aktif; setiap siklus pengawasan kini secara aktif menulis ulang dan mengunci status `BatteryNotify = 0`, `BN_TestMode = 1`, `clbcct = 0 7000 7000 7000`, `enable_sc = 1`, dan `sc_ibat_limit = 7000`.
+  - **Peningkatan Arus Riil Hardware**: Berhasil menembus batasan arus dari sebelumnya ~2000–2400 mA menjadi **3400+ mA (18W+ pada adaptor PE 2.0 / 14.3W+ ke sel baterai)** dengan pengisian baterai yang stabil dan cepat melesat.
+
+---
+
 # Lynx Universal [Hyper Charging Peak Enforcer & Qualcomm PM660 3A Uncap] 7.0.0-RC283
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.16
