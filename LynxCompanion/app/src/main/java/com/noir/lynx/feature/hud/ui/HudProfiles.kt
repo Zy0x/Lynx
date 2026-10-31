@@ -18,13 +18,15 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
     var extreme by rememberSaveable { mutableStateOf(false) }
     val normalized = normalizeProfile(current)
     val activeLabelRes = hudProfileLabel(normalized)
+    val activeColor = hudProfileColor(normalized)
+    val extremeColor = hudProfileColor("extreme")
 
     val profilesInfo = hudString(R.string.hud_profile_help)
 
     HudSection(
         title = hudString(R.string.hud_profile),
         badge = hudString(activeLabelRes),
-        accentColor = if (normalized == "extreme") HudOrange else HudCyan,
+        accentColor = activeColor,
         info = profilesInfo
     ) {
         Column(
@@ -37,20 +39,20 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 "performance" to hudString(R.string.hud_performance))
             HudAdaptiveGrid(primary.map { it.second }, maximum = 2) { index ->
                 val (key, label) = primary[index]
-                HudChoice(label, normalized == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy)
+                HudChoice(label, normalized == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy, accentColor = hudProfileColor(key))
             }
             var more by rememberSaveable { mutableStateOf(false) }
             HudDisclosure(hudString(R.string.hud_profile_more), more) { more = !more }
             if (more) {
                 HudChoice(hudString(R.string.hud_auto), normalized == "auto", { onProfile("auto") }, Modifier.fillMaxWidth(), enabled = !busy)
-                HudChoice(hudString(R.string.hud_extreme), normalized == "extreme", { extreme = true }, Modifier.fillMaxWidth(), enabled = !busy, accentColor = HudOrange)
+                HudChoice(hudString(R.string.hud_extreme), normalized == "extreme", { extreme = true }, Modifier.fillMaxWidth(), enabled = !busy, accentColor = extremeColor)
             }
 
             if (busy) {
                 Text(
                     text = hudString(R.string.hud_applying),
                     fontSize = 12.sp,
-                    color = HudBlue
+                    color = activeColor
                 )
             }
 
@@ -58,6 +60,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 Surface(
                     color = HudElevated,
                     shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, extremeColor.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -68,7 +71,7 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                             text = hudString(R.string.hud_extreme_title),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = HudOrange
+                            color = extremeColor
                         )
                         Text(
                             text = hudString(R.string.hud_extreme_warning),

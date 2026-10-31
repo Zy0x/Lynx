@@ -1,5 +1,7 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +47,15 @@ internal fun normalizeProfile(profile: String?): String = when (profile?.lowerca
     else -> "balance"
 }
 
+/** Distinct, vivid color identity for each profile mode to ensure interactive visual clarity. */
+internal fun hudProfileColor(profile: String?): Color = when (normalizeProfile(profile)) {
+    "powersave" -> Color(0xFF00E676)   // Vibrant Emerald Green (Battery saving & efficiency)
+    "balance" -> Color(0xFF38BDF8)     // Electric Azure Blue (Smooth daily balance)
+    "performance" -> Color(0xFFFB923C) // Gaming Sunset Orange (High responsiveness & gaming)
+    "extreme" -> Color(0xFFFF4D4D)     // Neon Crimson Red (Uncapped maximum hardware boost)
+    else -> Color(0xFF38BDF8)
+}
+
 @Composable
 internal fun HudSummaryProfileCards(
     current: String?,
@@ -62,10 +73,10 @@ internal fun HudSummaryProfileCards(
     )
 
     val items = listOf(
-        ProfileCardItem("powersave", R.string.hud_save, Icons.Default.BatteryChargingFull, Color(0xFF4ADE80)),
-        ProfileCardItem("balance", R.string.hud_balanced, Icons.Default.Tune, HudBlue),
-        ProfileCardItem("performance", R.string.hud_performance, Icons.Default.Speed, Color(0xFF38BDF8)),
-        ProfileCardItem("extreme", R.string.hud_extreme, Icons.Default.LocalFireDepartment, HudOrange)
+        ProfileCardItem("powersave", R.string.hud_save, Icons.Default.BatteryChargingFull, hudProfileColor("powersave")),
+        ProfileCardItem("balance", R.string.hud_balanced, Icons.Default.Tune, hudProfileColor("balance")),
+        ProfileCardItem("performance", R.string.hud_performance, Icons.Default.Speed, hudProfileColor("performance")),
+        ProfileCardItem("extreme", R.string.hud_extreme, Icons.Default.LocalFireDepartment, hudProfileColor("extreme"))
     )
 
     val activeKey = selectedPending ?: normalizeProfile(current)
@@ -74,6 +85,11 @@ internal fun HudSummaryProfileCards(
     }
 
     val activeItem = items.find { it.key == activeKey } ?: items[1]
+    val animatedPillColor by animateColorAsState(
+        targetValue = activeItem.accentColor,
+        animationSpec = tween(durationMillis = 200),
+        label = "hud_profile_pill_color"
+    )
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
@@ -91,17 +107,17 @@ internal fun HudSummaryProfileCards(
                     fontWeight = FontWeight.Medium,
                     color = HudMuted
                 )
-                // Informative pill showing current active profile
+                // Informative pill showing current active profile with dynamic profile accent color
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = activeItem.accentColor.copy(alpha = 0.16f),
-                    border = BorderStroke(0.8.dp, activeItem.accentColor.copy(alpha = 0.5f))
+                    color = animatedPillColor.copy(alpha = 0.16f),
+                    border = BorderStroke(0.8.dp, animatedPillColor.copy(alpha = 0.55f))
                 ) {
                     Text(
                         text = hudString(activeItem.labelRes),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = activeItem.accentColor,
+                        color = animatedPillColor,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                     )
                 }
@@ -110,7 +126,7 @@ internal fun HudSummaryProfileCards(
                 Text(
                     text = hudString(R.string.hud_applying),
                     fontSize = 11.sp,
-                    color = HudBlue
+                    color = animatedPillColor
                 )
             }
         }
@@ -123,16 +139,12 @@ internal fun HudSummaryProfileCards(
             ) {
                 rowItems.forEach { item ->
                     val isSelected = activeKey == item.key
-                    val cardBorder = if (isSelected) {
-                        BorderStroke(1.2.dp, item.accentColor.copy(alpha = 0.75f))
-                    } else {
-                        BorderStroke(1.dp, HudBorder)
-                    }
-                    val cardBackground = if (isSelected) {
-                        item.accentColor.copy(alpha = 0.18f)
-                    } else {
-                        HudCard
-                    }
+                    val targetBorderColor = if (isSelected) item.accentColor.copy(alpha = 0.75f) else HudBorder
+                    val targetBgColor = if (isSelected) item.accentColor.copy(alpha = 0.18f) else HudCard
+                    val targetIconTint = if (isSelected) item.accentColor else HudMuted
+                    val animatedBorderColor by animateColorAsState(targetBorderColor, tween(180), label = "card_border_${item.key}")
+                    val animatedBgColor by animateColorAsState(targetBgColor, tween(180), label = "card_bg_${item.key}")
+                    val animatedIconTint by animateColorAsState(targetIconTint, tween(180), label = "card_icon_${item.key}")
 
                     Surface(
                         onClick = {
@@ -150,8 +162,8 @@ internal fun HudSummaryProfileCards(
                             .weight(1f)
                             .heightIn(min = 44.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = cardBackground,
-                        border = cardBorder
+                        color = animatedBgColor,
+                        border = BorderStroke(if (isSelected) 1.2.dp else 1.dp, animatedBorderColor)
                     ) {
                         Row(
                             modifier = Modifier
@@ -163,7 +175,7 @@ internal fun HudSummaryProfileCards(
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = null,
-                                tint = if (isSelected) item.accentColor else HudMuted,
+                                tint = animatedIconTint,
                                 modifier = Modifier.size(17.dp)
                             )
                             Text(
@@ -179,10 +191,11 @@ internal fun HudSummaryProfileCards(
         }
 
         if (confirmExtreme) {
+            val extremeColor = hudProfileColor("extreme")
             Surface(
                 color = HudElevated,
                 shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, HudOrange.copy(alpha = 0.45f)),
+                border = BorderStroke(1.dp, extremeColor.copy(alpha = 0.5f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -193,7 +206,7 @@ internal fun HudSummaryProfileCards(
                         text = hudString(R.string.hud_extreme_title),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = HudOrange
+                        color = extremeColor
                     )
                     Text(
                         text = hudString(R.string.hud_extreme_warning),

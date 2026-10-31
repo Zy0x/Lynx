@@ -1,3 +1,19 @@
+# Lynx Universal [HUD Dynamic Interactive Profile Pill & Card Color Coding] 7.0.0-RC294
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.27
+
+- **Sistem Pewarnaan Dinamis & Interaktif Pill serta Kartu Profil pada HUD Ringkasan**:
+  - **Identitas Warna Unik & Tegas per Profil**:
+    - **Hemat (Powersave)**: *Vibrant Emerald Green* (`#00E676`) melambangkan efisiensi energi dan penghematan baterai.
+    - **Seimbang (Balance)**: *Electric Azure Blue* (`#38BDF8`) melambangkan kestabilan performa harian yang mulus.
+    - **Kinerja (Performance)**: *Gaming Sunset Orange* (`#FB923C`) menggantikan warna biru sebelumnya sehingga membedakan mode gaming secara tegas dari mode seimbang.
+    - **Ekstrem (Extreme)**: *Neon Crimson Red* (`#FF4D4D`) melambangkan daya komputasi perangkat tanpa pembatasan hardware.
+  - **Sinkronisasi Pill & Kartu Profil Dinamis (`hudProfileColor`)**: Memastikan pill indikator `Profil [Mode]` dan kartu 2x2 pada HUD Ringkasan secara reaktif mengadopsi warna profil aktif masing-masing dengan animasi transisi halus (`animateColorAsState`).
+  - **Penyelarasan Warna Lintas Komponen HUD**: Menerapkan fungsi `hudProfileColor` universal pada `HudProfiles` dan lencana header `HudLab` sehingga seluruh antarmuka profil HUD memiliki harmoni visual yang konsisten dan interaktif.
+  - **Theming Dialog Konfirmasi Ekstrem**: Dialog peringatan ekstrem dan tombol konfirmasi kini berpadu dengan aksen *Neon Crimson Red* guna memberikan peringatan visual yang jelas.
+
+---
+
 # Lynx Universal [HUD Profile Verification Clamped Driver Fix & Feedback Banner Accuracy] 7.0.0-RC293
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.26
