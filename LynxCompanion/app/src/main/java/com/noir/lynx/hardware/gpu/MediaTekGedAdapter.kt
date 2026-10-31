@@ -398,7 +398,7 @@ class MediaTekGedAdapter : GpuBackendAdapter {
     override suspend fun setGovernor(governor: String): WriteResult = withContext(Dispatchers.IO) {
         val targetVal = if (governor.startsWith("ged_mode_")) governor.removePrefix("ged_mode_") else governor
         val devfreqCandidate = Shell.cmd("ls -d /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu* 2>/dev/null").exec().out.firstOrNull()?.trim()
-        if (!devfreqCandidate.isNullOrBlank() && NodeWriter.nodeExists("$devfreqCandidate/governor")) {
+        if (!devfreqCandidate.isNullOrBlank()) {
             val r = NodeWriter.writeVerified("$devfreqCandidate/governor", targetVal)
             if (r is WriteResult.Applied) return@withContext r
         }
