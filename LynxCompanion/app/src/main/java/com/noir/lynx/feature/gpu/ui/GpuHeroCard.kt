@@ -33,14 +33,7 @@ fun GpuTelemetryStrip(
     modifier: Modifier = Modifier
 ) {
     val displayEngine = if (renderer.isNotBlank() && renderer != "AUTO") renderer else "GL"
-    val govShort = when {
-        gpu.currentGovernor.contains("adreno-tz", ignoreCase = true) -> "Adreno-TZ"
-        gpu.currentGovernor.contains("performance", ignoreCase = true) -> "Performance"
-        gpu.currentGovernor.contains("powersave", ignoreCase = true) -> "Powersave"
-        gpu.currentGovernor.contains("schedutil", ignoreCase = true) -> "Schedutil"
-        gpu.currentGovernor.isNotBlank() -> gpu.currentGovernor.take(10)
-        else -> "Dynamic"
-    }
+    val govShort = formatGpuGovernorShort(gpu.currentGovernor, gpu.platform)
     val wattage = gpu.dynamicWattage
     val wattText = String.format(java.util.Locale.US, "%.2f W", wattage)
     val vramText = if (gpu.vramUsageMb > 0) "${gpu.vramUsageMb} MB" else "Dinamis"

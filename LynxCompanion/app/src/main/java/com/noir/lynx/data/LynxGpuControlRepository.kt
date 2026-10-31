@@ -189,7 +189,9 @@ internal object LynxGpuControlRepository {
 
     suspend fun setGpuGovernor(governor: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val cleanGov = governor.split(Regex("[\\s•]+")).firstOrNull()?.trim() ?: governor.trim()
+            val raw = governor.trim()
+            val cleanGov = if (raw.startsWith("ged_mode_")) raw.removePrefix("ged_mode_")
+                           else raw.split(Regex("[\\s•]+")).firstOrNull()?.trim() ?: raw
             val adapterRes = GpuBackendManager.getActiveAdapter().setGovernor(cleanGov)
             if (adapterRes !is WriteResult.Rejected) return@withContext true
 
@@ -199,7 +201,13 @@ internal object LynxGpuControlRepository {
                     echo '$cleanGov' > /sys/class/kgsl/kgsl-3d0/devfreq/governor 2>/dev/null
                     echo ok
                 elif [ -d /sys/kernel/ged/hal ]; then
-                    echo '$cleanGov' > /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null
+                    dfPath=${'$'}(ls -d /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu* 2>/dev/null | head -n 1)
+                    if [ -n "${'$'}dfPath" ] && [ -f "${'$'}dfPath/governor" ]; then
+                        chmod 644 "${'$'}dfPath/governor" 2>/dev/null
+                        echo '$cleanGov' > "${'$'}dfPath/governor" 2>/dev/null
+                    else
+                        echo '$cleanGov' > /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null
+                    fi
                     echo ok
                 else
                     devpath=""

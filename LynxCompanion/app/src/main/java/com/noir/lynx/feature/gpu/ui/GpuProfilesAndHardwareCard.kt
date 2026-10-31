@@ -585,7 +585,11 @@ fun AdaptiveGpuHardwareCard(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 gpu.availableGovernors.forEach { gov ->
-                                    val isSel = gpu.currentGovernor.trim() == gov.trim()
+                                    val cleanCur = gpu.currentGovernor.trim()
+                                    val cleanTarget = gov.trim()
+                                    val isSel = cleanCur == cleanTarget ||
+                                                cleanCur.removePrefix("ged_mode_") == cleanTarget.removePrefix("ged_mode_")
+                                    val displayGov = formatGpuGovernorLabel(gov, gpu.platform)
                                     Surface(
                                         onClick = { onSetGovernor(gov) },
                                         shape = RoundedCornerShape(8.dp),
@@ -594,7 +598,7 @@ fun AdaptiveGpuHardwareCard(
                                         modifier = Modifier.defaultMinSize(minHeight = 44.dp)
                                     ) {
                                         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                            Text(gov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                            Text(displayGov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
                                         }
                                     }
                                 }

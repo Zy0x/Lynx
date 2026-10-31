@@ -489,11 +489,12 @@ fun GpuOppTableCard(
                 Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                     Text("GOVERNOR", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        gpuInfo.currentGovernor.ifBlank { "Default" },
+                        formatGpuGovernorLabel(gpuInfo.currentGovernor, gpuInfo.platform).ifBlank { "Default" },
                         color = AccentGreen,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
             }

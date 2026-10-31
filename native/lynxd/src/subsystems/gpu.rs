@@ -274,8 +274,14 @@ impl GpuController {
                 format!("Qualcomm Adreno GPU governor set to {}.", target_gov)
             }
             GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
-                Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", target_gov);
-                format!("MediaTek GED GPU loading mode set to {}.", target_gov)
+                if let Some(ref devpath) = gpu.devfreq_path {
+                    Self::write_opt(devpath.join("governor"), target_gov);
+                    format!("MediaTek Devfreq GPU governor set to {}.", target_gov)
+                } else {
+                    let clean_gov = target_gov.strip_prefix("ged_mode_").unwrap_or(target_gov);
+                    Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", clean_gov);
+                    format!("MediaTek GED GPU loading mode set to {}.", clean_gov)
+                }
             }
             GpuDriver::GenericDevfreq => {
                 if let Some(ref devpath) = gpu.devfreq_path {

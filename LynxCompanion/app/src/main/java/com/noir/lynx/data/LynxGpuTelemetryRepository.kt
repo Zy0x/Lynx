@@ -148,7 +148,6 @@ internal object LynxGpuTelemetryRepository {
                     }
                 }
             }
-
             LynxRepository.cachedTopGraphicsProcesses = result.sortedByDescending { it.cpuPercent }.take(5)
             LynxRepository.cachedTopGraphicsProcesses
         } catch (e: Exception) {
@@ -417,8 +416,21 @@ internal object LynxGpuTelemetryRepository {
                     load=${'$'}(cat /sys/kernel/ged/hal/gpu_utilization 2>/dev/null | awk '{print int(${'$'}1)}')
                     [ -z "${'$'}load" ] && load=${'$'}(cat /proc/gpufreq/gpufreq_var_dump 2>/dev/null | grep 'gpu_loading' | cut -d '=' -f 2 | tr -d ' \n')
                     echo "load:${'$'}load"
-                    echo "gov:${'$'}(cat /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null | tr -d ' \n')"
-                    echo "availgov:0 1 2"
+                    real_gov=${'$'}(for df in /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu* /sys/devices/platform/*.mali/devfreq/*; do [ -f "${'$'}df/governor" ] && cat "${'$'}df/governor" 2>/dev/null && break; done | tr -d ' \n')
+                    [ -z "${'$'}real_gov" ] && [ -f /sys/kernel/gpu/gpu_governor ] && real_gov=${'$'}(cat /sys/kernel/gpu/gpu_governor 2>/dev/null | tr -d ' \n')
+                    [ -z "${'$'}real_gov" ] && [ -f /sys/devices/platform/*.mali/power_policy ] && real_gov=${'$'}(cat /sys/devices/platform/*.mali/power_policy 2>/dev/null | tr -d ' \n')
+                    if [ -n "${'$'}real_gov" ]; then
+                        echo "gov:${'$'}real_gov"
+                        echo "availgov:${'$'}(for df in /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu*; do [ -f "${'$'}df/available_governors" ] && cat "${'$'}df/available_governors" 2>/dev/null && break; done | tr '\n' ' ')"
+                    else
+                        ged_mode=${'$'}(cat /sys/kernel/ged/hal/dvfs_loading_mode 2>/dev/null | tr -d ' \n')
+                        if [ -n "${'$'}ged_mode" ]; then
+                            echo "gov:ged_mode_${'$'}ged_mode"
+                            echo "availgov:ged_mode_0 ged_mode_1 ged_mode_2"
+                        else
+                            echo "gov:ged"
+                        fi
+                    fi
                     echo "framepacing:${'$'}(cat /sys/kernel/fpsgo/common/gpu_block_boost 2>/dev/null | awk '{print ${'$'}1}')"
                     thrm_lim="0"
                     if [ -f /proc/gpufreq/gpufreq_limit_table ]; then
@@ -682,6 +694,4 @@ internal object LynxGpuTelemetryRepository {
             )
         } catch (e: Exception) { Log.e("LynxRepository", "readGpuInfo: ${e.message}"); GpuInfo() }
     }
-
-
 }

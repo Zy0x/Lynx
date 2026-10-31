@@ -396,6 +396,20 @@ async function pollTelemetry() {
                 });
             }
 
+function formatWebGpuGovLabel(g, vendor) {
+    if (!g) return '';
+    const clean = g.trim();
+    if (clean.startsWith('ged_mode_')) {
+        const m = clean.replace('ged_mode_', '');
+        return `GED Mode ${m} (dvfs_loading_mode)`;
+    }
+    const isMtk = (vendor && (vendor.toLowerCase().includes('mali') || vendor.toLowerCase().includes('mediatek'))) || ['0','1','2'].includes(clean);
+    if (isMtk && ['0','1','2'].includes(clean)) {
+        return `GED Mode ${clean} (dvfs_loading_mode)`;
+    }
+    return clean;
+}
+
             const govSel = document.getElementById('web-gpu-gov-select');
             if (govSel && data.gpu_avail_govs && data.gpu_avail_govs.length > 0) {
                 if (govSel.options.length <= 1 || govSel.dataset.loaded !== 'true') {
@@ -403,8 +417,8 @@ async function pollTelemetry() {
                     data.gpu_avail_govs.forEach(g => {
                         const opt = document.createElement('option');
                         opt.value = g;
-                        opt.textContent = g;
-                        if (g === data.gpu_cur_gov) opt.selected = true;
+                        opt.textContent = formatWebGpuGovLabel(g, data.gpu_vendor);
+                        if (g === data.gpu_cur_gov || (g.startsWith('ged_mode_') && data.gpu_cur_gov === g.replace('ged_mode_', ''))) opt.selected = true;
                         govSel.appendChild(opt);
                     });
                     govSel.dataset.loaded = 'true';
@@ -1035,8 +1049,8 @@ async function pollGpuInfo() {
                     data.avail_govs.forEach(g => {
                         const opt = document.createElement('option');
                         opt.value = g;
-                        opt.textContent = g;
-                        if (g === data.cur_gov) opt.selected = true;
+                        opt.textContent = formatWebGpuGovLabel(g, data.vendor);
+                        if (g === data.cur_gov || (g.startsWith('ged_mode_') && data.cur_gov === g.replace('ged_mode_', ''))) opt.selected = true;
                         govSel.appendChild(opt);
                     });
                     govSel.dataset.loaded = 'true';
@@ -1087,8 +1101,9 @@ async function setWebGpuFreq(freqMhz) {
 
 async function setWebGpuGov(gov) {
     if (!gov) return;
+    const cleanGov = gov.startsWith('ged_mode_') ? gov.replace('ged_mode_', '') : gov;
     logToConsole(`Menyetel governor GPU ke ${gov}...`);
-    const res = await execCmd(`${LYNXD} gpu set_gov ${gov}`);
+    const res = await execCmd(`${LYNXD} gpu set_gov ${cleanGov}`);
     logToConsole(res.stdout || `Governor GPU ${gov} diterapkan`, 'success');
 }
 

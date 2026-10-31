@@ -396,7 +396,13 @@ class MediaTekGedAdapter : GpuBackendAdapter {
     }
 
     override suspend fun setGovernor(governor: String): WriteResult = withContext(Dispatchers.IO) {
-        NodeWriter.writeVerified("$gedHalDir/dvfs_loading_mode", governor)
+        val targetVal = if (governor.startsWith("ged_mode_")) governor.removePrefix("ged_mode_") else governor
+        val devfreqCandidate = Shell.cmd("ls -d /sys/class/devfreq/*mali* /sys/class/devfreq/*gpu* 2>/dev/null").exec().out.firstOrNull()?.trim()
+        if (!devfreqCandidate.isNullOrBlank() && NodeWriter.nodeExists("$devfreqCandidate/governor")) {
+            val r = NodeWriter.writeVerified("$devfreqCandidate/governor", targetVal)
+            if (r is WriteResult.Applied) return@withContext r
+        }
+        NodeWriter.writeVerified("$gedHalDir/dvfs_loading_mode", targetVal)
     }
 
     override suspend fun setThermalBypass(enabled: Boolean): WriteResult = withContext(Dispatchers.IO) {

@@ -1,3 +1,17 @@
+# Lynx Universal [Dynamic & Non-Hardcoded Multi-SoC GPU Governor Discovery] 7.0.0-RC286
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.19
+
+- **Arsitektur Resolusi Dinamis & Non-Hardcoded GPU Governor (Qualcomm, MediaTek GED & Devfreq Linux)**:
+  - **Pemusnahan Asumsi Hardcoded (`1 != Perf`)**: Menghilangkan seluruh asumsi tebakan sepihak yang menganggap angka integer register driver seperti `1` selalu berarti "Performa". Di berbagai kernel dan vendor, parameter register numerik merepresentasikan fungsi yang berbeda; Lynx kini 100% patuh pada prinsip kejujuran data (*anti-guessing / zero false label*).
+  - **Pemindaian Hierarkis Teks Governor Asli (*True Devfreq Probe*)**: Sebelum memeriksa register proprietary vendor, Lynx Daemon (`lynxd`) dan repository telemetri memindai seluruh kandidat node devfreq GPU Linux nyata (`/sys/class/devfreq/*mali*/governor`, `/sys/class/devfreq/*gpu*/governor`, `/sys/devices/platform/*.mali/devfreq/*/governor`, `/sys/kernel/gpu/gpu_governor`, dan `/sys/devices/platform/*.mali/power_policy`). Jika ditemukan teks governor nyata dari kernel (seperti `simple_ondemand`, `coarse_demand`, `powersave`), teks asli ini langsung digunakan apa adanya.
+  - **Penyajian Kontekstual Transparan untuk MediaTek GED HAL**: Jika kernel murni mengandalkan driver proprietary MediaTek GED tanpa subsistem devfreq Linux standar (sehingga membaca register internal `/sys/kernel/ged/hal/dvfs_loading_mode`):
+    - Pada micro-tile telemetri ringkas: Ditampilkan identitas subsistem faktual **`GED (1)`** atau **`GED (X)`** (bukan angka `1` telanjang yang membingungkan tanpa konteks, dan bukan "Perf" hasil tebakan).
+    - Pada Tab Diagnostik & Info: Ditampilkan transparan bersama sumber nodenya: **`GED Mode 1 (/sys/kernel/ged/hal/dvfs_loading_mode)`**.
+  - **Penyelarasan Selector Chip & WebUI**: Mengharmonisasikan pemilih governor hardware pada `AdaptiveGpuHardwareCard` dan dropdown `webroot/app.js` agar secara dinamis menampilkan mode register nyata (`GED Mode X (dvfs_loading_mode)`) dan secara otomatis membersihkan prefix saat menulis kembali ke sysfs.
+
+---
+
 # Lynx Universal [Glanceable 4-Profile Bento Cards for HUD Summary] 7.0.0-RC285
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.18

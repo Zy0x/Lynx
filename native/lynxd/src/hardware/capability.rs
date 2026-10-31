@@ -523,9 +523,53 @@ impl HardwareCapability {
                 max_freq_mhz = locked_f;
             }
 
-            let cur_governor = SysfsReader::read_trimmed("/sys/kernel/ged/hal/dvfs_loading_mode")
-                .or_else(|_| SysfsReader::read_trimmed("/sys/module/ged/parameters/cpu_boost_policy"))
-                .unwrap_or_else(|_| "ged".to_string());
+            let mut mtk_devfreq_path = None;
+            let mut cur_governor = String::new();
+            let mut available_governors = Vec::new();
+
+            // 1. Probe real Linux devfreq governor first (e.g. /sys/class/devfreq/*mali*)
+            if let Some(devpath) = Self::find_generic_gpu_devfreq() {
+                if let Ok(gov) = SysfsReader::read_trimmed(devpath.join("governor")) {
+                    if !gov.is_empty() {
+                        cur_governor = gov;
+                        mtk_devfreq_path = Some(devpath.clone());
+                        if let Ok(govs_raw) = SysfsReader::read_trimmed(devpath.join("available_governors")) {
+                            for g in govs_raw.split_whitespace() {
+                                available_governors.push(g.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Probe /sys/kernel/gpu/gpu_governor or Mali power_policy
+            if cur_governor.is_empty() {
+                if let Ok(gov) = SysfsReader::read_trimmed("/sys/kernel/gpu/gpu_governor") {
+                    if !gov.is_empty() {
+                        cur_governor = gov;
+                    }
+                }
+            }
+
+            // 3. Fallback to MediaTek GED proprietary mode register without hardcoded guessing
+            if cur_governor.is_empty() {
+                if let Ok(ged_mode) = SysfsReader::read_trimmed("/sys/kernel/ged/hal/dvfs_loading_mode") {
+                    cur_governor = format!("ged_mode_{}", ged_mode);
+                    available_governors = vec![
+                        "ged_mode_0".to_string(),
+                        "ged_mode_1".to_string(),
+                        "ged_mode_2".to_string(),
+                    ];
+                } else if let Ok(pol) = SysfsReader::read_trimmed("/sys/module/ged/parameters/cpu_boost_policy") {
+                    cur_governor = pol;
+                } else {
+                    cur_governor = "ged".to_string();
+                }
+            }
+
+            if available_governors.is_empty() {
+                available_governors.push(cur_governor.clone());
+            }
 
             let load_pct = Self::read_mtk_gpu_load();
             let boost_level = SysfsReader::read_int::<u32>("/sys/module/ged/parameters/boost_amp")
@@ -545,10 +589,10 @@ impl HardwareCapability {
                 is_supported: true,
                 vendor_name: "MediaTek Mali".to_string(),
                 platform_tag: "mali_ged".to_string(),
-                devfreq_path: None,
+                devfreq_path: mtk_devfreq_path,
                 opp_table,
                 available_freqs_mhz,
-                available_governors: vec!["0".to_string(), "1".to_string(), "2".to_string(), "ged".to_string()],
+                available_governors,
                 min_freq_mhz,
                 max_freq_mhz,
                 cur_freq_mhz,
