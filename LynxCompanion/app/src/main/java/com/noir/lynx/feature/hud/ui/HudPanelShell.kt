@@ -23,7 +23,9 @@ import com.noir.lynx.feature.hud.data.*
 internal fun HudPanelShell(
     viewport: HudViewport, dockRight: Boolean, page: HudPage, title: String,
     snapshot: HudSnapshot, action: HudActionState, bypassActive: Boolean,
-    canNavigateBack: Boolean, onBack: () -> Unit, onSelect: (HudPage) -> Unit,
+    canNavigateBack: Boolean,
+    appDock: (@Composable () -> Unit)? = null,
+    onBack: () -> Unit, onSelect: (HudPage) -> Unit,
     onClose: () -> Unit, content: @Composable () -> Unit
 ) {
     var info by remember { mutableStateOf<HudInfoData?>(null) }
@@ -47,6 +49,10 @@ internal fun HudPanelShell(
                         HudPanelHeader(title, snapshot[HudMetric.BATTERY_LEVEL], snapshot[HudMetric.BATTERY_TEMP],
                             snapshot.charging, bypassActive, canNavigateBack, onBack, onClose)
                         HorizontalDivider(color = HudBorder, modifier = Modifier.padding(horizontal = 12.dp))
+                        if (appDock != null) {
+                            appDock()
+                            HorizontalDivider(color = HudBorder.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 12.dp))
+                        }
                         HudRecordingBar()
                         if (!layout.useRail) HudTopTabBar(page, onSelect, Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                         Row(Modifier.weight(1f).fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),

@@ -94,6 +94,16 @@ fun HudSidebar(
                 viewport = viewport, dockRight = dockRight, page = page, title = title,
                 snapshot = snapshot, action = action, bypassActive = bypassStatus.enabled || bypassStatus.active,
                 canNavigateBack = manageApps || page != HudPage.Summary,
+                appDock = if (!manageApps) {
+                    {
+                        HudAppDock(
+                            apps = apps,
+                            managing = false,
+                            onManage = { manageApps = true },
+                            onApp = { onOpen(false); onApp(it) }
+                        )
+                    }
+                } else null,
                 onBack = {
                     when {
                         manageApps -> manageApps = false

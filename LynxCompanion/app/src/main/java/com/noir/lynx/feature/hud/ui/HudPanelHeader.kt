@@ -238,6 +238,8 @@ private fun HudActionIconButton(
     }
 }
 
+/** Compact 1-line horizontally scrollable Freeform App Strip with hold tooltip. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun HudAppDock(
     apps: List<HudApp>,
@@ -245,74 +247,119 @@ internal fun HudAppDock(
     onManage: () -> Unit,
     onApp: (HudApp) -> Unit
 ) {
-    Row(
+    val haptic = LocalHapticFeedback.current
+    val manageLabel = hudString(R.string.hud_apps_manage)
+    var activeTooltip by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(activeTooltip) {
+        if (activeTooltip != null) {
+            delay(1800)
+            activeTooltip = null
+        }
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(vertical = 3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Floating Tooltip when an app icon is held
+        AnimatedVisibility(
+            visible = activeTooltip != null,
+            enter = fadeIn(animationSpec = tween(150)) + expandVertically(animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(180)) + shrinkVertically(animationSpec = tween(180))
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = HudElevated,
+                border = BorderStroke(1.dp, HudAccentBorder),
+                modifier = Modifier.padding(bottom = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(HudCyan)
+                    )
+                    Text(
+                        text = activeTooltip.orEmpty(),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
         Row(
             modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 10.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             apps.forEach { app ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.width((64f * androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(104f).dp)
-                ) {
-                    Surface(
-                        onClick = { onApp(app) },
-                        color = HudCard,
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Image(
-                                bitmap = app.icon.asImageBitmap(),
-                                contentDescription = app.label,
-                                modifier = Modifier
-                                    .size(21.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                            )
-                        }
-                    }
-                    Text(
-                        text = app.label,
-                        fontSize = 12.sp,
-                        color = Color(0xFFC4C7C5)
-                    )
-                }
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.width((64f * androidx.compose.ui.platform.LocalDensity.current.fontScale).coerceAtMost(104f).dp)
-            ) {
                 Surface(
-                    onClick = onManage,
-                    color = if (managing) HudBlueBadge else HudCard,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.size(48.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    color = HudCard,
+                    border = BorderStroke(1.dp, HudBorder),
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .combinedClickable(
+                            onClick = {
+                                activeTooltip = null
+                                onApp(app)
+                            },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                activeTooltip = app.label
+                            }
+                        )
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (managing) Icons.Default.Check else Icons.Default.Add,
-                            contentDescription = hudString(R.string.hud_apps_manage),
-                            modifier = Modifier.size(18.dp),
-                            tint = Color(0xFFE8EAED)
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Image(
+                            bitmap = app.icon.asImageBitmap(),
+                            contentDescription = app.label,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(5.dp))
                         )
                     }
                 }
-                Text(
-                    text = "+",
-                    fontSize = 12.sp,
-                    color = Color(0xFFC4C7C5)
-                )
+            }
+
+            // Manage Button ( + ) to add or customize apps in Freeform dock
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (managing) HudBlueBadge else HudCard,
+                border = BorderStroke(1.dp, if (managing) HudBlue else HudBorder),
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .combinedClickable(
+                        onClick = onManage,
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            activeTooltip = manageLabel
+                        }
+                    )
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        imageVector = if (managing) Icons.Default.Check else Icons.Default.Add,
+                        contentDescription = manageLabel,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (managing) HudBlue else Color(0xFFE8EAED)
+                    )
+                }
             }
         }
     }

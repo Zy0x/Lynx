@@ -1,3 +1,16 @@
+# Lynx Universal [HUD Compact Horizontal Freeform App Bar] 7.0.0-RC290
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.23
+
+- **Bilah Aplikasi Freeform Kompak Horizontal di Bawah Header Panel HUD**:
+  - **Penyematan Bilah Aplikasi Tepat di Bawah Header (Single-Row Horizontal Scroll)**: Menambahkan 1 baris dock aplikasi Freeform (WhatsApp, Chrome, Telegram, Discord, YouTube, dll.) yang kompak dan dapat digeser horizontal tepat di bawah Header utama dan garis pembatas, sebelum bilah navigasi tab.
+  - **Kemudahan Akses Mode Freeform / Floating Window**: Mengetuk ikon aplikasi mana pun langsung meluncurkannya dalam jendela mengambang (Freeform) di atas game atau aplikasi yang sedang berjalan tanpa perlu keluar dari gameplay atau membuka recent apps.
+  - **Desain Squircle Kaca Frosted 38dp & Hold Tooltip**: Menggunakan kontainer squircle kaca frosted 38×38dp dengan ikon berukuran 24dp dan padding ergonomis. Menahan ikon memunculkan gelembung tooltip nama aplikasi beserta getaran haptic halus.
+  - **Tombol Tambah/Kelola Pintar (+)**: Menyertakan tombol pintas `+` di ujung kanan baris aplikasi untuk langsung membuka pengelola aplikasi dan memilih aplikasi apa saja yang ingin ditampilkan di bilah Freeform.
+  - **Preservasi Navigasi Tab**: Seluruh tab navigasi (Ringkasan, Detail, Lab, Alat) tetap utuh pada posisinya tanpa perubahan struktural.
+
+---
+
 # Lynx Universal [HUD Icon-Only Quick Actions & Touch Freeze Safety Fix] 7.0.0-RC289
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.22
