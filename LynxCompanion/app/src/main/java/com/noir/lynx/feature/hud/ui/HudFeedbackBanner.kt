@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.Color
@@ -43,7 +44,8 @@ internal fun HudFeedbackBanner(
     busy: Boolean = false,
     actionType: String? = null
 ) {
-    val isRed = actionType == "record"
+    val isFailed = message.contains("gagal", ignoreCase = true) || message.contains("failed", ignoreCase = true)
+    val isRed = actionType == "record" || isFailed
     val accentColor = if (isRed) HudRed else HudCyan
 
     val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "SweepTransition")
@@ -89,10 +91,11 @@ internal fun HudFeedbackBanner(
                     strokeWidth = 2.2.dp
                 )
             } else {
-                val icon = when (actionType) {
-                    "ram" -> Icons.Default.Bolt
-                    "capture" -> Icons.Default.CameraAlt
-                    "record" -> Icons.Default.Videocam
+                val icon = when {
+                    isFailed -> Icons.Default.Warning
+                    actionType == "ram" -> Icons.Default.Bolt
+                    actionType == "capture" -> Icons.Default.CameraAlt
+                    actionType == "record" -> Icons.Default.Videocam
                     else -> Icons.Default.CheckCircle
                 }
                 Surface(

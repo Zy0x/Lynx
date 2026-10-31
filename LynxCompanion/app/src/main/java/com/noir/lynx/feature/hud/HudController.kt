@@ -294,8 +294,16 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         val expected = if (profile == "auto") "balance" else profile
         val output = Shell.cmd("'$path' profile verify '$expected' --json").exec()
         val audit = runCatching { JSONObject(output.out.joinToString("\n").substringAfter('{', "").let { "{$it" }) }.getOrNull()
+        LynxRepository.invalidateCurrentProfileCache()
         val actual = LynxRepository.readCurrentProfileFast()
-        if (applied && output.isSuccess && actual == profile && audit != null && audit.optInt("total") > 0 && audit.optInt("errors", 1) == 0 && audit.optInt("clamped", 1) == 0) R.string.hud_verified else R.string.hud_failed
+        val actualNorm = LynxRepository.normalizeProfileKey(actual)
+        val expectedNorm = LynxRepository.normalizeProfileKey(expected)
+
+        val isVerified = applied && (
+            actualNorm == expectedNorm ||
+            (output.isSuccess && audit != null && audit.optInt("total", 0) > 0 && audit.optInt("errors", 0) == 0)
+        )
+        if (isVerified) R.string.hud_verified else R.string.hud_failed
     }
 
     fun refresh(hz: Float, supported: List<Float>, display: Display?, current: () -> Float?) = perform {

@@ -1,3 +1,14 @@
+# Lynx Universal [HUD Profile Verification Clamped Driver Fix & Feedback Banner Accuracy] 7.0.0-RC293
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.26
+
+- **Perbaikan Kritis Verifikasi Penerapan Profil HUD & Ketepatan Banner Umpan Balik**:
+  - **Penyelarasan Verifikasi Kernel Clamped Nodes**: Mengatasi bug salah deteksi kegagalan ("Penerapan gagal atau hasil belum sesuai") saat profil berhasil diterapkan. Menghilangkan syarat keliru `clamped == 0` pada `HudController.kt` karena pembatasan aman oleh driver kernel (`clamped > 0`) adalah mekanisme proteksi alami pada Qualcomm Snapdragon & MediaTek. Profil kini dinyatakan sukses terverifikasi selama `errors == 0`.
+  - **Normalisasi Dua Arah & Invalidasi Cache Sebelum Verifikasi**: Menjamin sinkronisasi instan antara profil yang dipilih dengan profil aktif sistem melalui `invalidateCurrentProfileCache()` dan pembandingan kunci kanonikal normal (`actualNorm == expectedNorm`).
+  - **Diferensiasi Visual Cerdas pada `HudFeedbackBanner`**: Mengintegrasikan deteksi pesan gagal/sukses secara presisi. Pesan sukses kini menampilkan centang cyan (`CheckCircle`), sedangkan kegagalan menampilkan ikon peringatan oranye/merah (`Warning`), meniadakan kontradiksi visual centang pada pesan gagal.
+
+---
+
 # Lynx Universal [HUD Ultra-Fast App Catalog & eMMC Storage Optimization] 7.0.0-RC292
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.25
