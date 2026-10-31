@@ -1,3 +1,18 @@
+# Lynx Universal [HUD Icon-Only Quick Actions & Touch Freeze Safety Fix] 7.0.0-RC289
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.22
+
+- **Transformasi Bilah Alat Cepat HUD Menjadi Icon-Only Glass Dock & Fitur Hold Tooltip**:
+  - **Desain Murni Ikon Kompak (Single-Row Glass Dock)**: Merombak bagian Alat Cepat dari format kartu 2/3 baris vertikal menjadi 1 baris bilah ikon horizontal murni tanpa label statis. Menghemat ruang vertikal hingga 75% sehingga seluruh dashboard HUD muat dalam 1 layar tanpa scrolling.
+  - **Interaksi Tahan (Hold / Long-Press) Tooltip & Haptic**: Ketukan tunggal langsung menjalankan aksi (0 latency), sementara sentuhan tahan memicu getaran haptic halus dan memunculkan floating frosted tooltip bubble yang menampilkan nama alat secara elegan.
+  - **Pembaruan Ikon Representatif**: Mengganti ikon Clean RAM dari petir (`Bolt`) menjadi sapu modern-elegan (`CleaningServices`), serta menyematkan FPS dengan pin sematan (`PushPin`) dan mode fokus dengan `NotificationsOff`.
+- **Perbaikan Kritis & Mitigasi Layar Macet / Touchscreen Freeze (Combo Overlay)**:
+  - **Pencegahan Full-Screen Overlay Touch Sink**: Mengatasi bug fatal di mana overlay Combo memicu jendela transparan `MATCH_PARENT` tanpa `FLAG_NOT_TOUCHABLE`, mengunci seluruh layar sentuh perangkat jika refleksi internal insets gagal.
+  - **In-Game Only & Safe Preset Default**: Mengunci preset awal Macro Combo menjadi `enabled = false` secara default, memblokir launcher dari deteksi game, serta memastikan `FLAG_NOT_TOUCHABLE` tidak pernah dicabut jika insets tidak didukung perangkat.
+  - **Safety Watchdog Timer pada Perekam Kombo**: Menerapkan watchdog timeout otomatis 40 detik pada editor kombo dan tombol batal darurat beraksen merah 48dp untuk mencegah perangkat terjebak dalam mode perekaman.
+
+---
+
 # Lynx Universal [Hyper Charging 3500mA Uncap & Background Service Persistence] 7.0.0-RC288
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.21

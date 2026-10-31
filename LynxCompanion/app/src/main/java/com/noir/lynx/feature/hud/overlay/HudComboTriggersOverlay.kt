@@ -90,6 +90,7 @@ internal class HudComboTriggersOverlay(
     private val host: FrameLayout = FrameLayout(context)
     private val compose = ComposeView(context)
     private val visibilityJob: Job
+    private var insetsSupported = false
 
     init {
         host.setViewTreeLifecycleOwner(lifecycle)
@@ -115,7 +116,7 @@ internal class HudComboTriggersOverlay(
                 val shouldShow = hasEnabled && editingId == null && !hudOpen && isGame
                 shouldShow
             }.collect { visible ->
-                if (visible) {
+                if (visible && insetsSupported) {
                     params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                     runCatching { windows.updateViewLayout(host, params) }
                     host.visibility = View.VISIBLE
@@ -162,14 +163,18 @@ internal class HudComboTriggersOverlay(
                 null
             }
             addMethod.invoke(view.viewTreeObserver, proxy)
-        } catch (_: Throwable) {}
+            insetsSupported = true
+        } catch (_: Throwable) {
+            insetsSupported = false
+        }
     }
 
     private fun isGamePackage(pkg: String): Boolean =
         pkg.isNotBlank() && pkg !in setOf(
             "com.android.systemui", "com.android.settings", "com.android.permissioncontroller",
             "com.google.android.permissioncontroller", "me.bmax.apatch", "me.weishu.kernelsu",
-            "com.topjohnwu.magisk", "com.noir.lynx"
+            "com.topjohnwu.magisk", "com.noir.lynx", "com.android.launcher3", "com.miui.home",
+            "com.google.android.apps.nexuslauncher", "com.sec.android.app.launcher"
         )
 
     fun close() {

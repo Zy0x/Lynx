@@ -59,6 +59,7 @@ import com.noir.lynx.feature.hud.ui.HudRed
 import com.noir.lynx.feature.hud.ui.hudString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -178,6 +179,14 @@ private fun ComboRecorderContent(
     var lastTapTimeMs by remember { mutableLongStateOf(0L) }
     var selectedTapIndex by rememberSaveable { mutableIntStateOf(-1) }
     var showRenameDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Safety watchdog: auto-cancel recorder overlay after 40s of inactivity to prevent screen lockouts
+    LaunchedEffect(isRecording, draftTaps.size) {
+        if (!isRecording) {
+            delay(40_000L)
+            onCancel()
+        }
+    }
 
     val view = LocalView.current
     val density = LocalDensity.current
@@ -380,21 +389,21 @@ private fun ComboRecorderContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Close Button ( X )
+            // Left: Close Button ( X ) with high-visibility safety styling
             Surface(
                 onClick = onCancel,
                 shape = CircleShape,
-                color = Color(0xD91C1C20),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
+                color = HudRed.copy(alpha = 0.25f),
+                border = BorderStroke(1.2.dp, HudRed.copy(alpha = 0.8f)),
                 shadowElevation = 8.dp,
-                modifier = Modifier.size(buttonSize)
+                modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = hudString(R.string.hud_magic_cancel),
-                        tint = Color.White,
-                        modifier = Modifier.size(if (isLandscape) 20.dp else 18.dp)
+                        tint = HudRed,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

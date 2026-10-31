@@ -51,12 +51,12 @@ class HudComboManager(
     private fun loadCombos(): List<MacroCombo> = runCatching {
         val raw = prefs.getString("macro_combos_v2", null)
         if (raw.isNullOrBlank()) {
-            // Default preset C1
+            // Default preset C1 (disabled by default for touch safety)
             listOf(
                 MacroCombo(
                     id = "c1",
                     name = "Kombo Cepat 1",
-                    enabled = true,
+                    enabled = false,
                     executionMode = ExecutionMode.ONE_SHOT,
                     triggerXRatio = 0.88f,
                     triggerYRatio = 0.35f,
@@ -73,7 +73,7 @@ class HudComboManager(
                 val obj = array.getJSONObject(i)
                 val id = obj.optString("id", "c${i + 1}")
                 val name = obj.optString("name", "Kombo Cepat ${i + 1}")
-                val enabled = obj.optBoolean("enabled", true)
+                val enabled = obj.optBoolean("enabled", false)
                 val mode = runCatching { ExecutionMode.valueOf(obj.optString("mode", "ONE_SHOT")) }.getOrDefault(ExecutionMode.ONE_SHOT)
                 val tx = obj.optDouble("tx", 0.88).toFloat().coerceIn(0.01f, 0.99f)
                 val ty = obj.optDouble("ty", 0.35).toFloat().coerceIn(0.01f, 0.99f)
