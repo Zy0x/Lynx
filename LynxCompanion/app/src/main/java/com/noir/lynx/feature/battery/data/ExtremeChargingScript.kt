@@ -182,11 +182,12 @@ object ExtremeChargingScript {
                     [ -f "${'$'}c" ] && conf_candidate="${'$'}c" && break
                 done
                 if [ -n "${'$'}conf_candidate" ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
-                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 48000 50000 52000 54000 56000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 46000 48000 50000 52000 54000/g' "${'$'}conf_candidate" > /dev/lynx_thermal_engine.conf 2>/dev/null
+                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 75000 78000 81000 84000 87000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 70000 73000 76000 79000 82000/g; s/action_info 1 2 4 5 6/action_info 0 0 0 0 0/g' "${'$'}conf_candidate" > /dev/lynx_thermal_engine.conf 2>/dev/null
                     if [ -s /dev/lynx_thermal_engine.conf ]; then
                         chmod 644 /dev/lynx_thermal_engine.conf 2>/dev/null
                         mount -o bind /dev/lynx_thermal_engine.conf "${'$'}conf_candidate" 2>/dev/null
                         pkill -HUP -f thermal-engine 2>/dev/null
+                        pkill -HUP -f thermal-engine-v2 2>/dev/null
                     fi
                 fi
                 for tz in /sys/class/thermal/thermal_zone*; do

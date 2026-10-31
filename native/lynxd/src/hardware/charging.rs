@@ -1063,11 +1063,7 @@ impl ChargingRegulator {
                             || t_lower == "battery" || t_lower == "charger" || t_lower.contains("pm660") || t_lower.contains("smb")
                         {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
-                            if let Some(cur) = Self::read_i64(&cur_path) {
-                                if cur > 0 {
-                                    Self::write_node_lock(&cur_path, "0");
-                                }
-                            }
+                            Self::write_node_lock(&cur_path, "0");
                         }
                     }
                 }
@@ -1165,7 +1161,7 @@ impl ChargingRegulator {
             // or if the actual charging current drops below 1800 mA while battery < 85%:
             // IMMEDIATELY reassert hardware registers and kick AICL!
             let fcc_needs_reapply = if is_hyper {
-                cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
+                (cur_fcc > 0 && cur_fcc < (target_ua - 200_000)) || (is_qcom && cur_now_ma < 2550 && cur_cap < 85)
             } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
                 false
             } else if fcc_cooldown_expired {
@@ -1225,9 +1221,16 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
                     Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/safety_timer_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "-1");
+                    Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "-1");
 
                     // If flowing current is dropping below 1.8A in Hyper mode, kick AICL immediately to ramp back up!
-                    if is_hyper && !is_pd_active && cur_now_ma < 1800 && cur_cap < 85 {
+                    if is_hyper && cur_now_ma < 2550 && cur_cap < 85 {
+                        Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                        Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
                         Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
                         Self::write_node(&format!("{}/rerun_aicl", BATT_DIR), "1");
                         Self::write_node(&format!("{}/rerun_aicl", MAIN_DIR), "1");
@@ -2906,7 +2909,7 @@ impl ChargingRegulator {
                     if trimmed.starts_with("thresholds ") {
                         let tokens: Vec<&str> = trimmed["thresholds ".len()..].split_whitespace().collect();
                         let mut new_tokens = Vec::new();
-                        let mut base = 48000;
+                        let mut base = 75000;
                         for _ in 0..tokens.len() {
                             new_tokens.push(base.to_string());
                             base += 2000;
@@ -2917,13 +2920,18 @@ impl ChargingRegulator {
                     } else if trimmed.starts_with("thresholds_clr ") {
                         let tokens: Vec<&str> = trimmed["thresholds_clr ".len()..].split_whitespace().collect();
                         let mut new_tokens = Vec::new();
-                        let mut base = 46000;
+                        let mut base = 70000;
                         for _ in 0..tokens.len() {
                             new_tokens.push(base.to_string());
                             base += 2000;
                         }
                         result.push_str(&format!("thresholds_clr {}\n", new_tokens.join(" ")));
                         replaced_clr = true;
+                        continue;
+                    } else if trimmed.starts_with("action_info ") {
+                        let tokens: Vec<&str> = trimmed["action_info ".len()..].split_whitespace().collect();
+                        let zeroes = vec!["0"; tokens.len()];
+                        result.push_str(&format!("action_info {}\n", zeroes.join(" ")));
                         continue;
                     }
                 }
@@ -2933,8 +2941,8 @@ impl ChargingRegulator {
 
             if !replaced_thresh || !replaced_clr {
                 content
-                    .replace("thresholds 37000 38000 41000 42000 43000", "thresholds 48000 50000 52000 54000 56000")
-                    .replace("thresholds_clr 36000 37000 39000 40000 41000", "thresholds_clr 46000 48000 50000 52000 54000")
+                    .replace("thresholds 37000 38000 41000 42000 43000", "thresholds 75000 78000 81000 84000 87000")
+                    .replace("thresholds_clr 36000 37000 39000 40000 41000", "thresholds_clr 70000 73000 76000 79000 82000")
             } else {
                 result
             }

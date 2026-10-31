@@ -1,3 +1,15 @@
+# Lynx Universal [Qualcomm Hyper Charging Thermal Neutralization & 2.5A+ Sustained Lock] 7.0.0-RC287
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.20
+
+- **Penetrasi Arus Pengisian Hyper Mode & Stabilisasi Konstan >2500mA pada Qualcomm Snapdragon (PM660 / SDM660 & All QCOM)**:
+  - **Pemusnahan Derating Termal `thermal-engine` Qualcomm**: Mengatasi pemotongan arus ke 500mA–1000mA saat suhu baterai/quiet-therm menyentuh 48°C+. Mengonfigurasi ulang bind-mount `/dev/lynx_thermal_engine.conf` dengan menaikkan ambang trip point pengisian ke 75°C–87°C dan memaksa seluruh `action_info` mitigasi baterai menjadi `0 0 0 0 0` (zero throttle mitigation).
+  - **Penonaktifan Step-Charging & JEITA Workqueue Kernel**: Secara berkelanjutan mengunci `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, dan `safety_timer_enabled = 0` sehingga pengontrol arus Qualcomm PM660 tidak menurunkan arus saat voltase mendekati 4.15V–4.35V.
+  - **AICL Dynamic Kick Enforcer (>2550mA Target)**: Memperbarui regulator daemon `lynxd` sehingga jika arus riil terdeteksi turun di bawah 2550 mA pada kapasitas baterai < 85%, sistem seketika memicu `rerun_aicl` dan menulis ulang `constant_charge_current_max` ke 3000 mA.
+  - **Penguncian Unconditional Cooling Devices**: Mengunci seluruh cooling device subsistem pengisian (`battery`, `charger`, `pm660`, `smb`) ke `cur_state = 0` dengan izin `0444`.
+
+---
+
 # Lynx Universal [Dynamic & Non-Hardcoded Multi-SoC GPU Governor Discovery] 7.0.0-RC286
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.19
