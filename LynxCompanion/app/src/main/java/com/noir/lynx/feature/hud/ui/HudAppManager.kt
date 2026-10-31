@@ -30,7 +30,12 @@ import com.noir.lynx.feature.hud.data.*
 
 /** The same current-user catalog and preferences serve the overlay and Companion settings. */
 @Composable
-internal fun HudAppManager(prefs: HudPreferences, store: HudPreferencesStore) {
+internal fun HudAppManager(
+    prefs: HudPreferences,
+    store: HudPreferencesStore,
+    modifier: Modifier = Modifier,
+    headerContent: (@Composable () -> Unit)? = null
+) {
     val context = LocalContext.current
     val catalog = remember(context) { HudAppCatalog(context) }
     val apps by catalog.apps.collectAsState(initial = emptyList())
@@ -42,94 +47,107 @@ internal fun HudAppManager(prefs: HudPreferences, store: HudPreferencesStore) {
     }
     var editing by remember { mutableStateOf<String?>(null) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = hudString(R.string.hud_apps_description),
-            fontSize = 11.sp,
-            color = HudMuted
-        )
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 280.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            items(ordered, key = { it.packageName }) { app ->
-                val chosen = app.packageName in selected
-                Surface(
-                    color = if (chosen) HudCyan.copy(alpha = 0.1f) else HudElevated,
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(0.8.dp, if (chosen) HudCyan.copy(alpha = 0.4f) else HudBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        if (headerContent != null) {
+            item(key = "header_dock") {
+                headerContent()
+            }
+        }
+        item(key = "header_desc") {
+            Text(
+                text = hudString(R.string.hud_apps_description),
+                fontSize = 11.sp,
+                color = HudMuted,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+        items(ordered, key = { it.packageName }) { app ->
+            val chosen = app.packageName in selected
+            Surface(
+                color = if (chosen) HudCyan.copy(alpha = 0.1f) else HudElevated,
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(0.8.dp, if (chosen) HudCyan.copy(alpha = 0.4f) else HudBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 44.dp)
+                            .padding(start = 6.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .weight(1f)
                                 .heightIn(min = 44.dp)
-                                .padding(start = 6.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 44.dp)
-                                    .toggleable(chosen, role = Role.Checkbox) { enabled ->
-                                        store.setDockPackages(
-                                            saved.toMutableList().apply {
-                                                if (enabled && app.packageName !in this) add(app.packageName)
-                                                else if (!enabled) remove(app.packageName)
-                                            }
-                                        )
-                                    },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Checkbox(
-                                    checked = chosen,
-                                    onCheckedChange = null,
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = HudCyan,
-                                        checkmarkColor = Color.Black,
-                                        uncheckedColor = HudMuted
+                                .toggleable(chosen, role = Role.Checkbox) { enabled ->
+                                    store.setDockPackages(
+                                        saved.toMutableList().apply {
+                                            if (enabled && app.packageName !in this) add(app.packageName)
+                                            else if (!enabled) remove(app.packageName)
+                                        }
                                     )
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = chosen,
+                                onCheckedChange = null,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = HudCyan,
+                                    checkmarkColor = Color.Black,
+                                    uncheckedColor = HudMuted
                                 )
-                                Image(
-                                    bitmap = app.icon.asImageBitmap(),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                )
-                                Text(
-                                    text = app.label,
-                                    modifier = Modifier.weight(1f),
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (chosen) Color.White else Color(0xFFCBD5E1)
-                                )
-                            }
-                            IconButton(
-                                onClick = { editing = if (editing == app.packageName) null else app.packageName },
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Tune,
-                                    contentDescription = hudString(R.string.hud_app_customize, app.label),
-                                    modifier = Modifier.size(16.dp),
-                                    tint = if (editing == app.packageName) HudCyan else HudMuted
-                                )
-                            }
+                            )
+                            Image(
+                                bitmap = app.icon.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                            )
+                            Text(
+                                text = app.label,
+                                modifier = Modifier.weight(1f),
+                                fontSize = 11.5.sp,
+                                fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (chosen) Color.White else Color(0xFFCBD5E1)
+                            )
                         }
-                        if (editing == app.packageName) {
-                            HudAppOptions(app, prefs, store, selected, saved)
+                        IconButton(
+                            onClick = { editing = if (editing == app.packageName) null else app.packageName },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = hudString(R.string.hud_app_customize, app.label),
+                                modifier = Modifier.size(16.dp),
+                                tint = if (editing == app.packageName) HudCyan else HudMuted
+                            )
                         }
+                    }
+                    if (editing == app.packageName) {
+                        HudAppOptions(app, prefs, store, selected, saved)
                     }
                 }
             }
         }
         if (apps.isEmpty()) {
-            Text(hudString(R.string.hud_apps_empty), fontSize = 11.sp, color = HudMuted)
+            item(key = "empty_indicator") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(hudString(R.string.hud_apps_empty), fontSize = 11.sp, color = HudMuted)
+                }
+            }
         }
     }
 }

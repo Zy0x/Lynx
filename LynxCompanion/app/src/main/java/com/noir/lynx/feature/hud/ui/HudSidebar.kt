@@ -63,18 +63,23 @@ fun HudSidebar(
     var toolPage by rememberSaveable { mutableStateOf<HudToolPage?>(null) }
     val toolScrolls = HudToolPage.values().associateWith { rememberScrollState() }
     val scrolls = HudPage.values().associateWith { rememberScrollState() }
-    val appScroll = rememberScrollState()
     val pageState = rememberSaveableStateHolder()
     val context = LocalContext.current
     var appLabel by remember { mutableStateOf("") }
     LaunchedEffect(snapshot.packageName) {
-        appLabel = ""
-        appLabel = withContext(Dispatchers.IO) {
-            runCatching {
-                context.packageManager.getApplicationLabel(
-                    context.packageManager.getApplicationInfo(snapshot.packageName, 0)
-                ).toString()
-            }.getOrDefault(snapshot.packageName)
+        val cached = HudAppCatalog.getCachedLabel(snapshot.packageName)
+        if (!cached.isNullOrBlank()) {
+            appLabel = cached
+        } else {
+            appLabel = withContext(Dispatchers.IO) {
+                runCatching {
+                    val lbl = context.packageManager.getApplicationLabel(
+                        context.packageManager.getApplicationInfo(snapshot.packageName, 0)
+                    ).toString()
+                    HudAppCatalog.putCachedLabel(snapshot.packageName, lbl)
+                    lbl
+                }.getOrDefault(snapshot.packageName)
+            }
         }
     }
     HudTheme {
@@ -119,11 +124,14 @@ fun HudSidebar(
                 onClose = { onOpen(false) }
             ) {
                 if (manageApps) {
-                    Column(Modifier.fillMaxWidth().verticalScroll(appScroll).padding(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HudAppDock(apps, true, { manageApps = false }, { onOpen(false); onApp(it) })
-                        HudAppManager(prefs, preferences)
-                    }
+                    HudAppManager(
+                        prefs = prefs,
+                        store = preferences,
+                        modifier = Modifier.fillMaxSize(),
+                        headerContent = {
+                            HudAppDock(apps, true, { manageApps = false }, { onOpen(false); onApp(it) })
+                        }
+                    )
                 } else pageState.SaveableStateProvider(page.name) {
                     val scroll = when {
                         page == HudPage.Tools && toolPage != null -> toolScrolls.getValue(toolPage!!)

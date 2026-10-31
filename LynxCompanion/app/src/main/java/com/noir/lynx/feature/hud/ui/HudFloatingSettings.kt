@@ -109,7 +109,7 @@ internal fun HudFloatingSettings(prefs: HudPreferences, store: HudPreferencesSto
                 }
 
             }
-            if (section == 2) HudAppManager(prefs, store)
+            if (section == 2) HudAppManager(prefs, store, modifier = Modifier.heightIn(max = 320.dp))
             if (section == 3) {
                 Text(hudString(if (prefs.floatingEngine == "standalone") R.string.floating_engine_root_desc
                     else R.string.floating_engine_rom_desc), fontSize = 12.sp, color = HudMuted)
