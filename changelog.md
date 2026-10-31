@@ -1,7 +1,11 @@
-# Lynx Universal [HUD Dynamic Interactive Profile Pill & Card Color Coding] 7.0.0-RC294
+# Lynx Universal [HUD Dynamic Profile Color Coding & Telemetry Stream Pipeline Fix] 7.0.0-RC294
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.27
 
+- **Perbaikan Kritis Pipeline Telemetri HUD (`HudStreamRepository`) & Aksesibilitas Sensor**:
+  - **Eliminasi Bug Syntax Shell Quoting (`su -c`)**: Memperbaiki pemanggilan biner `hud stream` dengan menghapus pembungkus tanda petik tunggal bersarang (`'...'`) yang memicu galat parsing `/system/bin/sh: no closing quote` pada Toybox/mksh Android (terutama di lingkungan APatch/KernelSU), penyebab pembacaan metrik kosong (`—`) dan status "Akses ditolak" (`permission_denied`).
+  - **Multi-Path Binary Fallback**: Menambahkan fallback bertingkat otomatis untuk menemukan biner native (`liblynxhud.so` di `nativeLibraryDir`, `/data/adb/modules/Lynx/system/bin/lynxd`, dan `/data/local/tmp/lynxd`).
+  - **Resilient Auto-Reconnection Loop**: Mengganti eksekusi sekali putus dengan loop pemulihan mandiri (`auto-reconnect`) berdurasi 1.5 detik jika proses daemon restart atau terinterupsi, meniadakan kondisi macet permanen pada status "Akses ditolak" (`permission_denied`) atau data kosong (`—`).
 - **Sistem Pewarnaan Dinamis & Interaktif Pill serta Kartu Profil pada HUD Ringkasan**:
   - **Identitas Warna Unik & Tegas per Profil**:
     - **Hemat (Powersave)**: *Vibrant Emerald Green* (`#00E676`) melambangkan efisiensi energi dan penghematan baterai.
