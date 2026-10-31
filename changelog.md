@@ -1,3 +1,16 @@
+# Lynx Universal [Hyper Charging 3500mA Uncap & Background Service Persistence] 7.0.0-RC288
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.21
+
+- **Peningkatan Batas Arus Hyper Charging ke 3500mA & Persistensi Layanan Latar Belakang (Qualcomm Snapdragon & MediaTek)**:
+  - **Pembukaan Batas Arus Qualcomm PMIC ke 3500mA (3.5A)**: Menaikkan `target_peak_ma`, `target_usb_ua`, dan `qcom_ma` dari 3000mA ke 3500mA pada native daemon `lynxd` (`hardware/charging.rs`) dan `ExtremeChargingScript.kt`. Seluruh voter register pengisian daya Qualcomm PM660 (`constant_charge_current_max`, `input_current_limit`, `current_max`, `hw_current_max`, `restrict_cur`) kini dibuka hingga 3.5A penuh untuk mengekstrak daya maksimum dari charger Quick Charge 3.0 / USB-PD.
+  - **Persistensi Pengisian Berkecepatan Penuh saat Aplikasi Ditutup / Keluar Fokus**: Mengintegrasikan coroutine Guardian Pengisian Persisten pada `LynxAppAutomationService` (berjalan di background setiap 3 detik) yang secara otomatis menegakkan kembali kunci pengisian ekstrem (`reapplyExtremeChargingLock`) tanpa terputus. Native daemon `lynxd` di level root juga secara mandiri menjalankan `ChargingRegulator::tick()` dan memegang wake lock sistem (`lynx_charging`), sehingga arus tetap bertahan di puncak stabil meskipun aplikasi di-swipe dari Recents atau layar dimatikan.
+  - **Bypass Suhu Baterai pada `LynxThermalGuardService` khusus Hyper Mode**: Mengonfigurasi guardrail keselamatan baterai agar mengecualikan pembatasan darurat ke profil `stable` saat mode pengisian `hyper` atau `extremeChargingEnabled` aktif, mencegah interupsi throttling saat sel baterai mencapai 45°C–50°C.
+  - **Elevasi Trip Point Zona Termal `quiet-therm-step` ke 75°C–80°C**: Mengangkat trip point `trip_point_0_temp` dan `trip_point_1_temp` pada zona `quiet-therm-step` ke 75.000 (75°C) dan 80.000 (80°C) baik via native daemon maupun runtime script, meniadakan derating kernel saat sel baterai hangat.
+  - **Startup Guardian Otomatis pada `LynxApp`**: Menjamin inisialisasi native daemon `lynxd` berjalan otomatis di latar belakang saat aplikasi pertama kali dibuka (`ensureDaemonRunning`).
+
+---
+
 # Lynx Universal [Qualcomm Hyper Charging Thermal Neutralization & 2.5A+ Sustained Lock] 7.0.0-RC287
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.20

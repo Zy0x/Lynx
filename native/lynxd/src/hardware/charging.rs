@@ -1111,7 +1111,7 @@ impl ChargingRegulator {
 
         if is_hyper {
             let target_peak_ma = if is_qcom && !Self::has_qcom_direct_charge_pump() {
-                3000
+                3500
             } else if cfg.limit_current_ma >= 2000 {
                 (cfg.limit_current_ma as u32).max(Self::probe_hardware_ceiling_ma())
             } else {
@@ -1138,7 +1138,7 @@ impl ChargingRegulator {
 
             let target_ua = effective_ma as i64 * 1000;
             let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
-                (effective_ma as i64 * 1000).min(3_000_000)
+                (effective_ma as i64 * 1000).min(3_500_000)
             } else if is_qcom {
                 (effective_ma as i64 * 1000).max(6_000_000)
             } else {
@@ -1895,8 +1895,8 @@ impl ChargingRegulator {
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
         let usb_current_cap_ua = if is_qcom && !has_qcom_cp {
-            // Qualcomm single-cell without dual charge pump: 3000mA (3.0A hard register limit of PM660 AICR)
-            "3000000".to_string()
+            // Qualcomm single-cell without dual charge pump: 3500mA (3.5A register limit of PM660 AICR)
+            "3500000".to_string()
         } else {
             (effective_ma as u64 * 1000).max(6_000_000).to_string()
         };
@@ -2043,8 +2043,8 @@ impl ChargingRegulator {
 
         if Self::is_qualcomm_soc() {
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let target_ua = if has_cp { "6000000" } else { "3000000" };
-            let restrict_cur_val = if has_cp { "6000" } else { "3000" };
+            let target_ua = if has_cp { "6000000" } else { "3500000" };
+            let restrict_cur_val = if has_cp { "6000" } else { "3500" };
             let direct_val = if has_cp { "1" } else { "0" };
 
             // 1. Pre-uncap registers in kernel memory before handshake trigger
@@ -2191,7 +2191,7 @@ impl ChargingRegulator {
         }
 
         // 5. Uncap input & charge currents to healthy defaults
-        let target_ua = if is_qcom { "3000000" } else { "4500000" };
+        let target_ua = if is_qcom { "3500000" } else { "4500000" };
         for node in &[
             format!("{}/constant_charge_current_max", BATT_DIR),
             format!("{}/constant_charge_current", BATT_DIR),
@@ -2973,8 +2973,8 @@ impl ChargingRegulator {
                         if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
                             let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
                             let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
-                            Self::write_node_lock(&tp0, "60000");
-                            Self::write_node_lock(&tp1, "63000");
+                            Self::write_node_lock(&tp0, "75000");
+                            Self::write_node_lock(&tp1, "80000");
                         }
                     }
                 }
@@ -3848,12 +3848,12 @@ impl ChargingRegulator {
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
 
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let target_limit_ua = if has_cp { 6_000_000 } else { 3_000_000 };
-            let target_limit_str = if has_cp { "6000000" } else { "3000000" };
-            let target_ma_str = if has_cp { "6000" } else { "3000" };
+            let target_limit_ua = if has_cp { 6_000_000 } else { 3_500_000 };
+            let target_limit_str = if has_cp { "6000000" } else { "3500000" };
+            let target_ma_str = if has_cp { "6000" } else { "3500" };
 
-            let qcom_stalled = if is_hyper && cur_cap < 85 {
-                cur_usb < target_limit_ua - 200_000 || cur_fcc < target_limit_ua - 200_000 || cur_now_ma < 1800
+            let qcom_stalled = if is_hyper && cur_cap < 80 {
+                cur_usb < target_limit_ua - 200_000 || cur_fcc < target_limit_ua - 200_000 || cur_now_ma < 2500
             } else {
                 (cur_usb > 0 && cur_usb < 1_000_000) || (cur_fcc > 0 && cur_fcc < 1_000_000)
             };
@@ -3864,7 +3864,7 @@ impl ChargingRegulator {
                 let threshold = if is_hyper { 1 } else { 3 };
                 if count >= threshold {
                     let _ = fs::remove_file(marker_path);
-                    Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { 3000 });
+                    Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { 3500 });
                     for rerun in &[
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),

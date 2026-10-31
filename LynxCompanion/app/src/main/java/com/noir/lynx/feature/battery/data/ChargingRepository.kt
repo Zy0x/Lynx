@@ -357,7 +357,7 @@ class ChargingRepository(
                 "echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null; " +
                 "echo 0 > /proc/lynx/bypass_charging 2>/dev/null; " +
                 "echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null; " +
-                "echo 3000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null; " +
+                "echo 3500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null; " +
                 "echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null; " +
                 "echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null"
             ).exec()

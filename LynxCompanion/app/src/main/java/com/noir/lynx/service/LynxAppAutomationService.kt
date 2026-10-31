@@ -280,6 +280,19 @@ class LynxAppAutomationService : Service() {
         }
         registerReceiver(powerReceiver, pFilter)
 
+        // Persistent Charging Guardian: Guarantees high-power charging holds even when app is closed / backgrounded
+        serviceScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    val chg = LynxRepository.readState().charging
+                    if (chg.chargingMode == "hyper" || chg.extremeChargingEnabled) {
+                        LynxRepository.chargingRepository.reapplyExtremeChargingLock()
+                    }
+                } catch (_: Exception) {}
+                delay(3000L)
+            }
+        }
+
         startWatcher()
     }
 

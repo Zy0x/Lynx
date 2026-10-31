@@ -41,6 +41,7 @@ class LynxApp : Application() {
             runCatching {
                 com.noir.lynx.data.LynxRepository.grantOverlayPermission()
                 com.noir.lynx.data.LynxRepository.grantUsageStatsPermission()
+                com.noir.lynx.data.LynxRepository.ensureDaemonRunning()
             }
         }
 

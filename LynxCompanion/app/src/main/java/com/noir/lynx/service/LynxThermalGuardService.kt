@@ -103,8 +103,10 @@ class LynxThermalGuardService : Service() {
                             t.contains("soc") || t.contains("cpu") || t.contains("tsens") || t.contains("ap")
                         }.maxOfOrNull { it.tempC } ?: battTemp
 
-                        // Rule 1: Battery Protection Check
-                        if (battTemp >= batteryWarningC) {
+                        // Rule 1: Battery Protection Check (Bypassed during Hyper / Extreme fast charging)
+                        val chg = LynxRepository.readState().charging
+                        val isHyperCharging = chg.chargingMode == "hyper" || chg.extremeChargingEnabled
+                        if (!isHyperCharging && battTemp >= batteryWarningC) {
                             Log.w(TAG, "EMERGENCY: Battery temperature reached ${battTemp}°C (>= ${batteryWarningC}°C). Applying protective clamp!")
                             LynxRepository.applyThermalMode("stable")
                         }

@@ -79,8 +79,8 @@ object ExtremeChargingScript {
                 if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
                     has_cp=1
                 fi
-                qcom_ua=3000000
-                qcom_ma=3000
+                qcom_ua=3500000
+                qcom_ma=3500
                 if [ "${'$'}has_cp" -eq 1 ]; then
                     qcom_ua=6000000
                     qcom_ma=6000
@@ -195,8 +195,8 @@ object ExtremeChargingScript {
                     read -r t < "${'$'}tz/type" 2>/dev/null
                     case "${'$'}t" in
                         quiet-therm-step)
-                            [ -f "${'$'}tz/trip_point_0_temp" ] && echo 60000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
-                            [ -f "${'$'}tz/trip_point_1_temp" ] && echo 63000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                            [ -f "${'$'}tz/trip_point_0_temp" ] && echo 75000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
+                            [ -f "${'$'}tz/trip_point_1_temp" ] && echo 80000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
                             ;;
                     esac
                 done
