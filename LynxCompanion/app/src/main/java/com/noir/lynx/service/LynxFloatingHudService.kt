@@ -69,6 +69,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         ?: LynxAppAutomationService.activeGamePackage?.takeIf { it.isNotBlank() }
         ?: foregroundDetector.queryTopResumedPackage()?.packageName.orEmpty()
 
+    private fun resolveContextualProfile(pkg: String, streamProfile: String?): String {
+        val streamProf = streamProfile?.takeIf { it.isNotBlank() && it != "null" }
+        if (streamProf != null) {
+            return com.noir.lynx.data.LynxRepository.normalizeProfileKey(streamProf)
+        }
+        return com.noir.lynx.data.LynxRepository.readCurrentProfileFast()
+    }
+
     companion object {
         const val ACTION_HUD_STATE_CHANGED = "com.noir.lynx.HUD_STATE_CHANGED"
         const val EXTRA_IS_RUNNING = "extra_is_running"
@@ -233,8 +241,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             val sample = repository.current()
                             val displayReading = hz.value.copy(atMs = SystemClock.elapsedRealtime())
                             val detectedPkg = resolveActivePackage(sample.packageName)
+                            val resolvedProfile = resolveContextualProfile(detectedPkg, sample.profile)
                             val current = sample.copy(
                                 packageName = detectedPkg,
+                                profile = resolvedProfile,
                                 metrics = sample.metrics + (HudMetric.DISPLAY_HZ.key to displayReading)
                             )
                             rendered.value = current

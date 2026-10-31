@@ -5,18 +5,31 @@ use std::time::{Duration, Instant};
 use super::{now_ms, frame_now_ns, Metric, hardware::Hardware, frames::{Frames, timestamps, top_package, belongs_to, clean_layer_name, refresh_rate, unique_content_candidate}};
 use crate::utils::json::quote;
 
+/// Canonical profile normalizer for HUD stream output.
+fn normalize_profile_str(p: &str) -> &'static str {
+    match p.trim().to_lowercase().as_str() {
+        "powersave" | "power_save" | "battery" | "hemat" => "powersave",
+        "performance" | "perf" | "game" | "kinerja" => "performance",
+        "extreme" | "ekstrem" => "extreme",
+        "balance" | "balanced" | "seimbang" => "balance",
+        "auto" => "auto",
+        "dormant" => "dormant",
+        _ => "balance",
+    }
+}
+
 /// Resolves the current active performance profile with standalone fallback.
 fn detect_active_profile() -> Option<String> {
     if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
         if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
-            return Some(state.active_profile);
+            return Some(normalize_profile_str(&state.active_profile).to_string());
         }
     }
     // Fallback 1: /data/adb/lynx/active_profile
     if let Ok(content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
-        let p = content.trim().to_lowercase();
-        if matches!(p.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
-            return Some(p);
+        let p = content.trim();
+        if !p.is_empty() {
+            return Some(normalize_profile_str(p).to_string());
         }
     }
     // Fallback 2: /data/adb/modules/Lynx/config.json or /data/adb/lynx/config.json
@@ -24,9 +37,9 @@ fn detect_active_profile() -> Option<String> {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Some(pos) = content.find("\"active_profile\"") {
                 if let Some(after) = content[pos..].split(':').nth(1) {
-                    let cleaned = after.trim().trim_start_matches('"').split('"').next().unwrap_or("").to_lowercase();
-                    if matches!(cleaned.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
-                        return Some(cleaned);
+                    let cleaned = after.trim().trim_start_matches('"').split('"').next().unwrap_or("");
+                    if !cleaned.is_empty() {
+                        return Some(normalize_profile_str(cleaned).to_string());
                     }
                 }
             }
@@ -34,12 +47,12 @@ fn detect_active_profile() -> Option<String> {
     }
     // Fallback 3: getprop lynx.mode
     if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
-        let p = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
-        if matches!(p.as_str(), "powersave" | "balance" | "performance" | "auto" | "extreme" | "dormant") {
-            return Some(p);
+        let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !p.is_empty() {
+            return Some(normalize_profile_str(&p).to_string());
         }
     }
-    None
+    Some("balance".to_string())
 }
 
 /// Execute one bounded system query directly; never invoke a shell pipeline.

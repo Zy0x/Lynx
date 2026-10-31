@@ -943,6 +943,16 @@ object LynxRepository {
         } catch (_: Exception) {}
     }
 
+    fun normalizeProfileKey(p: String?): String = when (p?.trim()?.lowercase()) {
+        "powersave", "power_save", "battery", "hemat" -> "powersave"
+        "performance", "perf", "game", "kinerja" -> "performance"
+        "extreme", "ekstrem" -> "extreme"
+        "balance", "balanced", "seimbang", "normal" -> "balance"
+        "auto" -> "auto"
+        "dormant" -> "dormant"
+        else -> "balance"
+    }
+
     fun readCurrentProfileFast(): String {
         lastActiveProfile?.let { return it }
         if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -951,9 +961,10 @@ object LynxRepository {
         return try {
             val direct = Shell.cmd("m=\$(getprop lynx.mode 2>/dev/null); [ -n \"\$m\" ] && echo \"\$m\" || cat /data/adb/lynx/active_profile 2>/dev/null").exec()
             val directProf = direct.out.firstOrNull()?.trim()?.lowercase() ?: ""
-            if (directProf in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) {
-                lastActiveProfile = directProf
-                return directProf
+            if (directProf.isNotBlank()) {
+                val normalized = normalizeProfileKey(directProf)
+                lastActiveProfile = normalized
+                return normalized
             }
             val activePath = runCatching { getLocalConfigPath() }.getOrDefault(LOCAL_CONFIG_PATH_DEBUG)
             val r = Shell.cmd("cat /data/adb/modules/Lynx/config.json 2>/dev/null || cat '$activePath' 2>/dev/null").exec()
@@ -961,9 +972,9 @@ object LynxRepository {
             if (text.contains("\"active_profile\"")) {
                 val match = Regex("\"active_profile\"\\s*:\\s*\"([^\"]+)\"").find(text)
                 val p = match?.groupValues?.get(1)?.lowercase() ?: "balance"
-                val valid = if (p in listOf("auto", "balance", "performance", "extreme", "powersave", "dormant")) p else "balance"
-                lastActiveProfile = valid
-                valid
+                val normalized = normalizeProfileKey(p)
+                lastActiveProfile = normalized
+                normalized
             } else "balance"
         } catch (e: Exception) { "balance" }
     }

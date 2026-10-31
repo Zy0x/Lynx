@@ -1,3 +1,15 @@
+# Lynx Universal [HUD Contextual Live Profile Resolver & Universal Normalization] 7.0.0-RC291
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.24
+
+- **Resolusi Kontekstual & Tampilan Profil Aktif Real-Time per Aplikasi pada HUD**:
+  - **Penayangan Status Profil Presisi & Informatif**: Menjamin profil yang aktif saat ini selalu terpilih dan menyala (*selected highlight*) pada kartu ringkasan HUD, baik saat membuka aplikasi terotomasi (game) maupun saat membuka Peluncur Sistem (Launcher) atau aplikasi umum tanpa aturan otomasi.
+  - **Pill Indikator Profil Aktif**: Menambahkan lencana frosted pill di samping judul profil dengan warna aksen yang sesuai (misal `[ Seimbang ]`, `[ Kinerja ]`, `[ Ekstrem ]`, `[ Hemat ]`) sehingga pengguna langsung mengetahui profil sistem yang sedang mengendalikan perangkat tanpa keraguan.
+  - **Normalisasi Multi-Alias Lintas Lapisan**: Mengharmonisasikan pembacaan profil (`balanced`/`balance`, `battery`/`powersave`, `kinerja`/`performance`, `ekstrem`/`extreme`) di native daemon `lynxd` (`stream.rs`), `LynxRepository`, dan `LynxFloatingHudService`.
+  - **Umpan Balik Instan (Optimistic UI Update)**: Memperbarui kartu yang dipilih secara instan saat disentuh (0 latency) sebelum eksekusi pergantian profil kernel tuntas di latar belakang.
+
+---
+
 # Lynx Universal [HUD Compact Horizontal Freeform App Bar] 7.0.0-RC290
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.23

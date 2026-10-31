@@ -37,6 +37,14 @@ internal fun HudSummaryContent(
     quickAccess()
 }
 
+internal fun normalizeProfile(profile: String?): String = when (profile?.lowercase()?.trim()) {
+    "powersave", "power_save", "battery", "hemat" -> "powersave"
+    "performance", "perf", "game", "kinerja" -> "performance"
+    "extreme", "ekstrem" -> "extreme"
+    "balance", "balanced", "seimbang", "normal", "auto", "dormant", null, "" -> "balance"
+    else -> "balance"
+}
+
 @Composable
 internal fun HudSummaryProfileCards(
     current: String?,
@@ -44,6 +52,7 @@ internal fun HudSummaryProfileCards(
     onProfile: (String) -> Unit
 ) {
     var confirmExtreme by rememberSaveable { mutableStateOf(false) }
+    var selectedPending by remember { mutableStateOf<String?>(null) }
 
     data class ProfileCardItem(
         val key: String,
@@ -59,18 +68,44 @@ internal fun HudSummaryProfileCards(
         ProfileCardItem("extreme", R.string.hud_extreme, Icons.Default.LocalFireDepartment, HudOrange)
     )
 
+    val activeKey = selectedPending ?: normalizeProfile(current)
+    LaunchedEffect(current) {
+        selectedPending = null
+    }
+
+    val activeItem = items.find { it.key == activeKey } ?: items[1]
+
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = hudString(R.string.hud_profile),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = HudMuted
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = hudString(R.string.hud_profile),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HudMuted
+                )
+                // Informative pill showing current active profile
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = activeItem.accentColor.copy(alpha = 0.16f),
+                    border = BorderStroke(0.8.dp, activeItem.accentColor.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = hudString(activeItem.labelRes),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = activeItem.accentColor,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
+                    )
+                }
+            }
             if (busy) {
                 Text(
                     text = hudString(R.string.hud_applying),
@@ -87,14 +122,14 @@ internal fun HudSummaryProfileCards(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 rowItems.forEach { item ->
-                    val isSelected = current == item.key
+                    val isSelected = activeKey == item.key
                     val cardBorder = if (isSelected) {
-                        BorderStroke(1.2.dp, item.accentColor.copy(alpha = 0.65f))
+                        BorderStroke(1.2.dp, item.accentColor.copy(alpha = 0.75f))
                     } else {
                         BorderStroke(1.dp, HudBorder)
                     }
                     val cardBackground = if (isSelected) {
-                        item.accentColor.copy(alpha = 0.16f)
+                        item.accentColor.copy(alpha = 0.18f)
                     } else {
                         HudCard
                     }
@@ -102,9 +137,10 @@ internal fun HudSummaryProfileCards(
                     Surface(
                         onClick = {
                             if (!busy) {
-                                if (item.key == "extreme" && current != "extreme") {
+                                if (item.key == "extreme" && activeKey != "extreme") {
                                     confirmExtreme = true
                                 } else {
+                                    selectedPending = item.key
                                     onProfile(item.key)
                                 }
                             }
@@ -179,6 +215,7 @@ internal fun HudSummaryProfileCards(
                             enabled = !busy,
                             onClick = {
                                 confirmExtreme = false
+                                selectedPending = "extreme"
                                 onProfile("extreme")
                             },
                             modifier = Modifier.weight(1f),
@@ -224,12 +261,10 @@ private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
     }
 }
 
-internal fun hudProfileLabel(profile: String?): Int = when (profile) {
+internal fun hudProfileLabel(profile: String?): Int = when (normalizeProfile(profile)) {
     "powersave" -> R.string.hud_save
     "balance" -> R.string.hud_balanced
     "performance" -> R.string.hud_performance
-    "auto" -> R.string.hud_auto
     "extreme" -> R.string.hud_extreme
-    "dormant" -> R.string.hud_dormant
-    else -> R.string.hud_profile_unavailable
+    else -> R.string.hud_balanced
 }

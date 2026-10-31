@@ -79,19 +79,20 @@ internal fun HudLab(
                         color = HudMuted
                     )
                 }
+                val activeNorm = normalizeProfile(snapshot.profile)
                 Surface(
-                    color = if (snapshot.profile == "extreme") HudOrange.copy(alpha = 0.15f) else HudCyan.copy(alpha = 0.15f),
+                    color = if (activeNorm == "extreme") HudOrange.copy(alpha = 0.15f) else HudCyan.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(
                         1.dp,
-                        if (snapshot.profile == "extreme") HudOrange.copy(alpha = 0.4f) else HudCyan.copy(alpha = 0.4f)
+                        if (activeNorm == "extreme") HudOrange.copy(alpha = 0.4f) else HudCyan.copy(alpha = 0.4f)
                     )
                 ) {
                     Text(
-                        text = hudString(hudProfileLabel(snapshot.profile)),
+                        text = hudString(hudProfileLabel(activeNorm)),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (snapshot.profile == "extreme") HudOrange else HudCyan,
+                        color = if (activeNorm == "extreme") HudOrange else HudCyan,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }

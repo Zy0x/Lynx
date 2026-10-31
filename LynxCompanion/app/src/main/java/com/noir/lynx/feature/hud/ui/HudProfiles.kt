@@ -16,23 +16,15 @@ import com.noir.lynx.core.locale.LynxText as Text
 @Composable
 internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) -> Unit) {
     var extreme by rememberSaveable { mutableStateOf(false) }
-
-    val activeLabelRes = when (current) {
-        "powersave" -> R.string.hud_save
-        "balance" -> R.string.hud_balanced
-        "performance" -> R.string.hud_performance
-        "auto" -> R.string.hud_auto
-        "extreme" -> R.string.hud_extreme
-        "dormant" -> R.string.hud_dormant
-        else -> null
-    }
+    val normalized = normalizeProfile(current)
+    val activeLabelRes = hudProfileLabel(normalized)
 
     val profilesInfo = hudString(R.string.hud_profile_help)
 
     HudSection(
         title = hudString(R.string.hud_profile),
-        badge = activeLabelRes?.let { hudString(it) },
-        accentColor = if (current == "extreme") HudOrange else HudCyan,
+        badge = hudString(activeLabelRes),
+        accentColor = if (normalized == "extreme") HudOrange else HudCyan,
         info = profilesInfo
     ) {
         Column(
@@ -45,13 +37,13 @@ internal fun HudProfiles(current: String?, busy: Boolean, onProfile: (String) ->
                 "performance" to hudString(R.string.hud_performance))
             HudAdaptiveGrid(primary.map { it.second }, maximum = 2) { index ->
                 val (key, label) = primary[index]
-                HudChoice(label, current == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy)
+                HudChoice(label, normalized == key, { onProfile(key) }, Modifier.weight(1f), enabled = !busy)
             }
             var more by rememberSaveable { mutableStateOf(false) }
             HudDisclosure(hudString(R.string.hud_profile_more), more) { more = !more }
             if (more) {
-                HudChoice(hudString(R.string.hud_auto), current == "auto", { onProfile("auto") }, Modifier.fillMaxWidth(), enabled = !busy)
-                HudChoice(hudString(R.string.hud_extreme), current == "extreme", { extreme = true }, Modifier.fillMaxWidth(), enabled = !busy, accentColor = HudOrange)
+                HudChoice(hudString(R.string.hud_auto), normalized == "auto", { onProfile("auto") }, Modifier.fillMaxWidth(), enabled = !busy)
+                HudChoice(hudString(R.string.hud_extreme), normalized == "extreme", { extreme = true }, Modifier.fillMaxWidth(), enabled = !busy, accentColor = HudOrange)
             }
 
             if (busy) {
