@@ -1,3 +1,19 @@
+# Lynx Universal [Glanceable 4-Profile Bento Cards for HUD Summary] 7.0.0-RC285
+Released on: 2026-10-31
+> Lynx Kernel Manager v3.3.18
+
+- Redesain selektor profil pada **HUD Ringkasan (Summary Page)**:
+  - **Eliminasi Dropdown Tersembunyi**: Menghapus `HudExpandableSection` dan menu bertingkat yang sebelumnya menyembunyikan profil di balik accordion dan disclosure tambahan.
+  - **Kartu/Pill Langsung 4 Profil Utama (2x2 Grid)**: Menampilkan 4 profil esensial secara langsung (*glanceable single-tap switch*):
+    - 🍃 **Hemat** (`powersave`): Aksen hijau lembut (*Power Efficiency*).
+    - ⚖️ **Seimbang** (`balance`): Aksen biru es (*Daily Balanced*).
+    - 🚀 **Kinerja** (`performance`): Aksen biru langit cerah (*Responsive Gaming*).
+    - 🔥 **Ekstrem** (`extreme`): Aksen oranye amber (*Uncapped Max Clocks*) dengan proteksi modal konfirmasi bahaya.
+  - **Efek Visual Luminous Frosted Glass**: Kartu aktif otomatis menyala lembut dengan batas *specular rim* berkelas, sementara kartu non-aktif berwujud kaca akrilik semi-transparan yang bersih dan tenang.
+  - **Ergonomi Touch-First**: Memenuhi standar target sentuh minimal 44dp bebas salah sentuh (*anti-mistouch*) saat bermain game.
+
+---
+
 # Lynx Universal [Hyper Charging Full Hardware Uncap & Thermal Neutralization] 7.0.0-RC284
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.17

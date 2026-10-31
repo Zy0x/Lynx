@@ -1,9 +1,21 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,12 +32,163 @@ internal fun HudSummaryContent(
     onProfile: (String) -> Unit, onDetails: () -> Unit, quickAccess: @Composable () -> Unit
 ) {
     HudGameReadings(snapshot, onDetails)
-    HudExpandableSection(
-        hudString(R.string.hud_profile),
-        detail = hudString(hudProfileLabel(snapshot.profile))
-    ) { HudProfiles(snapshot.profile, action.busy, onProfile) }
+    HudSummaryProfileCards(snapshot.profile, action.busy, onProfile)
     Text(hudString(R.string.hud_quick_actions), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = HudMuted)
     quickAccess()
+}
+
+@Composable
+internal fun HudSummaryProfileCards(
+    current: String?,
+    busy: Boolean,
+    onProfile: (String) -> Unit
+) {
+    var confirmExtreme by rememberSaveable { mutableStateOf(false) }
+
+    data class ProfileCardItem(
+        val key: String,
+        val labelRes: Int,
+        val icon: ImageVector,
+        val accentColor: Color
+    )
+
+    val items = listOf(
+        ProfileCardItem("powersave", R.string.hud_save, Icons.Default.BatteryChargingFull, Color(0xFF4ADE80)),
+        ProfileCardItem("balance", R.string.hud_balanced, Icons.Default.Tune, HudBlue),
+        ProfileCardItem("performance", R.string.hud_performance, Icons.Default.Speed, Color(0xFF38BDF8)),
+        ProfileCardItem("extreme", R.string.hud_extreme, Icons.Default.LocalFireDepartment, HudOrange)
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = hudString(R.string.hud_profile),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = HudMuted
+            )
+            if (busy) {
+                Text(
+                    text = hudString(R.string.hud_applying),
+                    fontSize = 11.sp,
+                    color = HudBlue
+                )
+            }
+        }
+
+        // Direct 2x2 Grid of small cards / pills (Hemat, Seimbang, Kinerja, Ekstrem)
+        items.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                rowItems.forEach { item ->
+                    val isSelected = current == item.key
+                    val cardBorder = if (isSelected) {
+                        BorderStroke(1.2.dp, item.accentColor.copy(alpha = 0.65f))
+                    } else {
+                        BorderStroke(1.dp, HudBorder)
+                    }
+                    val cardBackground = if (isSelected) {
+                        item.accentColor.copy(alpha = 0.16f)
+                    } else {
+                        HudCard
+                    }
+
+                    Surface(
+                        onClick = {
+                            if (!busy) {
+                                if (item.key == "extreme" && current != "extreme") {
+                                    confirmExtreme = true
+                                } else {
+                                    onProfile(item.key)
+                                }
+                            }
+                        },
+                        enabled = !busy,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = cardBackground,
+                        border = cardBorder
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                tint = if (isSelected) item.accentColor else HudMuted,
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Text(
+                                text = hudString(item.labelRes),
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else HudMuted
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (confirmExtreme) {
+            Surface(
+                color = HudElevated,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, HudOrange.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = hudString(R.string.hud_extreme_title),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = HudOrange
+                    )
+                    Text(
+                        text = hudString(R.string.hud_extreme_warning),
+                        fontSize = 11.5.sp,
+                        color = HudMuted
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        HudAction(
+                            label = hudString(R.string.hud_cancel),
+                            enabled = !busy,
+                            onClick = { confirmExtreme = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        HudAction(
+                            label = hudString(R.string.hud_confirm),
+                            enabled = !busy,
+                            onClick = {
+                                confirmExtreme = false
+                                onProfile("extreme")
+                            },
+                            modifier = Modifier.weight(1f),
+                            isDanger = true
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
