@@ -1161,7 +1161,7 @@ impl ChargingRegulator {
             // or if the actual charging current drops below 1800 mA while battery < 85%:
             // IMMEDIATELY reassert hardware registers and kick AICL!
             let fcc_needs_reapply = if is_hyper {
-                (cur_fcc > 0 && cur_fcc < (target_ua - 200_000)) || (is_qcom && cur_now_ma < 2550 && cur_cap < 85)
+                (cur_fcc > 0 && cur_fcc < (target_ua - 200_000)) || (is_qcom && cur_now_ma < 2550 && cur_cap < 90)
             } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
                 false
             } else if fcc_cooldown_expired {
@@ -1228,7 +1228,7 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "-1");
 
                     // If flowing current is dropping below 1.8A in Hyper mode, kick AICL immediately to ramp back up!
-                    if is_hyper && cur_now_ma < 2550 && cur_cap < 85 {
+                    if is_hyper && cur_now_ma < 2550 && cur_cap < 90 {
                         Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
                         Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
                         Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
@@ -1808,11 +1808,13 @@ impl ChargingRegulator {
 
         // Utilize target_soc: In Hyper mode, do NOT clamp to 3200mA at 80% or 2200mA at 90%!
         // Unrestricted maximum peak current until 99% or AutoCut!
+        // In Hyper mode: Maintain absolute peak maximum current up to 90% SoC.
+        // Once battery reaches 90% (or custom target_soc), smoothly transition into electrochemical tapering!
         let effective_ma = if Self::is_laptop_port() {
             1500
-        } else if cur_cap >= 99 {
-            1500
-        } else if target_soc > 0 && target_soc < 100 && cur_cap >= target_soc {
+        } else if cur_cap >= 100 {
+            0
+        } else if cur_cap >= 90 || (target_soc > 0 && target_soc < 100 && cur_cap >= target_soc) {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             target_peak_ma.min(taper_ma)
         } else {
@@ -2501,7 +2503,7 @@ impl ChargingRegulator {
         Self::apply_extreme_charging(100, true, 12000);
 
         // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
-        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 85 {
+        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 90 {
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
                 .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
@@ -3800,7 +3802,7 @@ impl ChargingRegulator {
         let is_pd_active = Self::is_usb_pd_active();
 
         let is_fast_mode = is_hyper || cfg.charging_mode == "custom";
-        if is_fast_mode && !reconnect_already_done && cur_cap < 85 && !Self::is_laptop_port() && !is_pd_active {
+        if is_fast_mode && !reconnect_already_done && cur_cap < 90 && !Self::is_laptop_port() && !is_pd_active {
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
                 .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
@@ -3852,7 +3854,7 @@ impl ChargingRegulator {
             let target_limit_str = if has_cp { "6000000" } else { "3500000" };
             let target_ma_str = if has_cp { "6000" } else { "3500" };
 
-            let qcom_stalled = if is_hyper && cur_cap < 80 {
+            let qcom_stalled = if is_hyper && cur_cap < 90 {
                 cur_usb < target_limit_ua - 200_000 || cur_fcc < target_limit_ua - 200_000 || cur_now_ma < 2500
             } else {
                 (cur_usb > 0 && cur_usb < 1_000_000) || (cur_fcc > 0 && cur_fcc < 1_000_000)

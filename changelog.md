@@ -1,3 +1,18 @@
+# Lynx Universal [Sustained 90% Hyper Charging & Smooth Electrochemical Tapering] 7.0.0-RC295
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.28
+
+- **Stabilitas Pengisian Puncak Hingga 90% & Transisi Tapering Elektrokimia Aman**:
+  - **Perpanjangan Jendela Puncak Hyper ke 90% SoC (`cur_cap < 90`)**: Memperluas ambang batas penegakan arus puncak dan kick AICL (`rerun_aicl = 1`) dari sebelumnya 80–85% hingga **90% penuh**. Arus pengisian pada Redmi Note 7 (Qualcomm PM660) dan platform lainnya dipertahankan secara stabil di batas puncak hardware (3000 mA pada single-PMIC) tanpa penurunan mendadak sebelum 90%.
+  - **Penerapan Kurva Tapering Elektrokimia Mulus Dimulai Tepat di 90%**: Memastikan transisi aman saat sel baterai mendekati saturasi tegangan nominal ($4.35\text{V} - 4.40\text{V}$) guna mencegah *lithium plating* dan pembengkakan sel:
+    - **90% – 93% SoC**: Tahap 1 Tapering $\rightarrow$ diturunkan halus ke **2400 mA**.
+    - **94% – 96% SoC**: Tahap 2 Tapering $\rightarrow$ diturunkan ke **1800 mA**.
+    - **97% – 99% SoC**: Tahap 3 Trickle Saturation $\rightarrow$ **1200 mA** untuk absorpsi muatan akhir secara sempurna.
+    - **$\ge$ 100% SoC**: AutoCut & Hardware Bypass $\rightarrow$ **0 mA** (memutus arus ke sel baterai secara total).
+  - **Sinkronisasi Otomatis Mesin Daemon `lynxd`**: Daemon secara otonom mendeteksi kapasitas $\ge 90\%$ dan menerapkan interpolasi arus bertahap tanpa intervensi manual.
+
+---
+
 # Lynx Universal [HUD Dynamic Profile Color Coding & Telemetry Stream Pipeline Fix] 7.0.0-RC294
 Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.27
