@@ -1,8 +1,5 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.unit.dp
 import com.noir.lynx.R
@@ -31,18 +27,12 @@ internal fun HudPanelShell(
     var info by remember { mutableStateOf<HudInfoData?>(null) }
     val shape = if (dockRight) RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 6.dp, bottomEnd = 6.dp)
         else RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 24.dp, bottomEnd = 24.dp)
-    val entrance = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { entrance.animateTo(1f, tween(220, easing = FastOutSlowInEasing)) }
     val width = viewport.panelWidth
     val labels = HudPage.values().map { hudString(it.label) }
     val layout = HudLayoutPolicy.resolve(width, hudLabelWidth(labels))
     val drawer: @Composable () -> Unit = {
         CompositionLocalProvider(LocalHudInfo provides { info = it }) {
-            Box(Modifier.width(width.dp).height(viewport.panelHeight.dp).graphicsLayer {
-                translationX = (1f - entrance.value) * size.width * if (dockRight) 1f else -1f
-                alpha = .4f + .6f * entrance.value
-                clip = true
-            }) {
+            Box(Modifier.width(width.dp).height(viewport.panelHeight.dp)) {
                 Surface(Modifier.fillMaxSize(), shape = shape, color = HudBackground,
                     border = BorderStroke(1.dp, HudBorder)) {
                     Column {

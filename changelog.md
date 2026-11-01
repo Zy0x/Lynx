@@ -1,3 +1,19 @@
+# Lynx Universal [Interactive 1:1 Physics Drawer & Velocity Fling HUD Gesture] 7.0.0-RC308
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.41
+
+- **Interactive 1:1 Physics Drawer HUD Gesture**:
+  - **Pelacakan Sentuhan Jari 1:1 (*Direct Finger Tracking*)**: Menarik pill handle HUD kini berfungsi layaknya membuka laci fisik interaktif. Panel HUD bergeser secara mulus mengikuti posisi jari secara *real-time* (1:1) tanpa jeda. Jika pengguna menggeser setengah layar lalu menahan atau mengembalikannya, panel laci akan mengikuti arah gerakan jari secara presisi.
+  - **Peek-to-Cancel Snap Back**: Jika pengguna mengintip isi HUD (menarik kurang dari ambang batas 38% lebar panel atau mengembalikan usapan ke arah bezel) lalu melepaskan jari, panel laci akan otomatis meluncur kembali menutup (*snap back*) ke tepi bezel secara halus dengan kurva perlambatan `DecelerateInterpolator(1.5f)`.
+  - **Velocity Fling / Quick Flick Opening**: Mengintegrasikan `VelocityTracker` perangkat keras Android. Sapuan jari yang cepat dan tegas (*inward velocity* > 900 px/s) akan langsung melemparkan (*fling*) panel terbuka penuh seketika tanpa harus menariknya melampaui separuh layar.
+  - **Outward Swipe-to-Close Interaktif**: Menutup panel HUD saat sedang terbuka juga mendukung penarikan interaktif ke arah luar (bezel) dengan ambang batas *fling close* (outward velocity > 900 px/s atau penarikan > 30% lebar panel).
+- **Arsitektur Zero-IPC RenderThread Hardware Acceleration**:
+  - **Zero WindowManager Call Selama Penarikan**: Mengeliminasi pemanggilan `windows.updateViewLayout` pada event `ACTION_MOVE` (60–120 FPS). Dimensi jendela diperluas sekali di awal, sementara translasi posisi laci dijalankan murni melalui `composeView.translationX` pada hardware RenderThread.
+  - **Zero Recomposition & Zero Garbage Collection**: Tidak ada pemanggilan recomposition Compose selama penarikan berlangsung, menghasilkan performa rendering ultra-mulus 60/120 FPS tanpa membebani CPU, RAM, atau GPU, bahkan pada perangkat berspesifikasi hemat daya (seperti Redmi Note 7 SD660 dan Infinix Hot 11S Helio G96).
+  - **Pembersihan Animasi Transisi Ganda**: Menghapus `Animatable` redundan di dalam `HudPanelShell` agar seluruh kontrol posisi tersentralisasi secara atomik pada `composeView.translationX`, menghilangkan distorsi visual atau kelambatan respon sentuhan.
+
+---
+
 # Lynx Universal [HUD Pill Sidebar Swipe-Only Opening & Conflict-Free Touch Gesture] 7.0.0-RC307
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.40

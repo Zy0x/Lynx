@@ -41,6 +41,8 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private lateinit var preferences: HudPreferencesStore
     private lateinit var controller: HudController
     private var view: View? = null
+    private var composeView: ComposeView? = null
+    private var isDrawerDragging = false
     private var params: WindowManager.LayoutParams? = null
     private var autoSkipWindow: HudAutoSkipWindow? = null
     private var dragStartY = 0
@@ -241,6 +243,20 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                         p.blurBehindRadius = 0
                     }
                 }
+                if (!isDrawerDragging) {
+                    composeView?.animate()?.cancel()
+                    if (isOpen) {
+                        val offscreenX = if (dockRight.value) (viewport.value.panelWidth * dm.density) else -(viewport.value.panelWidth * dm.density)
+                        composeView?.translationX = offscreenX
+                        composeView?.animate()
+                            ?.translationX(0f)
+                            ?.setDuration(180)
+                            ?.setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                            ?.start()
+                    } else {
+                        composeView?.translationX = 0f
+                    }
+                }
                 runCatching { windows.updateViewLayout(v, p) }
                 v.post { clamp() }
             }
@@ -374,6 +390,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     }
 
     private fun clamp() {
+        if (isDrawerDragging) return
         val v = view ?: return
         val p = params ?: return
         val nextGravity: Int
@@ -513,7 +530,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
             y = safeTop + (safeHeight * initial).roundToInt()
         }
-        val composeView = ComposeView(this)
+        val cv = ComposeView(this).also { composeView = it }
         val host = HudSidebarHostView(
             context = this,
             sidebar = { activeModeFlow.value == 0 }, expanded = { open.value }, right = { dockRight.value },
@@ -530,12 +547,111 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     view?.let { runCatching { windows.updateViewLayout(it, p) } }
                 }
             }, onDragEnd = { savePositionPrefs(); clamp() },
+            onDrawerDragStart = {
+                val p = params ?: return@HudSidebarHostView
+                val v = view ?: return@HudSidebarHostView
+                val dm = resources.displayMetrics
+                val panelWidthPx = (viewport.value.panelWidth * dm.density).roundToInt()
+                val offscreenX = if (dockRight.value) panelWidthPx.toFloat() else -panelWidthPx.toFloat()
+
+                isDrawerDragging = true
+                cv.animate().cancel()
+                cv.translationX = offscreenX
+
+                if (p.y > safeTop + 2) {
+                    val isLandscape = viewport.value.landscape || (screenWidth > screenHeight && screenWidth > 0)
+                    val key = if (isLandscape) "hud_y_landscape_fraction" else "hud_y_portrait_fraction"
+                    val frac = ((p.y - safeTop).toFloat() / safeHeight.coerceAtLeast(1)).coerceIn(0.05f, 0.95f)
+                    getSharedPreferences("lynx_hud_prefs", MODE_PRIVATE).edit()
+                        .putFloat(key, frac)
+                        .putBoolean("hud_dock_right", dockRight.value)
+                        .apply()
+                }
+
+                p.width = panelWidthPx
+                p.height = WindowManager.LayoutParams.WRAP_CONTENT
+                p.y = viewport.value.panelTop(safeTop, safeHeight, dm.density, getSavedHandleYFraction())
+                runCatching { windows.updateViewLayout(v, p) }
+
+                open.value = true
+            },
+            onDrawerDrag = { inwardPx ->
+                val dm = resources.displayMetrics
+                val panelWidthPx = (viewport.value.panelWidth * dm.density).roundToInt()
+                val remaining = (panelWidthPx - inwardPx).coerceIn(0f, panelWidthPx.toFloat())
+                cv.translationX = if (dockRight.value) remaining else -remaining
+            },
+            onDrawerRelease = { inwardPx, inwardVel ->
+                val dm = resources.displayMetrics
+                val panelWidthPx = (viewport.value.panelWidth * dm.density).roundToInt()
+                val snapOpen = inwardVel > 900f || (inwardVel > -500f && inwardPx >= panelWidthPx * 0.38f)
+                val offscreenX = if (dockRight.value) panelWidthPx.toFloat() else -panelWidthPx.toFloat()
+
+                cv.animate().cancel()
+                if (snapOpen) {
+                    cv.animate()
+                        .translationX(0f)
+                        .setDuration(160)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .withEndAction {
+                            isDrawerDragging = false
+                            open.value = true
+                        }
+                        .start()
+                } else {
+                    cv.animate()
+                        .translationX(offscreenX)
+                        .setDuration(160)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .withEndAction {
+                            cv.translationX = 0f
+                            isDrawerDragging = false
+                            open.value = false
+                        }
+                        .start()
+                }
+            },
+            onDrawerCloseDrag = { outwardPx ->
+                val dm = resources.displayMetrics
+                val panelWidthPx = (viewport.value.panelWidth * dm.density).roundToInt()
+                val clamped = outwardPx.coerceIn(0f, panelWidthPx.toFloat())
+                cv.translationX = if (dockRight.value) clamped else -clamped
+            },
+            onDrawerCloseRelease = { outwardPx, outwardVel ->
+                val dm = resources.displayMetrics
+                val panelWidthPx = (viewport.value.panelWidth * dm.density).roundToInt()
+                val snapClose = outwardVel > 900f || (outwardVel > -500f && outwardPx >= panelWidthPx * 0.30f)
+                val offscreenX = if (dockRight.value) panelWidthPx.toFloat() else -panelWidthPx.toFloat()
+
+                cv.animate().cancel()
+                if (snapClose) {
+                    cv.animate()
+                        .translationX(offscreenX)
+                        .setDuration(160)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .withEndAction {
+                            cv.translationX = 0f
+                            isDrawerDragging = false
+                            open.value = false
+                        }
+                        .start()
+                } else {
+                    cv.animate()
+                        .translationX(0f)
+                        .setDuration(160)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .withEndAction {
+                            isDrawerDragging = false
+                        }
+                        .start()
+                }
+            },
             onBoundsChanged = { view?.let { updateExclusionRects(it) }; clamp() }
         ).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
             addView(
-                composeView,
+                cv,
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.WRAP_CONTENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT
@@ -543,7 +659,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             )
             setOnApplyWindowInsetsListener { _, insets -> post { updateBounds() }; insets }
         }
-        composeView.setContent {
+        cv.setContent {
             val sample by rendered.collectAsState()
             val size by viewport.collectAsState()
             val expanded by open.collectAsState()
@@ -715,6 +831,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             ((it as? ViewGroup)?.getChildAt(0) as? ComposeView)?.disposeComposition()
         }
         view = null
+        composeView = null
         autoSkipWindow?.close()
         autoSkipWindow = null
         magicPinWindow?.close()
