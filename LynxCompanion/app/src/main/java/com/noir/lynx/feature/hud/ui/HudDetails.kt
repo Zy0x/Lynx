@@ -1,76 +1,539 @@
 package com.noir.lynx.feature.hud.ui
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.*
+import java.util.Locale
 
+/**
+ * Unified Digital Gaming Cockpit Speedometer Monitor.
+ * Replaces cumbersome sub-pages with modern, compact, glanceable tachometer cards.
+ */
 @Composable
 internal fun HudDetails(snapshot: HudSnapshot) {
-    HudSubpages(listOf(R.string.hud_group_frame, R.string.hud_cpu, R.string.hud_gpu,
-        R.string.hud_group_memory_temperature, R.string.hud_group_battery, R.string.hud_detail_diagnostics)) { section ->
-        when (section) {
-            0 -> HudSection(hudString(R.string.hud_group_frame)) {
-                HudFrameChart(snapshot)
-                listOf(HudMetric.FPS, HudMetric.FRAME_TIME, HudMetric.DISPLAY_HZ, HudMetric.FRAME_AVERAGE, HudMetric.FPS_LOW)
-                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // 1. Performance Cockpit: FPS Tachometer & Live Waveform
+        HudCockpitFpsCard(snapshot)
+
+        // 2. Twin Engine Cockpit: CPU & GPU Side-by-Side Tachometers
+        HudCockpitTwinEngineCard(snapshot)
+
+        // 3. Power Reactor: Battery, Current, Voltage & Wattage
+        HudCockpitPowerCard(snapshot)
+
+        // 4. Memory & Thermal Matrix: RAM Allocation & Hardware Temperatures
+        HudCockpitMemoryThermalCard(snapshot)
+
+        // 5. Expandable Advanced Diagnostics (Raw Kernel Sysfs / Driver status)
+        HudExpandableSection(hudString(R.string.hud_detail_diagnostics)) {
+            HudDetailDiagnostics(snapshot)
+        }
+    }
+}
+
+/**
+ * Card 1: FPS Tachometer Speedometer & Real-Time Waveform.
+ */
+@Composable
+private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HudElevated,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HudBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header Row with Title, Refresh Rate Badge, and Info (i) Modal
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = hudString(R.string.hud_cockpit_fps_title),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    // Display Refresh Rate Pill
+                    val hzReading = snapshot[HudMetric.DISPLAY_HZ]
+                    if (hzReading.status == "valid") {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = HudCyan.copy(alpha = 0.14f),
+                            border = BorderStroke(0.8.dp, HudCyan.copy(alpha = 0.45f))
+                        ) {
+                            Text(
+                                text = "${hzReading.text()} Hz",
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = HudCyan,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+                HudInfoButton(
+                    title = hudString(R.string.hud_info_fps_title),
+                    info = hudString(R.string.hud_info_fps_desc),
+                    accentColor = HudCyan
+                )
             }
-            1 -> HudProcessorDetails(snapshot, cpu = true)
-            2 -> HudProcessorDetails(snapshot, cpu = false)
-            3 -> HudSection(hudString(R.string.hud_group_memory_temperature)) {
-                listOf(HudMetric.RAM_USED, HudMetric.CPU_TEMP, HudMetric.SOC_TEMP, HudMetric.GPU_TEMP)
-                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+
+            // Main Tachometer Speedometer & Satellite Telemetry Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Left: Semi-Circular FPS Tachometer Arc
+                val fpsReading = snapshot[HudMetric.FPS]
+                val displayHz = snapshot[HudMetric.DISPLAY_HZ].value?.toFloat()?.takeIf { it > 10f } ?: 60f
+                val fpsVal = fpsReading.value?.toFloat() ?: 0f
+                val fpsProgress = (fpsVal / displayHz).coerceIn(0f, 1f)
+                val fpsStatus = when {
+                    fpsReading.status != "valid" -> hudString(R.string.hud_cockpit_idle)
+                    fpsVal >= displayHz - 3f -> hudString(R.string.hud_cockpit_stable)
+                    else -> hudString(R.string.hud_cockpit_jitter)
+                }
+
+                HudArcTachometer(
+                    progress = fpsProgress,
+                    primaryValue = fpsReading.text(),
+                    unit = "FPS",
+                    subLabel = fpsStatus,
+                    overrideColor = HudCyan
+                )
+
+                // Right: Live Oscilloscope Waveform & 4-Pill Telemetry Grid
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val history = snapshot.history.takeIf { snapshot[HudMetric.FRAME_TIME].status == "valid" }.orEmpty()
+                    HudWaveformCanvas(
+                        history = history,
+                        lineColor = HudCyan,
+                        baselineMs = 1000f / displayHz,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // 4 Satellite Metrics
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SatelliteStat(hudString(R.string.hud_cockpit_avg), formatAvgFps(snapshot[HudMetric.FRAME_AVERAGE]))
+                        val low1Pct = snapshot[HudMetric.FPS_LOW]
+                        SatelliteStat(
+                            hudString(R.string.hud_cockpit_low),
+                            if (low1Pct.status == "valid" && low1Pct.value != null) String.format(Locale.US, "%.1f", low1Pct.value) else "—"
+                        )
+                        val ft = snapshot[HudMetric.FRAME_TIME]
+                        SatelliteStat(
+                            hudString(R.string.hud_cockpit_frametime),
+                            if (ft.status == "valid") "${ft.text()} ms" else "—"
+                        )
+                    }
+                }
             }
-            4 -> HudSection(hudString(R.string.hud_group_battery), badge = hudString(when (snapshot.charging) {
-                    true -> R.string.hud_charging
-                    false -> R.string.hud_discharging
-                    else -> R.string.hud_unsupported
-                })) {
-                listOf(HudMetric.BATTERY_LEVEL, HudMetric.BATTERY_TEMP, HudMetric.BATTERY_CURRENT, HudMetric.BATTERY_VOLTAGE, HudMetric.BATTERY_POWER)
-                    .forEach { HudReadingLine(hudString(it.label), snapshot[it]) }
+        }
+    }
+}
+
+/**
+ * Card 2: Twin Engine Cockpit (CPU & GPU Side-by-Side Tachometers).
+ */
+@Composable
+private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HudElevated,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HudBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = hudString(R.string.hud_cockpit_cpu_gpu_title),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                HudInfoButton(
+                    title = hudString(R.string.hud_info_cpu_title),
+                    info = hudString(R.string.hud_info_cpu_desc) + "\n\n" + hudString(R.string.hud_info_gpu_desc),
+                    accentColor = Color(0xFF90CAF9)
+                )
             }
-            5 -> HudDetailDiagnostics(snapshot)
+
+            // Twin Dials Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left Dial: CPU Engine
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    val cpuLoad = snapshot[HudMetric.CPU_LOAD]
+                    val cpuProgress = (cpuLoad.value?.toFloat() ?: 0f) / 100f
+                    val cpuVal = if (cpuLoad.status == "valid") "${cpuLoad.value?.toInt() ?: 0}" else "—"
+
+                    HudArcTachometer(
+                        progress = cpuProgress,
+                        primaryValue = cpuVal,
+                        unit = "%",
+                        subLabel = "CPU " + hudString(R.string.hud_cockpit_load)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = formatCpuFreqClusters(snapshot),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val cpuTemp = snapshot[HudMetric.CPU_TEMP]
+                    Text(
+                        text = if (cpuTemp.status == "valid") "${cpuTemp.text()}°C" else "Temp —",
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFF90CAF9)
+                    )
+                }
+
+                // Vertical Hairline Divider
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(82.dp)
+                        .background(HudBorder)
+                )
+
+                // Right Dial: GPU Engine
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    val gpuLoad = snapshot[HudMetric.GPU_LOAD]
+                    val gpuProgress = (gpuLoad.value?.toFloat() ?: 0f) / 100f
+                    val gpuVal = if (gpuLoad.status == "valid") "${gpuLoad.value?.toInt() ?: 0}" else "—"
+
+                    HudArcTachometer(
+                        progress = gpuProgress,
+                        primaryValue = gpuVal,
+                        unit = "%",
+                        subLabel = "GPU " + hudString(R.string.hud_cockpit_load)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = formatGpuFreq(snapshot[HudMetric.GPU_CLOCK]),
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val gpuTemp = snapshot[HudMetric.GPU_TEMP]
+                    Text(
+                        text = if (gpuTemp.status == "valid") "${gpuTemp.text()}°C" else "Temp —",
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFF80DEEA)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Card 3: Power Reactor & Battery Telemetry.
+ */
+@Composable
+private fun HudCockpitPowerCard(snapshot: HudSnapshot) {
+    val isCharging = snapshot.charging == true
+    val badgeColor = if (isCharging) Color(0xFF00E676) else HudMuted
+    val badgeText = when {
+        isCharging -> hudString(R.string.hud_charging)
+        snapshot.charging == false -> hudString(R.string.hud_discharging)
+        else -> hudString(R.string.hud_unsupported)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HudElevated,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HudBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = hudString(R.string.hud_cockpit_power_title),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = badgeColor.copy(alpha = 0.14f),
+                        border = BorderStroke(0.8.dp, badgeColor.copy(alpha = 0.45f))
+                    ) {
+                        Text(
+                            text = badgeText,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = badgeColor,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                HudInfoButton(
+                    title = hudString(R.string.hud_info_power_title),
+                    info = hudString(R.string.hud_info_power_desc),
+                    accentColor = Color(0xFF00E676)
+                )
+            }
+
+            // Power Gauge Linear Bar
+            val batteryLevel = snapshot[HudMetric.BATTERY_LEVEL]
+            val levelVal = (batteryLevel.value?.toFloat() ?: 0f) / 100f
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (batteryLevel.status == "valid") "${batteryLevel.text()}%" else "—",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White
+                    )
+                    val batteryTemp = snapshot[HudMetric.BATTERY_TEMP]
+                    Text(
+                        text = if (batteryTemp.status == "valid") "${batteryTemp.text()}°C" else "—",
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = if (batteryTemp.value != null && batteryTemp.value > 43.0) Color(0xFFFF5252) else HudMuted
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { levelVal },
+                    color = if (isCharging) Color(0xFF00E676) else Color(0xFF38BDF8),
+                    trackColor = Color(0x28FFFFFF),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                )
+            }
+
+            // 3-Column Instrumentation Grid (Current, Voltage, Wattage)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val current = snapshot[HudMetric.BATTERY_CURRENT]
+                CockpitMetricCell(
+                    label = hudString(R.string.hud_metric_current),
+                    value = if (current.status == "valid") "${current.text()} mA" else "—",
+                    color = if (isCharging) Color(0xFF00E676) else Color.White
+                )
+                val volt = snapshot[HudMetric.BATTERY_VOLTAGE]
+                val voltText = if (volt.status == "valid" && volt.value != null) {
+                    String.format(Locale.US, "%.2f V", volt.value / 1000.0)
+                } else "—"
+                CockpitMetricCell(
+                    label = hudString(R.string.hud_metric_voltage),
+                    value = voltText,
+                    color = Color.White
+                )
+                val power = snapshot[HudMetric.BATTERY_POWER]
+                CockpitMetricCell(
+                    label = hudString(R.string.hud_metric_power),
+                    value = if (power.status == "valid") "${power.text()} W" else "—",
+                    color = Color(0xFFFBBF24)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Card 4: System Memory & Component Thermal Matrix.
+ */
+@Composable
+private fun HudCockpitMemoryThermalCard(snapshot: HudSnapshot) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = HudElevated,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HudBorder)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = hudString(R.string.hud_cockpit_mem_temp_title),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                HudInfoButton(
+                    title = hudString(R.string.hud_info_mem_title),
+                    info = hudString(R.string.hud_info_mem_desc),
+                    accentColor = Color(0xFFC084FC)
+                )
+            }
+
+            // RAM Allocation Row
+            val ram = snapshot[HudMetric.RAM_USED]
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = hudString(R.string.hud_metric_ram),
+                    fontSize = 11.sp,
+                    color = HudMuted
+                )
+                Text(
+                    text = if (ram.status == "valid") "${ram.text()} GiB" else "—",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color.White
+                )
+            }
+
+            // 3-Point Thermal Matrix Row (SoC, CPU, GPU)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val soc = snapshot[HudMetric.SOC_TEMP]
+                CockpitMetricCell(
+                    label = "SoC Temp",
+                    value = if (soc.status == "valid") "${soc.text()}°C" else "—",
+                    color = Color(0xFFC084FC)
+                )
+                val cpu = snapshot[HudMetric.CPU_TEMP]
+                CockpitMetricCell(
+                    label = "CPU Temp",
+                    value = if (cpu.status == "valid") "${cpu.text()}°C" else "—",
+                    color = Color(0xFF90CAF9)
+                )
+                val gpu = snapshot[HudMetric.GPU_TEMP]
+                CockpitMetricCell(
+                    label = "GPU Temp",
+                    value = if (gpu.status == "valid") "${gpu.text()}°C" else "—",
+                    color = Color(0xFF80DEEA)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun HudFrameChart(snapshot: HudSnapshot) {
-    val history = snapshot.history.takeIf { snapshot[HudMetric.FRAME_TIME].status == "valid" }.orEmpty()
-    if (history.size > 1) {
-        val low = history.minOrNull() ?: 0f
-        val high = history.maxOrNull() ?: 0f
-        val description = hudString(R.string.hud_frame_chart)
+private fun SatelliteStat(label: String, value: String) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(text = label, fontSize = 9.sp, color = HudMuted, maxLines = 1)
         Text(
-            text = hudString(R.string.hud_chart_range, "%.1f".format(low), "%.1f".format(high)),
-            fontSize = 12.sp,
+            text = value,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace,
-            color = HudMuted
+            color = Color.White,
+            maxLines = 1
         )
-        Canvas(
-            modifier = Modifier
-            .fillMaxWidth()
-            .height(34.dp)
-            .semantics { contentDescription = description }
-        ) {
-            val max = high.coerceAtLeast(1f)
-            val path = Path()
-            history.forEachIndexed { i, v ->
-                val x = i.toFloat() / history.lastIndex.coerceAtLeast(1) * size.width
-                val y = size.height - (v / max).coerceIn(0f, 1f) * size.height
-                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-            }
-            drawPath(path, HudCyan, style = Stroke(2.dp.toPx()))
-        }
+    }
+}
+
+@Composable
+private fun CockpitMetricCell(label: String, value: String, color: Color = Color.White) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(text = label, fontSize = 9.5.sp, color = HudMuted, maxLines = 1)
+        Text(
+            text = value,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.Monospace,
+            color = color,
+            maxLines = 1
+        )
     }
 }

@@ -2434,4 +2434,30 @@
     <string name="hud_tool_focus_sub">Block notifications</string>
     <string name="hud_tool_focus_active">Focus active</string>
     <string name="hud_tool_active">Active</string>
+    <!-- Digital Gaming Cockpit Speedometer Strings -->
+    <string name="hud_cockpit_fps_title">Frame &amp; Display Performance</string>
+    <string name="hud_cockpit_cpu_gpu_title">Twin Processor Engines</string>
+    <string name="hud_cockpit_power_title">Power Reactor &amp; Battery</string>
+    <string name="hud_cockpit_mem_temp_title">System Memory &amp; Thermals</string>
+    <string name="hud_info_fps_title">Frame &amp; Display Stability</string>
+    <string name="hud_info_fps_desc">Measures frame rate (FPS), frame time variance (jitter), and 1% Low percentiles. Consistent frame pacing ensures a stutter-free gameplay experience.</string>
+    <string name="hud_info_cpu_title">Processor Architecture (CPU)</string>
+    <string name="hud_info_cpu_desc">Displays CPU utilization and dynamic frequencies per cluster (LITTLE for efficiency, BIG for gaming performance). The kernel governor dynamically scales frequencies based on load.</string>
+    <string name="hud_info_gpu_title">Graphics Processing (GPU)</string>
+    <string name="hud_info_gpu_desc">Displays GPU engine load (Adreno / Mali) and active clock speed. High utilization indicates the GPU is actively rendering game geometry and fragment shaders.</string>
+    <string name="hud_info_power_title">Power Reactor &amp; Battery Thermals</string>
+    <string name="hud_info_power_desc">Monitors charging/discharging current (mA), cell voltage (V), power draw (Watt), and battery temperature with electrochemical tapering and bypass protection.</string>
+    <string name="hud_info_mem_title">Memory Allocation &amp; Thermals</string>
+    <string name="hud_info_mem_desc">Displays physical RAM utilization, Linux kernel ZRAM Swap compression, and hardware temperature sensors to monitor thermal safety.</string>
+    <string name="hud_cockpit_stable">STABLE</string>
+    <string name="hud_cockpit_jitter">JITTER</string>
+    <string name="hud_cockpit_idle">IDLE</string>
+    <string name="hud_cockpit_load">LOAD</string>
+    <string name="hud_cockpit_avg">Average</string>
+    <string name="hud_cockpit_low">1% Low</string>
+    <string name="hud_cockpit_target">Target</string>
+    <string name="hud_cockpit_frametime">Frame Time</string>
+    <string name="hud_cockpit_bypass_active">Bypass Active</string>
+    <string name="hud_cockpit_normal">Normal</string>
+    <string name="hud_cockpit_hot">Hot</string>
 </resources>

@@ -1,3 +1,26 @@
+# Lynx Universal [Digital Gaming Cockpit Speedometer Monitor] 7.0.0-RC300
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.33
+
+- **Perombakan Total Tab Monitor Menjadi Digital Gaming Cockpit Speedometer**:
+  - **Eliminasi Navigasi Tab Chip Terpotong (*Zero-Click Unified Cockpit*)**:
+    - Menggantikan bilah tab horizontal lama yang terpotong menjadi dashboard kokpit terpadu satu halaman (*unified vertical stream*) yang sangat ramping (*compact*) dan mudah dibaca sekilas (*glanceable*).
+  - **Modul Grafis Speedometer Dinamis (`HudSpeedometerGauges.kt`)**:
+    - **`HudArcTachometer`**: Busur speedometer semi-lingkaran (180° sweep) dengan jarum penunjuk bercahaya (*glowing needle tip dot*), garis-garis radial tick mark, dan transisi warna beban dinamis *Redline* (Cyan $<60\%$, Amber $60-85\%$, Crimson $>85\%$).
+    - **`HudWaveformCanvas`**: Kurva osiloskop halus berbasis *cubic Bezier spline* yang merender riwayat variasi frame time secara real-time dan estetik dengan latar gradien cahaya.
+  - **4 Kartu Bento Cockpit Ramping**:
+    - **Kartu 1 (FPS & Display Tachometer)**: Menghadirkan speedometer busur frame rate (0–120 FPS), kurva osiloskop, serta 4 metrik satelit (Avg FPS, 1% Low, Display Hz, Frame Time ms).
+    - **Kartu 2 (Twin-Engine CPU & GPU)**: Dua dial tachometer kembar berdampingan secara simetris:
+      - Dial CPU: Beban komputasi % real-time, frekuensi dinamis cluster LITTLE & BIG (GHz), dan suhu sensor CPU.
+      - Dial GPU: Utilisasi render grafis %, frekuensi clock aktif (MHz), dan suhu sensor GPU.
+    - **Kartu 3 (Power Reactor & Baterai)**: Indikator arus (mA), tegangan sel (V), daya (Watt), status pengisian (Hyper Charge / Discharging / Bypass), dan suhu baterai.
+    - **Kartu 4 (Memori Sistem & Termal)**: Meteran alokasi RAM fisik (GB), ZRAM Swap, serta matriks suhu 3 titik (SoC, CPU, GPU).
+    - **Diagnostik Terlipat**: Menyediakan accordion tersembunyi di bagian bawah untuk diagnostik sysfs kernel tingkat lanjut.
+  - **Integrasi Tombol Informasi Interaktif `(i)` (`HudInfoButton` & `HudInfoModal`)**:
+    - Setiap kartu cockpit dilengkapi tombol `(i)` di sudut kanan atas yang memicu dialog modal interaktif berlatar kaca gelap untuk membaca penjelasan teknis mendalam mengenai arsitektur hardware, VSync latching, AICL charging, dan manajemen termal tanpa mengotori tampilan utama.
+
+---
+
 # Lynx Universal [HUD Game Readings Elegant Glass Border & Separation] 7.0.0-RC299
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.32
