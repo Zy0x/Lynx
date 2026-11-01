@@ -1,3 +1,24 @@
+# Lynx Universal [Zero-Replug Automated Cold-Plug Handshake & Dynamic Silicon Ceiling Engine] 7.0.0-RC303
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.36
+
+- **Garansi Negosiasi Arus Puncak Otomatis Sejak Awal Pencolokan (*Zero-Replug Guarantee*)**:
+  - **Protokol Tiga Tahap Handshake Dingin (*Three-Stage Cold-Plug Arming*)**:
+    - **Tahap 1 (t = 0s - Instant Arming)**: Seketika kabel dicolokkan (`handle_connect`), sistem membuka seluruh izin protokol fisik (`allow_hvdcp3 = 1`, `hvdcp_opti_allowed = 1`, `pd_allowed = 1`, `boost_current = 1`, `restricted_charging = 0`, `input_suspend = 0`) sebelum chip PHY / APSD menyelesaikan deteksi charger.
+    - **Tahap 2 (t = 2.0s - Automated AICL Kick)**: Tepat setelah negosiasi voltase tinggi HVDCP3 / USB-PD selesai (voltase melonjak ke 9V/12V), daemon secara otomatis mengeksekusi `rerun_aicl = 1` non-disruptif tanpa memutus jalur VBUS. AICL langsung melonjak dari 500 mA $\rightarrow$ 1500 mA $\rightarrow$ 2800–3300+ mA tanpa perlu mencabut dan mencolok ulang (*no replug needed*).
+    - **Tahap 3 (t = 4.0s - Ramp Verification & Lock)**: Memverifikasi apakah arus riil telah mencapai target puncak. Jika arus masih tertahan di bawah 2000 mA pada SoC < 90%, sistem secara otonom memicu penyelarasan ulang voter register PMIC.
+  - **Pembersihan Bersih Marker Sesi Disconnect (`handle_disconnect`)**: Menjamin seluruh penanda flag (`/dev/lynx_soft_reconnect_done`, `/dev/lynx_stalled_5v_count`, `/dev/lynx_cold_plug_kicked`, `/dev/lynx_cold_plug_verified`) dibersihkan total saat kabel dicabut, memastikan pencolokan dingin berikutnya selalu mendapatkan negosiasi instan 100%.
+
+- **Mesin Deteksi Batas Arus Silikon Universal Tanpa Hardcoding (*Dynamic Silicon Ceiling Probing*)**:
+  - **Eliminasi Batas Kaku Statis 3000 mA**: Menggantikan seluruh batasan statis dengan fungsi probe dinamis berkemampuan adaptasi otomatis ke seluruh spektrum chipset:
+    - `probe_silicon_charge_ceiling_ua()`: Menguji secara desenden nilai voter register kernel (`constant_charge_current_max`) dari 12A hingga 2A untuk menemukan batas absolut yang diterima driver tanpa penolakan `-EINVAL`.
+    - `probe_silicon_usb_current_max_ua()`: Mendeteksi batas maksimal bus input AICR secara adaptif.
+  - **Kompatibilitas Lintas Arsitektur**:
+    - Perangkat single-PMIC terbatas (seperti Snapdragon 660 / PM660) terkunci otomatis pada batas absolut 3000 mA (mencegah galat fatal `-EINVAL` dan fallback 1500 mA).
+    - Perangkat kelas atas (Dual Charge Pump SMB1390/SMB1396, MediaTek RT9759, atau USB-PD 5A) secara otomatis mengekspansi arus puncak hingga 6000 mA – 12000 mA secara aman dan fleksibel.
+
+---
+
 # Lynx Universal [Sustained 90% Hyper Charging & Precision Battery Lab Staging] 7.0.0-RC302
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.35

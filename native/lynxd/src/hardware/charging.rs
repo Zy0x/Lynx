@@ -1,12 +1,14 @@
 use std::fs;
 use std::path::Path;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::state::ConfigStore;
 
 static LAST_SOFT_RECONNECT_EPOCH: AtomicU64 = AtomicU64::new(0);
 static LAST_FCC_WRITE_EPOCH: AtomicU64 = AtomicU64::new(0);
+static WAS_PLUGGED_STATE: AtomicBool = AtomicBool::new(false);
+static PLUGGED_AT_EPOCH: AtomicU64 = AtomicU64::new(0);
 
 fn can_soft_reconnect() -> bool {
     let now = SystemTime::now()
@@ -866,10 +868,94 @@ impl ChargingRegulator {
         } else if is_dual_cell {
             12000
         } else {
-            6000
+            let silicon_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32;
+            silicon_ma.max(3000)
         };
         let _ = fs::write(cache_file, resolved.to_string());
         resolved
+    }
+
+    /// Dynamically probes the maximum constant charge current (in uA) that the silicon PMIC driver
+    /// accepts without returning -EINVAL. Eliminates hardcoding across single-PMIC and dual-pump architectures.
+    pub fn probe_silicon_charge_ceiling_ua() -> u64 {
+        let cache_file = "/dev/lynx_probed_max_fcc_ua";
+        if let Some(cached) = Self::read_i64(cache_file) {
+            if (1_500_000..=30_000_000).contains(&cached) {
+                return cached as u64;
+            }
+        }
+
+        let is_qcom = Self::is_qualcomm_soc();
+        let has_cp = Self::has_qcom_direct_charge_pump();
+
+        if has_cp {
+            let _ = fs::write(cache_file, "12000000");
+            return 12_000_000;
+        }
+
+        // 1. Hardware node inspection
+        for node in &[
+            "/sys/class/power_supply/usb/hw_current_max",
+            "/sys/class/power_supply/battery/hw_current_max",
+            "/sys/class/power_supply/main/hw_current_max",
+        ] {
+            if let Some(val) = Self::read_i64(node) {
+                let ua = if val > 100_000 { val as u64 } else { (val as u64) * 1000 };
+                if (2_000_000..=25_000_000).contains(&ua) {
+                    let _ = fs::write(cache_file, ua.to_string());
+                    return ua;
+                }
+            }
+        }
+
+        // 2. Active descending probe on writable kernel node to discover true silicon voter ceiling
+        let probe_candidates: &[u64] = &[
+            12_000_000, 8_000_000, 6_000_000, 5_000_000, 4_500_000,
+            4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
+        ];
+
+        let probe_node = format!("{}/constant_charge_current_max", BATT_DIR);
+        if Path::new(&probe_node).exists() {
+            Self::set_perm(&probe_node, 0o666);
+            for &cand in probe_candidates {
+                if fs::write(&probe_node, cand.to_string()).is_ok() {
+                    let _ = fs::write(cache_file, cand.to_string());
+                    return cand;
+                }
+            }
+        }
+
+        // Safe fallback
+        let fallback = if is_qcom { 3_000_000 } else { 6_000_000 };
+        let _ = fs::write(cache_file, fallback.to_string());
+        fallback
+    }
+
+    /// Dynamically probes the maximum USB input current limit (in uA) that the PMIC AICR accepts without -EINVAL.
+    pub fn probe_silicon_usb_current_max_ua() -> u64 {
+        let cache_file = "/dev/lynx_probed_max_usb_ua";
+        if let Some(cached) = Self::read_i64(cache_file) {
+            if (1_500_000..=30_000_000).contains(&cached) {
+                return cached as u64;
+            }
+        }
+
+        let candidates: &[u64] = &[
+            6_000_000, 5_000_000, 4_500_000, 4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
+        ];
+        let node = format!("{}/current_max", USB_DIR);
+        if Path::new(&node).exists() {
+            Self::set_perm(&node, 0o666);
+            for &cand in candidates {
+                if fs::write(&node, cand.to_string()).is_ok() {
+                    let _ = fs::write(cache_file, cand.to_string());
+                    return cand;
+                }
+            }
+        }
+        let fallback = 3_000_000;
+        let _ = fs::write(cache_file, fallback.to_string());
+        fallback
     }
 
     /// Dynamically probes the authentic physical battery design saturation ceiling (Float Voltage)
@@ -1111,7 +1197,7 @@ impl ChargingRegulator {
 
         if is_hyper {
             let target_peak_ma = if is_qcom && !Self::has_qcom_direct_charge_pump() {
-                3000
+                (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32
             } else if cfg.limit_current_ma >= 2000 {
                 (cfg.limit_current_ma as u32).max(Self::probe_hardware_ceiling_ma())
             } else {
@@ -1138,7 +1224,7 @@ impl ChargingRegulator {
 
             let target_ua = effective_ma as i64 * 1000;
             let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
-                (effective_ma as i64 * 1000).min(3_500_000)
+                Self::probe_silicon_usb_current_max_ua() as i64
             } else if is_qcom {
                 (effective_ma as i64 * 1000).max(6_000_000)
             } else {
@@ -1820,8 +1906,9 @@ impl ChargingRegulator {
         } else {
             target_peak_ma
         };
+        let silicon_cap_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32;
         let qcom_ma_cap = if is_qcom && !has_qcom_cp {
-            effective_ma.min(3000)
+            effective_ma.min(silicon_cap_ma)
         } else {
             effective_ma
         };
@@ -1897,8 +1984,7 @@ impl ChargingRegulator {
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
         let usb_current_cap_ua = if is_qcom && !has_qcom_cp {
-            // Qualcomm single-cell without dual charge pump: 3000mA (3.0A hardware limit of PM660 AICR)
-            "3000000".to_string()
+            Self::probe_silicon_usb_current_max_ua().to_string()
         } else {
             (effective_ma as u64 * 1000).max(6_000_000).to_string()
         };
@@ -2045,8 +2131,10 @@ impl ChargingRegulator {
 
         if Self::is_qualcomm_soc() {
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let target_ua = if has_cp { "6000000" } else { "3000000" };
-            let restrict_cur_val = if has_cp { "6000" } else { "3000" };
+            let silicon_ceiling_ua = Self::probe_silicon_charge_ceiling_ua();
+            let silicon_ceiling_ma = (silicon_ceiling_ua / 1000) as u32;
+            let target_ua = if has_cp { "6000000".to_string() } else { silicon_ceiling_ua.to_string() };
+            let restrict_cur_val = if has_cp { "6000".to_string() } else { silicon_ceiling_ma.to_string() };
             let direct_val = if has_cp { "1" } else { "0" };
 
             // 1. Pre-uncap registers in kernel memory before handshake trigger
@@ -2060,12 +2148,12 @@ impl ChargingRegulator {
             ] {
                 if Path::new(node).exists() {
                     Self::set_perm(node, 0o666);
-                    Self::write_node(node, target_ua);
+                    Self::write_node(node, &target_ua);
                 }
             }
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), restrict_cur_val);
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
             Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
@@ -2192,8 +2280,10 @@ impl ChargingRegulator {
             Self::write_node(&en_node, "1");
         }
 
-        // 5. Uncap input & charge currents to healthy defaults
-        let target_ua = if is_qcom { "3000000" } else { "4500000" };
+        // 5. Uncap input & charge currents to dynamic silicon ceilings
+        let silicon_ceiling_ua = Self::probe_silicon_charge_ceiling_ua();
+        let silicon_ceiling_ma = (silicon_ceiling_ua / 1000) as u32;
+        let target_ua = if is_qcom { silicon_ceiling_ua.to_string() } else { "4500000".to_string() };
         for node in &[
             format!("{}/constant_charge_current_max", BATT_DIR),
             format!("{}/constant_charge_current", BATT_DIR),
@@ -2204,7 +2294,7 @@ impl ChargingRegulator {
         ] {
             if Path::new(node).exists() {
                 Self::set_perm(node, 0o666);
-                Self::write_node(node, target_ua);
+                Self::write_node(node, &target_ua);
             }
         }
 
@@ -2212,7 +2302,7 @@ impl ChargingRegulator {
             let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &silicon_ceiling_ma.to_string());
             Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
@@ -3520,6 +3610,36 @@ impl ChargingRegulator {
         current_ma.abs() <= 50 && status != "Charging"
     }
 
+    pub fn handle_connect(now_sec: u64) {
+        PLUGGED_AT_EPOCH.store(now_sec, Ordering::Relaxed);
+        let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
+        let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+        let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+        let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
+        let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+
+        // Stage 1: Cold-Plug Immediate Arming
+        let is_qcom = Self::is_qualcomm_soc();
+        if is_qcom {
+            Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+            Self::write_node(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+            Self::write_node(&format!("{}/pd_allowed", USB_DIR), "1");
+            Self::write_node(&format!("{}/boost_current", USB_DIR), "1");
+            Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+        } else {
+            Self::ensure_mtk_power_path_enabled();
+            Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
+            Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+        }
+        Self::apply_from_config();
+    }
+
     pub fn handle_disconnect() {
         Self::release_charging_wake_lock();
         // Charging protocol requests are session-scoped. Clear those requests on unplug,
@@ -3534,6 +3654,13 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_charging_guard");
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_orig_chg_max");
+        let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
+        let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
+        let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+        let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
+        let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);
+        WAS_PLUGGED_STATE.store(false, Ordering::Relaxed);
         Self::clear_bypass_hardware_state();
 
         // Unlock all candidate sysfs nodes so vendor HALs and kernel have write access
@@ -3789,9 +3916,64 @@ impl ChargingRegulator {
 
     /// Periodic tick called inside `DaemonRunner::run()` every cycle.
     pub fn tick() {
-        if !Self::is_hardware_plugged() {
+        let is_plugged = Self::is_hardware_plugged();
+        let was_plugged = WAS_PLUGGED_STATE.swap(is_plugged, Ordering::AcqRel);
+
+        if !is_plugged {
             Self::handle_disconnect();
             return;
+        }
+
+        let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        if !was_plugged {
+            Self::handle_connect(now_sec);
+        }
+
+        let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+        let plugged_elapsed = now_sec.saturating_sub(plugged_at);
+
+        // Stage 2: Automated Zero-Touch AICL Kick (1.5 - 2.5s post cold-plug)
+        // At 2 seconds, hardware APSD/BC1.2 is settled and VBUS has stepped up to 9V.
+        // We kick rerun_aicl to ramp current immediately without user replug!
+        if plugged_elapsed >= 2 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
+            let _ = fs::write("/dev/lynx_cold_plug_kicked", "1");
+            if Self::is_qualcomm_soc() && !Self::is_laptop_port() {
+                for rerun in &[
+                    format!("{}/rerun_aicl", USB_DIR),
+                    format!("{}/rerun_aicl", BATT_DIR),
+                    format!("{}/rerun_aicl", MAIN_DIR),
+                ] {
+                    if Path::new(rerun).exists() {
+                        Self::set_perm(rerun, 0o666);
+                        Self::write_node(rerun, "1");
+                    }
+                }
+                Self::apply_from_config();
+            }
+        }
+
+        // Stage 3: Current Ramp Assurance (4.0s post cold-plug)
+        // If current is still lagging (< 2000mA at < 90% SoC), re-kick AICL once more
+        if plugged_elapsed >= 4 && !Path::new("/dev/lynx_cold_plug_verified").exists() {
+            let _ = fs::write("/dev/lynx_cold_plug_verified", "1");
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+            let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+            let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
+            if cur_now_ma < 2000 && cur_cap < 90 && !Self::is_laptop_port() {
+                if Self::is_qualcomm_soc() {
+                    for rerun in &[
+                        format!("{}/rerun_aicl", USB_DIR),
+                        format!("{}/rerun_aicl", BATT_DIR),
+                        format!("{}/rerun_aicl", MAIN_DIR),
+                    ] {
+                        if Path::new(rerun).exists() {
+                            Self::set_perm(rerun, 0o666);
+                            Self::write_node(rerun, "1");
+                        }
+                    }
+                    Self::apply_from_config();
+                }
+            }
         }
 
         let cfg = ConfigStore::load_charging_config();
@@ -3850,9 +4032,10 @@ impl ChargingRegulator {
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
 
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let target_limit_ua = if has_cp { 6_000_000 } else { 3_000_000 };
-            let target_limit_str = if has_cp { "6000000" } else { "3000000" };
-            let target_ma_str = if has_cp { "6000" } else { "3000" };
+            let silicon_ceiling_ua = if has_cp { 6_000_000 } else { Self::probe_silicon_charge_ceiling_ua() };
+            let target_limit_ua = silicon_ceiling_ua as i64;
+            let target_limit_str = silicon_ceiling_ua.to_string();
+            let target_ma_str = (silicon_ceiling_ua / 1000).to_string();
 
             let qcom_stalled = if is_hyper && cur_cap < 90 {
                 cur_usb < target_limit_ua - 200_000 || cur_fcc < target_limit_ua - 200_000 || cur_now_ma < 2500
@@ -3866,7 +4049,7 @@ impl ChargingRegulator {
                 let threshold = if is_hyper { 1 } else { 3 };
                 if count >= threshold {
                     let _ = fs::remove_file(marker_path);
-                    Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { 3000 });
+                    Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { (silicon_ceiling_ua / 1000) as u32 });
                     for rerun in &[
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),
@@ -3887,13 +4070,13 @@ impl ChargingRegulator {
                     ] {
                         if Path::new(node).exists() {
                             Self::set_perm(node, 0o666);
-                            Self::write_node(node, target_limit_str);
+                            Self::write_node(node, &target_limit_str);
                         }
                     }
                     let direct_val = if has_cp { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
                     Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), target_ma_str);
+                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
                     Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
                     Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
