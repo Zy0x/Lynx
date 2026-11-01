@@ -200,8 +200,8 @@ object BatteryLabSessionManager {
                     else -> "Tahap 2: Regulated Constant Current Step"
                 }
             }
-            level >= 75 || currentMa < 1500 -> "Tahap 3: Electrochemical CV Tapering"
-            else -> "Tahap Pengisian Aktif"
+            level >= 90 || (level >= 85 && currentMa < 1500) -> "Tahap 3: Electrochemical CV Tapering"
+            else -> "Tahap 1: Rapid / Regulated CC Phase"
         }
     }
 
@@ -226,8 +226,8 @@ object BatteryLabSessionManager {
                     else -> "Regulasi modulasi arus aktif oleh PMIC untuk menjaga kestabilan voltase sel dan suhu kerja."
                 }
             }
-            level >= 75 || currentMa < 1500 -> "Saturasi tegangan konstan (CV). Arus diturunkan bertahap untuk mencegah lithium plating pada anoda."
-            else -> "Pengisian daya berjalan dalam batas arus adaptif kernel."
+            level >= 90 || (level >= 85 && currentMa < 1500) -> "Saturasi tegangan konstan (CV). Arus diturunkan bertahap untuk mencegah lithium plating pada anoda."
+            else -> "Regulasi arus fase Constant Current (CC) dikontrol langsung oleh kernel PMIC."
         }
     }
 

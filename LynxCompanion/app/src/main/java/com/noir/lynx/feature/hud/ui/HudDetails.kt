@@ -126,13 +126,19 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
                     fpsVal >= displayHz - 3f -> hudString(R.string.hud_cockpit_stable)
                     else -> hudString(R.string.hud_cockpit_jitter)
                 }
+                val fpsColor = when {
+                    fpsReading.status != "valid" -> HudCyan
+                    fpsVal >= displayHz - 3f -> HudCyan
+                    fpsVal >= displayHz * 0.75f -> Color(0xFFFB923C)
+                    else -> Color(0xFFFF3366)
+                }
 
                 HudArcTachometer(
                     progress = fpsProgress,
                     primaryValue = fpsReading.text(),
                     unit = "FPS",
                     subLabel = fpsStatus,
-                    overrideColor = HudCyan
+                    overrideColor = fpsColor
                 )
 
                 // Right: Live Oscilloscope Waveform & 4-Pill Telemetry Grid
@@ -143,7 +149,7 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
                     val history = snapshot.history.takeIf { snapshot[HudMetric.FRAME_TIME].status == "valid" }.orEmpty()
                     HudWaveformCanvas(
                         history = history,
-                        lineColor = HudCyan,
+                        lineColor = fpsColor,
                         baselineMs = 1000f / displayHz,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -227,31 +233,54 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                         unit = "%",
                         subLabel = "CPU " + hudString(R.string.hud_cockpit_load)
                     )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = formatCpuFreqClusters(snapshot),
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val cpuTemp = snapshot[HudMetric.CPU_TEMP]
-                    Text(
-                        text = if (cpuTemp.status == "valid") "${cpuTemp.text()}°C" else "Temp —",
-                        fontSize = 9.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF90CAF9)
-                    )
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = formatCpuFreqClusters(snapshot),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val cpuTemp = snapshot[HudMetric.CPU_TEMP]
+                        if (cpuTemp.status == "valid") {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF90CAF9).copy(alpha = 0.14f),
+                                border = BorderStroke(0.6.dp, Color(0xFF90CAF9).copy(alpha = 0.40f))
+                            ) {
+                                Text(
+                                    text = "${cpuTemp.text()}°C",
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color(0xFF90CAF9),
+                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.5.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
-                // Vertical Hairline Divider
+                // Vertical Hairline Divider with Subtle Fade
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(82.dp)
-                        .background(HudBorder)
+                        .height(86.dp)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    HudBorder,
+                                    HudBorder,
+                                    Color.Transparent
+                                )
+                            )
+                        )
                 )
 
                 // Right Dial: GPU Engine
@@ -270,23 +299,37 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                         unit = "%",
                         subLabel = "GPU " + hudString(R.string.hud_cockpit_load)
                     )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = formatGpuFreq(snapshot[HudMetric.GPU_CLOCK]),
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val gpuTemp = snapshot[HudMetric.GPU_TEMP]
-                    Text(
-                        text = if (gpuTemp.status == "valid") "${gpuTemp.text()}°C" else "Temp —",
-                        fontSize = 9.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF80DEEA)
-                    )
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = formatGpuFreq(snapshot[HudMetric.GPU_CLOCK]),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val gpuTemp = snapshot[HudMetric.GPU_TEMP]
+                        if (gpuTemp.status == "valid") {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF80DEEA).copy(alpha = 0.14f),
+                                border = BorderStroke(0.6.dp, Color(0xFF80DEEA).copy(alpha = 0.40f))
+                            ) {
+                                Text(
+                                    text = "${gpuTemp.text()}°C",
+                                    fontSize = 8.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = Color(0xFF80DEEA),
+                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.5.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

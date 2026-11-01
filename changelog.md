@@ -1,3 +1,46 @@
+# Lynx Universal [Sustained 90% Hyper Charging & Precision Battery Lab Staging] 7.0.0-RC302
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.35
+
+- **Stabilitas Pengisian Puncak Qualcomm PM660 Hingga 90% & Koreksi Tahapan Lab Baterai**:
+  - **Penyelarasan Batas Keras Register PM660 ke 3000 mA**: Memastikan seluruh penulisan register AICR (`current_max`, `input_current_limit`, `restrict_cur`) pada arsitektur single-PMIC Qualcomm dikunci tepat pada batas fisik **3000 mA (3.0A)**, mengeliminasi galat penolakan parameter `-EINVAL` yang menyebabkan *fallback* ke batas arus aman USB 1500mA.
+  - **Perpanjangan Jendela Puncak Hyper Hingga 90% SoC (`cur_cap < 90`)**: Memperluas pemantauan agresif dan trigger AICL kick (`rerun_aicl = 1`) hingga baterai mencapai **90% penuh**, menjamin arus pengisian stabil di kisaran puncak hardware tanpa penurunan mendadak sebelum 90%.
+  - **Koreksi Logika Penamaan Tahapan Lab Baterai (`BatteryLabSessionManager` & `BatteryLabSubscreen`)**:
+    - Memperbaiki anomali teks UI yang sebelumnya menampilkan status "Tahap 3: Electrochemical CV Tapering" pada persentase rendah (<75%) saat arus di bawah 1500 mA.
+    - Menyelaraskan tahapan pengisian dengan siklus elektrokimia riil:
+      - **Tahap 1 & 2 (0% – 90%)**: *Rapid CC Phase / Regulated PMIC CC Step*.
+      - **Tahap 3 (90% – 99%)**: *Electrochemical CV Tapering* (penurunan bertahap aman dari 2400 mA $\rightarrow$ 1800 mA $\rightarrow$ 1200 mA).
+      - **Tahap 4 (100%)**: *AutoCut Full Saturation* (pemutusan arus total 0 mA).
+
+---
+
+# Lynx Universal [Futuristic Segmented LED Tachometer & Digital Cockpit Gauges] 7.0.0-RC301
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.34
+
+- **Modernisasi Total Speedometer Digital Gaming Cockpit (`HudSpeedometerGauges.kt`)**:
+  - **Transformasi Busur Segmented LED 240° (*Supercar Rev-Counter Bars*)**:
+    - Mengeliminasi kurva semi-lingkaran 180° kaku dan menggantinya dengan **16 Segmen Balok LED Radial bersudut agresif (*Angled Segmented LED Bars*)** dengan sapuan busur tapal kuda 240° (dari 150° hingga 30°).
+    - **Visual Hardware Otentik**: Segmen LED yang tidak aktif tetap terlihat sebagai elemen gelap taktis (*tactical translucent LED slots* `0x18FFFFFF`), sedangkan segmen aktif menyala terang dengan transisi warna beban bertingkat (*multi-stage color grading*):
+      - Segmen 0–9 (0%–56%): *Electric Ice Cyan* (`#00E5FF`) untuk zona optimal.
+      - Segmen 10–12 (57%–81%): *Solar Amber* (`#FB923C`) untuk zona beban gaming berat.
+      - Segmen 13–15 (82%–100%): *Hyper Crimson Redline* (`#FF3366`) untuk puncak utilisasi.
+  - **Rel Skala Konsentris & Kalibrasi Presisi (*Concentric Precision Rail*)**:
+    - Menambahkan rel busur tipis presisi (`0.9.dp`) di bagian dalam segmen LED dengan *notch ticks* pada 0%, 25%, 50%, 75%, dan *Redline Tick* merah mencolok pada 100%.
+  - **Jarum Penunjuk Bilah Aerodinamis / Ujung Berlian Bercahaya (*Luminous Diamond Tip*)**:
+    - Menggantikan titik lingkaran datar lama dengan jarum indikator berpendar yang memiliki inti putih solid (*pure white core*) dan cincin pendaran fosfor (*phosphor glow halo* `0.45f` alpha) yang melacak posisi telemetri secara halus (*smooth tween interpolation* 280ms).
+  - **Piringan Kaca Digital Tengah Berkover Bevel (*Chamfered OLED Center Pod*)**:
+    - Angka digital monospaced kini ditempatkan di dalam piringan instrumen kokpit berlatar kaca gelap (`Color(0xB0080C14)`) dengan garis tepi beveled (`0.8.dp`, aksen glow dinamis).
+    - Dilengkapi *status LED micro-dot* dan teks status real-time (`STABLE`, `REDLINE`, `LOAD`, `IDLE`).
+  - **Penyempurnaan Osiloskop Waveform Frame Time (`HudWaveformCanvas`)**:
+    - Ditambahkan kisi garis reticle osiloskop horizontal (garis acuan target 16.6ms / 60Hz dan batas 33.3ms / 30Hz) serta pembagi waktu vertikal.
+    - Kurva spline Bezier kini menggunakan lapisan ganda (*outer soft glow stroke* 3.6dp + *core crisp stroke* 1.7dp) dan titik mercusuar pemindaian CRT real-time (*scanning beacon*) di ujung data teranyar.
+  - **Harmonisasi Kartu Twin-Engine CPU & GPU**:
+    - Dial CPU dan GPU menggunakan layout simetris kembar dengan pembatas vertikal bergradien memudar (*fading hairline divider*).
+    - Subline frekuensi dan suhu digabungkan ke dalam baris telemetri ramping dengan lencana suhu berwarna yang terisolasi.
+
+---
+
 # Lynx Universal [Digital Gaming Cockpit Speedometer Monitor] 7.0.0-RC300
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.33

@@ -629,16 +629,16 @@ private fun DualIcHandoverStageCard(
             // Stage Step Indicators
             val stages = if (isTranssionHw) {
                 listOf(
-                    Triple("1. Direct Pump 2:1", "0% - 75% @ High-Current Direct", curMa > 3000),
-                    Triple("2. Switching Buck", "75% - 85% @ Regulated Step", curLevel in 75..84 || curMa in 1500..3000),
-                    Triple("3. CV Safe Tapering", "85% - 100% @ Tapered Saturation", curLevel >= 85 || (curMa < 1500 && curLevel >= 70)),
+                    Triple("1. Direct Pump 2:1", "0% - 90% @ High-Current Direct", curLevel < 90 && curMa > 3000),
+                    Triple("2. Switching Buck", "Modulasi arus adaptif baterai", curLevel < 90 && curMa in 1500..3000),
+                    Triple("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", curLevel in 90..99),
                     Triple("4. AutoCut Cutoff", "100% Full Saturation", curLevel >= 100)
                 )
             } else {
                 listOf(
-                    Triple("1. Rapid CC Phase", "Fase arus konstan tinggi via PMIC", curMa > 2500),
-                    Triple("2. Regulated CC Step", "Modulasi arus adaptif baterai", curLevel in 60..84 || curMa in 1200..2500),
-                    Triple("3. CV Safe Tapering", "Saturasi voltase konstan anoda", curLevel >= 85 || (curMa < 1200 && curLevel >= 60)),
+                    Triple("1. Rapid CC Phase", "0% - 90% @ Puncak Arus via PMIC", curLevel < 90 && curMa >= 2000),
+                    Triple("2. Regulated CC Step", "Modulasi arus adaptif baterai", curLevel < 90 && curMa < 2000),
+                    Triple("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", curLevel in 90..99),
                     Triple("4. AutoCut Cutoff", "100% Full Saturation", curLevel >= 100)
                 )
             }
