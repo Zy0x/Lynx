@@ -38,7 +38,7 @@ internal class HudSidebarHostView(
         }
     }
 
-    init { setOnClickListener { onOpen(true) } }
+    // Tap-to-open removed: HUD opening is strictly restricted to deliberate inward swipe gestures.
 
     private fun cancelChild() {
         if (cancelled) return
@@ -114,7 +114,7 @@ internal class HudSidebarHostView(
                         return super.dispatchTouchEvent(event)
                     } else {
                         val inward = if (right()) -dx else dx
-                        val inwardThreshold = maxOf(slop, 10f * density)
+                        val inwardThreshold = maxOf(slop * 1.2f, 14f * density)
                         // 1. Natural inward pull/swipe gesture (allows thumb arc up to ~60 degrees):
                         if (handle && inward >= inwardThreshold && inward > abs(dy) * 0.5f) {
                             handler.removeCallbacks(hold); gesture = Gesture.Open; cancelChild(); onOpen(true)
@@ -138,25 +138,14 @@ internal class HudSidebarHostView(
                 val pointerId = event.getPointerId(actionIdx)
                 if (pointerId == activePointerId) {
                     handler.removeCallbacks(hold)
-                    val curRawX = if (Build.VERSION.SDK_INT >= 29) event.getRawX(actionIdx) else event.rawX + (event.getX(actionIdx) - event.x)
-                    val curRawY = if (Build.VERSION.SDK_INT >= 29) event.getRawY(actionIdx) else event.rawY + (event.getY(actionIdx) - event.y)
                     val completed = gesture
                     gesture = Gesture.Pending
                     activePointerId = MotionEvent.INVALID_POINTER_ID
                     if (completed == Gesture.Drag) {
-                        val totalDist = hypot(curRawX - downX, curRawY - downY)
-                        if (totalDist < slop) {
-                            cancelChild(); performClick(); return true
-                        }
                         onDragEnd(); return true
                     }
-                    if (!expanded()) {
-                        if (completed == Gesture.Pending || completed == Gesture.Forward) {
-                            val totalDist = hypot(curRawX - downX, curRawY - downY)
-                            if (totalDist < slop * 1.5f) {
-                                cancelChild(); performClick(); return true
-                            }
-                        }
+                    if (!expanded() && (completed == Gesture.Pending || completed == Gesture.Forward)) {
+                        return true
                     }
                     return if (cancelled || completed == Gesture.Open) true else super.dispatchTouchEvent(event)
                 }
@@ -167,19 +156,11 @@ internal class HudSidebarHostView(
                 gesture = Gesture.Pending
                 activePointerId = MotionEvent.INVALID_POINTER_ID
                 if (completed == Gesture.Drag) {
-                    val totalDist = hypot(event.rawX - downX, event.rawY - downY)
-                    if (totalDist < slop) {
-                        cancelChild(); performClick(); return true
-                    }
                     onDragEnd(); return true
                 }
-                if (event.actionMasked == MotionEvent.ACTION_UP && !expanded()) {
-                    if (completed == Gesture.Pending || completed == Gesture.Forward) {
-                        val totalDist = hypot(event.rawX - downX, event.rawY - downY)
-                        if (totalDist < slop * 1.5f) {
-                            cancelChild(); performClick(); return true
-                        }
-                    }
+                if (event.actionMasked == MotionEvent.ACTION_UP && !expanded() &&
+                    (completed == Gesture.Pending || completed == Gesture.Forward)) {
+                    return true
                 }
                 return if (cancelled || completed == Gesture.Open) true else super.dispatchTouchEvent(event)
             }

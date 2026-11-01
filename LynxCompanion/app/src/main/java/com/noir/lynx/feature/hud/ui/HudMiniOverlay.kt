@@ -2,7 +2,6 @@ package com.noir.lynx.feature.hud.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -83,8 +82,7 @@ internal fun HudMiniOverlay(
     Row(
         Modifier.width((48f + if (prefs.pinned) width + 4f else 0f).dp)
             .heightIn(min = min(72f, viewport.heightDp).dp, max = min(viewport.heightDp, maxOf(72f, viewport.heightDp * .35f)).dp)
-            .semantics { contentDescription = description }
-            .clickable(onClick = onOpen),
+            .semantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically
     ) {
         val capsule: @Composable () -> Unit = {

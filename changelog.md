@@ -1,3 +1,18 @@
+# Lynx Universal [HUD Pill Sidebar Swipe-Only Opening & Conflict-Free Touch Gesture] 7.0.0-RC307
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.40
+
+- **Membuka Panel HUD HANYA dengan Usapan (*Swipe-to-Open Only*)**:
+  - **Eliminasi Total Pemicu Ketukan (*Zero-Tap Opening Trigger*)**: Menghapus `init { setOnClickListener { onOpen(true) } }` serta pemanggilan `performClick()` dari `HudSidebarHostView`, serta menghilangkan modifier `.clickable(onClick = onOpen)` dari `HudMiniOverlay`. Mengetuk atau menekan pill handle tidak akan lagi membuka panel HUD sama sekali.
+  - **Eliminasi Konflik Sentuhan dengan Tampilan/Game di Bawahnya**: Mencegah insiden terbukanya panel HUD berukuran besar akibat sentuhan tidak sengaja saat pengguna sedang bermain game atau berinteraksi dengan kontrol di dekat tepi layar.
+  - **Ambang Batas Usapan Horizontal ke Dalam (*Inward Swipe Precision*)**: Panel HUD kini hanya terbuka ketika pengguna melakukan usapan horizontal yang disengaja ke arah dalam layar melampaui ambang batas gesture (`inward >= maxOf(slop * 1.2f, 14f * density)` dengan dominasi horizontal `inward > abs(dy) * 0.5f`).
+- **Preservasi Penuh Fungsi Pemindahan Posisi Sidebar (*Repositioning & Side Switching*)**:
+  - **Pemindahan Posisi Vertikal**: Menggeser pill ke atas atau ke bawah sepanjang tepi bezel tetap bekerja mulus secara real-time (`onDrag(dx, dy, curRawX)`) baik secara instan maupun setelah *long-press hold* (300 ms).
+  - **Pemindahan Sisi Layar (*Cross-Screen Switch*)**: Menyeret pill melintasi layar (kiri $\leftrightarrow$ kanan) tetap memindahkan dock ke tepi layar seberangnya dengan aman.
+  - **Pencegahan Terbuka Saat Selesai Drag**: Mengangkat jari setelah proses pemindahan posisi tidak akan lagi memicu `performClick()`, sehingga posisi baru langsung tersimpan ke `SharedPreferences` dan HUD tetap berada dalam kondisi tertutup rapi.
+
+---
+
 # Lynx Universal [Single-PMIC Zero-Flapping Quasi-Bypass Harmony] 7.0.0-RC306
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.39
