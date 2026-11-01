@@ -36,6 +36,7 @@ internal fun HudSummaryContent(
     onProfile: (String) -> Unit, onDetails: () -> Unit, quickAccess: @Composable () -> Unit
 ) {
     HudGameReadings(snapshot, onDetails)
+    Spacer(Modifier.height(2.dp))
     HudSummaryProfileCards(snapshot.profile, action.busy, onProfile)
     Text(hudString(R.string.hud_quick_actions), fontSize = 11.sp, fontWeight = FontWeight.Medium, color = HudMuted)
     quickAccess()
@@ -287,8 +288,9 @@ internal fun formatGpuFreq(reading: HudReading): String {
 private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
     Surface(
         onClick = onDetails,
-        color = HudCard,
+        color = HudElevated,
         shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, HudBorder),
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
     ) {
         val metrics = listOf(HudMetric.FPS, HudMetric.CPU_LOAD, HudMetric.GPU_LOAD)

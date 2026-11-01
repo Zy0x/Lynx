@@ -1,3 +1,14 @@
+# Lynx Universal [HUD Game Readings Elegant Glass Border & Separation] 7.0.0-RC299
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.32
+
+- **Penyempurnaan Border Elegan & Pemisahan Kontur Kartu Ringkasan Game (`HudGameReadings`)**:
+  - **Pemberian Borderstroke Elegan**: Menambahkan garis tepi presisi `BorderStroke(1.dp, HudBorder)` pada kontainer `Surface` kartu ringkasan untuk mengakhiri ketiadaan batas visual (*borderless*) yang sebelumnya membuat teks telemetri tampak mengambang dan bertabrakan dengan elemen di bawahnya.
+  - **Peningkatan Kontras Permukaan (`HudElevated`)**: Mengalihkan warna latar belakang kartu dari `HudCard` (12% alpha) ke `HudElevated` (18% alpha) yang serasi dengan kartu profil, memberikan kontras kaca gelap (*frosted dark glass*) yang solid dan menonjolkan angka telemetri secara elegan.
+  - **Jeda Napas Visual (*Visual Breathing Space*)**: Menambahkan `Spacer(Modifier.height(2.dp))` antara kartu telemetri dan panel profil untuk mencegah kesan elemen yang menyatu/berhimpitan.
+
+---
+
 # Lynx Universal [HUD Summary Subline Micro-Telemetry & Dynamic Cluster Freq] 7.0.0-RC298
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.31
