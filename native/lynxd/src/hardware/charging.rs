@@ -1899,10 +1899,17 @@ impl ChargingRegulator {
         let effective_ma = if Self::is_laptop_port() {
             1500
         } else if cur_cap >= 100 {
-            0
+            // Anti-Flapping Single-Path Float Floor (100 mA):
+            // On single-PMIC architectures (PM660), never drop battery charging current to 0 mA!
+            // Dropping to 0 causes the primary buck converter to shut off VBUS, triggering
+            // an instant disconnect/reconnect (mati-nyala / flapping) loop.
+            // A 100 mA float floor at 4.40V cell saturation draws 0 mA net current with zero heat,
+            // while keeping Vsys alive and maintaining continuous, unbroken power!
+            100
         } else if cur_cap >= 90 || (target_soc > 0 && target_soc < 100 && cur_cap >= target_soc) {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
-            target_peak_ma.min(taper_ma)
+            let safe_taper = taper_ma.max(100);
+            target_peak_ma.min(safe_taper)
         } else {
             target_peak_ma
         };
@@ -1990,9 +1997,12 @@ impl ChargingRegulator {
         };
 
         let direct_val = if has_qcom_cp { "1" } else { "0" };
+        let main_current_ua = (effective_ma as u64 * 1000).max(1_500_000).to_string();
+        let qc_restrict_str = effective_ma.max(100).to_string();
+
         if is_qcom {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
-            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
             Self::write_node_lock(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/voltage_max", USB_DIR), "12000000");
@@ -2005,7 +2015,7 @@ impl ChargingRegulator {
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
             Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");

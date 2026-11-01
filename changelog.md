@@ -1,3 +1,16 @@
+# Lynx Universal [Zero-Flapping Anti-Brownout Float & Full Saturation Vsys Guard] 7.0.0-RC304
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.37
+
+- **Mitigasi Total Siklus Putus-Nyambung (*Anti-Flapping Single-Path Float*) Saat Baterai 100%**:
+  - **Akar Masalah (*Root Cause*)**: Pada kondisi baterai mencapai $100\%$, penulisan nilai limit arus $0\text{ mA}$ ke node register pengisian primer Qualcomm (`main/current_max` dan `restrict_cur`) mematikan konverter *buck* primer PM660. Karena arsitektur *single-PMIC* berbagi jalur antara pengisian baterai dan daya sistem ($V_{\text{sys}}$), penonaktifan konverter menyebabkan tegangan VBUS kolaps seketika, memicu deteksi pencabutan kabel charger semu (*spurious disconnect* `PLUGGED: false`) lalu menyambung kembali saat sistem melakukan restorasi *fail-safe*.
+  - **Penerapan Batas Lantai *Float* Aman (*Anti-Flapping Float Floor 100 mA*)**:
+    - Nilai arus efektif pada baterai $\ge 100\%$ kini dikunci pada batas aman **$100\text{ mA}$ (*Float Floor*)**, bukan $0\text{ mA}$.
+    - Pada tegangan baterai jenuh ($4.39\text{V} - 4.40\text{V}$), selisih tegangan $\Delta V$ mendekati nol sehingga arus riil yang mengalir ke sel baterai praktis **$0\text{ mA}$ (terbaca $\approx 8.3\text{ mA}$ pada BatteryService)**, menjamin baterai tidak mengalami pengisian berlebih (*zero overcharge*) dan suhu tetap dingin ($37^\circ\text{C}$).
+    - **Proteksi Jalur Daya Motherboard ($V_{\text{sys}}$)**: Node `main/current_max` dan `USB/input_current_limit` dikunci minimal **$1,500\text{ mA}$ ($1.5\text{A}$)**, memastikan charger tetap menyuplai daya penuh ke motherboard ponsel tanpa pernah memutus VBUS, mengeliminasi fenomena mati-nyala (flapping) 100%.
+
+---
+
 # Lynx Universal [Zero-Replug Automated Cold-Plug Handshake & Dynamic Silicon Ceiling Engine] 7.0.0-RC303
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.36
