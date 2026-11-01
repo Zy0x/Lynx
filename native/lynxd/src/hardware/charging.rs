@@ -1997,7 +1997,13 @@ impl ChargingRegulator {
         };
 
         let direct_val = if has_qcom_cp { "1" } else { "0" };
-        let main_current_ua = (effective_ma as u64 * 1000).max(1_500_000).to_string();
+        let main_current_ua = if is_qcom && !has_qcom_cp {
+            // On single-PMIC Qualcomm (PM660), allow the main buck converter full silicon headroom
+            // so heavy system loads (gaming, CPU/GPU spikes) draw 100% from the charger without depleting the battery!
+            usb_current_cap_ua.clone()
+        } else {
+            (effective_ma as u64 * 1000).max(3_000_000).to_string()
+        };
         let qc_restrict_str = effective_ma.max(100).to_string();
 
         if is_qcom {

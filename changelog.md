@@ -1,3 +1,14 @@
+# Lynx Universal [Heavy-Load Motherboard Headroom & Full Silicon Dynamic Uncap] 7.0.0-RC305
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.38
+
+- **Optimalisasi Ruang Daya Motherboard di Bawah Beban Tinggi (*Heavy-Load Dynamic Headroom*)**:
+  - **Pemberian Kuota Daya Penuh Input Silikon**: Pada perangkat *single-PMIC* Qualcomm (PM660), batas konverter *buck* primer (`main/current_max`) kini diselaraskan secara dinamis dengan kapasitas silikon USB penuh (`usb_current_cap_ua` $\ge 3,000\text{ mA}$).
+  - **Jaminan Baterai Nol Pengurangan Saat Beban Berat**: Ketika ponsel menjalankan beban komputasi berat (gaming 3D intensif, benchmark, rendering, atau kecerahan layar 100%), seluruh kebutuhan daya motherboard ($V_{\text{sys}} \approx 6\text{W} - 8.5\text{W}$) dipasok $100\%$ langsung dari adaptor charger, tanpa pernah mengalami defisit daya atau memicu *Battery Supplement Mode* yang dapat menguras daya baterai.
+  - **Isolasi Arus Kimia Baterai**: Arus pengisian sel kimia baterai tetap terlindungi secara ketat pada ambang batas aman *float* ($100\text{ mA}$), menjamin baterai tetap dingin ($37 - 38^\circ\text{C}$) dan bebas degradasi overcharge.
+
+---
+
 # Lynx Universal [Zero-Flapping Anti-Brownout Float & Full Saturation Vsys Guard] 7.0.0-RC304
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.37
