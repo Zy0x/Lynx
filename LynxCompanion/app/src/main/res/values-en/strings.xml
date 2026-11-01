@@ -2417,4 +2417,21 @@
     <string name="hud_pin_fps_short">Pin FPS</string>
     <string name="hud_settings_appearance">Appearance</string>
     <string name="hud_settings_windows">Windows</string>
+    <!-- Enhanced Tooltip & Quick Action Labels -->
+    <string name="hud_tool_screenshot_title">Screenshot</string>
+    <string name="hud_tool_screenshot_sub">Instant capture</string>
+    <string name="hud_tool_record_title">Screen Recorder</string>
+    <string name="hud_tool_record_stop_title">Stop Recording</string>
+    <string name="hud_tool_record_sub">Record MP4</string>
+    <string name="hud_tool_ram_title">Clean RAM</string>
+    <string name="hud_tool_ram_sub">Purge cache</string>
+    <string name="hud_tool_pin_title">Pin Mini HUD</string>
+    <string name="hud_tool_pin_sub">Floating FPS</string>
+    <string name="hud_tool_pinned_active">Mini HUD active</string>
+    <string name="hud_tool_autoskip_title">Auto-Skip Dialogue</string>
+    <string name="hud_tool_autoskip_sub">Story macro</string>
+    <string name="hud_tool_focus_title">Game Focus Mode</string>
+    <string name="hud_tool_focus_sub">Block notifications</string>
+    <string name="hud_tool_focus_active">Focus active</string>
+    <string name="hud_tool_active">Active</string>
 </resources>

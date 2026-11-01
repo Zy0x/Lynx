@@ -2441,4 +2441,21 @@
     <string name="hud_pin_fps_short">Pin FPS</string>
     <string name="hud_settings_appearance">Tampilan</string>
     <string name="hud_settings_windows">Jendela</string>
+    <!-- Enhanced Tooltip & Quick Action Labels -->
+    <string name="hud_tool_screenshot_title">Tangkapan Layar</string>
+    <string name="hud_tool_screenshot_sub">Simpan layar</string>
+    <string name="hud_tool_record_title">Perekam Layar</string>
+    <string name="hud_tool_record_stop_title">Hentikan Rekam</string>
+    <string name="hud_tool_record_sub">Rekam MP4</string>
+    <string name="hud_tool_ram_title">Bersihkan RAM</string>
+    <string name="hud_tool_ram_sub">Bebaskan memori</string>
+    <string name="hud_tool_pin_title">Sematkan Mini HUD</string>
+    <string name="hud_tool_pin_sub">Overlay FPS mini</string>
+    <string name="hud_tool_pinned_active">Mini HUD aktif</string>
+    <string name="hud_tool_autoskip_title">Auto-Skip Dialog</string>
+    <string name="hud_tool_autoskip_sub">Otomasi cerita</string>
+    <string name="hud_tool_focus_title">Mode Fokus Game</string>
+    <string name="hud_tool_focus_sub">Blokir gangguan</string>
+    <string name="hud_tool_focus_active">Fokus aktif</string>
+    <string name="hud_tool_active">Aktif</string>
 </resources>

@@ -1,3 +1,31 @@
+# Lynx Universal [Anchored Floating Bubble Quick Action Tooltips & Zero Layout Shift] 7.0.0-RC297
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.30
+
+- **Perombakan Total Tooltip Shortcut "Alat Cepat" pada HUD Overlay (`HudQuickTileRow`)**:
+  - **Arsitektur Anchored Floating Bubble dengan Zero Layout Shift**:
+    - Mengeliminasi total masalah pergeseran tata letak (*layout shift*) yang sebelumnya mendorong baris tombol ke bawah saat tooltip muncul. Baris 6 tombol aksi kini dipertahankan pada tinggi konstan (44 dp) di dalam kontainer `BoxWithConstraints`.
+    - Bubble tooltip melayang secara absolut (`zIndex(20f)`) tepat di atas tombol yang sedang di-hold (`offset(y = (-42).dp)`), memberikan ruang interaksi yang bersih tanpa menutupi elemen penting.
+  - **Presisi Penunjuk Otomatis (*Dynamic Caret Pointer* & Edge Clamping)**:
+    - Menghitung titik tengah setiap tombol (`buttonCenter`) secara presisi berdasarkan lebar aktual layar dan orientasi (*portrait* & *landscape*).
+    - Menerapkan pembatasan horizontal cerdas (`clampedStart`) agar bubble tidak pernah terpotong di tepi kiri maupun kanan layar perangkat.
+    - Menambahkan segitiga penunjuk (*downward caret*) di bagian bawah bubble yang selalu mengarah tepat ke tombol yang di-hold secara dinamis (`caretOffsetInBubble`).
+  - **Visual Cyberpunk Frosted Glass & Konteks Aksi yang Kaya**:
+    - Kontainer kapsul ramping dengan latar belakang *dark graphite glass* (95% opasitas, `#F2121620`) dan border aksen berkilau.
+    - Titik indikator bercahaya (*glowing dot indicator*) yang menyesuaikan status dan fungsi alat.
+    - Informasi dua tingkat yang informatif dan profesional: Nama Alat + Pemisah Titik (`·`) + Konteks/Status Aksi:
+      - **Tangkapan Layar**: *Tangkapan Layar · Simpan layar* (Cyan `#00E5FF`)
+      - **Perekam Layar**: *Perekam Layar · Rekam MP4* / *Hentikan Rekam · [Durasi]* (Crimson `#FF5252`)
+      - **Bersihkan RAM**: *Bersihkan RAM · Bebaskan memori* (Emerald Green `#00E676`)
+      - **Sematkan Mini HUD**: *Sematkan Mini HUD · Overlay FPS mini* / *Aktif* (Azure Blue `#38BDF8`)
+      - **Auto-Skip Dialog**: *Auto-Skip Dialog · Otomasi cerita* / *Aktif* (Sunset Orange `#FB923C`)
+      - **Mode Fokus Game**: *Mode Fokus Game · Blokir gangguan* / *Aktif* (Neon Crimson `#FF4D4D`)
+  - **Animasi Pegas Dinamis (*Spring Scale & Fade*)**:
+    - Bubble muncul dan membesar dari titik segitiga penunjuk (`transformOrigin(caretFraction, 1f)`) dengan durasi responsif 140 ms, serta mengecil kembali secara mulus saat dilepas.
+    - Dilengkapi haptic feedback sentuhan panjang (*LongPress*) dan auto-dismiss halus setelah 2.4 detik.
+
+---
+
 # Lynx Universal [HUD Stream Resiliency, Live Package Lifecycle & Freeform Low-RAM Stabilization] 7.0.0-RC296
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.29
