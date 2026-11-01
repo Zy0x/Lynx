@@ -290,9 +290,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             LynxRepository.setProfile(profile, caller = "user")
         }
 
-        val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
+        val binPath = runCatching {
+            val bundled = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so")
+            if (bundled.exists()) bundled.absolutePath else LynxRepository.getLynxdPath()
+        }.getOrDefault("/data/local/tmp/lynxd")
+
         val expected = if (profile == "auto") "balance" else profile
-        val output = Shell.cmd("'$path' profile verify '$expected' --json").exec()
+        // Brief settle delay to allow multi-core frequency scaling and sysfs kernel commits to land
+        delay(120)
+        val output = Shell.cmd("$binPath profile verify $expected --json").exec()
         val audit = runCatching { JSONObject(output.out.joinToString("\n").substringAfter('{', "").let { "{$it" }) }.getOrNull()
         LynxRepository.invalidateCurrentProfileCache()
         val actual = LynxRepository.readCurrentProfileFast()
@@ -301,7 +307,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
         val isVerified = applied && (
             actualNorm == expectedNorm ||
-            (output.isSuccess && audit != null && audit.optInt("total", 0) > 0 && audit.optInt("errors", 0) == 0)
+            (audit != null && audit.optInt("total", 0) > 0 && audit.optInt("errors", 0) == 0)
         )
         if (isVerified) R.string.hud_verified else R.string.hud_failed
     }

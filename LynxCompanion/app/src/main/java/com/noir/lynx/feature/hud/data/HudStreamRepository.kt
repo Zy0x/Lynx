@@ -21,24 +21,26 @@ class HudStreamRepository(private val context: Context) {
     private fun resolveCollectorBinary(): String? {
         // Tier 1: Bundled native .so in APK nativeLibraryDir
         val bundled = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so")
-        if (bundled.exists()) return bundled.absolutePath
+        if (bundled.exists() && bundled.canExecute()) return bundled.absolutePath
 
         // Tier 2: Magisk/KernelSU/APatch installed module binary
         val modLynxd = File("/data/adb/modules/Lynx/system/bin/lynxd")
-        if (modLynxd.exists()) return modLynxd.absolutePath
+        if (modLynxd.exists() && modLynxd.canExecute()) return modLynxd.absolutePath
 
         // Tier 3: Standalone root binary in /data/local/tmp/lynxd
         val tmpLynxd = File("/data/local/tmp/lynxd")
-        if (tmpLynxd.exists()) return tmpLynxd.absolutePath
+        if (tmpLynxd.exists() && tmpLynxd.canExecute()) return tmpLynxd.absolutePath
 
-        return if (bundled.absolutePath.isNotBlank()) bundled.absolutePath else null
+        if (bundled.exists()) return bundled.absolutePath
+        if (tmpLynxd.exists()) return tmpLynxd.absolutePath
+        return null
     }
 
     suspend fun collect() = withContext(Dispatchers.IO) {
         while (currentCoroutineContext().isActive) {
             val binPath = resolveCollectorBinary()
             if (binPath == null) {
-                unavailable("unsupported")
+                if (mutable.value.metrics.isEmpty()) unavailable("unsupported")
                 delay(2000)
                 continue
             }
@@ -63,12 +65,14 @@ class HudStreamRepository(private val context: Context) {
                         }
                     }
                 }
-                if (currentCoroutineContext().isActive && !receivedAny) {
+                // If stream was interrupted or briefly reconnects, retain latest metrics.
+                // Only mark permission_denied if we never received any valid snapshot at all.
+                if (currentCoroutineContext().isActive && !receivedAny && mutable.value.metrics.isEmpty()) {
                     unavailable("permission_denied")
                 }
             } catch (e: Exception) {
                 Log.w("HudStream", "Collector stream execution failed: ${e.message}")
-                if (currentCoroutineContext().isActive) {
+                if (currentCoroutineContext().isActive && mutable.value.metrics.isEmpty()) {
                     unavailable("permission_denied")
                 }
             } finally {

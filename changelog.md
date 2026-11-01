@@ -1,3 +1,26 @@
+# Lynx Universal [HUD Stream Resiliency, Live Package Lifecycle & Freeform Low-RAM Stabilization] 7.0.0-RC296
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.29
+
+- **Perbaikan Menyeluruh Telemetri HUD & Eliminasi Status "Akses Ditolak" / Layar Kosong (`—`)**:
+  - **Penanganan Stdin Non-Interactive / EOF pada Native Daemon (`native/lynxd/src/hud/stream.rs`)**: Menghilangkan penghentian dini daemon `hud stream` akibat `line.is_err()` saat dieksekusi melalui `su -c` dengan stdin tertutup (`/dev/null`). Daemon kini terus melakukan streaming metrik secara kontinu hingga stream output (`stdout`) terputus secara alami (`SIGPIPE`/`EPIPE`) saat aplikasi ditutup.
+  - **Pelaporan Frame Rate Idle Cerdas (0.0 FPS vs Unsupported)**: Memperbaiki kondisi ketika aplikasi aktif (seperti Google Chrome atau game yang sedang pause/membaca teks statis) tidak memproduksi frame baru dalam 1.5 detik. Sistem tidak lagi menghapus layer aktif (`layer.clear()`) atau menandai status sebagai `"unsupported"` (`—`), melainkan melaporkan `0.0 FPS` dalam status `"valid"`. Counter FPS seketika responsif saat layar disentuh kembali tanpa memicu badai kueri `SurfaceFlinger --list`.
+  - **Preservasi Metrik Berjalan pada `HudStreamRepository`**: Mencegah pembersihan sepihak semua sensor ke status `"permission_denied"` ("Akses ditolak") jika terjadi jeda atau rekoneksi aliran data, menjaga kelangsungan telemetri CPU, GPU, Baterai, dan Suhu di UI.
+
+- **Penyelarasan Verifikasi Profil Kernel & Siklus Deteksi Paket Aplikasi Aktif**:
+  - **Penghapusan Bug Paket Menempel (*Stale Package Name*) pada `LynxFloatingHudService`**: Mengatasi kondisi di mana HUD terus menampilkan nama "Chrome" dan metrik kosong (`—`) saat pengguna telah kembali ke layar beranda (*Launcher*) atau Lynx Companion. HUD kini secara reaktif mendeteksi launcher/homescreen, membersihkan `currentPackage` usang, dan menampilkan identitas modul "Lynx" secara presisi.
+  - **Eliminasi Kesalahan Verifikasi Profil ("Penerapan gagal atau hasil belum sesuai")**:
+    - Memberikan jeda stabilisasi (120 ms) agar penulisan sysfs multi-core dan Android property service (`lynx.mode`) menetap sebelum verifikasi.
+    - Menghilangkan syarat kaku `output.isSuccess` jika hasil audit JSON menyatakan `errors == 0`, mengakomodasi pembatasan driver kernel Qualcomm/MTK (*clamped nodes*) yang sah secara hardware.
+    - Menggunakan jalur biner fleksibel (`liblynxhud.so` $\rightarrow$ `lynxd`) tanpa pembungkus tanda petik tunggal yang rentan galat parsing pada shell Toybox Android.
+
+- **Stabilisasi Jendela Freeform FloatingApps untuk Perangkat Low-RAM & eMMC 5.1 (Redmi Note 7)**:
+  - **Eliminasi Crash / Penutupan Jendela Saat Mengubah Ukuran (*Resize Window*)**: Menghilangkan pemanggilan fatal `fail("resize_rejected") -> close()` pada `StandaloneAppWindow.kt` dan kegagalan `updateViewLayout()`. Jika sinkronisasi metrik virtual display tertunda oleh beban I/O, jendela floating tetap dipertahankan dengan buffer visual saat ini tanpa tertutup mendadak.
+  - **Pencegahan Badai Alokasi Buffer Grafis (*Buffer Thrashing*)**: Meningkatkan batas debounce antrean penyesuaian ukuran (`FloatingResizeQueue`) dari 55 ms menjadi 150 ms, menghentikan lonjakan alokasi GraphicBuffer yang memicu LMK (*Low Memory Killer*) menutup seluruh jendela floating secara simultan.
+  - **Perpanjangan Batas Waktu Cold-Start & Verifikasi Task**: Memperpanjang deadline verifikasi pemindahan task (`RootAndroidAccess.kt`) dari 1000 ms ke 3000 ms, verifikasi peluncuran task dari 2000 ms ke 6000 ms, dan penyiapan frame pertama dari 5 detik ke 12 detik demi kelancaran perangkat berbasis penyimpanan eMMC 5.1.
+
+---
+
 # Lynx Universal [Sustained 90% Hyper Charging & Smooth Electrochemical Tapering] 7.0.0-RC295
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.28

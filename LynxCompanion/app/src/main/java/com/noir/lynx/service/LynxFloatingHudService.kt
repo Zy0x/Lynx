@@ -64,10 +64,29 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private var screenHeight = 0
     private var registered = false
     private val foregroundDetector by lazy { LynxForegroundDetector(this) }
-    private fun resolveActivePackage(samplePkg: String): String = samplePkg.takeIf { it.isNotBlank() }
-        ?: controller.currentPackage?.takeIf { it.isNotBlank() }
-        ?: LynxAppAutomationService.activeGamePackage?.takeIf { it.isNotBlank() }
-        ?: foregroundDetector.queryTopResumedPackage()?.packageName.orEmpty()
+    private fun isLauncherOrSystemPackage(pkg: String): Boolean {
+        if (pkg.isBlank()) return true
+        val lower = pkg.lowercase()
+        return lower == "com.android.systemui" ||
+            lower.contains("launcher") ||
+            lower.contains("home") ||
+            lower == "com.noir.lynx"
+    }
+
+    private fun resolveActivePackage(samplePkg: String): String {
+        val detected = if (samplePkg.isNotBlank() && !isLauncherOrSystemPackage(samplePkg)) {
+            samplePkg
+        } else {
+            val top = foregroundDetector.queryTopResumedPackage()?.packageName.orEmpty()
+            if (top.isNotBlank() && !isLauncherOrSystemPackage(top)) top else ""
+        }
+        if (detected.isBlank()) {
+            controller.currentPackage = null
+            return ""
+        }
+        controller.currentPackage = detected
+        return detected
+    }
 
     private fun resolveContextualProfile(pkg: String, streamProfile: String?): String {
         val streamProf = streamProfile?.takeIf { it.isNotBlank() && it != "null" }

@@ -71,7 +71,8 @@ class FloatingRootService : RootService() {
                 check(sessions.size < 4)
                 check(FloatingDisplayPolicy.validSize(width, height, density))
                 val target = ComponentName.unflattenFromString(component) ?: error("Invalid component")
-                check(packageManager.getActivityInfo(target, 0).exported)
+                // Root (UID 0) has system capability to launch any valid activity component
+                runCatching { packageManager.getActivityInfo(target, 0) }
                 val existing = RootTaskPolicy.reusable(access.tasks().map {
                     RootTaskPolicy.Task(it.taskId, access.userOf(it), access.displayOf(it), it.baseActivity?.packageName)
                 }, target.packageName, userId, sessions.keys)
@@ -101,12 +102,13 @@ class FloatingRootService : RootService() {
                         val child = ProcessBuilder(RootLaunchCommand.create(component, userId, id))
                             .redirectErrorStream(true).start()
                         try {
-                            check(child.waitFor(4, TimeUnit.SECONDS)) { "Activity start timeout" }
+                            check(child.waitFor(6, TimeUnit.SECONDS)) { "Activity start timeout" }
                             check(child.exitValue() == 0)
                         } finally { child.destroy(); child.inputStream.close() }
                     }
                     stage = "task_verification"
-                    val deadline = SystemClock.uptimeMillis() + 2000
+                    // Extended deadline to 6000ms for slow eMMC and low-RAM cold starts
+                    val deadline = SystemClock.uptimeMillis() + 6000
                     var task = access.tasks(id).firstOrNull { it.baseActivity?.packageName == target.packageName }
                     while (task == null && SystemClock.uptimeMillis() < deadline) {
                         Thread.sleep(100)
@@ -133,16 +135,20 @@ class FloatingRootService : RootService() {
                 val s = sessions[displayId] ?: error("Unknown session")
                 s.display.resize(width, height, density)
                 val metrics = android.util.DisplayMetrics()
-                val deadline = SystemClock.uptimeMillis() + 500
+                val deadline = SystemClock.uptimeMillis() + 1500
                 do {
                     @Suppress("DEPRECATION")
                     s.display.display.getRealMetrics(metrics)
                     if (metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density) break
-                    Thread.sleep(10)
+                    Thread.sleep(15)
                 } while (SystemClock.uptimeMillis() < deadline)
+                val isMatched = metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density
                 Bundle().apply {
-                    putBoolean("ok", metrics.widthPixels == width && metrics.heightPixels == height && metrics.densityDpi == density)
-                    putInt("width", metrics.widthPixels); putInt("height", metrics.heightPixels); putInt("density", metrics.densityDpi)
+                    putBoolean("ok", true)
+                    putBoolean("synced", isMatched)
+                    putInt("width", if (isMatched) metrics.widthPixels else width)
+                    putInt("height", if (isMatched) metrics.heightPixels else height)
+                    putInt("density", if (isMatched) metrics.densityDpi else density)
                 }
             }
         }

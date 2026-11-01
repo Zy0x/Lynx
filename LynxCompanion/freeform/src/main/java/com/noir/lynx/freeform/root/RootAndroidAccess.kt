@@ -60,7 +60,7 @@ internal class RootAndroidAccess(context: Context) {
         val result = atmType.getMethod("startActivityFromRecents", Int::class.javaPrimitiveType, android.os.Bundle::class.java)
             .invoke(atm, taskId, options.toBundle()) as Int
         check(result >= 0) { "Task move rejected: $result" }
-        val deadline = android.os.SystemClock.uptimeMillis() + 1000
+        val deadline = android.os.SystemClock.uptimeMillis() + 3000
         while (tasks(displayId).none { it.taskId == taskId }) {
             check(android.os.SystemClock.uptimeMillis() < deadline) { "Task move was not verified" }
             Thread.sleep(50)

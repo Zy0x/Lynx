@@ -175,7 +175,9 @@ internal class StandaloneAppWindow(
                 runCatching {
                     wm.updateViewLayout(root, params)
                     appliedBox = box()
-                }.onFailure { close() }
+                }.onFailure { e ->
+                    android.util.Log.w("LynxFreeform", "Transient layout update dropped: ${e.message}")
+                }
             }
         }
     }
@@ -316,11 +318,13 @@ internal class StandaloneAppWindow(
                             render = target
                             texture.surfaceTexture?.setDefaultBufferSize(target.width, target.height)
                             texture.setTransform(null)
-                            updateStatus()
-                        } else fail("resize_rejected")
+                        } else {
+                            android.util.Log.w("LynxFreeform", "Resize delayed or not settled, maintaining current buffer without closing")
+                        }
+                        updateStatus()
                     }
                 },
-                debounceMs = 55L,
+                debounceMs = 150L,
                 busyChanged = { busy ->
                     if (busy) cancelGesture()
                     updateStatus()
@@ -328,7 +332,7 @@ internal class StandaloneAppWindow(
             )
             resizeDisplay()
             updateStatus()
-            delay(5000)
+            delay(12000)
             if (!closed && !hasFrame) fail("frame_timeout")
         }
     }

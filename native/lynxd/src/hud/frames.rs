@@ -62,6 +62,7 @@ pub struct Frames {
 
 impl Frames {
     pub fn reset(&mut self) { *self = Self::default(); }
+    pub fn initialized(&self) -> bool { self.epoch > 0 }
 
     pub fn ingest(&mut self, times: &[u64], now_ns: u64) {
         self.gap = false;

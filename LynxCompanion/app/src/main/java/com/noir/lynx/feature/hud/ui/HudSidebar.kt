@@ -67,18 +67,23 @@ fun HudSidebar(
     val context = LocalContext.current
     var appLabel by remember { mutableStateOf("") }
     LaunchedEffect(snapshot.packageName) {
-        val cached = HudAppCatalog.getCachedLabel(snapshot.packageName)
+        val pkg = snapshot.packageName
+        if (pkg.isBlank()) {
+            appLabel = "Lynx"
+            return@LaunchedEffect
+        }
+        val cached = HudAppCatalog.getCachedLabel(pkg)
         if (!cached.isNullOrBlank()) {
             appLabel = cached
         } else {
             appLabel = withContext(Dispatchers.IO) {
                 runCatching {
                     val lbl = context.packageManager.getApplicationLabel(
-                        context.packageManager.getApplicationInfo(snapshot.packageName, 0)
+                        context.packageManager.getApplicationInfo(pkg, 0)
                     ).toString()
-                    HudAppCatalog.putCachedLabel(snapshot.packageName, lbl)
+                    HudAppCatalog.putCachedLabel(pkg, lbl)
                     lbl
-                }.getOrDefault(snapshot.packageName)
+                }.getOrDefault("Lynx")
             }
         }
     }

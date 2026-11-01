@@ -124,11 +124,22 @@ pub fn run() {
     let alive = Arc::new(AtomicBool::new(true));
     let stdin_alive = alive.clone();
     std::thread::spawn(move || {
-        // Closing the owning service's pipe terminates the read-only collector.
-        for line in std::io::stdin().lock().lines() {
-            if line.is_err() || line.unwrap_or_default().trim() == "stop" { break; }
+        let stdin = std::io::stdin();
+        for line in stdin.lock().lines() {
+            match line {
+                Ok(l) if l.trim() == "stop" => {
+                    stdin_alive.store(false, Ordering::Relaxed);
+                    break;
+                }
+                Err(_) => {
+                    // Stdin closed or non-interactive pipe (e.g. su -c /dev/null).
+                    // Do NOT kill the collector! The collector will naturally terminate
+                    // when stdout breaks (SIGPIPE / EPIPE) when the reader disconnects.
+                    break;
+                }
+                _ => {}
+            }
         }
-        stdin_alive.store(false, Ordering::Relaxed);
     });
     let mut hw = Hardware::new();
     let mut frames = Frames::default();
@@ -193,6 +204,10 @@ pub fn run() {
                 if *name != layer { frames.reset(); layer = name.clone(); }
                 frames.ingest(ts,frame_now_ns());
                 frame_status = if frames.gap { "warming_up" } else { "valid" };
+            } else if !layer.is_empty() {
+                // Layer is known and package is active, but producer is currently idle (e.g. static webpage, reading, paused menu)
+                frames.ingest(&[], frame_now_ns());
+                frame_status = "valid";
             } else {
                 frames.reset(); layer.clear(); next_layers = 0;
                 if frame_status != "permission_denied" { frame_status = "unsupported"; }
@@ -210,12 +225,23 @@ pub fn run() {
             .unwrap_or_else(|| Metric::missing("Hz", "SurfaceFlinger", stamp, "unsupported"));
         metrics.insert("display_hz".into(), hz_metric);
         let frame_stamp = frame_now_ns();
-        let fresh = frame_status == "valid" && frames.active(frame_stamp);
+        let fresh = frame_status == "valid";
+        let display_fps = if fresh {
+            if frames.active(frame_stamp) {
+                frames.fps(frame_stamp)
+            } else if frames.initialized() && !frames.gap {
+                Some(0.0) // App is active but idle on screen
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         for (key,value,unit) in [
-            ("fps",frames.fps(frame_stamp),"FPS"),
-            ("frame_time",frames.latest(),"ms"),
-            ("frame_average",frames.average(),"ms"),
-            ("fps_low",frames.low(),"FPS"),
+            ("fps", display_fps, "FPS"),
+            ("frame_time", if fresh && frames.active(frame_stamp) { frames.latest() } else { None }, "ms"),
+            ("frame_average", if fresh && frames.active(frame_stamp) { frames.average() } else { None }, "ms"),
+            ("fps_low", if fresh && frames.active(frame_stamp) { frames.low() } else { None }, "FPS"),
         ] {
             let metric = if fresh {
                 value.map(|v|Metric::measured(v,unit,&source,stamp)).unwrap_or_else(||Metric::missing(unit,&source,stamp,"warming_up"))
