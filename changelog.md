@@ -1,3 +1,14 @@
+# Lynx Universal [Single-PMIC Zero-Flapping Quasi-Bypass Harmony] 7.0.0-RC306
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.39
+
+- **Penyelarasan Menyeluruh Bypass Charging pada Arsitektur Single-PMIC (Qualcomm PM660)**:
+  - **Sinkronisasi Net-Zero Regulator**: Fungsi `regulate_bypass_net_zero()` kini secara cerdas mendeteksi keberadaan sakelar bypass hardware (`detect_hw_bypass_node()`). Pada perangkat tanpa sakelar fisik (seperti Redmi Note 7), arus baterai dikunci pada batas aman *Float Floor* ($100\text{ mA}$), bukan $0\text{ mA}$.
+  - **Eliminasi Siklus Putus-Nyambung Semu**: Menghilangkan risiko eksekusi redundan nilai $0\text{ mA}$ pada node baterai dan `restrict_cur` yang dapat mematikan konverter *buck* primer PMIC.
+  - **Perilaku Terprediksi di Tengah Pengisian (misal 73%)**: Daya motherboard dialirkan $100\%$ langsung dari adaptor charger, sementara baterai berada dalam status *quasi-freeze* (hanya dialiri arus float $\approx 50 - 100\text{ mA}$ dengan disipasi panas mendekati nol), menjaga suhu sel baterai tetap dingin pada suhu ruangan ($32 - 36^\circ\text{C}$).
+
+---
+
 # Lynx Universal [Heavy-Load Motherboard Headroom & Full Silicon Dynamic Uncap] 7.0.0-RC305
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.38

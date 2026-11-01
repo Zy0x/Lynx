@@ -1378,6 +1378,10 @@ impl ChargingRegulator {
         }
 
         let is_qcom = Self::is_qualcomm_soc();
+        let hw_bypass_node = Self::detect_hw_bypass_node();
+        let has_hw_bypass = hw_bypass_node.is_some();
+        let batt_target = if has_hw_bypass { "0" } else { "100000" };
+        let qc_restrict_str = if has_hw_bypass { "0" } else { "100" };
 
         // 1. Maintain Motherboard Power Supply (VBUS -> VSYS) & Cut Battery Charge
         if is_qcom {
@@ -1391,10 +1395,10 @@ impl ChargingRegulator {
                 format!("{}/constant_charge_current_max", BATT_DIR),
                 format!("{}/current_max", BATT_DIR),
             ] {
-                Self::write_node(&node, "0");
+                Self::write_node(&node, batt_target);
             }
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "1");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), qc_restrict_str);
             Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
         } else {
             // MediaTek & Transsion Hardware PMIC Power Path (Net-Zero Battery Isolation)
