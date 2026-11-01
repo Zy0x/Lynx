@@ -26,6 +26,8 @@ import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.HudActionState
 import com.noir.lynx.feature.hud.data.*
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /** Keep the launch page short; detailed readings and configuration have their own destinations. */
 @Composable
@@ -241,12 +243,52 @@ internal fun HudSummaryProfileCards(
     }
 }
 
+internal fun formatAvgFps(reading: HudReading): String {
+    val ms = reading.value
+    if (reading.status != "valid" || ms == null || ms <= 0.0) return "Avg —"
+    val fps = 1000.0 / ms
+    if (fps < 1.0 || fps > 360.0) return "Avg —"
+    return if (fps >= 100.0) "Avg ${fps.roundToInt()}" else String.format(Locale.US, "Avg %.1f", fps)
+}
+
+internal fun formatCpuFreqClusters(snapshot: HudSnapshot): String {
+    val validClocks = snapshot.policies.mapNotNull { (_, clock) ->
+        if (clock.status == "valid" && clock.value != null && clock.value > 0.0) {
+            clock.value / 1000.0 // MHz -> GHz
+        } else null
+    }
+    return when {
+        validClocks.size >= 3 -> {
+            validClocks.joinToString("/") { String.format(Locale.US, "%.1f", it) } + "G"
+        }
+        validClocks.size == 2 -> {
+            validClocks.joinToString(" · ") { String.format(Locale.US, "%.1f", it) } + " GHz"
+        }
+        validClocks.size == 1 -> {
+            String.format(Locale.US, "%.1f GHz", validClocks[0])
+        }
+        else -> {
+            val peak = snapshot[HudMetric.CPU_CLOCK]
+            if (peak.status == "valid" && peak.value != null && peak.value > 0.0) {
+                String.format(Locale.US, "%.1f GHz", peak.value / 1000.0)
+            } else "Freq —"
+        }
+    }
+}
+
+internal fun formatGpuFreq(reading: HudReading): String {
+    if (reading.status != "valid" || reading.value == null || reading.value <= 0.0) {
+        return "Clock —"
+    }
+    return "${reading.value.roundToInt()} MHz"
+}
+
 @Composable
 private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
-    androidx.compose.material3.Surface(
+    Surface(
         onClick = onDetails,
         color = HudCard,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
     ) {
         val metrics = listOf(HudMetric.FPS, HudMetric.CPU_LOAD, HudMetric.GPU_LOAD)
@@ -254,13 +296,48 @@ private fun HudGameReadings(snapshot: HudSnapshot, onDetails: () -> Unit) {
         val values = metrics.map { metric -> snapshot[metric].let {
             if (it.status == "valid") it.text() + if (metric == HudMetric.FPS) "" else " %" else "—"
         } }
+
+        val avgFpsText = remember(snapshot[HudMetric.FRAME_AVERAGE]) {
+            formatAvgFps(snapshot[HudMetric.FRAME_AVERAGE])
+        }
+        val cpuFreqText = remember(snapshot.policies, snapshot[HudMetric.CPU_CLOCK]) {
+            formatCpuFreqClusters(snapshot)
+        }
+        val gpuFreqText = remember(snapshot[HudMetric.GPU_CLOCK]) {
+            formatGpuFreq(snapshot[HudMetric.GPU_CLOCK])
+        }
+        val sublines = listOf(avgFpsText, cpuFreqText, gpuFreqText)
+
         val widths = values.map { hudLabelWidth(listOf(it), 20, numeric = true) + 8f }
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(12.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
             val cell: @Composable (Int, Modifier) -> Unit = { index, modifier ->
-                Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(labels[index], fontSize = 11.sp, color = HudMuted)
-                    Text(values[index], fontSize = 20.sp, fontWeight = FontWeight.Medium, fontFamily = FontFamily.Monospace,
-                        color = if (index == 0) HudCyan else Color.White)
+                Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = labels[index],
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = HudMuted,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = values[index],
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = if (index == 0) HudCyan else Color.White,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = sublines[index],
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = when (index) {
+                            0 -> HudCyan.copy(alpha = 0.85f)
+                            1 -> Color(0xFF90CAF9)
+                            else -> Color(0xFF80DEEA)
+                        },
+                        maxLines = 1
+                    )
                 }
             }
             if (widths.all { it <= (maxWidth.value - 16f) / 3f }) {

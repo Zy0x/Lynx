@@ -1,3 +1,23 @@
+# Lynx Universal [HUD Summary Subline Micro-Telemetry & Dynamic Cluster Freq] 7.0.0-RC298
+Released on: 2026-11-01
+> Lynx Kernel Manager v3.3.31
+
+- **Penambahan Subline Micro-Telemetry pada Kartu Ringkasan Game (`HudGameReadings`)**:
+  - **Arsitektur 3-Tingkat Kompak (*Compact 3-Row Telemetry Hierarchy*)**:
+    - Menghadirkan baris ke-3 berukuran mikro (`10.sp`, monospaced) tepat di bawah nilai utama masing-masing kolom (FPS, CPU, GPU) pada kartu Ringkasan.
+    - Menjaga kartu tetap ramping dan ergonomis (penambahan tinggi hanya ~12–14 dp, dari ~68 dp menjadi ~82 dp) tanpa mengorbankan keterbacaan nilai utama.
+  - **Metrik Sekunder Cerdas & Terintegrasi**:
+    - **FPS (Rata-Rata FPS / Avg FPS)**: Dihitung secara dinamis dari metrik `FRAME_AVERAGE` daemon native ($1000.0 / \text{frame\_time\_ms}$) menjadi format `Avg 59.4` (atau integer untuk $\ge 100\text{ FPS}$), memberikan gambaran stabilitas frame rate dan deteksi *stuttering* secara instan.
+    - **CPU (Frekuensi Multi-Cluster GHz)**: Memetakan frekuensi aktif setiap cluster hardware dari `snapshot.policies` menjadi format GHz yang padat:
+      - *Dual-Cluster* (Snapdragon 660 / Helio G96): `1.6 · 2.2 GHz`
+      - *Tri-Cluster* (Snapdragon 8 Gen 1/2/3, Dimensity 9000): `1.8/2.4/3.2G`
+      - *Single-Cluster / Fallback*: Mengambil clock puncak dari `HudMetric.CPU_CLOCK` (`2.2 GHz`).
+    - **GPU (Frekuensi Clock Aktif)**: Menyajikan frekuensi GPU real-time dari `HudMetric.GPU_CLOCK` dalam format ringkas `585 MHz` (atau `Clock —` saat idle).
+  - **Pewarnaan Aksen Pastel Lembut**:
+    - Baris ke-3 diberi warna tematik halus: *Cyan Aksen* (`#00E5FF`) untuk FPS, *Azure Blue* (`#90CAF9`) untuk CPU, dan *Aqua Mint* (`#80DEEA`) untuk GPU.
+
+---
+
 # Lynx Universal [Anchored Floating Bubble Quick Action Tooltips & Zero Layout Shift] 7.0.0-RC297
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.30
