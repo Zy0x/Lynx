@@ -163,7 +163,8 @@ class HudMagicBox(private val context: Context, private val scope: CoroutineScop
                             true
                         }.getOrElse {
                             runInterruptible {
-                                val child = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
+                                val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
+                                val child = ProcessBuilder(suBin, "-c", cmd).redirectErrorStream(true).start()
                                 try { child.waitFor(2, TimeUnit.SECONDS) && child.exitValue() == 0 }
                                 finally { child.destroy() }
                             }

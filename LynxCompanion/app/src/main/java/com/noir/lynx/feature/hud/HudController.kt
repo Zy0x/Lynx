@@ -429,15 +429,16 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@perform R.string.hud_failed
             var success = false
             try {
-                val tempPath = "/data/local/tmp/lynx_snap_${System.currentTimeMillis()}.png"
-                val res = Shell.cmd("screencap -p '$tempPath'").exec()
-                val tempFile = File(tempPath)
+                val tempFile = File(context.cacheDir, "lynx_snap_${System.currentTimeMillis()}.png")
+                val tempPath = tempFile.absolutePath
+                val res = Shell.cmd("screencap -p '$tempPath' && chmod 666 '$tempPath'").exec()
                 if (res.isSuccess && tempFile.exists() && tempFile.length() > 1024L) {
                     resolver.openOutputStream(uri)?.use { output ->
                         tempFile.inputStream().use { input ->
                             input.copyTo(output)
                         }
                     }
+                    tempFile.delete()
                     Shell.cmd("rm -f '$tempPath'").exec()
                     success = true
                     if (Build.VERSION.SDK_INT >= 29) {

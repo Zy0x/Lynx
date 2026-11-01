@@ -1,6 +1,9 @@
 package com.noir.lynx.feature.hud.addins
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import com.noir.lynx.feature.hud.data.*
 import com.topjohnwu.superuser.Shell
 import java.io.File
@@ -282,12 +285,29 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
         return null
     }
 
+    private fun isChargerConnected(): Boolean {
+        // 1. Android Framework BatteryManager (zero permission, instant, 100% reliable)
+        try {
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val statusIntent = context.registerReceiver(null, intentFilter)
+            val plugged = statusIntent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+            if (plugged == BatteryManager.BATTERY_PLUGGED_AC ||
+                plugged == BatteryManager.BATTERY_PLUGGED_USB ||
+                plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS) {
+                return true
+            }
+        } catch (_: Throwable) {}
+
+        // 2. Multi-rail sysfs check (AC, USB, Main, DC, Platform Charger)
+        return Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online /sys/class/power_supply/main/online /sys/class/power_supply/dc/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
+    }
+
     @Synchronized
     fun probe(): HudBypassStatus {
         if (!root()) return HudBypassStatus(capability = HudCapability.NEEDS_ROOT)
         val threshold = getThreshold()
         val isThermalCut = journal.getBoolean("thermal_cut_active", false)
-        val isPlugged = Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
+        val isPlugged = isChargerConnected()
 
         // 1. Check Native Lynx Daemon (lynxd / liblynxhud.so)
         val bin = binaryPath()
@@ -361,7 +381,7 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
     override fun set(enabled: Boolean): Boolean {
         if (!root()) return false
         if (enabled) {
-            val isPlugged = Shell.cmd("cat /sys/class/power_supply/ac/online /sys/class/power_supply/usb/online 2>/dev/null | grep -q 1 || [ \$(cat /sys/devices/platform/charger/Charger_Type 2>/dev/null || echo 0) -gt 0 ] || [ \$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || echo 0) -gt 3500 ] && echo 1").exec().out.any { it.trim() == "1" }
+            val isPlugged = isChargerConnected()
             if (!isPlugged) {
                 android.util.Log.w("HudBypassSession", "Refusing bypass activation: Charger not connected (Brownout Guard).")
                 return false

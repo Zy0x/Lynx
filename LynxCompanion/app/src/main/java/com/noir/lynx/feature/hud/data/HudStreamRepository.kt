@@ -48,7 +48,8 @@ class HudStreamRepository(private val context: Context) {
             var child: Process? = null
             try {
                 // Execute unquoted path to avoid single/double quote nesting parsing bugs in Android sh/toybox
-                child = ProcessBuilder("su", "-c", "exec $binPath hud stream")
+                val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
+                child = ProcessBuilder(suBin, "-c", "exec $binPath hud stream")
                     .redirectError(File("/dev/null"))
                     .start()
                 process = child

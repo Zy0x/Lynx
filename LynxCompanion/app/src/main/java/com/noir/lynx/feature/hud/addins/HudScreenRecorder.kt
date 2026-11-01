@@ -213,7 +213,8 @@ class HudScreenRecorder(private val context: Context) {
                         wait "${'$'}watcher" 2>/dev/null
                         exit "${'$'}result"
                     """.trimIndent()
-                    val process = ProcessBuilder("su", "-c", command).redirectErrorStream(true).start()
+                    val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
+                    val process = ProcessBuilder(suBin, "-c", command).redirectErrorStream(true).start()
                     val audioSrc = audioSource.value
                     var tempAudioFile: File? = null
                     var mediaRecorder: MediaRecorder? = null

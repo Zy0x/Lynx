@@ -58,9 +58,68 @@ object LynxRepository {
     //  LibSU Reset & Direct Root Probing (KernelSU / Rekisuki / Magisk / APatch)
     // ----------------------------------------------------------------
 
+    @Volatile
+    private var cachedSuBinary: String? = null
+
+    /**
+     * Resolves the working su executable path across KernelSU, APatch, Magisk, and standard Linux bins.
+     * Prevents ProcessBuilder("su") failures on ROMs/environments where su is not in default app PATH.
+     */
+    fun getSuBinary(): String {
+        cachedSuBinary?.let { return it }
+
+        // 1. If LibSU has an active root shell, ask it directly for su path
+        try {
+            val cached = Shell.getCachedShell()
+            if (cached != null && cached.isAlive && cached.isRoot) {
+                val res = Shell.cmd("which su 2>/dev/null").exec()
+                if (res.isSuccess) {
+                    val resolved = res.out.firstOrNull { it.isNotBlank() && it.startsWith("/") }?.trim()
+                    if (resolved != null && File(resolved).canExecute()) {
+                        cachedSuBinary = resolved
+                        return resolved
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+
+        // 2. Candidate scan order for KernelSU, APatch, Magisk, and system bins
+        val candidates = listOf(
+            "/data/adb/ksu/bin/su",
+            "/data/adb/ap/bin/su",
+            "/data/adb/magisk/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/sbin/su",
+            "su"
+        )
+        for (bin in candidates) {
+            try {
+                val p = ProcessBuilder(bin, "-c", "id").redirectErrorStream(true).start()
+                val out = p.inputStream.bufferedReader().readText()
+                val exit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (p.waitFor(300, java.util.concurrent.TimeUnit.MILLISECONDS)) p.exitValue() else {
+                        p.destroyForcibly()
+                        -1
+                    }
+                } else {
+                    p.waitFor()
+                }
+                if (exit == 0 && out.contains("uid=0")) {
+                    cachedSuBinary = bin
+                    return bin
+                }
+            } catch (_: Throwable) {}
+        }
+
+        cachedSuBinary = "su"
+        return "su"
+    }
+
     private fun canExecuteSuDirectly(): Boolean {
         return try {
-            val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+            val suBin = getSuBinary()
+            val p = ProcessBuilder(suBin, "-c", "id").redirectErrorStream(true).start()
             val reader = p.inputStream.bufferedReader()
             val out = reader.readText()
             val exit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -108,6 +167,7 @@ object LynxRepository {
             isRootVerified = false
             cachedModuleInstalled = null
             resolvedLynxdPath = null
+            cachedSuBinary = null
             Log.d(TAG, "LibSU internals successfully reset for fresh su acquisition")
         } catch (e: Throwable) {
             Log.w(TAG, "LibSU reflection reset: ${e.message}")

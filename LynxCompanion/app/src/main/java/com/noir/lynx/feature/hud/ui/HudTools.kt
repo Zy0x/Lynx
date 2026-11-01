@@ -1,9 +1,12 @@
 package com.noir.lynx.feature.hud.ui
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.noir.lynx.R
 import com.noir.lynx.feature.hud.HudActionState
@@ -44,13 +47,37 @@ internal fun HudTools(
     onToggleHeadsUpShield: (Boolean) -> Unit = {},
     onSelectFocusLevel: (Int) -> Unit = {}
 ) {
+    val context = LocalContext.current
     var timerRemainingSec by rememberSaveable { mutableStateOf(0) }
     var timerActivePreset by rememberSaveable { mutableStateOf(0) }
 
     LaunchedEffect(timerRemainingSec > 0) {
+        val wasRunning = timerRemainingSec > 0
         while (timerRemainingSec > 0) {
             delay(1_000L)
             timerRemainingSec = (timerRemainingSec - 1).coerceAtLeast(0)
+        }
+        if (wasRunning && timerRemainingSec == 0 && timerActivePreset > 0) {
+            // Tactile vibration alert upon cooldown completion
+            try {
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                    vm?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                }
+                if (vibrator != null && vibrator.hasVibrator()) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val timings = longArrayOf(0, 180, 80, 220)
+                        val amplitudes = intArrayOf(0, 255, 0, 255)
+                        vibrator.vibrate(android.os.VibrationEffect.createWaveform(timings, amplitudes, -1))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(longArrayOf(0, 180, 80, 220), -1)
+                    }
+                }
+            } catch (_: Throwable) {}
         }
     }
 

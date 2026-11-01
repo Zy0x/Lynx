@@ -221,7 +221,8 @@ class HudComboManager(
                             true
                         }.getOrElse {
                             runInterruptible {
-                                val p = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
+                                val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
+                                val p = ProcessBuilder(suBin, "-c", cmd).redirectErrorStream(true).start()
                                 try { p.waitFor(2, TimeUnit.SECONDS) && p.exitValue() == 0 }
                                 finally { p.destroy() }
                             }

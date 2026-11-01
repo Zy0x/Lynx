@@ -187,7 +187,8 @@ class GenshinSkipRunner(
 
             // In-process native binary stream: skips 6 external shell forks (head, tail, xxd, grep, wc)
             // Aborts immediately after reading target bytes, saving SurfaceFlinger GPU bandwidth and frame drops
-            proc = ProcessBuilder("su", "-c", "exec screencap").start()
+            val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
+            proc = ProcessBuilder(suBin, "-c", "exec screencap").start()
             val stream = BufferedInputStream(proc.inputStream, 32768)
 
             // 1. Skip to top-left dialogue slice (row 56)
