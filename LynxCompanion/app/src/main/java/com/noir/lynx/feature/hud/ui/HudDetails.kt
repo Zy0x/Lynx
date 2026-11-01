@@ -138,10 +138,11 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
                     primaryValue = fpsReading.text(),
                     unit = "FPS",
                     subLabel = fpsStatus,
-                    overrideColor = fpsColor
+                    overrideColor = fpsColor,
+                    isLarge = true
                 )
 
-                // Right: Live Oscilloscope Waveform & 4-Pill Telemetry Grid
+                // Right: Live Oscilloscope Waveform & Structured Bento Telemetry Grid
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -154,21 +155,32 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // 4 Satellite Metrics
+                    // Structured 3-Capsule Bento Telemetry Row (No text collisions)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        SatelliteStat(hudString(R.string.hud_cockpit_avg), formatAvgFps(snapshot[HudMetric.FRAME_AVERAGE]))
                         val low1Pct = snapshot[HudMetric.FPS_LOW]
-                        SatelliteStat(
-                            hudString(R.string.hud_cockpit_low),
-                            if (low1Pct.status == "valid" && low1Pct.value != null) String.format(Locale.US, "%.1f", low1Pct.value) else "—"
-                        )
+                        val lowVal = if (low1Pct.status == "valid" && low1Pct.value != null) String.format(Locale.US, "%.1f", low1Pct.value) else "—"
                         val ft = snapshot[HudMetric.FRAME_TIME]
-                        SatelliteStat(
-                            hudString(R.string.hud_cockpit_frametime),
-                            if (ft.status == "valid") "${ft.text()} ms" else "—"
+
+                        HudBentoTelemetryPill(
+                            label = "AVG",
+                            value = formatAvgFps(snapshot[HudMetric.FRAME_AVERAGE]),
+                            accentColor = fpsColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                        HudBentoTelemetryPill(
+                            label = "1% LOW",
+                            value = lowVal,
+                            accentColor = if (low1Pct.value != null && low1Pct.value < 45.0) Color(0xFFFF5252) else fpsColor,
+                            modifier = Modifier.weight(1f)
+                        )
+                        HudBentoTelemetryPill(
+                            label = "FT TIME",
+                            value = if (ft.status == "valid") "${ft.text()} ms" else "—",
+                            accentColor = Color(0xFF80DEEA),
+                            modifier = Modifier.weight(1.15f)
                         )
                     }
                 }
@@ -231,35 +243,42 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                         progress = cpuProgress,
                         primaryValue = cpuVal,
                         unit = "%",
-                        subLabel = "CPU " + hudString(R.string.hud_cockpit_load)
+                        subLabel = "CPU",
+                        isLarge = false
                     )
                     Spacer(Modifier.height(3.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = formatCpuFreqClusters(snapshot),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = Color(0x18FFFFFF),
+                            border = BorderStroke(0.6.dp, Color(0x28FFFFFF))
+                        ) {
+                            Text(
+                                text = formatCpuFreqClusters(snapshot),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            )
+                        }
                         val cpuTemp = snapshot[HudMetric.CPU_TEMP]
                         if (cpuTemp.status == "valid") {
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF90CAF9).copy(alpha = 0.14f),
-                                border = BorderStroke(0.6.dp, Color(0xFF90CAF9).copy(alpha = 0.40f))
+                                shape = RoundedCornerShape(5.dp),
+                                color = Color(0xFF90CAF9).copy(alpha = 0.16f),
+                                border = BorderStroke(0.6.dp, Color(0xFF90CAF9).copy(alpha = 0.45f))
                             ) {
                                 Text(
                                     text = "${cpuTemp.text()}°C",
-                                    fontSize = 8.5.sp,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace,
                                     color = Color(0xFF90CAF9),
-                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.5.dp)
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
@@ -297,35 +316,42 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                         progress = gpuProgress,
                         primaryValue = gpuVal,
                         unit = "%",
-                        subLabel = "GPU " + hudString(R.string.hud_cockpit_load)
+                        subLabel = "GPU",
+                        isLarge = false
                     )
                     Spacer(Modifier.height(3.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = formatGpuFreq(snapshot[HudMetric.GPU_CLOCK]),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = Color(0x18FFFFFF),
+                            border = BorderStroke(0.6.dp, Color(0x28FFFFFF))
+                        ) {
+                            Text(
+                                text = formatGpuFreq(snapshot[HudMetric.GPU_CLOCK]),
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                            )
+                        }
                         val gpuTemp = snapshot[HudMetric.GPU_TEMP]
                         if (gpuTemp.status == "valid") {
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF80DEEA).copy(alpha = 0.14f),
-                                border = BorderStroke(0.6.dp, Color(0xFF80DEEA).copy(alpha = 0.40f))
+                                shape = RoundedCornerShape(5.dp),
+                                color = Color(0xFF80DEEA).copy(alpha = 0.16f),
+                                border = BorderStroke(0.6.dp, Color(0xFF80DEEA).copy(alpha = 0.45f))
                             ) {
                                 Text(
                                     text = "${gpuTemp.text()}°C",
-                                    fontSize = 8.5.sp,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace,
                                     color = Color(0xFF80DEEA),
-                                    modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.5.dp)
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
@@ -560,6 +586,45 @@ private fun SatelliteStat(label: String, value: String) {
             color = Color.White,
             maxLines = 1
         )
+    }
+}
+
+@Composable
+private fun HudBentoTelemetryPill(
+    label: String,
+    value: String,
+    accentColor: Color = Color.White,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(7.dp),
+        color = Color(0x18FFFFFF),
+        border = BorderStroke(0.6.dp, Color(0x24FFFFFF))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.5.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = label,
+                fontSize = 7.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace,
+                color = HudMuted,
+                maxLines = 1,
+                letterSpacing = 0.4.sp
+            )
+            Text(
+                text = value,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = accentColor,
+                maxLines = 1
+            )
+        }
     }
 }
 
