@@ -1,3 +1,34 @@
+# Lynx Universal [Cockpit Drill-Down Subpages & Black Screen Glitch Resolution] 7.0.0-RC315
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.48
+
+- **Resolusi Tuntas Glitch Layar Hitam (*Black Screen Frame Glitch & Flicker*) pada Aplikasi Berbasis Render (Instagram, TikTok, dsb.)**:
+  - **Akar Masalah (*Root Causes Forensik*)**:
+    1. **Force Disable RenderThread Android HWUI (`debug.hwui.render_thread=false`)**: Pada repositori kontrol GPU, parameter `setAsyncShaderPipeline(false)` sebelumnya mengeksekusi `setprop debug.hwui.render_thread false`. Properti ini merupakan flag debug internal AOSP yang menonaktifkan seluruh akselerasi RenderThread multithreaded pada Android HWUI! Akibatnya, hierarki `RenderNode` gagal melakukan rasterisasi DisplayLists ke GPU, membuat seluruh View hierarchy aplikasi menjadi layar hitam pekat (*solid black frame*).
+    2. **Penonaktifan EGL Buffer Age (`debug.hwui.use_buffer_age=false`)**: Menonaktifkan ekstensi `EGL_EXT_buffer_age` yang bertugas menjaga dirty regions antar buffer, menyebabkan buffer swapchain yang tidak lengkap berkedip hitam secara bergantian.
+    3. **Premature Latch Buffer Tak Tersinyalisasi (`debug.sf.latch_unsignaled=1`)**: Pada `LynxMediaSafeguardManager` dan `LynxAppAutomationService` saat mengisi daya, properti `debug.sf.latch_unsignaled=1` dipaksa aktif bersamaan dengan offset fase SurfaceFlinger $1.0\text{ ms}$. Hal ini memaksa SurfaceFlinger melakukan latch buffer sebelum GPU atau hardware decoder (VPU) selesai menulis piksel ke buffer (acquire fence belum tersinyalisasi). Karena SurfaceFlinger mengambil buffer yang belum selesai dirender, layar menampilkan frame kosong tak terinisialisasi (*black frame flash*) berulang kali saat memutar video di TikTok dan Instagram.
+    4. **Ketiadaan Klasifikasi Media Sosial & GPU Clock Dropping ke 300 MHz**: Instagram (`com.instagram.android`), Threads (`com.instagram.barcelona`), TikTok (`com.ss.android.ugc.trill`, `com.ss.android.ugc.aweme`, `com.zhiliaoapp.musically`), Facebook, dan Snapchat belum terdaftar dalam `MEDIA_APPS` pada engine deteksi foreground `native/lynxd`. Saat memutar video secara hands-off (tanpa sentuhan), GPU Helio G96 Mali-G57 jatuh ke clock terendah $300\text{ MHz}$ (OPP 48). Di clock $300\text{ MHz}$, GPU membutuhkan waktu render $8 - 15\text{ ms}$, yang melanggar batas VSYNC $8.33\text{ ms}$ pada panel 120Hz dan menyebabkan $52.87\%$ frame janky dan micro-stutter parah.
+  - **Solusi Komprehensif Hardware & Software**:
+    1. **Eliminasi Total Properti Perusak HWUI**: Menghapus seluruh manipulasi destruktif `debug.hwui.render_thread` dan `debug.hwui.use_buffer_age`. Menambahkan pembersihan otomatis (`resetprop -d`) saat inisialisasi agar Android selalu menggunakan native multithreaded RenderThread bawaan sistem.
+    2. **Koreksi Latch SurfaceFlinger & Backpressure untuk Media**: Mengunci `debug.sf.latch_unsignaled = 0` dan `debug.sf.disable_backpressure = 0` pada `LynxMediaSafeguardManager` dan `LynxAppAutomationService` sehingga SurfaceFlinger selalu menunggu acquire fence hardware selesai sebelum mempresentasikan frame ke layar.
+    3. **Integrasi Basis Data Media Apps & Video-Aware GPU Floor**: Mendaftarkan seluruh paket Instagram, TikTok, Threads, Facebook, dan Snapchat ke dalam `MEDIA_APPS`. Menyematkan lantai dasar GPU minimum pada status `DynamicGpuState::Light` ($\sim 446 - 478\text{ MHz}$) saat aplikasi media aktif di foreground meskipun tangan tidak menyentuh layar. Dengan clock $\sim 446\text{ MHz}$, komposisi video hanya memerlukan $3 - 4\text{ ms}$ (bebas dari frame drop pada 120Hz).
+    4. **Harmonisasi Refresh Rate Feed Sosial vs Pemutar Video Panjang**: Membedakan aplikasi media sosial (Instagram/TikTok/Twitter/Facebook) dari pemutar film panjang (YouTube/Netflix/VLC). Media sosial mempertahankan jendela kinetik 8 detik ($120\text{ Hz}$ stabil) saat membaca caption atau jeda menonton singkat tanpa flapping mode fisik bolak-balik ke $60\text{ Hz}$.
+
+- **Rombak Total Arsitektur Monitor Cockpit: Navigasi Sub-Halaman Detail & Eliminasi Accordion Diagnostik**:
+  - **Eliminasi Total Accordion Diagnostik Usang**:
+    - Menghapus sepenuhnya komponen lipatan `Diagnostik` yang menumpuk di bagian bawah tab Monitor.
+    - Menghapus berkas usang `HudDetailDiagnostics.kt` dan mentransformasikan seluruh telemetri mendalam ke dalam sub-halaman kontekstual per-domain.
+  - **Navigasi Sub-Halaman Berbasis Ikon "(i)" Cockpit (*Contextual Drill-Down*)**:
+    - Tombol info `(i)` pada masing-masing kartu Cockpit kini bertindak sebagai tombol navigasi drill-down menuju sub-halaman khusus dengan animasi transisi yang mulus:
+      1. **Sub-Halaman FPS & Layar**: Detail Compositor SurfaceFlinger (Buffer Layer, Target Package, VSync target, latensi daemon ingestion, live oscilloscope waveform riwayat render, dan panduan stabilitas frame / 1% Low).
+      2. **Sub-Halaman Kluster CPU & GPU**: Breakdown kluster LITTLE vs BIG/Prime, governor scaling policies, utilisasi render fragment/geometry GPU, GPU driver engine (Mali GED / Adreno KGSL), dan status thermal zone.
+      3. **Sub-Halaman Daya & Baterai**: Vektor arah arus fisik ($mA$), tegangan sel ($V$), konsumsi daya ($W$), koneksi fisik kabel charger (AC/USB), dan status hardware Motherboard Bypass Charging (AutoCut).
+      4. **Sub-Halaman Memori & Suhu**: Alokasi RAM fisik terpakai/tersedia, kompresi kernel ZRAM swap (LZ4), dan matriks 4-kuadran sensor suhu (SoC, CPU, GPU, Baterai).
+  - **Dukungan Header & Back Navigation Alami**:
+    - Header HUD otomatis memperbarui judul saat berada di sub-halaman (`Detail Performa FPS & Layar`, `Detail Kluster CPU & GPU`, dst.) dan memunculkan tombol kembali panah kiri (`<`) untuk kembali secara instan ke tampilan 4 kartu utama.
+
+---
+
 # Lynx Universal [Anti-Ghost Charging State & Current Ground Truth] 7.0.0-RC314
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.47

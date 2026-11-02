@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::daemon::foreground::rules::{AppCategory, ForegroundApp};
 use crate::hardware::capability::{GpuCapability, GpuDriver, HardwareCapability};
 use crate::hardware::detector::ScoreBoard;
 use crate::state::device_state::WorkloadLevel;
@@ -360,6 +361,7 @@ impl GpuController {
         active_profile: &str,
         is_screen_on: bool,
         multitasking_active: bool,
+        fg_app: Option<&ForegroundApp>,
     ) {
         let is_locked = ConfigStore::get("gpu.is_locked")
             .map(|v| v == "true" || v == "1")
@@ -444,8 +446,9 @@ impl GpuController {
                 // Active touch motion / scrolling / 120 FPS UI composition: Engage Fluid (e.g. ~588-675 MHz)
                 // Guaranteed sub-5ms render time to beat the 8.33ms 120Hz deadline with ZERO UI lag!
                 DynamicGpuState::Fluid
-            } else if is_touch || effective_calc > thresh_light || gpu.load_pct > 30 {
-                // Single tap / light interaction: Engage Light
+            } else if is_touch || fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false) || effective_calc > thresh_light || gpu.load_pct > 30 {
+                // Single tap / light interaction / active media video playback (Reels/Stories/TikTok/YouTube):
+                // Keep minimum Light tier (~446-478 MHz) so hardware video decoders and UI composition never drop frames!
                 DynamicGpuState::Light
             } else {
                 // Screen stationary, finger holding still while reading, or idle background: Drop to Idle (300 MHz)

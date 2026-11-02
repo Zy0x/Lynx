@@ -61,7 +61,9 @@ fun HudSidebar(
     var page by rememberSaveable { mutableStateOf(HudPage.Summary) }
     var manageApps by rememberSaveable { mutableStateOf(false) }
     var toolPage by rememberSaveable { mutableStateOf<HudToolPage?>(null) }
+    var monitorSubpage by rememberSaveable { mutableStateOf<HudMonitorSubpage?>(null) }
     val toolScrolls = HudToolPage.values().associateWith { rememberScrollState() }
+    val monitorScrolls = HudMonitorSubpage.values().associateWith { rememberScrollState() }
     val scrolls = HudPage.values().associateWith { rememberScrollState() }
     val pageState = rememberSaveableStateHolder()
     val context = LocalContext.current
@@ -97,13 +99,14 @@ fun HudSidebar(
             val title = when {
                 manageApps -> hudString(R.string.hud_apps_manage)
                 page == HudPage.Tools && toolPage != null -> hudString(toolPage!!.title)
+                page == HudPage.Details && monitorSubpage != null -> hudString(monitorSubpage!!.titleRes)
                 page == HudPage.Summary -> appLabel
                 else -> hudString(page.label)
             }
             HudPanelShell(
                 viewport = viewport, dockRight = dockRight, page = page, title = title,
                 snapshot = snapshot, action = action, bypassActive = bypassStatus.enabled || bypassStatus.active,
-                canNavigateBack = manageApps || page != HudPage.Summary,
+                canNavigateBack = manageApps || page != HudPage.Summary || monitorSubpage != null,
                 appDock = if (!manageApps) {
                     {
                         HudAppDock(
@@ -118,12 +121,14 @@ fun HudSidebar(
                     when {
                         manageApps -> manageApps = false
                         page == HudPage.Tools && toolPage != null -> toolPage = null
+                        page == HudPage.Details && monitorSubpage != null -> monitorSubpage = null
                         else -> page = HudPage.Summary
                     }
                 },
                 onSelect = {
                     manageApps = false
                     toolPage = null
+                    monitorSubpage = null
                     page = it
                 },
                 onClose = { onOpen(false) }
@@ -140,6 +145,7 @@ fun HudSidebar(
                 } else pageState.SaveableStateProvider(page.name) {
                     val scroll = when {
                         page == HudPage.Tools && toolPage != null -> toolScrolls.getValue(toolPage!!)
+                        page == HudPage.Details && monitorSubpage != null -> monitorScrolls.getValue(monitorSubpage!!)
                         else -> scrolls.getValue(page)
                     }
                     CompositionLocalProvider(LocalHudPageScroll provides scroll) {
@@ -150,7 +156,11 @@ fun HudSidebar(
                                     viewport.landscape, snapshot, action, prefs, preferences, focusActive, onProfile,
                                     { page = HudPage.Details }, onCapture, onBoostRam, onToggleFocus, { onOpen(false) }
                                 )
-                                HudPage.Details -> HudDetails(snapshot)
+                                HudPage.Details -> HudDetails(
+                                    snapshot = snapshot,
+                                    selectedSubpage = monitorSubpage,
+                                    onSelectSubpage = { monitorSubpage = it }
+                                )
                                 HudPage.Lab -> HudLab(
                                     snapshot = snapshot,
                                     action = action,

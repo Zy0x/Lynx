@@ -2484,4 +2484,26 @@
     <string name="hud_cockpit_bypass_active">Bypass Aktif</string>
     <string name="hud_cockpit_normal">Normal</string>
     <string name="hud_cockpit_hot">Panas</string>
+    <!-- Monitor Detail Subpage Strings -->
+    <string name="hud_subpage_fps_title">Detail Performa FPS &amp; Layar</string>
+    <string name="hud_subpage_cpu_gpu_title">Detail Kluster CPU &amp; GPU</string>
+    <string name="hud_subpage_power_title">Detail Daya &amp; Baterai</string>
+    <string name="hud_subpage_mem_temp_title">Detail Memori &amp; Suhu</string>
+    <string name="hud_subpage_compositor_title">Compositor &amp; Layar Aktif</string>
+    <string name="hud_subpage_target_package">Aplikasi Target</string>
+    <string name="hud_subpage_surface_layer">Buffer SurfaceFlinger</string>
+    <string name="hud_subpage_refresh_rate">Refresh Rate Layar</string>
+    <string name="hud_subpage_collector_latency">Latensi Daemon</string>
+    <string name="hud_subpage_pacing_title">Stabilitas &amp; Ritme Render</string>
+    <string name="hud_subpage_edu_fps_title">Panduan Stabilitas Frame (1% Low)</string>
+    <string name="hud_subpage_edu_cpu_title">Panduan Kluster CPU &amp; Akselerasi GPU</string>
+    <string name="hud_subpage_edu_power_title">Panduan Manajemen Daya Baterai</string>
+    <string name="hud_subpage_edu_mem_title">Panduan Memori ZRAM &amp; Sensor Termal</string>
+    <string name="hud_subpage_hardware_connected">Tersambung</string>
+    <string name="hud_subpage_hardware_disconnected">Terputus</string>
+    <string name="hud_subpage_hardware_source">Sumber Daya</string>
+    <string name="hud_subpage_hardware_governor">Governor CPU</string>
+    <string name="hud_subpage_hardware_zram_algo">Algoritma Kompresi</string>
+    <string name="hud_subpage_hardware_swap_used">ZRAM Terpakai</string>
+    <string name="hud_subpage_hardware_ram_free">RAM Bebas</string>
 </resources>

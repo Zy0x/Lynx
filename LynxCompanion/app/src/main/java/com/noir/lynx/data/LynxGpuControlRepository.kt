@@ -519,7 +519,7 @@ internal object LynxGpuControlRepository {
                         "for d in /sys/devices/platform/*.mali /sys/devices/platform/*mali* /sys/class/misc/mali0/device; do " +
                         "[ -f \"${'$'}d/dvfs_period\" ] && echo 50 > \"${'$'}d/dvfs_period\" 2>/dev/null; done"
                     ).exec()
-                    setSurfaceFlingerLatchUnsignaled(true)
+                    setSurfaceFlingerLatchUnsignaled(false)
                     setSurfaceFlingerDisableBackpressure(false)
                     QualcommAdrenoSiliconExt.setSptpPc(true)
                     QualcommAdrenoSiliconExt.setSkipSaveRestore(false)
@@ -615,11 +615,13 @@ internal object LynxGpuControlRepository {
 
     suspend fun setAsyncShaderPipeline(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val v = if (enabled) "true" else "false"
-            val r1 = Shell.cmd("setprop debug.hwui.use_gpu_pixel_buffers $v").exec().isSuccess
-            val r2 = Shell.cmd("setprop debug.hwui.render_thread $v").exec().isSuccess
-            val r3 = Shell.cmd("setprop debug.hwui.use_buffer_age $v").exec().isSuccess
-            r1 || r2 || r3
+            // NEVER override debug.hwui.render_thread or debug.hwui.use_buffer_age (causes black screen / rendering corruption)
+            val cmd = if (enabled) {
+                "setprop debug.hwui.use_gpu_pixel_buffers true; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null"
+            } else {
+                "resetprop -d debug.hwui.use_gpu_pixel_buffers 2>/dev/null; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null"
+            }
+            Shell.cmd(cmd).exec().isSuccess
         } catch (e: Exception) { false }
     }
 

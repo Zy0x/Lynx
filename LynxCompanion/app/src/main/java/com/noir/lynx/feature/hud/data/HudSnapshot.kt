@@ -11,7 +11,8 @@ enum class HudMetric(val key: String, val label: Int, val intervalMs: Long = 100
     GPU_CLOCK("gpu_clock", R.string.hud_metric_gpu_clock), GPU_LOAD("gpu_load", R.string.hud_metric_gpu_load),
     CPU_TEMP("cpu_temp", R.string.hud_metric_cpu_temp, 2000), SOC_TEMP("soc_temp", R.string.hud_metric_soc_temp, 2000),
     GPU_TEMP("gpu_temp", R.string.hud_metric_gpu_temp, 2000), BATTERY_TEMP("battery_temp", R.string.hud_metric_battery_temp, 2000),
-    RAM_USED("ram_used", R.string.hud_metric_ram), BATTERY_LEVEL("battery_level", R.string.hud_metric_battery),
+    RAM_USED("ram_used", R.string.hud_metric_ram), RAM_TOTAL("ram_total", R.string.hud_metric_ram),
+    BATTERY_LEVEL("battery_level", R.string.hud_metric_battery),
     BATTERY_CURRENT("battery_current", R.string.hud_metric_current), BATTERY_POWER("battery_power", R.string.hud_metric_power),
     BATTERY_VOLTAGE("battery_voltage", R.string.hud_metric_voltage),
     FRAME_AVERAGE("frame_average", R.string.hud_metric_frame_average, 500), FPS_LOW("fps_low", R.string.hud_metric_low, 500);
@@ -23,7 +24,7 @@ enum class HudMetric(val key: String, val label: Int, val intervalMs: Long = 100
         CPU_CLOCK, GPU_CLOCK -> "MHz"
         CPU_LOAD, GPU_LOAD, BATTERY_LEVEL -> "%"
         CPU_TEMP, SOC_TEMP, GPU_TEMP, BATTERY_TEMP -> "°C"
-        RAM_USED -> "GiB"
+        RAM_USED, RAM_TOTAL -> "GiB"
         BATTERY_CURRENT -> "mA"
         BATTERY_POWER -> "W"
         BATTERY_VOLTAGE -> "mV"

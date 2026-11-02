@@ -313,6 +313,13 @@ impl RulesEngine {
             "com.amazon.avod.thirdpartyclient",
             "com.twitter.android",
             "com.zhiliaoapp.musically",
+            "com.instagram.android",
+            "com.instagram.barcelona",
+            "com.ss.android.ugc.trill",
+            "com.ss.android.ugc.aweme",
+            "com.facebook.katana",
+            "com.facebook.lite",
+            "com.snapchat.android",
         ];
         if MEDIA_APPS.contains(&pkg_lower.as_str()) {
             return ForegroundApp {

@@ -264,6 +264,7 @@ impl DaemonRunner {
                 active_prof,
                 current_screen == ScreenState::On,
                 is_multitask,
+                fg_app.as_ref(),
             );
 
             // Autonomous Universal Dynamic Display Governor tick (Auto 60 <-> 90 <-> 120Hz)
@@ -414,6 +415,7 @@ impl DaemonRunner {
                         active_prof,
                         true,
                         is_multitask,
+                        fg_app.as_ref(),
                     );
                 }
             }

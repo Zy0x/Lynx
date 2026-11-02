@@ -86,12 +86,15 @@ object LynxMediaSafeguardManager {
                 // Entering media app: preserve video stability while maintaining fluid compositor latching
                 Log.i(TAG, "[Shield Engage] $packageName foreground -> applying safe VSync & fluid compositor latch")
 
-                // Enforce safety: swapinterval=1 (prevents ExoPlayer drift), but latch_unsignaled=1 and disable_backpressure=1
-                // to completely eliminate UI stutter and dropped frames during scrolling feeds
+                // Enforce safety: swapinterval=1 (prevents ExoPlayer drift) and latch_unsignaled=0
+                // to prevent black frames / black screen flicker during video playback and scrolling feeds
                 Shell.cmd(
                     "setprop debug.egl.swapinterval 1",
-                    "setprop debug.sf.latch_unsignaled 1",
-                    "setprop debug.sf.disable_backpressure 1",
+                    "setprop debug.sf.latch_unsignaled 0",
+                    "setprop debug.sf.auto_latch_unsignaled 0",
+                    "setprop debug.sf.disable_backpressure 0",
+                    "resetprop -d debug.hwui.render_thread 2>/dev/null",
+                    "resetprop -d debug.hwui.use_buffer_age 2>/dev/null",
                     "setprop debug.sf.disable_client_composition_cache 0",
                     "setprop debug.hwui.target_cpu_time_percent 70",
                     "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",

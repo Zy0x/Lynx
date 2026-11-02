@@ -2460,4 +2460,26 @@
     <string name="hud_cockpit_bypass_active">Bypass Active</string>
     <string name="hud_cockpit_normal">Normal</string>
     <string name="hud_cockpit_hot">Hot</string>
+    <!-- Monitor Detail Subpage Strings -->
+    <string name="hud_subpage_fps_title">FPS &amp; Display Details</string>
+    <string name="hud_subpage_cpu_gpu_title">CPU &amp; GPU Cluster Details</string>
+    <string name="hud_subpage_power_title">Power &amp; Battery Details</string>
+    <string name="hud_subpage_mem_temp_title">Memory &amp; Thermal Details</string>
+    <string name="hud_subpage_compositor_title">Active Compositor &amp; Display</string>
+    <string name="hud_subpage_target_package">Target Application</string>
+    <string name="hud_subpage_surface_layer">SurfaceFlinger Buffer</string>
+    <string name="hud_subpage_refresh_rate">Display Refresh Rate</string>
+    <string name="hud_subpage_collector_latency">Daemon Latency</string>
+    <string name="hud_subpage_pacing_title">Render Pacing &amp; Stability</string>
+    <string name="hud_subpage_edu_fps_title">Frame Stability Guide (1% Low)</string>
+    <string name="hud_subpage_edu_cpu_title">CPU Cluster &amp; GPU Acceleration Guide</string>
+    <string name="hud_subpage_edu_power_title">Battery Power Management Guide</string>
+    <string name="hud_subpage_edu_mem_title">ZRAM Memory &amp; Thermal Sensors Guide</string>
+    <string name="hud_subpage_hardware_connected">Connected</string>
+    <string name="hud_subpage_hardware_disconnected">Disconnected</string>
+    <string name="hud_subpage_hardware_source">Power Source</string>
+    <string name="hud_subpage_hardware_governor">CPU Governor</string>
+    <string name="hud_subpage_hardware_zram_algo">Compression Algorithm</string>
+    <string name="hud_subpage_hardware_swap_used">ZRAM In-Use</string>
+    <string name="hud_subpage_hardware_ram_free">Available RAM</string>
 </resources>

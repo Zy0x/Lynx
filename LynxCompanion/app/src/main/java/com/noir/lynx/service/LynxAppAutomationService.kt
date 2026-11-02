@@ -131,7 +131,7 @@ class LynxAppAutomationService : Service() {
                             LynxMemoryShield.checkAndProtectMemory()
 
                             // 2. Enforce fluid compositor latching during charging to prevent AC ripple touch jank
-                            Shell.cmd("setprop debug.sf.latch_unsignaled 1; setprop debug.sf.auto_latch_unsignaled 1; setprop debug.sf.disable_backpressure 1; setprop debug.sf.disable_client_composition_cache 0; setprop debug.hwui.target_cpu_time_percent 70").submit()
+                            Shell.cmd("setprop debug.sf.latch_unsignaled 0; setprop debug.sf.auto_latch_unsignaled 0; setprop debug.sf.disable_backpressure 0; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null; setprop debug.sf.disable_client_composition_cache 0; setprop debug.hwui.target_cpu_time_percent 70").submit()
 
                             val state = LynxRepository.readState().charging
                             if (state.extremeChargingEnabled || state.bypassEnabled) {

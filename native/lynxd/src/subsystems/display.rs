@@ -355,13 +355,37 @@ impl DisplayController {
             // during active window interaction to guarantee zero compositor jank
             high_hz
         } else if is_media {
-            // Video / Streaming (YouTube, Netflix, VLC, MX Player):
-            // If actively touching / scrubbing timeline: High Tier (120Hz)
-            // If watching video hands-off: Low Tier (60Hz) after 2s to match 24/30/60 FPS video and save ~35-40% battery
-            if TouchDetector::is_touch_recent(2000) || TouchDetector::is_touch_moving(2000) {
-                high_hz
+            // Distinguish short-form social feed media (Instagram, TikTok, Twitter, Facebook, Snapchat)
+            // vs dedicated full-screen long-form movie/video player (YouTube, Netflix, VLC, MX Player, etc.)
+            let is_social_feed = fg_app.map(|a| {
+                let p = a.package.to_lowercase();
+                p.contains("instagram")
+                    || p.contains("trill")
+                    || p.contains("aweme")
+                    || p.contains("tiktok")
+                    || p.contains("musically")
+                    || p.contains("twitter")
+                    || p.contains("facebook")
+                    || p.contains("snapchat")
+            }).unwrap_or(false);
+
+            if is_social_feed {
+                // Social feed: keep 120Hz during natural reading pauses (kinetic window 8s),
+                // completely eliminating the annoying 60 <-> 120Hz display modeset stutter during feed browsing!
+                if is_kinetic_active {
+                    high_hz
+                } else {
+                    low_hz
+                }
             } else {
-                low_hz
+                // Long-form video streaming (YouTube, Netflix, VLC, MX Player):
+                // If actively touching / scrubbing timeline: High Tier (120Hz)
+                // If watching video hands-off: Low Tier (60Hz) after 2s to match 24/30/60 FPS video and save ~35-40% battery
+                if TouchDetector::is_touch_recent(2000) || TouchDetector::is_touch_moving(2000) {
+                    high_hz
+                } else {
+                    low_hz
+                }
             }
         } else if is_kinetic_active {
             // Active touch / scrolling / reading session: Zero Latency (0 ms) High Tier

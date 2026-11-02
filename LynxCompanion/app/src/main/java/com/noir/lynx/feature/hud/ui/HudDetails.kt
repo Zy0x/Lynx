@@ -17,6 +17,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.data.*
@@ -28,29 +33,58 @@ import kotlin.math.roundToInt
  * Replaces cumbersome sub-pages with modern, compact, glanceable tachometer cards.
  */
 @Composable
-internal fun HudDetails(snapshot: HudSnapshot) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // 1. Performance Cockpit: FPS Tachometer & Live Waveform
-        HudCockpitFpsCard(snapshot)
+internal fun HudDetails(
+    snapshot: HudSnapshot,
+    selectedSubpage: HudMonitorSubpage? = null,
+    onSelectSubpage: (HudMonitorSubpage) -> Unit = {}
+) {
+    if (selectedSubpage != null) {
+        HudMonitorSubpageContent(
+            subpage = selectedSubpage,
+            snapshot = snapshot
+        )
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // 1. Performance Cockpit: FPS Tachometer & Live Waveform
+            HudCockpitFpsCard(snapshot, onOpenDetails = { onSelectSubpage(HudMonitorSubpage.FPS) })
 
-        // 2. Twin Engine Cockpit: CPU & GPU Side-by-Side Tachometers
-        HudCockpitTwinEngineCard(snapshot)
+            // 2. Twin Engine Cockpit: CPU & GPU Side-by-Side Tachometers
+            HudCockpitTwinEngineCard(snapshot, onOpenDetails = { onSelectSubpage(HudMonitorSubpage.CPU_GPU) })
 
-        // 3. Power Reactor: Battery, Current, Voltage & Wattage
-        HudCockpitPowerCard(snapshot)
+            // 3. Power Reactor: Battery, Current, Voltage & Wattage
+            HudCockpitPowerCard(snapshot, onOpenDetails = { onSelectSubpage(HudMonitorSubpage.POWER) })
 
-        // 4. Memory & Thermal Matrix: RAM Allocation & Hardware Temperatures
-        HudCockpitMemoryThermalCard(snapshot)
-
-        // 5. Expandable Advanced Diagnostics (Raw Kernel Sysfs / Driver status)
-        HudExpandableSection(hudString(R.string.hud_detail_diagnostics)) {
-            HudDetailDiagnostics(snapshot)
+            // 4. Memory & Thermal Matrix: RAM Allocation & Hardware Temperatures
+            HudCockpitMemoryThermalCard(snapshot, onOpenDetails = { onSelectSubpage(HudMonitorSubpage.MEMORY_THERMAL) })
         }
+    }
+}
+
+@Composable
+internal fun HudDetailDrilldownButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    accentColor: Color = HudCyan,
+    contentDescription: String = "Detail"
+) {
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = contentDescription,
+            tint = accentColor.copy(alpha = 0.85f),
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
 
@@ -58,7 +92,10 @@ internal fun HudDetails(snapshot: HudSnapshot) {
  * Card 1: FPS Tachometer Speedometer & Real-Time Waveform.
  */
 @Composable
-private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
+private fun HudCockpitFpsCard(
+    snapshot: HudSnapshot,
+    onOpenDetails: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = HudElevated,
@@ -104,10 +141,10 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
                         }
                     }
                 }
-                HudInfoButton(
-                    title = hudString(R.string.hud_info_fps_title),
-                    info = hudString(R.string.hud_info_fps_desc),
-                    accentColor = HudCyan
+                HudDetailDrilldownButton(
+                    onClick = onOpenDetails,
+                    accentColor = HudCyan,
+                    contentDescription = "Detail FPS"
                 )
             }
 
@@ -203,7 +240,10 @@ private fun HudCockpitFpsCard(snapshot: HudSnapshot) {
  * Card 2: Twin Engine Cockpit (CPU & GPU Side-by-Side Tachometers).
  */
 @Composable
-private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
+private fun HudCockpitTwinEngineCard(
+    snapshot: HudSnapshot,
+    onOpenDetails: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = HudElevated,
@@ -226,10 +266,10 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
-                HudInfoButton(
-                    title = hudString(R.string.hud_info_cpu_title),
-                    info = "• CPU:\n" + hudString(R.string.hud_info_cpu_desc) + "\n\n• GPU:\n" + hudString(R.string.hud_info_gpu_desc),
-                    accentColor = Color(0xFF90CAF9)
+                HudDetailDrilldownButton(
+                    onClick = onOpenDetails,
+                    accentColor = Color(0xFF90CAF9),
+                    contentDescription = "Detail CPU & GPU"
                 )
             }
 
@@ -394,7 +434,10 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
  * Card 3: Power Reactor & Battery Telemetry.
  */
 @Composable
-private fun HudCockpitPowerCard(snapshot: HudSnapshot) {
+private fun HudCockpitPowerCard(
+    snapshot: HudSnapshot,
+    onOpenDetails: () -> Unit = {}
+) {
     val curReading = snapshot[HudMetric.BATTERY_CURRENT]
     val curVal = curReading.value
     // Physical Ground Truth Validation:
@@ -453,10 +496,10 @@ private fun HudCockpitPowerCard(snapshot: HudSnapshot) {
                         )
                     }
                 }
-                HudInfoButton(
-                    title = hudString(R.string.hud_info_power_title),
-                    info = hudString(R.string.hud_info_power_desc),
-                    accentColor = Color(0xFF00E676)
+                HudDetailDrilldownButton(
+                    onClick = onOpenDetails,
+                    accentColor = Color(0xFF00E676),
+                    contentDescription = "Detail Daya & Baterai"
                 )
             }
 
@@ -530,7 +573,10 @@ private fun HudCockpitPowerCard(snapshot: HudSnapshot) {
  * Card 4: System Memory & Component Thermal Matrix.
  */
 @Composable
-private fun HudCockpitMemoryThermalCard(snapshot: HudSnapshot) {
+private fun HudCockpitMemoryThermalCard(
+    snapshot: HudSnapshot,
+    onOpenDetails: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = HudElevated,
@@ -553,10 +599,10 @@ private fun HudCockpitMemoryThermalCard(snapshot: HudSnapshot) {
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
-                HudInfoButton(
-                    title = hudString(R.string.hud_info_mem_title),
-                    info = hudString(R.string.hud_info_mem_desc),
-                    accentColor = Color(0xFFC084FC)
+                HudDetailDrilldownButton(
+                    onClick = onOpenDetails,
+                    accentColor = Color(0xFFC084FC),
+                    contentDescription = "Detail Memori & Termal"
                 )
             }
 
@@ -628,7 +674,7 @@ private fun SatelliteStat(label: String, value: String) {
 }
 
 @Composable
-private fun HudBentoTelemetryPill(
+internal fun HudBentoTelemetryPill(
     label: String,
     value: String,
     accentColor: Color = Color.White,
@@ -667,7 +713,7 @@ private fun HudBentoTelemetryPill(
 }
 
 @Composable
-private fun CockpitMetricCell(label: String, value: String, color: Color = Color.White) {
+internal fun CockpitMetricCell(label: String, value: String, color: Color = Color.White) {
     Column(
         verticalArrangement = Arrangement.spacedBy(1.dp),
         horizontalAlignment = Alignment.Start
