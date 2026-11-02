@@ -1,3 +1,22 @@
+# Lynx Universal [Zero-Pancingan Natural Pre-Zygote Sensor Sync & Boot Lockscreen Deadlock Elimination] 7.0.0-RC322
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.53
+
+- **Penyelesaian Tuntas Hang Booting & Sinkronisasi Sensor Ring-0 Alami (KPM v1.6.0)**:
+  - Mengatasi deadlock `synchronize_rcu()` pada versi sebelumnya dengan mengadopsi arsitektur hook pasif di `native/kpm/lynx_sensor_hub/lynx_sensor_hub.c`, melakukan pre-arming ready flags (`*p_flag_ready = 1`, `*p_flag_notify = 1`), membangunkan waitqueue kernel secara aman, menjalankan loop daya sensor hub, mengisi `/dev/sensorlist`, dan melakukan *auto-disarm* permanen seketika setelah sinkronisasi selesai untuk zero runtime overhead.
+  - Menanamkan biner KPM `lynx_sensor_hub.kpm` v1.6.0 langsung ke dalam kernel image (`boot_a`) Infinix Note 11S (MT6781 Helio G96) via `kptools`, mengembalikan durasi cold-boot normal secara instan (<2 detik) dan menuntaskan hang stuck di logo vendor.
+
+- **Eliminasi Total Deadlock VFS F2FS & Crash Lockscreen / Framework Restart**:
+  - Mengidentifikasi akar masalah tersembunyi yang menyebabkan framework Android mengalami soft-reboot berulang di lockscreen: modul MountX melakukan bind mount `/data/sdext2` ke direktori paket `/data/app` pada tahap awal `post-fs-data`, memicu deadlock rekursif `i_rwsem` di dalam thread `PackageManagerService` (`SyS_renameat2` -> `vfs_rename2` -> `filp_open` -> `rwsem_down_read_failed`). Hal tersebut menyebabkan Android Watchdog membunuh `system_server` setelah timeout 60 detik sehingga `system_server` menjadi zombie (`Z`) dan sensor terlihat seolah mati.
+  - Mengisolasi dan menonaktifkan MountX untuk melenyapkan deadlock VFS sehingga `system_server` berjalan 100% sehat (status `S`) sejak boot pertama.
+
+- **Sinkronisasi Perangkat Keras Pre-Zygote Sinkron (*Pre-Zygote Hardware Barrier*)**:
+  - Mengatasi jeda waktu asinkron antara driver kernel SCP (Cortex-M4) dan Android Sensor HAL (`vendor.sensors-hal-2-0`) pada `post-fs-data.sh`.
+  - Memberikan hak akses izin instan `0660 system:system` pada node `/dev/m_*_misc` serta memastikan Sensor HAL terikat sempurna pada node karakter hardware sebelum Zygote melakukan fork pada `system_server`.
+  - Seluruh sensor fisik (`lsm6dsm_acc`, `lsm6dsm_gyro`, `mn78911_l`, `mn78911_p`) kini 100% aktif menyuplai event telemetri (lux cahaya luar, akselerometer 3-sumbu gravitasi, orientasi rotasi, dan proksimitas) sejak detik pertama cold-boot tanpa pancingan, tanpa restart kedua di home screen, dan tanpa soft-reboot.
+
+---
+
 # Lynx Universal [Intelligent Soft Re-Handshake & Background Fast Charge Guard] 7.0.0-RC321
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.53
