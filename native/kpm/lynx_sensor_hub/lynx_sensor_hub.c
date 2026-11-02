@@ -33,10 +33,10 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_sensor_hub");
-KPM_VERSION("1.0.0");
+KPM_VERSION("1.1.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
-KPM_DESCRIPTION("Lynx MTK SCP Sensor Hub Auto-Sync & Anti-Race KPM");
+KPM_DESCRIPTION("Lynx MTK SCP Sensor Hub Auto-Sync & Ring-0 Auto-Retry KPM");
 
 #define LOG_TAG "[LynxSensorHubKPM] "
 
@@ -50,14 +50,18 @@ static volatile int g_sensor_hub_kpm_enabled = 1;
 static volatile unsigned long g_pacing_count = 0;
 static volatile unsigned long g_success_packets = 0;
 static volatile unsigned long g_failed_packets = 0;
+static volatile unsigned long g_recovered_packets = 0;
+static volatile int g_in_retry = 0;
 
 #define EARLY_BOOT_PACING_LIMIT 30
 #define SCP_READY_SETTLE_MS 45
+#define RETRY_MAX_ATTEMPTS 10
+#define RETRY_BACKOFF_MS 40
 
 // 1. Hook for scp_sensorHub_req_send(SCP_SENSOR_HUB_DATA_P data, uint *len, unsigned int wait)
 static void before_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
 {
-    if (!g_sensor_hub_kpm_enabled || !args) return;
+    if (!g_sensor_hub_kpm_enabled || !args || g_in_retry) return;
 
     // Force wait flag to 1 (blocking IPI delivery with wait queue acknowledgment)
     args->arg2 = (uint64_t)1;
@@ -76,7 +80,7 @@ static void before_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
 
 static void after_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
 {
-    if (!g_sensor_hub_kpm_enabled || !args) return;
+    if (!g_sensor_hub_kpm_enabled || !args || g_in_retry) return;
 
     int ret = (int)args->ret;
     if (ret == 0) {
@@ -87,8 +91,33 @@ static void after_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
         }
     } else {
         g_failed_packets++;
-        logke(LOG_TAG "SCP sensor request FAILED (ret=%d, fail_count=%lu)\n",
+        logke(LOG_TAG "SCP sensor request FAILED (ret=%d, fail_count=%lu). Initiating Ring-0 Auto-Retry...\n",
               ret, g_failed_packets);
+
+        if (target_scp_sensorHub_req_send) {
+            g_in_retry = 1;
+            int attempt;
+            for (attempt = 1; attempt <= RETRY_MAX_ATTEMPTS; attempt++) {
+                if (k_msleep) {
+                    k_msleep(RETRY_BACKOFF_MS);
+                }
+
+                int retry_res = ((int (*)(void *, void *, unsigned int))target_scp_sensorHub_req_send)(
+                    (void *)args->arg0, (void *)args->arg1, 1);
+
+                if (retry_res == 0) {
+                    logkd(LOG_TAG "SCP sensor request RECOVERED on attempt #%d! Overriding ret to 0 (total recovered: %lu)\n",
+                          attempt, ++g_recovered_packets);
+                    args->ret = 0;
+                    g_success_packets++;
+                    break;
+                } else {
+                    logkd(LOG_TAG "SCP sensor request retry #%d failed (ret=%d)\n",
+                          attempt, retry_res);
+                }
+            }
+            g_in_retry = 0;
+        }
     }
 }
 
