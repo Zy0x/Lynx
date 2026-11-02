@@ -90,8 +90,11 @@ class LynxThermalGuardService : Service() {
         serviceScope.launch {
             Log.i(TAG, "Thermal Guard Watchdog loop started. Batt Limit: ${batteryWarningC}°C, SoC Emergency: ${socEmergencyC}°C")
             while (isActive && isWatchdogRunning) {
-                if (isScreenOn) {
-                    try {
+                try {
+                    val chg = LynxRepository.readState().charging
+                    val isHyperCharging = chg.chargingMode == "hyper" || chg.extremeChargingEnabled
+
+                    if (isScreenOn) {
                         val zones = LynxRepository.readThermalZones()
                         val battTemp = zones.firstOrNull { 
                             val t = it.type.lowercase()
@@ -104,8 +107,6 @@ class LynxThermalGuardService : Service() {
                         }.maxOfOrNull { it.tempC } ?: battTemp
 
                         // Rule 1: Battery Protection Check (Bypassed during Hyper / Extreme fast charging)
-                        val chg = LynxRepository.readState().charging
-                        val isHyperCharging = chg.chargingMode == "hyper" || chg.extremeChargingEnabled
                         if (!isHyperCharging && battTemp >= batteryWarningC) {
                             Log.w(TAG, "EMERGENCY: Battery temperature reached ${battTemp}°C (>= ${batteryWarningC}°C). Applying protective clamp!")
                             LynxRepository.applyThermalMode("stable")
@@ -116,9 +117,9 @@ class LynxThermalGuardService : Service() {
                             Log.e(TAG, "CRITICAL: Silicon SoC temperature reached ${socTemp}°C (>= ${socEmergencyC}°C). Executing Emergency Baseline Restore!")
                             OEMRestoreManager.restoreCapturedBaseline()
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Watchdog polling cycle error: ${e.message}")
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Watchdog polling cycle error: ${e.message}")
                 }
                 delay(3000L)
             }

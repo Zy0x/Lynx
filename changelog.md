@@ -1,3 +1,20 @@
+# Lynx Universal [Intelligent Soft Re-Handshake & Background Fast Charge Guard] 7.0.0-RC321
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.53
+
+- **Negosiasi Cerdas Pengisian Daya Awal Tanpa Replug (*Zero-Touch APSD & QC3.0 Soft Re-Handshake*)**:
+  - **Akar Masalah (*Root Cause*)**: Saat kabel charger dicolokkan ke perangkat Qualcomm (seperti Redmi Note 7 Snapdragon 660 / PM660), jika voltase adaptor lambat stabil atau terdapat pantulan kontak fisik (*contact bounce*) pada pin D+/D-, komparator perangkat keras PM660 mengalami timeout dan mengunci status ke SDP (*Standard Downstream Port* ~500mA / 1.7W). Driver bawaan kernel `smb-lib` tidak pernah mengulang deteksi APSD secara otomatis begitu terkunci di mode SDP, sehingga hanya mengisi daya lambat (+470mA) kecuali kabel dicabut-colok (*replug*) secara manual.
+  - **Solusi Arsitektur Lembut Mandiri (*Guarded Soft Re-Handshake*)**:
+    1. **Siklus Pulsa Input FET Transien (`input_suspend`)**: Saat terdeteksi arus tertahan < 900mA atau register USB terkunci <= 500mA saat baterai < 90%, sistem secara mandiri memutus FET input pengisian selama 250ms dan menyambungkannya kembali. Hal ini memicu interrupt `VBUS_ATTACH` pada komparator fisik PM660 untuk memulai deteksi cold-plug dan handshaking protokol QC 3.0 / DCP dari awal tanpa replug fisik.
+    2. **Toggle Dinamis HVDCP3 & AICL Kick**: Mematikan dan menyalakan kembali bit `allow_hvdcp3` (`0` -> `1`) pada `/sys/class/power_supply/usb/allow_hvdcp3` serta mengeksekusi `rerun_aicl = 1` guna memaksa penarikan voltase 9V QC 3.0 dan membuka batas arus hingga 3000-3500mA.
+    3. **Penjaga Pasca-Colok Cerdas (`LynxPowerReceiver` Watchdog)**: Menambahkan penundaan evaluasi 3.5 detik setelah charger dicolokkan agar osilasi awal kontak kabel stabil, kemudian secara otomatis mengevaluasi arus masuk dan mengaktifkan handshake jika pengisian terhambat.
+
+- **Penjaga Pengisian Latar Belakang & Layar Mati (*Persistent Background Hyper Charging Watchdog*)**:
+  - **Kebutuhan Pengguna**: Memastikan bahwa mode Hyper / Pengisian Ekstrem tetap mempertahankan kecepatan penuh (>2500mA–3000mA) meskipun aplikasi Lynx ditutup, digeser dari recent apps, atau layar ponsel dimatikan.
+  - **Solusi**: Memperluas siklus pemantauan `LynxThermalGuardService` agar tetap mengeksekusi `reapplyExtremeChargingLock()` secara berkala bahkan saat layar mati (`isScreenOn == false`), menetralkan voter termal OEM dan menjaga register arus tetap terbuka di plafon tertinggi hardware tanpa penurunan performa.
+
+---
+
 # Lynx Universal [Zero-Pancingan Natural Sensor Hub KPM & Boot Crash Elimination] 7.0.0-RC320
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.53

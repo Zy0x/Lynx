@@ -101,6 +101,18 @@ object ExtremeChargingScript {
                     [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo "${'$'}qcom_ua" > "${'$'}node" 2>/dev/null
                 done
                 [ -e /sys/class/power_supply/usb/current_max ] && chmod 666 /sys/class/power_supply/usb/current_max 2>/dev/null && echo "${'$'}qcom_ua" > /sys/class/power_supply/usb/current_max 2>/dev/null
+
+                # Qualcomm Safe Non-Flapping Negotiation: Keep input_suspend strictly 0
+                echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
+                echo 0 > /sys/class/power_supply/usb/input_suspend 2>/dev/null
+
+                for hvdcp in /sys/class/power_supply/usb/allow_hvdcp3 /sys/class/power_supply/battery/allow_hvdcp3 /sys/class/power_supply/main/allow_hvdcp3; do
+                    if [ -e "${'$'}hvdcp" ]; then
+                        chmod 666 "${'$'}hvdcp" 2>/dev/null
+                        echo 1 > "${'$'}hvdcp" 2>/dev/null
+                    fi
+                done
+
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
@@ -111,7 +123,8 @@ object ExtremeChargingScript {
                 echo 1 > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null
                 echo 1 > /sys/class/power_supply/usb/boost_current 2>/dev/null
                 echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
-                echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
+                echo 1 > /sys/class/power_supply/usb/allow_hvdcp3 2>/dev/null
+                echo 1 > /sys/class/power_supply/battery/allow_hvdcp3 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/subsystem/usb/pd_allowed 2>/dev/null
                 echo 20000000 > /sys/class/power_supply/usb/pd_voltage_max 2>/dev/null
                 echo 6000000 > /sys/class/power_supply/usb/pd_current_max 2>/dev/null

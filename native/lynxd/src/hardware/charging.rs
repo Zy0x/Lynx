@@ -2179,10 +2179,27 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
             Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
-            // 2. Qualcomm Safe Re-Handshake:
+            // 2. Qualcomm Safe Re-Handshake (Zero Flapping):
             // NEVER pulse input_suspend on Qualcomm single-PMIC (PM660)!
-            // Pulsing input_suspend drops VBUS and forces an external disconnect/reconnect loop.
-            // Instead, trigger Qualcomm hardware AICL rerun:
+            // Pulsing input_suspend cuts the input FET and drops VBUS, forcing an endless
+            // connect/disconnect (mati-nyala) loop. Always ensure input_suspend is strictly 0.
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            Self::write_node(&format!("{}/input_suspend", USB_DIR), "0");
+
+            // Toggle allow_hvdcp3 cleanly without touching input FET
+            for hvdcp in &[
+                format!("{}/allow_hvdcp3", USB_DIR),
+                format!("{}/allow_hvdcp3", BATT_DIR),
+                format!("{}/allow_hvdcp3", MAIN_DIR),
+            ] {
+                if Path::new(hvdcp).exists() {
+                    Self::set_perm(hvdcp, 0o666);
+                    Self::write_node(hvdcp, "0");
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    Self::write_node(hvdcp, "1");
+                }
+            }
+
             for rerun in &[
                 format!("{}/rerun_aicl", USB_DIR),
                 format!("{}/rerun_aicl", BATT_DIR),
@@ -3635,6 +3652,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+        let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
 
@@ -3677,6 +3695,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+        let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
         PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);

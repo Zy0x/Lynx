@@ -11,10 +11,12 @@ import kotlinx.coroutines.launch
 
 /**
  * LynxPowerReceiver — Automatically re-asserts fast charging & thermal bypass
- * when charger cable is plugged into the device.
+ * when charger cable is plugged into the device, with zero-touch APSD recovery.
  */
 class LynxPowerReceiver : BroadcastReceiver() {
     companion object {
+        const val ACTION_CHARGING_RECONNECT = "com.noir.lynx.CHARGING_RECONNECT"
+        const val ACTION_APPLY_CHARGING = "com.noir.lynx.APPLY_CHARGING"
         @Volatile
         private var lastConnectedTime = 0L
         @Volatile
@@ -27,18 +29,18 @@ class LynxPowerReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         val now = System.currentTimeMillis()
 
-        if (action == Intent.ACTION_POWER_CONNECTED) {
-            if (now - lastConnectedTime < DEBOUNCE_MS) {
+        if (action == Intent.ACTION_POWER_CONNECTED || action == ACTION_CHARGING_RECONNECT || action == ACTION_APPLY_CHARGING) {
+            if (action == Intent.ACTION_POWER_CONNECTED && (now - lastConnectedTime < DEBOUNCE_MS)) {
                 Log.d("LynxPowerReceiver", "Ignoring duplicate ACTION_POWER_CONNECTED (debounced)")
                 return
             }
             lastConnectedTime = now
-            Log.i("LynxPowerReceiver", "Charger cable connected! Verifying charging bypass state...")
+            Log.i("LynxPowerReceiver", "Power event triggered ($action)! Verifying charging bypass & handshake state...")
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val state = LynxRepository.readState().charging
-                    if (state.extremeChargingEnabled || state.bypassEnabled) {
+                    if (state.extremeChargingEnabled || state.bypassEnabled || state.chargingMode == "hyper") {
                         Log.i("LynxPowerReceiver", "Re-asserting hardware charging mode (extreme=${state.extremeChargingEnabled}, bypass=${state.bypassEnabled})...")
                         LynxRepository.applySavedChargingConfig()
                     }
