@@ -1,3 +1,30 @@
+# Lynx Universal [Digital Cockpit Terminology Refinement & Zero-Latch GPU Scaler] 7.0.0-RC313
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.46
+
+- **Standardisasi & Penyempurnaan Terminologi Judul & Deskripsi Monitor HUD Cockpit (ID & EN)**:
+  - **Judul Kartu Berkelanjutan & Profesional**:
+    - Kartu 1: Diperbarui menjadi `Performa FPS & Refresh Rate` (ID) / `FPS & Refresh Rate Performance` (EN) menggantikan penamaan harfiah usang.
+    - Kartu 2: Diperbarui menjadi `Kluster CPU & GPU` (ID) / `CPU & GPU Compute Cluster` (EN) menggantikan terjemahan kaku "Mesin Prosesor Kembar".
+    - Kartu 3: Diperbarui menjadi `Daya & Efisiensi Baterai` (ID) / `Power & Battery System` (EN) menggantikan istilah metaforis "Reaktor Daya".
+    - Kartu 4: Diperbarui menjadi `Memori RAM & Termal Hardware` (ID) / `System Memory & Hardware Thermals` (EN).
+  - **Info Dialog Komprehensif & Edukatif**:
+    - Dialog info kartu CPU & GPU kini menyajikan arsitektur kluster secara rapi dan terstruktur (`• CPU:` dan `• GPU:`).
+    - Seluruh deskripsi teknis (FPS jitter, 1% Low, Linux kernel ZRAM swap compression, bypass charging / AutoCut, dan thermal throttling) diselaraskan dalam Bahasa Indonesia dan English dengan bahasa komunikatif dan mudah dipahami.
+  - **Penyempurnaan Ergonomi & Tata Letak Kartu Cockpit**:
+    - Memberikan padding bawah yang lega (`bottom = 12.dp`) pada kartu kluster CPU & GPU sehingga kapsul suhu CPU dan GPU (`°C`) tertata rapi, proporsional, dan bebas dari clipping batas kartu.
+    - Memperpanjang garis pemisah vertikal (*hairline gradient divider*) menjadi `120.dp` untuk keseimbangan visual sempurna.
+
+- **Perbaikan Positif Feedback Latch Clock GPU Mode Balance (*Zero-Latch Dynamic Downclocking*)**:
+  - **Akar Masalah (*Root Cause*)**: Ambang batas beban (`gpu.load_pct > 15`) dan kalkulasi daya efektif (`effective_calc > 200`) yang terlalu sensitif menyebabkan rendering UI latar belakang 120Hz secara terus-menerus mengunci status ke `Fluid` ($631\text{ MHz}$). Clamping nilai `custom_boost_gpu_freq` dan `gpu_bottom_freq` pada $631\text{ MHz}$ kemudian melarang driver MediaTek GED untuk turun ke clock terendah, menciptakan siklus terkunci semu (*hysteresis trap*).
+  - **Kalibrasi Ulang Ambang Batas Sensitivitas**:
+    - Ambang batas `Light` dinaikkan ke beban $>30\%$ (efektif $>200\text{ MHz}$) dan `Fluid` ke $>50\%$ (efektif $>320\text{ MHz}$).
+    - Jendela peluruhan kinetik (*fling window*) dipangkas dari $2000\text{ ms}$ menjadi $600\text{ ms}$ yang ergonomis dan responsif.
+    - Peluruhan status `Light` dipercepat menjadi $250\text{ ms}$, mengembalikan GPU ke status **Idle ($300\text{ MHz}$)** seketika begitu layar diam/tidak disentuh.
+  - **Hasil Evaluasi**: Clock GPU kini bebas melompat seketika ke $631 - 950\text{ MHz}$ saat disentuh/scrolling untuk menjamin 120 FPS tanpa jeda, lalu langsung kembali rileks ke $300\text{ MHz}$ saat membaca konten, menghemat daya baterai secara optimal.
+
+---
+
 # Lynx Universal [Interactive 1:1 Physics Drawer & Velocity Fling HUD Gesture] 7.0.0-RC308
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.41

@@ -211,7 +211,7 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
         border = BorderStroke(1.dp, HudBorder)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Header Row
@@ -228,7 +228,7 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                 )
                 HudInfoButton(
                     title = hudString(R.string.hud_info_cpu_title),
-                    info = hudString(R.string.hud_info_cpu_desc) + "\n\n" + hudString(R.string.hud_info_gpu_desc),
+                    info = "• CPU:\n" + hudString(R.string.hud_info_cpu_desc) + "\n\n• GPU:\n" + hudString(R.string.hud_info_gpu_desc),
                     accentColor = Color(0xFF90CAF9)
                 )
             }
@@ -308,7 +308,7 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(116.dp)
+                        .height(120.dp)
                         .background(
                             brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                                 colors = listOf(
@@ -325,7 +325,7 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     val gpuLoad = snapshot[HudMetric.GPU_LOAD]
                     val gpuProgress = (gpuLoad.value?.toFloat() ?: 0f) / 100f
