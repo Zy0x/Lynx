@@ -55,8 +55,8 @@ static volatile int g_in_retry = 0;
 
 #define EARLY_BOOT_PACING_LIMIT 30
 #define SCP_READY_SETTLE_MS 45
-#define RETRY_MAX_ATTEMPTS 10
-#define RETRY_BACKOFF_MS 40
+#define RETRY_MAX_ATTEMPTS 60
+#define RETRY_BACKOFF_MS 50
 
 // 1. Hook for scp_sensorHub_req_send(SCP_SENSOR_HUB_DATA_P data, uint *len, unsigned int wait)
 static void before_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
