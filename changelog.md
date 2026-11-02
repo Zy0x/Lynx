@@ -1,3 +1,19 @@
+# Lynx Universal [Zero-Glitch Profile State & Multi-Tier Sync Shield] 7.0.0-RC317
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.50
+
+- **Resolusi Mendalam Glitch Profil (*Profile Flapping / Fallback Glitch: Performance ↔ Balance*)**:
+  - **Akar Masalah (*Root Causes Forensik*)**:
+    1. **Asynchronous SystemProperties Race Condition pada `readCurrentProfileFast()`**: `lastActiveProfile` selalu diupdate seketika secara atomik saat `setProfile()` dieksekusi. Namun sebelumnya, `readCurrentProfileFast()` memprioritaskan pembacaan `getprop lynx.mode`. Pada beberapa ROM Android, propagasi nilai `setprop` ke subsistem properti memiliki jeda asinkron hingga 100–200 ms, atau masih memegang nilai residual dari sesi automation sebelumnya. Akibatnya, saat pembacaan cepat berlangsung, properti lama terbaca sebelum nilai baru tersimpan.
+    2. **Jeda Inisialisasi Frame Native Stream pada `LynxFloatingHudService`**: Saat Floating HUD pertama kali dibuka, daemon native `lynxd hud stream` membutuhkan waktu ~300–500 ms untuk memproses dan menyiarkan frame JSON pertamanya. Selama jeda ini, `streamProfile` bernilai null sehingga HUD mengevaluasi properti sistem secara terpisah tanpa acuan memori yang terkonfirmasi, memicu kedipan (*glitch*) visual status profil ke "Performance" sebelum stabil ke "Balance".
+    3. **Blind Defaulting ke "Balance" pada `stream.rs` Native Collector**: Jika berkas status `/data/adb/lynx/active_profile` sesaat belum siap dibaca saat daemon cold-boot, fungsi `detect_active_profile()` di Rust langsung melakukan fallback buta ke string `"balance"`, memicu ketidaksinkronan sementara antar-frame telemetri.
+  - **Solusi Arsitektural Komprehensif**:
+    1. **Pembalikan Prioritas Evaluasi Cepat (`readCurrentProfileFast`)**: `lastActiveProfile` kini menjadi Tier-1 ground truth sebelum properti sistem dibaca, menjamin pembacaan memori zero-latency (<0.01 ms) yang kebal terhadap race condition `setprop`.
+    2. **Authoritative Sync Guard (`lastConfirmedProfile`)**: `HudStreamRepository` menambahkan penguncian status `@Volatile var lastConfirmedProfile` yang langsung diperbarui oleh `LynxProfileSyncBus`. Setiap frame stream yang masuk diverifikasi silang dengan status terkonfirmasi sehingga tidak ada frame usang yang dapat menimpa status aktif.
+    3. **Persistent Frame Memory pada Native Rust Stream (`last_known_profile`)**: Fungsi `detect_active_profile()` pada Rust kini mempertahankan memori `last_known` antar-frame dan tidak lagi melakukan fallback buta ke profil default saat berkas sistem sedang dalam transisi penulisan.
+
+---
+
 # Lynx Universal [Ultra-Fast Two-Way Profile Synchronization Engine] 7.0.0-RC316
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.49
