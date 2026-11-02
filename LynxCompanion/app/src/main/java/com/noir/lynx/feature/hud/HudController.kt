@@ -381,8 +381,33 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         displaySession.restore()
     }
 
+    private var lastBoostRamTime = 0L
+
     fun boostRam() {
         if (mutable.value.busy) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (lastBoostRamTime > 0 && now - lastBoostRamTime < 15_000L) {
+            // Smart protection: RAM already optimal, prevent I/O kernel churn
+            val mem = readHudMeminfo()
+            val availGb = String.format(Locale.US, "%.1f", mem.availableKb / 1024.0 / 1024.0)
+            val cooldownRem = ((15_000L - (now - lastBoostRamTime)) / 1000).toInt().coerceAtLeast(1)
+            val detail = AppLocale.getString(context, R.string.hud_clean_ram_optimal, availGb) + " · Cooldown ${cooldownRem}s"
+            mutable.value = HudActionState(
+                busy = false,
+                message = R.string.hud_boost_ram,
+                detailMessage = detail,
+                actionType = "ram"
+            )
+            val generation = ++actionGeneration
+            scope.launch {
+                delay(2000)
+                if (generation == actionGeneration && !mutable.value.busy) {
+                    mutable.value = HudActionState()
+                }
+            }
+            return
+        }
+        lastBoostRamTime = now
         val generation = ++actionGeneration
         mutable.value = HudActionState(busy = true, message = R.string.hud_pending, actionType = "ram")
         scope.launch(Dispatchers.IO) {
@@ -412,7 +437,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
                 detailMessage = detail,
                 actionType = "ram"
             )
-            delay(4000)
+            delay(2500)
             if (generation == actionGeneration && !mutable.value.busy) {
                 mutable.value = HudActionState()
             }

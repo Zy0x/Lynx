@@ -1,3 +1,28 @@
+# Lynx Universal [Vivid Quick Tools & Smart RAM Protection Shield] 7.0.0-RC318
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.51
+
+- **Penyempurnaan Total Visibilitas & Warna Tombol Aktif Alat Cepat HUD (*Vivid Quick Action Buttons*)**:
+  - **Akar Masalah (*Root Cause*)**: Sebelumnya, komponen `HudActionIconButton` tidak memanfaatkan nilai `tool.accentColor` yang telah didefinisikan untuk masing-masing alat. Saat suatu tombol aktif (`highlighted = true`), sistem menerapkan warna latar belakang transparan 5% (`HudAccentBorder.copy(alpha = 0.18f)`) dengan border abu-abu pucat dan ikon putih polos, sehingga tampil redup dan menyatu dengan warna gelap latar belakang panel HUD (*warnanya menyatu*). Sementara saat tombol tidak aktif, ikon justru diberi warna Cyan (`HudCyan`), menimbulkan kontradiksi visual di mana tombol mati tampak lebih mencolok dibandingkan tombol aktif.
+  - **Solusi Arsitektural**:
+    1. **Identitas Warna Aksen Spesifik Per-Tool**: Mengintegrasikan `accentColor` langsung ke dalam `HudActionIconButton`:
+       - Rekam Layar (*Recording*): Merah Neon (`#FF5252`) saat merekam / Oranye hangat saat siaga.
+       - Pembersih RAM (*Clean RAM*): Hijau Zamrud Neon (`#00E676`) saat animasi pembersihan aktif.
+       - Kunci Posisi (*Pin HUD*): Biru Elektrik Sky (`#38BDF8`) saat terkunci.
+       - Auto Skip Percakapan (*Auto Skip*): Oranye Neon Cerah (`#FB923C`) saat aktif.
+       - Mode Fokus (*Game Focus / DND*): Merah Crimson Neon (`#FF4D4D`) saat aktif.
+       - Tangkapan Layar (*Screenshot*): Sian Neon (`#00E5FF`).
+    2. **Active State High Contrast & Glowing Visual**: Saat tombol aktif, latar belakang menggunakan warna aksen dengan transparansi `24%`, border setebal `1.5 dp` bercahaya `85%`, dan ikon menggunakan warna aksen penuh. Ditambahkan indikator dot/pip bercahaya (5 dp) di sudut kanan atas tombol untuk menegaskan status aktif tanpa ambiguitas.
+    3. **Idle State Muted Elegance**: Saat tombol tidak aktif, ikon menggunakan abu-abu netral (`HudMuted / #94A3B8`) dan latar belakang kartu gelap dengan border tipis `1 dp` (`45%`), memastikan tombol yang aktif kontras dan menonjol secara instan.
+
+- **Manajemen Cerdas Pembersihan RAM HUD (*Smart Momentary Clean RAM & Cooldown Guard*)**:
+  - **Akar Masalah & Kebutuhan Pengguna**: Pembersihan RAM (`Clean RAM`) adalah tindakan sesaat (*instantaneous reclamation action*), bukan toggle switch berkelanjutan. Menyalakannya terus-menerus atau mengeksekusi `drop_caches` secara berulang-ulang dapat memicu *storage I/O thrashing* dan penurunan performa (*stutter*) pada aplikasi yang sedang berjalan.
+  - **Solusi Manajemen Cerdas**:
+    1. **Siklus Pembersihan Sesaat Tanpa Status Terkunci (*Momentary Pulse Lifecycle*)**: Tombol Clean RAM diatur secara cerdas dengan status pulsa 1.5 detik (`isCleaningRamAnim`). Saat diklik, tombol menyala hijau zamrud dengan indikator dot dan feedback teks *"Membersihkan..."*, kemudian **secara otomatis kembali ke status mati (OFF/Idle)**. Tombol tidak akan pernah tertinggal dalam keadaan menyala terus (*never stays on*).
+    2. **Perlindungan Cooldown Cerdas (15 Detik Anti-Thrashing)**: Menambahkan penjaga cooldown 15 detik baik di tingkat antarmuka UI (`HudQuickTileRow`) maupun tingkat controller (`HudController.boostRam()`). Jika pengguna menekan tombol pembersih RAM berulang kali saat RAM masih optimal, sistem menolak eksekusi `drop_caches` kasar, mencegah *kernel cache thrashing*, dan menampilkan notifikasi cerdas: *"RAM sudah optimal (X.X GB tersedia) · Cooldown Xs"*.
+
+---
+
 # Lynx Universal [Zero-Glitch Profile State & Multi-Tier Sync Shield] 7.0.0-RC317
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.50

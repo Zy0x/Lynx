@@ -104,6 +104,18 @@ internal fun HudQuickTileRow(
     val haptic = LocalHapticFeedback.current
     var activeTooltipIndex by remember { mutableStateOf<Int?>(null) }
 
+    // Smart Clean RAM state & cooldown management (Jangan dinyalakan terus, atur cerdas)
+    var isCleaningRamAnim by remember { mutableStateOf(false) }
+    var lastCleanTimestamp by remember { mutableLongStateOf(0L) }
+    var ramCooldownSec by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isCleaningRamAnim) {
+        if (isCleaningRamAnim) {
+            delay(1500)
+            isCleaningRamAnim = false // Automatically turn OFF! Never stays ON!
+        }
+    }
+
     LaunchedEffect(activeTooltipIndex) {
         if (activeTooltipIndex != null) {
             delay(2400)
@@ -135,12 +147,28 @@ internal fun HudQuickTileRow(
         HudQuickToolItem(
             icon = Icons.Default.CleaningServices,
             title = hudString(R.string.hud_tool_ram_title),
-            subtitle = hudString(R.string.hud_tool_ram_sub),
+            subtitle = when {
+                isCleaningRamAnim -> "Membersihkan..."
+                ramCooldownSec > 0 -> "Optimal (${ramCooldownSec}s)"
+                else -> hudString(R.string.hud_tool_ram_sub)
+            },
             accentColor = Color(0xFF00E676),
-            isHighlighted = false,
+            isHighlighted = isCleaningRamAnim,
             isDanger = false,
-            isEnabled = !busy,
-            onClick = onBoostRam
+            isEnabled = !busy && !isCleaningRamAnim,
+            onClick = {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val elapsedSec = ((now - lastCleanTimestamp) / 1000).toInt()
+                if (lastCleanTimestamp > 0 && elapsedSec < 15) {
+                    ramCooldownSec = 15 - elapsedSec
+                    activeTooltipIndex = 2
+                } else {
+                    lastCleanTimestamp = now
+                    ramCooldownSec = 0
+                    isCleaningRamAnim = true
+                    onBoostRam()
+                }
+            }
         ),
         HudQuickToolItem(
             icon = Icons.Default.PushPin,
@@ -299,6 +327,7 @@ internal fun HudQuickTileRow(
                 HudActionIconButton(
                     icon = tool.icon,
                     label = tool.title,
+                    accentColor = tool.accentColor,
                     highlighted = tool.isHighlighted,
                     isDanger = tool.isDanger,
                     enabled = tool.isEnabled,
@@ -322,6 +351,7 @@ internal fun HudQuickTileRow(
 private fun HudActionIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    accentColor: Color = HudCyan,
     highlighted: Boolean = false,
     isDanger: Boolean = false,
     enabled: Boolean = true,
@@ -330,20 +360,21 @@ private fun HudActionIconButton(
     modifier: Modifier = Modifier
 ) {
     val targetBg = when {
-        isDanger -> HudRed.copy(alpha = 0.22f)
-        highlighted -> HudAccentBorder.copy(alpha = 0.18f)
-        else -> HudCard
+        isDanger -> HudRed.copy(alpha = 0.28f)
+        highlighted -> accentColor.copy(alpha = 0.24f)
+        else -> HudCard.copy(alpha = 0.45f)
     }
     val targetStroke = when {
-        isDanger -> HudRed.copy(alpha = 0.8f)
-        highlighted -> HudAccentBorder
-        else -> HudBorder
+        isDanger -> HudRed.copy(alpha = 0.90f)
+        highlighted -> accentColor.copy(alpha = 0.85f)
+        else -> HudBorder.copy(alpha = 0.45f)
     }
     val targetIcon = when {
         isDanger -> HudRed
-        highlighted -> Color.White
-        else -> HudCyan
+        highlighted -> accentColor
+        else -> HudMuted
     }
+    val strokeWidth = if (highlighted || isDanger) 1.5.dp else 1.dp
 
     val bgColor by androidx.compose.animation.animateColorAsState(targetBg, label = "IconBtnBg")
     val strokeColor by androidx.compose.animation.animateColorAsState(targetStroke, label = "IconBtnStroke")
@@ -352,7 +383,7 @@ private fun HudActionIconButton(
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = bgColor,
-        border = BorderStroke(1.dp, strokeColor),
+        border = BorderStroke(strokeWidth, strokeColor),
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
@@ -372,6 +403,18 @@ private fun HudActionIconButton(
                 tint = iconColor,
                 modifier = Modifier.size(20.dp)
             )
+
+            // Active Glowing Indicator Pip
+            if (highlighted || isDanger) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 5.dp, end = 5.dp)
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(if (isDanger) HudRed else accentColor)
+                )
+            }
         }
     }
 }
