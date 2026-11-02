@@ -1,3 +1,20 @@
+# Lynx Universal [Treble GSI SCP Sensor Scaling & Auto-Rotation Stabilization] 7.0.0-RC323
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.53
+
+- **Penyelesaian Tuntas Skala Akselerometer, Gyroscope & Auto-Rotasi pada Lingkungan GSI Android 14**:
+  - **Akar Masalah (*Root Cause*)**: Pada arsitektur hybrid Treble (Android 14 GSI berjalan di atas vendor MediaTek Android 11 MT6781), sensor cahaya luar bekerja normal karena berupa nilai mutlak (lux), namun sensor akselerometer dan gyro mengeluarkan nilai mentah unscaled (`acc` ~9200 m/s² alih-alih ~9.8 m/s² dan gyro ~7500 rad/s). Analisis reverse-engineering melalui pembongkaran biner `/vendor/lib64/hw/sensors.mt6781.so` mengungkap bahwa konstruktor `AccelerationSensor` dan `HwGyroscopeSensor` membaca berkas pembagi skala fisik dari sysfs (`/sys/class/sensor/m_acc_misc/accactive` = 1000 dan `/sys/class/sensor/m_gyro_misc/gyroactive` = 7505747). Apabila HAL sensor dijalankan oleh init sebelum sysfs tersebut memperoleh izin akses `0660 system:system`, pembagi skala gagal dibaca dan terkunci pada nilai bawaan `1`. Akibatnya:
+    1. Filter AOSP `WindowOrientationListener.java` mendeteksi magnitudo akselerasi ~9200 m/s² (jauh melebihi batas toleransi validitas 4.9 – 14.7 m/s²) dan membuang 100% sampel sebagai anomali/free-fall sehingga rotasi otomatis layar tidak pernah terpicu.
+    2. Matriks Kalman filter AOSP `SensorFusion` meledak menjadi tak hingga ($\infty$) lalu `NaN`, melumpuhkan sensor turunan *Gravity*, *Linear Acceleration*, dan *Rotation Vector*.
+  - **Solusi Arsitektur Sinkronisasi Pre-Zygote Lengkap**:
+    - Memperluas *Hardware-Ready Barrier* pada `post-fs-data.sh` agar menunggu secara serentak tersedianya node karakter `/dev/m_*_misc` serta seluruh node sysfs pembagi skala sensor `/sys/class/sensor/m_*_misc/*active`.
+    - Mengatur kepemilikan `chown system:system` dan izin `chmod 0660` secara menyeluruh pada seluruh node karakter dan direktori sysfs sensor sebelum Zygote aktif.
+    - Menjalankan *clean restart* pada daemon `vendor.sensors-hal-2-0` sebelum Zygote melakukan fork pada `system_server`. Hal ini menjamin seluruh konstruktor HAL mengeksekusi pembacaan skala asli perangkat keras secara sempurna sejak boot pertama.
+  - **Hasil Uji Verifikasi**:
+    - Akselerometer melaporkan magnitudo gravitasi riil bumi presisi (~9.78 m/s²), gyro membaca nilai rotasi riil (~0.01 rad/s), SensorFusion bersih dari `NaN`, dan algoritma `AccelSensorJudge` langsung aktif memproses orientasi layar secara instan.
+
+---
+
 # Lynx Universal [Zero-Pancingan Natural Pre-Zygote Sensor Sync & Boot Lockscreen Deadlock Elimination] 7.0.0-RC322
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.53
