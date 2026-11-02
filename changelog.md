@@ -1,3 +1,18 @@
+# Lynx Universal [Solid Surface Restoration & Touch-Active Quick Tools] 7.0.0-RC319
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.52
+
+- **Restorasi Permukaan Solid Kartu Default & Aktivasi Warna Sentuh (*Solid Surface & Touch-Active Feedback*)**:
+  - **Akar Masalah (*Root Cause*)**: Pada rilis RC318 sebelumnya, status default tombol Alat Cepat menerapkan pengganda transparansi `HudCard.copy(alpha = 0.45f)`. Karena `HudCard` sudah memiliki tingkat opasitas bawaan, penggandaan tersebut menyebabkan latar belakang tombol menjadi tembus pandang (*transparent leak*), sehingga teks aplikasi di belakang jendela floating HUD (seperti konsol Chrome) terlihat tembus melalui tombol.
+  - **Solusi Arsitektural**:
+    1. **Restorasi Total Latar Belakang Kartu Solid (`HudCard`)**: Mengembalikan status default latar belakang tombol ke `HudCard` dan border ke `HudBorder` standar, selaras sempurna dengan kartu-kartu lainnya pada panel HUD (seperti kartu profil Seimbang/Ekstrem) tanpa ada kebocoran transparansi.
+    2. **Warna Tampil Murni Saat Ditekan atau Diaktifkan (*Touch-Active & Toggle-Only Color*)**: Menghubungkan `interactionSource.collectIsPressedAsState()` ke sistem evaluasi warna `isColorActive = highlighted || isPressed || isDanger`. Warna aksen cerah (`accentColor`) kini **hanya akan muncul** saat:
+       - Pengguna menekan/menyentuh tombol (*instant tactile touch feedback*).
+       - ATAU tombol alat tersebut sedang aktif/diaktifkan (*toggled state* seperti Rekam Layar, Pin, Auto Skip, Fokus, atau saat pulsa pembersihan RAM 1.5 detik berjalan).
+    3. **Status Istirahat/Default Bersih (*Resting Elegance*)**: Saat tidak ditekan dan tidak aktif, tombol kembali ke tampilan solid standar dengan ikon netral `HudMuted` tanpa warna pendaran, menjaga estetika bersih dan keterbacaan tingkat tinggi.
+
+---
+
 # Lynx Universal [Vivid Quick Tools & Smart RAM Protection Shield] 7.0.0-RC318
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.51

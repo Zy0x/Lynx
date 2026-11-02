@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -359,22 +361,26 @@ private fun HudActionIconButton(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val isColorActive = highlighted || isPressed || isDanger
+
     val targetBg = when {
         isDanger -> HudRed.copy(alpha = 0.28f)
-        highlighted -> accentColor.copy(alpha = 0.24f)
-        else -> HudCard.copy(alpha = 0.45f)
+        isColorActive -> accentColor.copy(alpha = 0.22f)
+        else -> HudCard
     }
     val targetStroke = when {
         isDanger -> HudRed.copy(alpha = 0.90f)
-        highlighted -> accentColor.copy(alpha = 0.85f)
-        else -> HudBorder.copy(alpha = 0.45f)
+        isColorActive -> accentColor.copy(alpha = 0.85f)
+        else -> HudBorder
     }
     val targetIcon = when {
         isDanger -> HudRed
-        highlighted -> accentColor
+        isColorActive -> accentColor
         else -> HudMuted
     }
-    val strokeWidth = if (highlighted || isDanger) 1.5.dp else 1.dp
+    val strokeWidth = if (isColorActive) 1.5.dp else 1.dp
 
     val bgColor by androidx.compose.animation.animateColorAsState(targetBg, label = "IconBtnBg")
     val strokeColor by androidx.compose.animation.animateColorAsState(targetStroke, label = "IconBtnStroke")
@@ -389,6 +395,8 @@ private fun HudActionIconButton(
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 enabled = enabled,
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = onClick,
                 onLongClick = onLongClick
             )

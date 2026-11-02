@@ -13,12 +13,13 @@
  * Consequently, `/dev/m_*_misc` remain unpopulated (`accdevnum = 0`), and the
  * Android Sensor HAL starts with dummy MTK stubs.
  *
- * KPM Solution v1.2.0:
+ * KPM Solution v1.3.0:
  * 1. Hooks `scp_sensorHub_req_send` at Ring-0.
  * 2. In `before_`, forces blocking wait mode (arg2 = 1) and paces early packets.
  * 3. In `after_`, detects the exact moment SCP becomes operational (first ret == 0).
- * 4. Automatically re-triggers `sensorHub_power_up_loop()` at Ring-0!
- *    All 16 physical sensors register naturally with SCP when it is ready.
+ * 4. Sets SCP ready flags (flag1=1, flag2=1) and wakes the sensorHub waitqueue.
+ *    `sensorHub_power_up_loop()` executes without hanging and registers all 16
+ *    physical sensors naturally with SCP!
  * 5. Provides on-demand control via `kpatch ctl0 lynx_sensor_hub 2`.
  *
  * Result:
@@ -33,7 +34,7 @@
 #include "../include/kpm_sdk.h"
 
 KPM_NAME("lynx_sensor_hub");
-KPM_VERSION("1.2.0");
+KPM_VERSION("1.3.0");
 KPM_LICENSE("GPL v2");
 KPM_AUTHOR("ɴᴏɪʀ");
 KPM_DESCRIPTION("Lynx MTK SCP Sensor Hub Natural Auto-Sync KPM");
@@ -48,6 +49,14 @@ static msleep_fn_t k_msleep = NULL;
 typedef int (*sensorHub_power_up_loop_fn_t)(void);
 static sensorHub_power_up_loop_fn_t k_sensorHub_power_up_loop = NULL;
 
+typedef void (*wake_up_fn_t)(void *q, unsigned int mode, int nr_exclusive, void *key);
+static wake_up_fn_t k_wake_up = NULL;
+
+// Exact offsets relative to sensorHub_power_up_loop in Helio G96 kernel (4.14.186)
+#define OFFSET_FLAG_READY   0x1618038
+#define OFFSET_FLAG_NOTIFY  0x161803c
+#define OFFSET_WAITQUEUE    0x1141a70
+
 // Runtime state
 static volatile int g_sensor_hub_kpm_enabled = 1;
 static volatile unsigned long g_pacing_count = 0;
@@ -58,6 +67,39 @@ static volatile int g_in_sync = 0;
 
 #define EARLY_BOOT_PACING_LIMIT 30
 #define SCP_READY_SETTLE_MS 25
+
+static void trigger_sensor_hub_sync(const char *reason)
+{
+    if (!k_sensorHub_power_up_loop) {
+        logke(LOG_TAG "trigger_sensor_hub_sync FAILED: k_sensorHub_power_up_loop is NULL!\n");
+        return;
+    }
+
+    g_in_sync = 1;
+    logkd(LOG_TAG "Triggering Sensor Hub Natural Sync (Reason: %s)...\n", reason);
+
+    uint8_t *p_flag_ready  = (uint8_t *)((uint64_t)k_sensorHub_power_up_loop + OFFSET_FLAG_READY);
+    uint8_t *p_flag_notify = (uint8_t *)((uint64_t)k_sensorHub_power_up_loop + OFFSET_FLAG_NOTIFY);
+    void *p_waitqueue      = (void *)((uint64_t)k_sensorHub_power_up_loop + OFFSET_WAITQUEUE);
+
+    // Set ready flags so sensorHub_power_up_loop skips the waitqueue
+    *p_flag_ready = 1;
+    *p_flag_notify = 1;
+    logkd(LOG_TAG "Pre-armed ready flags: ready=%u, notify=%u at %px, %px\n",
+          *p_flag_ready, *p_flag_notify, p_flag_ready, p_flag_notify);
+
+    // Wake up any sleeping waitqueue thread (mode 3 = TASK_INTERRUPTIBLE|TASK_UNINTERRUPTIBLE)
+    if (k_wake_up) {
+        logkd(LOG_TAG "Waking waitqueue at %px...\n", p_waitqueue);
+        k_wake_up(p_waitqueue, 3, 1, NULL);
+    }
+
+    // Execute power_up_loop
+    int loop_res = k_sensorHub_power_up_loop();
+    logkd(LOG_TAG "sensorHub_power_up_loop() completed with ret=%d!\n", loop_res);
+
+    g_in_sync = 0;
+}
 
 // 1. Hook for scp_sensorHub_req_send(SCP_SENSOR_HUB_DATA_P data, uint *len, unsigned int wait)
 static void before_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
@@ -91,13 +133,7 @@ static void after_scp_sensorHub_req_send(hook_fargs3_t *args, void *udata)
         // Automatic Natural Synchronization when SCP firmware wakes up
         if (!g_power_up_loop_done && k_sensorHub_power_up_loop) {
             g_power_up_loop_done = 1;
-            g_in_sync = 1;
-
-            logkd(LOG_TAG "SCP firmware is verified READY! Triggering sensorHub_power_up_loop() natural sync...\n");
-            int loop_res = k_sensorHub_power_up_loop();
-            logkd(LOG_TAG "sensorHub_power_up_loop() natural sync completed (ret=%d)!\n", loop_res);
-
-            g_in_sync = 0;
+            trigger_sensor_hub_sync("SCP ACKNOWLEDGED FIRST PACKET");
         }
     } else {
         g_failed_packets++;
@@ -118,15 +154,7 @@ static long lynx_sensor_hub_control0(const char *args, char *__user out_msg, int
         g_sensor_hub_kpm_enabled = 0;
         logkd(LOG_TAG "Lynx Sensor Hub KPM DISABLED\n");
     } else if (args[0] == '2') {
-        if (k_sensorHub_power_up_loop) {
-            g_in_sync = 1;
-            logkd(LOG_TAG "Manual trigger: executing sensorHub_power_up_loop()...\n");
-            int res = k_sensorHub_power_up_loop();
-            logkd(LOG_TAG "Manual trigger: sensorHub_power_up_loop() returned %d\n", res);
-            g_in_sync = 0;
-        } else {
-            logke(LOG_TAG "Manual trigger FAILED: k_sensorHub_power_up_loop is NULL!\n");
-        }
+        trigger_sensor_hub_sync("MANUAL CTL0 TRIGGER");
     }
 
     return 0;
@@ -135,12 +163,13 @@ static long lynx_sensor_hub_control0(const char *args, char *__user out_msg, int
 // 3. Module initialization
 static long lynx_sensor_hub_init(const char *args, const char *event, void *__user reserved)
 {
-    logkd(LOG_TAG "Initializing Lynx MTK SCP Sensor Hub Natural Auto-Sync KPM v1.2.0...\n");
+    logkd(LOG_TAG "Initializing Lynx MTK SCP Sensor Hub Natural Auto-Sync KPM v1.3.0...\n");
 
     if (kallsyms_lookup_name) {
         target_scp_sensorHub_req_send = (void *)kallsyms_lookup_name("scp_sensorHub_req_send");
         k_msleep = (msleep_fn_t)kallsyms_lookup_name("msleep");
         k_sensorHub_power_up_loop = (sensorHub_power_up_loop_fn_t)kallsyms_lookup_name("sensorHub_power_up_loop");
+        k_wake_up = (wake_up_fn_t)kallsyms_lookup_name("__wake_up");
     }
 
     if (!target_scp_sensorHub_req_send) {
@@ -148,8 +177,8 @@ static long lynx_sensor_hub_init(const char *args, const char *event, void *__us
         return -1;
     }
 
-    logkd(LOG_TAG "Resolved symbols: req_send=%px, power_up_loop=%px, msleep=%px\n",
-          target_scp_sensorHub_req_send, k_sensorHub_power_up_loop, k_msleep);
+    logkd(LOG_TAG "Resolved symbols: req_send=%px, power_up_loop=%px, wake_up=%px, msleep=%px\n",
+          target_scp_sensorHub_req_send, k_sensorHub_power_up_loop, k_wake_up, k_msleep);
 
     // Hook scp_sensorHub_req_send (3 arguments: data, len, wait)
     hook_err_t err = hook_wrap3(target_scp_sensorHub_req_send,
@@ -164,7 +193,7 @@ static long lynx_sensor_hub_init(const char *args, const char *event, void *__us
     }
 
     g_sensor_hub_kpm_enabled = 1;
-    logkd(LOG_TAG "Lynx MTK SCP Sensor Hub Natural Auto-Sync KPM v1.2.0 ARMED successfully.\n");
+    logkd(LOG_TAG "Lynx MTK SCP Sensor Hub Natural Auto-Sync KPM v1.3.0 ARMED successfully.\n");
     return 0;
 }
 
