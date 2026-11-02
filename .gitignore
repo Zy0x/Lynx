@@ -32,6 +32,9 @@ captures/
 LynxCompanion/app/build/
 LynxCompanion/.gradle/
 LynxCompanion/local.properties
+*.jks
+*.keystore
+keystore.properties
 
 # ── 3. Native Rust & C Build Artifacts ────────────────────────────────────
 native/lynxd/target/

@@ -39,8 +39,8 @@ android {
         applicationId = "com.noir.lynx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20261380
-        versionName = "3.3.43"
+        versionCode = 20261381
+        versionName = "3.3.44"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -48,11 +48,34 @@ android {
         }
     }
 
+    val permanentKeystore = rootProject.file("lynx.keystore")
+    signingConfigs {
+        create("lynxKey") {
+            if (permanentKeystore.exists()) {
+                storeFile = permanentKeystore
+                storePassword = "lynxcompanion"
+                keyAlias = "lynx"
+                keyPassword = "lynxcompanion"
+                enableV1Signing = true
+                enableV2Signing = true
+            } else {
+                // Graceful fallback to default debug keystore if cloned in clean environment without the private keystore
+                val debugConfig = signingConfigs.getByName("debug")
+                storeFile = debugConfig.storeFile
+                storePassword = debugConfig.storePassword
+                keyAlias = debugConfig.keyAlias
+                keyPassword = debugConfig.keyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("lynxKey")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -60,6 +83,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("lynxKey")
         }
     }
     sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/hudJni"))
