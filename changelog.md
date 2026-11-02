@@ -1,3 +1,16 @@
+# Lynx Universal [Zero-Pancingan Natural Sensor Hub KPM & Boot Crash Elimination] 7.0.0-RC320
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.53
+
+- **Inisialisasi Sensor Alami Tanpa Pancingan (*Natural Single-Cycle Boot Operation*)**:
+  - **Akar Masalah (*Root Cause*)**: Pada skrip `post-fs-data.sh` dan `service.sh`, terdapat mekanisme lama yang memantau `/dev/m_acc_misc` dan mematikan `android.hardware.sensors@2.0-service-mediatek` secara paksa (`kill -9` / `stop` & `start`). Tindakan ini memutus koneksi IPC Binder saat `system_server` sedang menginisialisasi framework, memicu `SIGABRT` / `abort()` yang menyebabkan restart framework (soft reboot) sesaat setelah pengguna masuk ke lock screen.
+  - **Solusi KPM Ring-0 (v1.3.0) Tertanam di Boot Image**:
+    1. **Pre-arming Bendera Ready (*Zero-Wait Queue Bypass*)**: Mengatur `flag_ready = 1` dan `flag_notify = 1` sebelum memanggil `sensorHub_power_up_loop()`, membypass waitqueue yang sebelumnya menyebabkan kernel tertidur/gagal sinkronisasi saat cold-boot.
+    2. **Pembersihan Total Seluruh Skrip Pancingan**: Menghapus seluruh logika `kill -9`, `stop`, dan `start` pada `post-fs-data.sh` dan `service.sh`. Android Sensor HAL kini berjalan alami sejak awal tanpa pernah dimatikan ulang oleh skrip latar belakang.
+    3. **Boot Image Embedded v1.3.0**: Menanamkan KPM `lynx_sensor_hub` v1.3.0 langsung ke partisi kernel boot image (`boot_a`), menjamin seluruh sensor fisik (`lsm6dsm_acc`, `lsm6dsm_gyro`, `mn78911_l`, `mn78911_p`) langsung aktif secara alami pada siklus cold-boot tunggal tanpa soft-reboot lock screen.
+
+---
+
 # Lynx Universal [Solid Surface Restoration & Touch-Active Quick Tools] 7.0.0-RC319
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.52
