@@ -1,6 +1,10 @@
 -keepattributes *Annotation*
 -keepattributes SourceFile,LineNumberTable
 
+# Lynx Application Entry
+-keep class com.noir.lynx.LynxApp { *; }
+-keepclassmembers class com.noir.lynx.LynxApp { *; }
+
 # TopJohnWu LibSU Universal Root Bridge
 -keep class com.topjohnwu.superuser.** { *; }
 -dontwarn com.topjohnwu.superuser.**
