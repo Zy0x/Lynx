@@ -20,19 +20,21 @@ fn normalize_profile_str(p: &str) -> &'static str {
 
 /// Resolves the current active performance profile with standalone fallback.
 fn detect_active_profile() -> Option<String> {
-    if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
-        if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
-            return Some(normalize_profile_str(&state.active_profile).to_string());
-        }
-    }
-    // Fallback 1: /data/adb/lynx/active_profile
+    // Priority 1: Direct atomic plaintext /data/adb/lynx/active_profile
     if let Ok(content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
         let p = content.trim();
         if !p.is_empty() {
             return Some(normalize_profile_str(p).to_string());
         }
     }
-    // Fallback 2: /data/adb/modules/Lynx/config.json or /data/adb/lynx/config.json
+    // Priority 2: Android live system property lynx.mode
+    if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
+        let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !p.is_empty() {
+            return Some(normalize_profile_str(&p).to_string());
+        }
+    }
+    // Priority 3: Persistent config.json
     for path in ["/data/adb/modules/Lynx/config.json", "/data/adb/lynx/config.json"] {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Some(pos) = content.find("\"active_profile\"") {
@@ -45,11 +47,10 @@ fn detect_active_profile() -> Option<String> {
             }
         }
     }
-    // Fallback 3: getprop lynx.mode
-    if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
-        let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !p.is_empty() {
-            return Some(normalize_profile_str(&p).to_string());
+    // Priority 4: Rust ProfileStateManager active_profile.json
+    if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
+        if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
+            return Some(normalize_profile_str(&state.active_profile).to_string());
         }
     }
     Some("balance".to_string())

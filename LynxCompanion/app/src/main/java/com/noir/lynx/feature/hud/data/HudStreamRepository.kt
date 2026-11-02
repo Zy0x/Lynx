@@ -100,5 +100,10 @@ class HudStreamRepository(private val context: Context) {
         child.destroy()
     }
 
+    fun updateProfileDirect(profile: String) {
+        val norm = profile.trim().lowercase()
+        mutable.value = mutable.value.copy(profile = norm)
+    }
+
     fun current(): HudSnapshot = snapshots.value.fresh(SystemClock.elapsedRealtime())
 }

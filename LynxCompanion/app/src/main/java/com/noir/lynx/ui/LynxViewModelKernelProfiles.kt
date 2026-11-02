@@ -247,6 +247,7 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             if (clearOverrides) LynxRepository.writeStateKey("profile_overrides", "", "str")
         }
         LynxRepository.lastActiveProfile = id
+        com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(context, id, "companion_app")
 
         val cpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.CPU]
         if (cpuOverride == KernelProfileSelection.CUSTOM_OVERRIDE) {

@@ -1013,8 +1013,28 @@ object LynxRepository {
         else -> "balance"
     }
 
+    fun getSystemProp(key: String, default: String = ""): String {
+        return try {
+            val c = Class.forName("android.os.SystemProperties")
+            val m = c.getMethod("get", String::class.java, String::class.java)
+            m.invoke(null, key, default) as? String ?: default
+        } catch (_: Throwable) {
+            default
+        }
+    }
+
     fun readCurrentProfileFast(): String {
+        // Fast path 1: Instant sub-millisecond memory read of live Android system property
+        val sysProp = getSystemProp("lynx.mode").trim().lowercase()
+        if (sysProp.isNotBlank()) {
+            val normalized = normalizeProfileKey(sysProp)
+            lastActiveProfile = normalized
+            return normalized
+        }
+
+        // Fast path 2: Return lastActiveProfile if non-null
         lastActiveProfile?.let { return it }
+
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return "balance"
         }

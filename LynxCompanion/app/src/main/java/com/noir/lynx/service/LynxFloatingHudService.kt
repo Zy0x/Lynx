@@ -137,6 +137,18 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
         }
     }
+
+    private val profileSyncReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val newProfile = intent?.getStringExtra(com.noir.lynx.core.sync.LynxProfileSyncBus.EXTRA_PROFILE)
+                ?: intent?.getStringExtra("profile")
+                ?: return
+            if (::repository.isInitialized) {
+                repository.updateProfileDirect(newProfile)
+            }
+        }
+    }
+    private var profileSyncRegistered = false
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(id: Int) = updateDisplay()
         override fun onDisplayChanged(id: Int) { updateDisplay(); updateBounds() }
@@ -181,6 +193,17 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, filter, RECEIVER_NOT_EXPORTED) else registerReceiver(screenReceiver, filter)
         registered = true
+
+        val profileFilter = IntentFilter().apply {
+            addAction(com.noir.lynx.core.sync.LynxProfileSyncBus.ACTION_PROFILE_SYNCHRONIZED)
+            addAction("com.noir.lynx.PROFILE_CHANGED")
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(profileSyncReceiver, profileFilter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(profileSyncReceiver, profileFilter)
+        }
+        profileSyncRegistered = true
         displays.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
         updateBounds()
         updateDisplay()
@@ -820,6 +843,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
         if (registered) unregisterReceiver(screenReceiver)
+        if (profileSyncRegistered) {
+            runCatching { unregisterReceiver(profileSyncReceiver) }
+            profileSyncRegistered = false
+        }
         if (::displays.isInitialized) displays.unregisterDisplayListener(displayListener)
         com.noir.lynx.feature.floating.StandaloneApps.destroy()
         scope.cancel()

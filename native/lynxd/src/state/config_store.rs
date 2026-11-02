@@ -355,6 +355,22 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
             format!("Failed to rename temp config to {}: {}", path.display(), e)
         })?;
 
+        // 2-Way Profile Sync: update /data/adb/lynx/active_profile and system property lynx.mode
+        for (k, v, _) in updates {
+            if k == "active_profile" {
+                let clean_p = v.trim().trim_matches('"');
+                if !clean_p.is_empty() {
+                    let _ = fs::write("/data/adb/lynx/active_profile", clean_p);
+                    #[cfg(target_os = "android")]
+                    {
+                        let _ = std::process::Command::new("/system/bin/setprop")
+                            .args(&["lynx.mode", clean_p])
+                            .status();
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 

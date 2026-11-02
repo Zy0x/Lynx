@@ -1,6 +1,10 @@
 package com.noir.lynx.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.noir.lynx.data.*
@@ -121,6 +125,12 @@ class LynxViewModel : ViewModel() {
                     }
                     // Start background observers immediately so UI is live, interactive, and responsive (<200ms)
                     startFileObserver()
+                    startProfileSyncReceiver()
+                    viewModelScope.launch {
+                        com.noir.lynx.core.sync.LynxProfileSyncBus.profileEvents.collect { (profile, _) ->
+                            syncProfileFromExternal(profile)
+                        }
+                    }
                     startPeriodicSync()
                     startTelemetryPolling()
 
@@ -729,6 +739,10 @@ class LynxViewModel : ViewModel() {
             while (true) {
                 delay(if (isForeground) 8000L else 30000L)
                 if (isForeground) {
+                    val liveProp = LynxRepository.readCurrentProfileFast()
+                    if (liveProp.isNotBlank() && !liveProp.equals(_uiState.value.state.activeProfile, ignoreCase = true)) {
+                        syncProfileFromExternal(liveProp)
+                    }
                     if (!isBatteryInformationScreenActive && !isBatteryScreenActive && System.currentTimeMillis() - lastStateMutationTime >= 4000L) {
                         refreshState()
                         refreshClusters()
@@ -857,6 +871,53 @@ class LynxViewModel : ViewModel() {
     }
 
     // ----------------------------------------------------------------
+    //  Two-Way Profile Synchronization (HUD <-> App <-> Config)
+    // ----------------------------------------------------------------
+
+    private var profileSyncReceiver: BroadcastReceiver? = null
+
+    internal fun startProfileSyncReceiver() {
+        val filter = IntentFilter().apply {
+            addAction(com.noir.lynx.core.sync.LynxProfileSyncBus.ACTION_PROFILE_SYNCHRONIZED)
+            addAction("com.noir.lynx.PROFILE_CHANGED")
+        }
+        profileSyncReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val newProfile = intent?.getStringExtra(com.noir.lynx.core.sync.LynxProfileSyncBus.EXTRA_PROFILE)
+                    ?: intent?.getStringExtra("profile")
+                    ?: return
+                val sender = intent?.getStringExtra(com.noir.lynx.core.sync.LynxProfileSyncBus.EXTRA_SENDER) ?: "external"
+                Log.i("LynxViewModel", "Profile sync received: $newProfile from $sender")
+                syncProfileFromExternal(newProfile)
+            }
+        }
+        try {
+            val ctx = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ctx.registerReceiver(profileSyncReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                ctx.registerReceiver(profileSyncReceiver, filter)
+            }
+        } catch (_: Exception) {}
+    }
+
+    internal fun syncProfileFromExternal(newProfile: String) {
+        val norm = LynxRepository.normalizeProfileKey(newProfile)
+        LynxRepository.lastActiveProfile = norm
+        _uiState.update { current ->
+            if (current.state.activeProfile.equals(norm, ignoreCase = true)) {
+                current
+            } else {
+                current.copy(
+                    state = current.state.copy(activeProfile = norm, profileOverrides = emptyMap()),
+                    kernelProfileCatalog = current.kernelProfileCatalog.copy(activeId = norm),
+                    cpuComprehensiveProfile = mapModuleProfileToCpuProfile(norm)
+                )
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------
     //  Lifecycle
     // ----------------------------------------------------------------
 
@@ -864,5 +925,11 @@ class LynxViewModel : ViewModel() {
         super.onCleared()
         stopCpuMonitorStream()
         fileObserver?.stopWatching()
+        try {
+            profileSyncReceiver?.let {
+                val ctx = LynxRepository.appContext ?: com.noir.lynx.LynxApp.instance
+                ctx.unregisterReceiver(it)
+            }
+        } catch (_: Exception) {}
     }
 }

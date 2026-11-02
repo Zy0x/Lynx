@@ -274,6 +274,9 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     fun profile(profile: String) = perform {
         if (profile !in setOf("powersave", "balance", "performance", "auto", "extreme")) return@perform R.string.hud_failed
 
+        // Broadcast profile change immediately across all processes (0ms reactive feedback)
+        com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(context, profile, "hud")
+
         val activePkg = currentPackage ?: skipContext?.pkg ?: com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
         val isTargetGame = !activePkg.isNullOrBlank() &&
             activePkg != "com.noir.lynx" &&
@@ -289,6 +292,9 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         } else {
             LynxRepository.setProfile(profile, caller = "user")
         }
+
+        // Broadcast profile change to sync MainActivity and all app components instantly
+        com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(context, profile, "hud")
 
         val binPath = runCatching {
             val bundled = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so")

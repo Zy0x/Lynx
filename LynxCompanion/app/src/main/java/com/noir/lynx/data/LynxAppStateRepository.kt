@@ -332,9 +332,14 @@ internal object LynxAppStateRepository {
             // FAST PATH: Transient automation / per-app game boost (<15ms).
             // Completely bypasses slow eMMC disk writes, JSON serialization, and state fsyncs!
             val lynxdPath = getLynxdBinaryPath() ?: LYNXD_PATH
-            val fastCmd = "setprop lynx.mode '$profile' 2>/dev/null; rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile' 2>/dev/null"
+            val fastCmd = "echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; setprop lynx.mode '$profile' 2>/dev/null; rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile' 2>/dev/null"
             Shell.cmd(fastCmd).exec()
             LynxRepository.lastActiveProfile = effectiveProfile
+            com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(
+                com.noir.lynx.LynxApp.instance,
+                effectiveProfile,
+                caller
+            )
             com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, false)
             return@withContext true
         }
@@ -374,6 +379,13 @@ internal object LynxAppStateRepository {
 
         try {
             Shell.cmd(batchSetup).exec()
+            LynxRepository.lastActiveProfile = effectiveProfile
+            // Two-Way Sync across all processes (MainActivity, HUD, Automation)
+            com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(
+                com.noir.lynx.LynxApp.instance,
+                effectiveProfile,
+                caller
+            )
             com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(effectiveProfile, !isGameSessionOverride)
             true
         } catch (e: Exception) {
