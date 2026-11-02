@@ -91,10 +91,22 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     }
 
     private fun resolveContextualProfile(pkg: String, streamProfile: String?): String {
+        // Priority 1: Authoritative profile confirmed via two-way broadcast sync (zero-latency, no stale risk)
+        val confirmedProfile = if (::repository.isInitialized) repository.lastConfirmedProfile else null
+        if (confirmedProfile != null && confirmedProfile.isNotBlank()) {
+            return com.noir.lynx.data.LynxRepository.normalizeProfileKey(confirmedProfile)
+        }
+        // Priority 2: Profile from native stream (reflect what lynxd actually detected from /data/adb/lynx/active_profile)
         val streamProf = streamProfile?.takeIf { it.isNotBlank() && it != "null" }
         if (streamProf != null) {
             return com.noir.lynx.data.LynxRepository.normalizeProfileKey(streamProf)
         }
+        // Priority 3: lastActiveProfile in-memory cache (more reliable than sysprop which can be stale)
+        val lastKnown = com.noir.lynx.data.LynxRepository.lastActiveProfile
+        if (lastKnown != null && lastKnown.isNotBlank()) {
+            return com.noir.lynx.data.LynxRepository.normalizeProfileKey(lastKnown)
+        }
+        // Priority 4: Final fallback - read from system (slower path)
         return com.noir.lynx.data.LynxRepository.readCurrentProfileFast()
     }
 

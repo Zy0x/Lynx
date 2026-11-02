@@ -1024,16 +1024,20 @@ object LynxRepository {
     }
 
     fun readCurrentProfileFast(): String {
-        // Fast path 1: Instant sub-millisecond memory read of live Android system property
+        // Fast path 1: Return lastActiveProfile if non-null.
+        // CRITICAL: This must be checked BEFORE SystemProperties because lastActiveProfile
+        // is always updated atomically in setProfile() before setprop is called.
+        // SystemProperties (lynx.mode) has async propagation delay (up to 200ms on some ROMs),
+        // and can hold stale values from previous automation/watcher sessions.
+        lastActiveProfile?.let { if (it.isNotBlank()) return it }
+
+        // Fast path 2: Read live Android system property (may be stale on first read after profile change)
         val sysProp = getSystemProp("lynx.mode").trim().lowercase()
         if (sysProp.isNotBlank()) {
             val normalized = normalizeProfileKey(sysProp)
             lastActiveProfile = normalized
             return normalized
         }
-
-        // Fast path 2: Return lastActiveProfile if non-null
-        lastActiveProfile?.let { return it }
 
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return "balance"

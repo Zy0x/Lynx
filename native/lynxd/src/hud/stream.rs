@@ -18,20 +18,27 @@ fn normalize_profile_str(p: &str) -> &'static str {
     }
 }
 
-/// Resolves the current active performance profile with standalone fallback.
-fn detect_active_profile() -> Option<String> {
+/// Resolves the current active performance profile with last-known-profile persistence.
+/// Updates `last_known` in-place when a profile is successfully detected.
+/// Falls back to `last_known` (not "balance") if all detection methods fail temporarily,
+/// preventing glitch from empty/unreadable state files at HUD startup.
+fn detect_active_profile(last_known: &mut String) -> String {
     // Priority 1: Direct atomic plaintext /data/adb/lynx/active_profile
     if let Ok(content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
         let p = content.trim();
         if !p.is_empty() {
-            return Some(normalize_profile_str(p).to_string());
+            let norm = normalize_profile_str(p).to_string();
+            *last_known = norm.clone();
+            return norm;
         }
     }
     // Priority 2: Android live system property lynx.mode
     if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
         let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !p.is_empty() {
-            return Some(normalize_profile_str(&p).to_string());
+        if !p.is_empty() && p != "0" {
+            let norm = normalize_profile_str(&p).to_string();
+            *last_known = norm.clone();
+            return norm;
         }
     }
     // Priority 3: Persistent config.json
@@ -41,7 +48,9 @@ fn detect_active_profile() -> Option<String> {
                 if let Some(after) = content[pos..].split(':').nth(1) {
                     let cleaned = after.trim().trim_start_matches('"').split('"').next().unwrap_or("");
                     if !cleaned.is_empty() {
-                        return Some(normalize_profile_str(cleaned).to_string());
+                        let norm = normalize_profile_str(cleaned).to_string();
+                        *last_known = norm.clone();
+                        return norm;
                     }
                 }
             }
@@ -50,10 +59,19 @@ fn detect_active_profile() -> Option<String> {
     // Priority 4: Rust ProfileStateManager active_profile.json
     if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
         if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
-            return Some(normalize_profile_str(&state.active_profile).to_string());
+            let norm = normalize_profile_str(&state.active_profile).to_string();
+            *last_known = norm.clone();
+            return norm;
         }
     }
-    Some("balance".to_string())
+    // CRITICAL: Return last_known instead of blindly defaulting to "balance".
+    // This prevents the HUD from flashing "balance" during brief file unavailability
+    // at startup while the profile files are being written or SELinux is resolving.
+    if last_known.is_empty() {
+        "balance".to_string()
+    } else {
+        last_known.clone()
+    }
 }
 
 /// Execute one bounded system query directly; never invoke a shell pipeline.
@@ -143,6 +161,7 @@ pub fn run() {
         }
     });
     let mut hw = Hardware::new();
+    let mut last_known_profile = String::new();
     let mut frames = Frames::default();
     let mut package = String::new();
     let mut layer = String::new();
@@ -254,7 +273,8 @@ pub fn run() {
         let history = if fresh { frames.history() } else { Vec::new() };
         let history_json = history.iter().map(|v|format!("{v:.4}")).collect::<Vec<_>>().join(",");
         let charging = hw.charging.map(|v| v.to_string()).unwrap_or("null".into());
-        let profile = detect_active_profile().map(|p| quote(&p)).unwrap_or_else(|| "null".into());
+        let profile_str = detect_active_profile(&mut last_known_profile);
+        let profile = quote(&profile_str);
         if writeln!(stdout,"{{\"version\":1,\"at_ms\":{stamp},\"package\":{},\"layer\":{},\"profile\":{profile},\"charging\":{charging},\"metrics\":{{{metrics_json}}},\"policies\":[{policies_json}],\"history\":[{history_json}],\"collection_ms\":{}}}",quote(&package),quote(&layer),started.elapsed().as_millis()).is_err() { break; }
         if stdout.flush().is_err() { break; }
         let remaining = Duration::from_millis(500).saturating_sub(started.elapsed());

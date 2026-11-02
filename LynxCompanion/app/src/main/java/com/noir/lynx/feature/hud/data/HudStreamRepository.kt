@@ -18,6 +18,13 @@ class HudStreamRepository(private val context: Context) {
     val snapshots = mutable.asStateFlow()
     @Volatile private var process: Process? = null
 
+    /**
+     * Last confirmed profile from broadcast sync (LynxProfileSyncBus).
+     * This is the authoritative source for profile display in HUD,
+     * bypassing potentially stale stream data from the native collector.
+     */
+    @Volatile var lastConfirmedProfile: String? = null
+
     private fun resolveCollectorBinary(): String? {
         // Tier 1: Bundled native .so in APK nativeLibraryDir
         val bundled = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so")
@@ -62,7 +69,15 @@ class HudStreamRepository(private val context: Context) {
                         val snapshot = runCatching { HudSnapshot.parse(line) }.getOrNull()
                         if (snapshot != null) {
                             receivedAny = true
-                            mutable.value = snapshot
+                            // Apply lastConfirmedProfile override: prevents stale stream profile
+                            // from overwriting the profile set via broadcast sync (two-way sync).
+                            val confirmed = lastConfirmedProfile
+                            val merged = if (confirmed != null && confirmed.isNotBlank()) {
+                                snapshot.copy(profile = confirmed)
+                            } else {
+                                snapshot
+                            }
+                            mutable.value = merged
                         }
                     }
                 }
@@ -102,6 +117,10 @@ class HudStreamRepository(private val context: Context) {
 
     fun updateProfileDirect(profile: String) {
         val norm = profile.trim().lowercase()
+        // Update lastConfirmedProfile as authoritative ground truth from sync bus
+        lastConfirmedProfile = norm
+        // Immediately patch the live snapshot so HUD shows the correct profile
+        // without waiting for the next stream frame (zero-latency visual update)
         mutable.value = mutable.value.copy(profile = norm)
     }
 
