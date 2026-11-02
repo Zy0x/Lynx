@@ -395,10 +395,20 @@ private fun HudCockpitTwinEngineCard(snapshot: HudSnapshot) {
  */
 @Composable
 private fun HudCockpitPowerCard(snapshot: HudSnapshot) {
-    val isCharging = snapshot.charging == true
+    val curReading = snapshot[HudMetric.BATTERY_CURRENT]
+    val curVal = curReading.value
+    // Physical Ground Truth Validation:
+    // When current is negative (< -50 mA), energy is leaving the battery -> Physically Discharging.
+    // When current is positive (> 50 mA), energy is entering the battery -> Charging.
+    val isCharging = when {
+        curVal != null && curVal < -50.0 -> false
+        curVal != null && curVal > 50.0 -> true
+        else -> snapshot.charging == true
+    }
     val badgeColor = if (isCharging) Color(0xFF00E676) else HudMuted
     val badgeText = when {
         isCharging -> hudString(R.string.hud_charging)
+        curVal != null && curVal < -50.0 -> hudString(R.string.hud_discharging)
         snapshot.charging == false -> hudString(R.string.hud_discharging)
         else -> hudString(R.string.hud_unsupported)
     }

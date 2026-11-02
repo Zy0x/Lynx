@@ -1,3 +1,16 @@
+# Lynx Universal [Anti-Ghost Charging State & Current Ground Truth] 7.0.0-RC314
+Released on: 2026-11-02
+> Lynx Kernel Manager v3.3.47
+
+- **Mitigasi Status Ghost Charging & Validasi Ground Truth Arus Fisik Baterai**:
+  - **Akar Masalah (*Root Cause*)**: Pada sejumlah driver kernel vendor (khususnya MediaTek `mt_charger` / Transsion pada Infinix), node `/sys/class/power_supply/battery/status` dapat tertahan (*stuck*) pada nilai string `"Charging"` meskipun kabel charger telah dicabut dan baterai sedang menguras arus (*discharging* hingga $-1300\text{ mA}$). Daemon telemetri sebelumnya mempercayai nilai string tersebut secara buta sehingga memunculkan badge "Mengisi daya" dan mewarnai arus negatif dengan warna hijau.
+  - **Validasi Multi-Lapisan Ground Truth Fisik Hardware**:
+    - **Pemeriksaan Kabel Charger Fisik**: Memeriksa status node `online` pada seluruh power supply (`ac/online`, `usb/online`, `charger/online`, `main/online`, `wireless/online`). Jika seluruhnya bernilai $0$, perangkat dipastikan tidak tersambung ke sumber daya eksternal.
+    - **Arah Aliran Arus (*Current Vector*)**: Jika arus bernilai negatif ($<-50\text{ mA}$), energi sedang mengalir keluar dari sel baterai untuk menghidupi perangkat (fase *Discharging*).
+    - **Anti-Ghost Charging Logic**: Status "Mengisi daya" hanya aktif jika kabel fisik terdeteksi terhubung ATAU arus masuk bernilai positif ($>+50\text{ mA}$). Saat tidak mengisi daya, badge berubah menjadi *"Tidak mengisi daya"*, indikator baterai beralih ke warna biru/cyan tenang, dan teks arus bernilai negatif ditampilkan secara tepat tanpa anomali visual.
+
+---
+
 # Lynx Universal [Digital Cockpit Terminology Refinement & Zero-Latch GPU Scaler] 7.0.0-RC313
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.46

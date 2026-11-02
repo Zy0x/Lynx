@@ -142,10 +142,46 @@ impl Hardware {
         let watts = self.metrics["battery_voltage"].value.zip(self.metrics["battery_current"].value).map(|(v,i)| v*i.abs()/1_000_000.0);
         self.metrics.insert("battery_power".into(),watts.map(|v| Metric::measured(v,"W","battery voltage × |current|",now))
             .unwrap_or_else(|| Metric::missing("W","battery",now,"unsupported")));
-        self.charging = fs::read_to_string("/sys/class/power_supply/battery/status").ok().or_else(|| fs::read_to_string("/sys/class/power_supply/bms/status").ok())
-            .and_then(|s| match s.trim() {
-                "Charging" => Some(true), "Discharging" | "Not charging" | "Full" => Some(false), _ => None
-            });
+
+        let is_any_charger_online = [
+            "/sys/class/power_supply/ac/online",
+            "/sys/class/power_supply/usb/online",
+            "/sys/class/power_supply/charger/online",
+            "/sys/class/power_supply/main/online",
+            "/sys/class/power_supply/wireless/online",
+        ]
+        .iter()
+        .any(|path| fs::read_to_string(path).map(|s| s.trim() == "1").unwrap_or(false));
+
+        let current_ma = self.metrics.get("battery_current").and_then(|m| m.value).unwrap_or(0.0);
+
+        let status_str = fs::read_to_string("/sys/class/power_supply/battery/status")
+            .ok()
+            .or_else(|| fs::read_to_string("/sys/class/power_supply/bms/status").ok());
+
+        self.charging = match status_str.as_deref().map(|s| s.trim()) {
+            Some("Full") => Some(false),
+            Some("Discharging") | Some("Not charging") => Some(false),
+            Some("Charging") => {
+                // Mitigate MediaTek / Transsion kernel bug where battery status is stuck at "Charging" when unplugged:
+                if !is_any_charger_online && current_ma < -50.0 {
+                    Some(false)
+                } else if is_any_charger_online || current_ma > 50.0 {
+                    Some(true)
+                } else {
+                    Some(false)
+                }
+            }
+            _ => {
+                if is_any_charger_online || current_ma > 50.0 {
+                    Some(true)
+                } else if current_ma < -50.0 {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+        };
         let mem = fs::read_to_string("/proc/meminfo").unwrap_or_default();
         let kb = |key: &str| mem.lines().find(|l| l.starts_with(key)).and_then(|l| l.split_whitespace().nth(1)).and_then(number);
         let total = kb("MemTotal:");
