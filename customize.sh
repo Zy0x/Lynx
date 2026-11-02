@@ -181,6 +181,12 @@ elif [ "$TARGET_SOC" = "mtk" ]; then
         echo "" >> "$MODPATH/system.prop"
         cat "$MODPATH/platforms/mtk/system.prop" >> "$MODPATH/system.prop"
     fi
+    # Stage KernelPatch Module for APatch/KernelPatch
+    if [ -f "$MODPATH/platforms/mtk/lynx_sensor_hub.kpm" ]; then
+        mkdir -p /data/adb/kpm 2>/dev/null
+        cp -af "$MODPATH/platforms/mtk/lynx_sensor_hub.kpm" /data/adb/kpm/lynx_sensor_hub.kpm 2>/dev/null
+        chmod 644 /data/adb/kpm/lynx_sensor_hub.kpm 2>/dev/null
+    fi
     ui_print "$(lynx_t injected_mtk)"
 else
     ui_print "$(lynx_t generic_vendor)"

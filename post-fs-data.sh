@@ -18,9 +18,10 @@ if [ -d /proc/ppm ] || [ -d /proc/ged ] || [ -c /dev/ged ] || [ -f /sys/firmware
         fi
 
         if [ -c /dev/m_acc_misc ] && [ -c /dev/m_als_misc ] && [ -f /sys/class/sensor/m_acc_misc/accactive ] && [ -f /sys/class/sensor/m_gyro_misc/gyroactive ]; then
-            # Ensure full permissions on all physical sensor character nodes and sysfs divisor/active nodes
-            chmod 0660 /dev/m_*_misc /dev/sensorlist /sys/class/sensor/m_*_misc/* 2>/dev/null
-            chown system:system /dev/m_*_misc /dev/sensorlist /sys/class/sensor/m_*_misc/* 2>/dev/null
+            # Ensure full directory traversal (+x) and read/write on all sensor sysfs and device nodes
+            chmod 755 /sys/class/sensor /sys/devices/virtual/sensor /sys/devices/virtual/sensor/* 2>/dev/null
+            chmod 0660 /dev/m_*_misc /dev/sensorlist /sys/class/sensor/m_*_misc/* /sys/devices/virtual/sensor/*/* 2>/dev/null
+            chown -R system:system /dev/m_*_misc /dev/sensorlist /sys/class/sensor /sys/devices/virtual/sensor 2>/dev/null
 
             # Restart HAL once sysfs nodes and dev nodes are fully prepared
             # This ensures HAL constructors re-run and cleanly read accactive (1000) and gyroactive (7505747)

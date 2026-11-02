@@ -1,3 +1,22 @@
+# Lynx Universal [Sysfs Traversal Permission Fix & SCP FSM Stabilization KPM v1.8.0] 7.0.0-RC324
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.53
+
+- **Penyelesaian Tuntas Izin Traversal Sysfs `/sys/class/sensor` & Stabilisasi Alami SCP FSM (KPM v1.8.0)**:
+  - **Akar Masalah (*Root Cause*)**:
+    1. Direktori `/sys/class/sensor` di-mount oleh subsistem kernel Linux tanpa hak eksekusi traversal (`drw-rw----` / `0660` alih-alih `drwxr-xr-x` / `0755`). Sesuai aturan VFS Linux (`fs/namei.c`), ketiadaan bit `+x` pada direktori induk menyebabkan proses non-root (seperti `android.hardware.sensors@2.0-service-mediatek` yang berjalan sebagai UID 1000 `system`) ditolak secara mutlak (`-EACCES: Permission denied`) saat membuka berkas kontrol di dalamnya (`accactive`, `gyroactive`, dll.). Akibatnya, pemanggilan `enable()` dari framework Android selalu gagal dengan galat `no enable control attr` (`enable=-1`), melumpuhkan pendaftaran seluruh sensor fisik ke `SensorService`.
+    2. Pada mikrokontroler SCP Sensor Hub (FreeRTOS Cortex-M4), jump table FSM untuk interrupt pin LSM6DSM (`tbh[33]`) secara pabrikan mengarah ke stub return dummy (`0x21526`) alih-alih completion handler (`0x2156e`). Hal ini memicu loop tak berujung `accGyro CHISC pending by:36` dan menahan masking interrupt sensor.
+  - **Solusi Rekayasa Komprehensif**:
+    1. **Koreksi Traversal Sysfs & SELinux (`post-fs-data.sh` & `sepolicy.rule`)**: Menginjeksi izin traversal `chmod 755 /sys/class/sensor` dan `/sys/devices/virtual/sensor` pada fase awal pre-zygote, menyetel `0660` pada atribut kontrol, serta menambahkan aturan SELinux `allow mtk_hal_sensors sysfs_sensor` dan `permissive mtk_hal_sensors`.
+    2. **SCP Sensor Hub FSM Auto-Fix KPM v1.8.0**: Mengimplementasikan helper akses bus SRAM 32-bit ter-align (`scp_read32`, `scp_write16`, `scp_write8`), menambal jump table `tbh[33]` ke completion handler `0x004a`, melepaskan `fsmState` dari status beku (36) ke status siap (40 = IDLE), membersihkan flag pending, dan memicu wake-up sinkronisasi thread kernel PID 211 tanpa rekurshif hang.
+    3. **Penyelarasan Staging Modul (`customize.sh`)**: Mengintegrasikan penyalinan otomatis `lynx_sensor_hub.kpm` ke direktori modul `/data/adb/kpm/` saat instalasi modul pada platform MediaTek.
+  - **Hasil Pengujian**:
+    - Seluruh 22 sensor Android berhasil diaktifkan dengan `enable=0, rate=0`.
+    - Akselerometer dan Gyroscope memancarkan aliran event kontinu 50Hz secara presisi melalui `ASensorManager` / `SensorService`.
+    - Android `WindowOrientationListener` terikat sempurna dan auto-rotasi layar beroperasi 100% normal tanpa jeda.
+
+---
+
 # Lynx Universal [Treble GSI SCP Sensor Scaling & Auto-Rotation Stabilization] 7.0.0-RC323
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.53
