@@ -2703,15 +2703,14 @@ impl ChargingRegulator {
         // 4. In Hyper Mode, lock Battery_Temperature to 25°C with 0444 so kernel battery driver never derates current
         Self::write_node_lock(BATT_TEMP_NODE, "25");
 
-        // 5. MediaTek ABCCT PID & BTS Thermal Derater Neutralization:
-        // A. Remove abcct and abcct_lcmoff from thermal_zone1 (mtktsAP) trip points
-        let tzbts_cmd = "1 100000 0 mtktsAP-sysrst 95000 0 mtk-cl-kshutdown00 95000 0 mtk-cl-cam00 99000 0 no-cooler 99000 0 no-cooler 95000 0 no-cooler 90000 0 no-cooler 85000 0 no-cooler 80000 0 no-cooler 75000 0 no-cooler 1000";
-        Self::write_node("/proc/driver/thermal/tzbts", tzbts_cmd);
+        // 5. MediaTek ABCCT PID & BCCT Thermal Derater Neutralization:
+        // CRITICAL HARDWARE SAFETY GUARD:
+        // /proc/driver/thermal/tzbts and tzbtspa are board & RF modem PA zones (cam00/kshutdown02)
+        // that have ZERO battery cooling devices. Writing to tzbtspa triggers MTK kernel mtkts_btsmdpa_write
+        // which attempts cooler unregistration and crashes with ERR_PTR(-13) dereference at strncpy+0xc (Kernel Panic).
+        // Battery fast charge current is governed purely via clbcct, clabcct, SC pump, and BCCT cooling devices below.
 
-        let tzbtspa_cmd = "1 120000 0 mtk-cl-kshutdown02 110000 0 no-cooler 100000 0 no-cooler 99000 0 no-cooler 99000 0 no-cooler 95000 0 no-cooler 90000 0 no-cooler 85000 0 no-cooler 80000 0 no-cooler 75000 0 no-cooler 1000";
-        Self::write_node("/proc/driver/thermal/tzbtspa", tzbtspa_cmd);
-
-        // B. Uncap battery charging current limits in clbcct
+        // A. Uncap battery charging current limits in clbcct
         Self::write_node("/proc/driver/thermal/clbcct", "0 7000 7000 7000");
 
         // C. PID controllers for clabcct (12 args) and clabcct_lcmoff (9 args)
@@ -2741,9 +2740,12 @@ impl ChargingRegulator {
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
                         if t_lower == "mtktsap" || t_lower == "battery" || t_lower == "mtktsbattery" {
-                            let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
-                            if Path::new(&mode_path).exists() {
-                                Self::write_node_lock(&mode_path, "disabled");
+                            // On MTK, never set mode to disabled on mtkts* zones to prevent driver unbind panics.
+                            if !t_lower.starts_with("mtkts") {
+                                let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
+                                if Path::new(&mode_path).exists() {
+                                    Self::write_node_lock(&mode_path, "disabled");
+                                }
                             }
                             for trip_idx in 0..5 {
                                 let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);

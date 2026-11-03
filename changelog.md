@@ -1,3 +1,20 @@
+# Lynx Universal [Fix MediaTek Thermal Panic & Charging Safety Hardening] 7.0.0-RC331
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.56
+
+- **Perbaikan Kritis Kernel Panic MediaTek & Penguatan Keamanan Charging (*Hardware Safety Hardening*)**:
+  - **Eliminasi Total Kernel Panic MediaTek di `strncpy+0xc`**:
+    - Menghapus penulisan ke node `/proc/driver/thermal/tzbtspa` (BTS MDPA) pada fungsi `apply_charger_thermal_neutralization()` di `charging.rs`.
+    - Node tersebut murni merupakan sensor RF Modem Power Amplifier yang sama sekali tidak mengatur arus pengisian baterai, namun memicu bug internal driver MediaTek (`mtkts_btsmdpa_write -> mtk_thermal_zone_device_unregister_wrapper`) yang mendereferensi error pointer `ERR_PTR(-13)`.
+  - **Preservasi 100% Arus & Kecepatan Fast Charging**:
+    - Seluruh arsitektur fast charging Transsion DV2 Dual-Pump (`pcb_thermal_debug`, `dv2_debug`, `Charging_CallState`), SC Direct Pump (`sc_ibat_limit`, `enable_sc`), serta MediaTek BCCT/ABCCT (`clbcct`, `clabcct`) tetap aktif penuh pada batas maksimal (hingga 7000mA).
+  - **Proteksi Pengalihan Mode Thermal Zona MediaTek**:
+    - Menambahkan filter pengaman pada `thermal.rs` dan `charging.rs` agar tidak menonaktifkan (`mode=disabled`) zona thermal MediaTek bertipe `mtkts*`, mencegah kegagalan unregistration driver dinamis di level kernel.
+  - **Sinkronisasi Biner Native `lynxd`**:
+    - Mengompilasi ulang biner rilis Rust native `lynxd` (`aarch64-linux-android`) dan menyinkronkan ke seluruh direktori staging modul.
+
+---
+
 # Lynx Universal [Zero-Truncation Boost Cards & Banner Decoupling] 7.0.0-RC330
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.55

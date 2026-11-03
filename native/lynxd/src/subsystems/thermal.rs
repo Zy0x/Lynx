@@ -332,10 +332,14 @@ impl ThermalController {
                 Self::set_limit_raw(85000);
 
                 // Disable thermal zone modes on non-battery zones
+                // CRITICAL HARDWARE SAFETY GUARD: MediaTek vendor thermal zones (mtkts*) must NEVER
+                // have their mode set to "disabled", because MTK's kernel driver attempts unregistration
+                // which dereferences ERR_PTR(-13) inside mtk_thermal_zone_device_unregister_wrapper at strncpy.
                 for id in 0..128 {
                     let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
                     if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
-                        if !Self::is_battery_zone(&t_type) {
+                        let lower = t_type.to_lowercase();
+                        if !Self::is_battery_zone(&t_type) && !lower.starts_with("mtkts") {
                             Self::write_opt(format!("{}/mode", tz_dir), "disabled");
                         }
                     }
