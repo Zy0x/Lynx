@@ -1,3 +1,17 @@
+# Lynx Universal [Sysfs 'subsystem' Symlink Trap Fix & Early Hook Staging] 7.0.0-RC326
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.55
+
+- **Resolusi Akar Masalah Tersembunyi: Jebakan Symlink `subsystem` pada Sysfs**:
+  - **Akar Masalah (*The Hidden Symlink Trap*)**: Direktori perangkat virtual `/sys/devices/virtual/sensor/m_*_misc/` memiliki symlink bawaan Linux driver bernama `subsystem` yang mengarah kembali (*reverse pointer*) ke direktori kelas `/sys/class/sensor`. Ketika skrip eksekusi menggunakan ekspresi wildcard global `chmod 0660 /sys/devices/virtual/sensor/*/*`, utilitas `chmod` mengikuti symlink `subsystem` tersebut dan menimpa izin direktori target (`/sys/class/sensor`) kembali ke `0660` (`drw-rw----`), menghapus bit eksekusi traversal (`+x`) secara instan sesaat setelah bit `+x` disetel! Akibatnya, UID 1000 (`system`) selalu diblokir kembali dari traversal sysfs setiap kali script berjalan.
+  - **Solusi Rekayasa Presisi**:
+    1. Mengganti wildcard global dengan penargetan spesifik hanya pada berkas atribut sensor (`*active`, `*batch`, `*flush`, `*cali`, `*devnum`, `*enablenodata`, `*delay`).
+    2. Menempatkan `chmod 755 /sys/class/sensor` dan `/sys/devices/virtual/sensor` **di urutan paling akhir dan tak bersyarat**, menjamin direktori traversal tidak akan pernah tertimpa kembali oleh chmod atribut.
+    3. Menginjeksi jaring pengaman awal `00_lynx_sensor.sh` ke direktori sistem `/data/adb/post-fs-data.d/` melalui `customize.sh` untuk menjamin eksekusi hooks terjadi pada mikrodetik pertama sebelum zygote aktif di APatch/KernelSU/Magisk.
+    4. Sinkronisasi proteksi serupa ke `service.sh` pasca `sys.boot_completed`.
+
+---
+
 # Lynx Universal [Post-FS Race Condition Fix: chmod +x Sebelum Traverse] 7.0.0-RC325
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.54

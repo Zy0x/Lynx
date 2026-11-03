@@ -187,6 +187,20 @@ elif [ "$TARGET_SOC" = "mtk" ]; then
         cp -af "$MODPATH/platforms/mtk/lynx_sensor_hub.kpm" /data/adb/kpm/lynx_sensor_hub.kpm 2>/dev/null
         chmod 644 /data/adb/kpm/lynx_sensor_hub.kpm 2>/dev/null
     fi
+    # Stage Early Post-FS Sensor Traversal Hook for APatch/Magisk/KernelSU
+    mkdir -p /data/adb/post-fs-data.d 2>/dev/null
+    cat << 'EOF' > /data/adb/post-fs-data.d/00_lynx_sensor.sh
+#!/system/bin/sh
+chmod 0660 /dev/m_*_misc /dev/sensorlist 2>/dev/null
+chmod 0660 /sys/class/sensor/*/*active /sys/class/sensor/*/*batch \
+           /sys/class/sensor/*/*flush /sys/class/sensor/*/*cali \
+           /sys/class/sensor/*/*devnum /sys/class/sensor/*/*enablenodata \
+           /sys/class/sensor/*/*delay 2>/dev/null
+chmod 755 /sys/class/sensor /sys/devices/virtual/sensor 2>/dev/null
+chmod 755 /sys/devices/virtual/sensor/* 2>/dev/null
+chown -R system:system /dev/m_*_misc /dev/sensorlist /sys/class/sensor /sys/devices/virtual/sensor 2>/dev/null
+EOF
+    chmod 755 /data/adb/post-fs-data.d/00_lynx_sensor.sh 2>/dev/null
     ui_print "$(lynx_t injected_mtk)"
 else
     ui_print "$(lynx_t generic_vendor)"
