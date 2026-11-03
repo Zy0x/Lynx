@@ -1,3 +1,17 @@
+# Lynx Universal [Post-FS Race Condition Fix: chmod +x Sebelum Traverse] 7.0.0-RC325
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.54
+
+- **Perbaikan Kritis `post-fs-data.sh`: Race Condition Execute Bit `/sys/class/sensor`**:
+  - **Akar Masalah**: Script `post-fs-data.sh` menguji keberadaan file di dalam direktori `/sys/class/sensor/` (misal `[ -f /sys/class/sensor/m_acc_misc/accactive ]`) **sebelum** menerapkan `chmod 755` pada direktori tersebut. Karena kernel MTK me-mount `/sys/class/sensor` sebagai `drw-rw----` (tanpa execute bit), perintah `test -f` pada shell selalu mengembalikan `false` bahkan dieksekusi sebagai root — sebab kernel VFS memblokir traversal direktori tanpa bit `+x`. Akibatnya loop polling 40 iterasi selalu timeout dan `chmod 755` tidak pernah dieksekusi.
+  - **Solusi**: Pindahkan `chmod 755 /sys/class/sensor /sys/devices/virtual/sensor` ke **setiap iterasi loop, sebelum** pengecekan kondisi file. Dengan demikian execute bit selalu diterapkan sesegera direktori muncul, memungkinkan `[ -f ... ]` berhasil dan flow berlanjut ke chmod/chown seluruh node sensor.
+  - **Perubahan Tambahan**:
+    1. Parsing deteksi chipset MediaTek (`IS_MTK`) diformalkan agar bebas ambigu precedensi operator shell.
+    2. Timeout polling ditingkatkan dari 40 ke 60 iterasi (6 detik total) untuk mengakomodasi variasi timing inisialisasi SCP pada cold boot.
+    3. Penambahan jaring pengaman (*safety net*) di `service.sh` pasca boot-completed untuk secara persisten menjaga perizinan `0755` direktori dan `0660 system:system` pada node sensor.
+
+---
+
 # Lynx Universal [Sysfs Traversal Permission Fix & SCP FSM Stabilization KPM v1.8.0] 7.0.0-RC324
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.53

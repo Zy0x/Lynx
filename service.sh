@@ -20,6 +20,14 @@ fi
     done
     sleep 3
 
+    # MediaTek Sensor Sysfs Traversal & Permission Safety Guard
+    if [ -d /sys/class/sensor ] || [ -d /proc/ppm ]; then
+        chmod 755 /sys/class/sensor /sys/devices/virtual/sensor 2>/dev/null
+        chmod 755 /sys/devices/virtual/sensor/* 2>/dev/null
+        chmod 0660 /dev/m_*_misc /dev/sensorlist /sys/class/sensor/m_*_misc/* /sys/devices/virtual/sensor/*/* 2>/dev/null
+        chown -R system:system /dev/m_*_misc /dev/sensorlist /sys/class/sensor /sys/devices/virtual/sensor 2>/dev/null
+    fi
+
     # Universal Dynamic Wi-Fi Silicon & Kernel Network Low-Latency Engine (Zero-Hardcoding)
     if [ -d /proc/net/wlan ] && [ -f "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" ] && [ -f /vendor/firmware/wifi.cfg ]; then
         mount -o bind "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" /vendor/firmware/wifi.cfg 2>/dev/null || true
