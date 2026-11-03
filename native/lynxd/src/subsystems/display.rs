@@ -434,6 +434,9 @@ impl DisplayController {
         // Note: debounce must NOT be 0 (0 causes joystick drops & tracking loss on finger micro-tremors).
         // tpd_mode MUST ALWAYS be 0 (0 = Pure Direct Multi-Touch. 1 = Legacy Resistive Keypad Mode which distorts lower screen touches).
         let debounce_val = if enable { "1" } else { "4" };
+        let auto_interval = if enable { "4" } else { "10" };
+        let report_rate = if enable { "240" } else { "0" };
+
         let tpd_nodes = [
             "/sys/module/tpd_setting/parameters/tpd_em_debounce_time",
             "/sys/module/tpd_setting/parameters/tpd_em_debounce_time0",
@@ -443,6 +446,12 @@ impl DisplayController {
             if Self::write_opt(node, debounce_val) {
                 count += 1;
             }
+        }
+        if Self::write_opt("/sys/module/tpd_setting/parameters/tpd_em_auto_time_interval", auto_interval) {
+            count += 1;
+        }
+        if Self::write_opt("/proc/touch_report_rate", report_rate) {
+            count += 1;
         }
         if Self::write_opt("/sys/module/tpd_setting/parameters/tpd_mode", "0") {
             count += 1;
@@ -496,6 +505,39 @@ impl DisplayController {
                     count += 1;
                 }
             }
+        }
+
+        // 6. Sub-pixel Touch Slop & Android Input Pipeline Priority
+        if enable {
+            let _ = Self::run_cmd("setprop", &["view.touch_slop", "2"]);
+            let _ = Self::run_cmd("setprop", &["windowsmgr.max_events_per_second", "300"]);
+            let _ = Self::run_cmd("setprop", &["persist.sys.touch.latency", "0"]);
+            let _ = Self::run_cmd("setprop", &["debug.touch.frequency.boost", "1"]);
+            let _ = Self::run_cmd("setprop", &["vendor.perf.gestureFlingBoost.enable", "1"]);
+            let _ = Self::run_cmd("setprop", &["persist.sys.lynx.touchboost", "1"]);
+
+            // Real-Time SCHED_FIFO Priority for InputReader & InputDispatcher
+            if let Ok(sys_pid) = Self::run_cmd("pidof", &["system_server"]) {
+                let pid_str = String::from_utf8_lossy(&sys_pid.stdout).trim().to_string();
+                if !pid_str.is_empty() {
+                    if let Ok(tasks) = fs::read_dir(format!("/proc/{}/task", pid_str)) {
+                        for t in tasks.flatten() {
+                            let comm_path = t.path().join("comm");
+                            if let Ok(comm) = fs::read_to_string(&comm_path) {
+                                let comm_trim = comm.trim();
+                                if comm_trim.starts_with("InputReader") || comm_trim.starts_with("InputDispatcher") {
+                                    let tid = t.file_name();
+                                    let tid_str = tid.to_string_lossy();
+                                    let _ = Self::run_cmd("renice", &["-n", "-20", "-p", &tid_str]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let _ = Self::run_cmd("setprop", &["view.touch_slop", "8"]);
+            let _ = Self::run_cmd("setprop", &["debug.touch.frequency.boost", "0"]);
         }
 
         format!(

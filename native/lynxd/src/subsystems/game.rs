@@ -96,6 +96,7 @@ impl GameController {
         for node in TOUCH_NODES {
             Self::write_opt(node, "1");
         }
+        crate::subsystems::DisplayController::apply_touch_boost(true);
 
         // 7. MediaTek Platform Game Boost (GED, FPSGO, PPM, Perfmgr, Mali)
         Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "1");
@@ -448,6 +449,9 @@ impl GameController {
         // Qualcomm CPU Boost Reset
         Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "40");
         Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
+
+        // Touch Boost Disengage
+        crate::subsystems::DisplayController::apply_touch_boost(false);
 
         // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");

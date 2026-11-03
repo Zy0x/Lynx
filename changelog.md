@@ -1,3 +1,21 @@
+# Lynx Universal [Unbuffered Direct Dispatch & Dynamic 250Hz Touch Master Optimization] 7.0.0-RC339
+Released on: 2026-11-04
+> Lynx Kernel Manager v3.3.63
+
+- **Implementasi Unbuffered Direct Dispatch & Optimasi Sampling Touch Dinamis (*Zero-Latency Touch Master*)**:
+  - **Bypass VSYNC Batching pada Pad Uji Sentuh (`HudTouchPage.kt`)**:
+    - Menerapkan `view.requestUnbufferedDispatch(MotionEvent.ACTION_MOVE)` dan `pointerInteropFilter` langsung pada kanvas uji sentuh. Mematikan penundaan pengiriman event sentuhan oleh *Choreographer VSYNC* (90Hz / 120Hz) khusus pada area uji.
+    - Menerapkan `view.parent?.requestDisallowInterceptTouchEvent(true)` saat sentuhan aktif agar pengujian gestur sapuan bebas dari interupsi *scroll container* induk.
+  - **Pengukuran Frekuensi Presisi Tinggi Nanodetik Tanpa Truncation**:
+    - Mengukur delta kedatangan event menggunakan `SystemClock.elapsedRealtimeNanos()` dan mendistribusikan sampel historis (`historySize`) secara proporsional.
+    - Menghilangkan pemotongan/pembulatan milidetik integer, sehingga laju pembacaan sampling sentuhan sepenuhnya dinamis dan merefleksikan batas fisik asli digitizer IC hardware (mencapai 180Hz di Infinix, 120Hz di RN7, serta 240Hz/360Hz/480Hz pada ponsel gaming).
+  - **Akselerasi Driver Kernel & Penjadwalan Real-Time Input Subsystem**:
+    - Memperbarui `apply_touch_boost` di `native/lynxd` (`display.rs` dan `game.rs`) serta `HudZoneTouchManager.kt`.
+    - Memaksa interval sampling driver MediaTek TPD `/sys/module/tpd_setting/parameters/tpd_em_auto_time_interval` ke `4` ms (kapasitas scan 250 Hz) dengan *debounce time* `1` ms.
+    - Mengangkat prioritas thread sistem Android `InputReader` dan `InputDispatcher` ke prioritas maksimum `renice -n -20` dan penjadwalan real-time `chrt -f -p 99` (SCHED_FIFO) saat mode performa / game aktif.
+
+---
+
 # Lynx Universal [Universal Dynamic Thermal Zone & BMS JEITA Bypass] 7.0.0-RC338
 Released on: 2026-11-04
 > Lynx Kernel Manager v3.3.62

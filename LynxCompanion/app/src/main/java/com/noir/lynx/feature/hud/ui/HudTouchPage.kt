@@ -17,6 +17,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
+import android.os.Build
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
@@ -26,6 +29,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +62,17 @@ internal fun HudTouchPage(
     var activeTouchPoints by remember { mutableStateOf<List<TouchPointVisual>>(emptyList()) }
     var showTouchesEnabled by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val view = LocalView.current
+    val timestampsNano = remember { ArrayList<Long>(32) }
+    val pointerHistories = remember { HashMap<Int, ArrayList<Offset>>() }
+    var maxFingers by remember { mutableStateOf(0) }
+
+    DisposableEffect(view) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            view.requestUnbufferedDispatch(MotionEvent.ACTION_MOVE)
+        }
+        onDispose { }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -199,64 +215,84 @@ internal fun HudTouchPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(175.dp)
-                            .pointerInput(Unit) {
-                                val timestamps = ArrayList<Long>(32)
-                                var maxFingers = 0
-                                val pointerHistories = HashMap<Long, ArrayList<Offset>>()
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
-                                        val pressed = event.changes.filter { it.pressed }
-                                        if (pressed.isEmpty()) {
-                                            timestamps.clear()
-                                            pointerHistories.clear()
-                                            activeTouchPoints = emptyList()
-                                            continue
+                            .pointerInteropFilter { motionEvent ->
+                                val action = motionEvent.actionMasked
+                                when (action) {
+                                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                            view.requestUnbufferedDispatch(MotionEvent.ACTION_MOVE)
                                         }
-                                        if (pressed.size > maxFingers) {
-                                            maxFingers = pressed.size
+                                        if (action == MotionEvent.ACTION_DOWN) {
+                                            timestampsNano.clear()
                                         }
-                                        val currentIds = pressed.map { it.id.value }.toSet()
-                                        pointerHistories.keys.retainAll(currentIds)
-
-                                        val visuals = ArrayList<TouchPointVisual>(pressed.size)
-                                        for (change in pressed) {
-                                            val id = change.id.value
-                                            val hist = pointerHistories.getOrPut(id) { ArrayList() }
-                                            for (h in change.historical) {
-                                                hist.add(h.position)
-                                            }
-                                            hist.add(change.position)
-                                            while (hist.size > 24) {
-                                                hist.removeAt(0)
-                                            }
-                                            visuals.add(TouchPointVisual(id, change.position, hist.toList()))
-                                        }
-                                        activeTouchPoints = visuals
-
-                                        val primary = pressed.first()
-                                        for (hist in primary.historical) {
-                                            if (timestamps.isEmpty() || hist.uptimeMillis > timestamps.last()) {
-                                                timestamps.add(hist.uptimeMillis)
-                                            }
-                                        }
-                                        if (timestamps.isEmpty() || primary.uptimeMillis > timestamps.last()) {
-                                            timestamps.add(primary.uptimeMillis)
-                                        }
-                                        while (timestamps.size > 24) {
-                                            timestamps.removeAt(0)
-                                        }
-                                        val deltas = ArrayList<Double>(timestamps.size)
-                                        for (i in 1 until timestamps.size) {
-                                            val dt = (timestamps[i] - timestamps[i - 1]).toDouble()
-                                            if (dt in 1.0..120.0) deltas.add(dt)
-                                        }
-                                        if (deltas.isNotEmpty() || pressed.isNotEmpty()) {
-                                            touchSample = computeTouchSampleMetrics(deltas, pressed.size, maxFingers)
-                                        }
-                                        event.changes.forEach { it.consume() }
                                     }
                                 }
+
+                                val pointerCount = motionEvent.pointerCount
+                                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                                    view.parent?.requestDisallowInterceptTouchEvent(false)
+                                    timestampsNano.clear()
+                                    pointerHistories.clear()
+                                    activeTouchPoints = emptyList()
+                                    if (touchSample.rateHz != null) {
+                                        touchSample = touchSample.copy(activeFingers = 0)
+                                    }
+                                    return@pointerInteropFilter true
+                                }
+
+                                if (pointerCount > maxFingers) {
+                                    maxFingers = pointerCount
+                                }
+
+                                val activeIds = (0 until pointerCount).map { motionEvent.getPointerId(it) }.toSet()
+                                pointerHistories.keys.retainAll(activeIds)
+
+                                val visuals = ArrayList<TouchPointVisual>(pointerCount)
+                                val historySize = motionEvent.historySize
+                                for (i in 0 until pointerCount) {
+                                    val id = motionEvent.getPointerId(i)
+                                    val curPos = Offset(motionEvent.getX(i), motionEvent.getY(i))
+                                    val hist = pointerHistories.getOrPut(id) { ArrayList() }
+                                    for (h in 0 until historySize) {
+                                        hist.add(Offset(motionEvent.getHistoricalX(i, h), motionEvent.getHistoricalY(i, h)))
+                                    }
+                                    hist.add(curPos)
+                                    while (hist.size > 24) {
+                                        hist.removeAt(0)
+                                    }
+                                    visuals.add(TouchPointVisual(id.toLong(), curPos, hist.toList()))
+                                }
+                                activeTouchPoints = visuals
+
+                                val nowNano = SystemClock.elapsedRealtimeNanos()
+                                if (historySize > 0) {
+                                    val prevNano = timestampsNano.lastOrNull() ?: (nowNano - (historySize * 5_000_000L))
+                                    val span = (nowNano - prevNano).coerceAtLeast(1_000_000L)
+                                    val step = span / (historySize + 1)
+                                    for (h in 0 until historySize) {
+                                        timestampsNano.add(prevNano + (h + 1) * step)
+                                    }
+                                }
+                                timestampsNano.add(nowNano)
+
+                                while (timestampsNano.size > 32) {
+                                    timestampsNano.removeAt(0)
+                                }
+
+                                val deltas = ArrayList<Double>(timestampsNano.size)
+                                for (i in 1 until timestampsNano.size) {
+                                    val dtMs = (timestampsNano[i] - timestampsNano[i - 1]) / 1_000_000.0
+                                    if (dtMs in 0.8..120.0) {
+                                        deltas.add(dtMs)
+                                    }
+                                }
+
+                                if (deltas.isNotEmpty() || pointerCount > 0) {
+                                    touchSample = computeTouchSampleMetrics(deltas, pointerCount, maxFingers)
+                                }
+
+                                true
                             },
                         color = HudElevated,
                         shape = RoundedCornerShape(14.dp),

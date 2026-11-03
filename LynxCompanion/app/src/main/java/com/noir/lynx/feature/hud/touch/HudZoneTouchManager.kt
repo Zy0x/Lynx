@@ -75,11 +75,11 @@ class HudZoneTouchManager(
                     settings put secure high_touch_sensitivity_enable 1 2>/dev/null
                     settings put system touch_game_mode 1 2>/dev/null
                     
-                    # 3. MediaTek TPD Hardware Debounce & Fast Polling Interval
+                    # 3. MediaTek TPD Hardware Debounce & Fast Polling Interval (4ms = 250Hz Max Capability)
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time ] && echo 1 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time 2>/dev/null
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 ] && echo 1 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 2>/dev/null
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 ] && echo 1 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 2>/dev/null
-                    [ -e /sys/module/tpd_setting/parameters/tpd_em_auto_time_interval ] && echo 5 > /sys/module/tpd_setting/parameters/tpd_em_auto_time_interval 2>/dev/null
+                    [ -e /sys/module/tpd_setting/parameters/tpd_em_auto_time_interval ] && echo 4 > /sys/module/tpd_setting/parameters/tpd_em_auto_time_interval 2>/dev/null
                     [ -e /proc/touch_report_rate ] && echo 240 > /proc/touch_report_rate 2>/dev/null
                     [ -e /proc/driver/touchpanel/game_switch_enable ] && echo 1 > /proc/driver/touchpanel/game_switch_enable 2>/dev/null
                     
@@ -97,7 +97,7 @@ class HudZoneTouchManager(
                         [ -e "${'$'}node" ] && echo 1 > "${'$'}node" 2>/dev/null
                     done
                     
-                    # 5. Maximum Priority for Android Input Pipeline (InputReader & InputDispatcher)
+                    # 5. Maximum Real-Time Priority for Android Input Pipeline (InputReader & InputDispatcher)
                     sys_pid=${'$'}(pidof system_server)
                     if [ -n "${'$'}sys_pid" ] && [ -d "/proc/${'$'}sys_pid/task" ]; then
                         for t in /proc/${'$'}sys_pid/task/*; do
@@ -106,6 +106,7 @@ class HudZoneTouchManager(
                                 InputReader*|InputDispatcher*|android.anim*|RenderThread*)
                                     tid=${'$'}(basename "${'$'}t")
                                     renice -n -20 -p "${'$'}tid" 2>/dev/null
+                                    chrt -f -p 99 "${'$'}tid" 2>/dev/null
                                     ;;
                             esac
                         done
