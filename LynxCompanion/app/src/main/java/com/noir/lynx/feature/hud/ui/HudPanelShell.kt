@@ -36,8 +36,18 @@ internal fun HudPanelShell(
                 Surface(Modifier.fillMaxSize(), shape = shape, color = HudBackground,
                     border = BorderStroke(1.dp, HudBorder)) {
                     Column {
-                        HudPanelHeader(title, snapshot[HudMetric.BATTERY_LEVEL], snapshot[HudMetric.BATTERY_TEMP],
-                            snapshot.charging, bypassActive, canNavigateBack, onBack, onClose)
+                        HudPanelHeader(
+                            appLabel = title,
+                            battery = snapshot[HudMetric.BATTERY_LEVEL],
+                            batteryTemp = snapshot[HudMetric.BATTERY_TEMP],
+                            charging = snapshot.charging,
+                            bypassActive = bypassActive,
+                            canNavigateBack = canNavigateBack,
+                            ramUsed = snapshot[HudMetric.RAM_USED],
+                            ramTotal = snapshot[HudMetric.RAM_TOTAL],
+                            onBack = onBack,
+                            onClose = onClose
+                        )
                         HorizontalDivider(color = HudBorder, modifier = Modifier.padding(horizontal = 12.dp))
                         if (appDock != null) {
                             appDock()

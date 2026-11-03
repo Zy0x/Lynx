@@ -1,3 +1,21 @@
+# Lynx Universal [Compact RAM Used/Total Badge on HUD Header] 7.0.0-RC335
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.59
+
+- **Penyematan Indikator Kompak RAM Terpakai / Total Kapasitas pada Header HUD (`HudPanelHeader.kt`)**:
+  - **Indikator Hemat Ruang (*Ultra-Compact RAM Pill Badge*)**:
+    - Menambahkan badge status RAM berdesain *Cyberpunk Elevated Pill* tepat di sebelah kiri tombol tutup ("X") pada bilah header atas HUD.
+    - Format teks dirancang ringkas dan presisi: label "RAM" beraksen biru modern dengan pembacaan terpakai dan total dalam satuan GB (contoh: `3.9/7.6 GB`), berlatar frosted glass gelap dengan border subtle (`HudBorder`).
+    - Menggunakan tipografi monospace (`10sp`) berketelitian 1 desimal, menjamin kestabilan lebar visual tanpa pergeseran tata letak (*zero layout shift*).
+  - **Preservasi Ruang Ergonomis & Aksesibilitas Touch Target**:
+    - Lebar badge dijaga sangat ramping (~75-85 dp) sehingga judul aplikasi/game dan indikator baterai/suhu di tengah tetap leluasa dengan elipsis anggun saat nama paket sangat panjang.
+    - Tombol tutup ("X") tetap mempertahankan standar sentuh *touch-first* penuh 48×48 dp bebas *miss-touch*.
+  - **Dukungan Telemetri Real-Time & Fallback Berlapis**:
+    - Mengonsumsi langsung stream metrik `ram_used` dan `ram_total` dari daemon native `lynxd` berbasis `/proc/meminfo`.
+    - Dilengkapi fallback cerdas berbasis `ActivityManager.MemoryInfo` sehingga nilai terpakai dan total kapasitas RAM tetap tampil akurat dan instan bahkan saat daemon sedang dalam status warming-up.
+
+---
+
 # Lynx Universal [Fix MediaTek Thermal Panic & Charging Safety Hardening] 7.0.0-RC331
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.56

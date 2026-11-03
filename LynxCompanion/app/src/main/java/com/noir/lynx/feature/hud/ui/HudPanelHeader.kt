@@ -30,16 +30,21 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import android.app.ActivityManager
+import android.content.Context
+import java.util.Locale
 import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.HudApp
@@ -54,10 +59,49 @@ internal fun HudPanelHeader(
     charging: Boolean? = null,
     bypassActive: Boolean = false,
     canNavigateBack: Boolean = false,
+    ramUsed: HudReading? = null,
+    ramTotal: HudReading? = null,
     onBack: () -> Unit = {},
     onClose: () -> Unit
 ) {
     val bypassBadgeText = hudString(R.string.hud_bypass_badge)
+    val context = LocalContext.current
+
+    val usedVal = ramUsed?.takeIf { it.status == "valid" }?.value
+    val totalVal = ramTotal?.takeIf { it.status == "valid" }?.value
+
+    val usedStr = remember(usedVal, ramUsed?.status) {
+        if (usedVal != null && usedVal > 0.0) {
+            String.format(Locale.getDefault(), "%.1f", usedVal)
+        } else {
+            val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            val memInfo = ActivityManager.MemoryInfo()
+            actManager?.getMemoryInfo(memInfo)
+            val usedGb = (memInfo.totalMem - memInfo.availMem) / (1024.0 * 1024.0 * 1024.0)
+            if (usedGb > 0.0) String.format(Locale.getDefault(), "%.1f", usedGb) else "—"
+        }
+    }
+
+    val totalStr = remember(totalVal, ramTotal?.status) {
+        if (totalVal != null && totalVal > 0.0) {
+            String.format(Locale.getDefault(), "%.1f", totalVal)
+        } else {
+            val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            val memInfo = ActivityManager.MemoryInfo()
+            actManager?.getMemoryInfo(memInfo)
+            val totalGb = memInfo.totalMem / (1024.0 * 1024.0 * 1024.0)
+            if (totalGb > 0.0) String.format(Locale.getDefault(), "%.1f", totalGb) else "—"
+        }
+    }
+
+    val ramDisplay = remember(usedStr, totalStr) {
+        when {
+            usedStr != "—" && totalStr != "—" -> "$usedStr/$totalStr GB"
+            usedStr != "—" -> "$usedStr GB"
+            else -> null
+        }
+    }
+
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (canNavigateBack) IconButton(onBack, Modifier.size(48.dp)) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, hudString(R.string.hud_back), tint = HudCyan, modifier = Modifier.size(20.dp))
@@ -75,6 +119,35 @@ internal fun HudPanelHeader(
                 if (batteryTemp?.status == "valid") append(" · ${batteryTemp.text()}°C")
                 if (bypassActive) append(" · $bypassBadgeText")
             }, fontSize = 10.sp, color = if (charging == true) HudCyan else HudMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (ramDisplay != null) {
+            Surface(
+                shape = RoundedCornerShape(7.dp),
+                color = HudElevated,
+                border = BorderStroke(0.8.dp, HudBorder),
+                modifier = Modifier.padding(end = 2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.5.dp)
+                ) {
+                    Text(
+                        text = "RAM",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = HudBlue
+                    )
+                    Text(
+                        text = ramDisplay,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+            }
         }
         IconButton(onClose, Modifier.size(48.dp)) {
             Icon(Icons.Default.Close, hudString(R.string.hud_close), tint = HudMuted, modifier = Modifier.size(20.dp))
