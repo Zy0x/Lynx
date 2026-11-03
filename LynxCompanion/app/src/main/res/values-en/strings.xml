@@ -2250,6 +2250,8 @@
     <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
     <string name="hud_zonetouch_slop">Ultra-Sensitive (2px Slop)</string>
     <string name="hud_zonetouch_slop_desc">Detects finger movement at just 2 pixels for instant micro-aiming response.</string>
+    <string name="hud_touch_show_touches">Show System Taps</string>
+    <string name="hud_touch_show_touches_desc">Displays visual touch circles anywhere on screen via Android system settings.</string>
 
     <!-- TouchShare -->
     <string name="hud_touchshare_export">Copy Code</string>

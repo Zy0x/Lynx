@@ -1,3 +1,18 @@
+# Lynx Universal [Touch Master System Tap Visualizer & Multi-Touch Trails] 7.0.0-RC337
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.61
+
+- **Penyematan Visualisasi Sentuhan Real-Time (*System Tap Discs & Motion Trails*) pada Touch Master (`HudTouchPage.kt`)**:
+  - **Indikator Ketukan Bergaya Sistem (*Show Taps Translucent Discs*)**:
+    - Menghadirkan piringan visualisasi sentuhan 4 lapis konsentris (lingkaran luar pulse radar, disc putih translusen persis bawaan *Show Touches* sistem Android, inti neon cyan, dan titik pusat presisi *crosshair*) yang menempel tepat di bawah setiap jari dengan latensi 0 ms.
+  - **Pelacakan Multi-Touch & Jejak Gerakan Mulus (*Neon Motion Trails*)**:
+    - Melacak hingga 10 jari secara simultan, menggambar garis lintasan sapuan (*smooth bezier motion trails*) dengan sudut membulat untuk membuktikan kehalusan dan ketiadaan *jitter / touch drift* pada layar.
+    - Teks petunjuk di tengah pad meredup secara otomatis saat sentuhan aktif agar kanvas pengujian tetap bersih dan leluasa.
+  - **Integrasi Saklar Sistem (*OS Show Taps Toggle*)**:
+    - Menambahkan kontrol cepat di tab Setelan Touch Master untuk mengaktifkan pengaturan Android global `settings put system show_touches 1/0`, memungkinkan lingkaran sentuhan sistem aktif di seluruh aplikasi dan game di luar HUD.
+
+---
+
 # Lynx Universal [Zero-Lag Game-Safe RAM Clean Engine] 7.0.0-RC336
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.60

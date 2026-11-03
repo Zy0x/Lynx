@@ -2274,6 +2274,8 @@
     <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
     <string name="hud_zonetouch_slop">Sensitivitas Ultra-Peka (2px Slop)</string>
     <string name="hud_zonetouch_slop_desc">Deteksi pergeseran seketika pada 2 piksel untuk bidikan mikro super peka.</string>
+    <string name="hud_touch_show_touches">Ketukan Sistem (Show Taps)</string>
+    <string name="hud_touch_show_touches_desc">Menampilkan lingkaran sentuhan visual bawaan Android di seluruh layar HP bahkan saat di luar HUD.</string>
 
     <!-- TouchShare -->
     <string name="hud_touchshare_export">Salin Kode</string>

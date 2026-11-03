@@ -1,9 +1,12 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TouchApp
@@ -15,7 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +35,16 @@ import com.noir.lynx.R
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.feature.hud.addins.HudGamingAddins
 import com.noir.lynx.feature.hud.data.*
+import com.topjohnwu.superuser.Shell
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private data class TouchPointVisual(
+    val id: Long,
+    val position: Offset,
+    val history: List<Offset>
+)
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -35,6 +54,17 @@ internal fun HudTouchPage(
     onToggleTouchBoost: (Boolean) -> Unit
 ) {
     var touchSample by remember { mutableStateOf(HudTouchSample()) }
+    var activeTouchPoints by remember { mutableStateOf<List<TouchPointVisual>>(emptyList()) }
+    var showTouchesEnabled by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val out = Shell.cmd("settings get system show_touches").exec().out.firstOrNull()?.trim()
+            showTouchesEnabled = out == "1"
+        }
+    }
+
     val runtime = HudGamingAddins.current
     val zoneTouch = runtime?.zoneTouch
 
@@ -141,35 +171,69 @@ internal fun HudTouchPage(
                             )
                         }
                     }
+
+                    // 3. System-Wide Show Touches Toggle
+                    AddinToggle(
+                        label = hudString(R.string.hud_touch_show_touches),
+                        checked = showTouchesEnabled,
+                        info = hudString(R.string.hud_touch_show_touches_desc),
+                        onChange = { isChecked ->
+                            showTouchesEnabled = isChecked
+                            coroutineScope.launch(Dispatchers.IO) {
+                                Shell.cmd("settings put system show_touches ${if (isChecked) 1 else 0}").exec()
+                            }
+                        }
+                    )
                 }
             }
         } else {
-            // Uji Sentuh (Spacious Multi-Touch Pad >= 160dp)
+            // Uji Sentuh (Spacious Multi-Touch Pad with System Tap Indicator & Motion Trails)
             HudSection(
                 title = hudString(R.string.hud_lab_touch_title),
                 badge = if ((touchSample.rateHz ?: 0) > 0) "${touchSample.rateHz} Hz" else "Siap Uji",
                 accentColor = if ((touchSample.rateHz ?: 0) > 0) HudCyan else HudBlue,
-                info = "Pad Uji Sentuh Interaktif:\n\nSentuh, ketuk, atau geser beberapa jari bersamaan di dalam area pad untuk mengukur responsivitas sampling layar (Hz) dan latensi interval (ms) secara real-time."
+                info = "Pad Uji Sentuh Interaktif:\n\nSentuh, ketuk, atau geser beberapa jari bersamaan di dalam area pad untuk menguji responsivitas sampling layar (Hz), latensi interval (ms), dan kehalusan pelacakan posisi multi-touch secara real-time."
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(170.dp)
+                            .height(175.dp)
                             .pointerInput(Unit) {
                                 val timestamps = ArrayList<Long>(32)
                                 var maxFingers = 0
+                                val pointerHistories = HashMap<Long, ArrayList<Offset>>()
                                 awaitPointerEventScope {
                                     while (true) {
                                         val event = awaitPointerEvent()
                                         val pressed = event.changes.filter { it.pressed }
                                         if (pressed.isEmpty()) {
                                             timestamps.clear()
+                                            pointerHistories.clear()
+                                            activeTouchPoints = emptyList()
                                             continue
                                         }
                                         if (pressed.size > maxFingers) {
                                             maxFingers = pressed.size
                                         }
+                                        val currentIds = pressed.map { it.id.value }.toSet()
+                                        pointerHistories.keys.retainAll(currentIds)
+
+                                        val visuals = ArrayList<TouchPointVisual>(pressed.size)
+                                        for (change in pressed) {
+                                            val id = change.id.value
+                                            val hist = pointerHistories.getOrPut(id) { ArrayList() }
+                                            for (h in change.historical) {
+                                                hist.add(h.position)
+                                            }
+                                            hist.add(change.position)
+                                            while (hist.size > 24) {
+                                                hist.removeAt(0)
+                                            }
+                                            visuals.add(TouchPointVisual(id, change.position, hist.toList()))
+                                        }
+                                        activeTouchPoints = visuals
+
                                         val primary = pressed.first()
                                         for (hist in primary.historical) {
                                             if (timestamps.isEmpty() || hist.uptimeMillis > timestamps.last()) {
@@ -198,18 +262,24 @@ internal fun HudTouchPage(
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(
                             width = 1.5.dp,
-                            color = if ((touchSample.rateHz ?: 0) > 0) HudCyan else HudBorder
+                            color = if (activeTouchPoints.isNotEmpty()) HudCyan else HudBorder
                         )
                     ) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
+                            // 1. Center hint icon & description - smoothly dims when fingers are active on pad
+                            val hintAlpha by animateFloatAsState(
+                                targetValue = if (activeTouchPoints.isNotEmpty()) 0.08f else 1.0f,
+                                label = "TouchHintAlpha"
+                            )
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .alpha(hintAlpha)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.TouchApp,
@@ -233,6 +303,83 @@ internal fun HudTouchPage(
                                     color = HudMuted.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center
                                 )
+                            }
+
+                            // 2. High-Precision Real-Time Visual Touch Canvas (Show Taps & Motion Trails)
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                if (activeTouchPoints.isNotEmpty()) {
+                                    // A. Draw subtle crosshair laser guidelines intersecting at each touch point
+                                    for (tp in activeTouchPoints) {
+                                        val pos = tp.position
+                                        drawLine(
+                                            color = HudCyan.copy(alpha = 0.12f),
+                                            start = Offset(0f, pos.y),
+                                            end = Offset(size.width, pos.y),
+                                            strokeWidth = 1.dp.toPx()
+                                        )
+                                        drawLine(
+                                            color = HudCyan.copy(alpha = 0.12f),
+                                            start = Offset(pos.x, 0f),
+                                            end = Offset(pos.x, size.height),
+                                            strokeWidth = 1.dp.toPx()
+                                        )
+                                    }
+
+                                    // B. Draw neon motion trails following each finger's path
+                                    for (tp in activeTouchPoints) {
+                                        if (tp.history.size > 1) {
+                                            val trailPath = Path().apply {
+                                                moveTo(tp.history[0].x, tp.history[0].y)
+                                                for (i in 1 until tp.history.size) {
+                                                    lineTo(tp.history[i].x, tp.history[i].y)
+                                                }
+                                            }
+                                            drawPath(
+                                                path = trailPath,
+                                                color = HudCyan.copy(alpha = 0.45f),
+                                                style = Stroke(
+                                                    width = 3.dp.toPx(),
+                                                    cap = StrokeCap.Round,
+                                                    join = StrokeJoin.Round
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    // C. Draw Android System Tap-inspired Touch Discs
+                                    activeTouchPoints.forEachIndexed { index, tp ->
+                                        val pos = tp.position
+
+                                        // Outer radar glowing pulse ring
+                                        drawCircle(
+                                            color = HudCyan.copy(alpha = 0.28f),
+                                            radius = 24.dp.toPx(),
+                                            center = pos,
+                                            style = Stroke(width = 1.5.dp.toPx())
+                                        )
+
+                                        // Middle translucent system tap disc (exact replica of Android "Show Taps" disc)
+                                        drawCircle(
+                                            color = Color.White.copy(alpha = 0.45f),
+                                            radius = 16.dp.toPx(),
+                                            center = pos
+                                        )
+
+                                        // Inner glowing cyan core
+                                        drawCircle(
+                                            color = HudCyan,
+                                            radius = 7.dp.toPx(),
+                                            center = pos
+                                        )
+
+                                        // Pinpoint precision center dot
+                                        drawCircle(
+                                            color = Color.White,
+                                            radius = 2.5.dp.toPx(),
+                                            center = pos
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
