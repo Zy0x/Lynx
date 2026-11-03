@@ -170,8 +170,6 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
                 chmod 664 /proc/ppm/policy_status 2>/dev/null
                 echo "9 $valStr" > /proc/ppm/policy_status 2>/dev/null
             fi
-            [ -f /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ] && echo ${if (enabled) "100" else "0"} > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
-            [ -f /sys/module/ged/parameters/gx_force_cpu_boost ] && echo "$valStr" > /sys/module/ged/parameters/gx_force_cpu_boost 2>/dev/null
 
             # 2. Qualcomm Snapdragon CPU Boost & MSM Touchboost
             [ -f /sys/module/cpu_boost/parameters/input_boost_ms ] && echo "$qcomMs" > /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null
@@ -193,12 +191,7 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
                 [ -e "${'$'}d" ] && echo "$valStr" > "${'$'}d" 2>/dev/null
             done
 
-            # 4. Universal Schedutil Latency Optimization
-            for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil /sys/devices/system/cpu/cpufreq/policy*/walt; do
-                [ -d "${'$'}p" ] && echo ${if (enabled) "0" else "1000"} > "${'$'}p/up_rate_limit_us" 2>/dev/null
-            done
-
-            # 5. Framework Properties & State Flag
+            # 4. Framework Properties & State Flag
             setprop vendor.perf.gestureFlingBoost.enable "$valStr" 2>/dev/null
             setprop persist.sys.lynx.touchboost "$valStr" 2>/dev/null
             mkdir -p /data/adb/lynx 2>/dev/null
@@ -221,8 +214,6 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
                 echo "eas_boost 80" > /proc/perfmgr/tchbst/user/usrtch 2>/dev/null
                 echo "touch_opp 2" > /proc/perfmgr/tchbst/user/usrtch 2>/dev/null
             fi
-            [ -f /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost ] && echo 0 > /proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost 2>/dev/null
-            [ -f /sys/module/ged/parameters/gx_force_cpu_boost ] && echo 0 > /sys/module/ged/parameters/gx_force_cpu_boost 2>/dev/null
             [ -f /sys/module/cpu_boost/parameters/input_boost_ms ] && echo 0 > /sys/module/cpu_boost/parameters/input_boost_ms 2>/dev/null
             [ -f /sys/module/cpu_boost/parameters/sched_boost_on_input ] && echo 0 > /sys/module/cpu_boost/parameters/sched_boost_on_input 2>/dev/null
             [ -f /sys/module/msm_performance/parameters/touchboost ] && echo 0 > /sys/module/msm_performance/parameters/touchboost 2>/dev/null
