@@ -134,11 +134,56 @@ object ExtremeChargingScript {
                 echo 1 > /sys/class/power_supply/battery/soc_decimal 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/night_charging 2>/dev/null
 
-                # Relax Qualcomm BMS temperature thresholds (Original Lynx AI Charging Controller)
-                echo 120 > /sys/class/power_supply/bms/temp_cool 2>/dev/null
-                echo 650 > /sys/class/power_supply/bms/temp_hot 2>/dev/null
-                echo 610 > /sys/class/power_supply/bms/temp_warm 2>/dev/null
-                echo 0 > /sys/class/power_supply/bms/temp_cold 2>/dev/null
+                # Universal Dynamic Thermal Zone Governor Neutralization
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    [ -d "${'$'}tz" ] || continue
+                    tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                    case "${'$'}tz_type" in
+                        *battery*|*bms*|*charger*|*pmic*|*pm660*|*smb*|*quiet-therm*|*mtktsbattery*|*mtktsap*)
+                            if [ -f "${'$'}tz/available_policies" ] && grep -q "user_space" "${'$'}tz/available_policies" 2>/dev/null; then
+                                chmod 666 "${'$'}tz/policy" 2>/dev/null
+                                echo "user_space" > "${'$'}tz/policy" 2>/dev/null
+                            elif [ -f "${'$'}tz/available_policies" ] && grep -q "low_limits_floor" "${'$'}tz/available_policies" 2>/dev/null; then
+                                chmod 666 "${'$'}tz/policy" 2>/dev/null
+                                echo "low_limits_floor" > "${'$'}tz/policy" 2>/dev/null
+                            fi
+                            case "${'$'}tz_type" in
+                                mtkts*) ;;
+                                *)
+                                    if [ -f "${'$'}tz/mode" ]; then
+                                        chmod 666 "${'$'}tz/mode" 2>/dev/null
+                                        echo "disabled" > "${'$'}tz/mode" 2>/dev/null
+                                    fi
+                                    ;;
+                            esac
+                            for tp in "${'$'}tz"/trip_point_*_temp; do
+                                if [ -f "${'$'}tp" ]; then
+                                    chmod 666 "${'$'}tp" 2>/dev/null
+                                    echo 99000 > "${'$'}tp" 2>/dev/null
+                                fi
+                            done
+                            ;;
+                    esac
+                done
+
+                # Universal Dynamic Power Supply BMS / JEITA Trip Point Expansion
+                for ps in /sys/class/power_supply/*; do
+                    [ -d "${'$'}ps" ] || continue
+                    case "${'$'}ps" in
+                        */pc_port) continue ;;
+                    esac
+                    [ -f "${'$'}ps/temp_warm" ] && chmod 666 "${'$'}ps/temp_warm" 2>/dev/null && echo 650 > "${'$'}ps/temp_warm" 2>/dev/null
+                    [ -f "${'$'}ps/temp_hot" ] && chmod 666 "${'$'}ps/temp_hot" 2>/dev/null && echo 750 > "${'$'}ps/temp_hot" 2>/dev/null
+                    [ -f "${'$'}ps/temp_cool" ] && chmod 666 "${'$'}ps/temp_cool" 2>/dev/null && echo 50 > "${'$'}ps/temp_cool" 2>/dev/null
+                    [ -f "${'$'}ps/temp_cold" ] && chmod 666 "${'$'}ps/temp_cold" 2>/dev/null && echo 0 > "${'$'}ps/temp_cold" 2>/dev/null
+                    [ -f "${'$'}ps/system_temp_level" ] && chmod 666 "${'$'}ps/system_temp_level" 2>/dev/null && echo 0 > "${'$'}ps/system_temp_level" 2>/dev/null
+                    [ -f "${'$'}ps/temp_state" ] && chmod 666 "${'$'}ps/temp_state" 2>/dev/null && echo 0 > "${'$'}ps/temp_state" 2>/dev/null
+                    [ -f "${'$'}ps/thermal_input_current_limit" ] && chmod 666 "${'$'}ps/thermal_input_current_limit" 2>/dev/null && echo -1 > "${'$'}ps/thermal_input_current_limit" 2>/dev/null
+                    [ -f "${'$'}ps/step_charging_enabled" ] && chmod 666 "${'$'}ps/step_charging_enabled" 2>/dev/null && echo 0 > "${'$'}ps/step_charging_enabled" 2>/dev/null
+                    [ -f "${'$'}ps/sw_jeita_enabled" ] && chmod 666 "${'$'}ps/sw_jeita_enabled" 2>/dev/null && echo 0 > "${'$'}ps/sw_jeita_enabled" 2>/dev/null
+                    [ -f "${'$'}ps/restricted_charging" ] && chmod 666 "${'$'}ps/restricted_charging" 2>/dev/null && echo 0 > "${'$'}ps/restricted_charging" 2>/dev/null
+                    [ -f "${'$'}ps/restrict_cur" ] && chmod 666 "${'$'}ps/restrict_cur" 2>/dev/null && echo "${'$'}qcom_ma" > "${'$'}ps/restrict_cur" 2>/dev/null
+                done
 
                 if [ -d /sys/class/qcom-battery ]; then
                     has_cp=0

@@ -221,6 +221,15 @@ impl ChargingRegulator {
             "night_charging",
             "smart_chg",
             "is_turbo_charging",
+            "temp_warm",
+            "temp_hot",
+            "temp_cool",
+            "temp_cold",
+            "sw_jeita_enabled",
+            "restricted_charging",
+            "restrict_cur",
+            "jeita_charge_current_limit",
+            "jeita_charge_voltage_limit",
         ];
 
         if let Ok(entries) = fs::read_dir(PS_DIR) {
@@ -1131,8 +1140,9 @@ impl ChargingRegulator {
         }
     }
 
-    /// Proactively scans all thermal cooling devices and forces battery / charger cooling
-    /// devices to cur_state 0 (locked via 0444) to neutralize OEM thermal-engine throttling.
+    /// Proactively scans all thermal cooling devices, thermal zones, and power supply BMS nodes.
+    /// Dynamically neutralizes kernel governor throttling (switching step_wise to user_space where supported),
+    /// freezes battery cooling devices to cur_state 0 (locked via 0444), and elevates BMS JEITA thresholds across any Android SoC.
     pub fn neutralise_battery_cooling_devices() {
         if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
             for entry in entries.flatten() {
@@ -1151,6 +1161,101 @@ impl ChargingRegulator {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::write_node_lock(&cur_path, "0");
                         }
+                    }
+                } else if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("battery")
+                            || t_lower.contains("bms")
+                            || t_lower.contains("charger")
+                            || t_lower.contains("pmic")
+                            || t_lower.contains("pm660")
+                            || t_lower.contains("smb")
+                            || t_lower.contains("quiet-therm")
+                            || t_lower.contains("mtktsbattery")
+                            || t_lower.contains("mtktsap")
+                        {
+                            // A. Dynamic Thermal Governor Neutralization (step_wise -> user_space)
+                            let avail_path = format!("/sys/class/thermal/{}/available_policies", name_str);
+                            let policy_path = format!("/sys/class/thermal/{}/policy", name_str);
+                            if let Ok(avail) = fs::read_to_string(&avail_path) {
+                                if avail.contains("user_space") {
+                                    Self::write_node_lock(&policy_path, "user_space");
+                                } else if avail.contains("low_limits_floor") {
+                                    Self::write_node_lock(&policy_path, "low_limits_floor");
+                                }
+                            }
+
+                            // B. Safely disable mode if present and non-MTK (prevents MTK unbind panics)
+                            if !t_lower.starts_with("mtkts") {
+                                let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
+                                if Path::new(&mode_path).exists() {
+                                    Self::write_node_lock(&mode_path, "disabled");
+                                }
+                            }
+
+                            // C. Elevate trip points dynamically if present
+                            for trip_idx in 0..10 {
+                                let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);
+                                if Path::new(&trip_path).exists() {
+                                    Self::write_node_lock(&trip_path, "99000");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Dynamically scan all power_supply devices and elevate BMS JEITA temperature trip points
+        if let Ok(entries) = fs::read_dir(PS_DIR) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let dir_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if dir_name == "pc_port" {
+                        continue;
+                    }
+                    let warm_path = p.join("temp_warm");
+                    if warm_path.exists() {
+                        Self::write_node_lock(&warm_path.to_string_lossy(), "650");
+                    }
+                    let hot_path = p.join("temp_hot");
+                    if hot_path.exists() {
+                        Self::write_node_lock(&hot_path.to_string_lossy(), "750");
+                    }
+                    let cool_path = p.join("temp_cool");
+                    if cool_path.exists() {
+                        Self::write_node_lock(&cool_path.to_string_lossy(), "50");
+                    }
+                    let cold_path = p.join("temp_cold");
+                    if cold_path.exists() {
+                        Self::write_node_lock(&cold_path.to_string_lossy(), "0");
+                    }
+                    let sys_temp = p.join("system_temp_level");
+                    if sys_temp.exists() {
+                        Self::write_node_lock(&sys_temp.to_string_lossy(), "0");
+                    }
+                    let temp_st = p.join("temp_state");
+                    if temp_st.exists() {
+                        Self::write_node_lock(&temp_st.to_string_lossy(), "0");
+                    }
+                    let th_lim = p.join("thermal_input_current_limit");
+                    if th_lim.exists() {
+                        Self::write_node_lock(&th_lim.to_string_lossy(), "-1");
+                    }
+                    let step_chg = p.join("step_charging_enabled");
+                    if step_chg.exists() {
+                        Self::write_node_lock(&step_chg.to_string_lossy(), "0");
+                    }
+                    let sw_j = p.join("sw_jeita_enabled");
+                    if sw_j.exists() {
+                        Self::write_node_lock(&sw_j.to_string_lossy(), "0");
+                    }
+                    let rst_chg = p.join("restricted_charging");
+                    if rst_chg.exists() {
+                        Self::write_node_lock(&rst_chg.to_string_lossy(), "0");
                     }
                 }
             }
@@ -2102,11 +2207,23 @@ impl ChargingRegulator {
                 "thermal_input_current_limit" => {
                     Self::write_node_lock(&node, "-1");
                 }
-                "system_temp_level" | "temp_state" => {
+                "system_temp_level" | "temp_state" | "step_charging_enabled" | "sw_jeita_enabled" | "restricted_charging" => {
                     Self::write_node_lock(&node, "0");
                 }
-                "step_charging_enabled" => {
+                "temp_warm" => {
+                    Self::write_node_lock(&node, "650");
+                }
+                "temp_hot" => {
+                    Self::write_node_lock(&node, "750");
+                }
+                "temp_cool" => {
+                    Self::write_node_lock(&node, "50");
+                }
+                "temp_cold" => {
                     Self::write_node_lock(&node, "0");
+                }
+                "restrict_cur" => {
+                    Self::write_node_lock(&node, &effective_ma_str);
                 }
                 _ => {}
             }
@@ -2739,15 +2856,37 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower == "mtktsap" || t_lower == "battery" || t_lower == "mtktsbattery" {
-                            // On MTK, never set mode to disabled on mtkts* zones to prevent driver unbind panics.
+                        if t_lower.contains("battery")
+                            || t_lower.contains("bms")
+                            || t_lower.contains("charger")
+                            || t_lower.contains("pmic")
+                            || t_lower.contains("pm660")
+                            || t_lower.contains("smb")
+                            || t_lower.contains("quiet-therm")
+                            || t_lower.contains("mtktsbattery")
+                            || t_lower.contains("mtktsap")
+                        {
+                            // A. Dynamic Thermal Governor Neutralization (step_wise -> user_space)
+                            let avail_path = format!("/sys/class/thermal/{}/available_policies", name_str);
+                            let policy_path = format!("/sys/class/thermal/{}/policy", name_str);
+                            if let Ok(avail) = fs::read_to_string(&avail_path) {
+                                if avail.contains("user_space") {
+                                    Self::write_node_lock(&policy_path, "user_space");
+                                } else if avail.contains("low_limits_floor") {
+                                    Self::write_node_lock(&policy_path, "low_limits_floor");
+                                }
+                            }
+
+                            // B. Safely disable mode if present and non-MTK (prevents MTK unbind panics)
                             if !t_lower.starts_with("mtkts") {
                                 let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
                                 if Path::new(&mode_path).exists() {
                                     Self::write_node_lock(&mode_path, "disabled");
                                 }
                             }
-                            for trip_idx in 0..5 {
+
+                            // C. Elevate trip points dynamically if present
+                            for trip_idx in 0..10 {
                                 let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);
                                 if Path::new(&trip_path).exists() {
                                     Self::write_node_lock(&trip_path, "99000");
@@ -2787,12 +2926,34 @@ impl ChargingRegulator {
         Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
 
-        // Relax Qualcomm BMS / Battery JEITA temperature thresholds (Original Lynx AI Charging Controller)
-        let bms_dir = "/sys/class/power_supply/bms";
-        Self::write_node_lock(&format!("{}/temp_cool", bms_dir), "120");
-        Self::write_node_lock(&format!("{}/temp_hot", bms_dir), "650");
-        Self::write_node_lock(&format!("{}/temp_warm", bms_dir), "610");
-        Self::write_node_lock(&format!("{}/temp_cold", bms_dir), "0");
+        // Relax BMS / Battery JEITA temperature thresholds dynamically across any device
+        if let Ok(entries) = fs::read_dir(PS_DIR) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    let dir_name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if dir_name == "pc_port" {
+                        continue;
+                    }
+                    let warm_path = p.join("temp_warm");
+                    if warm_path.exists() {
+                        Self::write_node_lock(&warm_path.to_string_lossy(), "650");
+                    }
+                    let hot_path = p.join("temp_hot");
+                    if hot_path.exists() {
+                        Self::write_node_lock(&hot_path.to_string_lossy(), "750");
+                    }
+                    let cool_path = p.join("temp_cool");
+                    if cool_path.exists() {
+                        Self::write_node_lock(&cool_path.to_string_lossy(), "50");
+                    }
+                    let cold_path = p.join("temp_cold");
+                    if cold_path.exists() {
+                        Self::write_node_lock(&cold_path.to_string_lossy(), "0");
+                    }
+                }
+            }
+        }
 
         // Fast charge and power negotiation boost flags
         Self::write_node_lock("/sys/kernel/fast_charge/force_fast_charge", "1");

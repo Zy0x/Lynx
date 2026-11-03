@@ -1,3 +1,21 @@
+# Lynx Universal [Universal Dynamic Thermal Zone & BMS JEITA Bypass] 7.0.0-RC338
+Released on: 2026-11-04
+> Lynx Kernel Manager v3.3.62
+
+- **Implementasi Bypass Termal Universal & Dinamis Tanpa Hardcoding (*Universal Dynamic Thermal Zone & BMS JEITA Bypass*)**:
+  - **Netralisasi Dinamis Governor Thermal Zone Kernel (`/sys/class/thermal/thermal_zone*`)**:
+    - Menggantikan penulisan path statis dengan pemindaian dinamis berbasis pencocokan tipe (`battery`, `bms`, `charger`, `pmic`, `smb`, `quiet-therm`, `mtktsbattery`, dll.).
+    - Memeriksa ketersediaan policy (`available_policies`) secara cerdas: secara dinamis mengalihkan governor dari `step_wise` ke `user_space` (atau `low_limits_floor`), sehingga kernel tidak lagi mencekik (*throttle*) arus charging saat suhu baterai meningkat.
+    - Mengangkat batas trip point (`trip_point_*_temp`) ke nilai aman 99°C secara dinamis pada semua zone baterai/charger yang teridentifikasi, serta mematikan mode governor zona termal non-MTK (`mode -> disabled`).
+  - **Ekspansi Ambang Batas BMS JEITA & Reset Proteksi Pembatas Arus (`/sys/class/power_supply/*`)**:
+    - Memindai seluruh node power supply secara dinamis untuk memperluas ambang batas suhu JEITA: `temp_warm` (65°C), `temp_hot` (75°C), `temp_cool` (5°C), dan `temp_cold` (0°C).
+    - Mereset bendera pembatas pengisian otomatis: `system_temp_level -> 0`, `temp_state -> 0`, `thermal_input_current_limit -> -1`, `step_charging_enabled -> 0`, `sw_jeita_enabled -> 0`, `restricted_charging -> 0`, dan menyuntikkan batas arus maksimum pada `restrict_cur`.
+  - **Sinkronisasi Ganda (Native Rust `lynxd` & Kotlin Companion Script)**:
+    - Logika diterapkan identik pada daemon performa tinggi `native/lynxd/src/hardware/charging.rs` (`neutralise_battery_cooling_devices` & `apply_extreme_charging`) serta skrip eksekusi shell root `ExtremeChargingScript.kt`.
+    - Menjamin portabilitas 100% di semua SoC Android (Snapdragon, MediaTek Dimensity/Helio, Exynos, Tensor) tanpa dependensi path node tertentu.
+
+---
+
 # Lynx Universal [Touch Master System Tap Visualizer & Multi-Touch Trails] 7.0.0-RC337
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.61
