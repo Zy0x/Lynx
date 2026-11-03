@@ -22,7 +22,6 @@ import com.noir.lynx.feature.hud.HudActionState
 import com.noir.lynx.feature.hud.data.*
 
 internal enum class HudBoostSubpage(val titleRes: Int) {
-    GameShift(R.string.hud_gameshift_title),
     Touch(R.string.hud_lab_touch_title),
     Network(R.string.hud_lab_network_title),
     Bypass(R.string.hud_lab_bypass_title)
@@ -53,7 +52,6 @@ internal fun HudLab(
 ) {
     if (selectedSubpage != null) {
         when (selectedSubpage) {
-            HudBoostSubpage.GameShift -> HudGameShiftControls()
             HudBoostSubpage.Touch -> HudTouchPage(
                 touchStatus = touchStatus,
                 busy = action.busy,
@@ -80,14 +78,6 @@ internal fun HudLab(
         ) {
             // 1. Daftar Akselerasi Performa Gaming (Full-Width Sleek Cards, Bebas Truncation)
             val boostCards = listOf(
-                BoostCardItem(
-                    subpage = HudBoostSubpage.GameShift,
-                    icon = Icons.Default.Bolt,
-                    title = hudString(R.string.hud_gameshift_title),
-                    subtitle = "Burst clock frekuensi & anti-drop FPS",
-                    badge = "Reaktif",
-                    accentColor = Color(0xFF00E5FF)
-                ),
                 BoostCardItem(
                     subpage = HudBoostSubpage.Touch,
                     icon = Icons.Default.TouchApp,

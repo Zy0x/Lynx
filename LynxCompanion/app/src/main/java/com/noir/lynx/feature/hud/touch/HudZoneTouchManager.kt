@@ -27,9 +27,6 @@ class HudZoneTouchManager(
     private val mutableSlop = MutableStateFlow(prefs.getInt("touch_slop_px", 2).coerceIn(1, 8))
     val touchSlop = mutableSlop.asStateFlow()
 
-    private val mutableEdgeDeadzone = MutableStateFlow(prefs.getInt("touch_edge_deadzone_dp", 12).coerceIn(0, 32))
-    val edgeDeadzone = mutableEdgeDeadzone.asStateFlow()
-
     init {
         applySettings()
     }
@@ -51,12 +48,6 @@ class HudZoneTouchManager(
         mutableSlop.value = clamped
         prefs.edit().putInt("touch_slop_px", clamped).apply()
         applySettings()
-    }
-
-    fun setEdgeDeadzone(deadzoneDp: Int) {
-        val clamped = deadzoneDp.coerceIn(0, 32)
-        mutableEdgeDeadzone.value = clamped
-        prefs.edit().putInt("touch_edge_deadzone_dp", clamped).apply()
     }
 
     private fun applySettings() {

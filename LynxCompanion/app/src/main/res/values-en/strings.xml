@@ -2245,12 +2245,11 @@
 
     <!-- ZoneTouch Master -->
     <string name="hud_zonetouch_title">ZoneTouch Master</string>
-    <string name="hud_zonetouch_desc">Hardware touch IC optimization, minimal touch slop (2px), and edge deadzones.</string>
+    <string name="hud_zonetouch_desc">Hardware touch IC optimization, minimal touch slop (2px), and input responsiveness.</string>
     <string name="hud_zonetouch_esports">Esports Full-Link Boost</string>
     <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
     <string name="hud_zonetouch_slop">Ultra-Sensitive (2px Slop)</string>
     <string name="hud_zonetouch_slop_desc">Detects finger movement at just 2 pixels for instant micro-aiming response.</string>
-    <string name="hud_zonetouch_deadzone">Screen Edge Deadzone: %1$d dp</string>
 
     <!-- TouchShare -->
     <string name="hud_touchshare_export">Copy Code</string>
@@ -2260,13 +2259,6 @@
     <string name="hud_touchshare_copied">Combo code copied to Clipboard!</string>
     <string name="hud_touchshare_success">Combo imported successfully!</string>
     <string name="hud_touchshare_invalid">Invalid combo code format!</string>
-
-    <!-- GameShift -->
-    <string name="hud_gameshift_title">GameShift Reactive Turbo</string>
-    <string name="hud_gameshift_desc">Instantly detects SurfaceFlinger frame drops and injects a 3.0s governor boost.</string>
-    <string name="hud_gameshift_toggle">GameShift Reactive Boost</string>
-    <string name="hud_gameshift_status">Status: %1$d jank spikes smoothed</string>
-
     <!-- Dual-Channel Network Turbo -->
     <string name="hud_net_turbo_title">Dual-Channel Network Turbo</string>
     <string name="hud_net_turbo_desc">Wi-Fi low latency lock, anti-sleep radio, scans throttled, and cellular on standby.</string>

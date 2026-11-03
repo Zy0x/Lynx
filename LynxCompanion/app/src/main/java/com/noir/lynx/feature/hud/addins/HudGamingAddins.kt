@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.noir.lynx.feature.hud.combo.HudComboManager
 import com.noir.lynx.feature.hud.touch.HudZoneTouchManager
-import com.noir.lynx.feature.hud.perf.HudGameShiftEngine
 import com.noir.lynx.feature.hud.network.HudNetworkStabilizer
 
 /** One HUD-owned session in :hud. UI never owns hardware or notification listeners. */
@@ -49,7 +48,6 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
     val magic = HudMagicBox(context, scope, prefs)
     val comboManager = HudComboManager(context, scope, prefs)
     val zoneTouch = HudZoneTouchManager(context, scope, prefs)
-    val gameShift = HudGameShiftEngine(context, scope, prefs)
     val networkTurbo = HudNetworkStabilizer(context, scope, prefs)
     private var wifiLock: WifiManager.WifiLock? = null
     private val mutableWifi = MutableStateFlow(false)
@@ -164,7 +162,6 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         previousDimensions = dimensions
         magic.update(pkg, hudOpen, dimensions.first, dimensions.second)
         comboManager.updateDimensions(pkg, hudOpen, dimensions.first, dimensions.second)
-        gameShift.updateForeground(pkg)
         if (context.getSystemService(PowerManager::class.java)?.isInteractive != true) {
             setWifiBoost(false)
             glowOverlay.close()
@@ -178,7 +175,6 @@ class HudGamingAddins(val context: Context, private val scope: CoroutineScope) {
         magic.stop()
         comboManager.stopExecution()
         networkTurbo.release()
-        gameShift.release()
         recorder.close()
         recordingIndicator.close()
         screenshotPreview.close()
