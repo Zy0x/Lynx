@@ -37,13 +37,7 @@ internal fun HudTools(
     onSnapshotScene: () -> Unit = {},
     sceneResult: GenshinSkipEngine.SceneSnapshotResult? = null,
     snapshot: HudSnapshot = HudSnapshot(),
-    bypassStatus: HudBypassStatus = HudBypassStatus(),
-    onToggleBypass: (Boolean) -> Unit = {},
-    onRefreshBypass: () -> Unit = {},
-    onProbeNetwork: suspend () -> HudNetworkSample = { HudNetworkSample() },
-    touchStatus: HudTouchStatus = HudTouchStatus(),
     shieldStatus: HudShieldStatus = HudShieldStatus(),
-    onToggleTouchBoost: (Boolean) -> Unit = {},
     onToggleHeadsUpShield: (Boolean) -> Unit = {},
     onSelectFocusLevel: (Int) -> Unit = {}
 ) {
@@ -92,62 +86,15 @@ internal fun HudTools(
             )
         } else {
             when (selectedPage) {
-                // 🎮 Alat Bermain (Gaming Add-ins)
-                HudToolPage.GameShift -> HudGameShiftControls()
+                // 🎮 Alat Bermain (Gaming Utilities)
                 HudToolPage.Focus -> HudFocusPage(
                     shieldStatus = shieldStatus,
                     busy = action.busy,
                     onToggleHeadsUpShield = onToggleHeadsUpShield,
                     onSelectFocusLevel = onSelectFocusLevel
                 )
-                HudToolPage.Touch -> HudTouchPage(
-                    touchStatus = touchStatus,
-                    busy = action.busy,
-                    onToggleTouchBoost = onToggleTouchBoost
-                )
-                HudToolPage.Network -> HudNetworkPage(onProbeNetwork = onProbeNetwork)
-                HudToolPage.Bypass -> HudBypassPage(
-                    snapshot = snapshot,
-                    bypassStatus = bypassStatus,
-                    busy = action.busy,
-                    onToggleBypass = onToggleBypass,
-                    onRefreshBypass = onRefreshBypass
-                )
                 HudToolPage.Combo -> HudComboControls()
                 HudToolPage.Recorder -> HudRecorderControls()
-                HudToolPage.Console -> HudConsoleControls(
-                    brightnessLocked = brightnessLocked,
-                    onBrightness = onToggleBrightnessLock
-                )
-                HudToolPage.Session -> HudSessionControls(snapshot = snapshot)
-
-                // ⚙️ Alat Sistem (System & Display Tools)
-                HudToolPage.Display -> {
-                    HudToolDisplay(rates, activeHz, action, onHz, brightnessLocked, onToggleBrightnessLock)
-                }
-                HudToolPage.Overlay -> {
-                    HudSubpages(listOf(R.string.hud_mini_title, R.string.hud_floating_short)) { section ->
-                        if (section == 0) {
-                            HudExpandableSection(
-                                title = hudString(R.string.hud_mini_title),
-                                detail = hudString(R.string.hud_selected_count, prefs.selected.size),
-                                initiallyOpen = false
-                            ) {
-                                HudMetricSelection(prefs, store, showPin = false)
-                            }
-                        } else {
-                            HudExpandableSection(
-                                title = hudString(R.string.hud_floating_short),
-                                detail = hudString(
-                                    if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
-                                ),
-                                initiallyOpen = false
-                            ) {
-                                HudFloatingSettings(prefs, store)
-                            }
-                        }
-                    }
-                }
                 HudToolPage.Automation -> {
                     HudSubpages(listOf(R.string.hud_detail_controls, R.string.hud_detail_options, R.string.hud_detail_diagnostics)) { section ->
                         if (section != 2) {
@@ -173,6 +120,39 @@ internal fun HudTools(
                         timerRemainingSec = seconds
                     }
                 }
+
+                // ⚙️ Alat Sistem & Kustomisasi (System Tools)
+                HudToolPage.Display -> {
+                    HudToolDisplay(rates, activeHz, action, onHz, brightnessLocked, onToggleBrightnessLock)
+                }
+                HudToolPage.Console -> HudConsoleControls(
+                    brightnessLocked = brightnessLocked,
+                    onBrightness = onToggleBrightnessLock
+                )
+                HudToolPage.Overlay -> {
+                    HudSubpages(listOf(R.string.hud_mini_title, R.string.hud_floating_short)) { section ->
+                        if (section == 0) {
+                            HudExpandableSection(
+                                title = hudString(R.string.hud_mini_title),
+                                detail = hudString(R.string.hud_selected_count, prefs.selected.size),
+                                initiallyOpen = false
+                            ) {
+                                HudMetricSelection(prefs, store, showPin = false)
+                            }
+                        } else {
+                            HudExpandableSection(
+                                title = hudString(R.string.hud_floating_short),
+                                detail = hudString(
+                                    if (prefs.floatingEngine == "standalone") R.string.floating_engine_root else R.string.floating_engine_rom
+                                ),
+                                initiallyOpen = false
+                            ) {
+                                HudFloatingSettings(prefs, store)
+                            }
+                        }
+                    }
+                }
+                HudToolPage.Session -> HudSessionControls(snapshot = snapshot)
             }
         }
     }

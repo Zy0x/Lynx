@@ -1,5 +1,6 @@
 package com.noir.lynx.feature.hud.ui
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -62,8 +63,10 @@ fun HudSidebar(
     var manageApps by rememberSaveable { mutableStateOf(false) }
     var toolPage by rememberSaveable { mutableStateOf<HudToolPage?>(null) }
     var monitorSubpage by rememberSaveable { mutableStateOf<HudMonitorSubpage?>(null) }
+    var boostSubpage by rememberSaveable { mutableStateOf<HudBoostSubpage?>(null) }
     val toolScrolls = HudToolPage.values().associateWith { rememberScrollState() }
     val monitorScrolls = HudMonitorSubpage.values().associateWith { rememberScrollState() }
+    val boostScrolls = remember { HudBoostSubpage.values().associateWith { ScrollState(0) } }
     val scrolls = HudPage.values().associateWith { rememberScrollState() }
     val pageState = rememberSaveableStateHolder()
     val context = LocalContext.current
@@ -100,13 +103,14 @@ fun HudSidebar(
                 manageApps -> hudString(R.string.hud_apps_manage)
                 page == HudPage.Tools && toolPage != null -> hudString(toolPage!!.title)
                 page == HudPage.Details && monitorSubpage != null -> hudString(monitorSubpage!!.titleRes)
+                page == HudPage.Lab && boostSubpage != null -> hudString(boostSubpage!!.titleRes)
                 page == HudPage.Summary -> appLabel
                 else -> hudString(page.label)
             }
             HudPanelShell(
                 viewport = viewport, dockRight = dockRight, page = page, title = title,
                 snapshot = snapshot, action = action, bypassActive = bypassStatus.enabled || bypassStatus.active,
-                canNavigateBack = manageApps || page != HudPage.Summary || monitorSubpage != null,
+                canNavigateBack = manageApps || page != HudPage.Summary || monitorSubpage != null || toolPage != null || boostSubpage != null,
                 appDock = if (!manageApps) {
                     {
                         HudAppDock(
@@ -122,6 +126,7 @@ fun HudSidebar(
                         manageApps -> manageApps = false
                         page == HudPage.Tools && toolPage != null -> toolPage = null
                         page == HudPage.Details && monitorSubpage != null -> monitorSubpage = null
+                        page == HudPage.Lab && boostSubpage != null -> boostSubpage = null
                         else -> page = HudPage.Summary
                     }
                 },
@@ -129,6 +134,7 @@ fun HudSidebar(
                     manageApps = false
                     toolPage = null
                     monitorSubpage = null
+                    boostSubpage = null
                     page = it
                 },
                 onClose = { onOpen(false) }
@@ -146,6 +152,7 @@ fun HudSidebar(
                     val scroll = when {
                         page == HudPage.Tools && toolPage != null -> toolScrolls.getValue(toolPage!!)
                         page == HudPage.Details && monitorSubpage != null -> monitorScrolls.getValue(monitorSubpage!!)
+                        page == HudPage.Lab && boostSubpage != null -> boostScrolls.getValue(boostSubpage!!)
                         else -> scrolls.getValue(page)
                     }
                     CompositionLocalProvider(LocalHudPageScroll provides scroll) {
@@ -164,8 +171,15 @@ fun HudSidebar(
                                 HudPage.Lab -> HudLab(
                                     snapshot = snapshot,
                                     action = action,
-                                    onProfile = onProfile,
-                                    onBoostRam = onBoostRam
+                                    selectedSubpage = boostSubpage,
+                                    onSelectSubpage = { boostSubpage = it },
+                                    onBoostRam = onBoostRam,
+                                    bypassStatus = bypassStatus,
+                                    onToggleBypass = onToggleBypass,
+                                    onRefreshBypass = onRefreshBypass,
+                                    onProbeNetwork = onProbeNetwork,
+                                    touchStatus = touchStatus,
+                                    onToggleTouchBoost = onToggleTouchBoost
                                 )
                                 HudPage.Tools -> HudTools(
                                     selectedPage = toolPage,
@@ -189,13 +203,7 @@ fun HudSidebar(
                                     onSnapshotScene = onSnapshotScene,
                                     sceneResult = sceneResult,
                                     snapshot = snapshot,
-                                    bypassStatus = bypassStatus,
-                                    onToggleBypass = onToggleBypass,
-                                    onRefreshBypass = onRefreshBypass,
-                                    onProbeNetwork = onProbeNetwork,
-                                    touchStatus = touchStatus,
                                     shieldStatus = shieldStatus,
-                                    onToggleTouchBoost = onToggleTouchBoost,
                                     onToggleHeadsUpShield = onToggleHeadsUpShield,
                                     onSelectFocusLevel = onSelectFocusLevel
                                 )

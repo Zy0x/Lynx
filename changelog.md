@@ -1,3 +1,25 @@
+# Lynx Universal [Tab Boost & Tools Architectural Restructuring] 7.0.0-RC329
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.54
+
+- **Perombakan Arsitektural Menyeluruh Tab Boost (*Hardware Performance Engine*) & Tab Alat (*Gaming Utility Toolbox*)**:
+  - **Pemisahan Tegas Antara Akselerasi Mesin & Fitur Pembantu**:
+    - **Tab Boost (`HudLab.kt`)**: Dikhususkan 100% untuk akselerasi performa kernel, input, jaringan, dan proteksi termal.
+      1. Menghilangkan kartu pemilih profil performa (Hemat, Seimbang, Kinerja, Ekstrem) yang sebelumnya redundan karena sudah menjadi fokus utama di Tab Ringkasan.
+      2. Menghilangkan seksi Thermal & Headroom yang redundan karena seluruh telemetri suhu CPU, GPU, Baterai, dan SoC telah dipantau secara detail di setiap kartu Tab Monitor.
+      3. Memindahkan seluruh fitur akselerasi gaming dari Tab Alat ke Tab Boost:
+         - ⚡ **GameShift Turbo**: Reaktif Burst Clock frekuensi CPU/GPU & Anti-Drop FPS.
+         - 👆 **Touch Master**: Akselerasi Sampling Rate Layar (240Hz/480Hz) & Prioritas Interupsi Sentuhan di Governor.
+         - 📶 **Jaringan Game**: *Wi-Fi Low-Latency Mode* (`WIFI_MODE_FULL_LOW_LATENCY`) & Prioritas Paket Game di Kernel.
+         - 🔌 **Bypass Charging**: Pasokan daya langsung ke motherboard (Anti-Overheat baterai & bebas *thermal throttling*).
+      4. Tampilan utama bersih dan rapi (*glanceable 2x2 grid*): tidak langsung dibuka penuh, melainkan membuka sub-halaman kontrol mendalam saat masing-masing kartu ditekan (`HudBoostSubpage`), lengkap dengan navigasi tombol kembali (*back arrow*) terintegrasi di header HUD.
+      5. Menjaga modul Booster Memori Fisik & Cache Kernel tetap terfokus di bagian bawah Tab Boost.
+    - **Tab Alat (`HudTools.kt` & `HudToolNavigation.kt`)**: Kini murni berstatus sebagai *Toolbox Asisten & Utilitas*:
+      1. **Alat Bermain (Gaming Utilities)**: Mode Fokus (DND/Heads-Up Shield), Kombo Makro (Magic Box), Perekam Layar (Gameplay Recorder), Otomasi Dialog (Auto Skip), dan Pengatur Waktu (Timer Cooldown).
+      2. **Alat Sistem & Kustomisasi**: Tampilan & Refresh Rate (Display Hz), Kunci Kecerahan Layar (Console), Kustomisasi Overlay Mini, Statistik Sesi Bermain, dan Manajemen Aplikasi Melayang (*Floating Apps Hub*).
+
+---
+
 # Lynx Universal [Pemisahan Menyeluruh Pohon Pemulihan & Patch Perangkat Pribadi] 7.0.0-RC328
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.57
