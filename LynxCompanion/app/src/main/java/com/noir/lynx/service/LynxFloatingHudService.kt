@@ -756,7 +756,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     },
                     onApp = controller::launch,
                     onStop = { stopSelf() },
-                    onBoostRam = controller::boostRam,
+                    onBoostRam = { controller.boostRam(sample.packageName) },
                     dockRight = isDockRight,
                     bypassStatus = bypassStatus,
                     focusActive = focusActive,
@@ -816,7 +816,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                             open.value = true
                         } else controller.profile(profile)
                     },
-                    onBoostRam = controller::boostRam,
+                    onBoostRam = { controller.boostRam(sample.packageName) },
                     onCycleRefreshRate = {
                         val supportedRates = supported.ifEmpty { listOf(60f, 90f, 120f) }
                         val currentVal = hz.value.value?.toFloat() ?: 60f

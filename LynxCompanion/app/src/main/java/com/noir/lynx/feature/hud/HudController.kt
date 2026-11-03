@@ -383,7 +383,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     private var lastBoostRamTime = 0L
 
-    fun boostRam() {
+    fun boostRam(foregroundPkg: String? = null) {
         if (mutable.value.busy) return
         val now = android.os.SystemClock.elapsedRealtime()
         if (lastBoostRamTime > 0 && now - lastBoostRamTime < 15_000L) {
@@ -413,10 +413,14 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         scope.launch(Dispatchers.IO) {
             val before = readHudMeminfo()
             val path = File(context.applicationInfo.nativeLibraryDir, "liblynxhud.so").absolutePath
-            Shell.cmd("'$path' hud release-cache").exec()
-            // Direct kernel cache drop for thorough pagecache & slab cleanup
-            Shell.cmd("echo 3 > /proc/sys/vm/drop_caches").exec()
-            delay(350)
+            val targetPkg = foregroundPkg?.trim()?.ifBlank { null }
+            val cleanCmd = if (targetPkg != null) {
+                "'$path' memory clean '$targetPkg'"
+            } else {
+                "'$path' memory clean"
+            }
+            Shell.cmd(cleanCmd).exec()
+            delay(400)
             val after = readHudMeminfo()
 
             val freedKb = (after.availableKb - before.availableKb).coerceAtLeast(0L)

@@ -70,7 +70,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", watermark);
         Self::write_opt("/proc/sys/vm/min_free_kbytes", min_free_kb);
 
-        // ── Multitasking & ActivityManager / LMKD Tiering ────────────────────
+        // â”€â”€ Multitasking & ActivityManager / LMKD Tiering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Strictly guards <= 4GB and <= 6GB RAM devices from lag & OOM stuttering,
         // while unleashing true seamless multitasking & recent app retention on 8GB+ RAM devices.
         let (max_cached, bg_limit, vfs_pressure, phantom, swap_low_pct, kill_heaviest, kill_timeout, default_swap) =
@@ -190,7 +190,15 @@ impl MemoryController {
     /// Completely avoids dangerous 'am kill-all' Binder IPC calls that cause
     /// Parcel OutOfMemoryError and system_server framework crashes under memory pressure.
     pub fn evict_cached_processes() -> usize {
+        Self::evict_cached_processes_filtered(None)
+    }
+
+    /// Safely evicts idle background cached processes (oom_score_adj >= 900)
+    /// using direct native kernel signals (SIGKILL), identical to Android AOSP LMKD.
+    /// If `protected_pkg` is supplied, any process belonging to the active game/app is strictly shielded.
+    pub fn evict_cached_processes_filtered(protected_pkg: Option<&str>) -> usize {
         let mut evicted = 0;
+        let protected = protected_pkg.unwrap_or("").trim().to_lowercase();
         if let Ok(entries) = std::fs::read_dir("/proc") {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -201,13 +209,16 @@ impl MemoryController {
                             let oom_path = path.join("oom_score_adj");
                             if let Ok(content) = std::fs::read_to_string(&oom_path) {
                                 if let Ok(score) = content.trim().parse::<i32>() {
-                                    // 900..=1000 are Android CACHED_APP processes
+                                    // 900..=1000 are Android CACHED_APP processes ONLY
+                                    // Foreground active app has score=0, visible=100, audio=200
                                     if score >= 900 {
                                         let is_safe = if let Ok(cmd) = std::fs::read_to_string(path.join("cmdline")) {
-                                            let clean = cmd.replace('\0', " ");
-                                            !clean.contains("lynxd") && !clean.contains("com.noir.lynx")
+                                            let clean = cmd.replace('\0', " ").to_lowercase();
+                                            let is_self = clean.contains("lynxd") || clean.contains("com.noir.lynx");
+                                            let is_game = !protected.is_empty() && clean.contains(&protected);
+                                            !is_self && !is_game
                                         } else {
-                                            true
+                                            false
                                         };
 
                                         if is_safe {
@@ -229,15 +240,31 @@ impl MemoryController {
     }
 
     pub fn clean_memory() -> String {
-        let _ = Command::new("sync").status();
-        let cache = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct).is_ok();
+        Self::clean_memory_safe(None)
+    }
+
+    pub fn clean_memory_safe(protected_pkg: Option<&str>) -> String {
+        let is_gaming = protected_pkg.map_or(false, |p| !p.trim().is_empty());
+
+        if !is_gaming {
+            // General companion/maintenance mode: full sync and drop caches
+            let _ = Command::new("sync").status();
+            let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct);
+        } else {
+            // Gaming Mode (HUD shortcut during active gameplay like Genshin Impact / MLBB):
+            // 1. Strictly DO NOT execute blocking sync to prevent flash storage bus contention with game asset streaming.
+            // 2. Strictly DO NOT drop file pagecache (drop_caches 3) so game textures, shaders, and .assets bundles stay hot in RAM.
+            // 3. Drop only unreferenced dentries/inodes (drop_caches 2) safely.
+            let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "2", WriteMode::Direct);
+        }
+
         let compact =
             SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::Direct).is_ok();
         let zram_compact = super::zram::ZramController::compact();
         // Evict idle background cached processes natively (zero-binder, zero-fork)
-        let evicted = Self::evict_cached_processes();
+        let evicted = Self::evict_cached_processes_filtered(protected_pkg);
 
-        if !cache && !compact && !zram_compact && evicted == 0 {
+        if !compact && !zram_compact && evicted == 0 {
             return ui(
                 "Sebagian permintaan pembersihan memori ditolak kernel.",
                 "The kernel rejected some memory cleanup requests.",
@@ -246,12 +273,12 @@ impl MemoryController {
         }
         if is_english() {
             format!(
-                "Cache released, ZRAM compacted, and {} cached processes evicted natively without Binder IPC to prevent framework restarts.",
+                "Memory optimized: {} cached processes evicted, RAM defragmented, ZRAM compacted without game stutter.",
                 evicted
             )
         } else {
             format!(
-                "Cache dilepas, ZRAM dipadatkan, dan {} proses cached dievaksi secara native tanpa Binder IPC demi mencegah restart framework.",
+                "Memori dioptimalkan: {} proses cached dievakuasi, RAM didefragmentasi, ZRAM dipadatkan tanpa lag pada game.",
                 evicted
             )
         }

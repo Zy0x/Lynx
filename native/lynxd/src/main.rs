@@ -245,14 +245,14 @@ fn handle_status(json: bool) {
         println!("==================================================");
         println!("{}", ui("           STATUS SISTEM & DAEMON            ", "           LYNX SYSTEM & DAEMON STATUS            "));
         println!("==================================================");
-        println!("{}", ui("• Daemon Native:", "• Native Daemon:"));
+        println!("{}", ui("â€¢ Daemon Native:", "â€¢ Native Daemon:"));
         if let Some(pid) = daemon_pid {
             println!("  Running       : YES (PID: {})", pid);
             println!("  PID Lockfile  : {}", DaemonLifecycle::pid_file_path().display());
         } else {
             println!("{}", ui("  Berjalan      : TIDAK (Berhenti)", "  Running       : NO (Stopped)"));
         }
-        println!("{}", ui("• Mesin Profil:", "• Profile Engine:"));
+        println!("{}", ui("â€¢ Mesin Profil:", "â€¢ Profile Engine:"));
         println!("{}: {}", ui("  Profil Aktif", "  Active Profile"), active_profile);
         println!(
             "{}: {} ({})",
@@ -261,11 +261,11 @@ fn handle_status(json: bool) {
             if is_dirty { ui("KOTOR - Terputus", "DIRTY - Interrupted") } else { ui("Bersih", "Clean") }
         );
         println!("  Platform      : {}", device_platform);
-        println!("{}", ui("• Pengendali Adaptif Runtime:", "• Runtime Adaptive Controller:"));
+        println!("{}", ui("â€¢ Pengendali Adaptif Runtime:", "â€¢ Runtime Adaptive Controller:"));
         println!("{}: {} ({})", ui("  Modifier", "  Modifier"), modifier, modifier_desc);
         println!("{}: {}", ui("  Aplikasi Depan", "  Foreground App"), fg_app);
-        println!("{}", ui("• Telemetri & Kesehatan Sistem:", "• System Telemetry & Health:"));
-        println!("{}: {:.1}°C", ui("  Suhu", "  Temperature"), temp_c);
+        println!("{}", ui("â€¢ Telemetri & Kesehatan Sistem:", "â€¢ System Telemetry & Health:"));
+        println!("{}: {:.1}Â°C", ui("  Suhu", "  Temperature"), temp_c);
         println!("{}: {}%", ui("  Level Baterai", "  Battery Level"), bat_pct);
         println!(
             "{}: CPU({}) GPU({}) {}({}) Mem({})",
@@ -283,11 +283,11 @@ fn handle_status(json: bool) {
 fn handle_profile_list() {
     println!("{}", ui("Profil Kebijakan Performa yang Tersedia:", "Available Performance Policy Profiles:"));
     for p in list_profiles() {
-        println!("  • {:<12} : {}", p.name, p.description);
+        println!("  â€¢ {:<12} : {}", p.name, p.description);
     }
     for profile in user_catalog::read_catalog() {
         if !matches!(profile.id.as_str(), "auto" | "balance" | "performance" | "extreme" | "powersave") {
-            println!("  • {:<12} : {} (adaptif; basis {})", profile.id, profile.name, profile.base_profile);
+            println!("  â€¢ {:<12} : {} (adaptif; basis {})", profile.id, profile.name, profile.base_profile);
         }
     }
 }
@@ -385,19 +385,19 @@ fn handle_profile_current() {
         Ok(Some(state)) => {
             let snap_count = ProfileStateManager::load_snapshot().map(|s| s.len()).unwrap_or(0);
             println!("{}", ui("Status Persisten Profil Aktif:", "Active Profile Persistent Status:"));
-            println!("  • {}: {}", ui("Profil Saat Ini", "Current Profile"), state.active_profile);
-            println!("  • {}: {}", ui("Epoch Penerapan", "Applied Epoch"), state.timestamp);
-            println!("  • {}: {}", ui("Platform Perangkat", "Device Platform"), state.device);
-            println!("  • {}: {}", ui("Status Siklus", "Lifecycle Status"), state.status);
+            println!("  â€¢ {}: {}", ui("Profil Saat Ini", "Current Profile"), state.active_profile);
+            println!("  â€¢ {}: {}", ui("Epoch Penerapan", "Applied Epoch"), state.timestamp);
+            println!("  â€¢ {}: {}", ui("Platform Perangkat", "Device Platform"), state.device);
+            println!("  â€¢ {}: {}", ui("Status Siklus", "Lifecycle Status"), state.status);
             println!(
-                "  • Crash Recovery  : {}",
+                "  â€¢ Crash Recovery  : {}",
                 if state.dirty {
                     ui("KOTOR (Transaksi terputus terdeteksi!)", "DIRTY (Interrupted transaction detected!)")
                 } else {
                     ui("BERSIH (Transaksi berhasil diselesaikan)", "CLEAN (Transaction fully committed)")
                 }
             );
-            println!("  • {}: {} {} last_snapshot.json", ui("Cadangan Snapshot", "Snapshot Backup"), snap_count, ui("node tercatat di", "nodes recorded in"));
+            println!("  â€¢ {}: {} {} last_snapshot.json", ui("Cadangan Snapshot", "Snapshot Backup"), snap_count, ui("node tercatat di", "nodes recorded in"));
         }
         Ok(None) => {
             println!("{}", ui("Status Persisten Profil Aktif: Belum ada profil aktif (setelan dasar OEM).", "Active Profile Persistent Status: No active profile recorded yet (OEM baseline)."));
@@ -414,18 +414,18 @@ fn handle_profile_revert() {
     match ProfileStateManager::revert() {
         Ok(report) => {
             println!("{}", ui("Laporan Pemulihan Status Hardware:", "Hardware State Revert Report:"));
-            println!("  • {}: {} {}", ui("Node Dipulihkan", "Restored Nodes"), report.restored_nodes.len(), ui("node", "nodes"));
+            println!("  â€¢ {}: {} {}", ui("Node Dipulihkan", "Restored Nodes"), report.restored_nodes.len(), ui("node", "nodes"));
             for (idx, (path, val)) in report.restored_nodes.iter().enumerate() {
-                println!("      [{}] {} ──> '{}'", idx + 1, path.display(), val);
+                println!("      [{}] {} â”€â”€> '{}'", idx + 1, path.display(), val);
             }
             if !report.skipped_nodes.is_empty() {
-                println!("  • {}: {} {} ({})", ui("Node Dilewati", "Skipped Nodes"), report.skipped_nodes.len(), ui("node", "nodes"), ui("tidak ada/offline", "non-existent/offline"));
+                println!("  â€¢ {}: {} {} ({})", ui("Node Dilewati", "Skipped Nodes"), report.skipped_nodes.len(), ui("node", "nodes"), ui("tidak ada/offline", "non-existent/offline"));
                 for (path, _) in &report.skipped_nodes {
                     println!("      [-] {}", path.display());
                 }
             }
             println!(
-                "  • Latency        : {} µs ({:.2} ms)",
+                "  â€¢ Latency        : {} Âµs ({:.2} ms)",
                 report.elapsed_micros,
                 report.elapsed_micros as f64 / 1000.0
             );
@@ -531,8 +531,8 @@ fn handle_daemon_status() {
     match DaemonLifecycle::check_status() {
         Some(pid) => {
             println!("{}", ui("Status Daemon Lynx: BERJALAN", "Lynx Daemon Status: RUNNING"));
-            println!("  • {}: {}", ui("ID Proses", "Process ID"), pid);
-            println!("  • {}: {}", ui("File Kunci PID", "PID Lockfile"), DaemonLifecycle::pid_file_path().display());
+            println!("  â€¢ {}: {}", ui("ID Proses", "Process ID"), pid);
+            println!("  â€¢ {}: {}", ui("File Kunci PID", "PID Lockfile"), DaemonLifecycle::pid_file_path().display());
         }
         None => {
             println!("{}", ui("Status Daemon Lynx: BERHENTI (Tidak ada proses latar aktif)", "Lynx Daemon Status: STOPPED (No active background process)"));
@@ -557,12 +557,12 @@ fn handle_daemon_stop() {
 fn handle_probe() {
     let (vendor, board) = ScoreBoard::evaluate();
     log_info!("Platform teridentifikasi: {}", "Identified Platform: {}", vendor);
-    println!("  • MTK Score   : {}", board.mtk_score);
-    println!("  • Qualcomm Score: {}", board.qcom_score);
+    println!("  â€¢ MTK Score   : {}", board.mtk_score);
+    println!("  â€¢ Qualcomm Score: {}", board.qcom_score);
     if !board.dt_compatible.is_empty() {
-        println!("  • DT Compatible : {}", board.dt_compatible);
+        println!("  â€¢ DT Compatible : {}", board.dt_compatible);
     }
-    println!("{}", ui("  • Sinyal Terdeteksi:", "  • Detected Signals:"));
+    println!("{}", ui("  â€¢ Sinyal Terdeteksi:", "  â€¢ Detected Signals:"));
     for sig in &board.detected_signals {
         println!("      [+] {}", sig);
     }
@@ -674,9 +674,9 @@ fn handle_benchmark() {
 
     println!("--------------------------------------------------");
     println!("{}", ui("Hasil Benchmark (Node Hardware Kernel Nyata):", "Benchmark Results (Real Kernel Hardware Nodes):"));
-    println!("  • Operations Executed : {}", read_count);
-    println!("  • Total Elapsed Time  : {} µs ({:.2} ms)", total_micros, total_elapsed.as_secs_f64() * 1000.0);
-    println!("  • Average Per-Node I/O: {} µs ({:.3} ms)", avg_micros, avg_micros as f64 / 1000.0);
+    println!("  â€¢ Operations Executed : {}", read_count);
+    println!("  â€¢ Total Elapsed Time  : {} Âµs ({:.2} ms)", total_micros, total_elapsed.as_secs_f64() * 1000.0);
+    println!("  â€¢ Average Per-Node I/O: {} Âµs ({:.3} ms)", avg_micros, avg_micros as f64 / 1000.0);
     println!("--------------------------------------------------");
 
     log_info!("Benchmark selesai dengan aman tanpa mengubah kernel.", "Benchmark completed safely without kernel mutations.");
@@ -902,17 +902,17 @@ fn handle_charging(args: &[String]) {
             let topology = ChargingRegulator::scan_charging_hardware_chips();
             let dynamic_nodes = ChargingRegulator::crawl_dynamic_power_supply_nodes();
             println!("{}", ui("=== TOPOLOGI PERANGKAT KERAS PENGISIAN LYNX ===", "=== LYNX CHARGING HARDWARE TOPOLOGY ==="));
-            println!("  • {}: {}", ui("Ringkasan Hardware", "Hardware Summary"), topology.summary);
+            println!("  â€¢ {}: {}", ui("Ringkasan Hardware", "Hardware Summary"), topology.summary);
             if let Some(buck) = &topology.primary_buck {
-                println!("  • {}: {}", ui("Primary Buck Converter", "Primary Buck Converter"), buck);
+                println!("  â€¢ {}: {}", ui("Primary Buck Converter", "Primary Buck Converter"), buck);
             }
             if !topology.charge_pumps.is_empty() {
-                println!("  • {}: {}", ui("Direct Charge Pump", "Direct Charge Pump"), topology.charge_pumps.join(", "));
+                println!("  â€¢ {}: {}", ui("Direct Charge Pump", "Direct Charge Pump"), topology.charge_pumps.join(", "));
             }
             if !topology.vendor_controllers.is_empty() {
-                println!("  • {}: {}", ui("Vendor Controller Engine", "Vendor Controller Engine"), topology.vendor_controllers.join(", "));
+                println!("  â€¢ {}: {}", ui("Vendor Controller Engine", "Vendor Controller Engine"), topology.vendor_controllers.join(", "));
             }
-            println!("  • {}: {}", ui("Node Sysfs Dinamis Terpindai", "Dynamic Sysfs Nodes Scanned"), dynamic_nodes.len());
+            println!("  â€¢ {}: {}", ui("Node Sysfs Dinamis Terpindai", "Dynamic Sysfs Nodes Scanned"), dynamic_nodes.len());
             for node in &dynamic_nodes {
                 println!("      - {}", node);
             }
@@ -1169,7 +1169,10 @@ fn main() {
             handle_status(json);
         }
         "hud" if args.get(2).map(String::as_str) == Some("stream") => hud::run(),
-        "hud" if args.get(2).map(String::as_str) == Some("release-cache") => hud::release_cache(),
+        "hud" if args.get(2).map(String::as_str) == Some("release-cache") => {
+            let pkg = args.get(3).map(String::as_str);
+            hud::release_cache(pkg);
+        }
         "telemetry" => {
             let pretty = args.iter().any(|a| a == "--pretty");
             handle_telemetry(pretty);
@@ -1490,7 +1493,8 @@ fn main() {
                     }
                 }
                 "clean" | "compact" | "ccleaner" => {
-                    println!("{}", MemoryController::clean_memory());
+                    let pkg = args.get(3).map(String::as_str);
+                    println!("{}", MemoryController::clean_memory_safe(pkg));
                 }
                 "vm-info" | "vm" => {
                     println!("{}", MemoryController::get_vm_tunables_json());

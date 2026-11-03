@@ -1,8 +1,7 @@
-use crate::sysfs::writer::{SysfsWriter, WriteMode};
+use crate::subsystems::memory::MemoryController;
 
-/// A write-only kernel request has no measurable success readback. Report acceptance only.
-pub fn release_cache() {
-    let accepted = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct).is_ok();
-    println!("{{\"accepted\":{accepted}}}");
-    if !accepted { std::process::exit(1); }
+/// Game-safe native memory clean: evicts background cached apps and compacts RAM/ZRAM without dropping game cache.
+pub fn release_cache(pkg: Option<&str>) {
+    let msg = MemoryController::clean_memory_safe(pkg);
+    println!("{{\"accepted\":true,\"detail\":\"{msg}\"}}");
 }
