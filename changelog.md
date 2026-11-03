@@ -1,3 +1,23 @@
+# Lynx Universal [Pemisahan Modul Sensor Infinix X698 ke Folder Khusus] 7.0.0-RC327
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.56
+
+- **Restorasi Kemurnian Arsitektur Universal Lynx & Isolasi Patch Sensor Infinix Note 11S**:
+  - **Prinsip Arsitektur**: Lynx dirancang sebagai modul root universal (Qualcomm Snapdragon & MediaTek). Seluruh patch khusus perangkat (*device-specific hardware quirks*) tidak boleh mengotori (*pollute*) alur inti instalasi, early boot hook, atau late service universal Lynx.
+  - **Tindakan Pemisahan (*Decoupling & Isolation*)**:
+    1. **Isolasi Penuh ke Direktori Lokal**: Seluruh kode sumber KPM (`infinix_sensor_hub.c`), biner KPM, modul mandiri (`module.prop`, `post-fs-data.sh`, `service.sh`, `sepolicy.rule`, `customize.sh`), skrip packaging ZIP, serta dokumentasi teknis lengkap telah dipindahkan secara bersih ke:
+       `archive/device_reference/infinix_note_11s_x698/sensor_fix/`
+    2. **Pembersihan Core Lynx**:
+       - `post-fs-data.sh`: Dikembalikan ke status murni POSIX sh Lynx awal (memverifikasi executable biner inti saja).
+       - `service.sh`: Menghapus blok modifikasi sysfs sensor MediaTek.
+       - `customize.sh`: Menghapus staging otomatis KPM sensor dan hook sensor ke `/data/adb/post-fs-data.d/`.
+       - `sepolicy.rule`: Menghapus aturan permissive dan akses `mtk_hal_sensors`.
+       - `platforms/mtk/system/vendor/etc/init/init.lynx_sensor.rc`: Dihapus secara permanen dari overlay vendor Lynx.
+       - `native/kpm/lynx_sensor_hub`: Dihapus dari pohon sumber KPM universal Lynx.
+    3. **Modul Mandiri Siap Pakai**: Berkas flashable ZIP mandiri `Infinix-X698-GSI-SensorFix-v1.0.0.zip` telah dibuat di folder referensi perangkat tersebut untuk dipasang secara terpisah bagi pengguna Infinix Note 11S yang membutuhkan perbaikan sensor pada ROM GSI.
+
+---
+
 # Lynx Universal [Sysfs 'subsystem' Symlink Trap Fix & Early Hook Staging] 7.0.0-RC326
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.55
