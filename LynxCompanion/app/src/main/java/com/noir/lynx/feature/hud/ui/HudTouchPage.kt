@@ -100,7 +100,10 @@ internal fun HudTouchPage(
                         }
                         Switch(
                             checked = touchStatus.enabled,
-                            onCheckedChange = { onToggleTouchBoost(it) },
+                            onCheckedChange = { isChecked ->
+                                onToggleTouchBoost(isChecked)
+                                zoneTouch?.setEsportsEnabled(isChecked)
+                            },
                             enabled = touchStatus.capability == HudCapability.READY && !busy,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
