@@ -54,6 +54,9 @@ test-results/
 # ── 5. Scratch, Device Recovery & Local Diagnostic Work ───────────────────
 scratch/
 Emergency_Recovery/
+twrp_x698_enhanced/
+archive/device_reference/infinix_note_11s_x698/
+scripts/
 tools/probes_archive/
 tests/live_probes_archive/
 tools/extreme_trial_*/

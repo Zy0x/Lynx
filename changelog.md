@@ -1,3 +1,18 @@
+# Lynx Universal [Pemisahan Menyeluruh Pohon Pemulihan & Patch Perangkat Pribadi] 7.0.0-RC328
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.57
+
+- **Pembersihan Mutlak Repositori Publik Lynx dari Seluruh Berkas Khusus Perangkat Pribadi**:
+  - **Prinsip Arsitektur Universal**: Repositori GitHub publik Lynx Universal wajib dijaga 100% murni, bebas dari dependensi perangkat personal, dump partisi mentah, toolkit unbrick darurat, dan pohon recovery TWRP/OrangeFox yang tidak relevan bagi modul hybrid universal.
+  - **Migrasi Penuh ke Repositori Mandiri Eksternal**:
+    - Seluruh pohon kerja pemulihan TWRP Enhanced (twrp_x698_enhanced/), modul mandiri perbaikan sensor GSI (archive/device_reference/infinix_note_11s_x698/), cadangan partisi darurat BROM/Fastboot (Emergency_Recovery/), dump boot image OEM (boot_a_backup.img, boot_b_backup.img, stock_boot_orig.img, vendor_boot_a_backup.img), biner sensor vendor (sensors.mt6781.so, libksensor.so), serta 30 skrip forensik & pengujian pemulihan telah dipindahkan secara bersih dan permanen ke:
+      E:\Data\GitHub\Infinix Note 11s X689 Device Tree
+  - **Pembersihan Indeks Git & Perlindungan .gitignore**:
+    - Menghapus 241+ berkas perangkat pribadi dari Git index Lynx (git rm -r --cached).
+    - Memperbarui .gitignore dengan entri isolasi permanen (twrp_x698_enhanced/, archive/device_reference/infinix_note_11s_x698/, scripts/, Emergency_Recovery/) agar tidak pernah lagi tercampur ke dalam riwayat commit Lynx di GitHub.
+
+---
+
 # Lynx Universal [Pemisahan Modul Sensor Infinix X698 ke Folder Khusus] 7.0.0-RC327
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.56

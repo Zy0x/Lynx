@@ -1,6 +1,0 @@
-# Infinix Note 11S (X698 MT6781) - Sensor SELinux Permissions
-allow mtk_hal_sensors sysfs_sensor dir { read open search getattr }
-allow mtk_hal_sensors sysfs_sensor file { read write open getattr setattr ioctl }
-allow mtk_hal_sensors sysfs_sensor lnk_file { read open getattr }
-allow mtk_hal_sensors sensor_device chr_file { read write open getattr setattr ioctl }
-permissive mtk_hal_sensors

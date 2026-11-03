@@ -1,6 +1,0 @@
-id=infinix_x698_sensor_fix
-name=Infinix Note 11S (X698) GSI Sensor & Auto-Rotation Fix
-version=1.0.0
-versionCode=100
-author=ɴᴏɪʀ
-description=Fix hardware sensors (Accelerometer & Gyroscope LSM6DSM, Light, Orientation) and auto-rotation on Infinix Note 11S (MT6781 Helio G96) running AOSP/GSI Treble ROMs.
