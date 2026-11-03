@@ -1,3 +1,16 @@
+# Lynx Universal [Zero-Truncation Boost Cards & Banner Decoupling] 7.0.0-RC330
+Released on: 2026-11-03
+> Lynx Kernel Manager v3.3.55
+
+- **Pembersihan Banner Berlebih & Optimalisasi Keterbacaan Penuh Kartu Boost (*Zero Truncation*)**:
+  - **Penghapusan Banner "Lynx Deity Engine"**: Menghilangkan banner header yang memakan ruang vertikal dan berulang, sehingga Tab Boost langsung menyajikan kontrol performa yang terfokus dan bersih.
+  - **Eliminasi Total Masalah Teks Terpotong (*Zero Truncation*)**:
+    - Mengubah tata letak kartu tuning akselerasi gaming dari grid 2 kolom yang sempit menjadi kartu horizontal *full-width* berdesain ramping (*sleek full-width bento card*).
+    - Seluruh judul ("GameShift Turbo", "Touch Master", "Jaringan Game", "Bypass Charging") dan deskripsi fungsi kini terbaca 100% lengkap tanpa elipsis (`...`).
+    - Dilengkapi dengan *pill badge* status dinamis (Reaktif, Aktif, Low Latency, Siap) dan ikon *chevron* navigasi sub-halaman yang elegan dan ergonomis untuk disentuh.
+
+---
+
 # Lynx Universal [Tab Boost & Tools Architectural Restructuring] 7.0.0-RC329
 Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.54

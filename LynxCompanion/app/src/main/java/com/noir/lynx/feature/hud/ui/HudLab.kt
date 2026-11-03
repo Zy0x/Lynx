@@ -7,14 +7,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
@@ -34,6 +33,7 @@ private data class BoostCardItem(
     val icon: ImageVector,
     val title: String,
     val subtitle: String,
+    val badge: String,
     val accentColor: Color
 )
 
@@ -76,136 +76,55 @@ internal fun HudLab(
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 1. Engine & Active Mode Banner
-            Surface(
-                color = HudCard,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, HudCyan.copy(alpha = 0.25f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = HudCyan.copy(alpha = 0.12f),
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = HudCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Lynx Deity Engine",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Akselerasi Kernel & Hardware Gaming",
-                            fontSize = 11.sp,
-                            color = HudMuted
-                        )
-                    }
-                    val activeNorm = normalizeProfile(snapshot.profile)
-                    val activeColor = hudProfileColor(activeNorm)
-                    Surface(
-                        color = activeColor.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            activeColor.copy(alpha = 0.45f)
-                        )
-                    ) {
-                        Text(
-                            text = hudString(hudProfileLabel(activeNorm)),
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = activeColor,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
-
-            // 2. Akselerasi Performa Gaming (Section Header)
-            Text(
-                text = "AKSELERASI PERFORMA GAMING",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = HudMuted,
-                modifier = Modifier.padding(start = 2.dp, top = 2.dp)
-            )
-
+            // 1. Daftar Akselerasi Performa Gaming (Full-Width Sleek Cards, Bebas Truncation)
             val boostCards = listOf(
                 BoostCardItem(
                     subpage = HudBoostSubpage.GameShift,
                     icon = Icons.Default.Bolt,
                     title = hudString(R.string.hud_gameshift_title),
-                    subtitle = "Reaktif Burst Clock",
+                    subtitle = "Burst clock frekuensi & anti-drop FPS",
+                    badge = "Reaktif",
                     accentColor = Color(0xFF00E5FF)
                 ),
                 BoostCardItem(
                     subpage = HudBoostSubpage.Touch,
                     icon = Icons.Default.TouchApp,
                     title = hudString(R.string.hud_lab_touch_title),
-                    subtitle = if (touchStatus.enabled) "TouchBoost Aktif" else "Sampling 240/480Hz",
+                    subtitle = "Akselerasi sampling sentuhan layar",
+                    badge = if (touchStatus.enabled) "Aktif" else "Siap",
                     accentColor = Color(0xFF38BDF8)
                 ),
                 BoostCardItem(
                     subpage = HudBoostSubpage.Network,
                     icon = Icons.Default.NetworkCheck,
                     title = hudString(R.string.hud_lab_network_title),
-                    subtitle = "Low-Latency Wi-Fi",
+                    subtitle = "Wi-Fi low latency & prioritas paket",
+                    badge = "Low Latency",
                     accentColor = Color(0xFFFB923C)
                 ),
                 BoostCardItem(
                     subpage = HudBoostSubpage.Bypass,
                     icon = Icons.Default.BatteryChargingFull,
                     title = hudString(R.string.hud_lab_bypass_title),
-                    subtitle = if (bypassStatus.enabled || bypassStatus.active) "Direct Power Aktif" else "Anti-Overheat",
+                    subtitle = "Pasokan daya langsung tanpa panas baterai",
+                    badge = if (bypassStatus.enabled || bypassStatus.active) "Aktif" else "Siap",
                     accentColor = Color(0xFF00E676)
                 )
             )
 
-            // Render 2x2 Grid of Clean Cards
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                boostCards.chunked(2).forEach { rowCards ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowCards.forEach { card ->
-                            BoostEngineCard(
-                                card = card,
-                                onClick = { onSelectSubpage(card.subpage) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
+            boostCards.forEach { card ->
+                BoostEngineCard(
+                    card = card,
+                    onClick = { onSelectSubpage(card.subpage) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            // 3. Booster Memori & Cache Kernel
-            Text(
-                text = "BOOSTER MEMORI & CACHE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = HudMuted,
-                modifier = Modifier.padding(start = 2.dp, top = 4.dp)
-            )
+            Spacer(Modifier.height(2.dp))
+
+            // 2. Booster Memori & Cache Kernel
             HudSection(
                 title = hudString(R.string.hud_metric_ram),
                 badge = if (isCleaningRam) "⚡ CLEANING" else if (ram.status == "valid") "${ram.text()}%" else null,
@@ -266,27 +185,27 @@ private fun BoostEngineCard(
         shape = RoundedCornerShape(12.dp),
         color = HudCard,
         border = BorderStroke(1.dp, HudBorder),
-        modifier = modifier.heightIn(min = 68.dp)
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(9.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = card.accentColor.copy(alpha = 0.14f),
                 border = BorderStroke(0.8.dp, card.accentColor.copy(alpha = 0.45f)),
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = card.icon,
                         contentDescription = null,
                         tint = card.accentColor,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -296,24 +215,33 @@ private fun BoostEngineCard(
             ) {
                 Text(
                     text = card.title,
-                    fontSize = 11.5.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = Color.White
                 )
                 Text(
                     text = card.subtitle,
+                    fontSize = 10.5.sp,
+                    color = HudMuted
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = card.accentColor.copy(alpha = 0.14f),
+                border = BorderStroke(0.8.dp, card.accentColor.copy(alpha = 0.40f))
+            ) {
+                Text(
+                    text = card.badge,
                     fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = card.accentColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = "Buka",
-                tint = HudMuted.copy(alpha = 0.6f),
+                tint = HudMuted.copy(alpha = 0.7f),
                 modifier = Modifier.size(16.dp)
             )
         }
