@@ -1,27 +1,34 @@
 package com.noir.lynx.feature.hud.ui
 
+import android.content.res.Configuration
+import android.os.Build
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
-import android.os.Build
-import android.os.SystemClock
-import android.view.MotionEvent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -29,7 +36,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -61,11 +68,11 @@ internal fun HudTouchPage(
     var touchSample by remember { mutableStateOf(HudTouchSample()) }
     var activeTouchPoints by remember { mutableStateOf<List<TouchPointVisual>>(emptyList()) }
     var showTouchesEnabled by remember { mutableStateOf(false) }
+    var isScrollLocked by rememberSaveable { mutableStateOf(true) }
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current
-    val timestampsNano = remember { ArrayList<Long>(32) }
-    val pointerHistories = remember { HashMap<Int, ArrayList<Offset>>() }
-    var maxFingers by remember { mutableStateOf(0) }
 
     DisposableEffect(view) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -210,89 +217,144 @@ internal fun HudTouchPage(
                 accentColor = if ((touchSample.rateHz ?: 0) > 0) HudCyan else HudBlue,
                 info = "Pad Uji Sentuh Interaktif:\n\nSentuh, ketuk, atau geser beberapa jari bersamaan di dalam area pad untuk menguji responsivitas sampling layar (Hz), latensi interval (ms), dan kehalusan pelacakan posisi multi-touch secara real-time."
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Scroll Lock Toggle Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isScrollLocked) HudCyan.copy(alpha = 0.08f) else HudElevated)
+                            .border(
+                                width = 1.dp,
+                                color = if (isScrollLocked) HudCyan.copy(alpha = 0.35f) else HudBorder,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { isScrollLocked = !isScrollLocked }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isScrollLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                contentDescription = null,
+                                tint = if (isScrollLocked) HudCyan else HudOrange,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = if (isScrollLocked) "Kunci Halaman Saat Uji" else "Scroll Halaman Aktif",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = if (isScrollLocked)
+                                        "Gerakan sentuhan pad tidak akan menggeser halaman"
+                                    else
+                                        "Geser pad ke atas/bawah untuk menggulir halaman",
+                                    fontSize = 9.5.sp,
+                                    color = if (isScrollLocked) HudCyan.copy(alpha = 0.8f) else HudMuted
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isScrollLocked,
+                            onCheckedChange = { isScrollLocked = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = HudBlueBadge,
+                                uncheckedThumbColor = HudMuted,
+                                uncheckedTrackColor = HudCard
+                            ),
+                            modifier = Modifier.scale(0.8f)
+                        )
+                    }
+
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(175.dp)
-                            .pointerInteropFilter { motionEvent ->
-                                val action = motionEvent.actionMasked
-                                when (action) {
-                                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                                        view.parent?.requestDisallowInterceptTouchEvent(true)
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                                            view.requestUnbufferedDispatch(MotionEvent.ACTION_MOVE)
+                            .height(if (isLandscape) 135.dp else 170.dp)
+                            .pointerInput(isScrollLocked) {
+                                val timestampsNano = ArrayList<Long>(32)
+                                var maxFingersCount = 0
+                                val pointerHistories = HashMap<Long, ArrayList<Offset>>()
+
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val pressed = event.changes.filter { it.pressed }
+
+                                        if (isScrollLocked && pressed.isNotEmpty()) {
+                                            event.changes.forEach { it.consume() }
                                         }
-                                        if (action == MotionEvent.ACTION_DOWN) {
+
+                                        if (pressed.isEmpty()) {
                                             timestampsNano.clear()
+                                            pointerHistories.clear()
+                                            activeTouchPoints = emptyList()
+                                            if (touchSample.rateHz != null) {
+                                                touchSample = touchSample.copy(activeFingers = 0)
+                                            }
+                                            continue
+                                        }
+
+                                        if (pressed.size > maxFingersCount) {
+                                            maxFingersCount = pressed.size
+                                        }
+
+                                        val currentIds = pressed.map { it.id.value }.toSet()
+                                        pointerHistories.keys.retainAll(currentIds)
+
+                                        val visuals = ArrayList<TouchPointVisual>(pressed.size)
+                                        for (change in pressed) {
+                                            val id = change.id.value
+                                            val hist = pointerHistories.getOrPut(id) { ArrayList() }
+                                            for (h in change.historical) {
+                                                hist.add(h.position)
+                                            }
+                                            hist.add(change.position)
+                                            while (hist.size > 24) {
+                                                hist.removeAt(0)
+                                            }
+                                            visuals.add(TouchPointVisual(id, change.position, hist.toList()))
+                                        }
+                                        activeTouchPoints = visuals
+
+                                        val nowNano = SystemClock.elapsedRealtimeNanos()
+                                        val primary = pressed.first()
+                                        val histCount = primary.historical.size
+                                        if (histCount > 0) {
+                                            val prevNano = timestampsNano.lastOrNull() ?: (nowNano - (histCount * 5_000_000L))
+                                            val span = (nowNano - prevNano).coerceAtLeast(1_000_000L)
+                                            val step = span / (histCount + 1)
+                                            for (h in 0 until histCount) {
+                                                timestampsNano.add(prevNano + (h + 1) * step)
+                                            }
+                                        }
+                                        timestampsNano.add(nowNano)
+
+                                        while (timestampsNano.size > 32) {
+                                            timestampsNano.removeAt(0)
+                                        }
+
+                                        val deltas = ArrayList<Double>(timestampsNano.size)
+                                        for (i in 1 until timestampsNano.size) {
+                                            val dtMs = (timestampsNano[i] - timestampsNano[i - 1]) / 1_000_000.0
+                                            if (dtMs in 0.8..120.0) {
+                                                deltas.add(dtMs)
+                                            }
+                                        }
+
+                                        if (deltas.isNotEmpty() || pressed.isNotEmpty()) {
+                                            touchSample = computeTouchSampleMetrics(deltas, pressed.size, maxFingersCount)
                                         }
                                     }
                                 }
-
-                                val pointerCount = motionEvent.pointerCount
-                                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                                    view.parent?.requestDisallowInterceptTouchEvent(false)
-                                    timestampsNano.clear()
-                                    pointerHistories.clear()
-                                    activeTouchPoints = emptyList()
-                                    if (touchSample.rateHz != null) {
-                                        touchSample = touchSample.copy(activeFingers = 0)
-                                    }
-                                    return@pointerInteropFilter true
-                                }
-
-                                if (pointerCount > maxFingers) {
-                                    maxFingers = pointerCount
-                                }
-
-                                val activeIds = (0 until pointerCount).map { motionEvent.getPointerId(it) }.toSet()
-                                pointerHistories.keys.retainAll(activeIds)
-
-                                val visuals = ArrayList<TouchPointVisual>(pointerCount)
-                                val historySize = motionEvent.historySize
-                                for (i in 0 until pointerCount) {
-                                    val id = motionEvent.getPointerId(i)
-                                    val curPos = Offset(motionEvent.getX(i), motionEvent.getY(i))
-                                    val hist = pointerHistories.getOrPut(id) { ArrayList() }
-                                    for (h in 0 until historySize) {
-                                        hist.add(Offset(motionEvent.getHistoricalX(i, h), motionEvent.getHistoricalY(i, h)))
-                                    }
-                                    hist.add(curPos)
-                                    while (hist.size > 24) {
-                                        hist.removeAt(0)
-                                    }
-                                    visuals.add(TouchPointVisual(id.toLong(), curPos, hist.toList()))
-                                }
-                                activeTouchPoints = visuals
-
-                                val nowNano = SystemClock.elapsedRealtimeNanos()
-                                if (historySize > 0) {
-                                    val prevNano = timestampsNano.lastOrNull() ?: (nowNano - (historySize * 5_000_000L))
-                                    val span = (nowNano - prevNano).coerceAtLeast(1_000_000L)
-                                    val step = span / (historySize + 1)
-                                    for (h in 0 until historySize) {
-                                        timestampsNano.add(prevNano + (h + 1) * step)
-                                    }
-                                }
-                                timestampsNano.add(nowNano)
-
-                                while (timestampsNano.size > 32) {
-                                    timestampsNano.removeAt(0)
-                                }
-
-                                val deltas = ArrayList<Double>(timestampsNano.size)
-                                for (i in 1 until timestampsNano.size) {
-                                    val dtMs = (timestampsNano[i] - timestampsNano[i - 1]) / 1_000_000.0
-                                    if (dtMs in 0.8..120.0) {
-                                        deltas.add(dtMs)
-                                    }
-                                }
-
-                                if (deltas.isNotEmpty() || pointerCount > 0) {
-                                    touchSample = computeTouchSampleMetrics(deltas, pointerCount, maxFingers)
-                                }
-
-                                true
                             },
                         color = HudElevated,
                         shape = RoundedCornerShape(14.dp),

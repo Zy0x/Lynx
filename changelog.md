@@ -1,3 +1,19 @@
+# Lynx Universal [Touch Master Pad Scroll Lock & Orientation-Adaptive Isolation] 7.0.0-RC340
+Released on: 2026-11-04
+> Lynx Kernel Manager v3.3.64
+
+- **Isolasi Gestur Pad Sentuh & Saklar Kunci Scroll Halaman (*Pad Scroll Lock & Orientation-Adaptive Isolation*)**:
+  - **Saklar Kunci Scroll Halaman Interaktif (`HudTouchPage.kt`)**:
+    - Menambahkan bar saklar kontrol cepat *Kunci Halaman Saat Uji* tepat di atas kanvas uji sentuh.
+    - Saat **Kunci Scroll Aktif (Mode Uji Stabil)**: Semua gestur sapuan, ketukan, dan multi-touch di dalam pad dikonsumsi penuh (`change.consume()`), memastikan kanvas pad tetap diam dan stabil tanpa tergeser atau memicu scrolling vertikal secara tak sengaja.
+    - Saat **Scroll Halaman Aktif (Mode Gulir Bebas)**: Pengguna dapat menggeser pad ke atas/bawah untuk menggulir dan menavigasi seluruh subhalaman dengan bebas.
+    - Area di luar pad (seperti header section dan stat grid) tetap dapat digunakan untuk menggulir halaman kapan saja.
+  - **Tinggi Pad Responsif Orientasi Layar (*Orientation-Aware Layout*)**:
+    - Menyesuaikan tinggi pad secara otomatis: `170.dp` pada mode portrait dan `135.dp` pada mode landscape.
+    - Memberikan ruang pandang optimal sehingga grid statistik real-time (Rate Hz, Interval ms, Jumlah Jari) dan pad sentuh dapat terlihat bersamaan tanpa memerlukan scrolling berlebih pada mode layar mendatar/gaming.
+
+---
+
 # Lynx Universal [Unbuffered Direct Dispatch & Dynamic 250Hz Touch Master Optimization] 7.0.0-RC339
 Released on: 2026-11-04
 > Lynx Kernel Manager v3.3.63
