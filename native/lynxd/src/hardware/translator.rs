@@ -537,7 +537,7 @@ impl HardwareTranslator {
                     "extreme" => "120",
                     "performance" => "80",
                     "powersave" => "0",
-                    _ => "50",
+                    _ => "80",
                 };
                 let target_sched_boost_input = if is_powersave { "0" } else { "1" };
 
