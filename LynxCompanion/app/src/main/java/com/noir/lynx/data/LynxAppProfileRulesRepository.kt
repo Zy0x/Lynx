@@ -162,15 +162,28 @@ internal object LynxAppProfileRulesRepository {
             }
             val lines = perfPkgs.joinToString("\n")
 
-            // Single atomic batch execution instead of 6 individual shell calls
+            // Single atomic batch execution syncing all primary & secondary targets
             val script = buildString {
-                appendLine("mkdir -p '$primaryRulesDir' /data/adb/lynx 2>/dev/null")
+                appendLine("mkdir -p '$primaryRulesDir' /data/adb/lynx /data/adb/modules/Lynx/core 2>/dev/null")
                 appendLine("cat << 'EOF' > '$primaryRulesPath'\n$jsonStr\nEOF")
                 appendLine("chmod 666 '$primaryRulesPath' 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/lynx/app_rules.json\n$jsonStr\nEOF")
+                appendLine("chmod 666 /data/adb/lynx/app_rules.json 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/modules/Lynx/core/app_rules.json\n$jsonStr\nEOF")
+                appendLine("chmod 666 /data/adb/modules/Lynx/core/app_rules.json 2>/dev/null")
                 appendLine("cat << 'EOF' > /data/adb/lynx/app_rules.tsv\n$tsvLines\nEOF")
                 appendLine("chmod 666 /data/adb/lynx/app_rules.tsv 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/modules/Lynx/core/app_rules.tsv\n$tsvLines\nEOF")
+                appendLine("chmod 666 /data/adb/modules/Lynx/core/app_rules.tsv 2>/dev/null")
                 appendLine("cat << 'EOF' > /data/adb/lynx/applist_perf.txt\n$lines\nEOF")
                 appendLine("chmod 666 /data/adb/lynx/applist_perf.txt 2>/dev/null")
+                appendLine("cat << 'EOF' > /data/adb/modules/Lynx/core/applist_perf.txt\n$lines\nEOF")
+                appendLine("chmod 666 /data/adb/modules/Lynx/core/applist_perf.txt 2>/dev/null")
+                appendLine("ts=\$(date +%s%N 2>/dev/null || date +%s)")
+                appendLine("echo \"\$ts\" > /data/adb/lynx/reload_rules 2>/dev/null")
+                appendLine("echo \"\$ts\" > /data/adb/lynx/rules_version 2>/dev/null")
+                appendLine("echo \"\$ts\" > /data/adb/modules/Lynx/core/reload_rules 2>/dev/null")
+                appendLine("chmod 666 /data/adb/lynx/reload_rules /data/adb/lynx/rules_version 2>/dev/null")
                 appendLine("if [ -d '/storage/emulated/0/Lynx' ]; then")
                 appendLine("  cat << 'EOF' > '$LEGACY_APP_RULES_PATH'\n$jsonStr\nEOF")
                 appendLine("  chmod 666 '$LEGACY_APP_RULES_PATH' 2>/dev/null")
@@ -180,6 +193,7 @@ internal object LynxAppProfileRulesRepository {
             }
             Shell.cmd(script).exec()
 
+            cachedRules = sortedRules
             com.noir.lynx.service.LynxAppAutomationService.reloadRules()
             true
         } catch (e: Exception) {

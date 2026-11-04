@@ -182,7 +182,7 @@ import kotlinx.coroutines.flow.update
             val ok = LynxRepository.saveAppProfileRule(rule)
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Aturan profil untuk ${rule.appName} disimpan!") }
-                if (_uiState.value.isAppAutomationActive) {
+                if (_uiState.value.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
                     }
@@ -204,7 +204,7 @@ import kotlinx.coroutines.flow.update
             val ok = LynxRepository.deleteAppProfileRule(packageName)
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Aturan aplikasi dihapus") }
-                if (_uiState.value.isAppAutomationActive) {
+                if (_uiState.value.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
                     }
@@ -225,7 +225,7 @@ import kotlinx.coroutines.flow.update
         viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.toggleAppProfileRule(packageName, enabled)
             if (ok) {
-                if (_uiState.value.isAppAutomationActive) {
+                if (_uiState.value.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
                     }
@@ -242,7 +242,7 @@ import kotlinx.coroutines.flow.update
             val ok = LynxRepository.clearAllAppProfileRules()
             if (ok) {
                 _uiState.update { it.copy(successMessage = "Semua aturan profil aplikasi berhasil dihapus") }
-                if (_uiState.value.isAppAutomationActive) {
+                if (_uiState.value.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning) {
                     val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                         action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
                     }
@@ -264,7 +264,7 @@ import kotlinx.coroutines.flow.update
                 _uiState.update { it.copy(isScanningInstalledGames = false, appProfileRules = sorted) }
                 if (addedCount > 0) {
                     _uiState.update { it.copy(successMessage = "$addedCount game terpasang berhasil ditambahkan!") }
-                    if (_uiState.value.isAppAutomationActive) {
+                    if (_uiState.value.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning) {
                         val intent = android.content.Intent(context, com.noir.lynx.service.LynxAppAutomationService::class.java).apply {
                             action = com.noir.lynx.service.LynxAppAutomationService.ACTION_RELOAD_RULES
                         }

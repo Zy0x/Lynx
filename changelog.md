@@ -1,3 +1,22 @@
+# Lynx Universal [Sub-Second App Automation & Real-Time Profile Rule Sync] 7.0.0-RC342
+Released on: 2026-11-04
+> Lynx Kernel Manager v3.3.66
+
+- **Sinkronisasi Instan Aturan Profil & Otomasi Aplikasi Sub-Detik (*Sub-Second App Automation & Real-Time Sync*)**:
+  - **Penyelesaian Tuntas Konflik Timpa Berkas Aturan Stale**:
+    - Memperbaiki `RulesEngine::load_default_custom_lists()` di `native/lynxd`: mengurutkan berkas konfigurasi `app_rules.json` dan `app_rules.tsv` berdasarkan stempel waktu modifikasi (`mtime`) secara berurutan. Berkas konfigurasi yang baru diedit selalu dimuat paling akhir dan memiliki otoritas mutlak, melenyapkan bug di mana berkas lama tak terpakai di salah satu direktori menimpa aturan baru yang baru saja disimpan pengguna.
+    - Menghapus pembatasan `break` pada pemindaian `applist_perf.txt`: kini menggabungkan seluruh daftar aplikasi target dari semua lokasi (`/data/adb/lynx/`, `/data/adb/modules/Lynx/core/`, dan `/storage/emulated/0/Lynx/`) tanpa ada aplikasi kustom yang terlewat.
+  - **Pemicu Sinyal Instan Real-Time (`/data/adb/lynx/reload_rules`)**:
+    - Menambahkan sinyal pemicu *one-shot zero-delay* (`reload_rules` dan `rules_version`) di `ForegroundDetector` dan daemon loop `lynxd`.
+    - Ketika pengguna menambahkan aplikasi, mengubah profil target, atau memodifikasi setelan aplikasi di Lynx Companion (maupun via WebUI atau CLI), daemon mendeteksi perubahan dalam hitungan sub-detik (< 1.000 ms), seketika memuat ulang `RulesEngine`, dan mengosongkan cache klasifikasi (`self.cache.clear()`).
+  - **Sinkronisasi Atomik Multi-Target di Lynx Companion (`LynxAppProfileRulesRepository.kt`)**:
+    - Menyelaraskan seluruh berkas konfigurasi atomik secara paralel: `$primaryRulesPath`, `/data/adb/lynx/app_rules.json`, `/data/adb/modules/Lynx/core/app_rules.json`, `app_rules.tsv`, serta `applist_perf.txt`.
+    - Memastikan status aturan in-memory dan persistensi disk selalu 100% identik sehingga saat pengguna langsung beralih ke game yang baru dikonfigurasi, profil baru langsung aktif tanpa penundaan.
+  - **Subcommand CLI Baru `lynxd applist reload`**:
+    - Menambahkan perintah CLI `lynxd applist reload` (alias: `refresh`, `sync`) untuk memicu sinkronisasi manual kapan saja dari terminal atau Termux.
+
+---
+
 # Lynx Universal [MountX MicroSD Storage Acceleration & OEM IO-Manager Neutralization] 7.0.0-RC341
 Released on: 2026-11-04
 > Lynx Kernel Manager v3.3.65

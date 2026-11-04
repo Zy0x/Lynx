@@ -148,9 +148,16 @@ impl ForegroundDetector {
 
     fn probe_max_rules_mtime(&self) -> u64 {
         let candidates = [
+            "/data/adb/lynx/rules_version",
+            "/data/adb/lynx/reload_rules",
             "/data/adb/lynx/app_rules.json",
             "/data/adb/modules/Lynx/core/app_rules.json",
             "/data/adb/lynx/app_rules.tsv",
+            "/data/adb/modules/Lynx/core/app_rules.tsv",
+            "/data/adb/modules/Lynx/app_rules.tsv",
+            "/data/adb/lynx/applist_perf.txt",
+            "/data/adb/modules/Lynx/core/applist_perf.txt",
+            "/storage/emulated/0/Lynx/app_rules.json",
             "/storage/emulated/0/Lynx/applist_perf.txt",
         ];
         let mut max_mtime = 0u64;
@@ -171,9 +178,23 @@ impl ForegroundDetector {
     }
 
     fn check_and_reload_rules(&mut self) {
+        let trigger1 = std::path::Path::new("/data/adb/lynx/reload_rules");
+        let trigger2 = std::path::Path::new("/data/adb/modules/Lynx/core/reload_rules");
+        let force_trigger = trigger1.exists() || trigger2.exists();
+        if trigger1.exists() {
+            let _ = fs::remove_file(trigger1);
+        }
+        if trigger2.exists() {
+            let _ = fs::remove_file(trigger2);
+        }
+
         let current_max = self.probe_max_rules_mtime();
-        if current_max > self.last_rules_mtime {
-            if self.last_rules_mtime > 0 {
+        if force_trigger || current_max > self.last_rules_mtime {
+            if self.last_rules_mtime > 0 || force_trigger {
+                crate::utils::Logger::info(crate::subsystems::tui::ui(
+                    "[DAEMON] Aturan aplikasi diperbarui! Memuat ulang RulesEngine & membersihkan cache...",
+                    "[DAEMON] App profile rules updated! Reloading RulesEngine & purging cache..."
+                ));
                 self.rules = RulesEngine::new();
                 self.cache.clear();
             }

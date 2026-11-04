@@ -90,7 +90,7 @@ fn print_usage() {
         println!("  swap info|set|enable|disable|remove");
         println!("  maintenance run|status");
         println!("  system apply|wakeup-boost|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
-        println!("  applist list|add|remove|check     Kelola basis data aplikasi game dan target performa");
+        println!("  applist list|add|remove|check|reload Kelola basis data aplikasi game & picu reload instan");
         println!("  cluster topology|set-freq|lock|unlock|set-gov|set-schedutil-preset");
         println!("  gpu info|set-freq|set-gov|set-boost");
         println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
@@ -135,7 +135,7 @@ fn print_usage() {
     println!("  swap info|set|enable|disable|remove");
     println!("  maintenance run|status");
     println!("  system apply|wakeup-boost|boeffla-status|doze-info|set-doze|set-selinux|set-printk|top-wakelocks|log-export");
-    println!("  applist list|add|remove|check     Manage game & performance target app database");
+    println!("  applist list|add|remove|check|reload Manage game & performance target app database & trigger instant reload");
     println!("  cluster topology|set-freq|lock|unlock|set-gov|set-schedutil-preset");
     println!("  gpu info|set-freq|set-gov|set-boost");
     println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
@@ -1059,6 +1059,15 @@ fn handle_applist(args: &[String]) {
             } else {
                 log_error!("Cara pakai: lynxd applist check <package>", "Usage: lynxd applist check <package>");
                 std::process::exit(1);
+            }
+        }
+        "reload" | "refresh" | "sync" => {
+            match ApplistController::reload() {
+                Ok(msg) => println!("{}", msg),
+                Err(e) => {
+                    Logger::error(e);
+                    std::process::exit(1);
+                }
             }
         }
         other => {

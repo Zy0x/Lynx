@@ -54,10 +54,11 @@ impl RulesEngine {
 
     /// Loads custom target apps from user storage, module root, TSV rules, app_rules.json, and config.json.
     pub fn load_default_custom_lists(&mut self) {
+        // 1. Check all applist_perf.txt candidates and merge them (no early break)
         let candidates = [
-            "/storage/emulated/0/Lynx/applist_perf.txt",
-            "/data/adb/modules/Lynx/core/applist_perf.txt",
             "/data/adb/lynx/applist_perf.txt",
+            "/data/adb/modules/Lynx/core/applist_perf.txt",
+            "/storage/emulated/0/Lynx/applist_perf.txt",
             "./core/applist_perf.txt",
         ];
 
@@ -65,38 +66,55 @@ impl RulesEngine {
             let p = PathBuf::from(c);
             if p.exists() {
                 self.load_custom_file(&p);
-                break;
             }
         }
 
-        // Check app_rules.json (Per-App rules from Companion APK - highest priority)
+        // 2. Check app_rules.json: sort candidates by mtime ascending so the newest saved file takes precedence
         let json_candidates = [
             "/data/adb/modules/Lynx/core/app_rules.json",
             "/data/adb/lynx/app_rules.json",
             "/storage/emulated/0/Lynx/app_rules.json",
             "./core/app_rules.json",
         ];
+        let mut sorted_json: Vec<(u64, PathBuf)> = Vec::new();
         for &rule_path in &json_candidates {
             let p = PathBuf::from(rule_path);
             if p.exists() {
-                self.load_app_rules_json(&p);
+                let mtime = fs::metadata(&p)
+                    .and_then(|m| m.modified())
+                    .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64)
+                    .unwrap_or(0);
+                sorted_json.push((mtime, p));
             }
         }
+        sorted_json.sort_by_key(|(mtime, _)| *mtime);
+        for (_, p) in sorted_json {
+            self.load_app_rules_json(&p);
+        }
 
-        // Check app_rules.tsv (Per-App rules from Companion APK or manual config)
+        // 3. Check app_rules.tsv: sort candidates by mtime ascending as well
         let tsv_candidates = [
             "/data/adb/lynx/app_rules.tsv",
             "/data/adb/modules/Lynx/app_rules.tsv",
             "./app_rules.tsv",
         ];
+        let mut sorted_tsv: Vec<(u64, PathBuf)> = Vec::new();
         for &tsv in &tsv_candidates {
             let p = PathBuf::from(tsv);
             if p.exists() {
-                self.load_tsv_file(&p);
+                let mtime = fs::metadata(&p)
+                    .and_then(|m| m.modified())
+                    .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64)
+                    .unwrap_or(0);
+                sorted_tsv.push((mtime, p));
             }
         }
+        sorted_tsv.sort_by_key(|(mtime, _)| *mtime);
+        for (_, p) in sorted_tsv {
+            self.load_tsv_file(&p);
+        }
 
-        // Check custom_apps array inside config.json
+        // 4. Check custom_apps array inside config.json
         let cfg_candidates = [
             "/data/adb/modules/Lynx/config.json",
             "/data/adb/lynx/config.json",

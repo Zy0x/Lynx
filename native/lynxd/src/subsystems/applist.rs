@@ -71,6 +71,29 @@ impl ApplistController {
             if is_english() { format!("Failed to write applist: {}", e) }
             else { format!("Gagal menulis daftar aplikasi: {}", e) }
         })?;
+
+        // Keep secondary module core and legacy storage paths in sync
+        let secondary = PathBuf::from("/data/adb/modules/Lynx/core/applist_perf.txt");
+        if let Some(parent) = secondary.parent() {
+            if parent.exists() {
+                let _ = fs::write(&secondary, &content);
+            }
+        }
+        let legacy = PathBuf::from("/storage/emulated/0/Lynx/applist_perf.txt");
+        if let Some(parent) = legacy.parent() {
+            if parent.exists() {
+                let _ = fs::write(&legacy, &content);
+            }
+        }
+
+        // Trigger instant sub-second reload in running daemon
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let _ = fs::write("/data/adb/lynx/reload_rules", format!("{}\n", now));
+        let _ = fs::write("/data/adb/lynx/rules_version", format!("{}\n", now));
+
         Logger::info(if is_english() { format!("Added '{}' to Lynx performance applist.", safe_pkg) } else { format!("'{}' ditambahkan ke daftar performa Lynx.", safe_pkg) });
         Ok(if is_english() {
             format!("Successfully added '{}' to performance list.", safe_pkg)
@@ -110,6 +133,14 @@ impl ApplistController {
         }
 
         if removed {
+            // Trigger instant sub-second reload in running daemon
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            let _ = fs::write("/data/adb/lynx/reload_rules", format!("{}\n", now));
+            let _ = fs::write("/data/adb/lynx/rules_version", format!("{}\n", now));
+
             Logger::info(if is_english() { format!("Removed '{}' from Lynx performance applist.", safe_pkg) } else { format!("'{}' dihapus dari daftar performa Lynx.", safe_pkg) });
             Ok(if is_english() {
                 format!("Successfully removed '{}' from performance list.", safe_pkg)
@@ -123,6 +154,25 @@ impl ApplistController {
                 format!("Paket '{}' tidak ditemukan dalam daftar performa.", safe_pkg)
             })
         }
+    }
+
+    /// Triggers immediate live rule reloading in lynxd daemon.
+    pub fn reload() -> Result<String, String> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let _ = fs::write("/data/adb/lynx/reload_rules", format!("{}\n", now));
+        let _ = fs::write("/data/adb/lynx/rules_version", format!("{}\n", now));
+        let _ = fs::write("/data/adb/modules/Lynx/core/reload_rules", format!("{}\n", now));
+        Logger::info(ui(
+            "Sinyal pembaruan aturan profil aplikasi dikirim ke daemon Lynx.",
+            "App profile rules reload signal dispatched to Lynx daemon."
+        ));
+        Ok(ui(
+            "Pembaruan instan aturan profil aplikasi berhasil dipicu (< 1 detik).",
+            "Instant app profile rules reload successfully triggered (< 1 second)."
+        ).to_string())
     }
 
     pub fn check(pkg: &str) -> bool {
