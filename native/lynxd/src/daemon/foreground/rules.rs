@@ -315,7 +315,36 @@ impl RulesEngine {
             }
         }
 
-        // ── Tier 4: Exact Known Media / Video Streaming Signatures ──────────
+        // ── Tier 4A: High-FPS Interactive Short-Video & Feed Signatures ─────
+        // Short-video & high-interaction feeds require zero-stutter video decoding,
+        // GPU compositing, and proactive touch boost (unlike static audio playback).
+        // They default to "performance" profile unless custom user rules override them.
+        const SHORT_VIDEO_FEEDS: &[&str] = &[
+            "com.zhiliaoapp.musically",
+            "com.zhiliaoapp.musically.go",
+            "com.ss.android.ugc.trill",
+            "com.ss.android.ugc.aweme",
+            "com.instagram.android",
+            "com.instagram.barcelona",
+            "com.snapchat.android",
+            "com.twitter.android",
+            "com.twitter.android.lite",
+            "com.lemon.lvoverseas",
+            "com.lemon.lvoverseas.lite",
+            "com.kwai.video",
+            "com.kwai.bulldog",
+            "sg.bigo.live",
+        ];
+        if SHORT_VIDEO_FEEDS.contains(&pkg_lower.as_str()) {
+            return ForegroundApp {
+                package: package.to_string(),
+                category: AppCategory::Media,
+                confidence: Confidence::High,
+                target_profile: custom_target_profile.or_else(|| Some("performance".to_string())),
+            };
+        }
+
+        // ── Tier 4B: Passive / Long-Form Media & Audio Players ──────────────
         const MEDIA_APPS: &[&str] = &[
             "com.spotify.music",
             "com.google.android.youtube",
@@ -329,15 +358,8 @@ impl RulesEngine {
             "com.mxtech.videoplayer.pro",
             "com.disney.disneyplus",
             "com.amazon.avod.thirdpartyclient",
-            "com.twitter.android",
-            "com.zhiliaoapp.musically",
-            "com.instagram.android",
-            "com.instagram.barcelona",
-            "com.ss.android.ugc.trill",
-            "com.ss.android.ugc.aweme",
             "com.facebook.katana",
             "com.facebook.lite",
-            "com.snapchat.android",
         ];
         if MEDIA_APPS.contains(&pkg_lower.as_str()) {
             return ForegroundApp {
@@ -389,6 +411,20 @@ impl RulesEngine {
                 category: AppCategory::Game,
                 confidence: Confidence::Medium,
                 target_profile: custom_target_profile,
+            };
+        }
+
+        if pkg_lower.contains("tiktok")
+            || pkg_lower.contains("musically")
+            || pkg_lower.contains("trill")
+            || pkg_lower.contains("shortvideo")
+            || pkg_lower.contains("snackvideo")
+        {
+            return ForegroundApp {
+                package: package.to_string(),
+                category: AppCategory::Media,
+                confidence: Confidence::Medium,
+                target_profile: custom_target_profile.or_else(|| Some("performance".to_string())),
             };
         }
 
@@ -462,10 +498,12 @@ mod tests {
         let twitter = engine.categorize("com.twitter.android");
         assert_eq!(twitter.category, AppCategory::Media);
         assert_eq!(twitter.confidence, Confidence::High);
+        assert_eq!(twitter.target_profile, Some("performance".to_string()));
 
         let tiktok = engine.categorize("com.zhiliaoapp.musically");
         assert_eq!(tiktok.category, AppCategory::Media);
         assert_eq!(tiktok.confidence, Confidence::High);
+        assert_eq!(tiktok.target_profile, Some("performance".to_string()));
     }
 
     #[test]

@@ -174,7 +174,7 @@ class LynxForegroundDetector(private val context: Context) {
                 } else {
                     if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
                         lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
-                        lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {
+                        lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft") || lower.contains("musically") || lower.contains("tiktok") || lower.contains("trill") || lower.contains("aweme") || lower.contains("instagram") || lower.contains("snapchat") || lower.contains("lemon.lvoverseas") || lower.contains("kwai")) {
                         "performance"
                     } else {
                         "balance"
@@ -186,7 +186,7 @@ class LynxForegroundDetector(private val context: Context) {
         } catch (_: Exception) {}
         val fallback = if (lower.contains("game") || lower.contains("genshin") || lower.contains("honkai") ||
             lower.contains("pubg") || lower.contains("codm") || lower.contains("mobilelegends") ||
-            lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft")) {
+            lower.contains("freefire") || lower.contains("roblox") || lower.contains("minecraft") || lower.contains("musically") || lower.contains("tiktok") || lower.contains("trill") || lower.contains("aweme") || lower.contains("instagram") || lower.contains("snapchat") || lower.contains("lemon.lvoverseas") || lower.contains("kwai")) {
             "performance"
         } else {
             "balance"

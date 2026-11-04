@@ -57,6 +57,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/overcommit_ratio", "80");
         Self::write_opt("/proc/sys/kernel/sched_schedstats", "0");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
+        Self::write_opt("/proc/sys/vm/page-cluster", "0");
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };
         Self::write_opt("/proc/sys/vm/max_map_count", max_maps);
 

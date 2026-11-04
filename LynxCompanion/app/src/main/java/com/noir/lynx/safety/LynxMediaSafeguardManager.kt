@@ -96,11 +96,16 @@ object LynxMediaSafeguardManager {
                     "resetprop -d debug.hwui.render_thread 2>/dev/null",
                     "resetprop -d debug.hwui.use_buffer_age 2>/dev/null",
                     "setprop debug.sf.disable_client_composition_cache 0",
-                    "setprop debug.hwui.target_cpu_time_percent 70",
+                    "setprop debug.hwui.target_cpu_time_percent 85",
                     "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
-                    "setprop media.stagefright.thumbnail.prefer_hw_codecs false",
+                    "setprop media.stagefright.thumbnail.prefer_hw_codecs true",
                     "resetprop -d debug.stagefright.ccodec 2>/dev/null",
-                    "setprop debug.stagefright.ccodec 1"
+                    "setprop debug.stagefright.ccodec 1",
+                    "setprop vendor.perf.gestureflingboost.enable 1",
+                    "setprop ro.vendor.perf.scroll_opt 1",
+                    "setprop persist.vendor.qti.inputopts.touchboost 1",
+                    "setprop vendor.media.vdec.prefer.hw 1",
+                    "echo 0 > /proc/sys/vm/page-cluster 2>/dev/null"
                 ).submit()
 
                 _isSafeguardEngaged.value = true
