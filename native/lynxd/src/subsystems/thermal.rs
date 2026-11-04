@@ -154,6 +154,7 @@ impl ThermalController {
             "thermalloadalgod",
             "com.samsung.android.game.gos",
             "com.xiaomi.joyose",
+            "iomanager",
         ];
         for target in targets {
             let _ = Command::new("killall").arg("-STOP").arg(target).output();
@@ -176,6 +177,7 @@ impl ThermalController {
             "thermalloadalgod",
             "com.samsung.android.game.gos",
             "com.xiaomi.joyose",
+            "iomanager",
         ];
         for target in TARGETS {
             let _ = Command::new("killall").arg("-CONT").arg(target).output();

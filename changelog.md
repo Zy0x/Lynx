@@ -1,3 +1,22 @@
+# Lynx Universal [MountX MicroSD Storage Acceleration & OEM IO-Manager Neutralization] 7.0.0-RC341
+Released on: 2026-11-04
+> Lynx Kernel Manager v3.3.65
+
+- **Akselerasi Penyimpanan MicroSD MountX & Netralisasi Vendor I/O Manager (*MountX Storage Acceleration & OEM IO-Manager Neutralization*)**:
+  - **Netralisasi Daemon Vendor Pembatas Rasio Tulis (`/vendor/bin/iomanager`)**:
+    - Mengidentifikasi dan membekukan daemon latar belakang OEM Transsion/Infinix (`iomanager`) via `SIGSTOP` di `freeze_oem_throttlers()`.
+    - Membasmi fenomena pemaksaan rasio memori kotor vendor yang sangat sempit (`dirty_background_ratio = 1%` dan `dirty_ratio = 5%`) yang sebelumnya menyebabkan kernel Linux masuk ke siklus `balance_dirty_pages()` berulang kali, membekukan thread dekompresi patch dan pemilahan data lama game besar (Genshin Impact, dll.) yang terpasang via MountX.
+  - **Akselerasi Antrean Blok MicroSD (*MicroSD Queue & FIFO Merging Boost*)**:
+    - Memperbarui `StoragePolicy` untuk media fisik `BlockDeviceType::Sd`: memprioritaskan scheduler `noop` (dan `none`) pada kernel single-queue untuk menghilangkan batas penundaan tulis 5000ms pada scheduler deadline standar.
+    - Menaikkan *read-ahead* MicroSD secara proporsional dari 256 KB ke **1024 KB** (Balance/Performance) dan **2048 KB** (Extreme) guna memaksimalkan throughput baca sekuensial saat pemindaian aset dan penggabungan patch delta.
+    - Memperdalam kedalaman antrean tulis (`nr_requests = 256 / 512`) dan menyeimbangkan `writes_starved = 2` serta `read_expire = 100–150ms` sehingga antrean tulis tidak tersendat oleh pembacaan intermiten sistem.
+  - **Buffering Memori Kotor Sadar Penyimpanan (*Storage-Aware VM Dirty Buffering*)**:
+    - Menyesuaikan batas rasio tulis kernel (`dirty_ratio = 20%` dan `dirty_background_ratio = 10%`, writeback window 500cs) saat partisi MicroSD aktif via MountX atau penyimpanan UFS terdeteksi.
+    - Menyinkronkan nilai secara atomik ke parameter modul `/sys/module/page_writeback/parameters/dirty_background_ratio` dan `vm_dirty_ratio`.
+    - Memulihkan kecepatan pemilahan data dan unduhan game dari 0 KB/s (stuck/tersendat) ke throughput penuh perangkat (hingga ~19–28 MB/s).
+
+---
+
 # Lynx Universal [Touch Master Pad Scroll Lock & Orientation-Adaptive Isolation] 7.0.0-RC340
 Released on: 2026-11-04
 > Lynx Kernel Manager v3.3.64

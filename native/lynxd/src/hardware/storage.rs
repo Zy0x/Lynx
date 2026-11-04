@@ -143,7 +143,7 @@ impl StoragePolicy {
             return None;
         }
         let _current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
-        Some(256)
+        Some(1024)
     }
 
     /// Calculate profile-specific tuning parameters based on verified physical media type.
@@ -201,14 +201,15 @@ impl StoragePolicy {
             BlockDeviceType::Sd => {
                 // External MicroSD: High serial command latency on SDR104 bus.
                 // 256-512KB burst read is optimal for continuous game asset/OBB streaming (Infinix X698 trial).
-                let (ra, nr, exp, starv) = match profile_name {
-                    "extreme" | "performance" => (512, 128, 80, 6),
-                    "powersave" => (128, 64, 350, 2),
-                    _ => (256, 128, 125, 4), // Balance: conservative 256KB
+                let (ra, nr, exp, starv, sched) = match profile_name {
+                    "extreme" => (2048, 512, 100, 2, "noop"),
+                    "performance" => (1024, 256, 120, 2, "noop"),
+                    "powersave" => (256, 64, 350, 2, "noop"),
+                    _ => (1024, 256, 150, 3, "noop"), // Balance: conservative 1024KB for App2SD MountX
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
-                    scheduler: "mq-deadline",
+                    scheduler: sched,
                     nr_requests: Some(nr),
                     read_expire_ms: Some(exp),
                     writes_starved: Some(starv),

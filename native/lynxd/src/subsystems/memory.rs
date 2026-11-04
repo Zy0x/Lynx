@@ -47,6 +47,8 @@ impl MemoryController {
 
         Self::write_opt("/proc/sys/vm/dirty_background_ratio", dirty_bg);
         Self::write_opt("/proc/sys/vm/dirty_ratio", dirty_ratio);
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", dirty_bg);
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", dirty_ratio);
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", dirty_expire);
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", dirty_writeback);
         Self::write_opt("/proc/sys/vm/extfrag_threshold", "100");
@@ -360,18 +362,29 @@ impl MemoryController {
     pub fn apply_vm_preset(preset: &str) -> Result<String, String> {
         match preset.to_lowercase().as_str() {
             "gaming" | "game" => {
-                Self::write_opt("/proc/sys/vm/dirty_ratio", "10");
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "120");
+                let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
+                let mountx = crate::subsystems::IoController::detect_mountx();
+                let (dr, dbr, d_wb, vfs) = if mountx.is_detected || !is_emmc {
+                    ("20", "10", "500", "50")
+                } else {
+                    ("10", "5", "100", "120")
+                };
+                Self::write_opt("/proc/sys/vm/dirty_ratio", dr);
+                Self::write_opt("/proc/sys/vm/dirty_background_ratio", dbr);
+                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", dr);
+                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", dbr);
+                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vfs);
                 Self::write_opt("/proc/sys/vm/swappiness", "50");
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "100");
+                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
+                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", d_wb);
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
-                Ok(ui("Preset VM diterapkan: Gaming (buffer dirty rendah, writeback agresif, tekanan VFS 120).", "VM preset applied: Gaming (Low dirty buffers, aggressive writeback, vfs pressure 120).").to_string())
+                Ok(ui("Preset VM diterapkan: Gaming (buffer dirty adaptif, writeback terukur, pelindung VFS).", "VM preset applied: Gaming (Adaptive dirty buffers, measured writeback, VFS shield).").to_string())
             }
             "balanced" | "balance" => {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "20");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "10");
+                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "20");
+                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "10");
                 Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
                 Self::write_opt("/proc/sys/vm/swappiness", "50");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
@@ -388,6 +401,8 @@ impl MemoryController {
             "battery" | "powersave" => {
                 Self::write_opt("/proc/sys/vm/dirty_ratio", "30");
                 Self::write_opt("/proc/sys/vm/dirty_background_ratio", "15");
+                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "30");
+                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "15");
                 Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
                 Self::write_opt("/proc/sys/vm/swappiness", "60");
                 Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1500");

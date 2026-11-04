@@ -243,6 +243,36 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", "150");
 
+        // MountX + SD Card Download Awareness:
+        // Jika ada MicroSD card aktif via MountX, game write (asset download/update) diarahkan ke SD.
+        // SD card pada SDR104 bus memiliki latency tinggi — flush terlalu sering (tiap 100cs = 1 detik)
+        // menyebabkan bottleneck write besar. Naikkan dirty writeback window ke 500cs (5 detik)
+        // agar kernel bisa accumulate writes lebih besar per flush-cycle, menghemat IO bus SD card.
+        // Ini AMAN: dirty_ratio=10% masih menjadi hard ceiling, hanya interval flush yang diperlonggar.
+        let mountx = crate::subsystems::IoController::detect_mountx();
+        if mountx.is_detected {
+            // SD card aktif via MountX — relax writeback interval agar download game tidak throttle
+            Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "500");
+            Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1000");
+            // Naikkan sedikit dirty_background_ratio agar lebih banyak data di-buffer sebelum flush
+            Self::write_opt("/proc/sys/vm/dirty_background_ratio", "8");
+            // Tingkatkan nr_requests SD card agar antrian write lebih dalam (lebih efisien per burst)
+            if let Some(sd_dev) = storage.devices.iter().find(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Sd) {
+                Self::write_opt(sd_dev.queue_path.join("nr_requests"), "256");
+                // mq-deadline: naikkan writes_starved agar write tidak diblokir read terus-menerus
+                Self::write_opt(sd_dev.queue_path.join("iosched/writes_starved"), "8");
+                // Naikkan read_ahead untuk SD card saat game download (stream besar, bukan random)
+                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "512");
+            }
+            let _ = std::fs::write("/dev/lynx_mountx_active", "1\n");
+        } else {
+            // Tidak ada MountX/SD: gunakan writeback agresif standar untuk gaming (flush cepat ke eMMC)
+            Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "100");
+            Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
+            Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
+            let _ = std::fs::remove_file("/dev/lynx_mountx_active");
+        }
+
         // Dynamic RAM-Proportional extra_free_kbytes (Prevents background memory compaction spikes)
         let mem = HardwareCapability::resolve_memory();
         let extra_free_kb = if mem.total_ram_mb >= 7000 {

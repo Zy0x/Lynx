@@ -1008,9 +1008,16 @@ impl HardwareTranslator {
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure", "/proc/sys/vm/vfs_cache_pressure", vfs_pressure, false);
 
         // Prevent massive 45MB+ dirty writeback waves from choking half-duplex eMMC 5.1 & blk_crypto_wq
-        let (dirty_bg, dirty_fg) = if is_perf_or_ext { ("5", "15") } else { ("5", "12") };
+        let is_primary_emmc = StoragePolicy::is_primary_system_emmc();
+        let (dirty_bg, dirty_fg) = if is_primary_emmc {
+            if is_perf_or_ext { ("5", "15") } else { ("5", "12") }
+        } else {
+            if is_perf_or_ext { ("10", "20") } else { ("8", "16") }
+        };
         Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio (smooth writeback)", "/proc/sys/vm/dirty_background_ratio", dirty_bg, false);
         Self::push_op(&mut ops, "Memory", "VM dirty_ratio ceiling", "/proc/sys/vm/dirty_ratio", dirty_fg, false);
+        Self::push_op(&mut ops, "Memory", "Kernel page_writeback dirty_background_ratio sync", "/sys/module/page_writeback/parameters/dirty_background_ratio", dirty_bg, false);
+        Self::push_op(&mut ops, "Memory", "Kernel page_writeback vm_dirty_ratio sync", "/sys/module/page_writeback/parameters/vm_dirty_ratio", dirty_fg, false);
         // VM Watermark Scale Factor & Extra Free Buffer
         // In high-performance and extreme gaming: scale factor 150-200 wakes kswapd asynchronously
         // well before allocations breach min watermark, preventing direct allocstalls when notifications arrive.
@@ -1121,7 +1128,7 @@ impl HardwareTranslator {
                         &["none", "noop", "mq-deadline", "kyber", "deadline"]
                     }
                     crate::hardware::capability::BlockDeviceType::Sd => {
-                        &["mq-deadline", "deadline", "bfq", "noop", "none"]
+                        &["noop", "none", "mq-deadline", "deadline", "bfq"]
                     }
                     _ => &["mq-deadline", "deadline", "noop", "none"],
                 };
