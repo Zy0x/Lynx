@@ -69,7 +69,10 @@ object StandardChargingScript {
                 read -r t < "${'$'}cd/type" 2>/dev/null
                 case "${'$'}t" in
                     *sysrst*|*shutdown*|*rst*) ;; # CRITICAL: NEVER write to kernel reset devices!
-                    *isolate*|*thermal-cpufreq*|battery|*bcct*|*abcct*) echo 0 > "${'$'}cd/cur_state" 2>/dev/null ;;
+                    *isolate*|*thermal-cpufreq*|battery|*charger*|*bcct*|*abcct*)
+                        chmod 666 "${'$'}cd/cur_state" 2>/dev/null
+                        echo 0 > "${'$'}cd/cur_state" 2>/dev/null
+                        ;;
                 esac
             fi
         done
@@ -104,13 +107,18 @@ object StandardChargingScript {
             if grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
                 umount /vendor/etc/thermal-engine.conf 2>/dev/null
                 rm -f /dev/lynx_thermal_engine.conf 2>/dev/null
-                pkill -HUP -f thermal-engine 2>/dev/null
             fi
             if grep -q "/dev/lynx_spoofed_batt_temp" /proc/mounts 2>/dev/null; then
                 umount /sys/class/power_supply/battery/temp 2>/dev/null
                 umount /sys/class/power_supply/bms/temp 2>/dev/null
                 umount /sys/class/power_supply/battery/batt_temp 2>/dev/null
                 rm -f /dev/lynx_spoofed_batt_temp 2>/dev/null
+            fi
+            if grep -q "/dev/lynx_spoofed_quiet_therm" /proc/mounts 2>/dev/null; then
+                for tz in /sys/class/thermal/thermal_zone*; do
+                    umount "${'$'}tz/temp" 2>/dev/null
+                done
+                rm -f /dev/lynx_spoofed_quiet_therm 2>/dev/null
             fi
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -f "${'$'}tz/type" ] || continue

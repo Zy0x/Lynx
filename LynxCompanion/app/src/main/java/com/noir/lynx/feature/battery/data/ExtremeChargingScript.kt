@@ -66,11 +66,26 @@ object ExtremeChargingScript {
             chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             echo 250 > /dev/lynx_spoofed_batt_temp 2>/dev/null
             chmod 644 /dev/lynx_spoofed_batt_temp 2>/dev/null
-            if ! grep -q "/dev/lynx_spoofed_batt_temp" /proc/mounts 2>/dev/null; then
-                [ -e /sys/class/power_supply/battery/temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/battery/temp 2>/dev/null
-                [ -e /sys/class/power_supply/bms/temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/bms/temp 2>/dev/null
-                [ -e /sys/class/power_supply/battery/batt_temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/battery/batt_temp 2>/dev/null
-            fi
+            echo 25000 > /dev/lynx_spoofed_quiet_therm 2>/dev/null
+            chmod 644 /dev/lynx_spoofed_quiet_therm 2>/dev/null
+            for target in /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp /sys/class/power_supply/battery/batt_temp; do
+                if [ -e "${'$'}target" ]; then
+                    chmod 666 "${'$'}target" 2>/dev/null
+                    mount -o bind /dev/lynx_spoofed_batt_temp "${'$'}target" 2>/dev/null
+                    nsenter -t 1 -m mount -o bind /dev/lynx_spoofed_batt_temp "${'$'}target" 2>/dev/null
+                    chmod 644 "${'$'}target" 2>/dev/null
+                fi
+            done
+            for tz in /sys/class/thermal/thermal_zone*; do
+                [ -d "${'$'}tz" ] || continue
+                tz_t=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                if [ "${'$'}tz_t" = "quiet-therm-adc" ] || [ "${'$'}tz_t" = "quiet-therm-step" ] || [ "${'$'}tz_t" = "quiet-therm" ] || [ "${'$'}tz_t" = "quiet_therm" ]; then
+                    chmod 666 "${'$'}tz/temp" 2>/dev/null
+                    mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
+                    nsenter -t 1 -m mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
+                    chmod 666 "${'$'}tz/temp" 2>/dev/null
+                fi
+            done
             chmod 666 /proc/driver/thermal/clabcct /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
             echo "70000 1000 200000 6000 6000 0 1 1 0" > /proc/driver/thermal/clabcct 2>/dev/null
             echo "1 70000 1000 200000 6000 6000 0 6000 0" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
@@ -251,13 +266,18 @@ object ExtremeChargingScript {
                 for c in /vendor/etc/thermal-engine.conf /system/vendor/etc/thermal-engine.conf /odm/etc/thermal-engine.conf /vendor/etc/thermal/thermal-engine.conf; do
                     [ -f "${'$'}c" ] && conf_candidate="${'$'}c" && break
                 done
-                if [ -n "${'$'}conf_candidate" ] && ! grep -q "/dev/lynx_thermal_engine.conf" /proc/mounts 2>/dev/null; then
-                    sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 75000 78000 81000 84000 87000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 70000 73000 76000 79000 82000/g; s/action_info 1 2 4 5 6/action_info 0 0 0 0 0/g' "${'$'}conf_candidate" > /dev/lynx_thermal_engine.conf 2>/dev/null
+                if [ -n "${'$'}conf_candidate" ]; then
+                    mod_conf="/data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf"
+                    if [ -f "${'$'}mod_conf" ]; then
+                        cp -f "${'$'}mod_conf" /dev/lynx_thermal_engine.conf 2>/dev/null
+                    else
+                        sed 's/thresholds 37000 38000 41000 42000 43000/thresholds 75000 78000 81000 84000 87000/g; s/thresholds_clr 36000 37000 39000 40000 41000/thresholds_clr 70000 73000 76000 79000 82000/g; s/action_info 1 2 4 5 6/action_info 0 0 0 0 0/g' "${'$'}conf_candidate" > /dev/lynx_thermal_engine.conf 2>/dev/null
+                    fi
                     if [ -s /dev/lynx_thermal_engine.conf ]; then
                         chmod 644 /dev/lynx_thermal_engine.conf 2>/dev/null
                         mount -o bind /dev/lynx_thermal_engine.conf "${'$'}conf_candidate" 2>/dev/null
-                        pkill -HUP -f thermal-engine 2>/dev/null
-                        pkill -HUP -f thermal-engine-v2 2>/dev/null
+                        # DO NOT kill or restart thermal-engine! Android init flags it as critical and triggers reboot.
+                        # quiet-therm thermistor spoofing below ensures thermal-engine naturally never triggers throttling.
                     fi
                 fi
                 for tz in /sys/class/thermal/thermal_zone*; do
@@ -282,10 +302,15 @@ object ExtremeChargingScript {
                     read -r t < "${'$'}cd/type" 2>/dev/null
                     case "${'$'}t" in
                         *sysrst*|*shutdown*|*rst*) ;; # CRITICAL: NEVER write to kernel reset devices!
-                        *isolate*|*thermal-cpufreq*|battery|*bcct*|*abcct*)
+                        *bcct*|*abcct*)
                             chmod 666 "${'$'}cd/cur_state" 2>/dev/null
                             echo 0 > "${'$'}cd/cur_state" 2>/dev/null
                             chmod 444 "${'$'}cd/cur_state" 2>/dev/null
+                            ;;
+                        *isolate*|*thermal-cpufreq*|battery|*charger*)
+                            chmod 666 "${'$'}cd/cur_state" 2>/dev/null
+                            echo 0 > "${'$'}cd/cur_state" 2>/dev/null
+                            # Keep readable/writable so Android ThermalEngine doesn't crash with EACCES
                             ;;
                     esac
                 fi

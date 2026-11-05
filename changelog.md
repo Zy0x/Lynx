@@ -1,3 +1,26 @@
+# Lynx Universal [Eliminate Qualcomm Thermal-Engine Reboot Loop & Quiet-Therm Throttling Fix] 7.0.0-RC350
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.74
+
+- **Pemberantasan Reboot Loop `thermal-engine` pada Qualcomm Snapdragon (*Critical Init Service Stability Protection*)**:
+  - **Akar Masalah Penghentian Paksa Daemon Thermal Vendor**:
+    - Investigasi `getprop sys.boot.reason` pasca-reboot pada Redmi Note 7 mengungkap status `reboot` (bukan kernel panic).
+    - Pada `init.rc` Qualcomm Snapdragon, service `/vendor/bin/thermal-engine` berstatus `critical`. Konvensi Android `init` secara otomatis memicu reboot seluruh perangkat jika suatu service berkategori `critical` mati atau keluar lebih dari 4 kali dalam kurun waktu 4 menit (`pkill -9`, `killall -9`, atau `ctl.restart`).
+    - Selain itu, penguncian izin sysfs `cooling_device12/cur_state` (cooling device baterai) ke `0444` (`chmod 444`) sebelumnya menyebabkan `thermal-engine` (berjalan di bawah UID `system`) mengalami `open failed 13 (EACCES)` pada setiap loop polling sensor, memicu crash beruntun.
+  - **Solusi Stabilitas Tuntas**:
+    - Menghapus total pemanggilan `pkill -9`, `killall -9`, `pkill -HUP`, dan `ctl.restart` terhadap `thermal-engine` baik di layer Rust daemon (`lynxd`) maupun skrip pengisian daya LynxCompanion (`ExtremeChargingScript.kt` & `StandardChargingScript.kt`).
+    - Mempertahankan izin cooling device `cur_state` tetap `0666` (read-write) dengan nilai `0` agar `thermal-engine` tidak pernah mengalami permission error atau crash loop.
+
+- **Netralisasi Throttling Pengisian Daya Melalui Spoofing Universal `quiet-therm` (25.0°C) (*Universal Board Thermistor Bind-Mount*)**:
+  - Konfigurasi stock `/vendor/etc/thermal-engine.conf` memuat profil `[BATTERY_CHARGING_CTL]` yang memantau thermistor board `quiet-therm-adc` (`thermal_zone4`) dan `quiet-therm-step` (`thermal_zone20`). Ketika sensor ini membaca suhu >43.0°C (43000 m°C), aturan `action_info 6` mengunci batas arus pengisian daya ke 500 mA (`509277` µA).
+  - Mengimplementasikan pembuatan node `/dev/lynx_spoofed_quiet_therm` berisi `25000\n` (25.0°C dalam satuan millidegrees) dan me-mount secara live (`mount -o bind`) ke seluruh thermal zone bertipe `quiet-therm*`.
+  - Dengan pembacaan stabil pada 25.0°C (di bawah batas awal 37.0°C), `thermal-engine` secara alami TIDAK PERNAH mengaktifkan mitigasi pengisian daya baterai, mempertahankan kestabilan arus tanpa mematikan atau mengganggu daemon termal OEM.
+
+- **Penyelarasan Root Shell & Mount Isolation LibSU**:
+  - Mengembalikan inisialisasi default LibSU di `LynxApp.kt` ke `Shell.FLAG_REDIRECT_STDERR` dengan timeout 20 detik, mencegah potensi mount namespace collision pada Android 15.
+
+---
+
 # Lynx Universal [Universal Qualcomm 25°C Battery Temp Bypass & Quiet-Therm Fix] 7.0.0-RC349
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.73

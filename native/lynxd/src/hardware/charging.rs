@@ -43,6 +43,7 @@ const TRAN_BATTERY_DIR: &str = "/sys/devices/platform/tran_battery";
 const PCA_DV2_DIR: &str = "/sys/devices/platform/pca_dv2_algo";
 const BATT_TEMP_NODE: &str = "/sys/devices/platform/battery/Battery_Temperature";
 pub const SPOOFED_BATT_TEMP_PATH: &str = "/dev/lynx_spoofed_batt_temp";
+pub const SPOOFED_QUIET_THERM_PATH: &str = "/dev/lynx_spoofed_quiet_therm";
 const CLABCCT_NODE: &str = "/proc/driver/thermal/clabcct";
 const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 
@@ -1156,11 +1157,13 @@ impl ChargingRegulator {
                         if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
                             continue;
                         }
-                        if t_lower.contains("bcct") || t_lower.contains("abcct")
-                            || t_lower == "battery" || t_lower == "charger"
-                        {
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::write_node_lock(&cur_path, "0");
+                        } else if t_lower == "battery" || t_lower == "charger" {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            Self::set_perm(&cur_path, 0o666);
+                            Self::write_node(&cur_path, "0");
                         }
                     }
                 } else if name_str.starts_with("thermal_zone") {
@@ -3249,10 +3252,13 @@ impl ChargingRegulator {
             let _ = std::process::Command::new("mount")
                 .args(["-o", "bind", live_conf, &stock_conf])
                 .output();
-
-            let _ = std::process::Command::new("pkill")
-                .args(["-HUP", "-f", "thermal-engine"])
+            let _ = std::process::Command::new("nsenter")
+                .args(["-t", "1", "-m", "mount", "-o", "bind", live_conf, &stock_conf])
                 .output();
+
+            // DO NOT kill or restart thermal-engine!
+            // In Android init, thermal-engine is flagged as critical. If restarted >4 times in 4 mins, init triggers a reboot.
+            // With quiet-therm thermistor spoofing active, thermal-engine naturally clears charging throttling.
         }
 
         // Elevate quiet-therm-step trip points (thermal_zone20 or any zone named quiet-therm-step)
@@ -3295,6 +3301,7 @@ impl ChargingRegulator {
                     if parts.len() >= 2 {
                         let mount_point = parts[1];
                         let _ = std::process::Command::new("umount").arg(mount_point).output();
+                        let _ = std::process::Command::new("nsenter").args(["-t", "1", "-m", "umount", mount_point]).output();
                     }
                 }
             }
@@ -3303,9 +3310,6 @@ impl ChargingRegulator {
         let live_conf = "/dev/lynx_thermal_engine.conf";
         if Path::new(live_conf).exists() {
             let _ = fs::remove_file(live_conf);
-            let _ = std::process::Command::new("pkill")
-                .args(["-HUP", "-f", "thermal-engine"])
-                .output();
         }
 
         // Restore quiet-therm-step trip points to OEM defaults
@@ -3342,11 +3346,15 @@ impl ChargingRegulator {
     ///   observers see 25.0°C.
     pub fn apply_battery_temperature_bypass(temp_c: u32) {
         let decicelsius = (temp_c * 10).to_string();
+        let millicelsius = (temp_c * 1000).to_string();
         let celsius_str = temp_c.to_string();
 
         // 1. Write virtual spoof node for app telemetry and scripts
         let _ = fs::write(SPOOFED_BATT_TEMP_PATH, format!("{}\n", decicelsius));
         Self::set_perm(SPOOFED_BATT_TEMP_PATH, 0o644);
+
+        let _ = fs::write(SPOOFED_QUIET_THERM_PATH, format!("{}\n", millicelsius));
+        Self::set_perm(SPOOFED_QUIET_THERM_PATH, 0o644);
 
         // 2. MediaTek kernel driver hook
         if Path::new(BATT_TEMP_NODE).exists() {
@@ -3369,8 +3377,41 @@ impl ChargingRegulator {
                         let _ = std::process::Command::new("mount")
                             .args(["-o", "bind", SPOOFED_BATT_TEMP_PATH, target])
                             .output();
+                        let _ = std::process::Command::new("nsenter")
+                            .args(["-t", "1", "-m", "mount", "-o", "bind", SPOOFED_BATT_TEMP_PATH, target])
+                            .output();
                     }
                     Self::set_perm(target, 0o644);
+                }
+            }
+
+            // Universal Quiet Thermistor Spoofing for Qualcomm platforms (quiet-therm-adc, quiet-therm-step):
+            // Spoofs raw board thermistor to 25.0°C (25000 m°C) so thermal-engine never triggers BATTERY_CHARGING_CTL.
+            if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("thermal_zone") {
+                        let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                        if let Ok(t) = fs::read_to_string(&type_path) {
+                            let t_clean = t.trim().to_lowercase();
+                            if t_clean.contains("quiet-therm") {
+                                let temp_node = format!("/sys/class/thermal/{}/temp", name_str);
+                                if Path::new(&temp_node).exists() {
+                                    Self::set_perm(&temp_node, 0o666);
+                                    if !mounts.contains(&temp_node) {
+                                        let _ = std::process::Command::new("mount")
+                                            .args(["-o", "bind", SPOOFED_QUIET_THERM_PATH, &temp_node])
+                                            .output();
+                                        let _ = std::process::Command::new("nsenter")
+                                            .args(["-t", "1", "-m", "mount", "-o", "bind", SPOOFED_QUIET_THERM_PATH, &temp_node])
+                                            .output();
+                                    }
+                                    Self::set_perm(&temp_node, 0o666);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3388,10 +3429,32 @@ impl ChargingRegulator {
                     let _ = std::process::Command::new("umount")
                         .arg(target)
                         .output();
+                    let _ = std::process::Command::new("nsenter")
+                        .args(["-t", "1", "-m", "umount", target])
+                        .output();
+                }
+            }
+
+            if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("thermal_zone") {
+                        let temp_node = format!("/sys/class/thermal/{}/temp", name_str);
+                        if mounts.contains(&temp_node) {
+                            let _ = std::process::Command::new("umount")
+                                .arg(&temp_node)
+                                .output();
+                            let _ = std::process::Command::new("nsenter")
+                                .args(["-t", "1", "-m", "umount", &temp_node])
+                                .output();
+                        }
+                    }
                 }
             }
         }
         let _ = fs::remove_file(SPOOFED_BATT_TEMP_PATH);
+        let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
 
         // On MediaTek, reset Battery_Temperature to 0 (kernel auto-read mode)
         if Path::new(BATT_TEMP_NODE).exists() {
@@ -4931,6 +4994,7 @@ mod tests {
         assert_eq!(decicelsius, "250");
         assert_eq!(temp_c.to_string(), "25");
         assert_eq!(super::SPOOFED_BATT_TEMP_PATH, "/dev/lynx_spoofed_batt_temp");
+        assert_eq!(super::SPOOFED_QUIET_THERM_PATH, "/dev/lynx_spoofed_quiet_therm");
     }
 }
 
