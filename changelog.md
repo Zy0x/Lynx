@@ -1,3 +1,23 @@
+# Lynx Universal [Universal Qualcomm 25°C Battery Temp Bypass & Quiet-Therm Fix] 7.0.0-RC349
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.73
+
+- **Implementasi Universal Bypass Suhu Baterai 25°C pada Qualcomm Snapdragon (*Universal PM660/QCOM 25°C Sysfs Bind-Mount*)**:
+  - **Akar Masalah Suhu 274°C dan Cutoff Pengisian Daya**:
+    - Analisis mendalam pada Redmi Note 7 (Snapdragon 660 / PMIC PM660) mengungkap bahwa arsitektur Qualcomm tidak memiliki node driver MediaTek `/sys/devices/platform/battery/Battery_Temperature`.
+    - Ketika suhu baterai fisik naik ke 47.8°C, ambang batas JEITA hardware PM660 bawaan (`temp_hot=480` / 48.0°C) memicu proteksi pemutusan arus pengisian daya (`lct_set_prop_input_suspend=1`), sehingga perangkat beralih ke status pengurasan daya (*discharging* -735 mA) meskipun terhubung ke charger QC 3.0.
+    - Pada antarmuka UI, teks suhu menampilkan `274.0°C` akibat kombinasi kanal ADC `pm660-tz` / `quiet-therm-adc` yang offline bernilai `-274000` (0 Kelvin) terfilter karakter minusnya oleh `.filter { it.isDigit() }`, serta representasi deci-Celsius kernel (274 = 27.4°C) yang tidak dinormalisasi.
+  - **Mekanisme Universal 25°C Temp Bypass**:
+    - Mengimplementasikan `apply_battery_temperature_bypass(25)` di native Rust engine: menulis `250\n` ke `/dev/lynx_spoofed_batt_temp` dan me-mount bind-mount secara transparan ke `/sys/class/power_supply/battery/temp`, `/sys/class/power_supply/bms/temp`, dan `batt_temp`.
+    - Memperbarui `ExtremeChargingScript.kt` dan `StandardChargingScript.kt` di LynxCompanion untuk melakukan bind mount yang sama dari layer aplikasi.
+    - Menormalisasi pembacaan telemetri di `LynxTelemetryReader`, `LynxTelemetryMapper`, dan `TuningTabContent` sehingga nilai suhu >100 dinormalisasi secara presisi dan channel ADC nonaktif (nilai negatif) diabaikan.
+  - **Pencegahan Crash Loop Thermal Engine & Relaksasi JEITA**:
+    - Mengubah izin semua manipulasi trip point `quiet-therm-adc` (`thermal_zone4`) dan power supply attributes menjadi `0666` (read-write), mencegah error `EACCES (-13)` pada daemon vendor `/vendor/bin/thermal-engine`.
+    - Menaikkan batas JEITA PM660 `temp_hot` menjadi 750 (75.0°C) dan `temp_warm` menjadi 650 (65.0°C) pada mode Hyper/Extreme guna mencegah pemutusan arus pengisian daya oleh hardware.
+    - Memperbarui profil `thermal-engine.conf` untuk `quiet-therm-adc` dari limit charging `action_info 1 2 4 5 6` menjadi pasif `action_info 0 0 0 0 0`.
+
+---
+
 # Lynx Universal [Idempotent DV2 Thermal Neutralization & Qualcomm D-State Lock Elimination] 7.0.0-RC348
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.72

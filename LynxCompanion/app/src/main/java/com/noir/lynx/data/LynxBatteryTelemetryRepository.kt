@@ -154,7 +154,7 @@ internal object LynxBatteryTelemetryRepository {
                     [ -z "${'$'}ptyp" ] && [ -n "${'$'}mtk_chg" ] && [ "${'$'}mtk_chg" != "0" ] && ptyp="MTK_${'$'}mtk_chg"
                     [ -z "${'$'}ptyp" ] && [ -d /sys/class/power_supply/pc_port ] && ptyp="SDP"
                     rcbl=${'$'}(cat /sys/devices/platform/battery/FG_meter_resistance 2>/dev/null || cat /sys/class/power_supply/battery/resistance 2>/dev/null || cat /sys/class/power_supply/bms/resistance 2>/dev/null || echo 0)
-                    spftmp=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null || echo 0)
+                    spftmp=${'$'}(cat /dev/lynx_spoofed_batt_temp 2>/dev/null || cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null || echo 0)
 
                     echo "${'$'}cap|${'$'}stat|${'$'}hlth|${'$'}temp|${'$'}volt|${'$'}cur|${'$'}cyc|${'$'}cnt|${'$'}adpv|${'$'}chgtyp|${'$'}ibus|${'$'}rfc|${'$'}rtmp|${'$'}grd|${'$'}cst|${'$'}pmic_sig|${'$'}sec_sig|${'$'}vooc_sig|${'$'}qc_sig|${'$'}mi_sig|${'$'}pd_sig|${'$'}ptyp|${'$'}rcbl|${'$'}spftmp|${'$'}is_plugged|${'$'}bpa|${'$'}full"
 
@@ -214,7 +214,14 @@ internal object LynxBatteryTelemetryRepository {
                     val rfcAuth = parts.getOrNull(11)?.trim() == "1"
                     val rawRtmp = parts.getOrNull(12)?.toFloatOrNull() ?: 0f
                     val realTempC = if (rawRtmp > 1000f) rawRtmp / 1000f else if (rawRtmp > 100f) rawRtmp / 10f else rawRtmp
-                    val finalTempC = if (tempC <= 0f && realTempC > 0f) realTempC else tempC
+                    val rawSpf = parts.getOrNull(23)?.toFloatOrNull() ?: 0f
+                    val spoofedTemp = if (rawSpf > 100f) rawSpf / 10f else rawSpf
+                    val finalTempC = when {
+                        spoofedTemp > 0f -> spoofedTemp
+                        tempC > 0f -> tempC
+                        realTempC > 0f -> realTempC
+                        else -> 0f
+                    }
                     val isGuardActive = parts.getOrNull(13)?.trim() == "1"
                     val chgState = parts.getOrNull(14)?.trim() ?: ""
 
@@ -227,8 +234,6 @@ internal object LynxBatteryTelemetryRepository {
 
                     val rawPtyp = parts.getOrNull(21)?.trim() ?: ""
                     val rawRcbl = parts.getOrNull(22)?.toIntOrNull() ?: 0
-                    val rawSpf = parts.getOrNull(23)?.toFloatOrNull() ?: 0f
-                    val spoofedTemp = if (rawSpf > 100f) rawSpf / 10f else rawSpf
 
                     val isLaptop = rawPtyp.contains("SDP", ignoreCase = true) || rawPtyp.contains("CDP", ignoreCase = true) || rawPtyp.contains("PC", ignoreCase = true)
                     val portTypeDisplay = when {

@@ -386,13 +386,17 @@ impl DeviceState {
             })
             .unwrap_or(50);
 
-        let mut temp_raw = SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/temp")
-            .or_else(|_| SysfsReader::read_int::<i32>("/sys/class/power_supply/bms/temp"))
-            .map(|t| {
-                found_any = true;
-                t
-            })
-            .unwrap_or(350);
+        let mut temp_raw = if fs::metadata("/dev/lynx_spoofed_batt_temp").is_ok() {
+            SysfsReader::read_int::<i32>("/dev/lynx_spoofed_batt_temp").unwrap_or(250)
+        } else {
+            SysfsReader::read_int::<i32>("/sys/class/power_supply/battery/temp")
+                .or_else(|_| SysfsReader::read_int::<i32>("/sys/class/power_supply/bms/temp"))
+                .map(|t| {
+                    found_any = true;
+                    t
+                })
+                .unwrap_or(350)
+        };
 
         if temp_raw <= 0 {
             let real_dc = crate::hardware::charging::ChargingRegulator::read_real_battery_temp_dc();

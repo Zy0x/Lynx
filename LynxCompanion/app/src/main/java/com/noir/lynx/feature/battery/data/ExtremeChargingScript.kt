@@ -64,6 +64,13 @@ object ExtremeChargingScript {
             chmod 666 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             echo 25 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            echo 250 > /dev/lynx_spoofed_batt_temp 2>/dev/null
+            chmod 644 /dev/lynx_spoofed_batt_temp 2>/dev/null
+            if ! grep -q "/dev/lynx_spoofed_batt_temp" /proc/mounts 2>/dev/null; then
+                [ -e /sys/class/power_supply/battery/temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/battery/temp 2>/dev/null
+                [ -e /sys/class/power_supply/bms/temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/bms/temp 2>/dev/null
+                [ -e /sys/class/power_supply/battery/batt_temp ] && mount -o bind /dev/lynx_spoofed_batt_temp /sys/class/power_supply/battery/batt_temp 2>/dev/null
+            fi
             chmod 666 /proc/driver/thermal/clabcct /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
             echo "70000 1000 200000 6000 6000 0 1 1 0" > /proc/driver/thermal/clabcct 2>/dev/null
             echo "1 70000 1000 200000 6000 6000 0 6000 0" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
@@ -144,6 +151,12 @@ object ExtremeChargingScript {
                 echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/soc_decimal 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/night_charging 2>/dev/null
+                for bms in /sys/class/power_supply/bms /sys/class/power_supply/battery; do
+                    [ -e "${'$'}bms/temp_hot" ] && chmod 666 "${'$'}bms/temp_hot" 2>/dev/null && echo 750 > "${'$'}bms/temp_hot" 2>/dev/null
+                    [ -e "${'$'}bms/temp_warm" ] && chmod 666 "${'$'}bms/temp_warm" 2>/dev/null && echo 650 > "${'$'}bms/temp_warm" 2>/dev/null
+                    [ -e "${'$'}bms/temp_cool" ] && chmod 666 "${'$'}bms/temp_cool" 2>/dev/null && echo 50 > "${'$'}bms/temp_cool" 2>/dev/null
+                    [ -e "${'$'}bms/temp_cold" ] && chmod 666 "${'$'}bms/temp_cold" 2>/dev/null && echo 0 > "${'$'}bms/temp_cold" 2>/dev/null
+                done
 
                 # Universal Dynamic Thermal Zone Governor Neutralization (Strictly Battery / BMS Only)
                 for tz in /sys/class/thermal/thermal_zone*; do
@@ -251,9 +264,11 @@ object ExtremeChargingScript {
                     [ -f "${'$'}tz/type" ] || continue
                     read -r t < "${'$'}tz/type" 2>/dev/null
                     case "${'$'}t" in
-                        quiet-therm-step)
-                            [ -f "${'$'}tz/trip_point_0_temp" ] && echo 75000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
-                            [ -f "${'$'}tz/trip_point_1_temp" ] && echo 80000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                        *quiet-therm*)
+                            [ -f "${'$'}tz/trip_point_0_temp" ] && chmod 666 "${'$'}tz/trip_point_0_temp" 2>/dev/null && echo 75000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
+                            [ -f "${'$'}tz/trip_point_1_temp" ] && chmod 666 "${'$'}tz/trip_point_1_temp" 2>/dev/null && echo 80000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                            [ -f "${'$'}tz/mode" ] && chmod 666 "${'$'}tz/mode" 2>/dev/null
+                            [ -f "${'$'}tz/policy" ] && chmod 666 "${'$'}tz/policy" 2>/dev/null
                             ;;
                     esac
                 done

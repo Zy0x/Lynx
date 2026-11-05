@@ -257,7 +257,11 @@ fun TuningTabContent(
                                     SubsystemCategoryCard(
                                         category = TuningCategory.CHARGING,
                                         badgeText = if (state.charging.bypassEnabled) "BYPASS" else if (state.charging.extremeChargingEnabled) "EXTREME" else "${state.charging.limitCurrentMa} mA",
-                                        detailText1 = "${uiState.batteryDetails?.tempC ?: 0f}°C",
+                                        detailText1 = run {
+                                            val t = uiState.batteryDetails?.tempC ?: 0f
+                                            val normT = if (t > 100f) t / 10f else t
+                                            "${String.format(java.util.Locale.US, "%.1f", normT)}°C"
+                                        },
                                         detailText2 = "${uiState.batteryDetails?.currentMa ?: 0} mA",
                                         onClick = { onSelectedCategoryChange("charging") },
                                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)

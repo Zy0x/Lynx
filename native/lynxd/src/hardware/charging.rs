@@ -42,6 +42,7 @@ const TRAN_BATTERY_ODM_DIR: &str = "/sys/devices/platform/odm/odm:tran_battery";
 const TRAN_BATTERY_DIR: &str = "/sys/devices/platform/tran_battery";
 const PCA_DV2_DIR: &str = "/sys/devices/platform/pca_dv2_algo";
 const BATT_TEMP_NODE: &str = "/sys/devices/platform/battery/Battery_Temperature";
+pub const SPOOFED_BATT_TEMP_PATH: &str = "/dev/lynx_spoofed_batt_temp";
 const CLABCCT_NODE: &str = "/proc/driver/thermal/clabcct";
 const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
 
@@ -1210,43 +1211,43 @@ impl ChargingRegulator {
                     }
                     let warm_path = p.join("temp_warm");
                     if warm_path.exists() {
-                        Self::write_node_lock(&warm_path.to_string_lossy(), "650");
+                        Self::write_node(&warm_path.to_string_lossy(), "650");
                     }
                     let hot_path = p.join("temp_hot");
                     if hot_path.exists() {
-                        Self::write_node_lock(&hot_path.to_string_lossy(), "750");
+                        Self::write_node(&hot_path.to_string_lossy(), "750");
                     }
                     let cool_path = p.join("temp_cool");
                     if cool_path.exists() {
-                        Self::write_node_lock(&cool_path.to_string_lossy(), "50");
+                        Self::write_node(&cool_path.to_string_lossy(), "50");
                     }
                     let cold_path = p.join("temp_cold");
                     if cold_path.exists() {
-                        Self::write_node_lock(&cold_path.to_string_lossy(), "0");
+                        Self::write_node(&cold_path.to_string_lossy(), "0");
                     }
                     let sys_temp = p.join("system_temp_level");
                     if sys_temp.exists() {
-                        Self::write_node_lock(&sys_temp.to_string_lossy(), "0");
+                        Self::write_node(&sys_temp.to_string_lossy(), "0");
                     }
                     let temp_st = p.join("temp_state");
                     if temp_st.exists() {
-                        Self::write_node_lock(&temp_st.to_string_lossy(), "0");
+                        Self::write_node(&temp_st.to_string_lossy(), "0");
                     }
                     let th_lim = p.join("thermal_input_current_limit");
                     if th_lim.exists() {
-                        Self::write_node_lock(&th_lim.to_string_lossy(), "-1");
+                        Self::write_node(&th_lim.to_string_lossy(), "-1");
                     }
                     let step_chg = p.join("step_charging_enabled");
                     if step_chg.exists() {
-                        Self::write_node_lock(&step_chg.to_string_lossy(), "0");
+                        Self::write_node(&step_chg.to_string_lossy(), "0");
                     }
                     let sw_j = p.join("sw_jeita_enabled");
                     if sw_j.exists() {
-                        Self::write_node_lock(&sw_j.to_string_lossy(), "0");
+                        Self::write_node(&sw_j.to_string_lossy(), "0");
                     }
                     let rst_chg = p.join("restricted_charging");
                     if rst_chg.exists() {
-                        Self::write_node_lock(&rst_chg.to_string_lossy(), "0");
+                        Self::write_node(&rst_chg.to_string_lossy(), "0");
                     }
                 }
             }
@@ -2809,8 +2810,8 @@ impl ChargingRegulator {
         Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
         Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "0");
 
-        // 4. In Hyper Mode, lock Battery_Temperature to 25°C with 0444 so kernel battery driver never derates current
-        Self::write_node_lock(BATT_TEMP_NODE, "25");
+        // 4. In Hyper Mode, bypass Battery_Temperature to 25°C across MTK & Qualcomm architectures
+        Self::apply_battery_temperature_bypass(25);
 
         // 5. MediaTek ABCCT PID & BCCT Thermal Derater Neutralization:
         // CRITICAL HARDWARE SAFETY GUARD:
@@ -2911,17 +2912,17 @@ impl ChargingRegulator {
 
         // 7. Qualcomm Snapdragon Platform Thermal Uncaps & BMS JEITA Expansion
         Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+        Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+        Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         let fv_uv_str = Self::probe_hardware_voltage_ceiling_uv().to_string();
-        Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-        Self::write_node_lock(&format!("{}/constant_charge_voltage", BATT_DIR), &fv_uv_str);
-        Self::write_node_lock(&format!("{}/constant_charge_voltage_max", BATT_DIR), &fv_uv_str);
-        Self::write_node_lock(&format!("{}/voltage_max", BATT_DIR), &fv_uv_str);
-        Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+        Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+        Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+        Self::write_node(&format!("{}/constant_charge_voltage", BATT_DIR), &fv_uv_str);
+        Self::write_node(&format!("{}/constant_charge_voltage_max", BATT_DIR), &fv_uv_str);
+        Self::write_node(&format!("{}/voltage_max", BATT_DIR), &fv_uv_str);
+        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+        Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
 
         // Relax BMS / Battery JEITA temperature thresholds dynamically across any device
         if let Ok(entries) = fs::read_dir(PS_DIR) {
@@ -2934,31 +2935,31 @@ impl ChargingRegulator {
                     }
                     let warm_path = p.join("temp_warm");
                     if warm_path.exists() {
-                        Self::write_node_lock(&warm_path.to_string_lossy(), "650");
+                        Self::write_node(&warm_path.to_string_lossy(), "650");
                     }
                     let hot_path = p.join("temp_hot");
                     if hot_path.exists() {
-                        Self::write_node_lock(&hot_path.to_string_lossy(), "750");
+                        Self::write_node(&hot_path.to_string_lossy(), "750");
                     }
                     let cool_path = p.join("temp_cool");
                     if cool_path.exists() {
-                        Self::write_node_lock(&cool_path.to_string_lossy(), "50");
+                        Self::write_node(&cool_path.to_string_lossy(), "50");
                     }
                     let cold_path = p.join("temp_cold");
                     if cold_path.exists() {
-                        Self::write_node_lock(&cold_path.to_string_lossy(), "0");
+                        Self::write_node(&cold_path.to_string_lossy(), "0");
                     }
                 }
             }
         }
 
         // Fast charge and power negotiation boost flags
-        Self::write_node_lock("/sys/kernel/fast_charge/force_fast_charge", "1");
-        Self::write_node_lock("/sys/class/power_supply/usb/boost_current", "1");
-        Self::write_node_lock("/sys/class/power_supply/usb/pd_allowed", "1");
-        Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-        Self::write_node_lock("/sys/class/power_supply/battery/subsystem/usb/pd_allowed", "1");
-        Self::write_node_lock("/sys/class/power_supply/battery/safety_timer_enabled", "0");
+        Self::write_node("/sys/kernel/fast_charge/force_fast_charge", "1");
+        Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
+        Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
+        Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+        Self::write_node("/sys/class/power_supply/battery/subsystem/usb/pd_allowed", "1");
+        Self::write_node("/sys/class/power_supply/battery/safety_timer_enabled", "0");
 
         // 7b. Qualcomm Snapdragon Dynamic Thermal Engine Live Bind-Mount & Trip Point Expansion
         Self::apply_qcom_thermal_engine_bind_mount();
@@ -3093,8 +3094,11 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/temp_cold", bms_dir), "0");
         }
 
-        // 7c. Restore Qualcomm thermal-engine bind mount & quiet-therm-step trip points
+        // 7c. Restore Qualcomm thermal-engine bind mount & quiet-therm trip points
         Self::restore_qcom_thermal_engine_bind_mount();
+
+        // 7d. Restore genuine battery temperature reporting (unmount spoof bind-mounts)
+        Self::restore_battery_temperature_bypass();
 
         // 8. Reset Android framework thermal status
         let _ = std::process::Command::new("cmd")
@@ -3259,13 +3263,18 @@ impl ChargingRegulator {
                 if name_str.starts_with("thermal_zone") {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
-                        if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
+                        let t_clean = t.trim().to_lowercase();
+                        if t_clean.contains("quiet-therm") {
                             let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
                             let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
+                            let mode_p = format!("/sys/class/thermal/{}/mode", name_str);
+                            let pol_p = format!("/sys/class/thermal/{}/policy", name_str);
                             Self::set_perm(&tp0, 0o666);
                             Self::write_node(&tp0, "75000");
                             Self::set_perm(&tp1, 0o666);
                             Self::write_node(&tp1, "80000");
+                            Self::set_perm(&mode_p, 0o666);
+                            Self::set_perm(&pol_p, 0o666);
                         }
                     }
                 }
@@ -3307,17 +3316,87 @@ impl ChargingRegulator {
                 if name_str.starts_with("thermal_zone") {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
-                        if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
+                        let t_clean = t.trim().to_lowercase();
+                        if t_clean.contains("quiet-therm") {
                             let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
                             let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
+                            let mode_p = format!("/sys/class/thermal/{}/mode", name_str);
+                            let pol_p = format!("/sys/class/thermal/{}/policy", name_str);
                             Self::set_perm(&tp0, 0o666);
-                            Self::write_node(&tp0, "50000");
+                            Self::write_node(&tp0, "37000");
                             Self::set_perm(&tp1, 0o666);
-                            Self::write_node(&tp1, "53000");
+                            Self::write_node(&tp1, "41000");
+                            Self::set_perm(&mode_p, 0o666);
+                            Self::set_perm(&pol_p, 0o666);
                         }
                     }
                 }
             }
+        }
+    }
+
+    /// Bypasses/spoofs battery temperature (default: 25°C) across both MediaTek and Qualcomm architectures:
+    /// - On MediaTek: Writes target °C directly to `/sys/devices/platform/battery/Battery_Temperature`.
+    /// - On Qualcomm: Writes target deci-Celsius (e.g. 250) to `/dev/lynx_spoofed_batt_temp` and bind-mounts
+    ///   it over `/sys/class/power_supply/battery/temp`, `bms/temp`, and `batt_temp` so all userspace and framework
+    ///   observers see 25.0°C.
+    pub fn apply_battery_temperature_bypass(temp_c: u32) {
+        let decicelsius = (temp_c * 10).to_string();
+        let celsius_str = temp_c.to_string();
+
+        // 1. Write virtual spoof node for app telemetry and scripts
+        let _ = fs::write(SPOOFED_BATT_TEMP_PATH, format!("{}\n", decicelsius));
+        Self::set_perm(SPOOFED_BATT_TEMP_PATH, 0o644);
+
+        // 2. MediaTek kernel driver hook
+        if Path::new(BATT_TEMP_NODE).exists() {
+            Self::set_perm(BATT_TEMP_NODE, 0o666);
+            let _ = fs::write(BATT_TEMP_NODE, &celsius_str);
+            Self::set_perm(BATT_TEMP_NODE, 0o444);
+        }
+
+        // 3. Qualcomm / Universal sysfs bind mounts
+        if Self::is_qualcomm_soc() {
+            let mounts = fs::read_to_string("/proc/mounts").unwrap_or_default();
+            for target in &[
+                "/sys/class/power_supply/battery/temp",
+                "/sys/class/power_supply/bms/temp",
+                "/sys/class/power_supply/battery/batt_temp",
+            ] {
+                if Path::new(target).exists() {
+                    Self::set_perm(target, 0o644);
+                    if !mounts.contains(target) {
+                        let _ = std::process::Command::new("mount")
+                            .args(["-o", "bind", SPOOFED_BATT_TEMP_PATH, target])
+                            .output();
+                    }
+                    Self::set_perm(target, 0o644);
+                }
+            }
+        }
+    }
+
+    /// Restores authentic battery temperature reporting by unmounting sysfs spoofs and clearing marker.
+    pub fn restore_battery_temperature_bypass() {
+        if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
+            for target in &[
+                "/sys/class/power_supply/battery/temp",
+                "/sys/class/power_supply/bms/temp",
+                "/sys/class/power_supply/battery/batt_temp",
+            ] {
+                if mounts.contains(target) {
+                    let _ = std::process::Command::new("umount")
+                        .arg(target)
+                        .output();
+                }
+            }
+        }
+        let _ = fs::remove_file(SPOOFED_BATT_TEMP_PATH);
+
+        // On MediaTek, reset Battery_Temperature to 0 (kernel auto-read mode)
+        if Path::new(BATT_TEMP_NODE).exists() {
+            Self::set_perm(BATT_TEMP_NODE, 0o666);
+            let _ = fs::write(BATT_TEMP_NODE, "0");
         }
     }
 
@@ -3326,6 +3405,9 @@ impl ChargingRegulator {
     /// This guarantees that when discharging or during standard charging, the kernel power_supply,
     /// Android BatteryService, system status bar, and companion apps report authentic live battery temp.
     pub fn sync_authentic_battery_temp() {
+        if Path::new(SPOOFED_BATT_TEMP_PATH).exists() {
+            return;
+        }
         if !Path::new(BATT_TEMP_NODE).exists() {
             return;
         }
@@ -4840,6 +4922,15 @@ mod tests {
         let second = super::can_soft_reconnect();
         // The first call consumes the slot, second must be false (in cooldown)
         assert!(!second);
+    }
+
+    #[test]
+    fn test_battery_temperature_bypass_node_format() {
+        let temp_c = 25u32;
+        let decicelsius = (temp_c * 10).to_string();
+        assert_eq!(decicelsius, "250");
+        assert_eq!(temp_c.to_string(), "25");
+        assert_eq!(super::SPOOFED_BATT_TEMP_PATH, "/dev/lynx_spoofed_batt_temp");
     }
 }
 

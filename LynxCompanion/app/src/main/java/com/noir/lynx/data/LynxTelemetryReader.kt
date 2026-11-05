@@ -106,7 +106,7 @@ internal object LynxTelemetryReader {
                     fi
                     echo "gpuload:${'$'}g_l"
 
-                    bt=${'$'}(cat /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp 2>/dev/null | head -n1)
+                    bt=${'$'}(cat /dev/lynx_spoofed_batt_temp /sys/devices/platform/battery/Battery_Temperature /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp 2>/dev/null | head -n1)
                     echo "temp:${'$'}bt"
                     bl=${'$'}(cat /sys/class/power_supply/battery/capacity /sys/class/power_supply/bms/capacity 2>/dev/null | head -n1)
                     echo "batt_lvl:${'$'}bl"
@@ -170,10 +170,13 @@ internal object LynxTelemetryReader {
                             gpuBusy = (loadRaw.filter { it.isDigit() }.toIntOrNull() ?: 0).coerceIn(0, 100)
                         }
                         trimmed.startsWith("temp:") -> {
-                            val tempRaw = trimmed.removePrefix("temp:").filter { it.isDigit() }.toLongOrNull() ?: 350L
-                            tempStr = if (tempRaw > 1000L) String.format(java.util.Locale.US, "%.1f", tempRaw / 1000.0)
-                                      else if (tempRaw > 100L) String.format(java.util.Locale.US, "%.1f", tempRaw / 10.0)
-                                      else tempRaw.toString()
+                            val rawVal = trimmed.removePrefix("temp:").trim().toLongOrNull()
+                            if (rawVal != null && rawVal > 0L) {
+                                tempStr = if (rawVal > 1000L) String.format(java.util.Locale.US, "%.1f", rawVal / 1000.0)
+                                          else if (rawVal > 100L) String.format(java.util.Locale.US, "%.1f", rawVal / 10.0)
+                                          else if (rawVal in 15..95) String.format(java.util.Locale.US, "%.1f", rawVal.toDouble())
+                                          else rawVal.toString()
+                            }
                         }
                         trimmed.startsWith("batt_lvl:") -> {
                             battLevel = (trimmed.removePrefix("batt_lvl:").filter { it.isDigit() }.toIntOrNull() ?: 50).coerceIn(0, 100)
@@ -343,16 +346,18 @@ internal object LynxTelemetryReader {
 
             var tempStr = "38.0"
             val tempCandidates = listOf(
+                File("/dev/lynx_spoofed_batt_temp"),
+                File("/sys/devices/platform/battery/Battery_Temperature"),
                 File("/sys/class/power_supply/battery/temp"),
-                File("/sys/class/power_supply/bms/temp"),
-                File("/sys/class/thermal/thermal_zone0/temp")
+                File("/sys/class/power_supply/bms/temp")
             )
             for (tf in tempCandidates) {
                 if (tf.exists() && tf.canRead()) {
-                    val rawT = tf.readText().filter { it.isDigit() }.toLongOrNull()
-                    if (rawT != null && rawT > 0) {
+                    val rawT = tf.readText().trim().toLongOrNull()
+                    if (rawT != null && rawT > 0L) {
                         tempStr = if (rawT > 1000L) String.format(java.util.Locale.US, "%.1f", rawT / 1000.0)
                                   else if (rawT > 100L) String.format(java.util.Locale.US, "%.1f", rawT / 10.0)
+                                  else if (rawT in 15..95) String.format(java.util.Locale.US, "%.1f", rawT.toDouble())
                                   else rawT.toString()
                         break
                     }

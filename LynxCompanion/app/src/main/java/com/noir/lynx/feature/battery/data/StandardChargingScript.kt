@@ -106,13 +106,21 @@ object StandardChargingScript {
                 rm -f /dev/lynx_thermal_engine.conf 2>/dev/null
                 pkill -HUP -f thermal-engine 2>/dev/null
             fi
+            if grep -q "/dev/lynx_spoofed_batt_temp" /proc/mounts 2>/dev/null; then
+                umount /sys/class/power_supply/battery/temp 2>/dev/null
+                umount /sys/class/power_supply/bms/temp 2>/dev/null
+                umount /sys/class/power_supply/battery/batt_temp 2>/dev/null
+                rm -f /dev/lynx_spoofed_batt_temp 2>/dev/null
+            fi
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -f "${'$'}tz/type" ] || continue
                 read -r t < "${'$'}tz/type" 2>/dev/null
                 case "${'$'}t" in
-                    quiet-therm-step)
-                        [ -f "${'$'}tz/trip_point_0_temp" ] && echo 50000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
-                        [ -f "${'$'}tz/trip_point_1_temp" ] && echo 53000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                    *quiet-therm*)
+                        [ -f "${'$'}tz/trip_point_0_temp" ] && chmod 666 "${'$'}tz/trip_point_0_temp" 2>/dev/null && echo 37000 > "${'$'}tz/trip_point_0_temp" 2>/dev/null
+                        [ -f "${'$'}tz/trip_point_1_temp" ] && chmod 666 "${'$'}tz/trip_point_1_temp" 2>/dev/null && echo 41000 > "${'$'}tz/trip_point_1_temp" 2>/dev/null
+                        [ -f "${'$'}tz/mode" ] && chmod 666 "${'$'}tz/mode" 2>/dev/null
+                        [ -f "${'$'}tz/policy" ] && chmod 666 "${'$'}tz/policy" 2>/dev/null
                         ;;
                 esac
             done

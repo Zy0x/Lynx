@@ -190,7 +190,13 @@ internal object LynxTelemetryMapper {
 
         ): BatteryDetails {
 
-            val parsedTemp = tel.temp.toFloatOrNull() ?: 0f
+            val rawParsed = tel.temp.toFloatOrNull() ?: 0f
+            val parsedTemp = when {
+                rawParsed > 1000f -> rawParsed / 1000f
+                rawParsed > 100f -> rawParsed / 10f
+                rawParsed in 5f..95f -> rawParsed
+                else -> 0f
+            }
             val tempFloat = if (parsedTemp > 0f) parsedTemp else (existingBatt?.tempC ?: 35.0f)
 
             val isDischargingHardware = tel.battCurrentMa < -50
