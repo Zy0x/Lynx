@@ -1,3 +1,20 @@
+# Lynx Universal [Fix Thermal PMIC Hardware Over-Temperature Reset & Strict Battery Zone Isolation] 7.0.0-RC345
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.69
+
+- **Perbaikan Kritis Pencegahan Reboot Baterai & Isolasi Ketat Sensor Termal (*Thermal PMIC Hardware Safety Guard*)**:
+  - **Membasmi Bug Penyebab Device Reboot Mendadak Saat Colok Charger**:
+    - Mengidentifikasi akar masalah fatal pada RC338: pemindaian zona termal sebelumnya mencocokkan kata kunci silikon PMIC/SoC (`pmic`, `pm660`, `smb`, `mtktsap`), mematikan mode (`mode -> disabled`), dan menimpa trip-points (`trip_point_*_temp -> 99000`).
+    - Hal tersebut menurunkan batas proteksi kritis darurat PMIC dari 125°C ke 99°C, serta melumpuhkan interrupt driver `pmic-temp-alarm`. Akibatnya, saat arus pengisian cepat 2.8A dialirkan dan suhu silikon PM660 menyentuh 99°C, komparator hardware PMIC langsung memicu *Emergency Hard Reset / Thermal Panic Reboot*.
+  - **Isolasi Mutlak Zona Termal Baterai (*Strict Battery/BMS Only Matching*)**:
+    - Menyaring secara ketat: hanya zona termal fisik baterai murni (`battery`, `bms`, `mtktsbattery`) yang dinetralkan governor-nya ke `user_space` atau `low_limits_floor`.
+    - **Proteksi Mutlak Sensor Silikon**: Secara eksplisit melarang dan melewati (*skip*) seluruh sensor yang mengandung `pmic`, `pm660`, `smb`, `cpu`, `gpu`, `ap`, `mtktsap`, `tsens`, atau `modem`.
+    - **Menghapus Total Penulisan ke `mode` dan `trip_point_*_temp`**: Membiarkan seluruh `mode` tetap aktif dan tidak menyentuh `trip_point` darurat agar sistem proteksi keselamatan kebakaran/pelelehan silikon hardware tetap 100% utuh dan tidak pernah memicu reboot liar.
+  - **Penyelarasan Ganda (Rust `lynxd` & Kotlin Companion Script)**:
+    - Logika keselamatan diterapkan identik di `native/lynxd/src/hardware/charging.rs` (`neutralise_battery_cooling_devices` & `apply_extreme_charging`) dan `ExtremeChargingScript.kt`.
+
+---
+
 # Lynx Universal [Sub-Second App Automation & Real-Time Profile Rule Sync] 7.0.0-RC342
 Released on: 2026-11-04
 > Lynx Kernel Manager v3.3.66

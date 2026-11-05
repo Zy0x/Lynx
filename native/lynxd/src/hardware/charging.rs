@@ -1156,7 +1156,7 @@ impl ChargingRegulator {
                             continue;
                         }
                         if t_lower.contains("bcct") || t_lower.contains("abcct")
-                            || t_lower == "battery" || t_lower == "charger" || t_lower.contains("pm660") || t_lower.contains("smb")
+                            || t_lower == "battery" || t_lower == "charger"
                         {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::write_node_lock(&cur_path, "0");
@@ -1166,17 +1166,24 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("battery")
-                            || t_lower.contains("bms")
-                            || t_lower.contains("charger")
-                            || t_lower.contains("pmic")
-                            || t_lower.contains("pm660")
-                            || t_lower.contains("smb")
-                            || t_lower.contains("quiet-therm")
-                            || t_lower.contains("mtktsbattery")
-                            || t_lower.contains("mtktsap")
-                        {
-                            // A. Dynamic Thermal Governor Neutralization (step_wise -> user_space)
+                        // CRITICAL HARDWARE SAFETY GUARD:
+                        // Strictly target ONLY battery/bms charging zones.
+                        // NEVER touch PMIC, SoC, CPU, GPU, modem, or AP sensors (pm660, pmic, smb, mtktsap, tsens)
+                        // to prevent PMIC hardware thermal shutdown or watchdog bites!
+                        let is_battery_zone = (t_lower == "battery"
+                            || t_lower == "bms"
+                            || t_lower == "mtktsbattery"
+                            || t_lower.starts_with("battery_")
+                            || t_lower.starts_with("bms_"))
+                            && !t_lower.contains("pmic")
+                            && !t_lower.contains("pm660")
+                            && !t_lower.contains("smb")
+                            && !t_lower.contains("cpu")
+                            && !t_lower.contains("ap");
+
+                        if is_battery_zone {
+                            // Neutralize kernel thermal governor (step_wise -> user_space)
+                            // This stops kernel throttling without disabling thermal monitoring or touching trip points.
                             let avail_path = format!("/sys/class/thermal/{}/available_policies", name_str);
                             let policy_path = format!("/sys/class/thermal/{}/policy", name_str);
                             if let Ok(avail) = fs::read_to_string(&avail_path) {
@@ -1184,22 +1191,6 @@ impl ChargingRegulator {
                                     Self::write_node_lock(&policy_path, "user_space");
                                 } else if avail.contains("low_limits_floor") {
                                     Self::write_node_lock(&policy_path, "low_limits_floor");
-                                }
-                            }
-
-                            // B. Safely disable mode if present and non-MTK (prevents MTK unbind panics)
-                            if !t_lower.starts_with("mtkts") {
-                                let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
-                                if Path::new(&mode_path).exists() {
-                                    Self::write_node_lock(&mode_path, "disabled");
-                                }
-                            }
-
-                            // C. Elevate trip points dynamically if present
-                            for trip_idx in 0..10 {
-                                let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);
-                                if Path::new(&trip_path).exists() {
-                                    Self::write_node_lock(&trip_path, "99000");
                                 }
                             }
                         }
@@ -2847,7 +2838,7 @@ impl ChargingRegulator {
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
         Self::set_bcct_throttle(false);
 
-        // Raise trip points and disable MediaTek AP / battery thermal zones that trip ABCCT
+        // Safe battery thermal zone policy adjustment
         if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
             for entry in entries.flatten() {
                 let name = entry.file_name();
@@ -2856,17 +2847,21 @@ impl ChargingRegulator {
                     let type_path = format!("/sys/class/thermal/{}/type", name_str);
                     if let Ok(t) = fs::read_to_string(&type_path) {
                         let t_lower = t.trim().to_lowercase();
-                        if t_lower.contains("battery")
-                            || t_lower.contains("bms")
-                            || t_lower.contains("charger")
-                            || t_lower.contains("pmic")
-                            || t_lower.contains("pm660")
-                            || t_lower.contains("smb")
-                            || t_lower.contains("quiet-therm")
-                            || t_lower.contains("mtktsbattery")
-                            || t_lower.contains("mtktsap")
-                        {
-                            // A. Dynamic Thermal Governor Neutralization (step_wise -> user_space)
+                        // CRITICAL HARDWARE SAFETY GUARD:
+                        // Strictly target ONLY battery/bms charging zones.
+                        // NEVER touch PMIC, SoC, CPU, GPU, modem, or AP sensors (pm660, pmic, smb, mtktsap, tsens)
+                        let is_battery_zone = (t_lower == "battery"
+                            || t_lower == "bms"
+                            || t_lower == "mtktsbattery"
+                            || t_lower.starts_with("battery_")
+                            || t_lower.starts_with("bms_"))
+                            && !t_lower.contains("pmic")
+                            && !t_lower.contains("pm660")
+                            && !t_lower.contains("smb")
+                            && !t_lower.contains("cpu")
+                            && !t_lower.contains("ap");
+
+                        if is_battery_zone {
                             let avail_path = format!("/sys/class/thermal/{}/available_policies", name_str);
                             let policy_path = format!("/sys/class/thermal/{}/policy", name_str);
                             if let Ok(avail) = fs::read_to_string(&avail_path) {
@@ -2874,22 +2869,6 @@ impl ChargingRegulator {
                                     Self::write_node_lock(&policy_path, "user_space");
                                 } else if avail.contains("low_limits_floor") {
                                     Self::write_node_lock(&policy_path, "low_limits_floor");
-                                }
-                            }
-
-                            // B. Safely disable mode if present and non-MTK (prevents MTK unbind panics)
-                            if !t_lower.starts_with("mtkts") {
-                                let mode_path = format!("/sys/class/thermal/{}/mode", name_str);
-                                if Path::new(&mode_path).exists() {
-                                    Self::write_node_lock(&mode_path, "disabled");
-                                }
-                            }
-
-                            // C. Elevate trip points dynamically if present
-                            for trip_idx in 0..10 {
-                                let trip_path = format!("/sys/class/thermal/{}/trip_point_{}_temp", name_str, trip_idx);
-                                if Path::new(&trip_path).exists() {
-                                    Self::write_node_lock(&trip_path, "99000");
                                 }
                             }
                         }

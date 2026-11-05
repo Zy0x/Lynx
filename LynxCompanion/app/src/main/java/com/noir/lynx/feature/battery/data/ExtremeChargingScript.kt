@@ -134,12 +134,15 @@ object ExtremeChargingScript {
                 echo 1 > /sys/class/power_supply/battery/soc_decimal 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/night_charging 2>/dev/null
 
-                # Universal Dynamic Thermal Zone Governor Neutralization
+                # Universal Dynamic Thermal Zone Governor Neutralization (Strictly Battery / BMS Only)
                 for tz in /sys/class/thermal/thermal_zone*; do
                     [ -d "${'$'}tz" ] || continue
                     tz_type=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
                     case "${'$'}tz_type" in
-                        *battery*|*bms*|*charger*|*pmic*|*pm660*|*smb*|*quiet-therm*|*mtktsbattery*|*mtktsap*)
+                        *pmic*|*pm660*|*smb*|*cpu*|*gpu*|*ap*|*tsens*|*modem*) continue ;;
+                    esac
+                    case "${'$'}tz_type" in
+                        battery|bms|mtktsbattery|battery_*|bms_*)
                             if [ -f "${'$'}tz/available_policies" ] && grep -q "user_space" "${'$'}tz/available_policies" 2>/dev/null; then
                                 chmod 666 "${'$'}tz/policy" 2>/dev/null
                                 echo "user_space" > "${'$'}tz/policy" 2>/dev/null
@@ -147,21 +150,6 @@ object ExtremeChargingScript {
                                 chmod 666 "${'$'}tz/policy" 2>/dev/null
                                 echo "low_limits_floor" > "${'$'}tz/policy" 2>/dev/null
                             fi
-                            case "${'$'}tz_type" in
-                                mtkts*) ;;
-                                *)
-                                    if [ -f "${'$'}tz/mode" ]; then
-                                        chmod 666 "${'$'}tz/mode" 2>/dev/null
-                                        echo "disabled" > "${'$'}tz/mode" 2>/dev/null
-                                    fi
-                                    ;;
-                            esac
-                            for tp in "${'$'}tz"/trip_point_*_temp; do
-                                if [ -f "${'$'}tp" ]; then
-                                    chmod 666 "${'$'}tp" 2>/dev/null
-                                    echo 99000 > "${'$'}tp" 2>/dev/null
-                                fi
-                            done
                             ;;
                     esac
                 done
