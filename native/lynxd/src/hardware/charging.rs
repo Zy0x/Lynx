@@ -1343,7 +1343,7 @@ impl ChargingRegulator {
             // or if the actual charging current drops below 1800 mA while battery < 85%:
             // IMMEDIATELY reassert hardware registers and kick AICL!
             let fcc_needs_reapply = if is_hyper {
-                (cur_fcc > 0 && cur_fcc < (target_ua - 200_000)) || (is_qcom && cur_now_ma < 2550 && cur_cap < 90)
+                cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
             } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
                 false
             } else if fcc_cooldown_expired {
@@ -1408,15 +1408,6 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/safety_timer_enabled", BATT_DIR), "0");
                     Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "-1");
                     Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "-1");
-
-                    // If flowing current is dropping below 1.8A in Hyper mode, kick AICL immediately to ramp back up!
-                    if is_hyper && cur_now_ma < 2550 && cur_cap < 90 {
-                        Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-                        Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-                        Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
-                        Self::write_node(&format!("{}/rerun_aicl", BATT_DIR), "1");
-                        Self::write_node(&format!("{}/rerun_aicl", MAIN_DIR), "1");
-                    }
                 }
             }
         } else if cfg.charging_mode == "custom" {
@@ -2793,15 +2784,25 @@ impl ChargingRegulator {
             format!("{}/pcb_thermal_debug", TRAN_BATTERY_DIR),
         ] {
             if Path::new(node).exists() {
-                Self::write_node_lock(node, "[95,7000,100,7000,7000000]");
+                let cur = Self::read_node(node).unwrap_or_default();
+                if !cur.contains("7000") && !cur.contains("6000") {
+                    Self::write_node_lock(node, "[95,7000,100,7000,7000000]");
+                }
             }
         }
 
         // 2. Transsion Direct Charge Pump DV2 In-Memory Thermal Table: Override thresholds & currents to 7000mA
+        // CRITICAL IDEMPOTENCY GUARD:
+        // Kernel driver store_dv2_thermal dispatches usb_switch_psy_notifier_cb event=0 which resets charger
+        // state machine back to standard 5V DCP (chrtype=4)! Writing this repeatedly aborts dv2_algo_task!
+        // ONLY write once if not already configured!
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
-            Self::write_node_lock(&dv2_debug, "[101,85,88,90,7000,7000,7000]");
-            Self::write_node_lock(&dv2_debug, "[102,85,88,90,7000,7000,7000]");
+            let cur_dv2 = Self::read_node(&dv2_debug).unwrap_or_default();
+            if !cur_dv2.contains("85") || !cur_dv2.contains("7000") {
+                Self::write_node_lock(&dv2_debug, "[101,85,88,90,7000,7000,7000]");
+                Self::write_node_lock(&dv2_debug, "[102,85,88,90,7000,7000,7000]");
+            }
         }
 
         // 3. Lock Charging_CallState to 0 to prevent dv2_algo_task screen-on clamp (1500mA)
@@ -2818,8 +2819,14 @@ impl ChargingRegulator {
         // which attempts cooler unregistration and crashes with ERR_PTR(-13) dereference at strncpy+0xc (Kernel Panic).
         // Battery fast charge current is governed purely via clbcct, clabcct, SC pump, and BCCT cooling devices below.
 
-        // A. Uncap battery charging current limits in clbcct
-        Self::write_node("/proc/driver/thermal/clbcct", "0 7000 7000 7000");
+        // A. Uncap battery charging current limits in clbcct (idempotent write)
+        let clbcct_node = "/proc/driver/thermal/clbcct";
+        if Path::new(clbcct_node).exists() {
+            let cur_cl = Self::read_node(clbcct_node).unwrap_or_default();
+            if !cur_cl.contains("7000") {
+                Self::write_node(clbcct_node, "0 7000 7000 7000");
+            }
+        }
 
         // C. PID controllers for clabcct (12 args) and clabcct_lcmoff (9 args)
         if Path::new(CLABCCT_LCMOFF_NODE).exists() {
@@ -3255,8 +3262,10 @@ impl ChargingRegulator {
                         if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
                             let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
                             let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
-                            Self::write_node_lock(&tp0, "75000");
-                            Self::write_node_lock(&tp1, "80000");
+                            Self::set_perm(&tp0, 0o666);
+                            Self::write_node(&tp0, "75000");
+                            Self::set_perm(&tp1, 0o666);
+                            Self::write_node(&tp1, "80000");
                         }
                     }
                 }
@@ -3301,8 +3310,10 @@ impl ChargingRegulator {
                         if t.trim().eq_ignore_ascii_case("quiet-therm-step") {
                             let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
                             let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
-                            Self::write_node_lock(&tp0, "50000");
-                            Self::write_node_lock(&tp1, "53000");
+                            Self::set_perm(&tp0, 0o666);
+                            Self::write_node(&tp0, "50000");
+                            Self::set_perm(&tp1, 0o666);
+                            Self::write_node(&tp1, "53000");
                         }
                     }
                 }
@@ -3649,9 +3660,8 @@ impl ChargingRegulator {
                 susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 
-            // If hyper mode is already active and critical invariants are intact, keep thermal neutralization clamped!
+            // If hyper mode is already active and critical invariants are intact, skip re-init!
             if marker.starts_with("hyper-") && invariants_intact {
-                Self::apply_charger_thermal_neutralization();
                 return;
             }
 

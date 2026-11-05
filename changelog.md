@@ -1,3 +1,27 @@
+# Lynx Universal [Idempotent DV2 Thermal Neutralization & Qualcomm D-State Lock Elimination] 7.0.0-RC348
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.72
+
+- **Eliminasi 1 Hz DV2 Notifier Loop Storm & Pemulihan Negosiasi 33W MediaTek Transsion (*Idempotent Direct Charge Neutralization*)**:
+  - **Audit Riwayat Bug Regresi**:
+    - Analisis git mendalam mengungkap bahwa pada commit `538d3dd8` (RC284), pemanggilan `apply_charger_thermal_neutralization()` ditambahkan ke dalam blok `if marker.starts_with("hyper-") && invariants_intact`.
+    - Hal ini memicu penulisan ulang `[101,85,88,90,7000,7000,7000]` dan `[102,...]` ke `/sys/devices/platform/pca_dv2_algo/dv2_debug` setiap 1 detik (1 Hz storm).
+    - Driver kernel MediaTek (`dv2_switch.c`) merespons setiap penulisan `dv2_debug` dengan memicu callback `usb_switch_psy_notifier_cb event=0` (`chrtype=4, rfc_dcp_ta=1`), yang seketika mereset state machine charger kembali ke standar 5V DCP dan membatalkan thread negosiasi tegangan tinggi `dv2_algo_task` / Pump Express 4.0 / TC30.
+  - **Penerapan Idempotensi Mutlak**:
+    - Menghapus pemanggilan berkala `apply_charger_thermal_neutralization()` dari blok `invariants_intact`, sehingga inisialisasi hanya dilakukan satu kali saat aktivasi mode Hyper.
+    - Menjadikan seluruh penulisan ke `dv2_debug`, `pcb_thermal_debug`, dan `clbcct` bersifat idempoten (hanya ditulis jika nilainya belum sesuai target).
+    - Membungkus penulisan `"1 0" > /proc/mtk_battery_cmd/current_cmd` dan `en_power_path` di Kotlin dengan verifikasi pembacaan awal agar tidak mereset buck converter `rt9471`.
+
+- **Pemusnahan Unbounded AICL Rerun & Eliminasi D-State Sleep pada Qualcomm Snapdragon (*SPMI Bus Contention Elimination*)**:
+  - **Pembersihan Triple Rerun AICL Tanpa Cooldown pada Invariant Enforcer**:
+    - Menemukan bahwa fungsi `enforce_live_charging_invariants()` di `native/lynxd/src/hardware/charging.rs` masih memicu penulisan simultan `rerun_aicl = 1` ke `usb`, `battery`, dan `main` tanpa cooldown setiap kali arus berada di bawah 2.550 mA.
+    - Pada kondisi baterai hangat (>45°C), arus pengisian secara alami tertahan di bawah 2.550 mA, menyebabkan loop penulisan `rerun_aicl` terjadi setiap detik dan mengakibatkan proses `lynxd` terperangkap dalam `D-state` (uninterruptible disk sleep) menunggu antrean mutex SPMI driver `qpnp-smb2`.
+    - Menghapus pemicu `rerun_aicl` tanpa jeda dari `enforce_live_charging_invariants()`, memusatkan seluruh logika pemulihan AICL secara eksklusif pada fungsi `handle_charging_tick()` yang telah dilindungi jeda aman 60 detik (*60s cooldown guard*).
+  - **Koreksi Izin Trip Points `quiet-therm-step` Qualcomm**:
+    - Mengganti `write_node_lock` (0444) pada `trip_point_*_temp` menjadi `set_perm(..., 0o666)` + `write_node` agar daemon vendor `/vendor/bin/thermal-engine` tidak gagal membuka file (`open failed13`) dan tetap berjalan stabil.
+
+---
+
 # Lynx Universal [Fix MediaTek 33W Switched-Capacitor Gating & Thermal Cooling Device Perms] 7.0.0-RC347
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.71

@@ -19,8 +19,8 @@ object ExtremeChargingScript {
             # Standalone fallback: request OEM negotiation and hardware uncap for Hyper mode
             applied=0
             rm -f /dev/lynx_bypass_active /dev/lynx_standard_charging
-            echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
-            echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
+            [ "${'$'}(cat /proc/mtk_battery_cmd/current_cmd 2>/dev/null)" != "1 0" ] && echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
+            [ "${'$'}(cat /proc/mtk_battery_cmd/en_power_path 2>/dev/null)" != "1" ] && echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
             echo 0 > /proc/lynx/bypass_charging 2>/dev/null
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \
@@ -55,10 +55,12 @@ object ExtremeChargingScript {
             echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
             echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
             chmod 444 /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
-            chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-            echo "[101,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-            echo "[102,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-            chmod 444 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+            if ! grep -q "6000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null && ! grep -q "7000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null; then
+                chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[101,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[102,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                chmod 444 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+            fi
             chmod 666 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             echo 25 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
             chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
