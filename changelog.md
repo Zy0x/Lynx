@@ -1,3 +1,19 @@
+# Lynx Universal [Fix MediaTek 33W Switched-Capacitor Gating & Thermal Cooling Device Perms] 7.0.0-RC347
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.71
+
+- **Penyempurnaan Switched-Capacitor 33W MediaTek & Pencegahan Abort Handshake Pump Express (*MTK 33W SC Voltage-Gated Pump Activation*)**:
+  - **Identifikasi Bug Handshake Gagal pada Infinix Note 11 Pro (Helio G96 / MT6781)**:
+    - Pengujian telemetri kernel membuktikan ponsel mendeteksi charger sebagai `STANDARD_DCP (4.87V)` dan menghentikan algoritma negosiasi (`mtk_tc30_start_algotithm: stop, tc30 is not connected; mtk_pe20_start_algorithm: stop, PE+20 is not connected; delta = -128mV`).
+    - Hal ini disebabkan oleh penulisan tanpa syarat `echo 1 > /sys/devices/platform/charger/enable_sc` pada script Kotlin (`ExtremeChargingScript.kt` dan `ChargingRepository.kt`) serta fungsi `apply_charger_thermal_neutralization()` di Rust saat tegangan VBUS masih berada di 5V dasar.
+    - Pada topologi 2:1 Switched Capacitor (Richtek RT9759), mengaktifkan pump saat tegangan adaptor 5V menghasilkan tegangan output 2.5V (jauh di bawah tegangan sel baterai 3.8V–4.2V), memicu gangguan arus balik (*UVLO / reverse current fault*) yang seketika menggagalkan pulsa negosiasi Pump Express 4.0 / TC30 charger.
+  - **Penerapan Voltage-Gated SC Pump Secara Menyeluruh**:
+    - Mengintegrasikan pemeriksaan ambang batas tegangan adaptor mutlak: node `enable_sc` hanya diizinkan aktif (`1`) jika tegangan adaptor terdeteksi telah berhasil melonjak naik ke **>= 6.500 mV (6.5V)**. Jika masih di 5V dasar, node dipaksa berada pada status nonaktif (`0`) agar algoritma pulsa PE4.0 / TC30 dapat bernegosiasi secara mulus tanpa beban drop.
+  - **Koreksi Izin Cooling Device Qualcomm Thermal Engine**:
+    - Memperbaiki penulisan izin pada `cooling_device*/cur_state`: tidak lagi mengunci `0444` pada cooling device `battery` milik Qualcomm Snapdragon agar daemon vendor `/vendor/bin/thermal-engine` tidak mengalami `EACCES (-13)` dan restart berulang.
+
+---
+
 # Lynx Universal [Fix Kernel Panic Hung RCU & AICL Deadlock Prevention] 7.0.0-RC346
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.70

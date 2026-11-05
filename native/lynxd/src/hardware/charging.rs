@@ -2832,7 +2832,16 @@ impl ChargingRegulator {
         // D. Transsion BatteryNotify & BN_TestMode: neutralize userspace thermal notification clamps
         Self::write_node_lock(&format!("{}/BatteryNotify", MTK_DIR), "0");
         Self::write_node_lock(&format!("{}/BN_TestMode", MTK_DIR), "1");
-        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(0);
+        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+        if adpv_clean >= 6500 {
+            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
+        } else {
+            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
+        }
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
 
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
@@ -2880,11 +2889,13 @@ impl ChargingRegulator {
                         if t_lower.contains("sysrst") || t_lower.contains("shutdown") || t_lower.contains("rst") {
                             continue;
                         }
-                        if t_lower.contains("battery") || t_lower.contains("bcct") || t_lower.contains("abcct")
-                            || t_lower.contains("isolate") || t_lower.contains("thermal-cpufreq")
-                        {
+                        if t_lower.contains("bcct") || t_lower.contains("abcct") {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
                             Self::write_node_lock(&cur_path, "0");
+                        } else if t_lower.contains("battery") || t_lower.contains("isolate") || t_lower.contains("thermal-cpufreq") {
+                            let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
+                            Self::set_perm(&cur_path, 0o666);
+                            Self::write_node(&cur_path, "0");
                         }
                     }
                 }
