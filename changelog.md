@@ -1,3 +1,20 @@
+# Lynx Universal [Fix Kernel Panic Hung RCU & AICL Deadlock Prevention] 7.0.0-RC346
+Released on: 2026-11-05
+> Lynx Kernel Manager v3.3.70
+
+- **Penyelesaian Mutlak Kernel Panic Hung RCU & Pencegahan Deadlock SPMI AICL (*Kernel Panic Hung RCU Fix & Rate-Limited AICL*)**:
+  - **Identifikasi Akar Masalah `kernel_panic,hung,rcu`**:
+    - Telemetri `getprop sys.boot.reason` membuktikan perangkat reboot akibat `kernel_panic,hung,rcu` (RCU CPU Stall Watchdog).
+    - Terjadi karena pada loop berkala (`ChargingRegulator::tick()`), kondisi `qcom_stalled` sebelumnya menganggap arus di bawah 2.500 mA sebagai "stalled" pada mode Hyper. Ketika arus turun secara alami saat baterai mulai terisi, daemon memicu penulisan berulang ke `/sys/class/power_supply/*/rerun_aicl` setiap 1 detik.
+    - Penulisan `rerun_aicl = 1` tanpa jeda menyebabkan driver kernel Qualcomm `qpnp-smb2` / `smb-lib.c` mengalami deadlock pada mutex `chg->lock` dan spinlock SPMI, membekukan core CPU selama > 21 detik hingga RCU watchdog memicu kernel panic.
+  - **Implementasi Threshold Realistis & Cooldown Ketat 60 Detik**:
+    - Mengoreksi kriteria stall: hanya dianggap macet jika arus tercekik parah ke level SDP dasar (< 400 mA) dan kapasitas baterai < 85%. Arus normal 1.800–2.400 mA tidak akan pernah lagi memicu re-kick AICL.
+    - Mengharuskan kondisi macet bertahan minimal 5 siklus berturut-turut (5 detik).
+    - Menerapkan *strict rate-limiter cooldown* 60 detik antar pemicuan `rerun_aicl`, menjamin driver hardware SPMI tidak pernah dibombardir.
+    - Menghapus pemanggilan blocking subprocess `dumpsys battery reset` dari dalam periodic tick daemon.
+
+---
+
 # Lynx Universal [Fix Thermal PMIC Hardware Over-Temperature Reset & Strict Battery Zone Isolation] 7.0.0-RC345
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.69

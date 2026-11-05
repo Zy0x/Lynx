@@ -4214,33 +4214,40 @@ impl ChargingRegulator {
 
             let has_cp = Self::has_qcom_direct_charge_pump();
             let silicon_ceiling_ua = if has_cp { 6_000_000 } else { Self::probe_silicon_charge_ceiling_ua() };
-            let target_limit_ua = silicon_ceiling_ua as i64;
             let target_limit_str = silicon_ceiling_ua.to_string();
             let target_ma_str = (silicon_ceiling_ua / 1000).to_string();
 
-            let qcom_stalled = if is_hyper && cur_cap < 90 {
-                cur_usb < target_limit_ua - 200_000 || cur_fcc < target_limit_ua - 200_000 || cur_now_ma < 2500
-            } else {
-                (cur_usb > 0 && cur_usb < 1_000_000) || (cur_fcc > 0 && cur_fcc < 1_000_000)
-            };
+            // Only consider genuinely choked if register limits or flowing current are crippled to SDP levels (< 800 mA)
+            let qcom_stalled = (cur_usb > 0 && cur_usb < 800_000)
+                || (cur_fcc > 0 && cur_fcc < 800_000)
+                || (cur_now_ma < 400 && cur_cap < 85);
 
             if qcom_stalled {
                 let marker_path = "/dev/lynx_qcom_stalled_count";
                 let count = Self::read_i64(marker_path).unwrap_or(0);
-                let threshold = if is_hyper { 1 } else { 3 };
-                if count >= threshold {
+                // Require at least 5 consecutive stalled cycles (5 seconds) to avoid false positives during ramp
+                if count >= 5 {
                     let _ = fs::remove_file(marker_path);
-                    Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { (silicon_ceiling_ua / 1000) as u32 });
-                    for rerun in &[
-                        format!("{}/rerun_aicl", USB_DIR),
-                        format!("{}/rerun_aicl", BATT_DIR),
-                        format!("{}/rerun_aicl", MAIN_DIR),
-                    ] {
-                        if Path::new(rerun).exists() {
-                            Self::set_perm(rerun, 0o666);
-                            Self::write_node(rerun, "1");
+
+                    // Enforce a strict 60-second cooldown between rerun_aicl triggers
+                    // to prevent SPMI driver mutex deadlock and RCU CPU stall panics (kernel_panic,hung,rcu)!
+                    let last_kick = Self::read_i64("/dev/lynx_last_aicl_kick").unwrap_or(0);
+                    let now_ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
+                    if now_ts.saturating_sub(last_kick) >= 60 {
+                        let _ = fs::write("/dev/lynx_last_aicl_kick", now_ts.to_string());
+                        Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { (silicon_ceiling_ua / 1000) as u32 });
+                        for rerun in &[
+                            format!("{}/rerun_aicl", USB_DIR),
+                            format!("{}/rerun_aicl", BATT_DIR),
+                            format!("{}/rerun_aicl", MAIN_DIR),
+                        ] {
+                            if Path::new(rerun).exists() {
+                                Self::set_perm(rerun, 0o666);
+                                Self::write_node(rerun, "1");
+                            }
                         }
                     }
+
                     for node in &[
                         format!("{}/constant_charge_current_max", BATT_DIR),
                         format!("{}/constant_charge_current", BATT_DIR),
@@ -4265,7 +4272,6 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
                     Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
                     Self::neutralise_battery_cooling_devices();
-                    let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());
                 }
