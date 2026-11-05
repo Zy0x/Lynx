@@ -3395,7 +3395,7 @@ impl ChargingRegulator {
                         let type_path = format!("/sys/class/thermal/{}/type", name_str);
                         if let Ok(t) = fs::read_to_string(&type_path) {
                             let t_clean = t.trim().to_lowercase();
-                            if t_clean.contains("quiet-therm") {
+                            if t_clean.contains("quiet-therm") || t_clean == "battery" || t_clean == "bms" {
                                 let temp_node = format!("/sys/class/thermal/{}/temp", name_str);
                                 if Path::new(&temp_node).exists() {
                                     Self::set_perm(&temp_node, 0o666);

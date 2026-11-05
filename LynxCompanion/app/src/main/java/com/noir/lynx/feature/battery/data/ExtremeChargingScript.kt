@@ -79,7 +79,7 @@ object ExtremeChargingScript {
             for tz in /sys/class/thermal/thermal_zone*; do
                 [ -d "${'$'}tz" ] || continue
                 tz_t=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                if [ "${'$'}tz_t" = "quiet-therm-adc" ] || [ "${'$'}tz_t" = "quiet-therm-step" ] || [ "${'$'}tz_t" = "quiet-therm" ] || [ "${'$'}tz_t" = "quiet_therm" ]; then
+                if [ "${'$'}tz_t" = "quiet-therm-adc" ] || [ "${'$'}tz_t" = "quiet-therm-step" ] || [ "${'$'}tz_t" = "quiet-therm" ] || [ "${'$'}tz_t" = "quiet_therm" ] || [ "${'$'}tz_t" = "battery" ] || [ "${'$'}tz_t" = "bms" ]; then
                     chmod 666 "${'$'}tz/temp" 2>/dev/null
                     mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
                     nsenter -t 1 -m mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
@@ -260,6 +260,24 @@ object ExtremeChargingScript {
                 done
                 [ -e /sys/class/power_supply/battery/step_charging_enabled ] && echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
                 [ -e /sys/class/power_supply/battery/sw_jeita_enabled ] && echo 0 > /sys/class/power_supply/battery/sw_jeita_enabled 2>/dev/null
+                for j_node in /sys/class/power_supply/battery/temp_hot /sys/class/power_supply/bms/temp_hot \
+                              /sys/class/power_supply/battery/hot_bat_decidegc /sys/class/power_supply/bms/hot_bat_decidegc; do
+                    [ -e "${'$'}j_node" ] && chmod 666 "${'$'}j_node" 2>/dev/null && echo 750 > "${'$'}j_node" 2>/dev/null
+                done
+                for j_node in /sys/class/power_supply/battery/temp_warm /sys/class/power_supply/bms/temp_warm \
+                              /sys/class/power_supply/battery/warm_bat_decidegc /sys/class/power_supply/bms/warm_bat_decidegc; do
+                    [ -e "${'$'}j_node" ] && chmod 666 "${'$'}j_node" 2>/dev/null && echo 650 > "${'$'}j_node" 2>/dev/null
+                done
+                for cur_node in /sys/class/power_supply/battery/constant_charge_current_max \
+                                /sys/class/power_supply/main/constant_charge_current_max \
+                                /sys/class/power_supply/main/current_max \
+                                /sys/class/power_supply/usb/current_max \
+                                /sys/class/power_supply/battery/current_max; do
+                    if [ -e "${'$'}cur_node" ]; then
+                        chmod 666 "${'$'}cur_node" 2>/dev/null
+                        echo 3500000 > "${'$'}cur_node" 2>/dev/null
+                    fi
+                done
 
                 # Dynamic Qualcomm thermal-engine config discovery & bind-mount
                 conf_candidate=""

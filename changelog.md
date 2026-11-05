@@ -1,3 +1,18 @@
+# Lynx Universal [Master Mount Namespace Bind-Mount & Full Qualcomm Thermal Zone Spoofing] 7.0.0-RC351
+Released on: 2026-11-06
+> Lynx Kernel Manager v3.3.75
+
+- **Aktivasi Master Mount Namespace (`FLAG_MOUNT_MASTER`) untuk Propagasi Global (*Global Mount Propagation*)**:
+  - Mengembalikan inisialisasi default LibSU di `LynxApp.kt` dengan `Shell.FLAG_REDIRECT_STDERR or Shell.FLAG_MOUNT_MASTER`.
+  - Tanpa `FLAG_MOUNT_MASTER`, bind-mount sysfs terisolasi secara privat di mount namespace internal aplikasi, sehingga daemon sistem (`thermal-engine`), `system_server`, dan kernel driver tetap membaca suhu riil 49°C dan mengaktifkan pembatasan arus ke 1.500 mA.
+  - Dengan `FLAG_MOUNT_MASTER`, seluruh operasi `mount -o bind` dipropagasikan secara global ke seluruh proses sistem operasi, memastikan `thermal-engine` dan `system_server` membaca suhu 25.0°C secara seragam.
+
+- **Perluasan Cakupan Spoofing Seluruh Thermal Zone Qualcomm (Quiet-Therm, Battery, BMS)**:
+  - Memperluas pemindaian sysfs thermal zone di `ExtremeChargingScript.kt` dan `charging.rs` agar me-mount bind-mount `/dev/lynx_spoofed_quiet_therm` (25.0°C) ke seluruh thermal zone bertipe `quiet-therm*`, `battery` (`thermal_zone29`), dan `bms` (`thermal_zone30`).
+  - Menghapus pembatasan JEITA kernel pada seluruh node `battery` dan `bms` (`temp_hot=750`, `temp_warm=650`, `hot_bat_decidegc`, `warm_bat_decidegc`) serta memaksa pembukaan batas arus pengisian daya `constant_charge_current_max` hingga 3.500 mA.
+
+---
+
 # Lynx Universal [Eliminate Qualcomm Thermal-Engine Reboot Loop & Quiet-Therm Throttling Fix] 7.0.0-RC350
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.74

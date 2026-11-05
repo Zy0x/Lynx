@@ -23,11 +23,11 @@ class LynxApp : Application() {
         super.onCreate()
         instance = this
 
-        // Initialize TopJohnWu LibSU with stderr redirect and 20s timeout.
-        // This must run before any Shell.cmd() calls.
+        // Initialize TopJohnWu LibSU with mount master, stderr redirect and 20s timeout.
+        // FLAG_MOUNT_MASTER ensures all root operations and bind mounts execute in the global mount namespace.
         Shell.setDefaultBuilder(
             Shell.Builder.create()
-                .setFlags(Shell.FLAG_REDIRECT_STDERR)
+                .setFlags(Shell.FLAG_REDIRECT_STDERR or Shell.FLAG_MOUNT_MASTER)
                 .setTimeout(20)
         )
         com.noir.lynx.data.LynxRepository.appContext = this
