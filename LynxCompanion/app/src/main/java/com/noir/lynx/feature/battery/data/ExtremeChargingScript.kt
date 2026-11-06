@@ -73,22 +73,17 @@ object ExtremeChargingScript {
             chmod 644 /dev/lynx_spoofed_batt_temp 2>/dev/null
             echo 25000 > /dev/lynx_spoofed_quiet_therm 2>/dev/null
             chmod 644 /dev/lynx_spoofed_quiet_therm 2>/dev/null
+            # Clean up any legacy kernfs mounts to prevent kernel panics
             for target in /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp /sys/class/power_supply/battery/batt_temp; do
-                if [ -e "${'$'}target" ]; then
-                    chmod 666 "${'$'}target" 2>/dev/null
-                    mount -o bind /dev/lynx_spoofed_batt_temp "${'$'}target" 2>/dev/null
-                    nsenter -t 1 -m mount -o bind /dev/lynx_spoofed_batt_temp "${'$'}target" 2>/dev/null
-                    chmod 644 "${'$'}target" 2>/dev/null
+                if grep -q "${'$'}target" /proc/mounts 2>/dev/null; then
+                    umount "${'$'}target" 2>/dev/null
+                    nsenter -t 1 -m umount "${'$'}target" 2>/dev/null
                 fi
             done
             for tz in /sys/class/thermal/thermal_zone*; do
-                [ -d "${'$'}tz" ] || continue
-                tz_t=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-                if [ "${'$'}tz_t" = "quiet-therm-adc" ] || [ "${'$'}tz_t" = "quiet-therm-step" ] || [ "${'$'}tz_t" = "quiet-therm" ] || [ "${'$'}tz_t" = "quiet_therm" ] || [ "${'$'}tz_t" = "battery" ] || [ "${'$'}tz_t" = "bms" ]; then
-                    chmod 666 "${'$'}tz/temp" 2>/dev/null
-                    mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
-                    nsenter -t 1 -m mount -o bind /dev/lynx_spoofed_quiet_therm "${'$'}tz/temp" 2>/dev/null
-                    chmod 666 "${'$'}tz/temp" 2>/dev/null
+                if [ -e "${'$'}tz/temp" ] && grep -q "${'$'}tz/temp" /proc/mounts 2>/dev/null; then
+                    umount "${'$'}tz/temp" 2>/dev/null
+                    nsenter -t 1 -m umount "${'$'}tz/temp" 2>/dev/null
                 fi
             done
             chmod 666 /proc/driver/thermal/clabcct /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
@@ -280,9 +275,15 @@ object ExtremeChargingScript {
                                 /sys/class/power_supply/battery/current_max; do
                     if [ -e "${'$'}cur_node" ]; then
                         chmod 666 "${'$'}cur_node" 2>/dev/null
-                        echo 3500000 > "${'$'}cur_node" 2>/dev/null
+                        echo 3500000 > "${'$'}cur_node" 2>/dev/null || echo 3100000 > "${'$'}cur_node" 2>/dev/null || echo 3000000 > "${'$'}cur_node" 2>/dev/null
                     fi
                 done
+                if [ -d /sys/class/qcom-battery ]; then
+                    chmod 666 /sys/class/qcom-battery/* 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null
+                    echo 3100 > /sys/class/qcom-battery/restrict_cur 2>/dev/null || echo 3000 > /sys/class/qcom-battery/restrict_cur 2>/dev/null
+                    echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
+                fi
 
                 # Dynamic Qualcomm thermal-engine config discovery & bind-mount
                 conf_candidate=""

@@ -73,7 +73,6 @@ enable_esports_touch() {
                     InputReader*|InputDispatcher*|android.anim*|RenderThread*)
                         local tid=$(basename "$tid_dir")
                         renice -n -20 -p "$tid" 2>/dev/null
-                        chrt -f -p 99 "$tid" 2>/dev/null || chrt -r -p 99 "$tid" 2>/dev/null
                         ;;
                 esac
             fi

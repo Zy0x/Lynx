@@ -103,7 +103,6 @@ object LynxSystemControlRepository {
                 fi
                 for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
                     renice -n -20 -p "${'$'}t" 2>/dev/null
-                    chrt -f -p 50 "${'$'}t" 2>/dev/null || true
                 done
 
                 # Dynamic Multi-Vendor Kernel Module Parameter Discovery
@@ -384,7 +383,6 @@ object LynxSystemControlRepository {
                 fi
                 for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
                     renice -n -20 -p "${'$'}t" 2>/dev/null
-                    chrt -f -p 50 "${'$'}t" 2>/dev/null || true
                 done
 
                 # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery

@@ -106,7 +106,6 @@ class HudZoneTouchManager(
                                 InputReader*|InputDispatcher*|android.anim*|RenderThread*)
                                     tid=${'$'}(basename "${'$'}t")
                                     renice -n -20 -p "${'$'}tid" 2>/dev/null
-                                    chrt -f -p 99 "${'$'}tid" 2>/dev/null
                                     ;;
                             esac
                         done

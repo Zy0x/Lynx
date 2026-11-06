@@ -2135,27 +2135,27 @@ impl ChargingRegulator {
         let qc_restrict_str = effective_ma.max(100).to_string();
 
         if is_qcom {
-            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
-            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
-            Self::write_node_lock(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
-            Self::write_node_lock(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
-            Self::write_node_lock(&format!("{}/voltage_max", USB_DIR), "12000000");
-            Self::write_node_lock(&format!("{}/voltage_max_design", USB_DIR), "12000000");
-            Self::write_node_lock(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
-            Self::write_node_lock(&format!("{}/voltage_max", MAIN_DIR), "12000000");
-            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
+            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
+            Self::write_node(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
+            Self::write_node(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
+            Self::write_node(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
+            Self::write_node(&format!("{}/voltage_max", USB_DIR), "12000000");
+            Self::write_node(&format!("{}/voltage_max_design", USB_DIR), "12000000");
+            Self::write_node(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
+            Self::write_node(&format!("{}/voltage_max", MAIN_DIR), "12000000");
+            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
         } else {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
@@ -3407,30 +3407,51 @@ impl ChargingRegulator {
             }
         }
 
-        // 3. Qualcomm / Universal sysfs bind mounts
+        // 3. Qualcomm Driver-Level Thermal Neutralization (Zero Kernfs Overlays)
+        // CRITICAL STABILITY SHIELD:
+        // NEVER bind-mount regular files over `/sys/class/.../temp` kernfs nodes on Qualcomm!
+        // In Linux 4.4/4.19 kernels (e.g. Snapdragon 660 / Redmi Note 7), VFS mounts over kernfs
+        // trigger a kernfs_rwsem vs namespace_sem lock inversion deadlock with the kernel thermal workqueue,
+        // hanging CPU 0 and triggering an RCU CPU stall kernel panic (`kernel_panic,hung,rcu`).
+        // Instead, Qualcomm thermal throttling is bypassed natively and safely via driver attributes:
         if Self::is_qualcomm_soc() {
-            let mounts = fs::read_to_string("/proc/mounts").unwrap_or_default();
-            for target in &[
-                "/sys/class/power_supply/battery/temp",
-                "/sys/class/power_supply/bms/temp",
-                "/sys/class/power_supply/battery/batt_temp",
-            ] {
-                if Path::new(target).exists() {
-                    Self::set_perm(target, 0o644);
-                    if !mounts.contains(target) {
-                        let _ = std::process::Command::new("mount")
-                            .args(["-o", "bind", SPOOFED_BATT_TEMP_PATH, target])
-                            .output();
-                        let _ = std::process::Command::new("nsenter")
-                            .args(["-t", "1", "-m", "mount", "-o", "bind", SPOOFED_BATT_TEMP_PATH, target])
-                            .output();
+            // Unmount any legacy kernfs mounts to heal system
+            if let Ok(mounts) = fs::read_to_string("/proc/mounts") {
+                for target in &[
+                    "/sys/class/power_supply/battery/temp",
+                    "/sys/class/power_supply/bms/temp",
+                    "/sys/class/power_supply/battery/batt_temp",
+                ] {
+                    if mounts.contains(target) {
+                        let _ = std::process::Command::new("umount").arg(target).output();
+                        let _ = std::process::Command::new("nsenter").args(["-t", "1", "-m", "umount", target]).output();
                     }
-                    Self::set_perm(target, 0o644);
                 }
             }
 
-            // Universal Quiet Thermistor Spoofing for Qualcomm platforms (quiet-therm-adc, quiet-therm-step):
-            // Spoofs raw board thermistor to 25.0°C (25000 m°C) so thermal-engine never triggers BATTERY_CHARGING_CTL.
+            // A. Elevate Qualcomm BMS / Battery JEITA thresholds to 65.0°C / 60.0°C
+            for dir in &["/sys/class/power_supply/battery", "/sys/class/power_supply/bms"] {
+                if Path::new(dir).exists() {
+                    Self::write_node(&format!("{}/temp_hot", dir), "650");
+                    Self::write_node(&format!("{}/temp_warm", dir), "600");
+                    Self::write_node(&format!("{}/hot_bat_decidegc", dir), "650");
+                    Self::write_node(&format!("{}/warm_bat_decidegc", dir), "600");
+                    Self::write_node(&format!("{}/temp_cool", dir), "50");
+                    Self::write_node(&format!("{}/temp_cold", dir), "0");
+                }
+            }
+
+            // B. Disable software JEITA and step charging algorithms in kernel
+            Self::write_node("/sys/class/power_supply/battery/sw_jeita_enabled", "0");
+            Self::write_node("/sys/class/power_supply/battery/step_charging_enabled", "0");
+            Self::write_node("/sys/class/power_supply/battery/temp_state", "0");
+            Self::write_node("/sys/class/power_supply/battery/system_temp_level", "0");
+            if Path::new(QC_DIR).exists() {
+                Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            }
+
+            // C. Elevate quiet-therm trip points natively so thermal-engine doesn't vote for throttling
             if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
                 for entry in entries.flatten() {
                     let name = entry.file_name();
@@ -3439,25 +3460,23 @@ impl ChargingRegulator {
                         let type_path = format!("/sys/class/thermal/{}/type", name_str);
                         if let Ok(t) = fs::read_to_string(&type_path) {
                             let t_clean = t.trim().to_lowercase();
-                            if t_clean.contains("quiet-therm") || t_clean == "battery" || t_clean == "bms" {
-                                let temp_node = format!("/sys/class/thermal/{}/temp", name_str);
-                                if Path::new(&temp_node).exists() {
-                                    Self::set_perm(&temp_node, 0o666);
-                                    if !mounts.contains(&temp_node) {
-                                        let _ = std::process::Command::new("mount")
-                                            .args(["-o", "bind", SPOOFED_QUIET_THERM_PATH, &temp_node])
-                                            .output();
-                                        let _ = std::process::Command::new("nsenter")
-                                            .args(["-t", "1", "-m", "mount", "-o", "bind", SPOOFED_QUIET_THERM_PATH, &temp_node])
-                                            .output();
-                                    }
-                                    Self::set_perm(&temp_node, 0o666);
+                            if t_clean.contains("quiet-therm") {
+                                let tp0 = format!("/sys/class/thermal/{}/trip_point_0_temp", name_str);
+                                let tp1 = format!("/sys/class/thermal/{}/trip_point_1_temp", name_str);
+                                if Path::new(&tp0).exists() {
+                                    Self::write_node(&tp0, "75000");
+                                }
+                                if Path::new(&tp1).exists() {
+                                    Self::write_node(&tp1, "80000");
                                 }
                             }
                         }
                     }
                 }
             }
+
+            // D. Bind-mount elevated thermal-engine.conf (regular file on vendor partition, safe!)
+            Self::apply_qcom_thermal_engine_bind_mount();
         }
     }
 
@@ -3842,10 +3861,11 @@ impl ChargingRegulator {
                     true
                 };
                 let is_pd = Self::is_usb_pd_active();
+                let is_pc = Self::is_laptop_port();
                 let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
-                let fcc_ok = cur_fcc == 0 || cur_fcc >= 1_500_000 || is_pd;
+                let fcc_ok = cur_fcc == 0 || cur_fcc >= 1_500_000 || is_pd || is_pc;
                 let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
-                let usb_ok = cur_usb == 0 || cur_usb >= 1_500_000 || is_pd;
+                let usb_ok = cur_usb == 0 || cur_usb >= 1_500_000 || is_pd || is_pc;
                 susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 

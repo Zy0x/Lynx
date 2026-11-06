@@ -57,10 +57,9 @@ fi
         done
     done
 
-    # 3. Dynamic Multi-Vendor Wireless Kernel Thread Real-Time Boost
+    # 3. Dynamic Multi-Vendor Wireless Kernel Thread High Priority Boost (CFS Nice -20, Safe Anti-Starvation)
     for t in $(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print $1}'); do
         renice -n -20 -p "$t" 2>/dev/null
-        chrt -f -p 50 "$t" 2>/dev/null || true
     done
 
     # 4. Dynamic CPU Bitmask Discovery (4, 6, 8, 10, 12+ Cores)

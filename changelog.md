@@ -1,3 +1,27 @@
+# Lynx Universal [RCU Stall Panic Elimination & Qualcomm PM660 3A Fast-Charge Protocol] 7.0.0-RC353
+Released on: 2026-11-06
+> Lynx Kernel Manager v3.3.77
+
+- **Pemberantasan Total Kernel Panic RCU Stall (`kernel_panic,hung,rcu`)**:
+  - **Akar Masalah Reboot Berulang pada Redmi Note 7 (Qualcomm Snapdragon 660)**:
+    - Analisis pstore crash log mengungkap bahwa eksekusi `mount -o bind` dan `nsenter -t 1 -m mount -o bind` secara langsung di atas dentry kernfs sysfs (`/sys/class/thermal/.../temp` dan `/sys/class/power_supply/.../temp`) di Linux 4.4/4.19 memicu *lock inversion deadlock* antara `kernfs_rwsem` dan `namespace_sem`. Workqueue termal kernel yang berjalan di CPU 0 macet total, memicu *RCU grace period starvation* dan berujung pada kernel panic RCU stall setelah 21 detik.
+    - Selain itu, penggunaan penjadwalan real-time `chrt -f -p 50` (SCHED_FIFO) pada thread worker nirkabel kernel (`cds_ol_rx`, `cds_mc_thread`) memonopoli CPU dan menghambat eksekusi callback kthread RCU.
+  - **Solusi Arsitektural Stabilitas Mutlak (Zero-Kernfs-Overlay)**:
+    - Menghapus 100% operasi `mount -o bind` di atas file sysfs/kernfs pada platform Qualcomm, baik di `charging.rs` maupun `ExtremeChargingScript.kt`.
+    - Menggantikan bypass suhu dengan pendekatan native driver:
+      1. Menonaktifkan algoritma pembatasan arus kernel secara langsung via `sw_jeita_enabled=0` dan `step_charging_enabled=0`.
+      2. Menaikkan ambang batas termal JEITA di `/sys/class/power_supply/battery` dan `bms` (`temp_hot=650`, `temp_warm=600`, `hot_bat_decidegc=650`, `warm_bat_decidegc=600`).
+      3. Menaikkan trip point termal `quiet-therm-adc` dan `quiet-therm-step` (`trip_point_0_temp=75000`, `trip_point_1_temp=80000`).
+      4. Melakukan bind-mount elevated `thermal-engine.conf` (berkas reguler partisi vendor yang aman, bukan node kernfs).
+    - Menghapus seluruh pemanggilan `chrt -f` pada kernel worker thread di `service.sh`, `network.rs`, `LynxSystemControlRepository.kt`, `HudZoneTouchManager.kt`, dan `touch_tuning.sh`. Thread tetap dipromosikan ke prioritas maksimum CFS via `renice -n -20` tanpa memicu CPU starvation.
+
+- **Optimasi Jalur Pengisian Daya Qualcomm PM660 Menuju 3.000 mA (3A+)**:
+  - Menyediakan fallback adaptif `3500000 -> 3100000 -> 3000000` uA saat menulis node `constant_charge_current_max`, `current_max`, dan `input_current_limit` sehingga PM660 mengunci pada batas fisik silikon tertingginya (~3.100 mA).
+  - Mengonfigurasi `qcom-battery/restrict_cur` ke `3100` mA dan `restricted_charging=0`.
+  - Mencegah mode loop berulang (anti-storm) saat perangkat dicolokkan ke port USB PC/laptop dengan menambahkan pengecekan `is_laptop_port()` pada invariant check daemon.
+
+---
+
 # Lynx Universal [Idempotent Sysfs Write-Suppression & MediaTek Switched-Capacitor Protection] 7.0.0-RC352
 Released on: 2026-11-06
 > Lynx Kernel Manager v3.3.76

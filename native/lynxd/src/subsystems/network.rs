@@ -231,9 +231,7 @@ impl NetworkController {
                 if is_wifi_kthread {
                     if low_latency {
                         let _ = Command::new("renice").args(["-n", "-20", "-p", &fname]).status();
-                        let _ = Command::new("chrt").args(["-f", "-p", "50", &fname]).status();
                     } else {
-                        let _ = Command::new("chrt").args(["-o", "-p", "0", &fname]).status();
                         let _ = Command::new("renice").args(["-n", "-10", "-p", &fname]).status();
                     }
                 }
