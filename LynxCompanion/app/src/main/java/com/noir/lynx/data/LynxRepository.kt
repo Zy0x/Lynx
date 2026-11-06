@@ -432,8 +432,9 @@ object LynxRepository {
         if (!isRootAvailable()) return@withContext false
         try {
             // First check if a fresh binary was pushed via ADB to /data/local/tmp/lynxd_new
-            Shell.cmd("""
-                if [ -f /data/local/tmp/lynxd_new ]; then
+            val hadNewBinary = Shell.cmd("[ -f /data/local/tmp/lynxd_new ]").exec().isSuccess
+            if (hadNewBinary) {
+                Shell.cmd("""
                     pkill -9 -f "lynxd daemon" 2>/dev/null
                     pkill -9 lynxd 2>/dev/null
                     if [ -d "$MODULE_DIR/system/bin" ]; then
@@ -445,8 +446,9 @@ object LynxRepository {
                     chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
                     rm -f /data/local/tmp/lynxd_new 2>/dev/null
                     resolvedLynxdPath = null
-                fi
-            """.trimIndent()).exec()
+                """.trimIndent()).exec()
+                lynxdBinarySyncedThisSession = true
+            }
 
             val path = getLynxdPath()
             val isModuleLynxd = path.startsWith(MODULE_DIR)

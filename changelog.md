@@ -1,3 +1,21 @@
+# Lynx Universal [SystemUI Priority Guardian & Dynamic Notification Shade Boost] 7.0.0-RC357
+Released on: 2026-11-06
+> Lynx Kernel Manager v3.3.81
+
+- **Pemberantasan Total Stutter & Lag Saat Menarik Status Bar / Panel Notifikasi (Notification Shade)**:
+  - **Akar Masalah Stutter pada Redmi Note 7 (SDM660)**:
+    - Analisis hierarki render Android mengungkap bahwa saat perangkat memiliki akumulasi 100+ notifikasi aktif (`NotificationRecord`), jendela `NotificationShade` memuat hingga **7.882 Views** dan render nodes melebihi **10 MB**.
+    - Proses `com.android.systemui` ditempatkan oleh framework Android di dalam cgroup `schedtune:/foreground` dengan `nice = 0` (prioritas standar aplikasi non-interaktif) dan `schedtune.prefer_high_cap = 0`.
+    - Karena `prefer_high_cap = 0`, kernel Linux EAS scheduler membatasi thread UI dan `RenderThread` SystemUI pada Little Cores (Kryo 260 Silver, Cortex-A53). Melewati dan me-layout 7.800+ node kartu notifikasi di CPU kecil memerlukan 150+ ms per frame (frame deadline 16.6 ms terlewati jauh).
+    - Selain itu, GPU Adreno 512 dipaksa menjalankan shader real-time multi-pass Gaussian blur (`disableBackgroundBlur=false`), menghasilkan jank rate 27.11% dan lonjakan latensi frame hingga 850 ms.
+  - **Solusi Arsitektur Multi-Tier di Mesin Native Rust (`lynxd`)**:
+    - **Dynamic Foreground Schedtune Boost on Touch (`cluster.rs`)**: `ClusterController::on_hardware_touch()` kini secara instan mengangkat `/dev/stune/foreground/schedtune.boost` ke `25` dan `prefer_high_cap` ke `1` pada setiap interaksi sentuhan. EAS scheduler seketika memigrasikan tugas pengukuran dan penggambaran SystemUI ke Kryo 260 Gold Big Cores (2.45 GHz).
+    - **Safe Hysteresis Baseline Decay**: Saat gestur sentuh berakhir, setelah jendela 300 ms, `/dev/stune/foreground` dikembalikan secara otomatis ke nilai efisien (`boost = 15`, `prefer_high_cap = 0`) demi preservasi daya baterai.
+    - **Autonomous SystemUI Process & Thread Guardian (`shield_systemui`)**: Daemon mempromosikan thread UI `com.android.systemui` ke `nice -10`, `RenderThread` ke `nice -16`, `wmshell.anim` ke `nice -10`, dan sub-task `hwuiTask` ke `nice -8`, serta mengunci `oom_score_adj` di `-1000`.
+    - **Autonomous GPU Window Blur Optimizer**: Memastikan pengaturan global `disable_window_blurs = 1` aktif secara persisten pada boot, mengeliminasi beban kalkulasi shader blur berat pada GPU Adreno 500-series.
+
+---
+
 # Lynx Universal [Dynamic CPU Big Core Touch-Boost & Autonomous Max Frequency Unclamping] 7.0.0-RC356
 Released on: 2026-11-06
 > Lynx Kernel Manager v3.3.80

@@ -78,6 +78,11 @@ impl DaemonRunner {
             }
         }
 
+        // Optimize SystemUI priority & disable expensive window blurs on boot
+        Self::shield_systemui();
+        let _ = std::process::Command::new("settings").args(&["put", "global", "disable_window_blurs", "1"]).output();
+        let _ = std::process::Command::new("setprop").args(&["persist.sys.sf.disable_blurs", "1"]).output();
+
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
         let mut last_cooldown_check = 0u64;
@@ -326,9 +331,10 @@ impl DaemonRunner {
                 crate::subsystems::MemoryController::check_vma_health();
             }
 
-            // Autonomous Companion App Shield & OOM Immunity Watchdog tick (every ~30 cycles)
+            // Autonomous Companion App Shield & SystemUI Priority Guardian tick (every ~30 cycles)
             if daemon_state.cycle_count % 30 == 0 {
                 Self::shield_companion_app();
+                Self::shield_systemui();
             }
 
             // Native Daily Maintenance Scheduler (replaces legacy crond & core/cron/root)
@@ -661,6 +667,39 @@ impl DaemonRunner {
                 let oom_path = format!("/proc/{}/oom_score_adj", pid);
                 let _ = std::fs::write(&oom_path, "-900");
             }
+        }
+    }
+
+    /// Protects SystemUI (com.android.systemui) and elevates its UI thread and RenderThread
+    /// to eliminate notification shade and status bar stutter when many notifications are active.
+    pub fn shield_systemui() {
+        if let Some(pid) = crate::subsystems::GameController::find_pid_for_package("com.android.systemui") {
+            let pid_str = pid.to_string();
+            // 1. Elevate Main UI thread priority to nice -10
+            let _ = std::process::Command::new("renice").args(&["-n", "-10", "-p", &pid_str]).output();
+
+            // 2. Scan child tasks (RenderThread, wmshell.anim, hwuiTask)
+            if let Ok(entries) = std::fs::read_dir(format!("/proc/{}/task", pid)) {
+                for entry in entries.flatten() {
+                    let comm_path = entry.path().join("comm");
+                    if let Ok(comm) = std::fs::read_to_string(&comm_path) {
+                        let comm_trim = comm.trim();
+                        let tid = entry.file_name();
+                        let tid_str = tid.to_string_lossy();
+                        if comm_trim == "RenderThread" {
+                            let _ = std::process::Command::new("renice").args(&["-n", "-16", "-p", &tid_str]).output();
+                        } else if comm_trim.starts_with("wmshell.anim") || comm_trim.starts_with("wmshell.main") {
+                            let _ = std::process::Command::new("renice").args(&["-n", "-10", "-p", &tid_str]).output();
+                        } else if comm_trim.starts_with("hwuiTask") {
+                            let _ = std::process::Command::new("renice").args(&["-n", "-8", "-p", &tid_str]).output();
+                        }
+                    }
+                }
+            }
+
+            // 3. Ensure OOM immunity
+            let oom_path = format!("/proc/{}/oom_score_adj", pid);
+            let _ = std::fs::write(&oom_path, "-1000");
         }
     }
 }

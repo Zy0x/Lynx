@@ -287,9 +287,11 @@ impl ClusterController {
 
         IS_CPU_TOUCH_BOOSTED.store(true, Ordering::Relaxed);
 
-        // Immediate sub-1ms boost to top-app schedtune & big core floor
+        // Immediate sub-1ms boost to top-app and foreground schedtune & big core floor
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", "25", WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "1", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", "25", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "1", WriteMode::Direct);
 
         // Elevate Big Cluster minimum frequency to responsive floor (~1.4GHz) during the swipe
         for pol_id in &[4, 6, 7] {
@@ -350,6 +352,8 @@ impl ClusterController {
         };
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", target_boost, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "0", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", "15", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "0", WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {
             for pol in &cpu.policies {

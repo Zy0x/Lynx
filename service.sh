@@ -20,6 +20,10 @@ fi
     done
     sleep 3
 
+    # Disable heavy window blurs for low-fillrate GPUs (e.g. Adreno 512) to prevent notification shade stutter
+    settings put global disable_window_blurs 1 2>/dev/null
+    setprop persist.sys.sf.disable_blurs 1 2>/dev/null
+
     # Universal Dynamic Wi-Fi Silicon & Kernel Network Low-Latency Engine (Zero-Hardcoding)
     if [ -d /proc/net/wlan ] && [ -f "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" ] && [ -f /vendor/firmware/wifi.cfg ]; then
         mount -o bind "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" /vendor/firmware/wifi.cfg 2>/dev/null || true
