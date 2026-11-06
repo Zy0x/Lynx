@@ -149,8 +149,13 @@ object ExtremeChargingScript {
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/system_temp_level 2>/dev/null
+                echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
+                chmod 444 /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/temp_state 2>/dev/null
                 echo -1 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
+                chmod 444 /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
+                rm -f /dev/lynx_spoofed_batt_temp /dev/lynx_spoofed_quiet_therm 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/safety_timer_enabled 2>/dev/null
                 echo 1 > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null

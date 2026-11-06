@@ -517,11 +517,11 @@ fun ChargingHeroDisplayCard(
     } else null
 
     val tempFloat = when {
+        tel.temp.toFloatOrNull() != null && tel.temp.toFloat() > 0f -> tel.temp.toFloat()
+        liveHardwareTempC > 0f -> liveHardwareTempC
+        batt.realPhysicalTempC > 0f -> batt.realPhysicalTempC
         liveSpoofedTemp != null && liveSpoofedTemp > 0f -> liveSpoofedTemp
         batt.spoofedTempC > 0f -> batt.spoofedTempC
-        liveHardwareTempC > 0f -> liveHardwareTempC
-        tel.temp.toFloatOrNull() != null -> tel.temp.toFloat()
-        batt.realPhysicalTempC > 0f -> batt.realPhysicalTempC
         else -> 28f
     }
     val tempColor = when {

@@ -106,7 +106,7 @@ internal object LynxTelemetryReader {
                     fi
                     echo "gpuload:${'$'}g_l"
 
-                    bt=${'$'}(cat /dev/lynx_spoofed_batt_temp /sys/devices/platform/battery/Battery_Temperature /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp 2>/dev/null | head -n1)
+                    bt=${'$'}(cat /sys/class/power_supply/battery/temp /sys/class/power_supply/bms/temp /sys/devices/platform/battery/Battery_Temperature /dev/lynx_spoofed_batt_temp 2>/dev/null | head -n1)
                     echo "temp:${'$'}bt"
                     bl=${'$'}(cat /sys/class/power_supply/battery/capacity /sys/class/power_supply/bms/capacity 2>/dev/null | head -n1)
                     echo "batt_lvl:${'$'}bl"
@@ -346,10 +346,10 @@ internal object LynxTelemetryReader {
 
             var tempStr = "38.0"
             val tempCandidates = listOf(
-                File("/dev/lynx_spoofed_batt_temp"),
-                File("/sys/devices/platform/battery/Battery_Temperature"),
                 File("/sys/class/power_supply/battery/temp"),
-                File("/sys/class/power_supply/bms/temp")
+                File("/sys/class/power_supply/bms/temp"),
+                File("/sys/devices/platform/battery/Battery_Temperature"),
+                File("/dev/lynx_spoofed_batt_temp")
             )
             for (tf in tempCandidates) {
                 if (tf.exists() && tf.canRead()) {

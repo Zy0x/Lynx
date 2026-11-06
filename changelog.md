@@ -1,3 +1,21 @@
+# Lynx Universal [Qualcomm HVDCP 3.0 Handshake Guard & Authentic Telemetry Restoration] 7.0.0-RC359
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.83
+
+- **Pemberantasan Bottleneck "Cold Charging" & Negosiasi Quick Charge 3.0 18W pada Qualcomm Snapdragon (Redmi Note 7 / SDM660)**:
+  - **Akar Masalah Kegagalan Arus Tinggi saat Awal Pengisian Daya (Cold-Plug / Cold Charging)**:
+    - Analisis mendalam pada sirkuit pengisian daya Qualcomm PM660 mengungkap bahwa saat kabel charger dicolokkan (cold-plug), protokol deteksi fisik BC1.2 / APSD membutuhkan waktu 1.5–2.5 detik untuk menegosiasikan Quick Charge 3.0 (HVDCP 3.0) dan menaikkan voltase VBUS dari 5V ke 9V.
+    - Pada versi sebelumnya, fungsi `trigger_charger_soft_reconnect()` secara keliru melakukan toggle `allow_hvdcp3 = 0` lalu `1`. Pada kernel Qualcomm `smb-lib.c`, menulis `0` ke `allow_hvdcp3` seketika mematikan mesin modulasi pulsa D+/D- HVDCP. Adapter charger langsung membatalkan negosiasi 9V dan jatuh (*collapse*) kembali ke mode standard 5V DCP dengan batas fisik input current limit (AICR) **1.5A (~5.2W / +1431 mA)**.
+    - Selain itu, biner lama menulis nilai buatan `250` (25.0°C) ke simpul `/dev/lynx_spoofed_batt_temp` yang diprioritaskan di atas sensor termal riil baterai pada UI. Hal ini membuat antarmuka menampilkan suhu palsu "25.0°C", sehingga pengguna mengira perangkat berada dalam kondisi dingin ("cold charging") dan kebingungan mengapa arus tertahan di 1431 mA, padahal suhu internal baterai yang sebenarnya telah mencapai 41.3°C dan sedang dibatasi oleh daemon `thermal-engine`.
+  - **Solusi Arsitektur Terpadu di Mesin Native Rust (`lynxd`) & Native Companion**:
+    - **Qualcomm HVDCP 3.0 Immunity Guard (`trigger_charger_soft_reconnect`)**: Dilarang keras melakukan toggle `allow_hvdcp3 = 0` pada Qualcomm. Nilai `allow_hvdcp3` dikunci strictly pada `1` pada seluruh simpul (`usb`, `battery`, `main`).
+    - **Handshake Cooldown Window (4.0s Debounce)**: Memberikan waktu aman minimal 4 detik pasca koneksi kabel sebelum mengevaluasi apakah charger mengalami stall, memastikan negosiasi fisik HVDCP 3.0 ke tegangan 9V selesai tanpa interupsi.
+    - **Single-PMIC Hardware Buck Ceiling (3.1A Limit Guard)**: Membatasi probe silikon PM660 ke `3100000 uA` (3.1A). Mencegah keruntuhan voting `USB_ICL_VOTABLE` akibat penulisan nilai di atas kemampuan buck converter.
+    - **Thermal-Engine Override Lock (`write_node_lock 0444`)**: Mengunci `/sys/class/power_supply/battery/system_temp_level` ke `0` dengan hak akses baca-saja `0444`, mencegah `thermal-engine` Xiaomi menulis level pembatasan 4/5 saat suhu mencapai 41°C.
+    - **Authentic Telemetry Restoration**: Menghapus pembuatan file spoofing `/dev/lynx_spoofed_batt_temp` pada Qualcomm Snapdragon. Seluruh telemetri UI di dashboard dan hero display card kini memprioritaskan pembacaan suhu fisik asli kernel (`/sys/class/power_supply/battery/temp`), menjamin transparansi 100% tanpa manipulasi data.
+
+---
+
 # Lynx Universal [Qualcomm Premature 37°C Thermal Throttle Elimination & Big Core Fmax Unclamp] 7.0.0-RC358
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.82

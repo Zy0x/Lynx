@@ -937,6 +937,13 @@ impl ChargingRegulator {
             return 12_000_000;
         }
 
+        if is_qcom {
+            // Qualcomm PM660 single PMIC has a 3.1A hardware buck limit.
+            // Writing values > 3.1A causes USB_ICL votable collapse!
+            let _ = fs::write(cache_file, "3100000");
+            return 3_100_000;
+        }
+
         // 1. Hardware node inspection
         for node in &[
             "/sys/class/power_supply/usb/hw_current_max",
@@ -2310,28 +2317,26 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
-            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
             // 2. Qualcomm Safe Re-Handshake (Zero Flapping):
-            // NEVER pulse input_suspend on Qualcomm single-PMIC (PM660)!
-            // Pulsing input_suspend cuts the input FET and drops VBUS, forcing an endless
-            // connect/disconnect (mati-nyala) loop. Always ensure input_suspend is strictly 0.
+            // NEVER pulse input_suspend or allow_hvdcp3 on Qualcomm single-PMIC (PM660)!
+            // Pulsing allow_hvdcp3 to 0 aborts HVDCP 3.0 (9V), forcing the charger to collapse to 5V DCP (1.5A max).
+            // Always keep allow_hvdcp3 strictly locked at 1.
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", USB_DIR), "0");
 
-            // Toggle allow_hvdcp3 cleanly without touching input FET
             for hvdcp in &[
                 format!("{}/allow_hvdcp3", USB_DIR),
                 format!("{}/allow_hvdcp3", BATT_DIR),
                 format!("{}/allow_hvdcp3", MAIN_DIR),
+                "/sys/class/power_supply/allow_hvdcp3".to_string(),
             ] {
                 if Path::new(hvdcp).exists() {
                     Self::set_perm(hvdcp, 0o666);
-                    Self::write_node(hvdcp, "0");
-                    std::thread::sleep(std::time::Duration::from_millis(50));
                     Self::write_node(hvdcp, "1");
                 }
             }
@@ -2766,7 +2771,12 @@ impl ChargingRegulator {
         Self::apply_extreme_charging(100, true, 12000);
 
         // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
-        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 90 {
+        // Do NOT trigger if cable was connected within the last 4 seconds to allow natural HVDCP/PE handshake!
+        let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+        let plugged_elapsed = now_sec.saturating_sub(plugged_at);
+
+        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 90 && plugged_elapsed >= 4 {
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
                 .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
@@ -2956,9 +2966,9 @@ impl ChargingRegulator {
 
         // 7. Qualcomm Snapdragon Platform Thermal Uncaps & BMS JEITA Expansion
         Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-        Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+        Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
         Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-        Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+        Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         let fv_uv_str = Self::probe_hardware_voltage_ceiling_uv().to_string();
         Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
         Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
@@ -2967,6 +2977,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/voltage_max", BATT_DIR), &fv_uv_str);
         Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
         Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
+        Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3100");
 
         // Relax BMS / Battery JEITA temperature thresholds dynamically across any device
         if let Ok(entries) = fs::read_dir(PS_DIR) {
@@ -3390,12 +3401,18 @@ impl ChargingRegulator {
         let millicelsius = (temp_c * 1000).to_string();
         let celsius_str = temp_c.to_string();
 
-        // 1. Write virtual spoof node for app telemetry and scripts
-        let _ = fs::write(SPOOFED_BATT_TEMP_PATH, format!("{}\n", decicelsius));
-        Self::set_perm(SPOOFED_BATT_TEMP_PATH, 0o644);
+        // 1. Write virtual spoof node only on platforms where driver hook is active (MediaTek/Transsion)
+        if !Self::is_qualcomm_soc() {
+            let _ = fs::write(SPOOFED_BATT_TEMP_PATH, format!("{}\n", decicelsius));
+            Self::set_perm(SPOOFED_BATT_TEMP_PATH, 0o644);
 
-        let _ = fs::write(SPOOFED_QUIET_THERM_PATH, format!("{}\n", millicelsius));
-        Self::set_perm(SPOOFED_QUIET_THERM_PATH, 0o644);
+            let _ = fs::write(SPOOFED_QUIET_THERM_PATH, format!("{}\n", millicelsius));
+            Self::set_perm(SPOOFED_QUIET_THERM_PATH, 0o644);
+        } else {
+            // On Qualcomm, keep telemetry strictly authentic to real battery temperature
+            let _ = fs::remove_file(SPOOFED_BATT_TEMP_PATH);
+            let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
+        }
 
         // 2. MediaTek kernel driver hook (Strict Idempotency Guard to prevent resetting charger to 5V DCP)
         if Path::new(BATT_TEMP_NODE).exists() {
@@ -4343,12 +4360,24 @@ impl ChargingRegulator {
         let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
         let plugged_elapsed = now_sec.saturating_sub(plugged_at);
 
-        // Stage 2: Automated Zero-Touch AICL Kick (1.5 - 2.5s post cold-plug)
-        // At 2 seconds, hardware APSD/BC1.2 is settled and VBUS has stepped up to 9V.
-        // We kick rerun_aicl to ramp current immediately without user replug!
-        if plugged_elapsed >= 2 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
+        // Stage 2: Automated Zero-Touch AICL Kick (3.0s post cold-plug)
+        // At 3 seconds, hardware APSD/BC1.2 is settled and VBUS has stepped up to 9V.
+        // We ensure registers are unconstrained and kick rerun_aicl to ramp current immediately!
+        if plugged_elapsed >= 3 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
             let _ = fs::write("/dev/lynx_cold_plug_kicked", "1");
             if Self::is_qualcomm_soc() && !Self::is_laptop_port() {
+                let ceiling_ua = Self::probe_silicon_charge_ceiling_ua().to_string();
+                for node in &[
+                    format!("{}/constant_charge_current_max", BATT_DIR),
+                    format!("{}/constant_charge_current", BATT_DIR),
+                    format!("{}/current_max", USB_DIR),
+                    format!("{}/current_max", MAIN_DIR),
+                ] {
+                    if Path::new(node).exists() {
+                        Self::set_perm(node, 0o666);
+                        Self::write_node(node, &ceiling_ua);
+                    }
+                }
                 for rerun in &[
                     format!("{}/rerun_aicl", USB_DIR),
                     format!("{}/rerun_aicl", BATT_DIR),
@@ -4359,19 +4388,30 @@ impl ChargingRegulator {
                         Self::write_node(rerun, "1");
                     }
                 }
-                Self::apply_from_config();
             }
         }
 
-        // Stage 3: Current Ramp Assurance (4.0s post cold-plug)
+        // Stage 3: Current Ramp Assurance (5.0s post cold-plug)
         // If current is still lagging (< 2000mA at < 90% SoC), re-kick AICL once more
-        if plugged_elapsed >= 4 && !Path::new("/dev/lynx_cold_plug_verified").exists() {
+        if plugged_elapsed >= 5 && !Path::new("/dev/lynx_cold_plug_verified").exists() {
             let _ = fs::write("/dev/lynx_cold_plug_verified", "1");
             let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
             let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
             if cur_now_ma < 2000 && cur_cap < 90 && !Self::is_laptop_port() {
                 if Self::is_qualcomm_soc() {
+                    let ceiling_ua = Self::probe_silicon_charge_ceiling_ua().to_string();
+                    for node in &[
+                        format!("{}/constant_charge_current_max", BATT_DIR),
+                        format!("{}/constant_charge_current", BATT_DIR),
+                        format!("{}/current_max", USB_DIR),
+                        format!("{}/current_max", MAIN_DIR),
+                    ] {
+                        if Path::new(node).exists() {
+                            Self::set_perm(node, 0o666);
+                            Self::write_node(node, &ceiling_ua);
+                        }
+                    }
                     for rerun in &[
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),
@@ -4382,7 +4422,6 @@ impl ChargingRegulator {
                             Self::write_node(rerun, "1");
                         }
                     }
-                    Self::apply_from_config();
                 }
             }
         }

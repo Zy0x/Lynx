@@ -217,9 +217,9 @@ internal object LynxBatteryTelemetryRepository {
                     val rawSpf = parts.getOrNull(23)?.toFloatOrNull() ?: 0f
                     val spoofedTemp = if (rawSpf > 100f) rawSpf / 10f else rawSpf
                     val finalTempC = when {
-                        spoofedTemp > 0f -> spoofedTemp
                         tempC > 0f -> tempC
                         realTempC > 0f -> realTempC
+                        spoofedTemp > 0f -> spoofedTemp
                         else -> 0f
                     }
                     val isGuardActive = parts.getOrNull(13)?.trim() == "1"
