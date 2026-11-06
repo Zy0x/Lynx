@@ -1,3 +1,22 @@
+# Lynx Universal [Qualcomm Premature 37°C Thermal Throttle Elimination & Big Core Fmax Unclamp] 7.0.0-RC358
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.82
+
+- **Pemberantasan Total Bottleneck Throttling Prematur Big Core pada Suhu 37°C di Qualcomm (Redmi Note 7 / SDM660)**:
+  - **Akar Masalah Throttling Big Core Tertahan di 1.11 GHz**:
+    - Pemeriksaan mendalam pada arsitektur kernel Linux Snapdragon 660 mengungkap bahwa zona termal sintetis vendor `/sys/class/thermal/thermal_zone20` (`quiet-therm-step`) memiliki trip point bawaan yang sangat rendah: `trip_point_0_temp = 37000` (37.0°C) dan `trip_point_1_temp = 41000` (41.0°C).
+    - 37°C adalah suhu tubuh/saku normal. Begitu pengguna membuka Twitter/X, browser, atau aplikasi harian selama 20-30 detik, suhu papan sirkuit mencapai ~40°C–42°C.
+    - Begitu suhu melampaui 37°C, kernel thermal governor `step_wise` secara agresif mengeskalasi `cooling_device1` (`thermal-cpufreq-4`) ke status maksimum `cur_state = 5`.
+    - `thermal-cpufreq-4` pada status 5 menerapkan kernel `freq_qos_update_request` yang mengunci batas frekuensi tertinggi cluster Big (`policy4/scaling_max_freq`) ke **1.11 GHz (`1113600 kHz`)**. Karena batas ini ditegakkan di kernel space melalui Frequency QoS, penulisan sysfs ke `scaling_max_freq` ditolak atau dijepit kembali ke 1.11 GHz oleh kernel.
+  - **Solusi Arsitektur Multi-Tier di Mesin Native Rust (`lynxd`)**:
+    - **Neutralize Synthetic Software Throttle Zone (`neutralize_quiet_therm`)**: Menyetel mode `quiet-therm-step` ke `disabled`, governor ke `user_space`, dan menaikkan trip point ke `75000` (75.0°C, setara dengan trip point silikon CPU hardware `cpuss-0-step`). Zona keselamatan perangkat keras fisik (`pm660-tz`, `battery`, `bms`, `tsens_tz`) tetap 100% aktif dan terlindungi.
+    - **Frequency QoS Release (`cur_state = 0`)**: Me-reset `thermal-cpufreq-4` ke status 0, melepaskan pembatasan kernel Frequency QoS dan membebaskan Big Core untuk beroperasi hingga frekuensi puncak fisik **2.46 GHz (`2457600 kHz`)**.
+    - **SysfsWriter Pseudo-Filesystem Fix (`writer.rs`)**: Memperbaiki pemanggilan `truncate(true)` pada direktori `/sys` sehingga tidak memicu `EINVAL`/`EPERM` pada kobjects kernel sysfs.
+    - **Autonomous Big Core Ceiling Guardian (`tick_dynamic_scaler`)**: Terus memantau status cluster Big. Jika terdeteksi adanya clamping artifisial, `lynxd` secara mandiri menetralisir `quiet-therm` dan memulihkan `scaling_max_freq` ke frekuensi maksimum perangkat keras secara instan.
+    - **Autonomous Self-Update & Command Listener**: Daemon root secara mandiri mendeteksi biner baru di `/data/local/tmp/lynxd_new` dan skrip di `/data/local/tmp/lynx_cmd.sh` untuk penerapan hot-reload tanpa reboot.
+
+---
+
 # Lynx Universal [SystemUI Priority Guardian & Dynamic Notification Shade Boost] 7.0.0-RC357
 Released on: 2026-11-06
 > Lynx Kernel Manager v3.3.81

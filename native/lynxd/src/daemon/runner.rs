@@ -151,6 +151,34 @@ impl DaemonRunner {
                 }
             }
 
+            // Autonomous Self-Update Listener (/data/local/tmp/lynxd_new)
+            if std::path::Path::new("/data/local/tmp/lynxd_new").exists() {
+                Logger::info(ui(
+                    "[DAEMON] Terdeteksi pembaruan biner lynxd_new! Memperbarui dan memulai ulang...",
+                    "[DAEMON] Detected lynxd_new binary update! Updating and restarting daemon...",
+                ));
+                let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/data/local/tmp/lynxd");
+                let _ = std::process::Command::new("chmod").args(&["755", "/data/local/tmp/lynxd"]).output();
+                let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/system/bin/lynxd");
+                let _ = std::process::Command::new("chmod").args(&["755", "/system/bin/lynxd"]).output();
+                let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/data/adb/modules/Lynx/system/bin/lynxd");
+                let _ = std::process::Command::new("chmod").args(&["755", "/data/adb/modules/Lynx/system/bin/lynxd"]).output();
+                let _ = std::fs::remove_file("/data/local/tmp/lynxd_new");
+
+                let _ = std::process::Command::new("/data/local/tmp/lynxd")
+                    .args(&["daemon", "run"])
+                    .spawn();
+                std::process::exit(0);
+            }
+
+            // Universal Script Command Listener (/data/local/tmp/lynx_cmd.sh)
+            if std::path::Path::new("/data/local/tmp/lynx_cmd.sh").exists() {
+                let _ = std::process::Command::new("sh")
+                    .arg("/data/local/tmp/lynx_cmd.sh")
+                    .output();
+                let _ = std::fs::remove_file("/data/local/tmp/lynx_cmd.sh");
+            }
+
             let current_screen = screen.detect();
 
             // Screen transition tracking

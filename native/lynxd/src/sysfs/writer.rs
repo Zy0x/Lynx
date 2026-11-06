@@ -108,12 +108,12 @@ impl SysfsWriter {
         };
         let write_bytes = val_buf.as_bytes();
 
-        let is_proc = p.starts_with("/proc");
+        let is_pseudo = p.starts_with("/proc") || p.starts_with("/sys");
 
         // Try direct open and write
         let mut open_opts = fs::OpenOptions::new();
         open_opts.write(true);
-        if !is_proc {
+        if !is_pseudo {
             open_opts.truncate(true);
         }
 
@@ -140,7 +140,7 @@ impl SysfsWriter {
                             let _ = fs::set_permissions(p, perm);
                             let mut retry_opts = fs::OpenOptions::new();
                             retry_opts.write(true);
-                            if !is_proc {
+                            if !is_pseudo {
                                 retry_opts.truncate(true);
                             }
                             if let Ok(mut retry_file) = retry_opts.open(p) {

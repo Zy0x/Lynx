@@ -324,7 +324,10 @@ impl ClusterController {
 
             if is_big {
                 let max_path = pol.path.join("scaling_max_freq");
-                // If scaling_max_freq is artificially clamped below hardware max by vendor thermal-engine or powerhint:
+                // If in gaming/extreme or scaling_max_freq is artificially clamped below hardware max by vendor quiet-therm:
+                if pol.current_max_freq < pol.max_freq || current_profile == "performance" || current_profile == "extreme" {
+                    crate::subsystems::ThermalController::neutralize_quiet_therm();
+                }
                 if pol.current_max_freq < pol.max_freq {
                     let _ = SysfsWriter::write(&max_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
                 }

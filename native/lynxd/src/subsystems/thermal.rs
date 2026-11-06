@@ -142,6 +142,44 @@ impl ThermalController {
                 }
             }
         }
+        Self::neutralize_quiet_therm();
+    }
+
+    /// Neutralizes Qualcomm's premature 37°C software skin throttling zone (quiet-therm-step)
+    /// and resets the cpufreq QoS clamp on Big cores.
+    pub fn neutralize_quiet_therm() {
+        for id in 0..64 {
+            let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
+            if !Path::new(&tz_dir).exists() {
+                continue;
+            }
+            if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
+                let lower = t_type.to_lowercase();
+                if lower.contains("quiet-therm") || lower.contains("skin-therm") {
+                    let _ = Self::write_opt(format!("{}/mode", tz_dir), "disabled");
+                    let _ = Self::write_opt(format!("{}/policy", tz_dir), "user_space");
+                    let _ = Self::write_opt(format!("{}/trip_point_0_temp", tz_dir), "75000");
+                    let _ = Self::write_opt(format!("{}/trip_point_1_temp", tz_dir), "75000");
+                }
+            }
+        }
+        for id in 0..64 {
+            let cdev_dir = format!("/sys/class/thermal/cooling_device{}", id);
+            if !Path::new(&cdev_dir).exists() {
+                continue;
+            }
+            if let Some(c_type) = Self::read_trimmed(format!("{}/type", cdev_dir)) {
+                let lower = c_type.to_lowercase();
+                if lower.contains("thermal-cpufreq") || lower.contains("cpu_adaptive") {
+                    let cur = Self::read_trimmed(format!("{}/cur_state", cdev_dir))
+                        .and_then(|s| s.parse::<i64>().ok())
+                        .unwrap_or(0);
+                    if cur > 0 {
+                        let _ = Self::write_opt(format!("{}/cur_state", cdev_dir), "0");
+                    }
+                }
+            }
+        }
     }
 
     /// Freezes aggressive OEM thermal daemons with SIGSTOP.
@@ -301,6 +339,7 @@ impl ThermalController {
 
                 // Elevate non-battery zones to 75°C (75000)
                 Self::set_limit_raw(75000);
+                Self::neutralize_quiet_therm();
 
                 "Thermal mode configured to Hardware Safety Dominant (Gaming, 75°C limits).".to_string()
             }
@@ -332,6 +371,7 @@ impl ThermalController {
 
                 // Elevate non-battery trip points to 85°C (85000)
                 Self::set_limit_raw(85000);
+                Self::neutralize_quiet_therm();
 
                 // Disable thermal zone modes on non-battery zones
                 // CRITICAL HARDWARE SAFETY GUARD: MediaTek vendor thermal zones (mtkts*) must NEVER

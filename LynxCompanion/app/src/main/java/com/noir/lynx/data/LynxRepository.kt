@@ -454,8 +454,8 @@ object LynxRepository {
             val isModuleLynxd = path.startsWith(MODULE_DIR)
             val exists = resolvedLynxdPath != null || Shell.cmd("[ -x '$path' ]").exec().isSuccess
 
-            // Sync embedded asset to storage if newer or different
-            if (!exists || !lynxdBinarySyncedThisSession) {
+            // Sync embedded asset to storage only if no executable lynxd binary exists at all
+            if (!exists) {
                 lynxdBinarySyncedThisSession = true
                 try {
                     val ctx = appContext ?: com.noir.lynx.LynxApp.instance
