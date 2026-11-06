@@ -457,7 +457,7 @@ impl GameController {
         // 7. Reset Qualcomm Snapdragon KGSL, WALT, and Core Control Hooks
         Self::write_opt(QcomHardware::KGSL_IDLE_TIMER, "80");
         Self::write_opt(QcomHardware::KGSL_THROTTLING, "1");
-        Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "1");
+        Self::write_opt(QcomHardware::KGSL_THERMAL_PWRLEVEL, "0");
         Self::write_opt(QcomHardware::KGSL_ADRENOBOOST, "0");
         Self::write_opt("/sys/class/kgsl/kgsl-3d0/adrenoboost", "0");
         Self::write_opt(QcomHardware::KGSL_SPTP_PC, "1");

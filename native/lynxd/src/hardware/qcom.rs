@@ -20,6 +20,9 @@ impl QcomHardware {
     pub const KGSL_MIN_PWRLEVEL: &'static str = "/sys/class/kgsl/kgsl-3d0/min_pwrlevel";
     pub const KGSL_DEFAULT_PWRLEVEL: &'static str = "/sys/class/kgsl/kgsl-3d0/default_pwrlevel";
     pub const KGSL_PWRSCALE: &'static str = "/sys/class/kgsl/kgsl-3d0/pwrscale";
+    pub const KGSL_MAX_GPUCLK: &'static str = "/sys/class/kgsl/kgsl-3d0/max_gpuclk";
+    pub const KGSL_MAX_CLOCK_MHZ: &'static str = "/sys/class/kgsl/kgsl-3d0/max_clock_mhz";
+    pub const KGSL_MIN_CLOCK_MHZ: &'static str = "/sys/class/kgsl/kgsl-3d0/min_clock_mhz";
     pub const KGSL_BUS_SPLIT: &'static str = "/sys/class/kgsl/kgsl-3d0/bus_split";
     pub const KGSL_FORCE_BUS_ON: &'static str = "/sys/class/kgsl/kgsl-3d0/force_bus_on";
     pub const KGSL_FORCE_CLK_ON: &'static str = "/sys/class/kgsl/kgsl-3d0/force_clk_on";

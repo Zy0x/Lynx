@@ -643,7 +643,9 @@ impl HardwareTranslator {
 
                     let max_idx = cap.gpu.num_pwrlevels.saturating_sub(1);
                     let target_throttling = if is_perf_or_ext { "0" } else { "1" };
-                    let target_thermal_pwr = if is_extreme { "0" } else { "1" };
+                    // Power level 0 allows full hardware peak clock (e.g. 647 MHz on Adreno 512, 670 MHz on Adreno 650).
+                    // Clamping to "1" artificially blocks level 0 and restricts the GPU to 588 MHz or below!
+                    let target_thermal_pwr = "0";
                     let target_idle_timer = match profile.name {
                         "extreme" => "250",
                         "performance" => "120",
@@ -750,26 +752,45 @@ impl HardwareTranslator {
                             false,
                         );
 
-                        // Ensure Devfreq frequency bounds allow full dynamic range on balance
-                        if profile.name == "balance" || profile.name == "auto" {
+                        // Ensure Devfreq & KGSL frequency bounds allow full dynamic range
+                        let devfreq_min_val = if is_extreme {
+                            (cap.gpu.available_freqs_mhz.last().copied().unwrap_or(0) * 1_000_000).to_string()
+                        } else {
+                            "0".to_string()
+                        };
+                        Self::push_op(
+                            &mut ops,
+                            "GPU",
+                            "Adreno devfreq relax min_freq",
+                            QcomHardware::KGSL_DEVFREQ_MIN,
+                            devfreq_min_val,
+                            false,
+                        );
+                        if let Some(&highest_mhz) = cap.gpu.available_freqs_mhz.last() {
                             Self::push_op(
                                 &mut ops,
                                 "GPU",
-                                "Adreno devfreq relax min_freq",
-                                QcomHardware::KGSL_DEVFREQ_MIN,
-                                "0",
+                                "Adreno devfreq restore max_freq",
+                                QcomHardware::KGSL_DEVFREQ_MAX,
+                                (highest_mhz as u64 * 1_000_000).to_string(),
                                 false,
                             );
-                            if let Some(&highest_mhz) = cap.gpu.available_freqs_mhz.last() {
-                                Self::push_op(
-                                    &mut ops,
-                                    "GPU",
-                                    "Adreno devfreq restore max_freq",
-                                    QcomHardware::KGSL_DEVFREQ_MAX,
-                                    (highest_mhz as u64 * 1_000_000).to_string(),
-                                    false,
-                                );
-                            }
+                            Self::push_op(
+                                &mut ops,
+                                "GPU",
+                                "Adreno KGSL restore max_clock_mhz",
+                                QcomHardware::KGSL_MAX_CLOCK_MHZ,
+                                highest_mhz.to_string(),
+                                false,
+                            );
+                            Self::push_op(
+                                &mut ops,
+                                "GPU",
+                                "Adreno KGSL restore max_gpuclk",
+                                QcomHardware::KGSL_MAX_GPUCLK,
+                                (highest_mhz as u64 * 1_000_000).to_string(),
+                                false,
+                            );
                         }
                     }
                     Self::push_op(

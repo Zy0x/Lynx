@@ -669,6 +669,12 @@ impl GpuController {
                             Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", fluid.freq_mhz.to_string());
                             Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (fluid.freq_khz * unit_mult / 1000).to_string());
                         }
+                        if let Some(high) = peak_opp {
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", high.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_gpuclk", (high.freq_khz * 1000).to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (high.freq_khz * unit_mult / 1000).to_string());
+                        }
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "0");
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", fluid_pwr_idx.to_string());
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", fluid_pwr_idx.to_string());
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", "0");
@@ -679,8 +685,12 @@ impl GpuController {
                     DynamicGpuState::Peak => {
                         if let Some(high) = peak_opp {
                             Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_clock_mhz", high.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_clock_mhz", high.freq_mhz.to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_gpuclk", (high.freq_khz * 1000).to_string());
                             Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq", (high.freq_khz * unit_mult / 1000).to_string());
+                            Self::write_opt("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq", (high.freq_khz * unit_mult / 1000).to_string());
                         }
+                        Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "0");
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", "0");
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", "0");
                         Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", "0");

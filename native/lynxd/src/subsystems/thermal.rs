@@ -212,7 +212,7 @@ impl ThermalController {
 
                 // Restore KGSL (QCOM)
                 Self::write_opt("/sys/class/kgsl/kgsl-3d0/throttling", "1");
-                Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "1");
+                Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "0");
 
                 // Re-enable thermal zone modes
                 for id in 0..128 {
