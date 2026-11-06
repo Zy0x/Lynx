@@ -335,11 +335,16 @@ internal object LynxGpuTelemetryRepository {
                     min_val=${'$'}(cat "${'$'}D/min_freq" 2>/dev/null | tr -d ' \n')
                     [ -z "${'$'}min_val" -o "${'$'}min_val" = "0" ] && min_val=${'$'}(cat "${'$'}K/min_clock_mhz" 2>/dev/null | tr -d ' \n')
                     echo "min:${'$'}min_val"
+                    avail_str=${'$'}(cat "${'$'}K/gpu_available_frequencies" "${'$'}D/available_frequencies" "${'$'}K/freq_table_mhz" 2>/dev/null | tr '\n' ' ')
+                    if [ -d /proc/device-tree/soc/qcom,kgsl-3d0@5000000/qcom,gpu-pwrlevel-binsoc ] || [ -d /proc/device-tree/soc/*kgsl*/qcom,gpu-pwrlevel-binsoc ]; then
+                        avail_str="750000000 700000000 647000000 ${'$'}avail_str"
+                    fi
                     max_val=${'$'}(cat "${'$'}D/max_freq" 2>/dev/null | tr -d ' \n')
                     [ -z "${'$'}max_val" -o "${'$'}max_val" = "0" ] && max_val=${'$'}(cat "${'$'}K/max_gpuclk" "${'$'}K/max_clock_mhz" 2>/dev/null | head -n 1 | tr -d ' \n')
+                    if [ -d /proc/device-tree/soc/qcom,kgsl-3d0@5000000/qcom,gpu-pwrlevel-binsoc ] || [ -d /proc/device-tree/soc/*kgsl*/qcom,gpu-pwrlevel-binsoc ]; then
+                        [ -z "${'$'}max_val" -o "${'$'}max_val" -lt 750000000 ] 2>/dev/null && max_val=750000000
+                    fi
                     echo "max:${'$'}max_val"
-                    avail_str=${'$'}(cat "${'$'}K/gpu_available_frequencies" 2>/dev/null | tr '\n' ' ')
-                    [ -z "${'$'}avail_str" ] && avail_str=${'$'}(cat "${'$'}D/available_frequencies" 2>/dev/null | tr '\n' ' ')
                     echo "avail:${'$'}avail_str"
                     boost=${'$'}(cat "${'$'}D/adrenoboost" 2>/dev/null | tr -d ' \n')
                     [ -z "${'$'}boost" ] && boost=${'$'}(cat /sys/class/devfreq/*kgsl*/adrenoboost 2>/dev/null | head -n 1 | tr -d ' \n')

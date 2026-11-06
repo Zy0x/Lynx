@@ -93,7 +93,10 @@ internal object LynxGpuControlRepository {
                     K="/sys/class/kgsl/kgsl-3d0"
                     D="/sys/class/kgsl/kgsl-3d0/devfreq"
                     [ ! -d "${'$'}D" ] && D=${'$'}(ls -d /sys/class/devfreq/*kgsl-3d0* /sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/* 2>/dev/null | head -n 1)
-                    avail=${'$'}(cat "${'$'}K/gpu_available_frequencies" 2>/dev/null || cat "${'$'}D/available_frequencies" 2>/dev/null)
+                    avail=${'$'}(cat "${'$'}K/gpu_available_frequencies" "${'$'}D/available_frequencies" "${'$'}K/freq_table_mhz" 2>/dev/null)
+                    if [ -d /proc/device-tree/soc/qcom,kgsl-3d0@5000000/qcom,gpu-pwrlevel-binsoc ] || [ -d /proc/device-tree/soc/*kgsl*/qcom,gpu-pwrlevel-binsoc ]; then
+                        avail="750000000 700000000 647000000 ${'$'}avail"
+                    fi
                     unit_mult=1000000
                     for tok in ${'$'}avail; do
                         if [ "${'$'}tok" -gt 10000000 ] 2>/dev/null; then unit_mult=1000000; break; fi

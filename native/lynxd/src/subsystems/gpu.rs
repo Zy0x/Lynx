@@ -219,6 +219,7 @@ impl GpuController {
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/max_pwrlevel", max_pwr_idx.to_string());
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/min_pwrlevel", safe_min_pwr.to_string());
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/default_pwrlevel", max_pwr_idx.to_string());
+                    Self::write_opt("/sys/class/kgsl/kgsl-3d0/thermal_pwrlevel", "0");
                     Self::write_opt("/sys/class/kgsl/kgsl-3d0/pwrscale", "1");
                 }
                 format!("Adreno GPU clock set to {} - {} MHz.", target_min, target_max)

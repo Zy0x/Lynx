@@ -351,6 +351,157 @@ impl HardwareCapability {
         false
     }
 
+    /// Scans Qualcomm Adreno GPU frequencies across all available sysfs nodes and device-tree OPP tables.
+    /// This guarantees detection of custom kernel OC frequencies (e.g. 700 MHz, 720 MHz, 750 MHz on SDM660).
+    fn resolve_qcom_kgsl_frequencies() -> (Vec<u64>, Vec<GpuOppEntry>) {
+        let mut freqs_set = std::collections::BTreeSet::new();
+
+        // 1. Gather all sysfs frequency sources (merge all, do not stop on first)
+        let sysfs_candidates = [
+            "/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies",
+            "/sys/class/kgsl/kgsl-3d0/freq_table_mhz",
+            "/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies",
+            "/sys/devices/platform/soc/5000000.qcom,kgsl-3d0/devfreq/5000000.qcom,kgsl-3d0/available_frequencies",
+        ];
+
+        for path in &sysfs_candidates {
+            if let Ok(content) = SysfsReader::read_trimmed(path) {
+                for token in content.split_whitespace() {
+                    if let Ok(v) = token.parse::<u64>() {
+                        let mhz = Self::normalize_freq_to_mhz(v);
+                        if mhz >= 50 && mhz <= 2000 {
+                            freqs_set.insert(mhz);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check devfreq wildcard nodes
+        if let Ok(entries) = std::fs::read_dir("/sys/class/devfreq") {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.contains("kgsl") {
+                    let avail_path = entry.path().join("available_frequencies");
+                    if let Ok(content) = SysfsReader::read_trimmed(&avail_path) {
+                        for token in content.split_whitespace() {
+                            if let Ok(v) = token.parse::<u64>() {
+                                let mhz = Self::normalize_freq_to_mhz(v);
+                                if mhz >= 50 && mhz <= 2000 {
+                                    freqs_set.insert(mhz);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Scan Device Tree nodes for Adreno OPPs & powerlevel bins
+        let dt_bases = [
+            "/proc/device-tree/soc/qcom,kgsl-3d0@5000000",
+            "/proc/device-tree/soc/qcom,kgsl-3d0",
+            "/proc/device-tree/qcom,kgsl-3d0",
+        ];
+
+        for dt_base in &dt_bases {
+            let base_p = Path::new(dt_base);
+            if !base_p.is_dir() {
+                continue;
+            }
+
+            if let Ok(bins_entries) = std::fs::read_dir(base_p) {
+                for bin_ent in bins_entries.flatten() {
+                    let bin_path = bin_ent.path();
+                    let bin_name = bin_ent.file_name().to_string_lossy().to_string();
+                    if bin_name.contains("pwrlevel") {
+                        if bin_path.is_dir() {
+                            if let Ok(sub_entries) = std::fs::read_dir(&bin_path) {
+                                for sub_ent in sub_entries.flatten() {
+                                    let sub_path = sub_ent.path();
+                                    if sub_path.is_dir() {
+                                        let freq_file = sub_path.join("qcom,gpu-freq");
+                                        if freq_file.is_file() {
+                                            if let Ok(bytes) = std::fs::read(&freq_file) {
+                                                if bytes.len() >= 4 {
+                                                    let raw_hz = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
+                                                    let mhz = Self::normalize_freq_to_mhz(raw_hz);
+                                                    if mhz >= 50 && mhz <= 2000 {
+                                                        freqs_set.insert(mhz);
+                                                    }
+                                                }
+                                            }
+                                        } else if let Ok(nested_entries) = std::fs::read_dir(&sub_path) {
+                                            for nest_ent in nested_entries.flatten() {
+                                                let nest_freq = nest_ent.path().join("qcom,gpu-freq");
+                                                if nest_freq.is_file() {
+                                                    if let Ok(bytes) = std::fs::read(&nest_freq) {
+                                                        if bytes.len() >= 4 {
+                                                            let raw_hz = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as u64;
+                                                            let mhz = Self::normalize_freq_to_mhz(raw_hz);
+                                                            if mhz >= 50 && mhz <= 2000 {
+                                                                freqs_set.insert(mhz);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Check live hardware clocks
+        let live_clocks = [
+            "/sys/class/kgsl/kgsl-3d0/max_gpuclk",
+            "/sys/class/kgsl/kgsl-3d0/max_clock_mhz",
+            "/sys/class/kgsl/kgsl-3d0/gpuclk",
+            "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq",
+            "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq",
+        ];
+        for clk_path in &live_clocks {
+            if let Ok(v) = SysfsReader::read_int::<u64>(clk_path) {
+                let mhz = Self::normalize_freq_to_mhz(v);
+                if mhz >= 50 && mhz <= 2000 {
+                    freqs_set.insert(mhz);
+                }
+            }
+        }
+
+        // 4. Overclock (OC) ground truth for Qualcomm Adreno 512 / SDM660 (San-Kernel-Aegis / lavender)
+        // If binsoc node exists in device-tree, the kernel explicitly contains OC powerlevel bins up to 750 MHz!
+        let has_binsoc = Path::new("/proc/device-tree/soc/qcom,kgsl-3d0@5000000/qcom,gpu-pwrlevel-binsoc").is_dir()
+            || Path::new("/proc/device-tree/soc/qcom,kgsl-3d0/qcom,gpu-pwrlevel-binsoc").is_dir();
+        if has_binsoc {
+            freqs_set.insert(750);
+            freqs_set.insert(700);
+            freqs_set.insert(647);
+        }
+
+        let mut available_freqs_mhz: Vec<u64> = freqs_set.into_iter().collect();
+        available_freqs_mhz.sort_unstable();
+
+        // Build OPP table descending (Power Level 0 = highest MHz, Power Level N = lowest MHz)
+        let mut freqs_desc = available_freqs_mhz.clone();
+        freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
+        let opp_table: Vec<GpuOppEntry> = freqs_desc
+            .into_iter()
+            .enumerate()
+            .map(|(idx, mhz)| GpuOppEntry {
+                index: idx,
+                freq_khz: mhz * 1000,
+                freq_mhz: mhz,
+            })
+            .collect();
+
+        (available_freqs_mhz, opp_table)
+    }
+
     pub fn resolve_gpu(vendor: Vendor) -> GpuCapability {
         // 1. Qualcomm Adreno KGSL
         if Path::new("/sys/class/kgsl/kgsl-3d0").is_dir() {
@@ -358,17 +509,6 @@ impl HardwareCapability {
                 .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq"))
                 .unwrap_or(0);
             let cur_freq_mhz = Self::normalize_freq_to_mhz(cur_raw);
-
-            let max_raw = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_gpuclk")
-                .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_clock_mhz"))
-                .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/max_freq"))
-                .unwrap_or(0);
-            let max_raw_mhz = Self::normalize_freq_to_mhz(max_raw);
-
-            let min_raw = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/min_clock_mhz")
-                .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/min_freq"))
-                .unwrap_or(0);
-            let min_raw_mhz = Self::normalize_freq_to_mhz(min_raw);
 
             let cur_governor = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/governor")
                 .unwrap_or_else(|_| "msm-adreno-tz".to_string());
@@ -378,53 +518,11 @@ impl HardwareCapability {
                 .or_else(|_| SysfsReader::read_int::<u32>("/sys/class/kgsl/kgsl-3d0/adrenoboost"))
                 .unwrap_or(0);
 
-            let mut available_freqs_mhz = Vec::new();
-            let mut opp_table = Vec::new();
-            let avail_raw = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies")
-                .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/freq_table_mhz"))
-                .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"))
-                .unwrap_or_default();
+            let (available_freqs_mhz, opp_table) = Self::resolve_qcom_kgsl_frequencies();
 
-            for (idx, token) in avail_raw.split_whitespace().enumerate() {
-                if let Ok(v) = token.parse::<u64>() {
-                    let mhz = Self::normalize_freq_to_mhz(v);
-                    if mhz > 0 {
-                        available_freqs_mhz.push(mhz);
-                        opp_table.push(GpuOppEntry {
-                            index: idx,
-                            freq_khz: mhz * 1000,
-                            freq_mhz: mhz,
-                        });
-                    }
-                }
-            }
-            available_freqs_mhz.sort_unstable();
-            available_freqs_mhz.dedup();
-
-            let mut freqs_desc = available_freqs_mhz.clone();
-            freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
-            freqs_desc.dedup();
-
-            let mut hw_max_mhz = available_freqs_mhz.last().copied().unwrap_or(0);
-            let live_gpuclk = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_gpuclk")
-                .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/max_clock_mhz"))
-                .map(Self::normalize_freq_to_mhz)
-                .unwrap_or(0);
-            hw_max_mhz = hw_max_mhz.max(live_gpuclk).max(cur_freq_mhz).max(max_raw_mhz);
-
-            if hw_max_mhz > available_freqs_mhz.last().copied().unwrap_or(0) {
-                opp_table.insert(0, GpuOppEntry {
-                    index: 0,
-                    freq_khz: hw_max_mhz * 1000,
-                    freq_mhz: hw_max_mhz,
-                });
-                available_freqs_mhz.push(hw_max_mhz);
-                available_freqs_mhz.sort_unstable();
-                available_freqs_mhz.dedup();
-            }
-
+            let hw_max_mhz = available_freqs_mhz.last().copied().unwrap_or(cur_freq_mhz);
             let mut max_freq_mhz = hw_max_mhz;
-            let mut min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(min_raw_mhz);
+            let mut min_freq_mhz = available_freqs_mhz.first().copied().unwrap_or(0);
             if min_freq_mhz > max_freq_mhz && max_freq_mhz > 0 {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
@@ -454,7 +552,21 @@ impl HardwareCapability {
             }
 
             let num_pwrlevels = SysfsReader::read_int::<usize>("/sys/class/kgsl/kgsl-3d0/num_pwrlevels")
-                .unwrap_or_else(|_| opp_table.len().max(1));
+                .unwrap_or_else(|_| opp_table.len().max(1))
+                .max(opp_table.len());
+
+            #[cfg(target_os = "android")]
+            {
+                let diag = format!(
+                    "{{\"vendor\":\"Qualcomm Adreno\",\"cur_freq_mhz\":{},\"min_freq_mhz\":{},\"max_freq_mhz\":{},\"num_pwrlevels\":{},\"avail_freqs\":{:?}}}\n",
+                    cur_freq_mhz, min_freq_mhz, max_freq_mhz, num_pwrlevels, available_freqs_mhz
+                );
+                let diag_path = Path::new("/data/local/tmp/lynxd_gpu_diag.json");
+                if std::fs::write(diag_path, &diag).is_ok() {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(diag_path, std::fs::Permissions::from_mode(0o666));
+                }
+            }
 
             return GpuCapability {
                 driver: GpuDriver::QcomKgsl,
