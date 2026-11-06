@@ -289,7 +289,7 @@ class LynxAppAutomationService : Service() {
                         LynxRepository.chargingRepository.reapplyExtremeChargingLock()
                     }
                 } catch (_: Exception) {}
-                delay(3000L)
+                delay(15000L)
             }
         }
 

@@ -1,3 +1,20 @@
+# Lynx Universal [Idempotent Sysfs Write-Suppression & MediaTek Switched-Capacitor Protection] 7.0.0-RC352
+Released on: 2026-11-06
+> Lynx Kernel Manager v3.3.76
+
+- **Pemberantasan Siklus Reset Pengisi Daya MediaTek / Transsion (`DV2_SWITCH:chrtype=4`)**:
+  - **Akar Masalah Kegagalan Negosiasi 33W Pump Express 4.0 (PE4.0)**:
+    - Analisis kernel `dmesg` pada Infinix Note 11 Pro (Helio G96 / MT6781) mengungkap bahwa penulisan berkala (setiap detik oleh daemon atau setiap 3 detik oleh watchdog aplikasi) ke `/sys/devices/platform/battery/Battery_Temperature` atau `/sys/devices/platform/pca_dv2_algo/dv2_debug` secara instan memicu `mtk_power_misc_psy_event`.
+    - Event ini mengeksekusi callback `DV2_SWITCH:usb_switch_psy_notifier_cb event=0` (`chrtype=4, rfc_dcp_ta=1`), yang memaksa IC charger switch kembali ke mode 5V Standard DCP. Akibatnya, tugas negosiasi tegangan tinggi 10V-11V (`dv2_algo_task`) langsung dibatalkan secara berulang, mengunci tegangan adaptor di 4.83V (5V) dan membatasi arus di kisaran 1.293 mA – 1.420 mA.
+  - **Implementasi Idempotent Write-Suppression di Layer Rust Native & Kotlin**:
+    - Memperbarui fungsi `write_node()` dan `write_node_lock()` di `charging.rs` agar selalu membaca nilai node sysfs terlebih dahulu (`read_trimmed`). Jika nilai saat ini sudah sama persis dengan target yang diminta (termasuk kesetaraan numerik heksadesimal vs desimal seperti `6acfc0` vs `7000000`), operasi penulisan syscall `fs::write()` dibatalkan sepenuhnya (0 overhead).
+    - Memasang guard ketat pada `apply_battery_temperature_bypass(25)`: node `Battery_Temperature` HANYA ditulis jika nilainya belum `25`.
+    - Menyesuaikan pembacaan `dv2_debug` menggunakan `SysfsReader::read_trimmed` (single 4096-byte chunk) agar tidak pernah gagal membaca EOF sysfs Linux.
+    - Menyelaraskan `ExtremeChargingScript.kt` agar memeriksa nilai node sebelum mengeksekusi `echo` ke `Battery_Temperature` dan `dv2_debug`.
+    - Mengurangi frekuensi background guardian di `LynxAppAutomationService.kt` dari 3.000 ms ke 15.000 ms untuk efisiensi daya dan stabilitas kernel state machine.
+
+---
+
 # Lynx Universal [Master Mount Namespace Bind-Mount & Full Qualcomm Thermal Zone Spoofing] 7.0.0-RC351
 Released on: 2026-11-06
 > Lynx Kernel Manager v3.3.75

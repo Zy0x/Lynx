@@ -55,15 +55,20 @@ object ExtremeChargingScript {
             echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
             echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
             chmod 444 /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
-            if ! grep -q "6000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null && ! grep -q "7000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null; then
+            if ! grep -q "7000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null && ! grep -q "6000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null; then
                 chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                echo "[101,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
-                echo "[102,85,88,90,6000,6000,6000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[101,85,88,90,7000,7000,7000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
+                echo "[102,85,88,90,7000,7000,7000]" > /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
                 chmod 444 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
             fi
-            chmod 666 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-            echo 25 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
-            chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+            if [ -f /sys/devices/platform/battery/Battery_Temperature ]; then
+                curr_bt=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
+                if [ "${'$'}curr_bt" != "25" ]; then
+                    chmod 666 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    echo 25 > /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                    chmod 444 /sys/devices/platform/battery/Battery_Temperature 2>/dev/null
+                fi
+            fi
             echo 250 > /dev/lynx_spoofed_batt_temp 2>/dev/null
             chmod 644 /dev/lynx_spoofed_batt_temp 2>/dev/null
             echo 25000 > /dev/lynx_spoofed_quiet_therm 2>/dev/null

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::state::ConfigStore;
+use crate::sysfs::SysfsReader;
 
 static LAST_SOFT_RECONNECT_EPOCH: AtomicU64 = AtomicU64::new(0);
 static LAST_FCC_WRITE_EPOCH: AtomicU64 = AtomicU64::new(0);
@@ -509,7 +510,7 @@ impl ChargingRegulator {
 
     #[inline]
     pub fn read_node(path: &str) -> Option<String> {
-        fs::read_to_string(path).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+        SysfsReader::read_trimmed(path).ok().filter(|s| !s.is_empty())
     }
 
     #[inline]
@@ -522,6 +523,21 @@ impl ChargingRegulator {
         if !Path::new(path).exists() {
             return false;
         }
+        if let Some(curr) = Self::read_node(path) {
+            let curr_trimmed = curr.trim();
+            let val_trimmed = val.trim();
+            if curr_trimmed == val_trimmed {
+                return true;
+            }
+            if let (Ok(curr_num), Ok(val_num)) = (
+                curr_trimmed.parse::<u64>().or_else(|_| u64::from_str_radix(curr_trimmed.trim_start_matches("0x"), 16)),
+                val_trimmed.parse::<u64>().or_else(|_| u64::from_str_radix(val_trimmed.trim_start_matches("0x"), 16)),
+            ) {
+                if curr_num == val_num {
+                    return true;
+                }
+            }
+        }
         if fs::write(path, val).is_ok() {
             return true;
         }
@@ -533,6 +549,23 @@ impl ChargingRegulator {
     pub fn write_node_lock(path: &str, val: &str) -> bool {
         if !Path::new(path).exists() {
             return false;
+        }
+        if let Some(curr) = Self::read_node(path) {
+            let curr_trimmed = curr.trim();
+            let val_trimmed = val.trim();
+            if curr_trimmed == val_trimmed {
+                Self::set_perm(path, 0o444);
+                return true;
+            }
+            if let (Ok(curr_num), Ok(val_num)) = (
+                curr_trimmed.parse::<u64>().or_else(|_| u64::from_str_radix(curr_trimmed.trim_start_matches("0x"), 16)),
+                val_trimmed.parse::<u64>().or_else(|_| u64::from_str_radix(val_trimmed.trim_start_matches("0x"), 16)),
+            ) {
+                if curr_num == val_num {
+                    Self::set_perm(path, 0o444);
+                    return true;
+                }
+            }
         }
         Self::set_perm(path, 0o666);
         let write_ok = fs::write(path, val).is_ok();
@@ -2803,15 +2836,23 @@ impl ChargingRegulator {
         let dv2_debug = format!("{}/dv2_debug", PCA_DV2_DIR);
         if Path::new(&dv2_debug).exists() {
             let cur_dv2 = Self::read_node(&dv2_debug).unwrap_or_default();
-            if !cur_dv2.contains("85") || !cur_dv2.contains("7000") {
+            if !cur_dv2.contains("85") || (!cur_dv2.contains("7000") && !cur_dv2.contains("6000")) {
                 Self::write_node_lock(&dv2_debug, "[101,85,88,90,7000,7000,7000]");
                 Self::write_node_lock(&dv2_debug, "[102,85,88,90,7000,7000,7000]");
             }
         }
 
         // 3. Lock Charging_CallState to 0 to prevent dv2_algo_task screen-on clamp (1500mA)
-        Self::write_node_lock("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
-        Self::write_node_lock("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+        for call_state in &[
+            "/sys/devices/platform/odm/odm:tran_battery/Charging_CallState",
+            "/sys/devices/platform/tran_battery/Charging_CallState",
+        ] {
+            if Path::new(call_state).exists() {
+                if Self::read_node(call_state).unwrap_or_default() != "0" {
+                    Self::write_node_lock(call_state, "0");
+                }
+            }
+        }
 
         // 4. In Hyper Mode, bypass Battery_Temperature to 25°C across MTK & Qualcomm architectures
         Self::apply_battery_temperature_bypass(25);
@@ -3356,11 +3397,14 @@ impl ChargingRegulator {
         let _ = fs::write(SPOOFED_QUIET_THERM_PATH, format!("{}\n", millicelsius));
         Self::set_perm(SPOOFED_QUIET_THERM_PATH, 0o644);
 
-        // 2. MediaTek kernel driver hook
+        // 2. MediaTek kernel driver hook (Strict Idempotency Guard to prevent resetting charger to 5V DCP)
         if Path::new(BATT_TEMP_NODE).exists() {
-            Self::set_perm(BATT_TEMP_NODE, 0o666);
-            let _ = fs::write(BATT_TEMP_NODE, &celsius_str);
-            Self::set_perm(BATT_TEMP_NODE, 0o444);
+            let curr = Self::read_node(BATT_TEMP_NODE).unwrap_or_default();
+            if curr.trim() != celsius_str {
+                Self::set_perm(BATT_TEMP_NODE, 0o666);
+                let _ = fs::write(BATT_TEMP_NODE, &celsius_str);
+                Self::set_perm(BATT_TEMP_NODE, 0o444);
+            }
         }
 
         // 3. Qualcomm / Universal sysfs bind mounts
