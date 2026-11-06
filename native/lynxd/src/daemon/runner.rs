@@ -57,6 +57,27 @@ impl DaemonRunner {
         // Initialize low-latency touch boost and high polling rate
         crate::subsystems::DisplayController::apply_touch_boost(true);
 
+        // Apply initial baseline profile immediately to hardware sysfs so CPU ceiling & limits are never stuck at boot values!
+        if let Some(base_prof) = get_profile_by_name(&initial_profile) {
+            let plan = ExecutionPlan::build(&base_prof);
+            match ProfileExecutor::execute(&plan, false) {
+                Ok(report) => {
+                    Logger::info(if is_english() {
+                        format!("[DAEMON] Initial baseline profile '{}' applied ({} nodes committed)", initial_profile, report.operations_committed)
+                    } else {
+                        format!("[DAEMON] Profil dasar awal '{}' berhasil diterapkan ({} node dikomit)", initial_profile, report.operations_committed)
+                    });
+                }
+                Err(e) => {
+                    Logger::error(if is_english() {
+                        format!("[DAEMON] Failed to apply initial baseline profile '{}': {}", initial_profile, e)
+                    } else {
+                        format!("[DAEMON] Gagal menerapkan profil dasar awal '{}': {}", initial_profile, e)
+                    });
+                }
+            }
+        }
+
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
         let mut last_cooldown_check = 0u64;
@@ -100,11 +121,27 @@ impl DaemonRunner {
                 if !active_str.is_empty() && active_str != decision_engine.current_profile() {
                     if matches!(active_str, "powersave" | "balance" | "performance" | "extreme" | "dormant") {
                         decision_engine.notify_applied(active_str);
+                        if let Some(target_prof) = get_profile_by_name(active_str) {
+                            let plan = ExecutionPlan::build(&target_prof);
+                            let _ = ProfileExecutor::execute(&plan, false);
+                        }
                         // When external active profile changes outside a game, align baseline immediately to prevent false reversion
                         if decision_engine.last_target_app().is_none() && active_str != "dormant" {
                             decision_engine.update_baseline_profile(active_str);
                             let _ = std::fs::write("/data/adb/lynx/baseline_profile", active_str);
                         }
+                    }
+                }
+            }
+
+            // Universal Reapply Trigger (/data/local/tmp/lynx_reapply or /data/adb/lynx/reapply)
+            for reapply_trigger in &["/data/local/tmp/lynx_reapply", "/data/adb/lynx/reapply"] {
+                if std::path::Path::new(reapply_trigger).exists() {
+                    let _ = std::fs::remove_file(reapply_trigger);
+                    if let Some(cur_prof) = get_profile_by_name(decision_engine.current_profile()) {
+                        let plan = ExecutionPlan::build(&cur_prof);
+                        let _ = ProfileExecutor::execute(&plan, false);
+                        Logger::info(ui("[DAEMON] Trigger re-apply profil dieksekusi secara instan.", "[DAEMON] Profile re-apply trigger executed instantly."));
                     }
                 }
             }
@@ -273,6 +310,12 @@ impl DaemonRunner {
                 active_prof,
                 current_screen == ScreenState::On,
                 is_multitask,
+            );
+
+            // Autonomous Universal Dynamic CPU Cluster Governor & Ceiling Guardian tick
+            crate::subsystems::ClusterController::tick_dynamic_scaler(
+                current_screen == ScreenState::On,
+                active_prof,
             );
 
             // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick

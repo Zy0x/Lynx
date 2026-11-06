@@ -159,6 +159,7 @@ impl TouchDetector {
                                                 TOUCH_HISTORY[head].store(now_ms, Ordering::Relaxed);
 
                                                 // Immediate sub-1ms hardware touch boost notification
+                                                crate::subsystems::ClusterController::on_hardware_touch();
                                                 crate::subsystems::GpuController::on_hardware_touch();
                                                 crate::subsystems::DisplayController::on_hardware_touch();
                                             }

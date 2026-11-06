@@ -1,3 +1,19 @@
+# Lynx Universal [Dynamic CPU Big Core Touch-Boost & Autonomous Max Frequency Unclamping] 7.0.0-RC356
+Released on: 2026-11-06
+> Lynx Kernel Manager v3.3.80
+
+- **Optimalisasi Performa Dynamic CPU Big Core & Eliminasi Micro-Stutter Aplikasi Berat (TikTok/IG/Games)**:
+  - **Akar Masalah Lag & Starvation Big Core pada Redmi Note 7 (SDM660)**:
+    - Analisis runtime CPU pada Redmi Note 7 (`lavender`, kernel 4.19.325 Aegis) mengungkap bahwa cluster CPU Big (`policy4`, CPU 4-7) tertahan secara artifisial di `scaling_max_freq = 1113600` (1.11 GHz, batas OPP terendah), meskipun perangkat keras dan kernel mendukung hingga 2.45 GHz (`cpuinfo_max_freq = 2457600`).
+    - Skrip vendor Android `/vendor/etc/powerhint.json` hanya mendefinisikan boost untuk `CPULittleClusterMinFreq` (CPU Little) dan mengabaikan Big Cluster pada interaksi touch/swipe, menyebabkan frame-drop parah saat scrolling feed TikTok dengan hierarki 1.300+ view.
+  - **Arsitektur Touch-Boost & Dynamic Scaling Efisien di Mesin Native Rust (`lynxd`)**:
+    - **Autonomous Max-Freq Unclamping Guardian (`tick_dynamic_scaler`)**: Daemon native secara berkelanjutan memverifikasi bahwa `scaling_max_freq` pada cluster Big tidak dikunci di bawah kapabilitas silikon fisik kernel, mengembalikan batas frekuensi ke 2.45 GHz secara otomatis.
+    - **Sub-1ms Hardware Touch-Boost (`ClusterController::on_hardware_touch`)**: Terhubung langsung ke event interrupt input touchscreen (`TouchDetector`). Seketika saat jari menyentuh layar, `schedtune.boost` dinaikkan ke `25`, `schedtune.prefer_high_cap` diaktifkan ke `1`, dan floor frekuensi Big Core dinaikkan ke baseline responsif (~1.40 GHz).
+    - **Touch Boost Decay Window (300ms Safe Hysteresis)**: Saat jari diangkat dari layar, setelah 300 ms tanpa input sentuh, daemon secara otomatis mengembalikan `schedtune.boost` ke baseline efisien profil (`18` pada mode balance) dan frekuensi CPU turun ke clock hemat daya. Menjamin responsivitas instan tanpa memboroskan baterai saat menonton video secara pasif.
+    - **Universal Profile Re-apply Watchdog**: Menambahkan listener instan pada `/data/local/tmp/lynx_reapply` dan `/data/adb/lynx/reapply` untuk sinkronisasi state sysfs seketika.
+
+---
+
 # Lynx Universal [RCU Stall Panic Elimination & Qualcomm PM660 3A Fast-Charge Protocol] 7.0.0-RC353
 Released on: 2026-11-06
 > Lynx Kernel Manager v3.3.77
