@@ -156,7 +156,10 @@ impl ThermalController {
             if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
                 let lower = t_type.to_lowercase();
                 if lower.contains("quiet-therm-step") || lower.contains("skin-therm-step") {
-                    let _ = Self::write_opt(format!("{}/mode", tz_dir), "disabled");
+                    // CRITICAL: NEVER set mode to "disabled"! Setting mode to "disabled" causes the kernel
+                    // to read -274000 (-274°C), which trips JEITA cold charging protection and locks charging to 500mA!
+                    // Keep mode "enabled" and elevate trip points to 75°C instead.
+                    let _ = Self::write_opt(format!("{}/mode", tz_dir), "enabled");
                     let _ = Self::write_opt(format!("{}/policy", tz_dir), "user_space");
                     let _ = Self::write_opt(format!("{}/trip_point_0_temp", tz_dir), "75000");
                     let _ = Self::write_opt(format!("{}/trip_point_1_temp", tz_dir), "75000");

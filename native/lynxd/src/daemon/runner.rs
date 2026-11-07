@@ -157,10 +157,13 @@ impl DaemonRunner {
                     "[DAEMON] Terdeteksi pembaruan biner lynxd_new! Memperbarui dan memulai ulang...",
                     "[DAEMON] Detected lynxd_new binary update! Updating and restarting daemon...",
                 ));
+                let _ = std::fs::remove_file("/data/local/tmp/lynxd");
                 let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/data/local/tmp/lynxd");
                 let _ = std::process::Command::new("chmod").args(&["755", "/data/local/tmp/lynxd"]).output();
+                let _ = std::fs::remove_file("/system/bin/lynxd");
                 let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/system/bin/lynxd");
                 let _ = std::process::Command::new("chmod").args(&["755", "/system/bin/lynxd"]).output();
+                let _ = std::fs::remove_file("/data/adb/modules/Lynx/system/bin/lynxd");
                 let _ = std::fs::copy("/data/local/tmp/lynxd_new", "/data/adb/modules/Lynx/system/bin/lynxd");
                 let _ = std::process::Command::new("chmod").args(&["755", "/data/adb/modules/Lynx/system/bin/lynxd"]).output();
                 let _ = std::fs::remove_file("/data/local/tmp/lynxd_new");

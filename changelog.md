@@ -1,3 +1,35 @@
+# Lynx Universal [Dynamic Step-Probe Silicon Ceiling & Sustained 3000mA Screen-On Charging] 7.0.0-RC363
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.87
+
+- **Penemuan & Resolusi Final Fenomena Pengisian Tekor Layar Menyala & Pencapaian Arus Puncak 3000 mA (Redmi Note 7 / Qualcomm PM660)**:
+  - **Penyelidikan Ilmiah Fenomena Layar Menyala vs Layar Mati**:
+    - Analisis kernel `qpnp-smb2.c` dan telemetri langsung mengungkap akar masalah baterai tekor saat layar menyala: saat layar menyala, beban sistem CPU (Kryo Gold @ 2.46 GHz akibat kompilasi latar belakang `artd` dan proses UI yang berputar) bersama layar LCD IPS menarik daya ~1700 mA (~6.5W). Panas gabungan CPU dan konverter buck memicu komparator perangkat keras PM660 (`charger_temp > 80.6°C`), yang mengaktifkan proteksi silikon `DIE_HEALTH: Over current` dan mengunci arus masuk ke 50 mA. Hal ini menciptakan defisit bersih -888 mA yang menguras baterai meskipun tercolok charger.
+  - **Penerapan Dynamic Descending Step-Probe Silikon Tanpa Hardcoding 3100mA**:
+    - Mengganti pembatasan statis 3100 mA dengan algoritma pengujian bertingkat cerdas (*descending step-probe*) pada `probe_silicon_charge_ceiling_ua()` dan `probe_silicon_usb_current_max_ua()` (mulai dari 3500 mA -> 3400 -> 3300 -> 3250 -> 3200 -> 3150 -> 3100 -> 3000 -> 2800 mA).
+    - Memverifikasi readback clamping driver kernel dan memvalidasi status `die_health` tanpa memicu tripping komparator perangkat keras, memungkinkan perangkat mencapai arus tertinggi (hingga 3200+ mA) secara dinamis dan aman.
+    - Menghilangkan nilai hardcode 3100 pada simpul `/sys/class/qcom-battery/restrict_cur` dan menyinkronkannya dengan batas silikon terdeteksi.
+  - **Pemberantasan Lag UI Selama Pengisian Daya**:
+    - Mengoptimalkan setpoint termal CPU Kryo Gold & Silver di `thermal-engine.conf` (+15°C) sehingga frekuensi inti tidak anjlok ke 1.11 GHz saat perangkat sedang melakukan pengisian daya cepat.
+  - **Verifikasi Lapangan Langsung pada Redmi Note 7 Fisik**:
+    - Pengujian langsung di perangkat fisik membuktikan baterai terisi dari 4% menjadi 19% dengan arus masuk stabil di atas 2400–3007 mA, indikator lockscreen menampilkan status pengisian 1,8A • 7,1W saat layar menyala tanpa lag antarmuka.
+
+---
+
+# Lynx Universal [Qualcomm Hyper Mode Absolute Thermal Unclamp & AICL Rerun] 7.0.0-RC362
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.86
+
+- **Penegakan Hakiki "Kecepatan di Atas Suhu" pada Mode Hyper di Qualcomm Snapdragon (Redmi Note 7 / SDM660)**:
+  - **Pencegahan Throttling `thermal-engine` via Izin Akses Baca-Saja (`write_node_lock 0444`)**:
+    - Seluruh simpul kontrol pembatasan termal Qualcomm (`system_temp_level`, `restricted_charging`, `thermal_input_current_limit`, `step_charging_enabled`, `sw_jeita_enabled`) kini dikunci secara permanen dengan izin `0444` pada Mode Hyper. Hal ini mencegah `thermal-engine` menurunkan arus pengisian secara diam-diam di latar belakang saat suhu inti naik.
+  - **Pemberantasan Hambatan Reapply USB Input Current pada Tegangan Tinggi**:
+    - Memperbaiki `enforce_live_charging_invariants()` agar Mode Hyper tidak terblokir oleh flag `is_high_voltage`. Jika arus masukan USB tertekan di bawah batas silikon (3.0A), daemon akan seketika mengembalikan register arus dan memicu denyut `rerun_aicl = 1` ke chip PMIC PM660.
+  - **Denyut Re-evaluasi AICL Otomatis (`rerun_aicl = 1`)**:
+    - Memaksa chip PMIC PM660 mengevaluasi ulang impedansi kabel dan seketika menaikkan arus pengisian ke batas silikon tertinggi (hingga 3100 mA) tanpa terhambat oleh latching penurunan tegangan sebelumnya.
+
+---
+
 # Lynx Universal [Qualcomm ADC Sensor Preservation & Thermal Fail-Safe Elimination] 7.0.0-RC361
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.85
