@@ -1,3 +1,23 @@
+# Lynx Universal [SPMI Mutex Deadlock Elimination & Screen-On Charging Stability] 7.0.0-RC364
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.88
+
+- **Eliminasi Total Deadlock Bus SPMI & Penanganan Lag Ekstrem ("Lag Parah") saat Pengisian Daya (Redmi Note 7 / Qualcomm PM660)**:
+  - **Penyelidikan Mendalam Badai Sinyal `rerun_aicl`**:
+    - Teridentifikasi bahwa pada implementasi sebelumnya, kondisi `current_stalled_in_hyper` memicu penulisan `echo 1 > rerun_aicl` pada setiap siklus putaran daemon (500–1000ms) tanpa jeda pendinginan (*zero cooldown*).
+    - Pada chip PMIC Qualcomm PM660, penulisan ke register `rerun_aicl` memaksa driver kernel `qpnp-smb2` menjadwalkan `smblib_rerun_aicl_work` di atas bus serial SPMI. Penulisan beruntun tanpa jeda mengunci *mutex spinlock* bus SPMI secara permanen, memblokir interupsi layar, sinkronisasi VSYNC SurfaceFlinger, dan penskalaan tegangan CPU. Hal ini memicu freeze antarmuka secara menyeluruh (*extreme UI stall / touch unresponsive*) yang memaksa pengguna melakukan reboot paksa.
+  - **Pemberantasan Siklus Reset Tak Terhingga pada Pengisian Daya**:
+    - Penulisan `rerun_aicl` setiap detik juga berulang kali memutus proses kalibrasi arus AICL ke tahap deteksi awal (50–100 mA) sebelum sempat menanjak ke 2.8A–3.2A. Bersamaan dengan tingginya beban CPU akibat antrean kerja SPMI yang berputar, arus bersih ke baterai anjlok menjadi negatif (-1500 mA), mengakibatkan baterai terus berkurang walau tercolok charger.
+  - **Penerapan Arsitektur Cooldown Tegas & Pemisahan Tanggung Jawab**:
+    - Menghilangkan sepenuhnya denyut `rerun_aicl` dari fungsi pemeliharaan status dasar `enforce_live_charging_invariants()`.
+    - Mengintegrasikan jeda pendinginan perangkat keras 15 detik pada penegakan batas `fcc_needs_reapply`, `usb_needs_reapply`, dan `in_lim_needs_reapply` guna membebaskan bus SPMI dari beban penulisan berlebih.
+    - Mengunci hak eksekusi pemicu AICL secara eksklusif pada pengawas berkala `tick()` dengan syarat ketat: minimal 5 siklus berturut-turut terdeteksi terhambat (< 400 mA pada SoC < 85%) dan jeda pendinginan minimal 60 detik (`/dev/lynx_last_aicl_kick`).
+  - **Pemulihan Koneksi ADB Nirkabel & Sinkronisasi Daemon**:
+    - Memperbarui alamat IP target Redmi Note 7 ke `192.168.1.2:5555` pasca reboot perangkat.
+    - Menyelaraskan target peluncuran aktivitas aplikasi Android Companion ke `com.noir.lynx/.ui.MainActivity`.
+
+---
+
 # Lynx Universal [Dynamic Step-Probe Silicon Ceiling & Sustained 3000mA Screen-On Charging] 7.0.0-RC363
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.87

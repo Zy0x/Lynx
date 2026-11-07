@@ -1468,49 +1468,49 @@ impl ChargingRegulator {
             let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
             let fcc_cooldown_expired = now_sec.saturating_sub(last_fcc) >= 15;
 
-            // In Hyper Mode: ALWAYS keep charging at its absolute highest peak, never allow current to drop!
-            // If the kernel, thermal daemon, or workqueue lowers FCC below (target_ua - 200_000),
-            // or if the actual charging current drops below 1800 mA while battery < 85%:
-            // IMMEDIATELY reassert hardware registers and kick AICL!
-            let fcc_needs_reapply = if is_hyper {
-                cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
-            } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
-                false
-            } else if fcc_cooldown_expired {
-                cur_fcc > 0 && cur_fcc < (target_ua - 400_000)
+            // In Hyper Mode: keep charging at peak without spamming SPMI bus.
+            // Enforce at least a 15-second cooldown before reapplying lowered limits to prevent SPMI driver mutex contention.
+            let fcc_needs_reapply = if fcc_cooldown_expired {
+                if is_hyper {
+                    cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
+                } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
+                    false
+                } else {
+                    cur_fcc > 0 && cur_fcc < (target_ua - 400_000)
+                }
             } else {
                 false
             };
 
-            let usb_needs_reapply = if is_hyper {
-                // In Hyper Mode, NEVER let thermal throttling or voltage dip lock USB current to low levels!
-                cur_usb > 0 && cur_usb < (target_usb_ua - 200_000)
-            } else if is_high_voltage || is_pd_active {
-                // High-voltage PD or QC contract active: input current is governed by the negotiated PDO.
-                false
-            } else if cur_now_ma >= 1500 || cur_usb >= 2_000_000 {
-                false
-            } else if fcc_cooldown_expired {
-                cur_usb > 0 && cur_usb < (target_usb_ua - 400_000)
+            let usb_needs_reapply = if fcc_cooldown_expired {
+                if is_hyper {
+                    cur_usb > 0 && cur_usb < (target_usb_ua - 200_000)
+                } else if is_high_voltage || is_pd_active {
+                    false
+                } else if cur_now_ma >= 1500 || cur_usb >= 2_000_000 {
+                    false
+                } else {
+                    cur_usb > 0 && cur_usb < (target_usb_ua - 400_000)
+                }
             } else {
                 false
             };
 
-            let in_lim_needs_reapply = if is_hyper {
-                cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 200_000)
-            } else if is_high_voltage || is_pd_active {
-                false
-            } else if cur_now_ma >= 1500 || cur_in_lim >= 2_000_000 {
-                false
-            } else if fcc_cooldown_expired {
-                cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000)
+            let in_lim_needs_reapply = if fcc_cooldown_expired {
+                if is_hyper {
+                    cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 200_000)
+                } else if is_high_voltage || is_pd_active {
+                    false
+                } else if cur_now_ma >= 1500 || cur_in_lim >= 2_000_000 {
+                    false
+                } else {
+                    cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000)
+                }
             } else {
                 false
             };
 
-            let current_stalled_in_hyper = is_hyper && cur_now_ma < 1800 && cur_cap < 85 && !Self::is_laptop_port();
-
-            if fcc_needs_reapply || usb_needs_reapply || in_lim_needs_reapply || current_stalled_in_hyper {
+            if fcc_needs_reapply || usb_needs_reapply || in_lim_needs_reapply {
                 LAST_FCC_WRITE_EPOCH.store(now_sec, Ordering::Relaxed);
                 let effective_ua_str = target_ua.to_string();
                 let effective_usb_str = target_usb_ua.to_string();
@@ -1541,10 +1541,6 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/safety_timer_enabled", BATT_DIR), "0");
                     Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "-1");
                     Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "-1");
-                    if is_hyper {
-                        Self::write_node(&format!("{}/rerun_aicl", BATT_DIR), "1");
-                        Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
-                    }
                 }
             }
         } else if cfg.charging_mode == "custom" {
