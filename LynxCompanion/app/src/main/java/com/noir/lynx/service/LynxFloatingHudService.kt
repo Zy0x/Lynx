@@ -91,15 +91,15 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     }
 
     private fun resolveContextualProfile(pkg: String, streamProfile: String?): String {
-        // Priority 1: Authoritative profile confirmed via two-way broadcast sync (zero-latency, no stale risk)
-        val confirmedProfile = if (::repository.isInitialized) repository.lastConfirmedProfile else null
-        if (confirmedProfile != null && confirmedProfile.isNotBlank()) {
-            return com.noir.lynx.data.LynxRepository.normalizeProfileKey(confirmedProfile)
-        }
-        // Priority 2: Profile from native stream (reflect what lynxd actually detected from /data/adb/lynx/active_profile)
+        // Priority 1: Profile from native stream (reflect what lynxd actually detected and applied in real time)
         val streamProf = streamProfile?.takeIf { it.isNotBlank() && it != "null" }
         if (streamProf != null) {
             return com.noir.lynx.data.LynxRepository.normalizeProfileKey(streamProf)
+        }
+        // Priority 2: Authoritative profile confirmed via broadcast sync (fallback if stream warming up)
+        val confirmedProfile = if (::repository.isInitialized) repository.lastConfirmedProfile else null
+        if (confirmedProfile != null && confirmedProfile.isNotBlank()) {
+            return com.noir.lynx.data.LynxRepository.normalizeProfileKey(confirmedProfile)
         }
         // Priority 3: lastActiveProfile in-memory cache (more reliable than sysprop which can be stale)
         val lastKnown = com.noir.lynx.data.LynxRepository.lastActiveProfile
@@ -309,7 +309,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     try {
                         while (isActive) {
                             val sample = repository.current()
-                            val displayReading = hz.value.copy(atMs = SystemClock.elapsedRealtime())
+                            val streamHzReading = sample[HudMetric.DISPLAY_HZ]
+                            val dynamicDisplayHz = targetDisplay()?.refreshRate?.toDouble()
+                            val displayReading = if (streamHzReading.status == "valid" && (streamHzReading.value ?: 0.0) > 10.0) {
+                                streamHzReading
+                            } else if (dynamicDisplayHz != null && dynamicDisplayHz > 10.0) {
+                                HudReading(
+                                    value = (dynamicDisplayHz * 10.0).roundToInt() / 10.0,
+                                    unit = "Hz",
+                                    source = "DisplayManager",
+                                    atMs = SystemClock.elapsedRealtime(),
+                                    status = "valid"
+                                )
+                            } else {
+                                hz.value.copy(atMs = SystemClock.elapsedRealtime())
+                            }
                             val detectedPkg = resolveActivePackage(sample.packageName)
                             val resolvedProfile = resolveContextualProfile(detectedPkg, sample.profile)
                             val current = sample.copy(
@@ -381,7 +395,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
     private fun updateDisplay() {
         val display = targetDisplay()
         val mode = display?.mode
-        hz.value = if (mode != null) HudReading(mode.refreshRate.toDouble(), "Hz", "Display ${display.displayId}: mode ${mode.modeId}", SystemClock.elapsedRealtime(), "valid") else HudReading(unit = "Hz", status = "unsupported")
+        val liveHz = display?.refreshRate?.toDouble() ?: mode?.refreshRate?.toDouble() ?: 60.0
+        val sourceStr = if (display != null) "Display ${display.displayId}: ${liveHz}Hz" else "Display (default)"
+        hz.value = HudReading(liveHz, "Hz", sourceStr, SystemClock.elapsedRealtime(), "valid")
         rates.value = display?.supportedModes?.filter { m ->
             mode != null && ((m.physicalWidth == mode.physicalWidth && m.physicalHeight == mode.physicalHeight) ||
                     (m.physicalWidth == mode.physicalHeight && m.physicalHeight == mode.physicalWidth))

@@ -20,10 +20,12 @@ class HudStreamRepository(private val context: Context) {
 
     /**
      * Last confirmed profile from broadcast sync (LynxProfileSyncBus).
-     * This is the authoritative source for profile display in HUD,
-     * bypassing potentially stale stream data from the native collector.
+     * Acts as an optimistic UI update when the user taps a profile,
+     * but auto-expires after 2.5 seconds or once the native stream catches up,
+     * preventing the HUD from getting stuck in "Kinerja" when lynxd switches to "Balance".
      */
     @Volatile var lastConfirmedProfile: String? = null
+    @Volatile private var lastConfirmedProfileTimestamp: Long = 0L
 
     private fun resolveCollectorBinary(): String? {
         // Tier 1: Bundled native .so in APK nativeLibraryDir
@@ -69,12 +71,16 @@ class HudStreamRepository(private val context: Context) {
                         val snapshot = runCatching { HudSnapshot.parse(line) }.getOrNull()
                         if (snapshot != null) {
                             receivedAny = true
-                            // Apply lastConfirmedProfile override: prevents stale stream profile
-                            // from overwriting the profile set via broadcast sync (two-way sync).
+                            // Apply lastConfirmedProfile optimistic override: prevents visual flicker
+                            // immediately after user tap, but auto-clears once stream catches up or after 2.5s.
                             val confirmed = lastConfirmedProfile
-                            val merged = if (confirmed != null && confirmed.isNotBlank()) {
+                            val elapsedSinceConfirmed = SystemClock.elapsedRealtime() - lastConfirmedProfileTimestamp
+                            val merged = if (confirmed != null && confirmed.isNotBlank() && elapsedSinceConfirmed < 2500L && snapshot.profile != confirmed) {
                                 snapshot.copy(profile = confirmed)
                             } else {
+                                if (confirmed != null && (snapshot.profile == confirmed || elapsedSinceConfirmed >= 2500L)) {
+                                    lastConfirmedProfile = null
+                                }
                                 snapshot
                             }
                             mutable.value = merged
@@ -117,8 +123,9 @@ class HudStreamRepository(private val context: Context) {
 
     fun updateProfileDirect(profile: String) {
         val norm = profile.trim().lowercase()
-        // Update lastConfirmedProfile as authoritative ground truth from sync bus
+        // Update lastConfirmedProfile as optimistic ground truth from sync bus
         lastConfirmedProfile = norm
+        lastConfirmedProfileTimestamp = SystemClock.elapsedRealtime()
         // Immediately patch the live snapshot so HUD shows the correct profile
         // without waiting for the next stream frame (zero-latency visual update)
         mutable.value = mutable.value.copy(profile = norm)

@@ -1,3 +1,26 @@
+# Lynx Universal [Real-Time HUD Profile Synchronization & Precision Dynamic Refresh Rate] 7.0.0-RC368
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.92
+
+- **Sinkronisasi Penuh Profil HUD & Aplikasi Lynx (Two-Way Autonomous Profile Convergence)**:
+  - **Pemberantasan Desinkronisasi Status Profil**:
+    - Memperbaiki akar penyebab ketidaksinkronan di mana floating HUD menampilkan profil "Kinerja" (Performance) sementara aplikasi Lynx Companion menampilkan "Balance".
+    - `runner.rs` pada daemon `lynxd` kini secara atomik memperbarui `/data/adb/lynx/active_profile`, `/data/local/tmp/lynxd_profile` (mode 0666), dan properti sistem `setprop lynx.mode <target_profile>` setiap kali mesin otonom memutuskan pergantian profil.
+    - Menghilangkan pembatasan broadcast pada `notify_profile_transition`: intent `com.noir.lynx.PROFILE_CHANGED` dan `ACTION_PROFILE_SYNCHRONIZED` kini selalu dikirimkan ke SystemUI, floating HUD, dan aplikasi Companion tanpa terpengaruh oleh setelan style notifikasi sistem.
+    - `stream.rs` pada `detect_active_profile()` memprioritaskan pembacaan live snapshot `/data/local/tmp/lynxd_status.json` dan `/dev/lynxd_status.json` sebagai kebenaran mutlak kerja daemon tanpa terhalang latensi properti atau hak akses SELinux.
+    - `HudStreamRepository` dan `LynxFloatingHudService` kini mengadopsi profil stream langsung dari daemon sebagai prioritas utama dan membatasi override optimistik hanya selama maksimal 2,5 detik pasca-ketukan pengguna, sehingga transisi otonom kembali ke "Balance" seketika tercermin pada HUD tanpa tertahan.
+
+- **Pemantauan Refresh Rate Layar Dinamis & Berpresisi Tinggi (Sub-Nanosecond VSync Hardware Telemetry)**:
+  - **Inspeksi Kontinu & Mandiri terhadap Siklus VSync SurfaceFlinger**:
+    - Menghapus pembatasan kueri `display_hz` yang sebelumnya hanya dijalankan ketika aplikasi non-SystemUI aktif.
+    - Pada `stream.rs`, deteksi refresh rate kini berjalan pada setiap siklus independen di semua konteks (Homescreen, SystemUI, Lockscreen, maupun saat aplikasi idle) berbasis pembacaan baris pertama `dumpsys SurfaceFlinger --latency` (periode VSync fisik dalam nanodetik: `1.000.000.000 / period_ns`) dengan caching pintar `last_known_hz` guna mencegah kedipan status "unsupported".
+  - **Penyelarasan Multi-Tier pada Antarmuka Aplikasi & Halaman Monitor HUD**:
+    - `LynxFloatingHudService` tidak lagi menimpa pembacaan `DISPLAY_HZ` dari daemon dengan nilai statis; nilai telemetri native dipertahankan dengan fallback dinamis langsung ke `Display.getRefreshRate()` dari Android Framework.
+    - `LynxDisplayRepository.readDisplayRefreshRate()` ditingkatkan menjadi mesin 4-tier berkecepatan tinggi: Tier 1 Android Framework `Display.refreshRate`, Tier 2 `SurfaceFlinger --latency`, Tier 3 Regex `renderRate=` / `activeMode=`, dan Tier 4 Settings Provider.
+    - `DisplayRefreshRateTouchCard` dilengkapi polling adaptif 1 detik yang secara proaktif memantau pergeseran refresh rate dinamis (60 <-> 90 <-> 120Hz) pada perangkat yang mendukung VRR/LTPO.
+
+---
+
 # Lynx Universal [Unified Battery Telemetry & Elimination of Ambiguous Adapter Pager] 7.0.0-RC367
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.91

@@ -8,6 +8,8 @@ import android.os.Looper
 import android.view.WindowManager
 import androidx.compose.ui.platform.LocalContext
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -75,6 +77,19 @@ fun DisplayRefreshRateTouchCard(
     LaunchedEffect(currentHz, isAuto) {
         if (!isAuto && currentHz > 0) {
             liveHz = currentHz
+        }
+        while (isActive) {
+            val defaultDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                context.display
+            } else {
+                @Suppress("DEPRECATION")
+                (context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)?.defaultDisplay
+            }
+            val dynamicRate = defaultDisplay?.refreshRate?.roundToInt() ?: 0
+            if (dynamicRate > 0 && dynamicRate != liveHz) {
+                liveHz = dynamicRate
+            }
+            delay(1000)
         }
     }
 

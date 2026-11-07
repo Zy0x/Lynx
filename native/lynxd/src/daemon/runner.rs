@@ -248,6 +248,21 @@ impl DaemonRunner {
                                     format!("[DAEMON] PROFILE_COMMIT_NS: {} -> '{}' (Selisih latensi peralihan: {:.2} ms [{} ns], Commit: {} node, Total peralihan: {})", commit_ns, target_profile, delta_ms, delta_ns, report.operations_committed, total_transitions)
                                 });
                                 decision_engine.notify_applied(target_profile);
+                                // 1. Synchronize active profile state files immediately (world-readable mode 0666)
+                                let _ = std::fs::write("/data/adb/lynx/active_profile", target_profile);
+                                let _ = std::fs::write("/data/local/tmp/lynxd_profile", target_profile);
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::PermissionsExt;
+                                    let _ = std::fs::set_permissions("/data/adb/lynx/active_profile", std::fs::Permissions::from_mode(0o666));
+                                    let _ = std::fs::set_permissions("/data/local/tmp/lynxd_profile", std::fs::Permissions::from_mode(0o666));
+                                }
+                                #[cfg(target_os = "android")]
+                                {
+                                    let _ = std::process::Command::new("/system/bin/setprop")
+                                        .args(&["lynx.mode", target_profile])
+                                        .status();
+                                }
                                 if target_profile == "performance" || target_profile == "extreme" {
                                     let game_pid = fg_app.as_ref().and_then(|app| {
                                         crate::subsystems::GameController::find_pid_for_package(&app.package)
@@ -597,10 +612,6 @@ impl DaemonRunner {
                 .trim()
                 .to_string();
 
-            if feedback_style == "disabled" {
-                return;
-            }
-
             let (emoji, mode_label) = match profile {
                 "extreme" => ("🔥", "EXTREME"),
                 "performance" => ("⚡", "PERFORMANCE"),
@@ -617,43 +628,60 @@ impl DaemonRunner {
 
             // Run system notifications and broadcast asynchronously so main transition thread is NEVER blocked by Java VM startup
             std::thread::spawn(move || {
-                // 1. Post native Android System Notification (100% independent of companion APK)
-                let _ = std::process::Command::new("/system/bin/cmd")
-                    .args(&[
-                        "notification",
-                        "post",
-                        "-t",
-                        "Lynx Universal",
-                        "lynx_mode",
-                        &notif_text,
-                    ])
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .status();
-
-                // 2. Broadcast intent for Lynx Companion APK (unless status_bar only)
-                if feedback_style != "status_bar" {
-                    let _ = std::process::Command::new("/system/bin/am")
+                // 1. Post native Android System Notification (unless notification feedback is disabled)
+                if feedback_style != "disabled" {
+                    let _ = std::process::Command::new("/system/bin/cmd")
                         .args(&[
-                            "broadcast",
-                            "-a",
-                            "com.noir.lynx.PROFILE_CHANGED",
-                            "-n",
-                            "com.noir.lynx/.receiver.LynxProfileReceiver",
-                            "-f",
-                            "0x10000000",
-                            "--include-stopped-packages",
-                            "-e",
-                            "profile",
-                            &profile_owned,
-                            "-e",
-                            "reason",
-                            &short_reason,
+                            "notification",
+                            "post",
+                            "-t",
+                            "Lynx Universal",
+                            "lynx_mode",
+                            &notif_text,
                         ])
                         .stdout(std::process::Stdio::null())
                         .stderr(std::process::Stdio::null())
                         .status();
                 }
+
+                // 2. Broadcast intent for Lynx Companion APK & Floating HUD (ALWAYS broadcast for state synchronization!)
+                let _ = std::process::Command::new("/system/bin/am")
+                    .args(&[
+                        "broadcast",
+                        "-a",
+                        "com.noir.lynx.PROFILE_CHANGED",
+                        "-n",
+                        "com.noir.lynx/.receiver.LynxProfileReceiver",
+                        "-f",
+                        "0x10000000",
+                        "--include-stopped-packages",
+                        "-e",
+                        "profile",
+                        &profile_owned,
+                        "-e",
+                        "reason",
+                        &short_reason,
+                    ])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+
+                let _ = std::process::Command::new("/system/bin/am")
+                    .args(&[
+                        "broadcast",
+                        "-a",
+                        "com.noir.lynx.core.sync.ACTION_PROFILE_SYNCHRONIZED",
+                        "-p",
+                        "com.noir.lynx",
+                        "-f",
+                        "0x10000000",
+                        "--es",
+                        "profile",
+                        &profile_owned,
+                    ])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
             });
         }
         #[cfg(not(target_os = "android"))]

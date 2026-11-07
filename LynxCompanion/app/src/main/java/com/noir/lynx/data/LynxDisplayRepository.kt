@@ -9,19 +9,39 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 internal object LynxDisplayRepository {
     suspend fun readDisplayRefreshRate(): Int = withContext(Dispatchers.IO) {
-        try {
-            // 1. Query active SurfaceFlinger physical display mode
-            val sf = Shell.cmd("dumpsys SurfaceFlinger 2>/dev/null | grep -E 'activeMode=|refresh-rate' | head -n 1").exec()
-            val sfMatch = sf.out.firstOrNull()?.let { line ->
-                Regex("""([0-9]+(?:\.[0-9]+)?)\s*Hz""").find(line)?.groupValues?.get(1)?.toFloatOrNull()?.toInt()
+        val result: Int = try {
+            // 1. Zero-latency Android Framework query from active display
+            val context = LynxApp.instance
+            val dm = context.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            val display = dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            val frameworkHz = display?.refreshRate?.toInt() ?: 0
+            if (frameworkHz > 20) {
+                frameworkHz
+            } else {
+                // 2. Hardware VSync period from SurfaceFlinger --latency (1e9 / period_ns)
+                val latencyCmd = Shell.cmd("dumpsys SurfaceFlinger --latency 2>/dev/null | head -n 1").exec()
+                val periodNs = latencyCmd.out.firstOrNull()?.trim()?.toDoubleOrNull()
+                val hzFromPeriod = if (periodNs != null && periodNs > 0.0) (1_000_000_000.0 / periodNs).toInt() else 0
+                if (hzFromPeriod in 20..360) {
+                    hzFromPeriod
+                } else {
+                    // 3. Query active SurfaceFlinger physical/render display mode
+                    val sf = Shell.cmd("dumpsys SurfaceFlinger 2>/dev/null | grep -E 'renderRate=|activeMode=' | head -n 1").exec()
+                    val sfMatch = sf.out.firstOrNull()?.let { line ->
+                        Regex("""([0-9]+(?:\.[0-9]+)?)\s*Hz""").find(line)?.groupValues?.get(1)?.toFloatOrNull()?.toInt()
+                    }
+                    if (sfMatch != null && sfMatch > 0) {
+                        sfMatch
+                    } else {
+                        // 4. Fallback to settings provider
+                        val r = Shell.cmd("settings get system peak_refresh_rate 2>/dev/null").exec()
+                        val raw = r.out.firstOrNull()?.trim()?.toFloatOrNull()?.toInt() ?: 0
+                        if (raw > 0) raw else 60
+                    }
+                }
             }
-            if (sfMatch != null && sfMatch > 0) return@withContext sfMatch
-
-            // 2. Fallback to settings provider
-            val r = Shell.cmd("settings get system peak_refresh_rate 2>/dev/null").exec()
-            val raw = r.out.firstOrNull()?.trim()?.toFloatOrNull()?.toInt() ?: 0
-            if (raw > 0) raw else 60
-        } catch (e: Exception) { 60 }
+        } catch (_: Exception) { 60 }
+        result
     }
 
     suspend fun readIsAutoRefreshRate(): Boolean = withContext(Dispatchers.IO) {

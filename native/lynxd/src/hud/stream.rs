@@ -23,16 +23,34 @@ fn normalize_profile_str(p: &str) -> &'static str {
 /// Falls back to `last_known` (not "balance") if all detection methods fail temporarily,
 /// preventing glitch from empty/unreadable state files at HUD startup.
 fn detect_active_profile(last_known: &mut String) -> String {
-    // Priority 1: Direct atomic plaintext /data/adb/lynx/active_profile
-    if let Ok(content) = std::fs::read_to_string("/data/adb/lynx/active_profile") {
-        let p = content.trim();
-        if !p.is_empty() {
-            let norm = normalize_profile_str(p).to_string();
-            *last_known = norm.clone();
-            return norm;
+    // Priority 1: Live ephemeral status snapshot from lynxd daemon (/data/local/tmp/lynxd_status.json or /dev/lynxd_status.json)
+    for path in &["/data/local/tmp/lynxd_status.json", "/dev/lynxd_status.json"] {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Some(pos) = content.find("\"profile\":\"") {
+                let after = &content[pos + 11..];
+                if let Some(end) = after.find('"') {
+                    let prof = &after[..end];
+                    if !prof.is_empty() {
+                        let norm = normalize_profile_str(prof).to_string();
+                        *last_known = norm.clone();
+                        return norm;
+                    }
+                }
+            }
         }
     }
-    // Priority 2: Android live system property lynx.mode
+    // Priority 2: Ephemeral plaintext /data/local/tmp/lynxd_profile or /data/adb/lynx/active_profile
+    for path in &["/data/local/tmp/lynxd_profile", "/data/adb/lynx/active_profile"] {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            let p = content.trim();
+            if !p.is_empty() {
+                let norm = normalize_profile_str(p).to_string();
+                *last_known = norm.clone();
+                return norm;
+            }
+        }
+    }
+    // Priority 3: Android live system property lynx.mode
     if let Ok(output) = Command::new("/system/bin/getprop").arg("lynx.mode").output() {
         let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if !p.is_empty() && p != "0" {
@@ -41,7 +59,7 @@ fn detect_active_profile(last_known: &mut String) -> String {
             return norm;
         }
     }
-    // Priority 3: Persistent config.json
+    // Priority 4: Persistent config.json
     for path in ["/data/adb/modules/Lynx/config.json", "/data/adb/lynx/config.json"] {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Some(pos) = content.find("\"active_profile\"") {
@@ -56,7 +74,7 @@ fn detect_active_profile(last_known: &mut String) -> String {
             }
         }
     }
-    // Priority 4: Rust ProfileStateManager active_profile.json
+    // Priority 5: Rust ProfileStateManager active_profile.json
     if let Some(state) = crate::state::ProfileStateManager::load_active().ok().flatten() {
         if !state.dirty && state.status == "applied" && !state.active_profile.is_empty() {
             let norm = normalize_profile_str(&state.active_profile).to_string();
@@ -162,6 +180,7 @@ pub fn run() {
     });
     let mut hw = Hardware::new();
     let mut last_known_profile = String::new();
+    let mut last_known_hz: Option<f64> = None;
     let mut frames = Frames::default();
     let mut package = String::new();
     let mut layer = String::new();
@@ -233,6 +252,20 @@ pub fn run() {
                 if frame_status != "permission_denied" { frame_status = "unsupported"; }
             }
         }
+        // Continuous, Dynamic, Real-time Display Refresh Rate Detection
+        // Hardware VSync period from SurfaceFlinger latency is an intrinsic panel/display property,
+        // valid across ALL packages (Launcher, SystemUI, Lockscreen, Games, Video).
+        if display_hz.is_none() {
+            if let Ok(raw) = query(&["SurfaceFlinger", "--latency"]) {
+                display_hz = refresh_rate(&raw);
+            }
+        }
+        if let Some(hz) = display_hz {
+            last_known_hz = Some(hz);
+        } else if let Some(cached_hz) = last_known_hz {
+            display_hz = Some(cached_hz);
+        }
+
         let stamp = now_ms();
         if stamp >= next_hw {
             hw.sample(stamp, stamp>=next_temp);
@@ -241,7 +274,7 @@ pub fn run() {
         }
         let source = format!("SurfaceFlinger actualPresentTime: {layer}");
         let mut metrics = hw.metrics.clone();
-        let hz_metric = display_hz.map(|hz| Metric::measured(hz, "Hz", "SurfaceFlinger refreshPeriod", stamp))
+        let hz_metric = display_hz.map(|hz| Metric::measured((hz * 10.0).round() / 10.0, "Hz", "SurfaceFlinger refreshPeriod", stamp))
             .unwrap_or_else(|| Metric::missing("Hz", "SurfaceFlinger", stamp, "unsupported"));
         metrics.insert("display_hz".into(), hz_metric);
         let frame_stamp = frame_now_ns();
