@@ -1,3 +1,36 @@
+# Lynx Universal [Xiaomi Screen-On Charging Unclamp & Direct Hyper Activation] 7.0.0-RC366
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.90
+
+- **Penuntasan Pembatasan Arus Layar Menyala (Screen-On Throttling) & Perbaikan Sinkronisasi Mode Hyper (Qualcomm PM660 / Redmi Note 7)**:
+  - **Pencegahan Throttling Layar Menyala via Penegakan Invariant Perangkat Keras**:
+    - Teridentifikasi bahwa pada perangkat Qualcomm/Xiaomi (seperti Redmi Note 7 `lavender`), driver `smb-lib` dan daemon `mi_thermald` mengaktifkan `LCD_VOTER` dan mereset `/sys/class/thermal/thermal_message/boost` ke `0` serta `sconfig` ke `-1` setiap kali layar menyala (*display unblank*), membatasi arus pengisian secara paksa ke 1500 mA (sehingga arus bersih ke sel baterai hanya tersisa 1200–1400 mA setelah terpotong konsumsi daya layar dan SoC).
+    - Memasukkan penegakan aktif berkelanjutan pada `enforce_live_charging_invariants()` di daemon native `lynxd`: mengunci `boost` ke `1`, `sconfig` ke `0`, `temp_state` ke `0`, `allow_hvdcp3` ke `1`, `hvdcp_opti_allowed` ke `1`, `boost_current` ke `1`, serta menonaktifkan `step_charging_enabled`, `sw_jeita_enabled`, dan `system_temp_level` pada setiap putaran kerja daemon di Mode Hyper.
+  - **Perbaikan Subcommand CLI & Aktivasi Langsung `apply_hyper_mode()`**:
+    - Memperbaiki parsing perintah CLI `handle_charging` pada `main.rs` dengan menyelaraskan eksekusi langsung `apply_hyper_mode()` saat mode Hyper dipilih dari antarmuka aplikasi.
+    - Menjamin transisi status konfigurasi berjalan atomik dan seketika tanpa tertahan fallback shell atau flag status usang.
+
+---
+
+# Lynx Universal [Elimination of Bogus hw_max Filter & Full 3000mA Unclamp] 7.0.0-RC365
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.89
+
+- **Pemberantasan Filter Palsu `hw_current_max` & Pembukaan Jalur Arus Puncak 3000 mA (Redmi Note 7 / Qualcomm PM660)**:
+  - **Identifikasi Batasan Buatan pada `probe_silicon_charge_ceiling_ua()`**:
+    - Terungkap bahwa pada algoritma step-probe sebelumnya, terdapat filter pengecekan `if cand > hw_max + 300_000 { continue; }`.
+    - Pada kernel Qualcomm Linux, `/sys/class/power_supply/usb/hw_current_max` hanya melaporkan batas deskriptor port USB standar (BC1.2 CDP/DCP = 1465 mA / 1500 mA), **bukan kemampuan fisik silikon PMIC PM660** (yang mampu menyalurkan hingga 3000–3500 mA).
+    - Akibat filter tersebut, seluruh kandidat arus tinggi (2800–3500 mA) dilewati dan fungsi mengembalikan nilai `fallback = hw_max` (1465 mA). Nilai ini kemudian dikunci ke `constant_charge_current_max`, membatasi arus pengisian baterai tepat di rentang 1200–1400 mA walau telah di-replug!
+  - **Pemberantasan Pengecekan Bogus & Pembukaan Kandidat Silikon Murni**:
+    - Menghilangkan sepenuhnya restriksi `hw_max` dari proses probing. Algoritma kini langsung menguji kandidat silikon nyata (3500 mA -> 2800 mA) langsung ke pengatur PMIC dan membaca kembali respons silikon sejati.
+    - Menetapkan nilai fallback aman di 3100 mA jika node readback tidak tersedia.
+  - **Pembersihan Cache State Otomatis saat Connect/Disconnect**:
+    - Menambahkan pembersihan berkas `/dev/lynx_probed_max_fcc_ua` dan `/dev/lynx_probed_max_usb_ua` pada `handle_connect()` dan `handle_disconnect()` agar sistem selalu mengevaluasi ulang kemampuan charger tanpa terjebak nilai usang.
+  - **Unclamp Menyeluruh Subsistem Xiaomi `thermal_message`**:
+    - Menetralkan simpul pengatur termal Xiaomi `/sys/class/thermal/thermal_message/sconfig` ke `0`, `boost` ke `1`, dan `temp_state` ke `0` pada Mode Hyper.
+
+---
+
 # Lynx Universal [SPMI Mutex Deadlock Elimination & Screen-On Charging Stability] 7.0.0-RC364
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.88

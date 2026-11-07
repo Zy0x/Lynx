@@ -949,19 +949,7 @@ impl ChargingRegulator {
             let input_node = format!("{}/input_current_limit", BATT_DIR);
             let usb_cur_node = format!("{}/current_max", USB_DIR);
 
-            // Check hw_current_max if available
-            let hw_max = Self::read_i64("/sys/class/power_supply/usb/hw_current_max")
-                .or_else(|| Self::read_i64(&format!("{}/hw_current_max", BATT_DIR)))
-                .map(|v| if v > 100_000 { v as u64 } else { (v as u64) * 1000 });
-
             for &cand in qcom_candidates {
-                // If hw_current_max exists, don't test values > hw_max + 300mA
-                if let Some(hw) = hw_max {
-                    if cand > hw + 300_000 {
-                        continue;
-                    }
-                }
-
                 if Path::new(&probe_node).exists() {
                     Self::set_perm(&probe_node, 0o666);
                     if fs::write(&probe_node, cand.to_string()).is_ok() {
@@ -996,7 +984,7 @@ impl ChargingRegulator {
                 }
             }
 
-            let fallback = hw_max.unwrap_or(3_100_000);
+            let fallback = 3_100_000;
             let _ = fs::write(cache_file, fallback.to_string());
             return fallback;
         }
@@ -1419,6 +1407,23 @@ impl ChargingRegulator {
 
         if is_hyper && is_qcom {
             Self::apply_qcom_thermal_engine_bind_mount();
+            // Xiaomi & Qualcomm Screen-On Hardware Unclamp & HVDCP Protection
+            Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
+            Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
+            Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
+            Self::write_node("/sys/class/power_supply/usb/allow_hvdcp3", "1");
+            Self::write_node("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
+            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
+            Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         }
 
         if is_hyper {
@@ -3125,6 +3130,17 @@ impl ChargingRegulator {
             }
         }
 
+        // 7d. Xiaomi Thermal Message & Fastcharge hardware unclamp
+        if Path::new("/sys/class/thermal/thermal_message/sconfig").exists() {
+            Self::write_node_lock("/sys/class/thermal/thermal_message/sconfig", "0");
+        }
+        if Path::new("/sys/class/thermal/thermal_message/boost").exists() {
+            Self::write_node_lock("/sys/class/thermal/thermal_message/boost", "1");
+        }
+        if Path::new("/sys/class/thermal/thermal_message/temp_state").exists() {
+            Self::write_node_lock("/sys/class/thermal/thermal_message/temp_state", "0");
+        }
+
         // 8. Suspend aggressive userspace thermal throttlers via SIGSTOP (Transsion/MTK/etc.)
         // On Qualcomm Snapdragon, thermal-engine communicates via IPC sockets with Android Thermal HAL.
         // Freezing thermal-engine causes IPC deadlock and thermal service failure!
@@ -4157,6 +4173,10 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
+        let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
+        let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
+        let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
 
         // Stage 1: Cold-Plug Immediate Arming
         let is_qcom = Self::is_qualcomm_soc();
@@ -4200,6 +4220,8 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
+        let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
         PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);
         WAS_PLUGGED_STATE.store(false, Ordering::Relaxed);
         Self::clear_bypass_hardware_state();

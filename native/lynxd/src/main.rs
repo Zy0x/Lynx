@@ -767,7 +767,7 @@ fn handle_charging(args: &[String]) {
                         ("charging.limit_current_ma".to_string(), target_ma.to_string(), Some("val".to_string())),
                         ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
                     ]);
-                    ChargingRegulator::apply_from_config();
+                    ChargingRegulator::apply_cool_mode(target_ma);
                     println!("[OK] {}: COOL ({} mA)", ui("Mode Pengisian diatur ke", "Charging Mode set to"), target_ma);
                 }
                 "standard" => {
@@ -779,7 +779,7 @@ fn handle_charging(args: &[String]) {
                         ("charging.limit_current_ma".to_string(), "2000".to_string(), Some("val".to_string())),
                         ("charging.is_unconstrained_max_hw".to_string(), "false".to_string(), Some("bool".to_string())),
                     ]);
-                    ChargingRegulator::apply_from_config();
+                    ChargingRegulator::apply_standard_mode();
                     println!("[OK] {}: STANDARD ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Adaptif OEM", "OEM Adaptive"));
                 }
                 "hyper" => {
@@ -791,7 +791,7 @@ fn handle_charging(args: &[String]) {
                         ("charging.limit_current_ma".to_string(), "12000".to_string(), Some("val".to_string())),
                         ("charging.is_unconstrained_max_hw".to_string(), "true".to_string(), Some("bool".to_string())),
                     ]);
-                    ChargingRegulator::apply_from_config();
+                    ChargingRegulator::apply_hyper_mode();
                     println!("[OK] {}: HYPER ({})", ui("Mode Pengisian diatur ke", "Charging Mode set to"), ui("Puncak Tanpa Batas", "Unconstrained Peak"));
                 }
                 "custom" => {
@@ -850,7 +850,7 @@ fn handle_charging(args: &[String]) {
                 ("charging.limit_current_ma".to_string(), "12000".to_string(), Some("val".to_string())),
                 ("charging.is_unconstrained_max_hw".to_string(), "true".to_string(), Some("bool".to_string())),
             ]);
-            ChargingRegulator::apply_from_config();
+            ChargingRegulator::apply_hyper_mode();
             println!("[OK] {}: HYPER", ui("Mode Pengisian", "Charging Mode"));
         }
         "custom" => {
