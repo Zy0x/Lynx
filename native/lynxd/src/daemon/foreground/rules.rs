@@ -306,11 +306,13 @@ impl RulesEngine {
         // ── Tier 3: User Custom Applist (applist_perf.txt / app_rules.json) ─
         for custom in &self.custom_games {
             if pkg_lower.contains(custom) {
+                let target = custom_target_profile
+                    .or_else(|| Some("performance".to_string()));
                 return ForegroundApp {
                     package: package.to_string(),
                     category: AppCategory::Game,
                     confidence: Confidence::High,
-                    target_profile: custom_target_profile,
+                    target_profile: target,
                 };
             }
         }

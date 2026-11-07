@@ -13,6 +13,11 @@ use crate::state::{DeviceState, ProfileStateManager};
 use crate::utils::Logger;
 use crate::subsystems::tui::{is_english, ui};
 
+#[cfg(unix)]
+extern "C" {
+    fn setpriority(which: i32, who: u32, prio: i32) -> i32;
+}
+
 pub struct DaemonRunner;
 
 
@@ -594,7 +599,20 @@ impl DaemonRunner {
             profile, mod_name, mod_desc, app_desc, temp_c, battery_pct
         );
 
-        let _ = std::fs::write(Self::status_snapshot_path(), &content);
+        let status_path = Self::status_snapshot_path();
+        if std::fs::write(&status_path, &content).is_ok() {
+            #[cfg(target_os = "android")]
+            {
+                let _ = std::process::Command::new("chmod")
+                    .args(&["644", "/dev/lynxd_status.json"])
+                    .status();
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&status_path, std::fs::Permissions::from_mode(0o644));
+            }
+        }
         #[cfg(target_os = "android")]
         {
             let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_status.json");
@@ -734,9 +752,16 @@ impl DaemonRunner {
     /// to eliminate notification shade and status bar stutter when many notifications are active.
     pub fn shield_systemui() {
         if let Some(pid) = crate::subsystems::GameController::find_pid_for_package("com.android.systemui") {
-            let pid_str = pid.to_string();
             // 1. Elevate Main UI thread priority to nice -10
-            let _ = std::process::Command::new("renice").args(&["-n", "-10", "-p", &pid_str]).output();
+            #[cfg(unix)]
+            unsafe {
+                setpriority(0, pid, -10);
+            }
+            #[cfg(not(unix))]
+            {
+                let pid_str = pid.to_string();
+                let _ = std::process::Command::new("renice").args(&["-n", "-10", "-p", &pid_str]).output();
+            }
 
             // 2. Scan child tasks (RenderThread, wmshell.anim, hwuiTask)
             if let Ok(entries) = std::fs::read_dir(format!("/proc/{}/task", pid)) {
@@ -744,14 +769,29 @@ impl DaemonRunner {
                     let comm_path = entry.path().join("comm");
                     if let Ok(comm) = std::fs::read_to_string(&comm_path) {
                         let comm_trim = comm.trim();
-                        let tid = entry.file_name();
-                        let tid_str = tid.to_string_lossy();
-                        if comm_trim == "RenderThread" {
-                            let _ = std::process::Command::new("renice").args(&["-n", "-16", "-p", &tid_str]).output();
-                        } else if comm_trim.starts_with("wmshell.anim") || comm_trim.starts_with("wmshell.main") {
-                            let _ = std::process::Command::new("renice").args(&["-n", "-10", "-p", &tid_str]).output();
-                        } else if comm_trim.starts_with("hwuiTask") {
-                            let _ = std::process::Command::new("renice").args(&["-n", "-8", "-p", &tid_str]).output();
+                        let tid_str = entry.file_name().to_string_lossy().to_string();
+                        if let Ok(tid) = tid_str.parse::<u32>() {
+                            let prio = if comm_trim == "RenderThread" {
+                                Some(-16)
+                            } else if comm_trim.starts_with("wmshell.anim") || comm_trim.starts_with("wmshell.main") {
+                                Some(-10)
+                            } else if comm_trim.starts_with("hwuiTask") {
+                                Some(-8)
+                            } else {
+                                None
+                            };
+
+                            if let Some(p) = prio {
+                                #[cfg(unix)]
+                                unsafe {
+                                    setpriority(0, tid, p);
+                                }
+                                #[cfg(not(unix))]
+                                {
+                                    let p_str = p.to_string();
+                                    let _ = std::process::Command::new("renice").args(&["-n", &p_str, "-p", &tid_str]).output();
+                                }
+                            }
                         }
                     }
                 }

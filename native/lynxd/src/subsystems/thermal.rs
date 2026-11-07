@@ -199,12 +199,9 @@ impl ThermalController {
             "com.xiaomi.joyose",
             "iomanager",
         ];
-        for target in targets {
-            let _ = Command::new("killall").arg("-STOP").arg(target).output();
-        }
+        crate::hardware::ChargingRegulator::signal_processes(targets, true);
         if vendor == crate::hardware::Vendor::Qualcomm {
-            let _ = Command::new("killall").arg("-CONT").arg("thermal-engine").output();
-            let _ = Command::new("killall").arg("-CONT").arg("thermal-engine-v2").output();
+            crate::hardware::ChargingRegulator::signal_processes(&["thermal-engine", "thermal-engine-v2"], false);
         }
         let _ = Command::new("cmd").args(&["thermalservice", "override-status", "0"]).output();
         Self::un_isolate_all_cpus();
@@ -222,9 +219,7 @@ impl ThermalController {
             "com.xiaomi.joyose",
             "iomanager",
         ];
-        for target in TARGETS {
-            let _ = Command::new("killall").arg("-CONT").arg(target).output();
-        }
+        crate::hardware::ChargingRegulator::signal_processes(TARGETS, false);
         let _ = Command::new("cmd").args(&["thermalservice", "reset"]).output();
         Self::un_isolate_all_cpus();
     }

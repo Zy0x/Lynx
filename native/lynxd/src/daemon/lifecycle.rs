@@ -47,6 +47,11 @@ impl DaemonLifecycle {
                 e
             ));
         }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o644));
+        }
 
         Self::register_signal_handlers();
         Ok(my_pid)
