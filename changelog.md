@@ -1,3 +1,21 @@
+# Lynx Universal [Unified Battery Telemetry & Elimination of Ambiguous Adapter Pager] 7.0.0-RC367
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.91
+
+- **Penyederhanaan Tampilan Pengisian Daya Hero (Single Unified Battery Telemetry Grid)**:
+  - **Pemberantasan Halaman Ganda yang Membingungkan (*Eliminate Page 0 Input Adaptor*)**:
+    - Menghilangkan *Horizontal Pager* dan sub-tampilan *Input Adaptor* yang menampilkan angka terpisah (*Daya Adaptor / Tegangan Charger / Arus Charger*) yang sebelumnya memicu ambiguitas dan kebingungan pengguna atas arus pengisian riil.
+  - **Fokus Tunggal pada Arus & Daya Bersih Sel Baterai**:
+    - Menyatukan kartu hero ke satu tampilan bento 2×2 permanen, solid, dan definitif:
+      - **Daya Baterai**: Watt bersih yang masuk mengisi sel baterai.
+      - **Suhu Baterai**: Suhu riil sensor baterai/BMS.
+      - **Tegangan Sel**: Tegangan sel baterai real-time (Fuel Gauge IC).
+      - **Arus Baterai**: Arus pengisian bersih (mA) yang diserap sel baterai.
+  - **Peningkatan Efisiensi Compose**:
+    - Menghilangkan gesture geser pager horizontal, `rememberPagerState`, dan dot indicator di dalam hero card, menghasilkan antarmuka yang lebih kokoh, bebas *miss-touch*, dan lebih ringan.
+
+---
+
 # Lynx Universal [Xiaomi Screen-On Charging Unclamp & Direct Hyper Activation] 7.0.0-RC366
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.90

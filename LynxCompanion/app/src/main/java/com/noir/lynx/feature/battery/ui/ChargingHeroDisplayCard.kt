@@ -501,13 +501,7 @@ fun ChargingHeroDisplayCard(
         ((liveVolts * (if (isCharging) effectiveCurrentMa else kotlin.math.abs(rawCurrentMa.toFloat()))) / 1000f)
     }
 
-    val adapterWatts = if (batt.adapterWatt > 0.5f) batt.adapterWatt else if (batt.chargerWatt > 0.5f) batt.chargerWatt else 0f
-    val adapterVolts = if (batt.adapterVoltageMv in 4000..25000) batt.adapterVoltageMv / 1000f else (if (batt.chargerVoltageMv in 4000..25000) batt.chargerVoltageMv / 1000f else 0f)
-    val adapterCurrentMa = if (batt.adapterCurrentMa in 100..15000) batt.adapterCurrentMa else 0
-    val hasAdapterData = isCharging && adapterVolts >= 4.0f && adapterCurrentMa >= 100 && adapterWatts >= 0.5f
 
-    val coroutineScope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val tempFloat = when {
         liveHardwareTempC > 0f -> liveHardwareTempC
         batt.realPhysicalTempC > 0f -> batt.realPhysicalTempC
@@ -707,8 +701,7 @@ fun ChargingHeroDisplayCard(
                     else -> AccentGreenDim
                 }
                 val baseDesc = if (liveWatts > 0.5f) {
-                    if (hasAdapterData && pagerState.currentPage == 0) "Input adaptor • ${String.format(Locale.US, "%.1f", adapterWatts)} W"
-                    else "Daya baterai • ${String.format(Locale.US, "%.1f", liveWatts)} W"
+                    "Daya baterai • ${String.format(Locale.US, "%.1f", liveWatts)} W"
                 } else "Daya terhubung"
                 val desc = if (isPropsSpoofed) "$baseDesc • 🛡️ Anti-Spoof" else baseDesc
                 ChargingDisplayMode(
@@ -1092,172 +1085,50 @@ fun ChargingHeroDisplayCard(
                         }
                     }
 
-                    // 2x2 Hardware Telemetry Bento Grid
-                    if (hasAdapterData) {
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { page ->
-                            if (page == 0) {
-                                // Page 0: Input Adaptor (Hardware ADC Sensor)
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        MetricMiniTile(
-                                            label = "Daya Adaptor",
-                                            value = "${String.format(Locale.US, "%.1f", adapterWatts)} W",
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        MetricMiniTile(
-                                            label = "Suhu Baterai",
-                                            value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
-                                            color = tempColor,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        MetricMiniTile(
-                                            label = "Tegangan Charger",
-                                            value = "${String.format(Locale.US, "%.2f", adapterVolts)} V",
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        MetricMiniTile(
-                                            label = "Arus Charger",
-                                            value = "+$adapterCurrentMa mA",
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            } else {
-                                // Page 1: Sel Baterai (Fuel Gauge IC)
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        MetricMiniTile(
-                                            label = "Daya Baterai",
-                                            value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        MetricMiniTile(
-                                            label = "Suhu Baterai",
-                                            value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
-                                            color = tempColor,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        MetricMiniTile(
-                                            label = "Tegangan Sel",
-                                            value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        MetricMiniTile(
-                                            label = "Arus Baterai",
-                                            value = when {
-                                                isBypass -> "0 mA (Bypass)"
-                                                isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
-                                                rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
-                                                else -> "${rawCurrentMa} mA"
-                                            },
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Compact Dot Indicator (hanya berpindah jika digeser)
+                    // 2x2 Hardware Telemetry Bento Grid: Direct Battery Cell & Fuel Gauge Telemetry
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            repeat(2) { index ->
-                                val isSelected = pagerState.currentPage == index
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 2.5.dp)
-                                        .height(3.5.dp)
-                                        .width(if (isSelected) 14.dp else 4.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isSelected) AccentCyan else BorderGlass)
-                                        .clickable {
-                                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                                        }
-                                )
-                            }
-                        }
-                    } else {
-                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                MetricMiniTile(
-                                    label = if (isCharging) "Daya Masuk" else "Konsumsi",
-                                    value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
-                                    color = TextPrimary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                MetricMiniTile(
-                                    label = "Suhu Baterai",
-                                    value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
-                                    color = tempColor,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                            MetricMiniTile(
+                                label = if (isCharging) "Daya Baterai" else "Konsumsi",
+                                value = "${String.format(Locale.US, "%.1f", liveWatts)} W",
+                                color = TextPrimary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            MetricMiniTile(
+                                label = "Suhu Baterai",
+                                value = "${String.format(Locale.US, "%.1f", tempFloat)} °C",
+                                color = tempColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                MetricMiniTile(
-                                    label = "Tegangan",
-                                    value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
-                                    color = TextPrimary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                MetricMiniTile(
-                                    label = "Arus",
-                                    value = when {
-                                        isBypass -> "0 mA (Bypass)"
-                                        isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
-                                        rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
-                                        else -> "${rawCurrentMa} mA"
-                                    },
-                                    color = TextPrimary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            MetricMiniTile(
+                                label = "Tegangan Sel",
+                                value = "${String.format(Locale.US, "%.2f", liveVolts)} V",
+                                color = TextPrimary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            MetricMiniTile(
+                                label = "Arus Baterai",
+                                value = when {
+                                    isBypass -> "0 mA (Bypass)"
+                                    isCharging -> "+${effectiveCurrentMa.roundToInt()} mA"
+                                    rawCurrentMa > 0 -> "+${rawCurrentMa} mA"
+                                    else -> "${rawCurrentMa} mA"
+                                },
+                                color = TextPrimary,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
