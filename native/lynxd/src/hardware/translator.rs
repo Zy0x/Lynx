@@ -1071,7 +1071,7 @@ impl HardwareTranslator {
                 "extreme" => ("50", "30", "1", "1"),
                 "performance" => ("35", "25", "1", "1"),
                 "powersave" => ("0", "0", "0", "0"),
-                _ => ("18", "12", "1", "0"), // Balance: 18% EAS margin for snappy UI & app launch
+                _ => ("20", "12", "1", "0"), // Balance: 20% EAS margin for snappy UI & app launch
             };
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);

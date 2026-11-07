@@ -194,6 +194,7 @@ impl DaemonRunner {
                     ScreenState::On => {
                         Logger::info(ui("[DAEMON] Layar MENYALA terdeteksi. Pemantauan aktif dilanjutkan (interval: 5 dtk).", "[DAEMON] Screen ON detected. Resuming active monitoring (interval: 5s)."));
                         ChargingRegulator::apply_from_config();
+                        crate::subsystems::SystemController::wakeup_boost(3500);
                     }
                     ScreenState::Unknown => {}
                 }
@@ -464,14 +465,14 @@ impl DaemonRunner {
                     sleep(Duration::from_millis(500));
                 }
             } else if current_screen == ScreenState::Off {
-                // Deep Sleep Shield: When unplugged and screen is off, sleep in 1000ms intervals
-                // checking for instant screen ON edge trigger to break out immediately (<1000ms).
-                let total_chunks = (sleep_duration.as_millis() / 1000).max(1);
+                // Deep Sleep Shield: When unplugged and screen is off, sleep in 200ms intervals
+                // checking for instant screen ON edge trigger to break out immediately (sub-200ms latency).
+                let total_chunks = (sleep_duration.as_millis() / 200).max(1);
                 for _ in 0..total_chunks {
                     if !DaemonLifecycle::is_running() {
                         break;
                     }
-                    sleep(Duration::from_millis(1000));
+                    sleep(Duration::from_millis(200));
                     if screen.detect() == ScreenState::On {
                         // Instant wakeup: Screen turned on! Trigger native wakeup boost and resume immediately!
                         Logger::info(if is_english() {
@@ -479,7 +480,7 @@ impl DaemonRunner {
                         } else {
                             "[DAEMON] Layar menyala dari tidur! Menghentikan sleep deep-sleep dan memicu Wakeup Boost..."
                         });
-                        crate::subsystems::SystemController::wakeup_boost(2000);
+                        crate::subsystems::SystemController::wakeup_boost(3500);
                         break;
                     }
                 }

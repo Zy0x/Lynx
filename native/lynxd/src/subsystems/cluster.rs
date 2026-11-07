@@ -334,11 +334,11 @@ impl ClusterController {
             }
         }
 
-        // 2. Touch Boost Decay (300ms window)
+        // 2. Touch Boost Decay (750ms window to cover fling coasting momentum)
         let was_boosted = IS_CPU_TOUCH_BOOSTED.load(Ordering::Relaxed);
         if was_boosted {
             let last_touch = LAST_CPU_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-            if !is_screen_on || now_ms.saturating_sub(last_touch) >= 300 {
+            if !is_screen_on || now_ms.saturating_sub(last_touch) >= 750 {
                 // Touch window expired or screen off: restore baseline floor & schedtune
                 IS_CPU_TOUCH_BOOSTED.store(false, Ordering::Relaxed);
                 Self::restore_baseline_floor(&cpu, current_profile);
@@ -346,17 +346,18 @@ impl ClusterController {
         }
     }
 
-    fn restore_baseline_floor(cpu: &crate::hardware::capability::CpuCapability, current_profile: &str) {
-        let target_boost = match current_profile {
-            "extreme" => "40",
-            "performance" => "25",
-            "powersave" => "0",
-            _ => "18", // balanced
+    pub fn restore_baseline_floor(cpu: &crate::hardware::capability::CpuCapability, current_profile: &str) {
+        let (target_boost, prefer_high) = match current_profile {
+            "extreme" => ("50", "1"),
+            "performance" => ("35", "1"),
+            "powersave" => ("0", "0"),
+            _ => ("20", "0"), // balanced: 20 boost for buttery smooth UI without battery drain
         };
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", target_boost, WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "0", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", "15", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "0", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_idle", "1", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", if current_profile == "powersave" { "0" } else { "15" }, WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {
             for pol in &cpu.policies {

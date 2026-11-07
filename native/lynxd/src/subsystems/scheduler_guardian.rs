@@ -68,28 +68,65 @@ impl SchedulerGuardian {
     /// Periodic guardian check executed in daemon active loop.
     /// Protects against notification priority inversion, heads-up window degradation, and rogue framework resets.
     pub fn tick(active_profile: &str, screen_on: bool) {
-        if !screen_on || !matches!(active_profile, "performance" | "extreme") {
+        if !screen_on {
             return;
         }
 
-        let is_extreme = active_profile == "extreme";
-        let target_stune_boost = if is_extreme { 50 } else { 35 };
-        let target_ta_boost = if is_extreme { 100 } else { 60 };
-        let target_fg_boost = if is_extreme { 50 } else { 35 };
+        let (target_stune_boost, target_ta_boost, target_fg_boost, enforce_high_cap, threshold) = match active_profile {
+            "extreme" => (50, 100, 50, true, 40i64),
+            "performance" => (35, 60, 35, true, 25i64),
+            "balance" | "balanced" => (20, 30, 15, false, 14i64),
+            _ => return, // Powersave allows OS defaults
+        };
 
-        // 1. Check & Protect Schedtune Top-App Boost
+        let is_locked_mode = matches!(active_profile, "performance" | "extreme");
+
+        // 1. Check & Protect Schedtune Top-App Boost & High-Cap
         if Path::new(Self::STUNE_TOP_BOOST).exists() {
             if let Ok(cur_val) = SysfsReader::read_int::<i64>(Self::STUNE_TOP_BOOST) {
-                // If wiped out below safe gaming threshold (e.g. 0 by OomAdjuster on heads-up notification)
-                if cur_val < (target_stune_boost - 10) as i64 {
-                    // Unlock temporarily to write, write, then re-lock
-                    Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o666);
+                // If wiped out below safe threshold (e.g. 1 or 0 by OomAdjuster on app switch / notifications)
+                if cur_val < threshold {
+                    if is_locked_mode {
+                        Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o666);
+                    }
                     let _ = SysfsWriter::write(
                         Path::new(Self::STUNE_TOP_BOOST),
                         &target_stune_boost.to_string(),
                         WriteMode::ForcePermission,
                     );
-                    Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o644);
+                    if is_locked_mode {
+                        Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o644);
+                    }
+
+                    // Protect prefer_high_cap for performance/extreme
+                    if enforce_high_cap && Path::new(Self::STUNE_TOP_HIGH_CAP).exists() {
+                        let cur_cap = SysfsReader::read_int::<i64>(Self::STUNE_TOP_HIGH_CAP).unwrap_or(0);
+                        if cur_cap == 0 {
+                            if is_locked_mode {
+                                Self::set_node_mode(Self::STUNE_TOP_HIGH_CAP, 0o666);
+                            }
+                            let _ = SysfsWriter::write(
+                                Path::new(Self::STUNE_TOP_HIGH_CAP),
+                                "1",
+                                WriteMode::ForcePermission,
+                            );
+                            if is_locked_mode {
+                                Self::set_node_mode(Self::STUNE_TOP_HIGH_CAP, 0o644);
+                            }
+                        }
+                    }
+
+                    // Always ensure prefer_idle is 1 for instant core wake
+                    if Path::new(Self::STUNE_TOP_IDLE).exists() {
+                        let cur_idle = SysfsReader::read_int::<i64>(Self::STUNE_TOP_IDLE).unwrap_or(0);
+                        if cur_idle == 0 {
+                            let _ = SysfsWriter::write(
+                                Path::new(Self::STUNE_TOP_IDLE),
+                                "1",
+                                WriteMode::ForcePermission,
+                            );
+                        }
+                    }
 
                     Logger::info(ui(
                         &format!(

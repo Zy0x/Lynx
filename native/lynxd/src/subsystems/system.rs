@@ -271,14 +271,14 @@ impl SystemController {
         String::new()
     }
 
-    /// Triggers an instantaneous, hardware-level Wakeup Boost (1.5 - 2.5s) to eliminate deep sleep wakeup stutter / freeze.
+    /// Triggers an instantaneous, hardware-level Wakeup Boost (3.5s) to eliminate deep sleep wakeup stutter / freeze.
     pub fn wakeup_boost(duration_ms: u64) -> String {
         Logger::info(ui(
             "[WAKEUP-BOOST] Memicu lonjakan CPU sementara untuk menyerap beban bangun tidur (thundering herd)...",
             "[WAKEUP-BOOST] Triggering transient CPU boost to absorb wakeup thundering herd..."
         ));
 
-        let dur = if duration_ms == 0 { 2000 } else { duration_ms };
+        let dur = if duration_ms == 0 { 3500 } else { duration_ms };
 
         // 1. Immediately ensure top-app and foreground have access to all cores
         let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
@@ -303,11 +303,22 @@ impl SystemController {
         Self::write_opt("/dev/stune/top-app/schedtune.boost", "50");
         Self::write_opt("/dev/stune/top-app/schedtune.prefer_idle", "1");
         Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "1");
+        Self::write_opt("/dev/stune/foreground/schedtune.boost", "35");
+        Self::write_opt("/dev/stune/foreground/schedtune.prefer_high_cap", "1");
         Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "4096");
         Self::write_opt("/dev/cpuctl/background/cpu.shares", "128");
         Self::write_opt("/dev/cpuctl/system-background/cpu.shares", "256");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "0");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "0");
+
+        // Elevate Big Cluster minimum frequency to 1.4 GHz (1401600 kHz) immediately
+        // so that ZRAM decompression and lockscreen unlock happen with ZERO ramp-up latency!
+        for pol_id in &[4, 6, 7] {
+            let min_path = format!("/sys/devices/system/cpu/cpufreq/policy{}/scaling_min_freq", pol_id);
+            if Path::new(&min_path).exists() {
+                let _ = SysfsWriter::write(&min_path, "1401600", WriteMode::ForcePermission);
+            }
+        }
 
         // 3. Dynamic I/O Priority Elevation (Anti-Lockscreen Freeze):
         // Elevate I/O priority for UI critical processes (keystore2, system_server, surfaceflinger).
@@ -334,11 +345,20 @@ impl SystemController {
         // Spawn background thread to gracefully decay boost back to baseline after duration_ms
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(dur));
-            Self::write_opt("/dev/stune/top-app/schedtune.boost", "15");
-            Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "0");
+
+            let active_profile = std::fs::read_to_string("/data/adb/lynx/active_profile")
+                .or_else(|_| std::fs::read_to_string("/data/local/tmp/lynxd_profile"))
+                .unwrap_or_else(|_| "balance".to_string())
+                .trim()
+                .to_string();
+
+            let cpu = crate::hardware::capability::HardwareCapability::resolve_cpu();
+            crate::subsystems::ClusterController::restore_baseline_floor(&cpu, &active_profile);
+
             Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "2048");
             Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "500");
             Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "500");
+
             match vendor {
                 crate::hardware::detector::Vendor::Qualcomm => {
                     Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "0");
@@ -357,7 +377,7 @@ impl SystemController {
             ));
         });
 
-        format!("Wakeup boost triggered for {}ms (All cpus unparked, schedtune.boost=50, sched_boost=1).", dur)
+        format!("Wakeup boost triggered for {}ms (All cpus unparked, big cores floor 1.4GHz, schedtune.boost=50, sched_boost=1).", dur)
     }
 
     /// Bundles system diagnostics into a timestamped archive on /sdcard/Lynx/.
