@@ -1331,6 +1331,12 @@ impl ChargingRegulator {
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
         let is_qcom = Self::is_qualcomm_soc();
 
+        if is_qcom {
+            // Keep Qualcomm battery telemetry strictly authentic and remove any residual spoofed files
+            let _ = fs::remove_file(SPOOFED_BATT_TEMP_PATH);
+            let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
+        }
+
         if is_hyper && is_qcom {
             Self::apply_qcom_thermal_engine_bind_mount();
         }

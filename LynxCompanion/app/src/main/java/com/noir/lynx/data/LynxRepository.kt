@@ -438,9 +438,11 @@ object LynxRepository {
                     pkill -9 -f "lynxd daemon" 2>/dev/null
                     pkill -9 lynxd 2>/dev/null
                     if [ -d "$MODULE_DIR/system/bin" ]; then
+                        rm -f "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
                         cp -f /data/local/tmp/lynxd_new "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
                         chmod 755 "$MODULE_DIR/system/bin/lynxd" 2>/dev/null
                     fi
+                    rm -f /data/local/tmp/lynxd 2>/dev/null
                     cp -f /data/local/tmp/lynxd_new /data/local/tmp/lynxd 2>/dev/null
                     chmod 755 /data/local/tmp/lynxd 2>/dev/null
                     chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
@@ -450,12 +452,8 @@ object LynxRepository {
                 lynxdBinarySyncedThisSession = true
             }
 
-            val path = getLynxdPath()
-            val isModuleLynxd = path.startsWith(MODULE_DIR)
-            val exists = resolvedLynxdPath != null || Shell.cmd("[ -x '$path' ]").exec().isSuccess
-
-            // Sync embedded asset to storage only if no executable lynxd binary exists at all
-            if (!exists) {
+            // Sync embedded asset to storage if no binary exists or once per session on fresh launch
+            if (!lynxdBinarySyncedThisSession) {
                 lynxdBinarySyncedThisSession = true
                 try {
                     val ctx = appContext ?: com.noir.lynx.LynxApp.instance
@@ -469,6 +467,7 @@ object LynxRepository {
                                 if ! cmp -s '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null; then
                                     pkill -9 -f "lynxd daemon" 2>/dev/null
                                     pkill -9 lynxd 2>/dev/null
+                                    rm -f '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
                                     cp -f '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
                                     chmod 755 '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
                                 fi

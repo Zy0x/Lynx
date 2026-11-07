@@ -1,3 +1,19 @@
+# Lynx Universal [Qualcomm Real Thermal Transparency, Virtual Spoof Elimination & Charging Lag Fix] 7.0.0-RC360
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.84
+
+- **Penyelesaian Telemetri Suhu Riil & Analisis Komprehensif Lag Pengisian Daya pada Qualcomm Snapdragon (Redmi Note 7 / SDM660)**:
+  - **Eliminasi Total Residu Berkas Virtual Spoofing Suhu**:
+    - Memperbaiki `native/lynxd/src/state/device_state.rs` agar tidak lagi membaca berkas virtual `/dev/lynx_spoofed_batt_temp` dalam pembentukan status telemetri daemon (`to_unified_json`).
+    - Menghapus pembacaan residu virtual di [`ChargingHeroDisplayCard.kt`](file:///LynxCompanion/app/src/main/java/com/noir/lynx/feature/battery/ui/ChargingHeroDisplayCard.kt) dan memastikan tampilan suhu baterai selalu bersumber dari sensor hardware asli (`/sys/class/power_supply/battery/temp` atau `ChargingRegulator::read_real_battery_temp_dc()`).
+    - Memastikan fungsi `enforce_live_charging_invariants()` secara otomatis membersihkan sisa berkas spoofing di `/dev/` pada platform Qualcomm.
+  - **Analisis & Mitigasi Fenomena "Lag Saat Di-Charge"**:
+    - **Penjelasan Hardware**: Saat pengisian cepat QC 3.0 (9V), chip PMIC PM660 dan baterai menghasilkan panas hingga ~46°C–49°C. Pada suhu ini, daemon `thermal-engine` kernel secara otomatis memangkas frekuensi cluster Big CPU (Kryo 260) dari 2.45 GHz ke 1.11 GHz, serta menurunkan arus pengisian hingga 113–762 mA demi keamanan sel lithium.
+    - **Penjelasan Digitizer Touchscreen**: Arus switching frekuensi tinggi dari charger QC 3.0 non-grounded menimbulkan ripple noise (EMI) pada digitizer layar sentuh (Novatek/FocalTech) yang berbagi ground dengan port Type-C, menyebabkan touch latency dan stutter yang terasa seperti lag berat saat disentuh.
+    - Menjamin telemetri transparan di UI agar pengguna memahami kondisi termal sebenarnya dan tidak salah mengira perangkat sedang berada di suhu dingin 25°C.
+
+---
+
 # Lynx Universal [Qualcomm HVDCP 3.0 Handshake Guard & Authentic Telemetry Restoration] 7.0.0-RC359
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.83

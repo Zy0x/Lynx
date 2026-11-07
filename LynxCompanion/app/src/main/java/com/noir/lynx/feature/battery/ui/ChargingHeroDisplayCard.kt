@@ -508,20 +508,10 @@ fun ChargingHeroDisplayCard(
 
     val coroutineScope = rememberCoroutineScope()
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
-    val spoofedNode = File("/dev/lynx_spoofed_batt_temp")
-    val liveSpoofedTemp = if (spoofedNode.exists()) {
-        try {
-            val raw = spoofedNode.readText().trim().toFloatOrNull()
-            if (raw != null && raw > 0f) (if (raw > 100f) raw / 10f else raw) else null
-        } catch (_: Exception) { null }
-    } else null
-
     val tempFloat = when {
-        tel.temp.toFloatOrNull() != null && tel.temp.toFloat() > 0f -> tel.temp.toFloat()
         liveHardwareTempC > 0f -> liveHardwareTempC
         batt.realPhysicalTempC > 0f -> batt.realPhysicalTempC
-        liveSpoofedTemp != null && liveSpoofedTemp > 0f -> liveSpoofedTemp
-        batt.spoofedTempC > 0f -> batt.spoofedTempC
+        tel.temp.toFloatOrNull() != null && tel.temp.toFloat() > 0f -> tel.temp.toFloat()
         else -> 28f
     }
     val tempColor = when {
