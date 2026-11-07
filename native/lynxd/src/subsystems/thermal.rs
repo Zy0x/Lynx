@@ -155,11 +155,13 @@ impl ThermalController {
             }
             if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
                 let lower = t_type.to_lowercase();
-                if lower.contains("quiet-therm") || lower.contains("skin-therm") {
+                if lower.contains("quiet-therm-step") || lower.contains("skin-therm-step") {
                     let _ = Self::write_opt(format!("{}/mode", tz_dir), "disabled");
                     let _ = Self::write_opt(format!("{}/policy", tz_dir), "user_space");
                     let _ = Self::write_opt(format!("{}/trip_point_0_temp", tz_dir), "75000");
                     let _ = Self::write_opt(format!("{}/trip_point_1_temp", tz_dir), "75000");
+                } else if lower.contains("quiet-therm") || lower.contains("skin-therm") {
+                    let _ = Self::write_opt(format!("{}/mode", tz_dir), "enabled");
                 }
             }
         }

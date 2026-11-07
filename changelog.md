@@ -1,3 +1,17 @@
+# Lynx Universal [Qualcomm ADC Sensor Preservation & Thermal Fail-Safe Elimination] 7.0.0-RC361
+Released on: 2026-11-07
+> Lynx Kernel Manager v3.3.85
+
+- **Perbaikan Kritis Pembacaan Sensor ADC Termal & Penanganan Fenomena Daya Tekor saat Pengisian (Redmi Note 7 / SDM660)**:
+  - **Diferensiasi Presisi Netralisasi Zona Termal (`quiet-therm-step` vs `quiet-therm-adc`)**:
+    - Memperbaiki `native/lynxd/src/subsystems/thermal.rs` agar **hanya** menonaktifkan zona pembatasan perangkat lunak (`quiet-therm-step` / `skin-therm-step`).
+    - Memastikan simpul sensor perangkat keras mentah (`quiet-therm-adc` / `tz4`) tetap berstatus `enabled` dan aktif. Sebelumnya, penonaktifan `tz4` menyebabkan sensor ADC melaporkan `-274000` (-274°C / absolute zero), yang ditafsirkan oleh daemon `thermal-engine` Xiaomi sebagai kerusakan sensor perangkat keras (*sensor fault / open circuit*), sehingga memaksa sistem masuk ke mode darurat (*fail-safe mode*) dan memotong arus pengisian ke tingkat minimum.
+  - **Fakta Fisik Isolator Kaca Gorilla Glass 5 vs Suhu Internal Silikon**:
+    - Analisis termodinamika mengungkap alasan mengapa bodi ponsel tidak terasa panas di tangan pengguna meskipun sensor kernel mencatat suhu 48°C: panel kaca belakang Gorilla Glass 5 memiliki konduktivitas termal yang sangat rendah ($k \approx 0.8\text{ W/m}\cdot\text{K}$), bertindak sebagai isolator termal yang menahan panas di dalam ruang baterai dan die PMIC PM660.
+    - Menjelaskan fenomena daya tekor (*net negative current*) di mana pengoperasian perangkat dengan layar menyala (menarik ~1500 mA) melebihi arus masuk yang sedang dibatasi proteksi termal (~500–800 mA), yang menyebabkan baterai terkuras jika tidak dibiarkan dalam kondisi layar mati (*screen-off standby*).
+
+---
+
 # Lynx Universal [Qualcomm Real Thermal Transparency, Virtual Spoof Elimination & Charging Lag Fix] 7.0.0-RC360
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.84
