@@ -27,6 +27,10 @@ class LynxProfileReceiver : BroadcastReceiver() {
         const val ACTION_PROFILE_CHANGED = "com.noir.lynx.PROFILE_CHANGED"
         const val ACTION_SHOW_TOAST = "com.noir.lynx.SHOW_TOAST"
         private const val TAG = "LynxProfileReceiver"
+        @Volatile
+        private var lastBroadcastTime = 0L
+        @Volatile
+        private var lastBroadcastProfile = ""
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -49,7 +53,22 @@ class LynxProfileReceiver : BroadcastReceiver() {
                 ?: resolveFeedbackStyle(context)
 
             Log.i(TAG, "Profile broadcast received: profile=$profile, style=$style, reason=$reason")
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (profile.equals(lastBroadcastProfile, ignoreCase = true) && (now - lastBroadcastTime < 600L)) {
+                Log.d(TAG, "Duplicate profile broadcast ignored within 600ms debounce: $profile")
+                return
+            }
+            lastBroadcastTime = now
+            lastBroadcastProfile = profile
+
             com.noir.lynx.service.LynxAppAutomationService.notifyProfileChanged(profile, false)
+
+            // If Lynx Companion app is active in foreground:
+            // Internal Compose UI already handles live feedback; suppress floating overlay to prevent redundant action
+            if (com.noir.lynx.LynxApp.isAppForeground) {
+                Log.d(TAG, "Lynx app is active in foreground; floating system overlay suppressed")
+                return
+            }
 
             when (style) {
                 "jewel_top", "jewel_bottom" -> {

@@ -32,6 +32,14 @@ class LynxForegroundDetector(private val context: Context) {
      * and procfs cgroup lookups (0 forks, <0.1ms latency).
      */
     fun queryTopResumedPackage(): ForegroundAppInfo? {
+        // 0. If Lynx Companion itself is currently in foreground, return it immediately (<0.01ms, 0 procfs/UsageStats)
+        if (com.noir.lynx.LynxApp.isAppForeground) {
+            val myInfo = ForegroundAppInfo(context.packageName, android.os.Process.myPid())
+            lastDetectedPackage = myInfo.packageName
+            lastDetectedPid = myInfo.pid
+            return myInfo
+        }
+
         // 1. In-memory UsageStats with 5-minute event window (0 forks, instant)
         getTopPackageFromUsageStats()?.let { info ->
             lastDetectedPackage = info.packageName
@@ -86,7 +94,7 @@ class LynxForegroundDetector(private val context: Context) {
                 if (pkg.isBlank() || pkg == "null" || pkg == "system_server" ||
                     pkg.startsWith("/system/") || pkg.startsWith("/vendor/") ||
                     pkg.contains("inputmethod") || pkg.contains("keyboard") ||
-                    pkg == context.packageName || pkg.startsWith("${context.packageName}:")) continue
+                    pkg.startsWith("${context.packageName}:")) continue
 
                 if (pkg.contains('.')) {
                     return ForegroundAppInfo(pkg, pid)
@@ -112,7 +120,6 @@ class LynxForegroundDetector(private val context: Context) {
                 val type = event.eventType
                 if ((type == UsageEvents.Event.ACTIVITY_RESUMED || type == 1) &&
                     event.timeStamp >= latestTimestamp &&
-                    event.packageName != context.packageName &&
                     !event.packageName.startsWith("${context.packageName}:") &&
                     event.packageName != "com.android.systemui") {
                     latestPkg = event.packageName
@@ -136,7 +143,7 @@ class LynxForegroundDetector(private val context: Context) {
             val line = res.out.firstOrNull() ?: return null
             val match = Regex("""u0\s+([^/]+)/""").find(line)
             val pkg = match?.groupValues?.get(1)?.trim() ?: return null
-            if (pkg.isNotBlank() && pkg != "null" && pkg != context.packageName && !pkg.startsWith("${context.packageName}:")) {
+            if (pkg.isNotBlank() && pkg != "null" && !pkg.startsWith("${context.packageName}:")) {
                 ForegroundAppInfo(pkg, null)
             } else null
         } catch (_: Exception) {

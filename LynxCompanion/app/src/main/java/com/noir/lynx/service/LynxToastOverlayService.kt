@@ -125,8 +125,9 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
             else -> AppLocale.getString(this, R.string.profile_balance) to 0xFF00A3FFL
         }
         val baseLabel = AppLocale.getString(this, R.string.profile_mode_name_format, profileName)
-        val label = if (reason.isNotBlank() && reason != "Manual" && reason != "Manual Select" && reason != "Quick Settings Tile" && reason != "QS Tile") {
-            "$baseLabel • $reason"
+        val cleanReason = sanitizeReason(reason, baseLabel, profileName)
+        val label = if (cleanReason.isNotBlank()) {
+            "$baseLabel • $cleanReason"
         } else {
             baseLabel
         }
@@ -333,9 +334,8 @@ fun showReliableSystemToast(context: Context, profile: String, reason: String = 
     if (cleanName.startsWith("Mode ", ignoreCase = true)) {
         cleanName = cleanName.substring(5).trim()
     }
-    val reasonSuffix = if (reason.isNotBlank() && reason != "Manual" && reason != "Manual Select" && reason != "Quick Settings Tile" && reason != "QS Tile") {
-        " • $reason"
-    } else ""
+    val cleanReason = sanitizeReason(reason, cleanName, rawName)
+    val reasonSuffix = if (cleanReason.isNotBlank()) " • $cleanReason" else ""
     val text = "$emoji Mode $cleanName Aktif$reasonSuffix"
 
     try {
@@ -353,4 +353,47 @@ fun showReliableSystemToast(context: Context, profile: String, reason: String = 
     } catch (e: Exception) {
         android.util.Log.e("LynxToast", "Direct system toast failed: ${e.message}")
     }
+}
+
+
+/**
+ * Strips technical CLI terms, redundant mode names, and internal strings
+ * so the Dynamic Island stays compact, clean, and concise.
+ */
+fun sanitizeReason(rawReason: String, baseLabel: String = "", profileName: String = ""): String {
+    val trimmed = rawReason.trim()
+    if (trimmed.isBlank()) return ""
+    val lower = trimmed.lowercase()
+
+    // Filter out technical, CLI, manual, or internal daemon strings
+    if (lower == "manual" || lower == "manual select" || lower == "qs tile" || lower == "quick settings tile" ||
+        lower.contains("cli") || lower.contains("apply") || lower.contains("cooldown") ||
+        lower.contains("closed") || lower.contains("expire") || lower.contains("revert") ||
+        lower.contains("restore") || lower.contains("restoring") || lower.contains("baseline") ||
+        lower.contains("screen") || lower.contains("kembali ke") || lower.contains("target application") ||
+        lower == baseLabel.lowercase() || lower == profileName.lowercase() || lower.startsWith("mode ")
+    ) {
+        return ""
+    }
+
+    // If reason contains an app name with package or extra info, extract concise title
+    var result = trimmed
+    if (result.contains('(') && result.contains(')')) {
+        val extracted = result.substringAfter('(').substringBefore(')').trim()
+        if (extracted.isNotBlank() && !extracted.contains("requesting", ignoreCase = true)) {
+            result = extracted
+        } else {
+            result = result.substringBefore('(').trim()
+        }
+    }
+    // If it's a raw package name (e.g., com.tencent.ig), extract readable name
+    if (result.contains('.') && !result.contains(' ')) {
+        result = result.substringAfterLast('.')
+    }
+
+    // Keep app name compact (max 14 chars)
+    if (result.length > 14) {
+        result = result.take(13) + "…"
+    }
+    return result
 }

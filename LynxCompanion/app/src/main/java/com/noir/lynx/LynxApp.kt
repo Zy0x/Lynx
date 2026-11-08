@@ -17,6 +17,8 @@ class LynxApp : Application() {
     companion object {
         lateinit var instance: LynxApp
             private set
+        @Volatile
+        var isAppForeground: Boolean = false
     }
 
     override fun onCreate() {

@@ -131,7 +131,7 @@ internal fun JewelToastPill(
     )
 
     // Determine if toast is a concise label or a detailed/long message
-    val isLongMessage = toastData.modeLabel.length > 18 || toastData.modeLabel.contains("\n")
+    val isLongMessage = toastData.modeLabel.contains("\n") || (toastData.type != ToastType.MODE && toastData.modeLabel.length > 22) || toastData.modeLabel.length > 35
     val pillShape = if (isLongMessage) RoundedCornerShape(16.dp) else CircleShape
 
     Surface(
@@ -168,7 +168,7 @@ internal fun JewelToastPill(
                 currentToast.type == ToastType.PRESET -> "PRESET"
                 else -> "AKTIF"
             }
-            val itemIsLong = currentToast.modeLabel.length > 18 || currentToast.modeLabel.contains("\n")
+            val itemIsLong = currentToast.modeLabel.contains("\n") || (currentToast.type != ToastType.MODE && currentToast.modeLabel.length > 22) || currentToast.modeLabel.length > 35
 
             if (itemIsLong) {
                 // === EXPANDED DYNAMIC ISLAND BENTO (For detailed notifications / errors / long text) ===

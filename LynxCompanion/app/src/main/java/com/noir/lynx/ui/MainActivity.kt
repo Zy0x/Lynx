@@ -142,17 +142,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        com.noir.lynx.LynxApp.isAppForeground = true
         viewModel.setAppForeground(true)
     }
 
     override fun onResume() {
         super.onResume()
+        com.noir.lynx.LynxApp.isAppForeground = true
         viewModel.setAppForeground(true)
         viewModel.syncHudPrefs(this)
     }
 
     override fun onStop() {
         super.onStop()
+        com.noir.lynx.LynxApp.isAppForeground = false
         viewModel.setAppForeground(false)
     }
 }

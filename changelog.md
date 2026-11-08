@@ -1,3 +1,28 @@
+# Lynx Universal [Compact Dynamic Island Typography & Foreground Redundancy Shield] 7.0.0-RC372
+Released on: 2026-11-08
+> Lynx Kernel Manager v3.3.96
+
+- **Kerapian & Keringkasan Teks Kapsul Melayang (Dynamic Island Sleek Pill)**:
+  - **Pembersihan Teks Teknis & Jargon CLI**:
+    - Menghilangkan imbuhan teks teknis internal seperti ...Cli..., CLI Manual Apply, Target application closed..., Kembali ke... pada alasan pergantian mode.
+    - Pada transisi mode langsung (misal: Manual, CLI, atau Quick Tile), teks Dynamic Island kini tampil murni dan ringkas sesuai identitas mode (Mode Seimbang, Mode Performa, Mode Ekstrem, Mode Hemat Daya).
+  - **Sanitasi Alasan Transisi Aplikasi (Adaptive Reason Sanitizer)**:
+    - Menambahkan fungsi pembersih sanitizeReason() pada LynxToastOverlayService untuk memfilter teks teknis dan menjaga nama aplikasi yang diprofiling tetap ringkas (maksimum 14 karakter) tanpa memicu pemotongan kata (*clipping*) atau merusak layout kapsul.
+  - **Preservasi Kapsul Ramping JewelToastPill**:
+    - Mengoptimalkan kondisi morfologi kartu bento agar transisi mode (ToastType.MODE) selalu mempertahankan bentuk kapsul ramping (*sleek pill*) horizontal tanpa beralih ke layout kotak besar bertumpuk.
+
+- **Eliminasi Aksi & Notifikasi Redundan Saat Aplikasi Lynx Terbuka**:
+  - **Deteksi Status Foreground Lynx Companion (isAppForeground)**:
+    - Menambahkan pelacak status foreground real-time pada LynxApp yang di-update secara instan pada siklus hidup MainActivity (onStart, onResume, onStop).
+  - **Pemberhentian Siklus Otomasi & Overlay saat Lynx Aktif**:
+    - LynxForegroundDetector kini mengenali proses com.noir.lynx secara langsung (<0.01ms), mencegah deteksi salah aplikasi sebelumnya dari riwayat UsageStats.
+    - LynxAppAutomationService secara otomatis menahan (*stand down*) pemicuan aturan profil saat Lynx Companion sedang aktif di layar pengguna, menghilangkan penyiaran feedback yang tidak perlu.
+  - **Peredaman Overlay Transien di Atas Aplikasi Lynx**:
+    - LynxProfileReceiver kini secara otomatis meredam kemunculan floating window overlay saat Lynx Companion sedang dibuka di latar depan, mencegah tabrakan visual dan duplikasi notifikasi dengan feedback internal Compose.
+  - **Eliminasi Siaran Ganda ACTION_PROFILE_CHANGED**:
+    - Menghapus broadcast manual berlebih pada selectKernelPerformanceProfile() di LynxViewModelKernelProfiles dan menambahkan mekanisme *debounce* (600ms) pada LynxProfileReceiver guna mencegah pemicuan ganda overlay.
+
+---
 # Lynx Universal [Per-App Dynamic Island Feedback & Notch Cutout Geometry] 7.0.0-RC371
 Released on: 2026-11-08
 > Lynx Kernel Manager v3.3.95

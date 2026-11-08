@@ -637,12 +637,24 @@ impl DaemonRunner {
                 "powersave" => ("🍃", "POWERSAVE"),
                 _ => ("⚖️", "BALANCE"),
             };
-            let short_reason = if reason.len() > 60 {
-                reason[..60].to_string()
+            let clean_reason = reason.trim();
+            let is_generic_reason = clean_reason.is_empty()
+                || clean_reason.eq_ignore_ascii_case("manual")
+                || clean_reason.eq_ignore_ascii_case("manual select")
+                || clean_reason.to_lowercase().contains("cli")
+                || clean_reason.to_lowercase().contains("apply");
+            let short_reason = if is_generic_reason {
+                String::new()
+            } else if clean_reason.len() > 30 {
+                clean_reason[..30].to_string()
             } else {
-                reason.to_string()
+                clean_reason.to_string()
             };
-            let notif_text = format!("{} [{}] Mode Aktif • {}", emoji, mode_label, short_reason);
+            let notif_text = if short_reason.is_empty() {
+                format!("{} [{}] Mode Aktif", emoji, mode_label)
+            } else {
+                format!("{} [{}] Mode Aktif • {}", emoji, mode_label, short_reason)
+            };
             let profile_owned = profile.to_string();
 
             // Run system notifications and broadcast asynchronously so main transition thread is NEVER blocked by Java VM startup

@@ -483,6 +483,19 @@ class LynxAppAutomationService : Service() {
     }
 
     private suspend fun handleForegroundPackage(pkg: String, pid: Int?) {
+        if (pkg == packageName || pkg.startsWith("$packageName:") || com.noir.lynx.LynxApp.isAppForeground) {
+            // Lynx Companion itself is currently active in foreground:
+            // Stand down watcher automation, cancel pending cooldowns, and NEVER show visual toast over the app
+            if (activeCustomPkg != null) {
+                cooldownJob?.cancel()
+                cooldownJob = null
+                activeCustomPkg = null
+                activeCustomPid = null
+                restoreOrStopAutoHud()
+            }
+            return
+        }
+
         com.noir.lynx.safety.LynxMediaSafeguardManager.onForegroundChanged(this@LynxAppAutomationService, pkg)
 
         if (rulesCache.isEmpty()) {
