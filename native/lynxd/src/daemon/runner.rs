@@ -277,7 +277,7 @@ impl DaemonRunner {
                                 } else {
                                     crate::subsystems::GameController::game_off();
                                 }
-                                Self::notify_profile_transition(target_profile, &reason);
+                                let _ = Self::notify_profile_transition(target_profile, &reason);
                             }
                             Err(e) => {
                                 Logger::error(if is_english() { format!("[DAEMON] Failed to apply profile '{}': {}", target_profile, e) } else { format!("[DAEMON] Gagal menerapkan profil '{}': {}", target_profile, e) });
@@ -623,7 +623,7 @@ impl DaemonRunner {
         }
     }
 
-    pub fn notify_profile_transition(profile: &str, reason: &str) {
+    pub fn notify_profile_transition(profile: &str, reason: &str) -> std::thread::JoinHandle<()> {
         #[cfg(target_os = "android")]
         {
             let feedback_style = std::fs::read_to_string("/data/adb/lynx/feedback_style")
@@ -667,6 +667,8 @@ impl DaemonRunner {
                 let _ = std::process::Command::new("/system/bin/am")
                     .args(&[
                         "broadcast",
+                        "--user",
+                        "0",
                         "-a",
                         "com.noir.lynx.PROFILE_CHANGED",
                         "-n",
@@ -688,6 +690,8 @@ impl DaemonRunner {
                 let _ = std::process::Command::new("/system/bin/am")
                     .args(&[
                         "broadcast",
+                        "--user",
+                        "0",
                         "-a",
                         "com.noir.lynx.core.sync.ACTION_PROFILE_SYNCHRONIZED",
                         "-p",
@@ -701,11 +705,12 @@ impl DaemonRunner {
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
                     .status();
-            });
+            })
         }
         #[cfg(not(target_os = "android"))]
         {
             let _ = (profile, reason);
+            std::thread::spawn(|| {})
         }
     }
 

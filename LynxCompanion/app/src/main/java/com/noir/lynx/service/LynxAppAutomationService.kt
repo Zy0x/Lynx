@@ -12,6 +12,7 @@ import com.noir.lynx.R
 import com.noir.lynx.core.locale.AppLocale
 import com.noir.lynx.data.AppProfileRule
 import com.noir.lynx.data.LynxRepository
+import com.noir.lynx.receiver.LynxProfileReceiver
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.*
 
@@ -575,6 +576,7 @@ class LynxAppAutomationService : Service() {
                     serviceScope.launch(Dispatchers.IO) {
                         LynxRepository.setProfile(target, caller = "watcher")
                     }
+                    triggerProfileFeedback(target, matchingRule.appName)
                 }
 
                 val hzInfo = matchingRule.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
@@ -601,7 +603,11 @@ class LynxAppAutomationService : Service() {
                     restoreOrStopAutoHud()
 
                     baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
-                    if (!isNativeDaemonHandlingProfiles()) serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                    val baseDisplayName = notificationHelper.getProfileDisplayName(restoreTarget)
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                        triggerProfileFeedback(restoreTarget, "Kembali ke $baseDisplayName")
+                    }
                     activeCustomPkg = null
                     activeCustomPid = null
                     val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
@@ -629,7 +635,11 @@ class LynxAppAutomationService : Service() {
                         restoreOrStopAutoHud()
 
                         baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
-                        if (!isNativeDaemonHandlingProfiles()) serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                        val baseDisplayName = notificationHelper.getProfileDisplayName(restoreTarget)
+                        if (!isNativeDaemonHandlingProfiles()) {
+                            serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                            triggerProfileFeedback(restoreTarget, "Kembali ke $baseDisplayName")
+                        }
                         activeCustomPkg = null
                         activeCustomPid = null
                         val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
@@ -655,6 +665,32 @@ class LynxAppAutomationService : Service() {
             }
         } catch (_: Exception) {
             30000L
+        }
+    }
+
+    private fun triggerProfileFeedback(target: String, reason: String) {
+        try {
+            val prefs = getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
+            val style = prefs.getString("mode_feedback_style", null)
+                ?: if (java.io.File("/data/adb/lynx/feedback_style").exists()) {
+                    try { java.io.File("/data/adb/lynx/feedback_style").readText().trim() } catch (_: Exception) { "jewel_top" }
+                } else "jewel_top"
+
+            if (style == "disabled" || style == "status_bar") {
+                return
+            }
+
+            val feedbackIntent = Intent(LynxProfileReceiver.ACTION_PROFILE_CHANGED).apply {
+                setPackage(packageName)
+                putExtra("profile", target)
+                putExtra("extra_profile", target)
+                putExtra("reason", reason)
+                putExtra("extra_reason", reason)
+                putExtra("style", style)
+            }
+            sendBroadcast(feedbackIntent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to trigger profile feedback: ${e.message}")
         }
     }
 

@@ -1,3 +1,24 @@
+# Lynx Universal [Per-App Dynamic Island Feedback & Notch Cutout Geometry] 7.0.0-RC371
+Released on: 2026-11-08
+> Lynx Kernel Manager v3.3.95
+
+- **Pemunculan Kapsul Melayang Atas (Dynamic Island) pada Profiling Aplikasi Per-App**:
+  - **Penyiaran Umpan Balik Visual Otonom (`LynxAppAutomationService`)**:
+    - Memperbaiki akar penyebab di mana kapsul notifikasi melayang atas (`jewel_top` / Dynamic Island) tidak muncul saat membuka aplikasi yang di-profiling pada perangkat mode root standalone (tanpa modul Magisk/KSU terpasang, seperti Redmi Note 7).
+    - `LynxAppAutomationService` kini secara otomatis memicu siaran intent umpan balik visual (`ACTION_PROFILE_CHANGED`) dengan membawa nama aplikasi target (misal: "1DM+", "CapCut", "Geekbench 7", dsb.) saat aplikasi aktif terdeteksi.
+    - Menambahkan penyiaran pemulihan profil dasar (baseline profile) saat aplikasi target ditutup atau setelah durasi pendinginan (*cooldown timer*) berakhir (misal: "Mode Balance • Kembali ke Seimbang").
+  - **Eliminasi Tabrakan Notifikasi Layanan Latar Belakang (Foreground ID Conflict)**:
+    - Memindahkan ID notifikasi pada `LynxToastOverlayService` dari `8802` ke `8805`, mencegah pemanggilan `stopForeground(STOP_FOREGROUND_REMOVE)` menghapus notifikasi persistent milik `LynxAppAutomationService` yang berjalan pada ID `8802`.
+  - **Kompensasi Tinggi Bilah Status Dinamis & Poni Layar (Notch / Punch-Hole Geometry)**:
+    - Menggantikan offset vertikal statis `28dp` pada `LynxToastOverlayService` dengan penghitungan dimensi bilah status runtime (`status_bar_height`) + margin 8dp, memastikan kapsul melayang tampil presisi di bawah notch/waterdrop (seperti pada layar Redmi Note 7) tanpa terpotong atau menumpuk di atas ikon status bar.
+  - **Pemberian Label Kontekstual Aplikasi pada Kapsul**:
+    - `LynxToastOverlayService` kini membaca parameter alasan/aplikasi (`EXTRA_REASON`), menampilkan label mode yang informatif dan elegan (misal: `Mode Performance • 1DM+`) saat aplikasi diluncurkan.
+  - **Keandalan Eksekusi Daemon Native (`lynxd`)**:
+    - Menambahkan parameter pengguna `--user 0` pada pemanggilan `/system/bin/am broadcast` di `runner.rs` agar siaran transisi profil selalu terkirim ke pengguna utama Android.
+    - Menjamin pemanggilan CLI `lynxd profile apply` menunggu penyelesaian siaran sebelum proses keluar (*exit*).
+
+---
+
 # Lynx Universal [Real-Time HUD Profile Synchronization & Precision Dynamic Refresh Rate] 7.0.0-RC368
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.92

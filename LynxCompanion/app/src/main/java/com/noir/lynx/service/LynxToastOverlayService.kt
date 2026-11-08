@@ -67,7 +67,7 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         const val EXTRA_REASON = "extra_reason"
         const val EXTRA_STYLE = "extra_style"
         private const val NOTIF_CHANNEL_ID = "lynx_transient_toast_channel"
-        private const val NOTIF_ID = 8802
+        private const val NOTIF_ID = 8805
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -106,10 +106,14 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         val style = intent?.getStringExtra(EXTRA_STYLE)
             ?: intent?.getStringExtra("style")
             ?: "jewel_top"
+        val reason = intent?.getStringExtra(EXTRA_REASON)
+            ?: intent?.getStringExtra("reason")
+            ?: intent?.getStringExtra("extra_reason")
+            ?: ""
         currentStyle = style
 
         if (style == "system_toast") {
-            showReliableSystemToast(this, profile)
+            showReliableSystemToast(this, profile, reason)
             cleanUpAndStop()
             return START_NOT_STICKY
         }
@@ -120,7 +124,12 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
             "powersave" -> AppLocale.getString(this, R.string.profile_powersave) to 0xFF00E676L
             else -> AppLocale.getString(this, R.string.profile_balance) to 0xFF00A3FFL
         }
-        val label = AppLocale.getString(this, R.string.profile_mode_name_format, profileName)
+        val baseLabel = AppLocale.getString(this, R.string.profile_mode_name_format, profileName)
+        val label = if (reason.isNotBlank() && reason != "Manual" && reason != "Manual Select" && reason != "Quick Settings Tile" && reason != "QS Tile") {
+            "$baseLabel • $reason"
+        } else {
+            baseLabel
+        }
 
         val toastData = ModeToastData(
             modeId = profile,
@@ -159,6 +168,15 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         return START_NOT_STICKY
     }
 
+    private fun getStatusBarHeight(): Int {
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (resourceId > 0) {
+            resources.getDimensionPixelSize(resourceId)
+        } else {
+            (28 * resources.displayMetrics.density).toInt()
+        }
+    }
+
     private fun createOverlayWindow(style: String) {
         val isBottom = style == "jewel_bottom"
 
@@ -178,7 +196,9 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
         ).apply {
             gravity = if (isBottom) (Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL) else (Gravity.TOP or Gravity.CENTER_HORIZONTAL)
             val density = resources.displayMetrics.density
-            y = if (isBottom) (80 * density).toInt() else (28 * density).toInt()
+            val statusBarHeight = getStatusBarHeight()
+            val topOffset = statusBarHeight + (8 * density).toInt()
+            y = if (isBottom) (80 * density).toInt() else topOffset
         }
 
         val composeView = ComposeView(this).apply {
@@ -302,7 +322,7 @@ class LynxToastOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwn
  * Universal, reliable Android OS system toast dispatcher.
  * Safely dispatches synchronously on main looper or via handler if on worker thread.
  */
-fun showReliableSystemToast(context: Context, profile: String) {
+fun showReliableSystemToast(context: Context, profile: String, reason: String = "") {
     val (emoji, rawName) = when (profile.lowercase()) {
         "extreme" -> "🔥" to AppLocale.getString(context, R.string.profile_extreme)
         "performance" -> "⚡" to AppLocale.getString(context, R.string.profile_performance)
@@ -313,7 +333,10 @@ fun showReliableSystemToast(context: Context, profile: String) {
     if (cleanName.startsWith("Mode ", ignoreCase = true)) {
         cleanName = cleanName.substring(5).trim()
     }
-    val text = "$emoji Mode $cleanName Aktif"
+    val reasonSuffix = if (reason.isNotBlank() && reason != "Manual" && reason != "Manual Select" && reason != "Quick Settings Tile" && reason != "QS Tile") {
+        " • $reason"
+    } else ""
+    val text = "$emoji Mode $cleanName Aktif$reasonSuffix"
 
     try {
         if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {

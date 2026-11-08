@@ -68,15 +68,15 @@ class LynxProfileReceiver : BroadcastReceiver() {
                             }
                         } catch (e: Exception) {
                             Log.w(TAG, "Failed to start overlay service from background: ${e.message}, falling back to system toast")
-                            showReliableSystemToast(context, profile)
+                            showReliableSystemToast(context, profile, reason)
                         }
                     } else {
                         // Fallback to system toast if overlay permission is not granted
-                        showReliableSystemToast(context, profile)
+                        showReliableSystemToast(context, profile, reason)
                     }
                 }
                 "system_toast" -> {
-                    showReliableSystemToast(context, profile)
+                    showReliableSystemToast(context, profile, reason)
                 }
                 "status_bar", "header_morph", "disabled" -> {
                     // No on-screen visual overlay/toast
@@ -98,10 +98,10 @@ class LynxProfileReceiver : BroadcastReceiver() {
                                 context.startService(serviceIntent)
                             }
                         } catch (_: Exception) {
-                            showReliableSystemToast(context, profile)
+                            showReliableSystemToast(context, profile, reason)
                         }
                     } else {
-                        showReliableSystemToast(context, profile)
+                        showReliableSystemToast(context, profile, reason)
                     }
                 }
             }
