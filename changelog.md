@@ -1,3 +1,38 @@
+# Lynx Universal [Zero-Hang Splash Initialization & High-Current Tapering Lock to 90%] 7.0.0-RC374
+Released on: 2026-11-08
+> Lynx Kernel Manager v3.3.98
+
+- **Pemberantasan Tuntas Hang Splash Screen "Menginisialisasi Kernel Root Engine..."**:
+  - **Asinkronisasi Penuh Background Daemon Sync & KGSL**:
+    - Memindahkan pemanggilan sinkronisasi biner daemon (`ensureDaemonRunning`) dan perizinan sysfs KGSL (`ensureKgslPermissions`) ke dalam background coroutine terisolasi tanpa memblokir thread inisialisasi antarmuka utama.
+  - **Mekanisme Resilient Safety Timeout (`withTimeoutOrNull(2500L)`)**:
+    - Membungkus seluruh 12 tugas hidrasi inti (clusters, state, telemetry, native status, dll.) dalam batas waktu pengaman 2.500 ms dengan graceful fallback seketika (`isLoading = false`), menjamin dashboard selalu terbuka dalam hitungan milidetik dan bebas dari potensi freeze/ANR pada perangkat dengan respon root shell lambat.
+- **Ekstensi & Kestabilan Arus Tinggi (High-Current Unclamp) Hingga 90% SoC**:
+  - **Peningkatan Batas Unclamp Qualcomm ke 90%**:
+    - Memperluas ambang batas `qcom_unclamp_active` dan `qcom_stalled` dari 85% menjadi 90% SoC (`cur_cap < 90`), menjaga negosiasi arus maksimum (~3000 mA) tetap terkunci stabil dan tidak tercekik sebelum memasuki kurva saturasi akhir.
+  - **Preservasi `fastcharge_mode` & Xiaomi Thermal Invariants pada Mode Tergulasi**:
+    - Memastikan `fastcharge_mode = 1`, `fast_charge = 1`, `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, serta override pesan termal (`boost = 1`, `sconfig = 0`, `temp_state = 0`) tetap aktif di dalam `apply_regulated_charging()` pada arsitektur Qualcomm.
+  - **Koreksi Tapering Fisik Li-ion**:
+    - Membuka plafon software secara maksimal hingga hukum fisika sel (Constant Voltage float cutoff pada 4.25V–4.35V) mengambil alih secara bertahap dan aman tanpa pencekikan sepihak dari kernel OEM.
+
+---
+# Lynx Universal [Qualcomm Sustained 3000mA Charging & Deep Sleep Kernel Unclamp] 7.0.0-RC373
+Released on: 2026-11-08
+> Lynx Kernel Manager v3.3.97
+
+- **Pemberantasan Throttling Arus Pengisian Qualcomm & Xiaomi saat Layar Mati (Screen-Off & Deep Sleep)**:
+  - **Deaktivasi Total Kernel `step_charging_enabled` & `sw_jeita_enabled`**:
+    - Menonaktifkan flag `step_charging_enabled` (0) dan `sw_jeita_enabled` (0) secara menyeluruh pada `apply_standard_mode()`, `apply_regulated_charging()`, dan `StandardChargingScript.kt`.
+    - Mencegah driver kernel Xiaomi `step_chg_jeita` mencekik arus secara sepihak dari 3000mA ke 1000mA saat baterai melewati 60% atau suhu termal 40°C.
+  - **Elevasi Threshold Qualcomm Autonomous Anti-Throttle Watchdog**:
+    - Memperbarui deteksi stall pada `ChargingRegulator::tick()` dari ambang lama (< 800 mA / < 400 mA) menjadi ambang presisi (< 2000 mA saat kapasitas baterai < 85% atau FCC tercekik di bawah `silicon_ceiling_ua - 400mA`).
+    - Mempersingkat jeda deteksi dari 5 siklus menjadi 2 siklus (2 detik) agar restorasi arus penuh (~3000 mA) langsung aktif seketika saat kernel mencoba menurunkan limit pengisian.
+  - **Pelepasan Kunci Invarian Pengisian Qualcomm (`enforce_live_charging_invariants`)**:
+    - Melepaskan ketergantungan penguncian arus dari flag murni `is_hyper`. Setiap kali baterai Qualcomm berada di bawah 85% dan bypass tidak aktif, daemon `lynxd` secara proaktif mengunci hardware unclamp (`boost = 1`, `sconfig = 0`, `temp_state = 0`, `thermal_input_current_limit = -1`) dan memulihkan `constant_charge_current_max` ke plafon silikon PMIC (3000–3150 mA).
+  - **Preservasi Mode Fastcharge pada Mode Standar**:
+    - Memastikan `fastcharge_mode = 1`, `fast_charge = 1`, dan `boost_current = 1` tetap menyala saat profil standar aktif, menjaga negosiasi QC 3.0 / HVDCP3 stabil tanpa gangguan.
+
+---
 # Lynx Universal [Compact Dynamic Island Typography & Foreground Redundancy Shield] 7.0.0-RC372
 Released on: 2026-11-08
 > Lynx Kernel Manager v3.3.96

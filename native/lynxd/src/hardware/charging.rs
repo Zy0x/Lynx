@@ -1405,9 +1405,10 @@ impl ChargingRegulator {
             let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
         }
 
-        if is_hyper && is_qcom {
+        let qcom_unclamp_active = is_qcom && cur_cap < 90 && !cfg.bypass_enabled;
+        if (is_hyper || qcom_unclamp_active) && is_qcom {
             Self::apply_qcom_thermal_engine_bind_mount();
-            // Xiaomi & Qualcomm Screen-On Hardware Unclamp & HVDCP Protection
+            // Xiaomi & Qualcomm Screen-On & Deep Sleep Hardware Unclamp & HVDCP Protection
             Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
             Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
             Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
@@ -1418,6 +1419,9 @@ impl ChargingRegulator {
             Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
             Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
+            Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
+            Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
@@ -1426,7 +1430,7 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         }
 
-        if is_hyper {
+        if is_hyper || qcom_unclamp_active {
             let target_peak_ma = if is_qcom && !Self::has_qcom_direct_charge_pump() {
                 (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32
             } else if cfg.limit_current_ma >= 2000 {
@@ -1473,10 +1477,10 @@ impl ChargingRegulator {
             let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
             let fcc_cooldown_expired = now_sec.saturating_sub(last_fcc) >= 15;
 
-            // In Hyper Mode: keep charging at peak without spamming SPMI bus.
+            // In Hyper or Qualcomm unclamp: keep charging at peak without spamming SPMI bus.
             // Enforce at least a 15-second cooldown before reapplying lowered limits to prevent SPMI driver mutex contention.
             let fcc_needs_reapply = if fcc_cooldown_expired {
-                if is_hyper {
+                if is_hyper || qcom_unclamp_active {
                     cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
                 } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
                     false
@@ -1488,7 +1492,7 @@ impl ChargingRegulator {
             };
 
             let usb_needs_reapply = if fcc_cooldown_expired {
-                if is_hyper {
+                if is_hyper || qcom_unclamp_active {
                     cur_usb > 0 && cur_usb < (target_usb_ua - 200_000)
                 } else if is_high_voltage || is_pd_active {
                     false
@@ -1502,7 +1506,7 @@ impl ChargingRegulator {
             };
 
             let in_lim_needs_reapply = if fcc_cooldown_expired {
-                if is_hyper {
+                if is_hyper || qcom_unclamp_active {
                     cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 200_000)
                 } else if is_high_voltage || is_pd_active {
                     false
@@ -2615,6 +2619,7 @@ impl ChargingRegulator {
         };
         let effective_ua_str = (effective_ma as u64 * 1000).to_string();
         let effective_ma_str = effective_ma.to_string();
+        let is_qcom = Self::is_qualcomm_soc();
 
         Self::ensure_mtk_power_path_enabled();
         Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
@@ -2627,8 +2632,13 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-        Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
-        Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
+        if effective_ma >= 2000 || is_qcom {
+            Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "1");
+            Self::write_node(&format!("{}/fast_charge", BATT_DIR), "1");
+        } else {
+            Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
+            Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
+        }
         Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
 
         let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
@@ -2653,7 +2663,6 @@ impl ChargingRegulator {
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
         }
 
-        let is_qcom = Self::is_qualcomm_soc();
         let mtk_input_ma = Self::calculate_regulated_input_current_ma(effective_ma, adpv_clean);
         let mtk_input_str = mtk_input_ma.to_string();
         let mtk_input_ua_str = (mtk_input_ma as u64 * 1000).to_string();
@@ -2692,7 +2701,11 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
+            Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
+            Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
         } else {
             // MediaTek: Write limits to hardware registers (base-16 uA) while preserving write permissions (0666)!
             // Locking to 0444 prevents driver update workers and breaks subsequent mode switches!
@@ -2749,9 +2762,8 @@ impl ChargingRegulator {
                     Self::write_node_lock(&node, "0");
                 }
                 "step_charging_enabled" => {
-                    // For Qualcomm: Ensure step charging is active (1) so the kernel step-chg-jeita
-                    // state machine advances to the full-voltage termination phase!
-                    Self::write_node(&node, "1");
+                    // Keep kernel step-chg-jeita disabled (0) to prevent artificial throttling at 60% SoC / 40°C
+                    Self::write_node(&node, "0");
                 }
                 _ => {}
             }
@@ -2801,12 +2813,10 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
         Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "1");
         Self::write_node(&format!("{}/fast_charge", BATT_DIR), "1");
+        Self::write_node(&format!("{}/boost_current", BATT_DIR), "1");
         Self::write_node(&format!("{}/pd_allowed", USB_DIR), "1");
         Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
         Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
-        Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-        Self::write_node(&format!("{}/fastcharge_mode", BATT_DIR), "0");
-        Self::write_node(&format!("{}/fast_charge", BATT_DIR), "0");
         let is_qcom = Self::is_qualcomm_soc();
         if is_qcom {
             let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
@@ -2816,14 +2826,23 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
+            Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
+            Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
         } else {
             Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
         }
-        Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "1");
 
         // Unthrottle throttled PMIC current registers to clean baseline fast charging
-        let default_limit_ua = if is_qcom { "3000000" } else { "2500000" };
+        let default_limit_ua = if is_qcom {
+            Self::probe_silicon_charge_ceiling_ua().to_string()
+        } else {
+            "2500000".to_string()
+        };
         for node in &[
             format!("{}/constant_charge_current_max", BATT_DIR),
             format!("{}/constant_charge_current", BATT_DIR),
@@ -2834,7 +2853,7 @@ impl ChargingRegulator {
         ] {
             if Path::new(node).exists() {
                 Self::set_perm(node, 0o666);
-                Self::write_node(node, default_limit_ua);
+                Self::write_node(node, &default_limit_ua);
             }
         }
 
@@ -4621,16 +4640,17 @@ impl ChargingRegulator {
             let target_limit_str = silicon_ceiling_ua.to_string();
             let target_ma_str = (silicon_ceiling_ua / 1000).to_string();
 
-            // Only consider genuinely choked if register limits or flowing current are crippled to SDP levels (< 800 mA)
-            let qcom_stalled = (cur_usb > 0 && cur_usb < 800_000)
-                || (cur_fcc > 0 && cur_fcc < 800_000)
-                || (cur_now_ma < 400 && cur_cap < 85);
+            // Autonomous Anti-Throttle: Detect if Qualcomm/Xiaomi kernel or thermal-engine throttled charging below 2000mA or choked registers
+            let is_stalled_current = cur_cap < 90 && cur_now_ma > 0 && cur_now_ma < 2000;
+            let is_choked_register = cur_fcc > 0 && cur_fcc < (silicon_ceiling_ua as i64 - 400_000);
+            let is_choked_usb = cur_usb > 0 && cur_usb < 2_000_000;
+            let qcom_stalled = cur_cap < 90 && (is_choked_register || is_choked_usb || is_stalled_current);
 
             if qcom_stalled {
                 let marker_path = "/dev/lynx_qcom_stalled_count";
                 let count = Self::read_i64(marker_path).unwrap_or(0);
-                // Require at least 5 consecutive stalled cycles (5 seconds) to avoid false positives during ramp
-                if count >= 5 {
+                // Require 2 consecutive cycles (2 seconds) to avoid false positive during rapid ramp
+                if count >= 2 {
                     let _ = fs::remove_file(marker_path);
 
                     // Enforce a strict 60-second cooldown between rerun_aicl triggers
@@ -4675,6 +4695,9 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
                     Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
                     Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
+                    Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
+                    Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
                     Self::neutralise_battery_cooling_devices();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());

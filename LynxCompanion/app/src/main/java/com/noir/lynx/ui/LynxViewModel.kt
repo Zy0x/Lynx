@@ -24,6 +24,7 @@ import android.util.Log
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
@@ -66,62 +67,82 @@ class LynxViewModel : ViewModel() {
 
             if (rootAvailable) {
                 try {
-                    LynxRepository.ensureDaemonRunning()
-                    LynxRepository.ensureKgslPermissions()
+                    // Daemon background verification and KGSL permissions ran concurrently without blocking initial UI
+                    viewModelScope.launch(Dispatchers.IO) {
+                        try {
+                            LynxRepository.ensureDaemonRunning()
+                            LynxRepository.ensureKgslPermissions()
+                        } catch (_: Exception) {}
+                    }
 
-                    // Stage 1: Ultra-fast parallelized core state hydration (<120ms via concurrent IO)
-                    val stateDeferred = async { LynxRepository.readState() }
-                    val kernelProfilesDeferred = async { LynxRepository.readKernelProfileCatalog() }
-                    val clustersDeferred = async { LynxRepository.readClusters() }
-                    val telemetryDeferred = async { LynxRepository.readTelemetry() }
-                    val nativeStatusDeferred = async { LynxRepository.readNativeStatus() }
-                    val gpuInfoDeferred = async { LynxRepository.readGpuInfo() }
-                    val cpuCoresDeferred = async { LynxRepository.readCpuCores() }
-                    val statLoadsDeferred = async { LynxRepository.readCpuStatLoads() }
-                    val socPlatformNameDeferred = async { LynxRepository.getSocPlatformName() }
-                    val batteryDetailsDeferred = async { LynxRepository.readBatteryDetails() }
-                    val thermalZonesDeferred = async { LynxRepository.readThermalZones() }
-                    val cachedTunablesDeferred = async { LynxRepository.loadCachedDeepTunables() }
+                    // Stage 1: Ultra-fast parallelized core state hydration with resilient safety timeout (<2500ms max)
+                    val hydrated = withTimeoutOrNull(2500L) {
+                        val stateDeferred = async { LynxRepository.readState() }
+                        val kernelProfilesDeferred = async { LynxRepository.readKernelProfileCatalog() }
+                        val clustersDeferred = async { LynxRepository.readClusters() }
+                        val telemetryDeferred = async { LynxRepository.readTelemetry() }
+                        val nativeStatusDeferred = async { LynxRepository.readNativeStatus() }
+                        val gpuInfoDeferred = async { LynxRepository.readGpuInfo() }
+                        val cpuCoresDeferred = async { LynxRepository.readCpuCores() }
+                        val statLoadsDeferred = async { LynxRepository.readCpuStatLoads() }
+                        val socPlatformNameDeferred = async { LynxRepository.getSocPlatformName() }
+                        val batteryDetailsDeferred = async { LynxRepository.readBatteryDetails() }
+                        val thermalZonesDeferred = async { LynxRepository.readThermalZones() }
+                        val cachedTunablesDeferred = async { LynxRepository.loadCachedDeepTunables() }
 
-                    val state = stateDeferred.await()
-                    val kernelProfiles = kernelProfilesDeferred.await()
-                    val clusters = clustersDeferred.await()
-                    val telemetry = telemetryDeferred.await()
-                    val nativeStatus = nativeStatusDeferred.await()
-                    val gpuInfo = gpuInfoDeferred.await()
-                    val cpuCores = cpuCoresDeferred.await()
-                    val statLoads = statLoadsDeferred.await()
-                    val socPlatformName = socPlatformNameDeferred.await()
-                    val batteryDetails = batteryDetailsDeferred.await()
-                    val thermalZones = thermalZonesDeferred.await()
-                    val cachedTunables = cachedTunablesDeferred.await()
+                        val state = stateDeferred.await()
+                        val kernelProfiles = kernelProfilesDeferred.await()
+                        val clusters = clustersDeferred.await()
+                        val telemetry = telemetryDeferred.await()
+                        val nativeStatus = nativeStatusDeferred.await()
+                        val gpuInfo = gpuInfoDeferred.await()
+                        val cpuCores = cpuCoresDeferred.await()
+                        val statLoads = statLoadsDeferred.await()
+                        val socPlatformName = socPlatformNameDeferred.await()
+                        val batteryDetails = batteryDetailsDeferred.await()
+                        val thermalZones = thermalZonesDeferred.await()
+                        val cachedTunables = cachedTunablesDeferred.await()
 
-                    val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
+                        val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
 
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isRootAvailable = true,
-                            isModuleInstalled = moduleInstalled,
-                            state = state,
-                            kernelProfileCatalog = kernelProfiles,
-                            nativeStatus = nativeStatus,
-                            cpuComprehensiveProfile = resolveCpuProfileForState(state, kernelProfiles),
-                            isCpuModified = state.profileOverrides.containsKey(ProfileDomain.CPU),
-                            clusters = clusters,
-                            telemetry = telemetry,
-                            gpuInfo = gpuInfo,
-                            cpuCores = cpuCores,
-                            thermalZones = thermalZones.ifEmpty { it.thermalZones },
-                            totalCpuLoadPercent = statLoads.first,
-                            cpuLoadHistory = listOf(statLoads.first),
-                            socPlatformName = socPlatformName,
-                            socTopology = socTopology,
-                            batteryDetails = batteryDetails,
-                            deepTunables = cachedTunables,
-                            isAppRulesLoading = true,
-                            lastSyncedAt = System.currentTimeMillis(),
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isRootAvailable = true,
+                                isModuleInstalled = moduleInstalled,
+                                state = state,
+                                kernelProfileCatalog = kernelProfiles,
+                                nativeStatus = nativeStatus,
+                                cpuComprehensiveProfile = resolveCpuProfileForState(state, kernelProfiles),
+                                isCpuModified = state.profileOverrides.containsKey(ProfileDomain.CPU),
+                                clusters = clusters,
+                                telemetry = telemetry,
+                                gpuInfo = gpuInfo,
+                                cpuCores = cpuCores,
+                                thermalZones = thermalZones.ifEmpty { it.thermalZones },
+                                totalCpuLoadPercent = statLoads.first,
+                                cpuLoadHistory = listOf(statLoads.first),
+                                socPlatformName = socPlatformName,
+                                socTopology = socTopology,
+                                batteryDetails = batteryDetails,
+                                deepTunables = cachedTunables,
+                                isAppRulesLoading = true,
+                                lastSyncedAt = System.currentTimeMillis(),
+                            )
+                        }
+                        true
+                    }
+
+                    if (hydrated == null) {
+                        // Resilient Fallback: Dismiss loading screen instantly so user never gets stuck!
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isRootAvailable = true,
+                                isModuleInstalled = moduleInstalled,
+                                lastSyncedAt = System.currentTimeMillis()
+                            )
+                        }
                     }
                     // Start background observers immediately so UI is live, interactive, and responsive (<200ms)
                     startFileObserver()
@@ -181,7 +202,7 @@ class LynxViewModel : ViewModel() {
                         val protectedTasks = ProtectedTaskManager.getDefaultProtectedTasks()
                         val cpusetBackend = CpuSetBackendFactory.detect()
                         val schedBackend = SchedulerBackendFactory.detect()
-                        val clusterIdle = CpuIdleDetector.detectClusterIdle(cpuCores.size.coerceAtLeast(8))
+                        val clusterIdle = CpuIdleDetector.detectClusterIdle(_uiState.value.cpuCores.size.coerceAtLeast(8))
                         val schedInfo = LynxRepository.readSchedulerInfo()
                         val cpuSets = LynxRepository.readCpuSetsInfo()
                         val cpuIdle = LynxRepository.readCpuIdleInfo()

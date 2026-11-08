@@ -32,14 +32,22 @@ object StandardChargingScript {
                     /sys/class/power_supply/battery/input_suspend \
                     /sys/class/power_supply/battery/charging_enabled \
                     /sys/class/power_supply/battery/fastcharge_mode \
-                    /sys/class/power_supply/battery/fast_charge; do
+                    /sys/class/power_supply/battery/fast_charge \
+                    /sys/class/power_supply/battery/step_charging_enabled \
+                    /sys/class/power_supply/battery/sw_jeita_enabled; do
             [ -e "${'$'}node" ] || continue
             case "${'$'}node" in
-                */sw_jeita|*/BatteryNotify|*/charging_enabled) echo 1 > "${'$'}node" 2>/dev/null ;;
+                */charging_enabled|*/fastcharge_mode|*/fast_charge) echo 1 > "${'$'}node" 2>/dev/null ;;
                 *) echo 0 > "${'$'}node" 2>/dev/null ;;
             esac
             if [ "${'$'}?" -eq 0 ]; then applied=1; else failed=1; fi
         done
+        # Xiaomi & Qualcomm hardware unclamp for screen-off & deep sleep
+        echo 1 > /sys/class/thermal/thermal_message/boost 2>/dev/null
+        echo 0 > /sys/class/thermal/thermal_message/sconfig 2>/dev/null
+        echo 0 > /sys/class/thermal/thermal_message/temp_state 2>/dev/null
+        echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
+        echo 0 > /sys/class/power_supply/battery/sw_jeita_enabled 2>/dev/null
         for node in /sys/class/power_supply/battery/constant_charge_current_max \
                     /sys/class/power_supply/battery/constant_charge_current \
                     /sys/class/power_supply/battery/input_current_limit \
