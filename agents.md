@@ -357,19 +357,20 @@ Setiap AI Agent yang bekerja pada repositori ini **WAJIB** mematuhi pedoman oper
      `/storage/emulated/0/Debug/` (alias `/sdcard/Debug/`).
    - **Larangan Keras Penulisan Liar**:
      - **DILARANG KERAS** meletakkan berkas di luar folder tersebut, terutama langsung di root internal storage (`/sdcard/`, `/storage/emulated/0/`).
-     - **DILARANG KERAS** menumpuk atau meninggalkan berkas dump, gambar uji, skrip sementara, maupun log di folder temp sistem (`/data/local/tmp/`).
+      - **DILARANG KERAS** menumpuk atau meninggalkan berkas dump, gambar uji (`*.png`), skrip sementara, boot image (`*.img`), maupun log di folder temp sistem (`/data/local/tmp/`).
    - **Protokol Pembersihan Seketika (Immediate Post-Pull Zero-Trace Cleanup — SYARAT MUTLAK)**:
+     - **Tujuan Utama**: Mencegah terjadinya pembengkakan kapasitas penyimpanan internal (*internal storage bloat*) pada perangkat fisik pengguna akibat penumpukan file tangkapan layar, dump, atau artefak biner sementara.
      - Begitu berkas selesai ditarik ke PC lokal/folder artifact melalui perintah `adb pull`, agen **WAJIB SEKETIKA ITU JUGA** menghapus berkas-berkas tersebut dari perangkat target tanpa menunda:
        ```bash
        # Pola standar penarikan dan pembersihan instan:
        adb -s <SERIAL> pull /sdcard/Debug/screen_sample.png ./local_path/
        adb -s <SERIAL> shell "rm -f /sdcard/Debug/screen_sample.png"
        ```
-     - Jika rangkaian pengujian selesai, agen **WAJIB** memastikan direktori `/sdcard/Debug/`, root `/sdcard/`, dan `/data/local/tmp/` benar-benar bersih dari seluruh artefak uji:
+     - Jika rangkaian pengujian selesai, agen **WAJIB** memastikan direktori `/sdcard/Debug/`, `/sdcard/debug/`, root `/sdcard/`, dan `/data/local/tmp/` benar-benar bersih dari seluruh artefak uji:
        ```bash
-       adb -s <SERIAL> shell "rm -rf /sdcard/Debug/* /data/local/tmp/*.png /data/local/tmp/*.xml 2>/dev/null"
+       adb -s <SERIAL> shell "rm -rf /sdcard/Debug/* /sdcard/debug/* /sdcard/*.png /data/local/tmp/*.png /data/local/tmp/*.xml /data/local/tmp/*.img /data/local/tmp/*.apk /data/local/tmp/*.txt 2>/dev/null"
        ```
-     - **Toleransi Nol Terhadap Sampah Sisa Pengujian**: Tidak boleh ada satu pun berkas `.png`, `.xml`, `.log`, atau temporary artifacts yang tertinggal di `/sdcard/Debug/`, di root `/sdcard/`, maupun di `/data/local/tmp/`. Perangkat fisik pengguna wajib selalu dalam kondisi higienis dan bebas dari residu pengujian otomatis AI.
+     - **Toleransi Nol Terhadap Sampah Sisa Pengujian**: Tidak boleh ada satu pun berkas `.png`, `.xml`, `.log`, `.img`, `.apk`, atau temporary artifacts yang tertinggal di `/sdcard/Debug/`, `/sdcard/debug/`, di root `/sdcard/`, maupun di `/data/local/tmp/`. Perangkat fisik pengguna wajib selalu dalam kondisi higienis dan bebas dari residu pengujian otomatis AI demi menjaga kapasitas storage internal perangkat.
    - Sebelum mengeksekusi penulisan atau penyimpanan berkas pada **Infinix X698**, selalu pastikan folder penampung sementara telah dibuat:
      `mkdir -p /storage/emulated/0/Debug 2>/dev/null`
    - ⚠️ **Pengecualian Mutlak untuk Redmi Note 7 (`lavender`)**: Dilarang membuat folder `/storage/emulated/0/Debug/` atau menulis berkas apapun di Redmi Note 7! Seluruh sampel dari Redmi Note 7 wajib dialirkan via stdout ADB langsung ke PC lokal di `archive/device_reference/redmi_note_7_sdm660/`.
