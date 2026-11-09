@@ -1,3 +1,19 @@
+# Lynx Universal [Qualcomm 1500mA Thermal Clamping Immunity & Software 9V HVDCP Re-Arm] 7.0.0-RC375
+Released on: 2026-11-09
+> Lynx Kernel Manager v3.3.99
+
+- **Pemberantasan Throttling Arus 1500mA Akibat JEITA & Xiaomi Thermal-Engine Saat Baterai Hangat (45°C+)**:
+  - **Kunci Mutlak Sysfs Read-Only (`0444`) untuk Register Throttling Qualcomm**:
+    - Mengunci register `system_temp_level = 0`, `thermal_input_current_limit = -1`, `step_charging_enabled = 0`, dan `sw_jeita_enabled = 0` dengan izin `0444` (read-only) secara berkala di daemon `lynxd`.
+    - Mencegah daemon sistem Xiaomi (`/vendor/bin/thermal-engine` / `mi_thermald`) dan algoritma JEITA kernel menimpa balik batas arus pengisian menjadi 1500mA saat suhu baterai melampaui ambang batas 45°C.
+  - **Injeksi Negosiasi Tegangan Tinggi 9V QC 3.0 Tanpa Replug Fisik (`rerun_apsd`)**:
+    - Menambahkan pemicu `rerun_apsd` (Auto Power Source Detection) pada USB dan Battery node untuk memaksa PMIC PM660 melakukan handshake pulsa D+/D- Quick Charge 3.0 (9V HVDCP) langsung secara software, menaikkan rel tegangan input tanpa mengharuskan pengguna mencabut-pasang kabel secara fisik.
+    - Mengunci register `allow_hvdcp3 = 1` dan `hvdcp_opti_allowed = 1` dengan izin `0444` agar tidak diturunkan ke mode standar 5V DCP oleh proteksi OEM.
+  - **Dekopling Unclamp Arus dari Cooldown AICL di Regulator Daemon**:
+    - Memastikan penulisan register arus 3000mA tidak tertahan oleh buffer waktu 60 detik `rerun_aicl`, sehingga unclamp berjalan instan setiap kali terjadi penurunan arus abnormal.
+
+---
+
 # Lynx Universal [Zero-Hang Splash Initialization & High-Current Tapering Lock to 90%] 7.0.0-RC374
 Released on: 2026-11-08
 > Lynx Kernel Manager v3.3.98
@@ -13,7 +29,7 @@ Released on: 2026-11-08
   - **Preservasi `fastcharge_mode` & Xiaomi Thermal Invariants pada Mode Tergulasi**:
     - Memastikan `fastcharge_mode = 1`, `fast_charge = 1`, `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, serta override pesan termal (`boost = 1`, `sconfig = 0`, `temp_state = 0`) tetap aktif di dalam `apply_regulated_charging()` pada arsitektur Qualcomm.
   - **Koreksi Tapering Fisik Li-ion**:
-    - Membuka plafon software secara maksimal hingga hukum fisika sel (Constant Voltage float cutoff pada 4.25V–4.35V) mengambil alih secara bertahap dan aman tanpa pencekikan sepihak dari kernel OEM.
+    - Membuka plafon software secara maksimal hingga hukum fisika sel (Constant Voltage float cutoff pada 4.25Vâ4.35V) mengambil alih secara bertahap dan aman tanpa pencekikan sepihak dari kernel OEM.
 
 ---
 # Lynx Universal [Qualcomm Sustained 3000mA Charging & Deep Sleep Kernel Unclamp] 7.0.0-RC373
@@ -23,12 +39,12 @@ Released on: 2026-11-08
 - **Pemberantasan Throttling Arus Pengisian Qualcomm & Xiaomi saat Layar Mati (Screen-Off & Deep Sleep)**:
   - **Deaktivasi Total Kernel `step_charging_enabled` & `sw_jeita_enabled`**:
     - Menonaktifkan flag `step_charging_enabled` (0) dan `sw_jeita_enabled` (0) secara menyeluruh pada `apply_standard_mode()`, `apply_regulated_charging()`, dan `StandardChargingScript.kt`.
-    - Mencegah driver kernel Xiaomi `step_chg_jeita` mencekik arus secara sepihak dari 3000mA ke 1000mA saat baterai melewati 60% atau suhu termal 40°C.
+    - Mencegah driver kernel Xiaomi `step_chg_jeita` mencekik arus secara sepihak dari 3000mA ke 1000mA saat baterai melewati 60% atau suhu termal 40Â°C.
   - **Elevasi Threshold Qualcomm Autonomous Anti-Throttle Watchdog**:
     - Memperbarui deteksi stall pada `ChargingRegulator::tick()` dari ambang lama (< 800 mA / < 400 mA) menjadi ambang presisi (< 2000 mA saat kapasitas baterai < 85% atau FCC tercekik di bawah `silicon_ceiling_ua - 400mA`).
     - Mempersingkat jeda deteksi dari 5 siklus menjadi 2 siklus (2 detik) agar restorasi arus penuh (~3000 mA) langsung aktif seketika saat kernel mencoba menurunkan limit pengisian.
   - **Pelepasan Kunci Invarian Pengisian Qualcomm (`enforce_live_charging_invariants`)**:
-    - Melepaskan ketergantungan penguncian arus dari flag murni `is_hyper`. Setiap kali baterai Qualcomm berada di bawah 85% dan bypass tidak aktif, daemon `lynxd` secara proaktif mengunci hardware unclamp (`boost = 1`, `sconfig = 0`, `temp_state = 0`, `thermal_input_current_limit = -1`) dan memulihkan `constant_charge_current_max` ke plafon silikon PMIC (3000–3150 mA).
+    - Melepaskan ketergantungan penguncian arus dari flag murni `is_hyper`. Setiap kali baterai Qualcomm berada di bawah 85% dan bypass tidak aktif, daemon `lynxd` secara proaktif mengunci hardware unclamp (`boost = 1`, `sconfig = 0`, `temp_state = 0`, `thermal_input_current_limit = -1`) dan memulihkan `constant_charge_current_max` ke plafon silikon PMIC (3000â3150 mA).
   - **Preservasi Mode Fastcharge pada Mode Standar**:
     - Memastikan `fastcharge_mode = 1`, `fast_charge = 1`, dan `boost_current = 1` tetap menyala saat profil standar aktif, menjaga negosiasi QC 3.0 / HVDCP3 stabil tanpa gangguan.
 
@@ -66,13 +82,13 @@ Released on: 2026-11-08
   - **Penyiaran Umpan Balik Visual Otonom (`LynxAppAutomationService`)**:
     - Memperbaiki akar penyebab di mana kapsul notifikasi melayang atas (`jewel_top` / Dynamic Island) tidak muncul saat membuka aplikasi yang di-profiling pada perangkat mode root standalone (tanpa modul Magisk/KSU terpasang, seperti Redmi Note 7).
     - `LynxAppAutomationService` kini secara otomatis memicu siaran intent umpan balik visual (`ACTION_PROFILE_CHANGED`) dengan membawa nama aplikasi target (misal: "1DM+", "CapCut", "Geekbench 7", dsb.) saat aplikasi aktif terdeteksi.
-    - Menambahkan penyiaran pemulihan profil dasar (baseline profile) saat aplikasi target ditutup atau setelah durasi pendinginan (*cooldown timer*) berakhir (misal: "Mode Balance • Kembali ke Seimbang").
+    - Menambahkan penyiaran pemulihan profil dasar (baseline profile) saat aplikasi target ditutup atau setelah durasi pendinginan (*cooldown timer*) berakhir (misal: "Mode Balance â¢ Kembali ke Seimbang").
   - **Eliminasi Tabrakan Notifikasi Layanan Latar Belakang (Foreground ID Conflict)**:
     - Memindahkan ID notifikasi pada `LynxToastOverlayService` dari `8802` ke `8805`, mencegah pemanggilan `stopForeground(STOP_FOREGROUND_REMOVE)` menghapus notifikasi persistent milik `LynxAppAutomationService` yang berjalan pada ID `8802`.
   - **Kompensasi Tinggi Bilah Status Dinamis & Poni Layar (Notch / Punch-Hole Geometry)**:
     - Menggantikan offset vertikal statis `28dp` pada `LynxToastOverlayService` dengan penghitungan dimensi bilah status runtime (`status_bar_height`) + margin 8dp, memastikan kapsul melayang tampil presisi di bawah notch/waterdrop (seperti pada layar Redmi Note 7) tanpa terpotong atau menumpuk di atas ikon status bar.
   - **Pemberian Label Kontekstual Aplikasi pada Kapsul**:
-    - `LynxToastOverlayService` kini membaca parameter alasan/aplikasi (`EXTRA_REASON`), menampilkan label mode yang informatif dan elegan (misal: `Mode Performance • 1DM+`) saat aplikasi diluncurkan.
+    - `LynxToastOverlayService` kini membaca parameter alasan/aplikasi (`EXTRA_REASON`), menampilkan label mode yang informatif dan elegan (misal: `Mode Performance â¢ 1DM+`) saat aplikasi diluncurkan.
   - **Keandalan Eksekusi Daemon Native (`lynxd`)**:
     - Menambahkan parameter pengguna `--user 0` pada pemanggilan `/system/bin/am broadcast` di `runner.rs` agar siaran transisi profil selalu terkirim ke pengguna utama Android.
     - Menjamin pemanggilan CLI `lynxd profile apply` menunggu penyelesaian siaran sebelum proses keluar (*exit*).
@@ -110,7 +126,7 @@ Released on: 2026-11-07
   - **Pemberantasan Halaman Ganda yang Membingungkan (*Eliminate Page 0 Input Adaptor*)**:
     - Menghilangkan *Horizontal Pager* dan sub-tampilan *Input Adaptor* yang menampilkan angka terpisah (*Daya Adaptor / Tegangan Charger / Arus Charger*) yang sebelumnya memicu ambiguitas dan kebingungan pengguna atas arus pengisian riil.
   - **Fokus Tunggal pada Arus & Daya Bersih Sel Baterai**:
-    - Menyatukan kartu hero ke satu tampilan bento 2×2 permanen, solid, dan definitif:
+    - Menyatukan kartu hero ke satu tampilan bento 2Ã2 permanen, solid, dan definitif:
       - **Daya Baterai**: Watt bersih yang masuk mengisi sel baterai.
       - **Suhu Baterai**: Suhu riil sensor baterai/BMS.
       - **Tegangan Sel**: Tegangan sel baterai real-time (Fuel Gauge IC).
@@ -126,7 +142,7 @@ Released on: 2026-11-07
 
 - **Penuntasan Pembatasan Arus Layar Menyala (Screen-On Throttling) & Perbaikan Sinkronisasi Mode Hyper (Qualcomm PM660 / Redmi Note 7)**:
   - **Pencegahan Throttling Layar Menyala via Penegakan Invariant Perangkat Keras**:
-    - Teridentifikasi bahwa pada perangkat Qualcomm/Xiaomi (seperti Redmi Note 7 `lavender`), driver `smb-lib` dan daemon `mi_thermald` mengaktifkan `LCD_VOTER` dan mereset `/sys/class/thermal/thermal_message/boost` ke `0` serta `sconfig` ke `-1` setiap kali layar menyala (*display unblank*), membatasi arus pengisian secara paksa ke 1500 mA (sehingga arus bersih ke sel baterai hanya tersisa 1200–1400 mA setelah terpotong konsumsi daya layar dan SoC).
+    - Teridentifikasi bahwa pada perangkat Qualcomm/Xiaomi (seperti Redmi Note 7 `lavender`), driver `smb-lib` dan daemon `mi_thermald` mengaktifkan `LCD_VOTER` dan mereset `/sys/class/thermal/thermal_message/boost` ke `0` serta `sconfig` ke `-1` setiap kali layar menyala (*display unblank*), membatasi arus pengisian secara paksa ke 1500 mA (sehingga arus bersih ke sel baterai hanya tersisa 1200â1400 mA setelah terpotong konsumsi daya layar dan SoC).
     - Memasukkan penegakan aktif berkelanjutan pada `enforce_live_charging_invariants()` di daemon native `lynxd`: mengunci `boost` ke `1`, `sconfig` ke `0`, `temp_state` ke `0`, `allow_hvdcp3` ke `1`, `hvdcp_opti_allowed` ke `1`, `boost_current` ke `1`, serta menonaktifkan `step_charging_enabled`, `sw_jeita_enabled`, dan `system_temp_level` pada setiap putaran kerja daemon di Mode Hyper.
   - **Perbaikan Subcommand CLI & Aktivasi Langsung `apply_hyper_mode()`**:
     - Memperbaiki parsing perintah CLI `handle_charging` pada `main.rs` dengan menyelaraskan eksekusi langsung `apply_hyper_mode()` saat mode Hyper dipilih dari antarmuka aplikasi.
@@ -141,8 +157,8 @@ Released on: 2026-11-07
 - **Pemberantasan Filter Palsu `hw_current_max` & Pembukaan Jalur Arus Puncak 3000 mA (Redmi Note 7 / Qualcomm PM660)**:
   - **Identifikasi Batasan Buatan pada `probe_silicon_charge_ceiling_ua()`**:
     - Terungkap bahwa pada algoritma step-probe sebelumnya, terdapat filter pengecekan `if cand > hw_max + 300_000 { continue; }`.
-    - Pada kernel Qualcomm Linux, `/sys/class/power_supply/usb/hw_current_max` hanya melaporkan batas deskriptor port USB standar (BC1.2 CDP/DCP = 1465 mA / 1500 mA), **bukan kemampuan fisik silikon PMIC PM660** (yang mampu menyalurkan hingga 3000–3500 mA).
-    - Akibat filter tersebut, seluruh kandidat arus tinggi (2800–3500 mA) dilewati dan fungsi mengembalikan nilai `fallback = hw_max` (1465 mA). Nilai ini kemudian dikunci ke `constant_charge_current_max`, membatasi arus pengisian baterai tepat di rentang 1200–1400 mA walau telah di-replug!
+    - Pada kernel Qualcomm Linux, `/sys/class/power_supply/usb/hw_current_max` hanya melaporkan batas deskriptor port USB standar (BC1.2 CDP/DCP = 1465 mA / 1500 mA), **bukan kemampuan fisik silikon PMIC PM660** (yang mampu menyalurkan hingga 3000â3500 mA).
+    - Akibat filter tersebut, seluruh kandidat arus tinggi (2800â3500 mA) dilewati dan fungsi mengembalikan nilai `fallback = hw_max` (1465 mA). Nilai ini kemudian dikunci ke `constant_charge_current_max`, membatasi arus pengisian baterai tepat di rentang 1200â1400 mA walau telah di-replug!
   - **Pemberantasan Pengecekan Bogus & Pembukaan Kandidat Silikon Murni**:
     - Menghilangkan sepenuhnya restriksi `hw_max` dari proses probing. Algoritma kini langsung menguji kandidat silikon nyata (3500 mA -> 2800 mA) langsung ke pengatur PMIC dan membaca kembali respons silikon sejati.
     - Menetapkan nilai fallback aman di 3100 mA jika node readback tidak tersedia.
@@ -159,10 +175,10 @@ Released on: 2026-11-07
 
 - **Eliminasi Total Deadlock Bus SPMI & Penanganan Lag Ekstrem ("Lag Parah") saat Pengisian Daya (Redmi Note 7 / Qualcomm PM660)**:
   - **Penyelidikan Mendalam Badai Sinyal `rerun_aicl`**:
-    - Teridentifikasi bahwa pada implementasi sebelumnya, kondisi `current_stalled_in_hyper` memicu penulisan `echo 1 > rerun_aicl` pada setiap siklus putaran daemon (500–1000ms) tanpa jeda pendinginan (*zero cooldown*).
+    - Teridentifikasi bahwa pada implementasi sebelumnya, kondisi `current_stalled_in_hyper` memicu penulisan `echo 1 > rerun_aicl` pada setiap siklus putaran daemon (500â1000ms) tanpa jeda pendinginan (*zero cooldown*).
     - Pada chip PMIC Qualcomm PM660, penulisan ke register `rerun_aicl` memaksa driver kernel `qpnp-smb2` menjadwalkan `smblib_rerun_aicl_work` di atas bus serial SPMI. Penulisan beruntun tanpa jeda mengunci *mutex spinlock* bus SPMI secara permanen, memblokir interupsi layar, sinkronisasi VSYNC SurfaceFlinger, dan penskalaan tegangan CPU. Hal ini memicu freeze antarmuka secara menyeluruh (*extreme UI stall / touch unresponsive*) yang memaksa pengguna melakukan reboot paksa.
   - **Pemberantasan Siklus Reset Tak Terhingga pada Pengisian Daya**:
-    - Penulisan `rerun_aicl` setiap detik juga berulang kali memutus proses kalibrasi arus AICL ke tahap deteksi awal (50–100 mA) sebelum sempat menanjak ke 2.8A–3.2A. Bersamaan dengan tingginya beban CPU akibat antrean kerja SPMI yang berputar, arus bersih ke baterai anjlok menjadi negatif (-1500 mA), mengakibatkan baterai terus berkurang walau tercolok charger.
+    - Penulisan `rerun_aicl` setiap detik juga berulang kali memutus proses kalibrasi arus AICL ke tahap deteksi awal (50â100 mA) sebelum sempat menanjak ke 2.8Aâ3.2A. Bersamaan dengan tingginya beban CPU akibat antrean kerja SPMI yang berputar, arus bersih ke baterai anjlok menjadi negatif (-1500 mA), mengakibatkan baterai terus berkurang walau tercolok charger.
   - **Penerapan Arsitektur Cooldown Tegas & Pemisahan Tanggung Jawab**:
     - Menghilangkan sepenuhnya denyut `rerun_aicl` dari fungsi pemeliharaan status dasar `enforce_live_charging_invariants()`.
     - Mengintegrasikan jeda pendinginan perangkat keras 15 detik pada penegakan batas `fcc_needs_reapply`, `usb_needs_reapply`, dan `in_lim_needs_reapply` guna membebaskan bus SPMI dari beban penulisan berlebih.
@@ -179,15 +195,15 @@ Released on: 2026-11-07
 
 - **Penemuan & Resolusi Final Fenomena Pengisian Tekor Layar Menyala & Pencapaian Arus Puncak 3000 mA (Redmi Note 7 / Qualcomm PM660)**:
   - **Penyelidikan Ilmiah Fenomena Layar Menyala vs Layar Mati**:
-    - Analisis kernel `qpnp-smb2.c` dan telemetri langsung mengungkap akar masalah baterai tekor saat layar menyala: saat layar menyala, beban sistem CPU (Kryo Gold @ 2.46 GHz akibat kompilasi latar belakang `artd` dan proses UI yang berputar) bersama layar LCD IPS menarik daya ~1700 mA (~6.5W). Panas gabungan CPU dan konverter buck memicu komparator perangkat keras PM660 (`charger_temp > 80.6°C`), yang mengaktifkan proteksi silikon `DIE_HEALTH: Over current` dan mengunci arus masuk ke 50 mA. Hal ini menciptakan defisit bersih -888 mA yang menguras baterai meskipun tercolok charger.
+    - Analisis kernel `qpnp-smb2.c` dan telemetri langsung mengungkap akar masalah baterai tekor saat layar menyala: saat layar menyala, beban sistem CPU (Kryo Gold @ 2.46 GHz akibat kompilasi latar belakang `artd` dan proses UI yang berputar) bersama layar LCD IPS menarik daya ~1700 mA (~6.5W). Panas gabungan CPU dan konverter buck memicu komparator perangkat keras PM660 (`charger_temp > 80.6Â°C`), yang mengaktifkan proteksi silikon `DIE_HEALTH: Over current` dan mengunci arus masuk ke 50 mA. Hal ini menciptakan defisit bersih -888 mA yang menguras baterai meskipun tercolok charger.
   - **Penerapan Dynamic Descending Step-Probe Silikon Tanpa Hardcoding 3100mA**:
     - Mengganti pembatasan statis 3100 mA dengan algoritma pengujian bertingkat cerdas (*descending step-probe*) pada `probe_silicon_charge_ceiling_ua()` dan `probe_silicon_usb_current_max_ua()` (mulai dari 3500 mA -> 3400 -> 3300 -> 3250 -> 3200 -> 3150 -> 3100 -> 3000 -> 2800 mA).
     - Memverifikasi readback clamping driver kernel dan memvalidasi status `die_health` tanpa memicu tripping komparator perangkat keras, memungkinkan perangkat mencapai arus tertinggi (hingga 3200+ mA) secara dinamis dan aman.
     - Menghilangkan nilai hardcode 3100 pada simpul `/sys/class/qcom-battery/restrict_cur` dan menyinkronkannya dengan batas silikon terdeteksi.
   - **Pemberantasan Lag UI Selama Pengisian Daya**:
-    - Mengoptimalkan setpoint termal CPU Kryo Gold & Silver di `thermal-engine.conf` (+15°C) sehingga frekuensi inti tidak anjlok ke 1.11 GHz saat perangkat sedang melakukan pengisian daya cepat.
+    - Mengoptimalkan setpoint termal CPU Kryo Gold & Silver di `thermal-engine.conf` (+15Â°C) sehingga frekuensi inti tidak anjlok ke 1.11 GHz saat perangkat sedang melakukan pengisian daya cepat.
   - **Verifikasi Lapangan Langsung pada Redmi Note 7 Fisik**:
-    - Pengujian langsung di perangkat fisik membuktikan baterai terisi dari 4% menjadi 19% dengan arus masuk stabil di atas 2400–3007 mA, indikator lockscreen menampilkan status pengisian 1,8A • 7,1W saat layar menyala tanpa lag antarmuka.
+    - Pengujian langsung di perangkat fisik membuktikan baterai terisi dari 4% menjadi 19% dengan arus masuk stabil di atas 2400â3007 mA, indikator lockscreen menampilkan status pengisian 1,8A â¢ 7,1W saat layar menyala tanpa lag antarmuka.
 
 ---
 
@@ -212,10 +228,10 @@ Released on: 2026-11-07
 - **Perbaikan Kritis Pembacaan Sensor ADC Termal & Penanganan Fenomena Daya Tekor saat Pengisian (Redmi Note 7 / SDM660)**:
   - **Diferensiasi Presisi Netralisasi Zona Termal (`quiet-therm-step` vs `quiet-therm-adc`)**:
     - Memperbaiki `native/lynxd/src/subsystems/thermal.rs` agar **hanya** menonaktifkan zona pembatasan perangkat lunak (`quiet-therm-step` / `skin-therm-step`).
-    - Memastikan simpul sensor perangkat keras mentah (`quiet-therm-adc` / `tz4`) tetap berstatus `enabled` dan aktif. Sebelumnya, penonaktifan `tz4` menyebabkan sensor ADC melaporkan `-274000` (-274°C / absolute zero), yang ditafsirkan oleh daemon `thermal-engine` Xiaomi sebagai kerusakan sensor perangkat keras (*sensor fault / open circuit*), sehingga memaksa sistem masuk ke mode darurat (*fail-safe mode*) dan memotong arus pengisian ke tingkat minimum.
+    - Memastikan simpul sensor perangkat keras mentah (`quiet-therm-adc` / `tz4`) tetap berstatus `enabled` dan aktif. Sebelumnya, penonaktifan `tz4` menyebabkan sensor ADC melaporkan `-274000` (-274Â°C / absolute zero), yang ditafsirkan oleh daemon `thermal-engine` Xiaomi sebagai kerusakan sensor perangkat keras (*sensor fault / open circuit*), sehingga memaksa sistem masuk ke mode darurat (*fail-safe mode*) dan memotong arus pengisian ke tingkat minimum.
   - **Fakta Fisik Isolator Kaca Gorilla Glass 5 vs Suhu Internal Silikon**:
-    - Analisis termodinamika mengungkap alasan mengapa bodi ponsel tidak terasa panas di tangan pengguna meskipun sensor kernel mencatat suhu 48°C: panel kaca belakang Gorilla Glass 5 memiliki konduktivitas termal yang sangat rendah ($k \approx 0.8\text{ W/m}\cdot\text{K}$), bertindak sebagai isolator termal yang menahan panas di dalam ruang baterai dan die PMIC PM660.
-    - Menjelaskan fenomena daya tekor (*net negative current*) di mana pengoperasian perangkat dengan layar menyala (menarik ~1500 mA) melebihi arus masuk yang sedang dibatasi proteksi termal (~500–800 mA), yang menyebabkan baterai terkuras jika tidak dibiarkan dalam kondisi layar mati (*screen-off standby*).
+    - Analisis termodinamika mengungkap alasan mengapa bodi ponsel tidak terasa panas di tangan pengguna meskipun sensor kernel mencatat suhu 48Â°C: panel kaca belakang Gorilla Glass 5 memiliki konduktivitas termal yang sangat rendah ($k \approx 0.8\text{ W/m}\cdot\text{K}$), bertindak sebagai isolator termal yang menahan panas di dalam ruang baterai dan die PMIC PM660.
+    - Menjelaskan fenomena daya tekor (*net negative current*) di mana pengoperasian perangkat dengan layar menyala (menarik ~1500 mA) melebihi arus masuk yang sedang dibatasi proteksi termal (~500â800 mA), yang menyebabkan baterai terkuras jika tidak dibiarkan dalam kondisi layar mati (*screen-off standby*).
 
 ---
 
@@ -229,9 +245,9 @@ Released on: 2026-11-07
     - Menghapus pembacaan residu virtual di [`ChargingHeroDisplayCard.kt`](file:///LynxCompanion/app/src/main/java/com/noir/lynx/feature/battery/ui/ChargingHeroDisplayCard.kt) dan memastikan tampilan suhu baterai selalu bersumber dari sensor hardware asli (`/sys/class/power_supply/battery/temp` atau `ChargingRegulator::read_real_battery_temp_dc()`).
     - Memastikan fungsi `enforce_live_charging_invariants()` secara otomatis membersihkan sisa berkas spoofing di `/dev/` pada platform Qualcomm.
   - **Analisis & Mitigasi Fenomena "Lag Saat Di-Charge"**:
-    - **Penjelasan Hardware**: Saat pengisian cepat QC 3.0 (9V), chip PMIC PM660 dan baterai menghasilkan panas hingga ~46°C–49°C. Pada suhu ini, daemon `thermal-engine` kernel secara otomatis memangkas frekuensi cluster Big CPU (Kryo 260) dari 2.45 GHz ke 1.11 GHz, serta menurunkan arus pengisian hingga 113–762 mA demi keamanan sel lithium.
+    - **Penjelasan Hardware**: Saat pengisian cepat QC 3.0 (9V), chip PMIC PM660 dan baterai menghasilkan panas hingga ~46Â°Câ49Â°C. Pada suhu ini, daemon `thermal-engine` kernel secara otomatis memangkas frekuensi cluster Big CPU (Kryo 260) dari 2.45 GHz ke 1.11 GHz, serta menurunkan arus pengisian hingga 113â762 mA demi keamanan sel lithium.
     - **Penjelasan Digitizer Touchscreen**: Arus switching frekuensi tinggi dari charger QC 3.0 non-grounded menimbulkan ripple noise (EMI) pada digitizer layar sentuh (Novatek/FocalTech) yang berbagi ground dengan port Type-C, menyebabkan touch latency dan stutter yang terasa seperti lag berat saat disentuh.
-    - Menjamin telemetri transparan di UI agar pengguna memahami kondisi termal sebenarnya dan tidak salah mengira perangkat sedang berada di suhu dingin 25°C.
+    - Menjamin telemetri transparan di UI agar pengguna memahami kondisi termal sebenarnya dan tidak salah mengira perangkat sedang berada di suhu dingin 25Â°C.
 
 ---
 
@@ -241,30 +257,30 @@ Released on: 2026-11-07
 
 - **Pemberantasan Bottleneck "Cold Charging" & Negosiasi Quick Charge 3.0 18W pada Qualcomm Snapdragon (Redmi Note 7 / SDM660)**:
   - **Akar Masalah Kegagalan Arus Tinggi saat Awal Pengisian Daya (Cold-Plug / Cold Charging)**:
-    - Analisis mendalam pada sirkuit pengisian daya Qualcomm PM660 mengungkap bahwa saat kabel charger dicolokkan (cold-plug), protokol deteksi fisik BC1.2 / APSD membutuhkan waktu 1.5–2.5 detik untuk menegosiasikan Quick Charge 3.0 (HVDCP 3.0) dan menaikkan voltase VBUS dari 5V ke 9V.
+    - Analisis mendalam pada sirkuit pengisian daya Qualcomm PM660 mengungkap bahwa saat kabel charger dicolokkan (cold-plug), protokol deteksi fisik BC1.2 / APSD membutuhkan waktu 1.5â2.5 detik untuk menegosiasikan Quick Charge 3.0 (HVDCP 3.0) dan menaikkan voltase VBUS dari 5V ke 9V.
     - Pada versi sebelumnya, fungsi `trigger_charger_soft_reconnect()` secara keliru melakukan toggle `allow_hvdcp3 = 0` lalu `1`. Pada kernel Qualcomm `smb-lib.c`, menulis `0` ke `allow_hvdcp3` seketika mematikan mesin modulasi pulsa D+/D- HVDCP. Adapter charger langsung membatalkan negosiasi 9V dan jatuh (*collapse*) kembali ke mode standard 5V DCP dengan batas fisik input current limit (AICR) **1.5A (~5.2W / +1431 mA)**.
-    - Selain itu, biner lama menulis nilai buatan `250` (25.0°C) ke simpul `/dev/lynx_spoofed_batt_temp` yang diprioritaskan di atas sensor termal riil baterai pada UI. Hal ini membuat antarmuka menampilkan suhu palsu "25.0°C", sehingga pengguna mengira perangkat berada dalam kondisi dingin ("cold charging") dan kebingungan mengapa arus tertahan di 1431 mA, padahal suhu internal baterai yang sebenarnya telah mencapai 41.3°C dan sedang dibatasi oleh daemon `thermal-engine`.
+    - Selain itu, biner lama menulis nilai buatan `250` (25.0Â°C) ke simpul `/dev/lynx_spoofed_batt_temp` yang diprioritaskan di atas sensor termal riil baterai pada UI. Hal ini membuat antarmuka menampilkan suhu palsu "25.0Â°C", sehingga pengguna mengira perangkat berada dalam kondisi dingin ("cold charging") dan kebingungan mengapa arus tertahan di 1431 mA, padahal suhu internal baterai yang sebenarnya telah mencapai 41.3Â°C dan sedang dibatasi oleh daemon `thermal-engine`.
   - **Solusi Arsitektur Terpadu di Mesin Native Rust (`lynxd`) & Native Companion**:
     - **Qualcomm HVDCP 3.0 Immunity Guard (`trigger_charger_soft_reconnect`)**: Dilarang keras melakukan toggle `allow_hvdcp3 = 0` pada Qualcomm. Nilai `allow_hvdcp3` dikunci strictly pada `1` pada seluruh simpul (`usb`, `battery`, `main`).
     - **Handshake Cooldown Window (4.0s Debounce)**: Memberikan waktu aman minimal 4 detik pasca koneksi kabel sebelum mengevaluasi apakah charger mengalami stall, memastikan negosiasi fisik HVDCP 3.0 ke tegangan 9V selesai tanpa interupsi.
     - **Single-PMIC Hardware Buck Ceiling (3.1A Limit Guard)**: Membatasi probe silikon PM660 ke `3100000 uA` (3.1A). Mencegah keruntuhan voting `USB_ICL_VOTABLE` akibat penulisan nilai di atas kemampuan buck converter.
-    - **Thermal-Engine Override Lock (`write_node_lock 0444`)**: Mengunci `/sys/class/power_supply/battery/system_temp_level` ke `0` dengan hak akses baca-saja `0444`, mencegah `thermal-engine` Xiaomi menulis level pembatasan 4/5 saat suhu mencapai 41°C.
+    - **Thermal-Engine Override Lock (`write_node_lock 0444`)**: Mengunci `/sys/class/power_supply/battery/system_temp_level` ke `0` dengan hak akses baca-saja `0444`, mencegah `thermal-engine` Xiaomi menulis level pembatasan 4/5 saat suhu mencapai 41Â°C.
     - **Authentic Telemetry Restoration**: Menghapus pembuatan file spoofing `/dev/lynx_spoofed_batt_temp` pada Qualcomm Snapdragon. Seluruh telemetri UI di dashboard dan hero display card kini memprioritaskan pembacaan suhu fisik asli kernel (`/sys/class/power_supply/battery/temp`), menjamin transparansi 100% tanpa manipulasi data.
 
 ---
 
-# Lynx Universal [Qualcomm Premature 37°C Thermal Throttle Elimination & Big Core Fmax Unclamp] 7.0.0-RC358
+# Lynx Universal [Qualcomm Premature 37Â°C Thermal Throttle Elimination & Big Core Fmax Unclamp] 7.0.0-RC358
 Released on: 2026-11-07
 > Lynx Kernel Manager v3.3.82
 
-- **Pemberantasan Total Bottleneck Throttling Prematur Big Core pada Suhu 37°C di Qualcomm (Redmi Note 7 / SDM660)**:
+- **Pemberantasan Total Bottleneck Throttling Prematur Big Core pada Suhu 37Â°C di Qualcomm (Redmi Note 7 / SDM660)**:
   - **Akar Masalah Throttling Big Core Tertahan di 1.11 GHz**:
-    - Pemeriksaan mendalam pada arsitektur kernel Linux Snapdragon 660 mengungkap bahwa zona termal sintetis vendor `/sys/class/thermal/thermal_zone20` (`quiet-therm-step`) memiliki trip point bawaan yang sangat rendah: `trip_point_0_temp = 37000` (37.0°C) dan `trip_point_1_temp = 41000` (41.0°C).
-    - 37°C adalah suhu tubuh/saku normal. Begitu pengguna membuka Twitter/X, browser, atau aplikasi harian selama 20-30 detik, suhu papan sirkuit mencapai ~40°C–42°C.
-    - Begitu suhu melampaui 37°C, kernel thermal governor `step_wise` secara agresif mengeskalasi `cooling_device1` (`thermal-cpufreq-4`) ke status maksimum `cur_state = 5`.
+    - Pemeriksaan mendalam pada arsitektur kernel Linux Snapdragon 660 mengungkap bahwa zona termal sintetis vendor `/sys/class/thermal/thermal_zone20` (`quiet-therm-step`) memiliki trip point bawaan yang sangat rendah: `trip_point_0_temp = 37000` (37.0Â°C) dan `trip_point_1_temp = 41000` (41.0Â°C).
+    - 37Â°C adalah suhu tubuh/saku normal. Begitu pengguna membuka Twitter/X, browser, atau aplikasi harian selama 20-30 detik, suhu papan sirkuit mencapai ~40Â°Câ42Â°C.
+    - Begitu suhu melampaui 37Â°C, kernel thermal governor `step_wise` secara agresif mengeskalasi `cooling_device1` (`thermal-cpufreq-4`) ke status maksimum `cur_state = 5`.
     - `thermal-cpufreq-4` pada status 5 menerapkan kernel `freq_qos_update_request` yang mengunci batas frekuensi tertinggi cluster Big (`policy4/scaling_max_freq`) ke **1.11 GHz (`1113600 kHz`)**. Karena batas ini ditegakkan di kernel space melalui Frequency QoS, penulisan sysfs ke `scaling_max_freq` ditolak atau dijepit kembali ke 1.11 GHz oleh kernel.
   - **Solusi Arsitektur Multi-Tier di Mesin Native Rust (`lynxd`)**:
-    - **Neutralize Synthetic Software Throttle Zone (`neutralize_quiet_therm`)**: Menyetel mode `quiet-therm-step` ke `disabled`, governor ke `user_space`, dan menaikkan trip point ke `75000` (75.0°C, setara dengan trip point silikon CPU hardware `cpuss-0-step`). Zona keselamatan perangkat keras fisik (`pm660-tz`, `battery`, `bms`, `tsens_tz`) tetap 100% aktif dan terlindungi.
+    - **Neutralize Synthetic Software Throttle Zone (`neutralize_quiet_therm`)**: Menyetel mode `quiet-therm-step` ke `disabled`, governor ke `user_space`, dan menaikkan trip point ke `75000` (75.0Â°C, setara dengan trip point silikon CPU hardware `cpuss-0-step`). Zona keselamatan perangkat keras fisik (`pm660-tz`, `battery`, `bms`, `tsens_tz`) tetap 100% aktif dan terlindungi.
     - **Frequency QoS Release (`cur_state = 0`)**: Me-reset `thermal-cpufreq-4` ke status 0, melepaskan pembatasan kernel Frequency QoS dan membebaskan Big Core untuk beroperasi hingga frekuensi puncak fisik **2.46 GHz (`2457600 kHz`)**.
     - **SysfsWriter Pseudo-Filesystem Fix (`writer.rs`)**: Memperbaiki pemanggilan `truncate(true)` pada direktori `/sys` sehingga tidak memicu `EINVAL`/`EPERM` pada kobjects kernel sysfs.
     - **Autonomous Big Core Ceiling Guardian (`tick_dynamic_scaler`)**: Terus memantau status cluster Big. Jika terdeteksi adanya clamping artifisial, `lynxd` secara mandiri menetralisir `quiet-therm` dan memulihkan `scaling_max_freq` ke frekuensi maksimum perangkat keras secara instan.
@@ -337,7 +353,7 @@ Released on: 2026-11-06
 - **Pemberantasan Siklus Reset Pengisi Daya MediaTek / Transsion (`DV2_SWITCH:chrtype=4`)**:
   - **Akar Masalah Kegagalan Negosiasi 33W Pump Express 4.0 (PE4.0)**:
     - Analisis kernel `dmesg` pada Infinix Note 11 Pro (Helio G96 / MT6781) mengungkap bahwa penulisan berkala (setiap detik oleh daemon atau setiap 3 detik oleh watchdog aplikasi) ke `/sys/devices/platform/battery/Battery_Temperature` atau `/sys/devices/platform/pca_dv2_algo/dv2_debug` secara instan memicu `mtk_power_misc_psy_event`.
-    - Event ini mengeksekusi callback `DV2_SWITCH:usb_switch_psy_notifier_cb event=0` (`chrtype=4, rfc_dcp_ta=1`), yang memaksa IC charger switch kembali ke mode 5V Standard DCP. Akibatnya, tugas negosiasi tegangan tinggi 10V-11V (`dv2_algo_task`) langsung dibatalkan secara berulang, mengunci tegangan adaptor di 4.83V (5V) dan membatasi arus di kisaran 1.293 mA – 1.420 mA.
+    - Event ini mengeksekusi callback `DV2_SWITCH:usb_switch_psy_notifier_cb event=0` (`chrtype=4, rfc_dcp_ta=1`), yang memaksa IC charger switch kembali ke mode 5V Standard DCP. Akibatnya, tugas negosiasi tegangan tinggi 10V-11V (`dv2_algo_task`) langsung dibatalkan secara berulang, mengunci tegangan adaptor di 4.83V (5V) dan membatasi arus di kisaran 1.293 mA â 1.420 mA.
   - **Implementasi Idempotent Write-Suppression di Layer Rust Native & Kotlin**:
     - Memperbarui fungsi `write_node()` dan `write_node_lock()` di `charging.rs` agar selalu membaca nilai node sysfs terlebih dahulu (`read_trimmed`). Jika nilai saat ini sudah sama persis dengan target yang diminta (termasuk kesetaraan numerik heksadesimal vs desimal seperti `6acfc0` vs `7000000`), operasi penulisan syscall `fs::write()` dibatalkan sepenuhnya (0 overhead).
     - Memasang guard ketat pada `apply_battery_temperature_bypass(25)`: node `Battery_Temperature` HANYA ditulis jika nilainya belum `25`.
@@ -353,11 +369,11 @@ Released on: 2026-11-06
 
 - **Aktivasi Master Mount Namespace (`FLAG_MOUNT_MASTER`) untuk Propagasi Global (*Global Mount Propagation*)**:
   - Mengembalikan inisialisasi default LibSU di `LynxApp.kt` dengan `Shell.FLAG_REDIRECT_STDERR or Shell.FLAG_MOUNT_MASTER`.
-  - Tanpa `FLAG_MOUNT_MASTER`, bind-mount sysfs terisolasi secara privat di mount namespace internal aplikasi, sehingga daemon sistem (`thermal-engine`), `system_server`, dan kernel driver tetap membaca suhu riil 49°C dan mengaktifkan pembatasan arus ke 1.500 mA.
-  - Dengan `FLAG_MOUNT_MASTER`, seluruh operasi `mount -o bind` dipropagasikan secara global ke seluruh proses sistem operasi, memastikan `thermal-engine` dan `system_server` membaca suhu 25.0°C secara seragam.
+  - Tanpa `FLAG_MOUNT_MASTER`, bind-mount sysfs terisolasi secara privat di mount namespace internal aplikasi, sehingga daemon sistem (`thermal-engine`), `system_server`, dan kernel driver tetap membaca suhu riil 49Â°C dan mengaktifkan pembatasan arus ke 1.500 mA.
+  - Dengan `FLAG_MOUNT_MASTER`, seluruh operasi `mount -o bind` dipropagasikan secara global ke seluruh proses sistem operasi, memastikan `thermal-engine` dan `system_server` membaca suhu 25.0Â°C secara seragam.
 
 - **Perluasan Cakupan Spoofing Seluruh Thermal Zone Qualcomm (Quiet-Therm, Battery, BMS)**:
-  - Memperluas pemindaian sysfs thermal zone di `ExtremeChargingScript.kt` dan `charging.rs` agar me-mount bind-mount `/dev/lynx_spoofed_quiet_therm` (25.0°C) ke seluruh thermal zone bertipe `quiet-therm*`, `battery` (`thermal_zone29`), dan `bms` (`thermal_zone30`).
+  - Memperluas pemindaian sysfs thermal zone di `ExtremeChargingScript.kt` dan `charging.rs` agar me-mount bind-mount `/dev/lynx_spoofed_quiet_therm` (25.0Â°C) ke seluruh thermal zone bertipe `quiet-therm*`, `battery` (`thermal_zone29`), dan `bms` (`thermal_zone30`).
   - Menghapus pembatasan JEITA kernel pada seluruh node `battery` dan `bms` (`temp_hot=750`, `temp_warm=650`, `hot_bat_decidegc`, `warm_bat_decidegc`) serta memaksa pembukaan batas arus pengisian daya `constant_charge_current_max` hingga 3.500 mA.
 
 ---
@@ -375,32 +391,32 @@ Released on: 2026-11-05
     - Menghapus total pemanggilan `pkill -9`, `killall -9`, `pkill -HUP`, dan `ctl.restart` terhadap `thermal-engine` baik di layer Rust daemon (`lynxd`) maupun skrip pengisian daya LynxCompanion (`ExtremeChargingScript.kt` & `StandardChargingScript.kt`).
     - Mempertahankan izin cooling device `cur_state` tetap `0666` (read-write) dengan nilai `0` agar `thermal-engine` tidak pernah mengalami permission error atau crash loop.
 
-- **Netralisasi Throttling Pengisian Daya Melalui Spoofing Universal `quiet-therm` (25.0°C) (*Universal Board Thermistor Bind-Mount*)**:
-  - Konfigurasi stock `/vendor/etc/thermal-engine.conf` memuat profil `[BATTERY_CHARGING_CTL]` yang memantau thermistor board `quiet-therm-adc` (`thermal_zone4`) dan `quiet-therm-step` (`thermal_zone20`). Ketika sensor ini membaca suhu >43.0°C (43000 m°C), aturan `action_info 6` mengunci batas arus pengisian daya ke 500 mA (`509277` µA).
-  - Mengimplementasikan pembuatan node `/dev/lynx_spoofed_quiet_therm` berisi `25000\n` (25.0°C dalam satuan millidegrees) dan me-mount secara live (`mount -o bind`) ke seluruh thermal zone bertipe `quiet-therm*`.
-  - Dengan pembacaan stabil pada 25.0°C (di bawah batas awal 37.0°C), `thermal-engine` secara alami TIDAK PERNAH mengaktifkan mitigasi pengisian daya baterai, mempertahankan kestabilan arus tanpa mematikan atau mengganggu daemon termal OEM.
+- **Netralisasi Throttling Pengisian Daya Melalui Spoofing Universal `quiet-therm` (25.0Â°C) (*Universal Board Thermistor Bind-Mount*)**:
+  - Konfigurasi stock `/vendor/etc/thermal-engine.conf` memuat profil `[BATTERY_CHARGING_CTL]` yang memantau thermistor board `quiet-therm-adc` (`thermal_zone4`) dan `quiet-therm-step` (`thermal_zone20`). Ketika sensor ini membaca suhu >43.0Â°C (43000 mÂ°C), aturan `action_info 6` mengunci batas arus pengisian daya ke 500 mA (`509277` ÂµA).
+  - Mengimplementasikan pembuatan node `/dev/lynx_spoofed_quiet_therm` berisi `25000\n` (25.0Â°C dalam satuan millidegrees) dan me-mount secara live (`mount -o bind`) ke seluruh thermal zone bertipe `quiet-therm*`.
+  - Dengan pembacaan stabil pada 25.0Â°C (di bawah batas awal 37.0Â°C), `thermal-engine` secara alami TIDAK PERNAH mengaktifkan mitigasi pengisian daya baterai, mempertahankan kestabilan arus tanpa mematikan atau mengganggu daemon termal OEM.
 
 - **Penyelarasan Root Shell & Mount Isolation LibSU**:
   - Mengembalikan inisialisasi default LibSU di `LynxApp.kt` ke `Shell.FLAG_REDIRECT_STDERR` dengan timeout 20 detik, mencegah potensi mount namespace collision pada Android 15.
 
 ---
 
-# Lynx Universal [Universal Qualcomm 25°C Battery Temp Bypass & Quiet-Therm Fix] 7.0.0-RC349
+# Lynx Universal [Universal Qualcomm 25Â°C Battery Temp Bypass & Quiet-Therm Fix] 7.0.0-RC349
 Released on: 2026-11-05
 > Lynx Kernel Manager v3.3.73
 
-- **Implementasi Universal Bypass Suhu Baterai 25°C pada Qualcomm Snapdragon (*Universal PM660/QCOM 25°C Sysfs Bind-Mount*)**:
-  - **Akar Masalah Suhu 274°C dan Cutoff Pengisian Daya**:
+- **Implementasi Universal Bypass Suhu Baterai 25Â°C pada Qualcomm Snapdragon (*Universal PM660/QCOM 25Â°C Sysfs Bind-Mount*)**:
+  - **Akar Masalah Suhu 274Â°C dan Cutoff Pengisian Daya**:
     - Analisis mendalam pada Redmi Note 7 (Snapdragon 660 / PMIC PM660) mengungkap bahwa arsitektur Qualcomm tidak memiliki node driver MediaTek `/sys/devices/platform/battery/Battery_Temperature`.
-    - Ketika suhu baterai fisik naik ke 47.8°C, ambang batas JEITA hardware PM660 bawaan (`temp_hot=480` / 48.0°C) memicu proteksi pemutusan arus pengisian daya (`lct_set_prop_input_suspend=1`), sehingga perangkat beralih ke status pengurasan daya (*discharging* -735 mA) meskipun terhubung ke charger QC 3.0.
-    - Pada antarmuka UI, teks suhu menampilkan `274.0°C` akibat kombinasi kanal ADC `pm660-tz` / `quiet-therm-adc` yang offline bernilai `-274000` (0 Kelvin) terfilter karakter minusnya oleh `.filter { it.isDigit() }`, serta representasi deci-Celsius kernel (274 = 27.4°C) yang tidak dinormalisasi.
-  - **Mekanisme Universal 25°C Temp Bypass**:
+    - Ketika suhu baterai fisik naik ke 47.8Â°C, ambang batas JEITA hardware PM660 bawaan (`temp_hot=480` / 48.0Â°C) memicu proteksi pemutusan arus pengisian daya (`lct_set_prop_input_suspend=1`), sehingga perangkat beralih ke status pengurasan daya (*discharging* -735 mA) meskipun terhubung ke charger QC 3.0.
+    - Pada antarmuka UI, teks suhu menampilkan `274.0Â°C` akibat kombinasi kanal ADC `pm660-tz` / `quiet-therm-adc` yang offline bernilai `-274000` (0 Kelvin) terfilter karakter minusnya oleh `.filter { it.isDigit() }`, serta representasi deci-Celsius kernel (274 = 27.4Â°C) yang tidak dinormalisasi.
+  - **Mekanisme Universal 25Â°C Temp Bypass**:
     - Mengimplementasikan `apply_battery_temperature_bypass(25)` di native Rust engine: menulis `250\n` ke `/dev/lynx_spoofed_batt_temp` dan me-mount bind-mount secara transparan ke `/sys/class/power_supply/battery/temp`, `/sys/class/power_supply/bms/temp`, dan `batt_temp`.
     - Memperbarui `ExtremeChargingScript.kt` dan `StandardChargingScript.kt` di LynxCompanion untuk melakukan bind mount yang sama dari layer aplikasi.
     - Menormalisasi pembacaan telemetri di `LynxTelemetryReader`, `LynxTelemetryMapper`, dan `TuningTabContent` sehingga nilai suhu >100 dinormalisasi secara presisi dan channel ADC nonaktif (nilai negatif) diabaikan.
   - **Pencegahan Crash Loop Thermal Engine & Relaksasi JEITA**:
     - Mengubah izin semua manipulasi trip point `quiet-therm-adc` (`thermal_zone4`) dan power supply attributes menjadi `0666` (read-write), mencegah error `EACCES (-13)` pada daemon vendor `/vendor/bin/thermal-engine`.
-    - Menaikkan batas JEITA PM660 `temp_hot` menjadi 750 (75.0°C) dan `temp_warm` menjadi 650 (65.0°C) pada mode Hyper/Extreme guna mencegah pemutusan arus pengisian daya oleh hardware.
+    - Menaikkan batas JEITA PM660 `temp_hot` menjadi 750 (75.0Â°C) dan `temp_warm` menjadi 650 (65.0Â°C) pada mode Hyper/Extreme guna mencegah pemutusan arus pengisian daya oleh hardware.
     - Memperbarui profil `thermal-engine.conf` untuk `quiet-therm-adc` dari limit charging `action_info 1 2 4 5 6` menjadi pasif `action_info 0 0 0 0 0`.
 
 ---
@@ -422,7 +438,7 @@ Released on: 2026-11-05
 - **Pemusnahan Unbounded AICL Rerun & Eliminasi D-State Sleep pada Qualcomm Snapdragon (*SPMI Bus Contention Elimination*)**:
   - **Pembersihan Triple Rerun AICL Tanpa Cooldown pada Invariant Enforcer**:
     - Menemukan bahwa fungsi `enforce_live_charging_invariants()` di `native/lynxd/src/hardware/charging.rs` masih memicu penulisan simultan `rerun_aicl = 1` ke `usb`, `battery`, dan `main` tanpa cooldown setiap kali arus berada di bawah 2.550 mA.
-    - Pada kondisi baterai hangat (>45°C), arus pengisian secara alami tertahan di bawah 2.550 mA, menyebabkan loop penulisan `rerun_aicl` terjadi setiap detik dan mengakibatkan proses `lynxd` terperangkap dalam `D-state` (uninterruptible disk sleep) menunggu antrean mutex SPMI driver `qpnp-smb2`.
+    - Pada kondisi baterai hangat (>45Â°C), arus pengisian secara alami tertahan di bawah 2.550 mA, menyebabkan loop penulisan `rerun_aicl` terjadi setiap detik dan mengakibatkan proses `lynxd` terperangkap dalam `D-state` (uninterruptible disk sleep) menunggu antrean mutex SPMI driver `qpnp-smb2`.
     - Menghapus pemicu `rerun_aicl` tanpa jeda dari `enforce_live_charging_invariants()`, memusatkan seluruh logika pemulihan AICL secara eksklusif pada fungsi `handle_charging_tick()` yang telah dilindungi jeda aman 60 detik (*60s cooldown guard*).
   - **Koreksi Izin Trip Points `quiet-therm-step` Qualcomm**:
     - Mengganti `write_node_lock` (0444) pada `trip_point_*_temp` menjadi `set_perm(..., 0o666)` + `write_node` agar daemon vendor `/vendor/bin/thermal-engine` tidak gagal membuka file (`open failed13`) dan tetap berjalan stabil.
@@ -437,7 +453,7 @@ Released on: 2026-11-05
   - **Identifikasi Bug Handshake Gagal pada Infinix Note 11 Pro (Helio G96 / MT6781)**:
     - Pengujian telemetri kernel membuktikan ponsel mendeteksi charger sebagai `STANDARD_DCP (4.87V)` dan menghentikan algoritma negosiasi (`mtk_tc30_start_algotithm: stop, tc30 is not connected; mtk_pe20_start_algorithm: stop, PE+20 is not connected; delta = -128mV`).
     - Hal ini disebabkan oleh penulisan tanpa syarat `echo 1 > /sys/devices/platform/charger/enable_sc` pada script Kotlin (`ExtremeChargingScript.kt` dan `ChargingRepository.kt`) serta fungsi `apply_charger_thermal_neutralization()` di Rust saat tegangan VBUS masih berada di 5V dasar.
-    - Pada topologi 2:1 Switched Capacitor (Richtek RT9759), mengaktifkan pump saat tegangan adaptor 5V menghasilkan tegangan output 2.5V (jauh di bawah tegangan sel baterai 3.8V–4.2V), memicu gangguan arus balik (*UVLO / reverse current fault*) yang seketika menggagalkan pulsa negosiasi Pump Express 4.0 / TC30 charger.
+    - Pada topologi 2:1 Switched Capacitor (Richtek RT9759), mengaktifkan pump saat tegangan adaptor 5V menghasilkan tegangan output 2.5V (jauh di bawah tegangan sel baterai 3.8Vâ4.2V), memicu gangguan arus balik (*UVLO / reverse current fault*) yang seketika menggagalkan pulsa negosiasi Pump Express 4.0 / TC30 charger.
   - **Penerapan Voltage-Gated SC Pump Secara Menyeluruh**:
     - Mengintegrasikan pemeriksaan ambang batas tegangan adaptor mutlak: node `enable_sc` hanya diizinkan aktif (`1`) jika tegangan adaptor terdeteksi telah berhasil melonjak naik ke **>= 6.500 mV (6.5V)**. Jika masih di 5V dasar, node dipaksa berada pada status nonaktif (`0`) agar algoritma pulsa PE4.0 / TC30 dapat bernegosiasi secara mulus tanpa beban drop.
   - **Koreksi Izin Cooling Device Qualcomm Thermal Engine**:
@@ -455,7 +471,7 @@ Released on: 2026-11-05
     - Terjadi karena pada loop berkala (`ChargingRegulator::tick()`), kondisi `qcom_stalled` sebelumnya menganggap arus di bawah 2.500 mA sebagai "stalled" pada mode Hyper. Ketika arus turun secara alami saat baterai mulai terisi, daemon memicu penulisan berulang ke `/sys/class/power_supply/*/rerun_aicl` setiap 1 detik.
     - Penulisan `rerun_aicl = 1` tanpa jeda menyebabkan driver kernel Qualcomm `qpnp-smb2` / `smb-lib.c` mengalami deadlock pada mutex `chg->lock` dan spinlock SPMI, membekukan core CPU selama > 21 detik hingga RCU watchdog memicu kernel panic.
   - **Implementasi Threshold Realistis & Cooldown Ketat 60 Detik**:
-    - Mengoreksi kriteria stall: hanya dianggap macet jika arus tercekik parah ke level SDP dasar (< 400 mA) dan kapasitas baterai < 85%. Arus normal 1.800–2.400 mA tidak akan pernah lagi memicu re-kick AICL.
+    - Mengoreksi kriteria stall: hanya dianggap macet jika arus tercekik parah ke level SDP dasar (< 400 mA) dan kapasitas baterai < 85%. Arus normal 1.800â2.400 mA tidak akan pernah lagi memicu re-kick AICL.
     - Mengharuskan kondisi macet bertahan minimal 5 siklus berturut-turut (5 detik).
     - Menerapkan *strict rate-limiter cooldown* 60 detik antar pemicuan `rerun_aicl`, menjamin driver hardware SPMI tidak pernah dibombardir.
     - Menghapus pemanggilan blocking subprocess `dumpsys battery reset` dari dalam periodic tick daemon.
@@ -469,7 +485,7 @@ Released on: 2026-11-05
 - **Perbaikan Kritis Pencegahan Reboot Baterai & Isolasi Ketat Sensor Termal (*Thermal PMIC Hardware Safety Guard*)**:
   - **Membasmi Bug Penyebab Device Reboot Mendadak Saat Colok Charger**:
     - Mengidentifikasi akar masalah fatal pada RC338: pemindaian zona termal sebelumnya mencocokkan kata kunci silikon PMIC/SoC (`pmic`, `pm660`, `smb`, `mtktsap`), mematikan mode (`mode -> disabled`), dan menimpa trip-points (`trip_point_*_temp -> 99000`).
-    - Hal tersebut menurunkan batas proteksi kritis darurat PMIC dari 125°C ke 99°C, serta melumpuhkan interrupt driver `pmic-temp-alarm`. Akibatnya, saat arus pengisian cepat 2.8A dialirkan dan suhu silikon PM660 menyentuh 99°C, komparator hardware PMIC langsung memicu *Emergency Hard Reset / Thermal Panic Reboot*.
+    - Hal tersebut menurunkan batas proteksi kritis darurat PMIC dari 125Â°C ke 99Â°C, serta melumpuhkan interrupt driver `pmic-temp-alarm`. Akibatnya, saat arus pengisian cepat 2.8A dialirkan dan suhu silikon PM660 menyentuh 99Â°C, komparator hardware PMIC langsung memicu *Emergency Hard Reset / Thermal Panic Reboot*.
   - **Isolasi Mutlak Zona Termal Baterai (*Strict Battery/BMS Only Matching*)**:
     - Menyaring secara ketat: hanya zona termal fisik baterai murni (`battery`, `bms`, `mtktsbattery`) yang dinetralkan governor-nya ke `user_space` atau `low_limits_floor`.
     - **Proteksi Mutlak Sensor Silikon**: Secara eksplisit melarang dan melewati (*skip*) seluruh sensor yang mengandung `pmic`, `pm660`, `smb`, `cpu`, `gpu`, `ap`, `mtktsap`, `tsens`, atau `modem`.
@@ -509,11 +525,11 @@ Released on: 2026-11-04
   - **Akselerasi Antrean Blok MicroSD (*MicroSD Queue & FIFO Merging Boost*)**:
     - Memperbarui `StoragePolicy` untuk media fisik `BlockDeviceType::Sd`: memprioritaskan scheduler `noop` (dan `none`) pada kernel single-queue untuk menghilangkan batas penundaan tulis 5000ms pada scheduler deadline standar.
     - Menaikkan *read-ahead* MicroSD secara proporsional dari 256 KB ke **1024 KB** (Balance/Performance) dan **2048 KB** (Extreme) guna memaksimalkan throughput baca sekuensial saat pemindaian aset dan penggabungan patch delta.
-    - Memperdalam kedalaman antrean tulis (`nr_requests = 256 / 512`) dan menyeimbangkan `writes_starved = 2` serta `read_expire = 100–150ms` sehingga antrean tulis tidak tersendat oleh pembacaan intermiten sistem.
+    - Memperdalam kedalaman antrean tulis (`nr_requests = 256 / 512`) dan menyeimbangkan `writes_starved = 2` serta `read_expire = 100â150ms` sehingga antrean tulis tidak tersendat oleh pembacaan intermiten sistem.
   - **Buffering Memori Kotor Sadar Penyimpanan (*Storage-Aware VM Dirty Buffering*)**:
     - Menyesuaikan batas rasio tulis kernel (`dirty_ratio = 20%` dan `dirty_background_ratio = 10%`, writeback window 500cs) saat partisi MicroSD aktif via MountX atau penyimpanan UFS terdeteksi.
     - Menyinkronkan nilai secara atomik ke parameter modul `/sys/module/page_writeback/parameters/dirty_background_ratio` dan `vm_dirty_ratio`.
-    - Memulihkan kecepatan pemilahan data dan unduhan game dari 0 KB/s (stuck/tersendat) ke throughput penuh perangkat (hingga ~19–28 MB/s).
+    - Memulihkan kecepatan pemilahan data dan unduhan game dari 0 KB/s (stuck/tersendat) ke throughput penuh perangkat (hingga ~19â28 MB/s).
 
 ---
 
@@ -559,9 +575,9 @@ Released on: 2026-11-04
   - **Netralisasi Dinamis Governor Thermal Zone Kernel (`/sys/class/thermal/thermal_zone*`)**:
     - Menggantikan penulisan path statis dengan pemindaian dinamis berbasis pencocokan tipe (`battery`, `bms`, `charger`, `pmic`, `smb`, `quiet-therm`, `mtktsbattery`, dll.).
     - Memeriksa ketersediaan policy (`available_policies`) secara cerdas: secara dinamis mengalihkan governor dari `step_wise` ke `user_space` (atau `low_limits_floor`), sehingga kernel tidak lagi mencekik (*throttle*) arus charging saat suhu baterai meningkat.
-    - Mengangkat batas trip point (`trip_point_*_temp`) ke nilai aman 99°C secara dinamis pada semua zone baterai/charger yang teridentifikasi, serta mematikan mode governor zona termal non-MTK (`mode -> disabled`).
+    - Mengangkat batas trip point (`trip_point_*_temp`) ke nilai aman 99Â°C secara dinamis pada semua zone baterai/charger yang teridentifikasi, serta mematikan mode governor zona termal non-MTK (`mode -> disabled`).
   - **Ekspansi Ambang Batas BMS JEITA & Reset Proteksi Pembatas Arus (`/sys/class/power_supply/*`)**:
-    - Memindai seluruh node power supply secara dinamis untuk memperluas ambang batas suhu JEITA: `temp_warm` (65°C), `temp_hot` (75°C), `temp_cool` (5°C), dan `temp_cold` (0°C).
+    - Memindai seluruh node power supply secara dinamis untuk memperluas ambang batas suhu JEITA: `temp_warm` (65Â°C), `temp_hot` (75Â°C), `temp_cool` (5Â°C), dan `temp_cold` (0Â°C).
     - Mereset bendera pembatas pengisian otomatis: `system_temp_level -> 0`, `temp_state -> 0`, `thermal_input_current_limit -> -1`, `step_charging_enabled -> 0`, `sw_jeita_enabled -> 0`, `restricted_charging -> 0`, dan menyuntikkan batas arus maksimum pada `restrict_cur`.
   - **Sinkronisasi Ganda (Native Rust `lynxd` & Kotlin Companion Script)**:
     - Logika diterapkan identik pada daemon performa tinggi `native/lynxd/src/hardware/charging.rs` (`neutralise_battery_cooling_devices` & `apply_extreme_charging`) serta skrip eksekusi shell root `ExtremeChargingScript.kt`.
@@ -611,7 +627,7 @@ Released on: 2026-11-03
     - Menggunakan tipografi monospace (`10sp`) berketelitian 1 desimal, menjamin kestabilan lebar visual tanpa pergeseran tata letak (*zero layout shift*).
   - **Preservasi Ruang Ergonomis & Aksesibilitas Touch Target**:
     - Lebar badge dijaga sangat ramping (~75-85 dp) sehingga judul aplikasi/game dan indikator baterai/suhu di tengah tetap leluasa dengan elipsis anggun saat nama paket sangat panjang.
-    - Tombol tutup ("X") tetap mempertahankan standar sentuh *touch-first* penuh 48×48 dp bebas *miss-touch*.
+    - Tombol tutup ("X") tetap mempertahankan standar sentuh *touch-first* penuh 48Ã48 dp bebas *miss-touch*.
   - **Dukungan Telemetri Real-Time & Fallback Berlapis**:
     - Mengonsumsi langsung stream metrik `ram_used` dan `ram_total` dari daemon native `lynxd` berbasis `/proc/meminfo`.
     - Dilengkapi fallback cerdas berbasis `ActivityManager.MemoryInfo` sehingga nilai terpakai dan total kapasitas RAM tetap tampil akurat dan instan bahkan saat daemon sedang dalam status warming-up.
@@ -658,10 +674,10 @@ Released on: 2026-11-03
       1. Menghilangkan kartu pemilih profil performa (Hemat, Seimbang, Kinerja, Ekstrem) yang sebelumnya redundan karena sudah menjadi fokus utama di Tab Ringkasan.
       2. Menghilangkan seksi Thermal & Headroom yang redundan karena seluruh telemetri suhu CPU, GPU, Baterai, dan SoC telah dipantau secara detail di setiap kartu Tab Monitor.
       3. Memindahkan seluruh fitur akselerasi gaming dari Tab Alat ke Tab Boost:
-         - ⚡ **GameShift Turbo**: Reaktif Burst Clock frekuensi CPU/GPU & Anti-Drop FPS.
-         - 👆 **Touch Master**: Akselerasi Sampling Rate Layar (240Hz/480Hz) & Prioritas Interupsi Sentuhan di Governor.
-         - 📶 **Jaringan Game**: *Wi-Fi Low-Latency Mode* (`WIFI_MODE_FULL_LOW_LATENCY`) & Prioritas Paket Game di Kernel.
-         - 🔌 **Bypass Charging**: Pasokan daya langsung ke motherboard (Anti-Overheat baterai & bebas *thermal throttling*).
+         - â¡ **GameShift Turbo**: Reaktif Burst Clock frekuensi CPU/GPU & Anti-Drop FPS.
+         - ð **Touch Master**: Akselerasi Sampling Rate Layar (240Hz/480Hz) & Prioritas Interupsi Sentuhan di Governor.
+         - ð¶ **Jaringan Game**: *Wi-Fi Low-Latency Mode* (`WIFI_MODE_FULL_LOW_LATENCY`) & Prioritas Paket Game di Kernel.
+         - ð **Bypass Charging**: Pasokan daya langsung ke motherboard (Anti-Overheat baterai & bebas *thermal throttling*).
       4. Tampilan utama bersih dan rapi (*glanceable 2x2 grid*): tidak langsung dibuka penuh, melainkan membuka sub-halaman kontrol mendalam saat masing-masing kartu ditekan (`HudBoostSubpage`), lengkap dengan navigasi tombol kembali (*back arrow*) terintegrasi di header HUD.
       5. Menjaga modul Booster Memori Fisik & Cache Kernel tetap terfokus di bagian bawah Tab Boost.
     - **Tab Alat (`HudTools.kt` & `HudToolNavigation.kt`)**: Kini murni berstatus sebagai *Toolbox Asisten & Utilitas*:
@@ -724,7 +740,7 @@ Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.54
 
 - **Perbaikan Kritis `post-fs-data.sh`: Race Condition Execute Bit `/sys/class/sensor`**:
-  - **Akar Masalah**: Script `post-fs-data.sh` menguji keberadaan file di dalam direktori `/sys/class/sensor/` (misal `[ -f /sys/class/sensor/m_acc_misc/accactive ]`) **sebelum** menerapkan `chmod 755` pada direktori tersebut. Karena kernel MTK me-mount `/sys/class/sensor` sebagai `drw-rw----` (tanpa execute bit), perintah `test -f` pada shell selalu mengembalikan `false` bahkan dieksekusi sebagai root — sebab kernel VFS memblokir traversal direktori tanpa bit `+x`. Akibatnya loop polling 40 iterasi selalu timeout dan `chmod 755` tidak pernah dieksekusi.
+  - **Akar Masalah**: Script `post-fs-data.sh` menguji keberadaan file di dalam direktori `/sys/class/sensor/` (misal `[ -f /sys/class/sensor/m_acc_misc/accactive ]`) **sebelum** menerapkan `chmod 755` pada direktori tersebut. Karena kernel MTK me-mount `/sys/class/sensor` sebagai `drw-rw----` (tanpa execute bit), perintah `test -f` pada shell selalu mengembalikan `false` bahkan dieksekusi sebagai root â sebab kernel VFS memblokir traversal direktori tanpa bit `+x`. Akibatnya loop polling 40 iterasi selalu timeout dan `chmod 755` tidak pernah dieksekusi.
   - **Solusi**: Pindahkan `chmod 755 /sys/class/sensor /sys/devices/virtual/sensor` ke **setiap iterasi loop, sebelum** pengecekan kondisi file. Dengan demikian execute bit selalu diterapkan sesegera direktori muncul, memungkinkan `[ -f ... ]` berhasil dan flow berlanjut ke chmod/chown seluruh node sensor.
   - **Perubahan Tambahan**:
     1. Parsing deteksi chipset MediaTek (`IS_MTK`) diformalkan agar bebas ambigu precedensi operator shell.
@@ -757,15 +773,15 @@ Released on: 2026-11-03
 > Lynx Kernel Manager v3.3.53
 
 - **Penyelesaian Tuntas Skala Akselerometer, Gyroscope & Auto-Rotasi pada Lingkungan GSI Android 14**:
-  - **Akar Masalah (*Root Cause*)**: Pada arsitektur hybrid Treble (Android 14 GSI berjalan di atas vendor MediaTek Android 11 MT6781), sensor cahaya luar bekerja normal karena berupa nilai mutlak (lux), namun sensor akselerometer dan gyro mengeluarkan nilai mentah unscaled (`acc` ~9200 m/s² alih-alih ~9.8 m/s² dan gyro ~7500 rad/s). Analisis reverse-engineering melalui pembongkaran biner `/vendor/lib64/hw/sensors.mt6781.so` mengungkap bahwa konstruktor `AccelerationSensor` dan `HwGyroscopeSensor` membaca berkas pembagi skala fisik dari sysfs (`/sys/class/sensor/m_acc_misc/accactive` = 1000 dan `/sys/class/sensor/m_gyro_misc/gyroactive` = 7505747). Apabila HAL sensor dijalankan oleh init sebelum sysfs tersebut memperoleh izin akses `0660 system:system`, pembagi skala gagal dibaca dan terkunci pada nilai bawaan `1`. Akibatnya:
-    1. Filter AOSP `WindowOrientationListener.java` mendeteksi magnitudo akselerasi ~9200 m/s² (jauh melebihi batas toleransi validitas 4.9 – 14.7 m/s²) dan membuang 100% sampel sebagai anomali/free-fall sehingga rotasi otomatis layar tidak pernah terpicu.
+  - **Akar Masalah (*Root Cause*)**: Pada arsitektur hybrid Treble (Android 14 GSI berjalan di atas vendor MediaTek Android 11 MT6781), sensor cahaya luar bekerja normal karena berupa nilai mutlak (lux), namun sensor akselerometer dan gyro mengeluarkan nilai mentah unscaled (`acc` ~9200 m/sÂ² alih-alih ~9.8 m/sÂ² dan gyro ~7500 rad/s). Analisis reverse-engineering melalui pembongkaran biner `/vendor/lib64/hw/sensors.mt6781.so` mengungkap bahwa konstruktor `AccelerationSensor` dan `HwGyroscopeSensor` membaca berkas pembagi skala fisik dari sysfs (`/sys/class/sensor/m_acc_misc/accactive` = 1000 dan `/sys/class/sensor/m_gyro_misc/gyroactive` = 7505747). Apabila HAL sensor dijalankan oleh init sebelum sysfs tersebut memperoleh izin akses `0660 system:system`, pembagi skala gagal dibaca dan terkunci pada nilai bawaan `1`. Akibatnya:
+    1. Filter AOSP `WindowOrientationListener.java` mendeteksi magnitudo akselerasi ~9200 m/sÂ² (jauh melebihi batas toleransi validitas 4.9 â 14.7 m/sÂ²) dan membuang 100% sampel sebagai anomali/free-fall sehingga rotasi otomatis layar tidak pernah terpicu.
     2. Matriks Kalman filter AOSP `SensorFusion` meledak menjadi tak hingga ($\infty$) lalu `NaN`, melumpuhkan sensor turunan *Gravity*, *Linear Acceleration*, dan *Rotation Vector*.
   - **Solusi Arsitektur Sinkronisasi Pre-Zygote Lengkap**:
     - Memperluas *Hardware-Ready Barrier* pada `post-fs-data.sh` agar menunggu secara serentak tersedianya node karakter `/dev/m_*_misc` serta seluruh node sysfs pembagi skala sensor `/sys/class/sensor/m_*_misc/*active`.
     - Mengatur kepemilikan `chown system:system` dan izin `chmod 0660` secara menyeluruh pada seluruh node karakter dan direktori sysfs sensor sebelum Zygote aktif.
     - Menjalankan *clean restart* pada daemon `vendor.sensors-hal-2-0` sebelum Zygote melakukan fork pada `system_server`. Hal ini menjamin seluruh konstruktor HAL mengeksekusi pembacaan skala asli perangkat keras secara sempurna sejak boot pertama.
   - **Hasil Uji Verifikasi**:
-    - Akselerometer melaporkan magnitudo gravitasi riil bumi presisi (~9.78 m/s²), gyro membaca nilai rotasi riil (~0.01 rad/s), SensorFusion bersih dari `NaN`, dan algoritma `AccelSensorJudge` langsung aktif memproses orientasi layar secara instan.
+    - Akselerometer melaporkan magnitudo gravitasi riil bumi presisi (~9.78 m/sÂ²), gyro membaca nilai rotasi riil (~0.01 rad/s), SensorFusion bersih dari `NaN`, dan algoritma `AccelSensorJudge` langsung aktif memproses orientasi layar secara instan.
 
 ---
 
@@ -800,7 +816,7 @@ Released on: 2026-11-02
     3. **Penjaga Pasca-Colok Cerdas (`LynxPowerReceiver` Watchdog)**: Menambahkan penundaan evaluasi 3.5 detik setelah charger dicolokkan agar osilasi awal kontak kabel stabil, kemudian secara otomatis mengevaluasi arus masuk dan mengaktifkan handshake jika pengisian terhambat.
 
 - **Penjaga Pengisian Latar Belakang & Layar Mati (*Persistent Background Hyper Charging Watchdog*)**:
-  - **Kebutuhan Pengguna**: Memastikan bahwa mode Hyper / Pengisian Ekstrem tetap mempertahankan kecepatan penuh (>2500mA–3000mA) meskipun aplikasi Lynx ditutup, digeser dari recent apps, atau layar ponsel dimatikan.
+  - **Kebutuhan Pengguna**: Memastikan bahwa mode Hyper / Pengisian Ekstrem tetap mempertahankan kecepatan penuh (>2500mAâ3000mA) meskipun aplikasi Lynx ditutup, digeser dari recent apps, atau layar ponsel dimatikan.
   - **Solusi**: Memperluas siklus pemantauan `LynxThermalGuardService` agar tetap mengeksekusi `reapplyExtremeChargingLock()` secara berkala bahkan saat layar mati (`isScreenOn == false`), menetralkan voter termal OEM dan menjaga register arus tetap terbuka di plafon tertinggi hardware tanpa penurunan performa.
 
 ---
@@ -854,7 +870,7 @@ Released on: 2026-11-02
   - **Akar Masalah & Kebutuhan Pengguna**: Pembersihan RAM (`Clean RAM`) adalah tindakan sesaat (*instantaneous reclamation action*), bukan toggle switch berkelanjutan. Menyalakannya terus-menerus atau mengeksekusi `drop_caches` secara berulang-ulang dapat memicu *storage I/O thrashing* dan penurunan performa (*stutter*) pada aplikasi yang sedang berjalan.
   - **Solusi Manajemen Cerdas**:
     1. **Siklus Pembersihan Sesaat Tanpa Status Terkunci (*Momentary Pulse Lifecycle*)**: Tombol Clean RAM diatur secara cerdas dengan status pulsa 1.5 detik (`isCleaningRamAnim`). Saat diklik, tombol menyala hijau zamrud dengan indikator dot dan feedback teks *"Membersihkan..."*, kemudian **secara otomatis kembali ke status mati (OFF/Idle)**. Tombol tidak akan pernah tertinggal dalam keadaan menyala terus (*never stays on*).
-    2. **Perlindungan Cooldown Cerdas (15 Detik Anti-Thrashing)**: Menambahkan penjaga cooldown 15 detik baik di tingkat antarmuka UI (`HudQuickTileRow`) maupun tingkat controller (`HudController.boostRam()`). Jika pengguna menekan tombol pembersih RAM berulang kali saat RAM masih optimal, sistem menolak eksekusi `drop_caches` kasar, mencegah *kernel cache thrashing*, dan menampilkan notifikasi cerdas: *"RAM sudah optimal (X.X GB tersedia) · Cooldown Xs"*.
+    2. **Perlindungan Cooldown Cerdas (15 Detik Anti-Thrashing)**: Menambahkan penjaga cooldown 15 detik baik di tingkat antarmuka UI (`HudQuickTileRow`) maupun tingkat controller (`HudController.boostRam()`). Jika pengguna menekan tombol pembersih RAM berulang kali saat RAM masih optimal, sistem menolak eksekusi `drop_caches` kasar, mencegah *kernel cache thrashing*, dan menampilkan notifikasi cerdas: *"RAM sudah optimal (X.X GB tersedia) Â· Cooldown Xs"*.
 
 ---
 
@@ -862,10 +878,10 @@ Released on: 2026-11-02
 Released on: 2026-11-02
 > Lynx Kernel Manager v3.3.50
 
-- **Resolusi Mendalam Glitch Profil (*Profile Flapping / Fallback Glitch: Performance ↔ Balance*)**:
+- **Resolusi Mendalam Glitch Profil (*Profile Flapping / Fallback Glitch: Performance â Balance*)**:
   - **Akar Masalah (*Root Causes Forensik*)**:
-    1. **Asynchronous SystemProperties Race Condition pada `readCurrentProfileFast()`**: `lastActiveProfile` selalu diupdate seketika secara atomik saat `setProfile()` dieksekusi. Namun sebelumnya, `readCurrentProfileFast()` memprioritaskan pembacaan `getprop lynx.mode`. Pada beberapa ROM Android, propagasi nilai `setprop` ke subsistem properti memiliki jeda asinkron hingga 100–200 ms, atau masih memegang nilai residual dari sesi automation sebelumnya. Akibatnya, saat pembacaan cepat berlangsung, properti lama terbaca sebelum nilai baru tersimpan.
-    2. **Jeda Inisialisasi Frame Native Stream pada `LynxFloatingHudService`**: Saat Floating HUD pertama kali dibuka, daemon native `lynxd hud stream` membutuhkan waktu ~300–500 ms untuk memproses dan menyiarkan frame JSON pertamanya. Selama jeda ini, `streamProfile` bernilai null sehingga HUD mengevaluasi properti sistem secara terpisah tanpa acuan memori yang terkonfirmasi, memicu kedipan (*glitch*) visual status profil ke "Performance" sebelum stabil ke "Balance".
+    1. **Asynchronous SystemProperties Race Condition pada `readCurrentProfileFast()`**: `lastActiveProfile` selalu diupdate seketika secara atomik saat `setProfile()` dieksekusi. Namun sebelumnya, `readCurrentProfileFast()` memprioritaskan pembacaan `getprop lynx.mode`. Pada beberapa ROM Android, propagasi nilai `setprop` ke subsistem properti memiliki jeda asinkron hingga 100â200 ms, atau masih memegang nilai residual dari sesi automation sebelumnya. Akibatnya, saat pembacaan cepat berlangsung, properti lama terbaca sebelum nilai baru tersimpan.
+    2. **Jeda Inisialisasi Frame Native Stream pada `LynxFloatingHudService`**: Saat Floating HUD pertama kali dibuka, daemon native `lynxd hud stream` membutuhkan waktu ~300â500 ms untuk memproses dan menyiarkan frame JSON pertamanya. Selama jeda ini, `streamProfile` bernilai null sehingga HUD mengevaluasi properti sistem secara terpisah tanpa acuan memori yang terkonfirmasi, memicu kedipan (*glitch*) visual status profil ke "Performance" sebelum stabil ke "Balance".
     3. **Blind Defaulting ke "Balance" pada `stream.rs` Native Collector**: Jika berkas status `/data/adb/lynx/active_profile` sesaat belum siap dibaca saat daemon cold-boot, fungsi `detect_active_profile()` di Rust langsung melakukan fallback buta ke string `"balance"`, memicu ketidaksinkronan sementara antar-frame telemetri.
   - **Solusi Arsitektural Komprehensif**:
     1. **Pembalikan Prioritas Evaluasi Cepat (`readCurrentProfileFast`)**: `lastActiveProfile` kini menjadi Tier-1 ground truth sebelum properti sistem dibaca, menjamin pembacaan memori zero-latency (<0.01 ms) yang kebal terhadap race condition `setprop`.
@@ -946,10 +962,10 @@ Released on: 2026-11-02
     - Kartu 3: Diperbarui menjadi `Daya & Efisiensi Baterai` (ID) / `Power & Battery System` (EN) menggantikan istilah metaforis "Reaktor Daya".
     - Kartu 4: Diperbarui menjadi `Memori RAM & Termal Hardware` (ID) / `System Memory & Hardware Thermals` (EN).
   - **Info Dialog Komprehensif & Edukatif**:
-    - Dialog info kartu CPU & GPU kini menyajikan arsitektur kluster secara rapi dan terstruktur (`• CPU:` dan `• GPU:`).
+    - Dialog info kartu CPU & GPU kini menyajikan arsitektur kluster secara rapi dan terstruktur (`â¢ CPU:` dan `â¢ GPU:`).
     - Seluruh deskripsi teknis (FPS jitter, 1% Low, Linux kernel ZRAM swap compression, bypass charging / AutoCut, dan thermal throttling) diselaraskan dalam Bahasa Indonesia dan English dengan bahasa komunikatif dan mudah dipahami.
   - **Penyempurnaan Ergonomi & Tata Letak Kartu Cockpit**:
-    - Memberikan padding bawah yang lega (`bottom = 12.dp`) pada kartu kluster CPU & GPU sehingga kapsul suhu CPU dan GPU (`°C`) tertata rapi, proporsional, dan bebas dari clipping batas kartu.
+    - Memberikan padding bawah yang lega (`bottom = 12.dp`) pada kartu kluster CPU & GPU sehingga kapsul suhu CPU dan GPU (`Â°C`) tertata rapi, proporsional, dan bebas dari clipping batas kartu.
     - Memperpanjang garis pemisah vertikal (*hairline gradient divider*) menjadi `120.dp` untuk keseimbangan visual sempurna.
 
 - **Perbaikan Positif Feedback Latch Clock GPU Mode Balance (*Zero-Latch Dynamic Downclocking*)**:
@@ -972,7 +988,7 @@ Released on: 2026-11-02
   - **Velocity Fling / Quick Flick Opening**: Mengintegrasikan `VelocityTracker` perangkat keras Android. Sapuan jari yang cepat dan tegas (*inward velocity* > 900 px/s) akan langsung melemparkan (*fling*) panel terbuka penuh seketika tanpa harus menariknya melampaui separuh layar.
   - **Outward Swipe-to-Close Interaktif**: Menutup panel HUD saat sedang terbuka juga mendukung penarikan interaktif ke arah luar (bezel) dengan ambang batas *fling close* (outward velocity > 900 px/s atau penarikan > 30% lebar panel).
 - **Arsitektur Zero-IPC RenderThread Hardware Acceleration**:
-  - **Zero WindowManager Call Selama Penarikan**: Mengeliminasi pemanggilan `windows.updateViewLayout` pada event `ACTION_MOVE` (60–120 FPS). Dimensi jendela diperluas sekali di awal, sementara translasi posisi laci dijalankan murni melalui `composeView.translationX` pada hardware RenderThread.
+  - **Zero WindowManager Call Selama Penarikan**: Mengeliminasi pemanggilan `windows.updateViewLayout` pada event `ACTION_MOVE` (60â120 FPS). Dimensi jendela diperluas sekali di awal, sementara translasi posisi laci dijalankan murni melalui `composeView.translationX` pada hardware RenderThread.
   - **Zero Recomposition & Zero Garbage Collection**: Tidak ada pemanggilan recomposition Compose selama penarikan berlangsung, menghasilkan performa rendering ultra-mulus 60/120 FPS tanpa membebani CPU, RAM, atau GPU, bahkan pada perangkat berspesifikasi hemat daya (seperti Redmi Note 7 SD660 dan Infinix Hot 11S Helio G96).
   - **Pembersihan Animasi Transisi Ganda**: Menghapus `Animatable` redundan di dalam `HudPanelShell` agar seluruh kontrol posisi tersentralisasi secara atomik pada `composeView.translationX`, menghilangkan distorsi visual atau kelambatan respon sentuhan.
 
@@ -1035,7 +1051,7 @@ Released on: 2026-11-01
 - **Garansi Negosiasi Arus Puncak Otomatis Sejak Awal Pencolokan (*Zero-Replug Guarantee*)**:
   - **Protokol Tiga Tahap Handshake Dingin (*Three-Stage Cold-Plug Arming*)**:
     - **Tahap 1 (t = 0s - Instant Arming)**: Seketika kabel dicolokkan (`handle_connect`), sistem membuka seluruh izin protokol fisik (`allow_hvdcp3 = 1`, `hvdcp_opti_allowed = 1`, `pd_allowed = 1`, `boost_current = 1`, `restricted_charging = 0`, `input_suspend = 0`) sebelum chip PHY / APSD menyelesaikan deteksi charger.
-    - **Tahap 2 (t = 2.0s - Automated AICL Kick)**: Tepat setelah negosiasi voltase tinggi HVDCP3 / USB-PD selesai (voltase melonjak ke 9V/12V), daemon secara otomatis mengeksekusi `rerun_aicl = 1` non-disruptif tanpa memutus jalur VBUS. AICL langsung melonjak dari 500 mA $\rightarrow$ 1500 mA $\rightarrow$ 2800–3300+ mA tanpa perlu mencabut dan mencolok ulang (*no replug needed*).
+    - **Tahap 2 (t = 2.0s - Automated AICL Kick)**: Tepat setelah negosiasi voltase tinggi HVDCP3 / USB-PD selesai (voltase melonjak ke 9V/12V), daemon secara otomatis mengeksekusi `rerun_aicl = 1` non-disruptif tanpa memutus jalur VBUS. AICL langsung melonjak dari 500 mA $\rightarrow$ 1500 mA $\rightarrow$ 2800â3300+ mA tanpa perlu mencabut dan mencolok ulang (*no replug needed*).
     - **Tahap 3 (t = 4.0s - Ramp Verification & Lock)**: Memverifikasi apakah arus riil telah mencapai target puncak. Jika arus masih tertahan di bawah 2000 mA pada SoC < 90%, sistem secara otonom memicu penyelarasan ulang voter register PMIC.
   - **Pembersihan Bersih Marker Sesi Disconnect (`handle_disconnect`)**: Menjamin seluruh penanda flag (`/dev/lynx_soft_reconnect_done`, `/dev/lynx_stalled_5v_count`, `/dev/lynx_cold_plug_kicked`, `/dev/lynx_cold_plug_verified`) dibersihkan total saat kabel dicabut, memastikan pencolokan dingin berikutnya selalu mendapatkan negosiasi instan 100%.
 
@@ -1045,7 +1061,7 @@ Released on: 2026-11-01
     - `probe_silicon_usb_current_max_ua()`: Mendeteksi batas maksimal bus input AICR secara adaptif.
   - **Kompatibilitas Lintas Arsitektur**:
     - Perangkat single-PMIC terbatas (seperti Snapdragon 660 / PM660) terkunci otomatis pada batas absolut 3000 mA (mencegah galat fatal `-EINVAL` dan fallback 1500 mA).
-    - Perangkat kelas atas (Dual Charge Pump SMB1390/SMB1396, MediaTek RT9759, atau USB-PD 5A) secara otomatis mengekspansi arus puncak hingga 6000 mA – 12000 mA secara aman dan fleksibel.
+    - Perangkat kelas atas (Dual Charge Pump SMB1390/SMB1396, MediaTek RT9759, atau USB-PD 5A) secara otomatis mengekspansi arus puncak hingga 6000 mA â 12000 mA secara aman dan fleksibel.
 
 ---
 
@@ -1059,8 +1075,8 @@ Released on: 2026-11-01
   - **Koreksi Logika Penamaan Tahapan Lab Baterai (`BatteryLabSessionManager` & `BatteryLabSubscreen`)**:
     - Memperbaiki anomali teks UI yang sebelumnya menampilkan status "Tahap 3: Electrochemical CV Tapering" pada persentase rendah (<75%) saat arus di bawah 1500 mA.
     - Menyelaraskan tahapan pengisian dengan siklus elektrokimia riil:
-      - **Tahap 1 & 2 (0% – 90%)**: *Rapid CC Phase / Regulated PMIC CC Step*.
-      - **Tahap 3 (90% – 99%)**: *Electrochemical CV Tapering* (penurunan bertahap aman dari 2400 mA $\rightarrow$ 1800 mA $\rightarrow$ 1200 mA).
+      - **Tahap 1 & 2 (0% â 90%)**: *Rapid CC Phase / Regulated PMIC CC Step*.
+      - **Tahap 3 (90% â 99%)**: *Electrochemical CV Tapering* (penurunan bertahap aman dari 2400 mA $\rightarrow$ 1800 mA $\rightarrow$ 1200 mA).
       - **Tahap 4 (100%)**: *AutoCut Full Saturation* (pemutusan arus total 0 mA).
 
 ---
@@ -1070,12 +1086,12 @@ Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.34
 
 - **Modernisasi Total Speedometer Digital Gaming Cockpit (`HudSpeedometerGauges.kt`)**:
-  - **Transformasi Busur Segmented LED 240° (*Supercar Rev-Counter Bars*)**:
-    - Mengeliminasi kurva semi-lingkaran 180° kaku dan menggantinya dengan **16 Segmen Balok LED Radial bersudut agresif (*Angled Segmented LED Bars*)** dengan sapuan busur tapal kuda 240° (dari 150° hingga 30°).
+  - **Transformasi Busur Segmented LED 240Â° (*Supercar Rev-Counter Bars*)**:
+    - Mengeliminasi kurva semi-lingkaran 180Â° kaku dan menggantinya dengan **16 Segmen Balok LED Radial bersudut agresif (*Angled Segmented LED Bars*)** dengan sapuan busur tapal kuda 240Â° (dari 150Â° hingga 30Â°).
     - **Visual Hardware Otentik**: Segmen LED yang tidak aktif tetap terlihat sebagai elemen gelap taktis (*tactical translucent LED slots* `0x18FFFFFF`), sedangkan segmen aktif menyala terang dengan transisi warna beban bertingkat (*multi-stage color grading*):
-      - Segmen 0–9 (0%–56%): *Electric Ice Cyan* (`#00E5FF`) untuk zona optimal.
-      - Segmen 10–12 (57%–81%): *Solar Amber* (`#FB923C`) untuk zona beban gaming berat.
-      - Segmen 13–15 (82%–100%): *Hyper Crimson Redline* (`#FF3366`) untuk puncak utilisasi.
+      - Segmen 0â9 (0%â56%): *Electric Ice Cyan* (`#00E5FF`) untuk zona optimal.
+      - Segmen 10â12 (57%â81%): *Solar Amber* (`#FB923C`) untuk zona beban gaming berat.
+      - Segmen 13â15 (82%â100%): *Hyper Crimson Redline* (`#FF3366`) untuk puncak utilisasi.
   - **Rel Skala Konsentris & Kalibrasi Presisi (*Concentric Precision Rail*)**:
     - Menambahkan rel busur tipis presisi (`0.9.dp`) di bagian dalam segmen LED dengan *notch ticks* pada 0%, 25%, 50%, 75%, dan *Redline Tick* merah mencolok pada 100%.
   - **Jarum Penunjuk Bilah Aerodinamis / Ujung Berlian Bercahaya (*Luminous Diamond Tip*)**:
@@ -1100,10 +1116,10 @@ Released on: 2026-11-01
   - **Eliminasi Navigasi Tab Chip Terpotong (*Zero-Click Unified Cockpit*)**:
     - Menggantikan bilah tab horizontal lama yang terpotong menjadi dashboard kokpit terpadu satu halaman (*unified vertical stream*) yang sangat ramping (*compact*) dan mudah dibaca sekilas (*glanceable*).
   - **Modul Grafis Speedometer Dinamis (`HudSpeedometerGauges.kt`)**:
-    - **`HudArcTachometer`**: Busur speedometer semi-lingkaran (180° sweep) dengan jarum penunjuk bercahaya (*glowing needle tip dot*), garis-garis radial tick mark, dan transisi warna beban dinamis *Redline* (Cyan $<60\%$, Amber $60-85\%$, Crimson $>85\%$).
+    - **`HudArcTachometer`**: Busur speedometer semi-lingkaran (180Â° sweep) dengan jarum penunjuk bercahaya (*glowing needle tip dot*), garis-garis radial tick mark, dan transisi warna beban dinamis *Redline* (Cyan $<60\%$, Amber $60-85\%$, Crimson $>85\%$).
     - **`HudWaveformCanvas`**: Kurva osiloskop halus berbasis *cubic Bezier spline* yang merender riwayat variasi frame time secara real-time dan estetik dengan latar gradien cahaya.
   - **4 Kartu Bento Cockpit Ramping**:
-    - **Kartu 1 (FPS & Display Tachometer)**: Menghadirkan speedometer busur frame rate (0–120 FPS), kurva osiloskop, serta 4 metrik satelit (Avg FPS, 1% Low, Display Hz, Frame Time ms).
+    - **Kartu 1 (FPS & Display Tachometer)**: Menghadirkan speedometer busur frame rate (0â120 FPS), kurva osiloskop, serta 4 metrik satelit (Avg FPS, 1% Low, Display Hz, Frame Time ms).
     - **Kartu 2 (Twin-Engine CPU & GPU)**: Dua dial tachometer kembar berdampingan secara simetris:
       - Dial CPU: Beban komputasi % real-time, frekuensi dinamis cluster LITTLE & BIG (GHz), dan suhu sensor CPU.
       - Dial GPU: Utilisasi render grafis %, frekuensi clock aktif (MHz), dan suhu sensor GPU.
@@ -1133,14 +1149,14 @@ Released on: 2026-11-01
 - **Penambahan Subline Micro-Telemetry pada Kartu Ringkasan Game (`HudGameReadings`)**:
   - **Arsitektur 3-Tingkat Kompak (*Compact 3-Row Telemetry Hierarchy*)**:
     - Menghadirkan baris ke-3 berukuran mikro (`10.sp`, monospaced) tepat di bawah nilai utama masing-masing kolom (FPS, CPU, GPU) pada kartu Ringkasan.
-    - Menjaga kartu tetap ramping dan ergonomis (penambahan tinggi hanya ~12–14 dp, dari ~68 dp menjadi ~82 dp) tanpa mengorbankan keterbacaan nilai utama.
+    - Menjaga kartu tetap ramping dan ergonomis (penambahan tinggi hanya ~12â14 dp, dari ~68 dp menjadi ~82 dp) tanpa mengorbankan keterbacaan nilai utama.
   - **Metrik Sekunder Cerdas & Terintegrasi**:
     - **FPS (Rata-Rata FPS / Avg FPS)**: Dihitung secara dinamis dari metrik `FRAME_AVERAGE` daemon native ($1000.0 / \text{frame\_time\_ms}$) menjadi format `Avg 59.4` (atau integer untuk $\ge 100\text{ FPS}$), memberikan gambaran stabilitas frame rate dan deteksi *stuttering* secara instan.
     - **CPU (Frekuensi Multi-Cluster GHz)**: Memetakan frekuensi aktif setiap cluster hardware dari `snapshot.policies` menjadi format GHz yang padat:
-      - *Dual-Cluster* (Snapdragon 660 / Helio G96): `1.6 · 2.2 GHz`
+      - *Dual-Cluster* (Snapdragon 660 / Helio G96): `1.6 Â· 2.2 GHz`
       - *Tri-Cluster* (Snapdragon 8 Gen 1/2/3, Dimensity 9000): `1.8/2.4/3.2G`
       - *Single-Cluster / Fallback*: Mengambil clock puncak dari `HudMetric.CPU_CLOCK` (`2.2 GHz`).
-    - **GPU (Frekuensi Clock Aktif)**: Menyajikan frekuensi GPU real-time dari `HudMetric.GPU_CLOCK` dalam format ringkas `585 MHz` (atau `Clock —` saat idle).
+    - **GPU (Frekuensi Clock Aktif)**: Menyajikan frekuensi GPU real-time dari `HudMetric.GPU_CLOCK` dalam format ringkas `585 MHz` (atau `Clock â` saat idle).
   - **Pewarnaan Aksen Pastel Lembut**:
     - Baris ke-3 diberi warna tematik halus: *Cyan Aksen* (`#00E5FF`) untuk FPS, *Azure Blue* (`#90CAF9`) untuk CPU, dan *Aqua Mint* (`#80DEEA`) untuk GPU.
 
@@ -1161,13 +1177,13 @@ Released on: 2026-11-01
   - **Visual Cyberpunk Frosted Glass & Konteks Aksi yang Kaya**:
     - Kontainer kapsul ramping dengan latar belakang *dark graphite glass* (95% opasitas, `#F2121620`) dan border aksen berkilau.
     - Titik indikator bercahaya (*glowing dot indicator*) yang menyesuaikan status dan fungsi alat.
-    - Informasi dua tingkat yang informatif dan profesional: Nama Alat + Pemisah Titik (`·`) + Konteks/Status Aksi:
-      - **Tangkapan Layar**: *Tangkapan Layar · Simpan layar* (Cyan `#00E5FF`)
-      - **Perekam Layar**: *Perekam Layar · Rekam MP4* / *Hentikan Rekam · [Durasi]* (Crimson `#FF5252`)
-      - **Bersihkan RAM**: *Bersihkan RAM · Bebaskan memori* (Emerald Green `#00E676`)
-      - **Sematkan Mini HUD**: *Sematkan Mini HUD · Overlay FPS mini* / *Aktif* (Azure Blue `#38BDF8`)
-      - **Auto-Skip Dialog**: *Auto-Skip Dialog · Otomasi cerita* / *Aktif* (Sunset Orange `#FB923C`)
-      - **Mode Fokus Game**: *Mode Fokus Game · Blokir gangguan* / *Aktif* (Neon Crimson `#FF4D4D`)
+    - Informasi dua tingkat yang informatif dan profesional: Nama Alat + Pemisah Titik (`Â·`) + Konteks/Status Aksi:
+      - **Tangkapan Layar**: *Tangkapan Layar Â· Simpan layar* (Cyan `#00E5FF`)
+      - **Perekam Layar**: *Perekam Layar Â· Rekam MP4* / *Hentikan Rekam Â· [Durasi]* (Crimson `#FF5252`)
+      - **Bersihkan RAM**: *Bersihkan RAM Â· Bebaskan memori* (Emerald Green `#00E676`)
+      - **Sematkan Mini HUD**: *Sematkan Mini HUD Â· Overlay FPS mini* / *Aktif* (Azure Blue `#38BDF8`)
+      - **Auto-Skip Dialog**: *Auto-Skip Dialog Â· Otomasi cerita* / *Aktif* (Sunset Orange `#FB923C`)
+      - **Mode Fokus Game**: *Mode Fokus Game Â· Blokir gangguan* / *Aktif* (Neon Crimson `#FF4D4D`)
   - **Animasi Pegas Dinamis (*Spring Scale & Fade*)**:
     - Bubble muncul dan membesar dari titik segitiga penunjuk (`transformOrigin(caretFraction, 1f)`) dengan durasi responsif 140 ms, serta mengecil kembali secara mulus saat dilepas.
     - Dilengkapi haptic feedback sentuhan panjang (*LongPress*) dan auto-dismiss halus setelah 2.4 detik.
@@ -1178,13 +1194,13 @@ Released on: 2026-11-01
 Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.29
 
-- **Perbaikan Menyeluruh Telemetri HUD & Eliminasi Status "Akses Ditolak" / Layar Kosong (`—`)**:
+- **Perbaikan Menyeluruh Telemetri HUD & Eliminasi Status "Akses Ditolak" / Layar Kosong (`â`)**:
   - **Penanganan Stdin Non-Interactive / EOF pada Native Daemon (`native/lynxd/src/hud/stream.rs`)**: Menghilangkan penghentian dini daemon `hud stream` akibat `line.is_err()` saat dieksekusi melalui `su -c` dengan stdin tertutup (`/dev/null`). Daemon kini terus melakukan streaming metrik secara kontinu hingga stream output (`stdout`) terputus secara alami (`SIGPIPE`/`EPIPE`) saat aplikasi ditutup.
-  - **Pelaporan Frame Rate Idle Cerdas (0.0 FPS vs Unsupported)**: Memperbaiki kondisi ketika aplikasi aktif (seperti Google Chrome atau game yang sedang pause/membaca teks statis) tidak memproduksi frame baru dalam 1.5 detik. Sistem tidak lagi menghapus layer aktif (`layer.clear()`) atau menandai status sebagai `"unsupported"` (`—`), melainkan melaporkan `0.0 FPS` dalam status `"valid"`. Counter FPS seketika responsif saat layar disentuh kembali tanpa memicu badai kueri `SurfaceFlinger --list`.
+  - **Pelaporan Frame Rate Idle Cerdas (0.0 FPS vs Unsupported)**: Memperbaiki kondisi ketika aplikasi aktif (seperti Google Chrome atau game yang sedang pause/membaca teks statis) tidak memproduksi frame baru dalam 1.5 detik. Sistem tidak lagi menghapus layer aktif (`layer.clear()`) atau menandai status sebagai `"unsupported"` (`â`), melainkan melaporkan `0.0 FPS` dalam status `"valid"`. Counter FPS seketika responsif saat layar disentuh kembali tanpa memicu badai kueri `SurfaceFlinger --list`.
   - **Preservasi Metrik Berjalan pada `HudStreamRepository`**: Mencegah pembersihan sepihak semua sensor ke status `"permission_denied"` ("Akses ditolak") jika terjadi jeda atau rekoneksi aliran data, menjaga kelangsungan telemetri CPU, GPU, Baterai, dan Suhu di UI.
 
 - **Penyelarasan Verifikasi Profil Kernel & Siklus Deteksi Paket Aplikasi Aktif**:
-  - **Penghapusan Bug Paket Menempel (*Stale Package Name*) pada `LynxFloatingHudService`**: Mengatasi kondisi di mana HUD terus menampilkan nama "Chrome" dan metrik kosong (`—`) saat pengguna telah kembali ke layar beranda (*Launcher*) atau Lynx Companion. HUD kini secara reaktif mendeteksi launcher/homescreen, membersihkan `currentPackage` usang, dan menampilkan identitas modul "Lynx" secara presisi.
+  - **Penghapusan Bug Paket Menempel (*Stale Package Name*) pada `LynxFloatingHudService`**: Mengatasi kondisi di mana HUD terus menampilkan nama "Chrome" dan metrik kosong (`â`) saat pengguna telah kembali ke layar beranda (*Launcher*) atau Lynx Companion. HUD kini secara reaktif mendeteksi launcher/homescreen, membersihkan `currentPackage` usang, dan menampilkan identitas modul "Lynx" secara presisi.
   - **Eliminasi Kesalahan Verifikasi Profil ("Penerapan gagal atau hasil belum sesuai")**:
     - Memberikan jeda stabilisasi (120 ms) agar penulisan sysfs multi-core dan Android property service (`lynx.mode`) menetap sebelum verifikasi.
     - Menghilangkan syarat kaku `output.isSuccess` jika hasil audit JSON menyatakan `errors == 0`, mengakomodasi pembatasan driver kernel Qualcomm/MTK (*clamped nodes*) yang sah secara hardware.
@@ -1202,11 +1218,11 @@ Released on: 2026-11-01
 > Lynx Kernel Manager v3.3.28
 
 - **Stabilitas Pengisian Puncak Hingga 90% & Transisi Tapering Elektrokimia Aman**:
-  - **Perpanjangan Jendela Puncak Hyper ke 90% SoC (`cur_cap < 90`)**: Memperluas ambang batas penegakan arus puncak dan kick AICL (`rerun_aicl = 1`) dari sebelumnya 80–85% hingga **90% penuh**. Arus pengisian pada Redmi Note 7 (Qualcomm PM660) dan platform lainnya dipertahankan secara stabil di batas puncak hardware (3000 mA pada single-PMIC) tanpa penurunan mendadak sebelum 90%.
+  - **Perpanjangan Jendela Puncak Hyper ke 90% SoC (`cur_cap < 90`)**: Memperluas ambang batas penegakan arus puncak dan kick AICL (`rerun_aicl = 1`) dari sebelumnya 80â85% hingga **90% penuh**. Arus pengisian pada Redmi Note 7 (Qualcomm PM660) dan platform lainnya dipertahankan secara stabil di batas puncak hardware (3000 mA pada single-PMIC) tanpa penurunan mendadak sebelum 90%.
   - **Penerapan Kurva Tapering Elektrokimia Mulus Dimulai Tepat di 90%**: Memastikan transisi aman saat sel baterai mendekati saturasi tegangan nominal ($4.35\text{V} - 4.40\text{V}$) guna mencegah *lithium plating* dan pembengkakan sel:
-    - **90% – 93% SoC**: Tahap 1 Tapering $\rightarrow$ diturunkan halus ke **2400 mA**.
-    - **94% – 96% SoC**: Tahap 2 Tapering $\rightarrow$ diturunkan ke **1800 mA**.
-    - **97% – 99% SoC**: Tahap 3 Trickle Saturation $\rightarrow$ **1200 mA** untuk absorpsi muatan akhir secara sempurna.
+    - **90% â 93% SoC**: Tahap 1 Tapering $\rightarrow$ diturunkan halus ke **2400 mA**.
+    - **94% â 96% SoC**: Tahap 2 Tapering $\rightarrow$ diturunkan ke **1800 mA**.
+    - **97% â 99% SoC**: Tahap 3 Trickle Saturation $\rightarrow$ **1200 mA** untuk absorpsi muatan akhir secara sempurna.
     - **$\ge$ 100% SoC**: AutoCut & Hardware Bypass $\rightarrow$ **0 mA** (memutus arus ke sel baterai secara total).
   - **Sinkronisasi Otomatis Mesin Daemon `lynxd`**: Daemon secara otonom mendeteksi kapasitas $\ge 90\%$ dan menerapkan interpolasi arus bertahap tanpa intervensi manual.
 
@@ -1217,9 +1233,9 @@ Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.27
 
 - **Perbaikan Kritis Pipeline Telemetri HUD (`HudStreamRepository`) & Aksesibilitas Sensor**:
-  - **Eliminasi Bug Syntax Shell Quoting (`su -c`)**: Memperbaiki pemanggilan biner `hud stream` dengan menghapus pembungkus tanda petik tunggal bersarang (`'...'`) yang memicu galat parsing `/system/bin/sh: no closing quote` pada Toybox/mksh Android (terutama di lingkungan APatch/KernelSU), penyebab pembacaan metrik kosong (`—`) dan status "Akses ditolak" (`permission_denied`).
+  - **Eliminasi Bug Syntax Shell Quoting (`su -c`)**: Memperbaiki pemanggilan biner `hud stream` dengan menghapus pembungkus tanda petik tunggal bersarang (`'...'`) yang memicu galat parsing `/system/bin/sh: no closing quote` pada Toybox/mksh Android (terutama di lingkungan APatch/KernelSU), penyebab pembacaan metrik kosong (`â`) dan status "Akses ditolak" (`permission_denied`).
   - **Multi-Path Binary Fallback**: Menambahkan fallback bertingkat otomatis untuk menemukan biner native (`liblynxhud.so` di `nativeLibraryDir`, `/data/adb/modules/Lynx/system/bin/lynxd`, dan `/data/local/tmp/lynxd`).
-  - **Resilient Auto-Reconnection Loop**: Mengganti eksekusi sekali putus dengan loop pemulihan mandiri (`auto-reconnect`) berdurasi 1.5 detik jika proses daemon restart atau terinterupsi, meniadakan kondisi macet permanen pada status "Akses ditolak" (`permission_denied`) atau data kosong (`—`).
+  - **Resilient Auto-Reconnection Loop**: Mengganti eksekusi sekali putus dengan loop pemulihan mandiri (`auto-reconnect`) berdurasi 1.5 detik jika proses daemon restart atau terinterupsi, meniadakan kondisi macet permanen pada status "Akses ditolak" (`permission_denied`) atau data kosong (`â`).
 - **Sistem Pewarnaan Dinamis & Interaktif Pill serta Kartu Profil pada HUD Ringkasan**:
   - **Identitas Warna Unik & Tegas per Profil**:
     - **Hemat (Powersave)**: *Vibrant Emerald Green* (`#00E676`) melambangkan efisiensi energi dan penghematan baterai.
@@ -1250,7 +1266,7 @@ Released on: 2026-10-31
 - **Akselerasi Ekstrem & Optimasi Khusus Penyimpanan eMMC / SoC Low-End (Redmi Note 7 & Mid-Rangers)**:
   - **Stateless Singleton Memory Cache (Instant 0ms Re-open)**: Menerapkan memory cache statis dan `LruCache<String, Bitmap>` pada `HudAppCatalog`. Pembukaan daftar aplikasi kedua dan seterusnya menjadi instan (0 ms) tanpa membaca ulang penyimpanan eMMC yang memiliki latency tinggi.
   - **Pangkas 75% Overhead I/O & IPC Binder**: Memanfaatkan data `ResolveInfo` langsung dari `queryIntentActivities` untuk mengekstrak nama paket, status enabled, dan label aplikasi, serta meniadakan total pemanggilan `pm.getLaunchIntentForPackage()` yang sebelumnya memicu 100+ IPC berat.
-  - **Optimasi Ukuran Bitmap Ikon (48dp Memory & CPU Saver)**: Menyesuaikan resolusi pembuatan bitmap dari 96×96 ke 48×48 px, menghemat alokasi RAM dan software rendering CPU hingga 75%.
+  - **Optimasi Ukuran Bitmap Ikon (48dp Memory & CPU Saver)**: Menyesuaikan resolusi pembuatan bitmap dari 96Ã96 ke 48Ã48 px, menghemat alokasi RAM dan software rendering CPU hingga 75%.
   - **Multi-Threaded Parallel Chunk Processing**: Mengurai pemindaian aplikasi secara paralel pada `Dispatchers.IO` guna memanfaatkan seluruh 8 core CPU Kryo 260 secara optimal.
   - **Peniadaan Nested Scroll Conflict pada Compose**: Menjadikan `LazyColumn` di `HudAppManager` sebagai wadah scroll mandiri tanpa pembungkus `verticalScroll` luar, mengaktifkan daur ulang item Android secara sempurna dan menjamin kestabilan 60 FPS saat scrolling.
   - **Fast In-Memory Label Cache**: Menyimpan riwayat nama aplikasi aktif pada `ConcurrentHashMap` sehingga pergantian nama aplikasi pada header HUD tidak lagi berkedip kosong.
@@ -1276,7 +1292,7 @@ Released on: 2026-10-31
 - **Bilah Aplikasi Freeform Kompak Horizontal di Bawah Header Panel HUD**:
   - **Penyematan Bilah Aplikasi Tepat di Bawah Header (Single-Row Horizontal Scroll)**: Menambahkan 1 baris dock aplikasi Freeform (WhatsApp, Chrome, Telegram, Discord, YouTube, dll.) yang kompak dan dapat digeser horizontal tepat di bawah Header utama dan garis pembatas, sebelum bilah navigasi tab.
   - **Kemudahan Akses Mode Freeform / Floating Window**: Mengetuk ikon aplikasi mana pun langsung meluncurkannya dalam jendela mengambang (Freeform) di atas game atau aplikasi yang sedang berjalan tanpa perlu keluar dari gameplay atau membuka recent apps.
-  - **Desain Squircle Kaca Frosted 38dp & Hold Tooltip**: Menggunakan kontainer squircle kaca frosted 38×38dp dengan ikon berukuran 24dp dan padding ergonomis. Menahan ikon memunculkan gelembung tooltip nama aplikasi beserta getaran haptic halus.
+  - **Desain Squircle Kaca Frosted 38dp & Hold Tooltip**: Menggunakan kontainer squircle kaca frosted 38Ã38dp dengan ikon berukuran 24dp dan padding ergonomis. Menahan ikon memunculkan gelembung tooltip nama aplikasi beserta getaran haptic halus.
   - **Tombol Tambah/Kelola Pintar (+)**: Menyertakan tombol pintas `+` di ujung kanan baris aplikasi untuk langsung membuka pengelola aplikasi dan memilih aplikasi apa saja yang ingin ditampilkan di bilah Freeform.
   - **Preservasi Navigasi Tab**: Seluruh tab navigasi (Ringkasan, Detail, Lab, Alat) tetap utuh pada posisinya tanpa perubahan struktural.
 
@@ -1304,8 +1320,8 @@ Released on: 2026-10-31
 - **Peningkatan Batas Arus Hyper Charging ke 3500mA & Persistensi Layanan Latar Belakang (Qualcomm Snapdragon & MediaTek)**:
   - **Pembukaan Batas Arus Qualcomm PMIC ke 3500mA (3.5A)**: Menaikkan `target_peak_ma`, `target_usb_ua`, dan `qcom_ma` dari 3000mA ke 3500mA pada native daemon `lynxd` (`hardware/charging.rs`) dan `ExtremeChargingScript.kt`. Seluruh voter register pengisian daya Qualcomm PM660 (`constant_charge_current_max`, `input_current_limit`, `current_max`, `hw_current_max`, `restrict_cur`) kini dibuka hingga 3.5A penuh untuk mengekstrak daya maksimum dari charger Quick Charge 3.0 / USB-PD.
   - **Persistensi Pengisian Berkecepatan Penuh saat Aplikasi Ditutup / Keluar Fokus**: Mengintegrasikan coroutine Guardian Pengisian Persisten pada `LynxAppAutomationService` (berjalan di background setiap 3 detik) yang secara otomatis menegakkan kembali kunci pengisian ekstrem (`reapplyExtremeChargingLock`) tanpa terputus. Native daemon `lynxd` di level root juga secara mandiri menjalankan `ChargingRegulator::tick()` dan memegang wake lock sistem (`lynx_charging`), sehingga arus tetap bertahan di puncak stabil meskipun aplikasi di-swipe dari Recents atau layar dimatikan.
-  - **Bypass Suhu Baterai pada `LynxThermalGuardService` khusus Hyper Mode**: Mengonfigurasi guardrail keselamatan baterai agar mengecualikan pembatasan darurat ke profil `stable` saat mode pengisian `hyper` atau `extremeChargingEnabled` aktif, mencegah interupsi throttling saat sel baterai mencapai 45°C–50°C.
-  - **Elevasi Trip Point Zona Termal `quiet-therm-step` ke 75°C–80°C**: Mengangkat trip point `trip_point_0_temp` dan `trip_point_1_temp` pada zona `quiet-therm-step` ke 75.000 (75°C) dan 80.000 (80°C) baik via native daemon maupun runtime script, meniadakan derating kernel saat sel baterai hangat.
+  - **Bypass Suhu Baterai pada `LynxThermalGuardService` khusus Hyper Mode**: Mengonfigurasi guardrail keselamatan baterai agar mengecualikan pembatasan darurat ke profil `stable` saat mode pengisian `hyper` atau `extremeChargingEnabled` aktif, mencegah interupsi throttling saat sel baterai mencapai 45Â°Câ50Â°C.
+  - **Elevasi Trip Point Zona Termal `quiet-therm-step` ke 75Â°Câ80Â°C**: Mengangkat trip point `trip_point_0_temp` dan `trip_point_1_temp` pada zona `quiet-therm-step` ke 75.000 (75Â°C) dan 80.000 (80Â°C) baik via native daemon maupun runtime script, meniadakan derating kernel saat sel baterai hangat.
   - **Startup Guardian Otomatis pada `LynxApp`**: Menjamin inisialisasi native daemon `lynxd` berjalan otomatis di latar belakang saat aplikasi pertama kali dibuka (`ensureDaemonRunning`).
 
 ---
@@ -1315,8 +1331,8 @@ Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.20
 
 - **Penetrasi Arus Pengisian Hyper Mode & Stabilisasi Konstan >2500mA pada Qualcomm Snapdragon (PM660 / SDM660 & All QCOM)**:
-  - **Pemusnahan Derating Termal `thermal-engine` Qualcomm**: Mengatasi pemotongan arus ke 500mA–1000mA saat suhu baterai/quiet-therm menyentuh 48°C+. Mengonfigurasi ulang bind-mount `/dev/lynx_thermal_engine.conf` dengan menaikkan ambang trip point pengisian ke 75°C–87°C dan memaksa seluruh `action_info` mitigasi baterai menjadi `0 0 0 0 0` (zero throttle mitigation).
-  - **Penonaktifan Step-Charging & JEITA Workqueue Kernel**: Secara berkelanjutan mengunci `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, dan `safety_timer_enabled = 0` sehingga pengontrol arus Qualcomm PM660 tidak menurunkan arus saat voltase mendekati 4.15V–4.35V.
+  - **Pemusnahan Derating Termal `thermal-engine` Qualcomm**: Mengatasi pemotongan arus ke 500mAâ1000mA saat suhu baterai/quiet-therm menyentuh 48Â°C+. Mengonfigurasi ulang bind-mount `/dev/lynx_thermal_engine.conf` dengan menaikkan ambang trip point pengisian ke 75Â°Câ87Â°C dan memaksa seluruh `action_info` mitigasi baterai menjadi `0 0 0 0 0` (zero throttle mitigation).
+  - **Penonaktifan Step-Charging & JEITA Workqueue Kernel**: Secara berkelanjutan mengunci `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, dan `safety_timer_enabled = 0` sehingga pengontrol arus Qualcomm PM660 tidak menurunkan arus saat voltase mendekati 4.15Vâ4.35V.
   - **AICL Dynamic Kick Enforcer (>2550mA Target)**: Memperbarui regulator daemon `lynxd` sehingga jika arus riil terdeteksi turun di bawah 2550 mA pada kapasitas baterai < 85%, sistem seketika memicu `rerun_aicl` dan menulis ulang `constant_charge_current_max` ke 3000 mA.
   - **Penguncian Unconditional Cooling Devices**: Mengunci seluruh cooling device subsistem pengisian (`battery`, `charger`, `pm660`, `smb`) ke `cur_state = 0` dengan izin `0444`.
 
@@ -1343,10 +1359,10 @@ Released on: 2026-10-31
 - Redesain selektor profil pada **HUD Ringkasan (Summary Page)**:
   - **Eliminasi Dropdown Tersembunyi**: Menghapus `HudExpandableSection` dan menu bertingkat yang sebelumnya menyembunyikan profil di balik accordion dan disclosure tambahan.
   - **Kartu/Pill Langsung 4 Profil Utama (2x2 Grid)**: Menampilkan 4 profil esensial secara langsung (*glanceable single-tap switch*):
-    - 🍃 **Hemat** (`powersave`): Aksen hijau lembut (*Power Efficiency*).
-    - ⚖️ **Seimbang** (`balance`): Aksen biru es (*Daily Balanced*).
-    - 🚀 **Kinerja** (`performance`): Aksen biru langit cerah (*Responsive Gaming*).
-    - 🔥 **Ekstrem** (`extreme`): Aksen oranye amber (*Uncapped Max Clocks*) dengan proteksi modal konfirmasi bahaya.
+    - ð **Hemat** (`powersave`): Aksen hijau lembut (*Power Efficiency*).
+    - âï¸ **Seimbang** (`balance`): Aksen biru es (*Daily Balanced*).
+    - ð **Kinerja** (`performance`): Aksen biru langit cerah (*Responsive Gaming*).
+    - ð¥ **Ekstrem** (`extreme`): Aksen oranye amber (*Uncapped Max Clocks*) dengan proteksi modal konfirmasi bahaya.
   - **Efek Visual Luminous Frosted Glass**: Kartu aktif otomatis menyala lembut dengan batas *specular rim* berkelas, sementara kartu non-aktif berwujud kaca akrilik semi-transparan yang bersih dan tenang.
   - **Ergonomi Touch-First**: Memenuhi standar target sentuh minimal 44dp bebas salah sentuh (*anti-mistouch*) saat bermain game.
 
@@ -1358,10 +1374,10 @@ Released on: 2026-10-31
 
 - **Penetrasi Arus Pengisian Puncak Penuh & Pemusnahan Limit Termal Tanpa KPM pada Infinix/MediaTek**:
   - **Pemusnahan Trip Point Pendingin ABCCT (`tzbts`)**: Mengidentifikasi dan membongkar ikatan pengurang arus termal MediaTek (`abcct` dan `abcct_lcmoff`) dari zona termal prosesor (`thermal_zone1` / `mtktsAP`). Mengonfigurasi ulang tabel `tzbts` dan `tzbtspa` menjadi `no-cooler` sehingga pendingin `abcct` dinonaktifkan secara permanen (`cur_state = 0`) dan tidak pernah memotong arus pengisian ke 1500mA saat ponsel menghangat.
-  - **Bypass Tabel Termal PCB Transsion (`pcb_thermal_debug`)**: Memaksa batas ambang suhu PCB motherboard naik ke 95°C / 100°C dengan arus target 7000mA, meniadakan derating level 7 (45°C) pada algoritma Direct Charge Pump RT9759.
-  - **Overrule Tabel Termal In-Memory DV2 Direct Charge (`dv2_debug`)**: Menimpa batas suhu baterai dan direct charger (`101` dan `102`) ke 85°C–90°C dengan arus puncak 7000mA.
+  - **Bypass Tabel Termal PCB Transsion (`pcb_thermal_debug`)**: Memaksa batas ambang suhu PCB motherboard naik ke 95Â°C / 100Â°C dengan arus target 7000mA, meniadakan derating level 7 (45Â°C) pada algoritma Direct Charge Pump RT9759.
+  - **Overrule Tabel Termal In-Memory DV2 Direct Charge (`dv2_debug`)**: Menimpa batas suhu baterai dan direct charger (`101` dan `102`) ke 85Â°Câ90Â°C dengan arus puncak 7000mA.
   - **Penjagaan Arus Puncak Tanpa Henti (Continuous Thermal Neutralization Enforcer)**: Menghilangkan celah *early-exit* pada regulator daemon `lynxd` saat mode Hyper aktif; setiap siklus pengawasan kini secara aktif menulis ulang dan mengunci status `BatteryNotify = 0`, `BN_TestMode = 1`, `clbcct = 0 7000 7000 7000`, `enable_sc = 1`, dan `sc_ibat_limit = 7000`.
-  - **Peningkatan Arus Riil Hardware**: Berhasil menembus batasan arus dari sebelumnya ~2000–2400 mA menjadi **3400+ mA (18W+ pada adaptor PE 2.0 / 14.3W+ ke sel baterai)** dengan pengisian baterai yang stabil dan cepat melesat.
+  - **Peningkatan Arus Riil Hardware**: Berhasil menembus batasan arus dari sebelumnya ~2000â2400 mA menjadi **3400+ mA (18W+ pada adaptor PE 2.0 / 14.3W+ ke sel baterai)** dengan pengisian baterai yang stabil dan cepat melesat.
 
 ---
 
@@ -1373,7 +1389,7 @@ Released on: 2026-10-31
   - **Eliminasi Bug Over-Vote Qualcomm PM660 (-EINVAL Reject)**: Memperbaiki kesalahan penulisan arus 4500mA/4000mA pada perangkat Qualcomm single-PMIC (seperti Redmi Note 7 SDM660/PM660) yang melampaui batas keras register AICR hardware (3000mA). Mengunci batas atas ke **3000 mA (3,000,000 uA)** yang valid dan diakui penuh oleh driver kernel `smb-lib.c`, mencegah *voting failure* dan *fallback* ke mode USB 1500mA.
   - **Penjagaan Arus Puncak Tanpa Penurunan (Continuous Peak Lock)**: Menghapus pembatasan *rate-limiter* pada mode Hyper. Daemon `lynxd` dan skrip Companion App secara aktif memantau register FCC dan AICR; jika arus atau register turun di bawah batas puncak target (atau < 1800 mA saat baterai < 85%), sistem seketika mengeksekusi re-latch dan memicu `rerun_aicl = 1` untuk memaksa PM660 mengalirkan arus maksimal kembali.
   - **Netralisasi Penuh Perangkat Pendingin Baterai (`cooling_device4` / `battery`)**: Mengunci status `cur_state = 0` dengan izin `0444` pada seluruh cooling device termal baterai dan menetapkan `system_temp_level = 0`, `temp_state = 0`, `thermal_input_current_limit = -1`, `step_charging_enabled = 0`, serta `sw_jeita_enabled = 0` agar derating termal kernel OEM tidak memotong arus saat baterai menghangat.
-  - **Akselerasi Protokol Quick Charge 3.0 (HVDCP 3.0 / USB-PD)**: Membuka penuh negosiasi tegangan tinggi HVDCP 3.0 (9V) dan boost current, memungkinkan transfer daya hingga 18W (2000–3000 mA pada sel baterai).
+  - **Akselerasi Protokol Quick Charge 3.0 (HVDCP 3.0 / USB-PD)**: Membuka penuh negosiasi tegangan tinggi HVDCP 3.0 (9V) dan boost current, memungkinkan transfer daya hingga 18W (2000â3000 mA pada sel baterai).
 
 ---
 
@@ -1422,7 +1438,7 @@ Released on: 2026-10-31
   - **Pemurnian Halaman Boost (`HudLab`) Menjadi Pusat Akselerasi Performa Murni**:
     - **Banner Status Lynx Engine**: Menampilkan status Lynx Deity Engine, hardware governor, dan badge profil aktif dengan glowing cyberpunk accent.
     - **Pemilih Profil Performa Lengkap**: Menghadirkan selektor profil langsung (*Powersave*, *Balanced*, *Performance*, *Auto/AI*, *Extreme*) lengkap dengan dialog konfirmasi bahaya untuk mode ekstrem.
-    - **Booster Memori Cepat (RAM & Kernel Cache Purge)**: Visualisasi kapasitas RAM terpakai dan tombol interaktif `⚡ Bersihkan RAM & Cache` dengan umpan balik pembersihan real-time.
+    - **Booster Memori Cepat (RAM & Kernel Cache Purge)**: Visualisasi kapasitas RAM terpakai dan tombol interaktif `â¡ Bersihkan RAM & Cache` dengan umpan balik pembersihan real-time.
     - **Thermal & Power Headroom Telemetry**: Pemantau langsung suhu inti CPU/SoC dan temperatur baterai untuk memastikan keamanan termal perangkat saat akselerasi performa berlangsung.
   - **Penyelarasan Navigasi Shell**: Tombol kembali (*Back button*) pada header secara mulus mengembalikan pengguna dari subhalaman alat apa pun ke menu utama *Tools Hub*.
 
@@ -1463,7 +1479,7 @@ Released on: 2026-10-31
     - Penyelarasan asinkron VM writeback (`dirty_ratio=10`, `dirty_background_ratio=5`, `dirty_expire_centisecs=200`, `vfs_cache_pressure=50`), mencegah I/O spike masif saat bangun dari deep sleep.
     - Peningkatan prioritas I/O proses kritis UI (`system_server`, `surfaceflinger`, `keystore2`) via `ionice Real-Time / High Best-Effort`.
   - **Dual-Section MountX Card UI**:
-    - Kartu penyimpanan cerdas dengan badge `🛡️ eMMC 5.1 Flash Shield` atau `⚡ UFS High-Throughput`.
+    - Kartu penyimpanan cerdas dengan badge `ð¡ï¸ eMMC 5.1 Flash Shield` atau `â¡ UFS High-Throughput`.
     - Menampilkan telemetri JEDEC eMMC Device Health (umur pakai, pre-EOL) dan kontrol optimalisasi I/O MicroSD card mandiri.
   - **Penegasan Aturan Roadmap Governance (Anti-AI-Slop)**: Mengunci aturan bahwa seluruh roadmap checklist hanya dapat dicentang (`[x]`) atas perintah langsung pengguna. Agen AI hanya berhak menambahkan to-do baru (`[ ]`).
 
@@ -1474,10 +1490,10 @@ Released on: 2026-10-31
 > Lynx Kernel Manager v3.3.9
 
 - Memulihkan estetika futuristik dan ergonomi sentuh pada handle HUD Sidebar / Lynx Engine overlay:
-  - **Restorasi Handle Ergonomis Semi-Oval (Cyberpunk OLED & Sidekick Style)**: Menggantikan balok kaku flat 12dp dengan tab semi-oval melengkung berpresisi tinggi (18×56 dp di dalam touch target aman 48×72 dp) yang menempel sempurna pada bezel layar (RoundedCornerShape 16 dp ke arah dalam layar).
+  - **Restorasi Handle Ergonomis Semi-Oval (Cyberpunk OLED & Sidekick Style)**: Menggantikan balok kaku flat 12dp dengan tab semi-oval melengkung berpresisi tinggi (18Ã56 dp di dalam touch target aman 48Ã72 dp) yang menempel sempurna pada bezel layar (RoundedCornerShape 16 dp ke arah dalam layar).
   - **Indikator Arah Neon Cyan & Directional Affordance**: Menambahkan aksen pendaran neon mint/cyan (HudCyan #43E5C1) dengan kontur border halus serta mikro-chevron terarah (ChevronLeft jika di dock kanan, ChevronRight jika di dock kiri) dan vertical glow bar, mempertegas identitas visual Lynx Engine serta memberikan isyarat visual instan bahwa handle dapat ditarik ke tengah layar.
   - **Overhaul Gesture Engine Buka/Tutup & Reposisi Tanpa Lag**:
-    - Mengeliminasi timer delay 220ms yang kaku pada HudSidebarHostView: membuka HUD kini merespons tarikan horizontal/diagonal alami jempol secara instan (inward >= 10dp dengan toleransi sudut sentuh hingga ~60°).
+    - Mengeliminasi timer delay 220ms yang kaku pada HudSidebarHostView: membuka HUD kini merespons tarikan horizontal/diagonal alami jempol secara instan (inward >= 10dp dengan toleransi sudut sentuh hingga ~60Â°).
     - Memisahkan secara tegas antara gesture buka drawer dengan gesture reposisi vertikal (abs(dy) > slop && abs(dy) > abs(dx) * 1.3f), mengeliminasi bug di mana tarikan diagonal gamer untuk membuka HUD keliru terbaca sebagai pergeseran handle naik/turun di pinggir layar.
     - Menghilangkan anomali sentuhan mati (dead touches): ketukan langsung (tap) atau pelepasan sentuhan tanpa pergeseran kini 100% membuka drawer seketika (zero-latency toggle).
 - Optimasi Dynamic Multi-Tier Storage & eMMC Half-Duplex Engine:
@@ -1502,8 +1518,8 @@ Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.7
 
 - Mengoptimalkan mode pengisian daya Hyper pada chipset Qualcomm Snapdragon (mis. Redmi Note 7 `lavender` SD660 / PMIC PM660) agar beroperasi pada performa maksimal tanpa terhambat throttling perangkat lunak:
-  - **Netralisasi Throttling Software Termal via Izin Read-Only (`write_node_lock` `0444`)**: Menolak intervensi daemons userspace (`thermal-engine`, `system_temp_level`, dan software JEITA step-charging) yang sebelumnya secara sepihak memotong arus pengisian daya dari ~1800–2000 mA ke ~1000 mA saat suhu baterai mencapai 42°C.
-  - **Perlindungan Hardware Murni 100% Tetap Aktif**: Memastikan proteksi fisik tingkat silikon PMIC Qualcomm PM660 (hardware thermal OTP comparator ~140°C junction) serta hardware PCM/OTP fuse pack baterai (~60°C) tetap aktif sepenuhnya untuk keamanan fisik baterai jangka panjang.
+  - **Netralisasi Throttling Software Termal via Izin Read-Only (`write_node_lock` `0444`)**: Menolak intervensi daemons userspace (`thermal-engine`, `system_temp_level`, dan software JEITA step-charging) yang sebelumnya secara sepihak memotong arus pengisian daya dari ~1800â2000 mA ke ~1000 mA saat suhu baterai mencapai 42Â°C.
+  - **Perlindungan Hardware Murni 100% Tetap Aktif**: Memastikan proteksi fisik tingkat silikon PMIC Qualcomm PM660 (hardware thermal OTP comparator ~140Â°C junction) serta hardware PCM/OTP fuse pack baterai (~60Â°C) tetap aktif sepenuhnya untuk keamanan fisik baterai jangka panjang.
   - **Restorasi Izin Penuh Saat Keluar Mode Hyper**: Fungsi `unlock_extreme_nodes()` mengembalikan hak akses sysfs ke `0666` saat beralih ke mode Standard/Cool atau saat kabel dicabut, memastikan manajemen daya bawaan OEM dapat kembali mengontrol sistem secara normal.
 
 ---
@@ -1512,7 +1528,7 @@ Released on: 2026-10-30
 Released on: 2026-10-30
 > Lynx Kernel Manager v3.3.6
 
-- Memulihkan kecepatan penuh **33W Super Charge / Direct Charge (`RT9759` 2:1 Charge Pump ~3800–4500 mA @ 8.88V)** pada perangkat MediaTek Transsion/Infinix (`X698` Helio G96) yang sebelumnya tertahan lambat di ~1250–1350 mA @ 4.84V pasca commit `aded6995`:
+- Memulihkan kecepatan penuh **33W Super Charge / Direct Charge (`RT9759` 2:1 Charge Pump ~3800â4500 mA @ 8.88V)** pada perangkat MediaTek Transsion/Infinix (`X698` Helio G96) yang sebelumnya tertahan lambat di ~1250â1350 mA @ 4.84V pasca commit `aded6995`:
   - **Eliminasi 1 Hz Infinite Re-Init Storm yang Menggagalkan `dv2_algo_task` (`RT9759`)**: Memperbaiki pengecekan `invariants_intact` di `apply_from_config()` (`native/lynxd/src/hardware/charging.rs`) yang sebelumnya memeriksa kondisi mustahil pada kernel MediaTek (`en_power_path == "0"` saat pengisian aktif yang seharusnya bernilai `"1"`, serta `enable_sc == "1"` padahal fungsi kernel `store_enable_sc` adalah *no-op stub* yang selalu membaca `"0"`). Kegagalan invariant tersebut sebelumnya memicu eksekusi ulang `apply_hyper_mode()` $\to$ `clear_bypass_hardware_state()` setiap 1 detik tanpa henti, yang menulis `"1 0"` ke `/proc/mtk_battery_cmd/current_cmd` dan `"0"` ke `OTG_CTL`, memaksa buck converter 5V (`rt9471`) menyala kembali dan membatalkan pompa `RT9759` (`dv2_stop_algo`).
   - **Koreksi Format Hexadecimal Microampere ($\mu\text{A}$ Base-16) pada Register Charger MediaTek**: Berdasarkan hasil *disassembly* fungsi kernel `store_input_current`, `store_chg1_current`, dan `store_chg2_current` (`kstrtouint(buf, 16, &reg)`), driver kernel MediaTek membaca input penulisan dalam **basis-16 (heksadesimal) satuan mikroampere ($\mu\text{A}$)** namun menampilkan output pembacaan (`show_*`) dalam desimal $\mu\text{A}$. Penulisan string desimal `"6000"` sebelumnya diterjemahkan oleh kernel sebagai `0x6000` = **`24.576` $\mu\text{A}$ (`24,5 mA`)**, dan `"24576"` sebagai `0x24576` = **`148.854` $\mu\text{A}$ (`148,8 mA`)**. Menambahkan helper `format_mtk_charger_hex_ua()` yang mengonversi target mA ke heksadesimal $\mu\text{A}$ secara presisi (contoh: `6000 mA` $\to$ `6.000.000` $\mu\text{A}$ $\to$ `"5b8d80"`).
   - **Idempotent Power Path Guard (`ensure_mtk_power_path_enabled`)**: Memeriksa status aktual `/proc/mtk_battery_cmd/en_power_path`, `/proc/mtk_battery_cmd/current_cmd`, dan `OTG_CTL` sebelum menulis, sehingga `lynxd` tidak pernah mengganggu transaksi I2C pompa `RT9759` yang sedang berjalan.
@@ -1525,7 +1541,7 @@ Released on: 2026-10-30
 
 - Mengeliminasi anomali pengisian daya terputus dan siklus Hi-Z disconnect loop pada IC charger Richtek RT9471 / RT9759 (MediaTek Helio G96 Infinix):
   - Menghapus eksekusi berbahaya pemicu soft-reconnect `Pump_Express = 1` yang secara keliru memaksa register hardware `rt9471_enable_powerpath = 0` dan `__rt9471_enable_hz = 1`, memutus jalur VBUS (`chg_in = 0`) dan mengharuskan pencabutan/pemasangan ulang kabel fisik (*replug*).
-  - Mengoreksi ambang batas deteksi pengisian macet (*stalled 5V watchdog*) dari `< 2200 mA` menjadi `< 400 mA` dengan verifikasi register PMIC, sehingga arus pengisian normal 5V (1500–2100 mA) diakui sebagai status sehat tanpa memutus arus.
+  - Mengoreksi ambang batas deteksi pengisian macet (*stalled 5V watchdog*) dari `< 2200 mA` menjadi `< 400 mA` dengan verifikasi register PMIC, sehingga arus pengisian normal 5V (1500â2100 mA) diakui sebagai status sehat tanpa memutus arus.
   - Menghapus penguncian hak akses read-only `0444` (`write_node_lock`) pada node kontrol arus MediaTek (`input_current`, `sc_ibat_limit`, `chg1_current`), mempertahankan izin terbuka `0666` agar transisi antar mode (Hyper, Standard, Cool) berjalan mulus tanpa kegagalan izin (EACCES).
 - Menyelaraskan posisi pembukaan sidebar HUD dengan handle tersimpan dan membatasi panel ke area layar aman.
 - Merapikan rail navigasi compact di bagian atas, header, telemetri, serta grid alat cepat dengan warna graphite dan aksen mint.
@@ -1539,7 +1555,7 @@ Released on: 2026-10-30
 
 - Mengeliminasi anomali tombol keyboard menjadi tertahan / hold ("huruf bisa menjadi hold"), ghost touch silang jarak jauh (misalnya antara huruf 'F' dan 'H'), serta joystick game yang terlepas sendiri ("game controller lepas sendiri padahal jari masih menempel").
 - Menghapus aktivasi keliru `tpd_mode = 1` pada subsistem driver MediaTek TPD (`native/lynxd/src/subsystems/display.rs` dan `LynxCpuSchedulerControlRepository.kt`):
-  - `tpd_mode = 1` adalah mode warisan (*Keypad Mode*) yang mengelompokkan area layar bawah (Y: 1230–2460, lokasi tepat keyboard virtual) dengan toleransi matriks tombol kaku 729px. Hal ini menyebabkan ketukan cepat pada keyboard dideteksi sebagai penekanan keypad ganda yang menahan input huruf (*stuck hold*) atau memicu ghost touch silang pada jalur sense yang sama.
+  - `tpd_mode = 1` adalah mode warisan (*Keypad Mode*) yang mengelompokkan area layar bawah (Y: 1230â2460, lokasi tepat keyboard virtual) dengan toleransi matriks tombol kaku 729px. Hal ini menyebabkan ketukan cepat pada keyboard dideteksi sebagai penekanan keypad ganda yang menahan input huruf (*stuck hold*) atau memicu ghost touch silang pada jalur sense yang sama.
   - Mengunci `tpd_mode = 0` secara permanen untuk memastikan layar beroperasi murni pada mode *Direct Linear Multi-Touch* 1:1 di seluruh area layar.
 - Mengoreksi ambang batas debounce filter MediaTek TPD (`tpd_em_debounce_time`):
   - Mengubah nilai dari `0` ke nilai penyangga aman `1` (sub-frame ~4ms).
@@ -1553,7 +1569,7 @@ Released on: 2026-10-30
 
 - Menyelesaikan anomali layar sentuh ("sesekali ghost touch, multiple touch bertabrakan, atau salah ketik saat mengetik cepat / fast touch") pada keyboard perangkat lunak dan interaksi multi-touch.
 - Menghapus override properti agresif `view.touch_slop=1`, `view.scroll_friction=0.005`, `ro.input.resampling=0`, dan `velocitytracker_strategy=lsq2` dari `platforms/mtk/system.prop`:
-  - Mengembalikan nilai toleransi pergeseran sentuhan (`touch_slop`) ke standar bawaan density-scaled Android Framework (8dp = ~24px pada layar 1080p 480dpi) sehingga mikrogoyangan alami ujung jari (1–3px) saat menekan tombol keyboard tidak lagi terdeteksi keliru sebagai gesture swipe / drag yang memicu salah ketik atau pembatalan input tombol.
+  - Mengembalikan nilai toleransi pergeseran sentuhan (`touch_slop`) ke standar bawaan density-scaled Android Framework (8dp = ~24px pada layar 1080p 480dpi) sehingga mikrogoyangan alami ujung jari (1â3px) saat menekan tombol keyboard tidak lagi terdeteksi keliru sebagai gesture swipe / drag yang memicu salah ketik atau pembatalan input tombol.
   - Memastikan `ro.input.resampling=1` aktif untuk mengeliminasi input jitter dan menyelaraskan event sentuh secara mulus dengan refresh rate VSYNC 120Hz.
   - Menghapus strategi velocity quadratic (`lsq2`) yang memicu lonjakan kecepatan ekstrem pada gerakan mikro.
 - Menghapus berkas konfigurasi IDC usang `platforms/mtk/system/usr/idc/mtk-tpd.idc`: mengeliminasi `touch.gestureMode = spots` yang sebelumnya secara keliru memerintahkan Android InputReader memperlakukan layar sentuh langsung sebagai trackpad virtual mouse, serta menghapus skala area/pressure artifisial yang memicu tabrakan identitas pointer (*pointer tracking ID collision*) saat dua jari menekan layar secara berdekatan.
@@ -1590,7 +1606,7 @@ Released on: 2026-10-29
 Released on: 2026-10-29
 > Lynx Kernel Manager v3.3.1
 
-- Menyelesaikan anomali tampilan visual pada antarmuka pengisian daya ("Tertahan di Bypass"): kartu hero pengisian daya sebelumnya dapat menampilkan status palsu "⚡ BYPASS CHARGING (0 mA)" dan "0.0 W" meskipun perangkat fisik sebenarnya sedang aktif melakukan pengisian cepat dengan arus tinggi (>2.5A).
+- Menyelesaikan anomali tampilan visual pada antarmuka pengisian daya ("Tertahan di Bypass"): kartu hero pengisian daya sebelumnya dapat menampilkan status palsu "â¡ BYPASS CHARGING (0 mA)" dan "0.0 W" meskipun perangkat fisik sebenarnya sedang aktif melakukan pengisian cepat dengan arus tinggi (>2.5A).
 - Menerapkan **Electrical Ground-Truth Flow Guard**: status Bypass kini secara ketat divalidasi silang terhadap arus listrik nyata (`rawCurrentMa` / `battCurrentMa`). Jika kernel melaporkan status aktif `Charging` dan arus terukur melebihi ambang batas (>150 mA), status Bypass secara tegas ditolak dan UI menampilkan arus nyata, daya watt riil, serta protokol pengisian aktual.
 - Menambahkan pemulihan lengkap registrasi pengisian daya Qualcomm Snapdragon pada `clear_bypass_hardware_state()` di daemon native `lynxd`, skrip charging, dan Companion App: memulihkan `restricted_charging = 0`, `restrict_cur = 3000`, `direct_charging = 1/0`, serta membersihkan `/dev/lynx_charging_state` dan `/dev/lynx_bypass_active`.
 - Menghapus adopsi otomatis penanda bypass usang saat file status `/dev/lynx_charging_state` melaporkan mode reguler atau saat bypass dinonaktifkan dalam konfigurasi pengguna.
@@ -1650,7 +1666,7 @@ Released on: 2026-10-29
 - Membuka node kernel `/proc/lynx/bypass_charging` yang secara langsung mengunci Power Path Management (VBUS -> Motherboard VSYS) dan memutus arus pengisian baterai hingga 0 mA (BATFET Isolation).
 - Mengintegrasikan orchestrator dual-layer `core/bypass_charging.sh` dengan sinkronisasi register hardware Transsion/MediaTek (`tran_charger_full`, `enable_sc`, `sc_ibat_limit`, `chg1_current`, `input_current`).
 - Memperbarui `HudDriverSession.kt` dan native `lynxd` daemon agar mengenali `/proc/lynx/bypass_charging` sebagai True Hardware KPM Bypass dengan status `READY`.
-- Suhu baterai saat bermain game sambil cas turun stabil ke ~31°C–33°C (suhu ruangan), mengeliminasi 100% thermal throttling dan degradasi baterai.
+- Suhu baterai saat bermain game sambil cas turun stabil ke ~31Â°Câ33Â°C (suhu ruangan), mengeliminasi 100% thermal throttling dan degradasi baterai.
 
 ---
 
@@ -1724,7 +1740,7 @@ Released on: 2026-10-28
 
 2. **Penyempurnaan Panduan & Pemisahan Alur Operasional APatch**:
    - Memperbarui dokumentasi `README.md` pada folder `/storage/emulated/0/Lynx/KPM/` dan `/sdcard/Download/`:
-     - Menegaskan perbedaan antara opsi **"LOAD"** (pemuatan dinamis sementara di RAM—aman, langsung aktif, otomatis bersih saat restart jika ada bentrok) versus opsi **"INSTALL / EMBED"** (pemasangan persisten ke boot image).
+     - Menegaskan perbedaan antara opsi **"LOAD"** (pemuatan dinamis sementara di RAMâaman, langsung aktif, otomatis bersih saat restart jika ada bentrok) versus opsi **"INSTALL / EMBED"** (pemasangan persisten ke boot image).
      - Menyediakan hierarki pemuatan yang jelas sehingga pengguna dapat memilih modul yang diinginkan secara modular per-bagian.
 
 3. **Verifikasi Stabilitas & Keamanan Sistem Live**:
@@ -1740,7 +1756,7 @@ Released on: 2026-10-28
 1. **Suite 4 Modul Biner KernelPatch Mandiri (.kpm) untuk APatch**:
    - Seluruh 4 fitur modular kernel patch telah selesai dikompilasi menjadi biner .kpm independen siap pakai:
      - lynx_eas_sentinel.kpm: Melindungi prioritas dan headroom task gaming EAS (schedtune_task_boost & schedtune_prefer_idle) agar tidak terdegradasi saat notifikasi masuk.
-     - lynx_thermal_silencer.kpm: Meredam throttling termal semu pada CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) sambil mempertahankan batas darurat PMIC 115°C.
+     - lynx_thermal_silencer.kpm: Meredam throttling termal semu pada CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) sambil mempertahankan batas darurat PMIC 115Â°C.
      - lynx_gpu_lock.kpm: Mengunci lantai frekuensi GPU Mali-G57 MC2 di 950 MHz puncak hardware tanpa stuttering.
      - lynx_mem_cushion.kpm: Mencegah render stall akibat direct page compaction dan direct reclaim (	ry_to_free_pages) melalui asynchronous kswapd scheduling.
 
@@ -1759,7 +1775,7 @@ Released on: 2026-10-28
 
 # Lynx Universal [Dedicated Ring-0 KernelPatch Module (.kpm) for SoC Thermal Throttling Mitigation] 7.0.0-RC255
 Released on: 2026-10-28
-> **Lynx Universal v7.0.0-RC255** (Lynx Kernel Manager v3.2.89): **Penerbitan Modul Biner KernelPatch Mandiri (lynx_thermal_silencer.kpm) untuk APatch Manager: Meredam Throttling Termal Agresif CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) pada Helio G96, Menghilangkan Lag Stutter Siang Hari Sambil Mempertahankan 100% Proteksi Darurat PMIC 115°C**.
+> **Lynx Universal v7.0.0-RC255** (Lynx Kernel Manager v3.2.89): **Penerbitan Modul Biner KernelPatch Mandiri (lynx_thermal_silencer.kpm) untuk APatch Manager: Meredam Throttling Termal Agresif CPU (mt_ppm_cpu_thermal_protect) dan GPU (mt_gpufreq_thermal_protect) pada Helio G96, Menghilangkan Lag Stutter Siang Hari Sambil Mempertahankan 100% Proteksi Darurat PMIC 115Â°C**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC255)
 1. **Modul Biner KernelPatch Murni (lynx_thermal_silencer.kpm)**:
@@ -1768,7 +1784,7 @@ Released on: 2026-10-28
 
 2. **Mitigasi Cerdas CPU & GPU Throttling**:
    - Secara aktif membatalkan pembatasan daya termal semu (*soft trip-points*) yang biasanya memicu stuttering saat sesi gaming panjang di siang hari.
-   - Tetap mempertahankan batas keselamatan darurat pada PMIC MT6358 (115°C) dan sel baterai untuk menjamin keamanan perangkat fisik.
+   - Tetap mempertahankan batas keselamatan darurat pada PMIC MT6358 (115Â°C) dan sel baterai untuk menjamin keamanan perangkat fisik.
 
 3. **Kompatibilitas Penuh GUI APatch Manager & CLI**:
    - Tersedia di /sdcard/Download/lynx_thermal_silencer.kpm dan /storage/emulated/0/Lynx/KPM/ untuk dimuat instan lewat tab KPM aplikasi APatch atau via sh 02_thermal_silencer/load.sh.
@@ -1804,7 +1820,7 @@ Released on: 2026-10-28
    - Menghilangkan friksi tawar-menawar frekuensi antara driver GED dan Mali DVFS, mengunci lantai frekuensi langsung di titik tertinggi kemampuan hardware silikon Helio G96.
 
 2. **Sinergi Penuh dengan lynx_gpu_uv.kpm**:
-   - Memanfaatkan optimasi voltase Peak Tier dari lynx_gpu_uv (offset -12.5 mV pada tegangan puncak 850 mV -> 837.5 mV), sehingga saat GPU berjalan di clock maksimum 950 MHz, suhu silikon tetap sejuk (~3-5°C lebih dingin) dan konsumsi daya tetap efisien tanpa memicu thermal throttling dini.
+   - Memanfaatkan optimasi voltase Peak Tier dari lynx_gpu_uv (offset -12.5 mV pada tegangan puncak 850 mV -> 837.5 mV), sehingga saat GPU berjalan di clock maksimum 950 MHz, suhu silikon tetap sejuk (~3-5Â°C lebih dingin) dan konsumsi daya tetap efisien tanpa memicu thermal throttling dini.
 
 3. **Sinkronisasi Dokumen & Repositori Target**:
    - Memperbarui berkas source code dan README di penyimpanan internal perangkat fisik /storage/emulated/0/Lynx/KPM/03_gpu_dvfs_lock/ dan repositori utama.
@@ -1819,7 +1835,7 @@ Released on: 2026-10-28
 1. **Arsitektur Kernel Patch Modules Modular (`kpm/` & `/storage/emulated/0/Lynx/KPM`)**:
    - Memisahkan seluruh fitur kernel patch tingkat rendah menjadi 4 sub-direktori mandiri dengan `Makefile`, source code C Linux 4.14 arm64, serta skrip loader (`load.sh`) dan unloader (`unload.sh`) individual:
      - `01_eas_sentinel`: Mengunci margin penjadwal EAS `top-app` langsung di ring-0 kernel memory, mencegah `system_server` atau vendor daemon meniadakan prioritas game saat ada notifikasi.
-     - `02_thermal_silencer`: Memberikan kompensasi ambang batas termal lunak (+15°C margin) pada zona termal MediaTek Helio G96, mencegah isolasi core agresif sambil tetap mempertahankan proteksi shutdown darurat PMIC pada 115°C demi keselamatan fisik silikon.
+     - `02_thermal_silencer`: Memberikan kompensasi ambang batas termal lunak (+15Â°C margin) pada zona termal MediaTek Helio G96, mencegah isolasi core agresif sambil tetap mempertahankan proteksi shutdown darurat PMIC pada 115Â°C demi keselamatan fisik silikon.
      - `03_gpu_dvfs_lock`: Mengunci lantai frekuensi GPU ARM Mali-G57 MC2 ke 850-950 MHz saat beban 3D aktif, mengeliminasi drop FPS sesaat akibat tawar-menawar clock DVFS saat transisi scene.
      - `04_mem_cushion`: Menyediakan penyangga memori dinamis (64 MB buffer) di level kernel memory allocator, memastikan alokasi mendadak aplikasi notifikasi tidak menahan (*stall*) render thread game.
 
@@ -1857,14 +1873,14 @@ Released on: 2026-10-28
        - `OPEN_WORLD`: Penjelajahan aktif dunia terbuka (minimap, tombol skill, bilah HP). Ketukan diredam 100% (Siaga Hening) demi kebebasan penuh kendali pemain.
        - `START_SCREEN`: Pintu gerbang Celestia / layar awal game (0-tap supresi).
    - **Pengenalan Presisi Indikator Diamond Emas Amber (`isPromptGoldColor`)**:
-     - Mengidentifikasi spektrum warna emas khas Hoyoverse (`R = 170..255`, `G = 130..215`, `B = 0..35`) pada baris irisan bawah (`y = 944`, `X = center ± 225px`).
+     - Mengidentifikasi spektrum warna emas khas Hoyoverse (`R = 170..255`, `G = 130..215`, `B = 0..35`) pada baris irisan bawah (`y = 944`, `X = center Â± 225px`).
      - Pada dataset 11 citra nyata, seluruh 5 adegan narasi layar hitam terdeteksi dengan tepat 182 piksel emas murni (100% akurasi deteksi, 0% false positive).
    - **Eksekusi Ketukan Otonom Khusus Adegan Narasi (`coords.narration`)**:
      - Saat `BLACK_INTERSTITIAL` terdeteksi, runner secara otomatis mengalihkan titik ketukan langsung ke target prompt narasi (`X = 1230, Y = 950` pada 2460x1080) untuk memajukan dialog cerita dengan cepat dan mulus.
 
 2. **Perlindungan Anti-False-Positive Triple-Shield (Jaminan Mutlak Nol Ketukan Saat Gameplay Aktif)**:
    - **Eliminasi Risiko Salah Deteksi Saat Bertarung / Menjelajah**:
-     - *Shield 1 (Glyph Run-Length Clustering)*: Tombol dialog asli tidak hanya mencocokkan ambang batas piksel warna krem (`RGB(236, 229, 216)`), tetapi wajib membentuk rangkaian glif kontinu (`maxRun >= 3` piksel bersebelahan) seperti segitiga play ▶, garis hamburger ☰, atau mata 👁. Menolak 100% noise dither acak dari tekstur alam seperti pasir gurun, tebing batu, salju, dan awan.
+     - *Shield 1 (Glyph Run-Length Clustering)*: Tombol dialog asli tidak hanya mencocokkan ambang batas piksel warna krem (`RGB(236, 229, 216)`), tetapi wajib membentuk rangkaian glif kontinu (`maxRun >= 3` piksel bersebelahan) seperti segitiga play â¶, garis hamburger â°, atau mata ð. Menolak 100% noise dither acak dari tekstur alam seperti pasir gurun, tebing batu, salju, dan awan.
      - *Shield 2 (Peningkatan Ambang Batas 18px)*: Menaikkan ambang batas dialog dasar dari 12px menjadi 18px pada 1080p (`((height * 18L) / 1080L)`).
      - *Shield 3 (Margin Pitch-Blackness Verifier)*: Pada adegan narasi layar hitam, sistem tidak hanya memeriksa keberadaan diamond emas prompt di tengah, tetapi memindai 80% lebar layar (baris 944) untuk memverifikasi bahwa margin kiri (`X: 10%..35%`) dan margin kanan (`X: 65%..90%`) benar-benar bernilai hitam pekat (`marginBlackRatio >= 0.80f`). Menjamin bahwa gameplay di dalam gua gelap (seperti The Chasm), malam hari, atau domain dungeon tidak akan pernah salah terdeteksi sebagai cutscene narasi karena tekstur tanah di margin akan segera menolak deteksi.
      - *Shield 4 (Gameplay HUD Immunity)*: Menjamin mode penjelajahan dunia terbuka dan pertarungan memiliki status Siaga Hening (0-tap) 100% tanpa gangguan sentuhan.
@@ -1957,8 +1973,8 @@ Released on: 2026-10-28
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC248)
 1. **Penjadwal Anti-Thrashing & Eliminasi Stutter Pada Beban Tinggi (`translator.rs`, `apply_profile.sh`, `LynxCpuSchedulerProfilesRepository.kt`)**:
-   - **Kernel Task Migration Cost (`sched_migration_cost_ns = 500000`)**: Memperbaiki nilai ambang migrasi tugas Linux kernel dari 50µs menjadi 500µs pada mode Performance dan Extreme. Mencegah utas render Unity/game berpindah-pindah core secara agresif saat terjadi jeda sesaat antar-frame, menjaga cache L1/L2 CPU tetap panas dan menghilangkan micro-stuttering.
-   - **MediaTek EAS Cluster Migration Control (`m_sched_migrate_cost_n = 200000`)**: Menaikkan batas biaya migrasi EAS MediaTek ke 200µs pada mode Performance/Extreme sehingga scheduler memprioritaskan penyelesaian frame di cluster Big core Cortex-A76 tanpa demosi mendadak ke Little core.
+   - **Kernel Task Migration Cost (`sched_migration_cost_ns = 500000`)**: Memperbaiki nilai ambang migrasi tugas Linux kernel dari 50Âµs menjadi 500Âµs pada mode Performance dan Extreme. Mencegah utas render Unity/game berpindah-pindah core secara agresif saat terjadi jeda sesaat antar-frame, menjaga cache L1/L2 CPU tetap panas dan menghilangkan micro-stuttering.
+   - **MediaTek EAS Cluster Migration Control (`m_sched_migrate_cost_n = 200000`)**: Menaikkan batas biaya migrasi EAS MediaTek ke 200Âµs pada mode Performance/Extreme sehingga scheduler memprioritaskan penyelesaian frame di cluster Big core Cortex-A76 tanpa demosi mendadak ke Little core.
    - **MediaTek Schedplus Frame-Pacing Dampers (`perfserv_schedplus_up_throttle = 500`, `perfserv_schedplus_down_throttle = 40000`)**:
      - *Up-Throttle 0.5 ms*: Akselerasi respons clock CPU saat scene kompleks memunculkan efek partikel atau musuh baru.
      - *Down-Throttle 40 ms*: Menahan clock frekuensi tinggi melewati batas v-sync antarfram, mencegah fluktuasi clock drop yang memicu penurunan frametime.
@@ -1996,7 +2012,7 @@ Released on: 2026-10-28
        - Mode `AUTO` saat Siaga Hening (0 tap): Tampilan garis tepi Cyan solid elegan dengan micro-beacon stabil.
        - Mode `AUTO` saat Aktif Melompati Dialog (Skipping): Animasi getaran pendar bernafas (*breathing pulse*) halus (alpha 0.35f hingga 1.0f) memberi umpan balik visual jelas bahwa mesin sedang melompati dialog.
        - Mode `PAUSED`: Tampilan Muted Dark solid dengan ikon jeda `||`.
-       - Mode `MANUAL`: Tampilan Oranye solid dengan ikon `⏩`.
+       - Mode `MANUAL`: Tampilan Oranye solid dengan ikon `â©`.
    - **Persistensi Saat Aplikasi Diminimalkan / Berganti Jendela**:
      - Memperbaiki `syncState()` sehingga minimisasi game atau pembukaan jendela mengambang lain tidak lagi mereset mode ke `PAUSED`. Mesin menahan eksekusi secara hening dan langsung melanjutkan kesiapan `AUTO` saat pemain kembali ke game.
    - **Telemetri Real-Time Terpadu di Panel Lynx Engine**:
@@ -2007,7 +2023,7 @@ Released on: 2026-10-28
 
 # Lynx Universal [4-Stage Auto-Skip Alternating Cycle & Integrated Lynx Engine Scene Vision Diagnosis] 7.0.0-RC247
 Released on: 2026-10-28
-> **Lynx Universal v7.0.0-RC247** (Lynx Kernel Manager v3.2.81): **Implementasi Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda ([ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ NONSTOP ] -> [ ⏸️ PAUSE ] -> dst), Optimalisasi Shortcut Mengambang Menjadi Satu Token Tunggal Ringan Bebas Distraksi Layar Game, Serta Penempatan Pusat Tangkap & Diagnosa Adegan Scene Vision Terpadu di Dalam Panel Lynx Engine**.
+> **Lynx Universal v7.0.0-RC247** (Lynx Kernel Manager v3.2.81): **Implementasi Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda ([ ð¤ AUTO ] -> [ â¸ï¸ PAUSE ] -> [ â© NONSTOP ] -> [ â¸ï¸ PAUSE ] -> dst), Optimalisasi Shortcut Mengambang Menjadi Satu Token Tunggal Ringan Bebas Distraksi Layar Game, Serta Penempatan Pusat Tangkap & Diagnosa Adegan Scene Vision Terpadu di Dalam Panel Lynx Engine**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC247)
 1. **Siklus 4-Tahap Auto-Skip Alternatif Melalui Jeda (`GenshinSkipRunner.kt`)**:
@@ -2021,13 +2037,13 @@ Released on: 2026-10-28
    - Status visual dinamis terpadu dengan transisi warna halus (`HudCyan` untuk Auto, `HudMuted` untuk Paused, dan `HudOrange` untuk Nonstop).
 
 3. **Pusat Tangkap & Diagnosa Adegan Terintegrasi di Dalam Panel Lynx Engine (`HudTools.kt`, `HudSidebar.kt`)**:
-   - Menempatkan fitur `📸 Snapshot Diagnosa Scene` di dalam panel Lynx Engine pada Tab **Alat** (seksi Hoyo Auto-Skip & Diagnosa).
+   - Menempatkan fitur `ð¸ Snapshot Diagnosa Scene` di dalam panel Lynx Engine pada Tab **Alat** (seksi Hoyo Auto-Skip & Diagnosa).
    - Saat tombol ditekan di dalam Lynx Engine:
      - Panel disembunyikan sementara (180ms) untuk mengambil tangkapan layar bersih tanpa overlay sistem.
      - Mesin menganalisis kerapatan piksel dialog putih terhadap ambang batas safe-zone 16:9 (`calculateDialogueScanSlice`).
      - Menyimpan berkas tangkapan (`_full.png`), potongan pindaian (`_slice.png`), dan metadata JSON di `/sdcard/Lynx/scenes/` dengan hak akses aman.
      - Menampilkan kartu hasil diagnosa Scene Vision langsung di dalam panel Lynx Engine:
-       - Status verifikasi: `[ ✅ Dialog Terdeteksi ]` vs `[ ⚠️ Scene Non-Dialog / Kustom ]`.
+       - Status verifikasi: `[ â Dialog Terdeteksi ]` vs `[ â ï¸ Scene Non-Dialog / Kustom ]`.
        - Metrik piksel dialog: `${matchingPixels} / ${thresholdRequired} px`.
        - Koordinat zona aman 16:9: `X[min..max], Y`.
        - Nama berkas rekaman adegan untuk bahan analisis dan pembelajaran lanjutan.
@@ -2060,7 +2076,7 @@ Released on: 2026-10-28
 1. **Penyelidikan Plafon Desain Tegangan Fisik Dinamis (`probe_hardware_voltage_ceiling_uv`)**:
    - Mengeliminasi nilai voltase statis/hardcoded (seperti 4.40V).
    - Daemon `lynxd` dan skrip pendamping kini secara otonom membaca simpul desain fisik kernel: `/sys/class/power_supply/battery/voltage_max_design`, `constant_charge_voltage_max`, `voltage_max`, serta modul Fuel Gauge BMS `/sys/class/power_supply/bms/voltage_max_design`.
-   - Mengidentifikasi secara cerdas apakah sel adalah baterai standar 4.20V/4.35V, high-voltage 4.40V/4.45V, silikon-karbon mutakhir, atau baterai seri dual-cell 2S (7.4V–8.8V), lalu mengonfigurasi batas saturasi tertinggi sesuai kapabilitas fisik sel sebenarnya.
+   - Mengidentifikasi secara cerdas apakah sel adalah baterai standar 4.20V/4.35V, high-voltage 4.40V/4.45V, silikon-karbon mutakhir, atau baterai seri dual-cell 2S (7.4Vâ8.8V), lalu mengonfigurasi batas saturasi tertinggi sesuai kapabilitas fisik sel sebenarnya.
 
 2. **Sweeping Pendingin Termal Multi-Vendor Menyeluruh (`set_bcct_throttle`)**:
    - Memperluas algoritma penelusuran perangkat pendingin `/sys/class/thermal/cooling_device*` untuk mencakup seluruh tipe vendor: `bcct`, `abcct`, `battery`, `charger`, dan `chg`.
@@ -2113,26 +2129,26 @@ Released on: 2026-10-28
 
 3. **Pelepasan Batas Tegangan Float Voltage (FV) Menuju 4.40V & Thermal Engine (`charging.rs`, `ExtremeChargingScript.kt`)**:
    - Menulis dan mengunci nilai tegangan batas akhir penuh 4.40V (`4400000` uV) pada node `/sys/class/power_supply/battery/constant_charge_voltage`, `constant_charge_voltage_max`, dan `voltage_max`.
-   - Mengeliminasi pemotongan arus dini (*premature tapering*) akibat profil kernel OEM yang menurunkan batas float voltage ke 4.33V–4.35V saat mendeteksi suhu hangat moderat.
+   - Mengeliminasi pemotongan arus dini (*premature tapering*) akibat profil kernel OEM yang menurunkan batas float voltage ke 4.33Vâ4.35V saat mendeteksi suhu hangat moderat.
    - Penyelarasan sintaksis konfigurasi platform Qualcomm `action_info` agar kompatibel 100% dengan parser daemon vendor `ThermalEngine`.
 
 ---
 
-# Lynx Universal [Qualcomm 48°C-56°C Thermal Engine Live Bind-Mount & Zero-Latency Floating Badge HUD] 7.0.0-RC242
+# Lynx Universal [Qualcomm 48Â°C-56Â°C Thermal Engine Live Bind-Mount & Zero-Latency Floating Badge HUD] 7.0.0-RC242
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC242** (Lynx Kernel Manager v3.2.76): **Penerapan Mekanisme Live Bind-Mount On-The-Fly `/vendor/etc/thermal-engine.conf` dan Trip-Point Shifting `quiet-therm-step` Pada Arsitektur Qualcomm (Redmi Note 7 / PM660) Tanpa Butuh KPM (Kernel Patch Module): Menaikkan Ambang Batas Pengisian Daya `[BATTERY_CHARGING_CTL]` Dari 37°C–43°C Menjadi 48°C–56°C Agar Arus Hyper 3000mA+ (11.2W) Mengalir Stabil Tanpa Penurunan Arus Prematur di 43°C–45°C, Serta Penyempurnaan Zero-Latency Floating Badge & Dedicated In-Game HUD Tools Scene Inspector**.
+> **Lynx Universal v7.0.0-RC242** (Lynx Kernel Manager v3.2.76): **Penerapan Mekanisme Live Bind-Mount On-The-Fly `/vendor/etc/thermal-engine.conf` dan Trip-Point Shifting `quiet-therm-step` Pada Arsitektur Qualcomm (Redmi Note 7 / PM660) Tanpa Butuh KPM (Kernel Patch Module): Menaikkan Ambang Batas Pengisian Daya `[BATTERY_CHARGING_CTL]` Dari 37Â°Câ43Â°C Menjadi 48Â°Câ56Â°C Agar Arus Hyper 3000mA+ (11.2W) Mengalir Stabil Tanpa Penurunan Arus Prematur di 43Â°Câ45Â°C, Serta Penyempurnaan Zero-Latency Floating Badge & Dedicated In-Game HUD Tools Scene Inspector**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC242)
 1. **Qualcomm Thermal Engine Live Bind-Mount & Dynamic Trip Point Shifting (`charging.rs`, `ExtremeChargingScript.kt`, `StandardChargingScript.kt`)**:
    - **Live Bind-Mount `/vendor/etc/thermal-engine.conf` Otomatis**: Daemon `lynxd` menulis berkas konfigurasi termal virtual di RAM (`/dev/lynx_thermal_engine.conf`) yang merelaksasi `[BATTERY_CHARGING_CTL]` ke ambang batas baru `48000 50000 52000 54000 56000` (thresholds_clr `46000 48000 50000 52000 54000`), lalu mengeksekusi `mount -o bind` di atas berkas vendor dan mengirim sinyal `pkill -HUP -f thermal-engine`. Daemon vendor memuat ulang konfigurasi on-the-fly tanpa reboot dan tanpa merusak IPC socket Thermal HAL Android.
-   - **Trip Point Shifting `quiet-therm-step`**: Menaikkan trip point thermal zone kernel (`thermal_zone20` atau zona sejenis) dari 50°C ke 60°C (`trip_point_0_temp=60000`, `trip_point_1_temp=63000`).
-   - **Pinning Imunitas `cooling_device4` (Battery Cooler)**: Mempertahankan `cur_state = 0` secara konsisten pada loop `tick()` selama suhu berada di bawah ambang darurat fisik (<48.5°C), mencegah arus pengisian drop mendadak ke 1000 mA saat ponsel berada di kisaran 43°C–46°C.
-   - **Reversibilitas Penuh (Safety First)**: Saat charger dicabut atau mode standar dipilih, Lynx otomatis melepas bind-mount (`umount /vendor/etc/thermal-engine.conf`), memulihkan trip point ke 50°C, dan mengirim sinyal `SIGHUP` kembali ke konfigurasi pabrik OEM.
+   - **Trip Point Shifting `quiet-therm-step`**: Menaikkan trip point thermal zone kernel (`thermal_zone20` atau zona sejenis) dari 50Â°C ke 60Â°C (`trip_point_0_temp=60000`, `trip_point_1_temp=63000`).
+   - **Pinning Imunitas `cooling_device4` (Battery Cooler)**: Mempertahankan `cur_state = 0` secara konsisten pada loop `tick()` selama suhu berada di bawah ambang darurat fisik (<48.5Â°C), mencegah arus pengisian drop mendadak ke 1000 mA saat ponsel berada di kisaran 43Â°Câ46Â°C.
+   - **Reversibilitas Penuh (Safety First)**: Saat charger dicabut atau mode standar dipilih, Lynx otomatis melepas bind-mount (`umount /vendor/etc/thermal-engine.conf`), memulihkan trip point ke 50Â°C, dan mengirim sinyal `SIGHUP` kembali ke konfigurasi pabrik OEM.
    - **Preservasi Penuh Perangkat MediaTek (Infinix Note 11 Pro)**: Seluruh arsitektur dual-pump switched capacitor (RT9759), 33170 mA register, dan Anti-Flapping Float Mode tetap 100% utuh tanpa dampak samping.
 
 2. **Pemisahan Domain Interaksi Pemicu Diagnosa (Separation of Concerns)**:
    - **Floating Shortcut Badge Murni Gameplay (Zero-Latency)**: Mengeliminasi runnable tahan (Long-Press 800ms) dan potensi konflik double-tap dari floating badge. Single tap langsung mengeksekusi perpindahan mode (`PAUSED` $\leftrightarrow$ `AUTO` $\leftrightarrow$ `MANUAL`) dengan latensi 0 ms mutlak. Gestur geser (drag) berjalan instan dan mulus tanpa jeda keraguan ambang waktu hold.
-   - **Tombol Diagnosa Terdedikasi di HUD Tools Panel**: Menambahkan tombol `"📸 Snapshot Diagnosa Scene"` di dalam section expandable *"Hoyo Auto-Skip & Diagnosa"* pada In-Game HUD Sidebar (`HudTools.kt`).
+   - **Tombol Diagnosa Terdedikasi di HUD Tools Panel**: Menambahkan tombol `"ð¸ Snapshot Diagnosa Scene"` di dalam section expandable *"Hoyo Auto-Skip & Diagnosa"* pada In-Game HUD Sidebar (`HudTools.kt`).
 
 2. **Mekanisme Auto-Hide HUD Overlay (Clean Screen Capture)**:
    - Saat tombol diagnosa ditekan di HUD, overlay HUD secara otomatis disembunyikan sementara (180ms) ke status transparan (`View.INVISIBLE`), memastikan tangkapan layar `_full.png` dan irisan `_slice.png` murni menangkap elemen visual game tanpa tertutup atau terdistorsi oleh panel HUD Lynx.
@@ -2150,7 +2166,7 @@ Released on: 2026-10-27
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC241)
 1. **Qualcomm Single-PMIC 4000mA Hyper-Charging & BMS JEITA Expansion (`charging.rs`, `ExtremeChargingScript.kt`, `lynxd`)**:
    - **Pelepasan Plafon Arus 4000mA / 4500mA**: Mengeliminasi pembatas buatan 3000mA / 3500mA pada arsitektur Qualcomm single-PMIC (PM660 pada Redmi Note 7). Mengembalikan logika akselerasi arus penuh seperti pada skrip lawas `Charging-Controller.sh` (AI Charging Controller 4.5), di mana batas arus diatur ke 4000mA (`4000000` uA) atau unconstrained, sehingga arus pengisian puncak hanya dibatasi oleh kapabilitas fisik silikon dan suhu baterai riil.
-   - **Pembukaan Relaksasi Termal BMS JEITA**: Menulis nilai batas suhu ekspansi pada modul BMS (`temp_hot=650` [65.0°C], `temp_warm=610` [61.0°C], `temp_cool=120` [12.0°C], `temp_cold=0`, dan `system_temp_level=0`), mencegah driver kernel menurunkan arus pengisian secara prematur pada suhu 40-45°C.
+   - **Pembukaan Relaksasi Termal BMS JEITA**: Menulis nilai batas suhu ekspansi pada modul BMS (`temp_hot=650` [65.0Â°C], `temp_warm=610` [61.0Â°C], `temp_cool=120` [12.0Â°C], `temp_cold=0`, dan `system_temp_level=0`), mencegah driver kernel menurunkan arus pengisian secara prematur pada suhu 40-45Â°C.
    - **Aktivasi Flag Fast Charge Universal**: Mengaktifkan `allow_hvdcp3=1`, `force_fast_charge=1`, `pd_allowed=1`, `boost_current=1`, serta menonaktifkan `safety_timer_enabled=0` dan `step_charging_enabled=0`.
    - **Stabilitas Pengisian 100% Bebas Flapping**: Tetap mempertahankan proteksi anti-flapping (tanpa pulsing `input_suspend` pada Qualcomm, menjaga `direct_charging=0` pada single-PMIC non-charge pump, dan rate-limiter 30s) sehingga pengisian arus tinggi berjalan mulus tanpa putus-nyambung.
    - **Preservasi 100% MediaTek (Infinix Note 11 Pro)**: Seluruh arsitektur MediaTek Pump Express (PE2.0/PE4.0), Switched-Capacitor Pump (RT9759), 33170 mA register, dan Anti-Flapping Float Mode tetap utuh tanpa modifikasi.
@@ -2251,7 +2267,7 @@ Released on: 2026-10-27
 
 # Lynx Universal [Game HUD Multi-Tier Display Refresh Rate Switching Engine] 7.0.0-RC237
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC237** (Lynx Kernel Manager v3.2.71): **Perbaikan Kritis Sistem Penerapan Refresh Rate Layar pada Lynx Engine In-Game HUD: Menghubungkan Langsung Sesi Pengaturan HUD dengan Mesin Multi-Tier LynxDisplayRepository (Sinkronisasi Android Settings Provider, DisplayManager User Preferred Display Mode, Direct SurfaceFlinger Hardware Mode Switching 1035, Kernel Panel Sysfs, Serta Lock State lynxd), Mengatasi Masalah Dimensi Mode Terbalik pada Orientasi Layar Landscape (Rotasi Game 90°/270°), Mengintegrasikan Siklus Cepat Ganti Hz pada Mode Classic HUD, Serta Menjamin Verifikasi Refresh Rate Real-Time Tanpa False-Negative**.
+> **Lynx Universal v7.0.0-RC237** (Lynx Kernel Manager v3.2.71): **Perbaikan Kritis Sistem Penerapan Refresh Rate Layar pada Lynx Engine In-Game HUD: Menghubungkan Langsung Sesi Pengaturan HUD dengan Mesin Multi-Tier LynxDisplayRepository (Sinkronisasi Android Settings Provider, DisplayManager User Preferred Display Mode, Direct SurfaceFlinger Hardware Mode Switching 1035, Kernel Panel Sysfs, Serta Lock State lynxd), Mengatasi Masalah Dimensi Mode Terbalik pada Orientasi Layar Landscape (Rotasi Game 90Â°/270Â°), Mengintegrasikan Siklus Cepat Ganti Hz pada Mode Classic HUD, Serta Menjamin Verifikasi Refresh Rate Real-Time Tanpa False-Negative**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC237)
 1. **Perbaikan Mesin Penerapan Refresh Rate HUD (`HudDisplaySession.kt`)**:
@@ -2269,7 +2285,7 @@ Released on: 2026-10-27
 
 3. **Verifikasi Real-Time Tanpa False-Negative (`LynxFloatingHudService.kt`)**:
    - Memperbarui *callback* verifikasi `onHz` agar secara aktif meng-query status refresh rate nyata dari SurfaceFlinger via `LynxDisplayRepository.readCurrentRefreshRate()` dan memperbarui `hz.value` seketika.
-   - Mengaktifkan tombol siklus cepat **"⚡ Ganti Hz"** (`onCycleRefreshRate`) dan **"Boost RAM"** pada mode *Classic Floating HUD* yang sebelumnya berupa fungsi kosong (*empty lambda*).
+   - Mengaktifkan tombol siklus cepat **"â¡ Ganti Hz"** (`onCycleRefreshRate`) dan **"Boost RAM"** pada mode *Classic Floating HUD* yang sebelumnya berupa fungsi kosong (*empty lambda*).
 
 ---
 
@@ -2292,7 +2308,7 @@ Released on: 2026-10-27
 
 3. **Integrasi Standardized Section Headers (`ThermalSectionHeader`)**:
    - Menggantikan teks statis tanpa format dengan komponen `ThermalSectionHeader` standar:
-     - Indikator aksen batang vertikal 3×18dp dengan sudut membulat 2dp.
+     - Indikator aksen batang vertikal 3Ã18dp dengan sudut membulat 2dp.
      - Tipografi semantik kapital tebal (`11.5.sp`, `letterSpacing = 0.8.sp`) disertai teks penjelas sekunder (`9.5.sp`).
      - Badge ringkas terstandarisasi (`4 PRESET`, `TRIP POINTS`, `VENDOR HAL`, `${validZones.size} SENSOR`).
 
@@ -2312,9 +2328,9 @@ Released on: 2026-10-27
    - Berdasarkan masukan pengguna terkait kartu yang terpotong dan antarmuka yang terlalu panjang, antarmuka `ThermalSubscreen` dirombak total menjadi 2 tab navigasi horizontal:
      - **Tab 0: Mode & Proteksi** (`ThermalTabRow` index 0, Aksen Cyan):
        - *Thermal Hero Card*: Status proteksi real-time, temperatur SoC, dan profil termal aktif.
-       - *2x2 Bento Mode Matrix*: 4 preset proteksi termal (Default OEM 45°C, Stable Safe 52°C, Performance Unrestricted 58°C, dan Dominant Extreme 75°C).
+       - *2x2 Bento Mode Matrix*: 4 preset proteksi termal (Default OEM 45Â°C, Stable Safe 52Â°C, Performance Unrestricted 58Â°C, dan Dominant Extreme 75Â°C).
        - *Dominant Extreme Safety Alert*: Peringatan visual psikologis dengan petunjuk pendingin eksternal (*cooler*).
-       - *Thermal Flexible Tuning Section*: Slider ambang batas pelambatan (*trip points*) interaktif 40°C–90°C dengan chip pintas (45°, 50°, 52°, 58°, 65°, 75°C), sakelar netralisasi Joyose / vendor daemon, dan sakelar proteksi anti-dimming layar.
+       - *Thermal Flexible Tuning Section*: Slider ambang batas pelambatan (*trip points*) interaktif 40Â°Câ90Â°C dengan chip pintas (45Â°, 50Â°, 52Â°, 58Â°, 65Â°, 75Â°C), sakelar netralisasi Joyose / vendor daemon, dan sakelar proteksi anti-dimming layar.
      - **Tab 1: Vendor & Sensor** (`ThermalTabRow` index 1, Aksen Oranye):
        - *Vendor Thermal Engine Overlay*: Deteksi otomatis dan manipulasi file konfigurasi termal vendor (MediaTek `.tp/thermal.conf` atau Qualcomm `thermal-engine.conf`) dengan modal bottom-sheet Raw INI Editor.
        - *8-Zone Thermal Sensors Radar Matrix*: Matriks 8 zona sensor temperatur perangkat keras (CPU Little/Big, GPU, Battery, Charger, USB-C, Skin, Ambient) dengan filter kategori dan penyegaran telemetri *live*.
@@ -2325,10 +2341,10 @@ Released on: 2026-10-27
 
 3. **Harmonisasi Master Profile Bertingkat (Cascading Master Profile Engine)**:
    - Pemilihan profil utama pada Dashboard (`KernelPerformanceProfile`) kini secara otomatis menyelaraskan seluruh domain perangkat keras secara kohesif:
-     - **Powersave / Eco**: CPU=powersave, GPU=battery, Thermal=default_oem (45°C), Display=60Hz statis.
-     - **Balance**: CPU=balance, GPU=balanced, Thermal=stable (52°C), Display=Auto Dynamic (0Hz).
-     - **Performance**: CPU=performance, GPU=esports, Thermal=performance (58°C), Display=120Hz statis.
-     - **Extreme**: CPU=extreme, GPU=extreme, Thermal=dominant (75°C), Display=120Hz statis.
+     - **Powersave / Eco**: CPU=powersave, GPU=battery, Thermal=default_oem (45Â°C), Display=60Hz statis.
+     - **Balance**: CPU=balance, GPU=balanced, Thermal=stable (52Â°C), Display=Auto Dynamic (0Hz).
+     - **Performance**: CPU=performance, GPU=esports, Thermal=performance (58Â°C), Display=120Hz statis.
+     - **Extreme**: CPU=extreme, GPU=extreme, Thermal=dominant (75Â°C), Display=120Hz statis.
    - Sinkronisasi runtime display langsung diintegrasikan pada `LynxViewModelKernelProfiles.kt` via `LynxRepository.setDisplayRefreshRate(hz, isAuto)`, menjamin pengalaman visual dan termal yang langsung aktif seketika saat profil diubah.
 
 ---
@@ -2340,7 +2356,7 @@ Released on: 2026-10-27
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC234)
 1. **Analisis Akar Masalah: Mengapa 120 Full Lebih Mulus dari Auto 120 Konvensional**:
    - Ditemukan bahwa pada mode Auto konvensional, SurfaceFlinger mengalami lonjakan fase VSYNC (`VsyncModulator`) antara fase diam (8.3ms) dan fase aktif (0.5ms). Lonjakan interval 7.8ms di tengah gestur sentuh membuat Choreographer melewatkan batas waktu frame (*missed frame deadline*), menghasilkan sensasi mikro-stutter.
-   - Selain itu, durasi membaca sebelumnya (4.5s) terlalu singkat untuk ritme membaca artikel/feed manusia (3–6 detik per paragraf), menyebabkan layar turun ke 60Hz tepat saat pengguna sedang membaca dan mengalami jeda re-sinkronisasi hardware saat menggeser layar kembali.
+   - Selain itu, durasi membaca sebelumnya (4.5s) terlalu singkat untuk ritme membaca artikel/feed manusia (3â6 detik per paragraf), menyebabkan layar turun ke 60Hz tepat saat pengguna sedang membaca dan mengalami jeda re-sinkronisasi hardware saat menggeser layar kembali.
 
 2. **Penguncian Fase VSYNC Rendah Latensi & Direct HWC Mode Switching (`apply_hz_auto`)**:
    - Menghubungkan langsung mode HWC SurfaceFlinger pada `apply_hz_auto` dan sentuhan hardware (`on_hardware_touch`) dengan penguncian fase awal yang konstan (`app phase 2000000 ns`, `SF phase 1000000 ns`).
@@ -2349,24 +2365,24 @@ Released on: 2026-10-27
 
 3. **Perluasan Jendela Membaca Kinetik Menjadi 8.000ms (8 Detik) & 10.000ms (10 Detik Multitasking)**:
    - Menjamin bahwa selama sesi aktif membaca artikel, browsing, atau menelusuri lini masa, layar tetap stabil pada 120Hz tanpa pernah mengalami penurunan ke 60Hz di antara setiap paragraf.
-   - Penurunan ke 60Hz hanya dieksekusi secara mulus jika perangkat benar-benar didiamkan lebih dari 8–10 detik, saat menonton video (setelah 2 detik), atau saat layar mati, mempertahankan penghematan konsumsi daya hingga ~40%.
+   - Penurunan ke 60Hz hanya dieksekusi secara mulus jika perangkat benar-benar didiamkan lebih dari 8â10 detik, saat menonton video (setelah 2 detik), atau saat layar mati, mempertahankan penghematan konsumsi daya hingga ~40%.
 
 ---
 
 # Lynx Universal [Zero-Jank Reading Dwell Window & Non-Blocking Touch Elevation] 7.0.0-RC233
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC233** (Lynx Kernel Manager v3.2.67): **Eliminasi Total Sensasi Lag / Stutter Awal Sentuhan pada Mode Auto Refresh Rate: Perluasan Jendela Interaksi Kinetik Membaca Menjadi 4.500ms (Mencegah Flapping Mode-Switching Berulang 60Hz <-> 120Hz di Setiap Jeda Paragraf), Pemuatan Asinkron Non-Blocking untuk Perintah Elevasi Layar di Thread Sentuh, Serta Peningkatan Otomatis GPU Langsung ke Fluid Tier (~588–675 MHz) Saat Sentuhan Kaca Pertama Kali Diterima**.
+> **Lynx Universal v7.0.0-RC233** (Lynx Kernel Manager v3.2.67): **Eliminasi Total Sensasi Lag / Stutter Awal Sentuhan pada Mode Auto Refresh Rate: Perluasan Jendela Interaksi Kinetik Membaca Menjadi 4.500ms (Mencegah Flapping Mode-Switching Berulang 60Hz <-> 120Hz di Setiap Jeda Paragraf), Pemuatan Asinkron Non-Blocking untuk Perintah Elevasi Layar di Thread Sentuh, Serta Peningkatan Otomatis GPU Langsung ke Fluid Tier (~588â675 MHz) Saat Sentuhan Kaca Pertama Kali Diterima**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC233)
 1. **Perluasan Jendela Interaksi Kinetik Membaca Aktif (4.500ms / 5.000ms Multitasking)**:
-   - Pola membaca manusia melibatkan jeda scrolling sekitar 2 hingga 4 detik per paragraf. Timeout sebelumnya (2.2 detik) memicu penurunan prematur ke 60Hz di antara setiap paragraf, sehingga sentuhan berikutnya selalu mengalami *hardware modeset latency* (40–80ms).
+   - Pola membaca manusia melibatkan jeda scrolling sekitar 2 hingga 4 detik per paragraf. Timeout sebelumnya (2.2 detik) memicu penurunan prematur ke 60Hz di antara setiap paragraf, sehingga sentuhan berikutnya selalu mengalami *hardware modeset latency* (40â80ms).
    - Dengan memperpanjang jendela interaksi menjadi 4.500ms (dan 5.000ms pada multitasking), layar tetap bertahan di 120Hz selama pengguna aktif membaca dan scrolling, menghilangkan total siklus flapping. Layar baru turun ke 60Hz jika pengguna benar-benar berhenti berinteraksi lama (> 4.5 detik).
 
 2. **Eksekusi Asinkron Non-Blocking pada Thread Sentuh (`on_hardware_touch`)**:
    - Memindahkan eksekusi IPC `settings put` ke worker thread ringan (`std::thread::spawn`), memastikan loop pembacaan event hardware `/dev/input/` tidak pernah terblokir 30ms.
 
 3. **Elevasi Instan GPU Floor ke Fluid Tier Saat Touch Contact**:
-   - Target GPU saat sentuhan kaca pertama kali terdeteksi langsung dipatok ke `DynamicGpuState::Fluid` (~588–675 MHz), memastikan tenggat waktu frame 8.33ms (120 FPS) selalu tercapai tanpa dropped frame pada awal sapuan.
+   - Target GPU saat sentuhan kaca pertama kali terdeteksi langsung dipatok ke `DynamicGpuState::Fluid` (~588â675 MHz), memastikan tenggat waktu frame 8.33ms (120 FPS) selalu tercapai tanpa dropped frame pada awal sapuan.
 
 ---
 
@@ -2500,13 +2516,13 @@ Released on: 2026-10-27
 
 4. **Multi-Tier Staircase Cooldown Decay**:
    - Ramping UP instan (0 ms).
-   - Ramping DOWN bertingkat: Peak ➔ Fluid (tahan 800 ms) ➔ Light (tahan 1000 ms) ➔ Idle (tahan 1200 ms), menjamin animasi penutupan jendela dan transisi sistem tetap mulus tanpa osilasi frekuensi bolak-balik.
+   - Ramping DOWN bertingkat: Peak â Fluid (tahan 800 ms) â Light (tahan 1000 ms) â Idle (tahan 1200 ms), menjamin animasi penutupan jendela dan transisi sistem tetap mulus tanpa osilasi frekuensi bolak-balik.
 
 ---
 
 # Lynx Universal [Universal Multi-Factor Autonomous GPU Governor across Qualcomm, MediaTek, Exynos & Tensor] 7.0.0-RC224
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC224** (Lynx Kernel Manager v3.2.58): **Pengembangan Arsitektur Mesin Pengatur GPU Multi-Faktor Otonom yang Benar-Benar Universal untuk Seluruh SoC (Qualcomm Snapdragon Adreno KGSL, MediaTek Mali GED/GPUFreq, Samsung Exynos/AMD Xclipse RDNA, Google Tensor, Unisoc, & Generic Devfreq): Multi-Device Touchscreen Discovery (25+ Vendor Keywords & EV_ABS), Deteksi Kecepatan Gestur / Fling Swiping (`is_rapid_touch`), Two-Tier Staircase Hysteresis (0ms Instant UP, 1000ms Peak Hold, 1500ms Moderate Hold), Proactive Thermal Guard (Auto-Cap Peak at 48°C), Serta Resolusi Kanonikal Bebas Guessing (`lowest_opp`, `mid_opp`, `highest_opp`)**.
+> **Lynx Universal v7.0.0-RC224** (Lynx Kernel Manager v3.2.58): **Pengembangan Arsitektur Mesin Pengatur GPU Multi-Faktor Otonom yang Benar-Benar Universal untuk Seluruh SoC (Qualcomm Snapdragon Adreno KGSL, MediaTek Mali GED/GPUFreq, Samsung Exynos/AMD Xclipse RDNA, Google Tensor, Unisoc, & Generic Devfreq): Multi-Device Touchscreen Discovery (25+ Vendor Keywords & EV_ABS), Deteksi Kecepatan Gestur / Fling Swiping (`is_rapid_touch`), Two-Tier Staircase Hysteresis (0ms Instant UP, 1000ms Peak Hold, 1500ms Moderate Hold), Proactive Thermal Guard (Auto-Cap Peak at 48Â°C), Serta Resolusi Kanonikal Bebas Guessing (`lowest_opp`, `mid_opp`, `highest_opp`)**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC224)
 1. **Arsitektur Universal Lintas Seluruh SoC & Vendor Silikon (`gpu.rs`, `capability.rs`)**:
@@ -2525,7 +2541,7 @@ Released on: 2026-10-27
 2. **Deteksi Multi-Perangkat Layar Sentuh & Kecepatan Gestur (`touch.rs`)**:
    - **Multi-Device Touchscreen Discovery**: Memindai seluruh `/sys/class/input/event*` dengan 25+ kata kunci driver manufaktur (`goodix`, `synaptics`, `focaltech`, `fts`, `ilitek`, `novatek`, `sec_touch`, `atmel`, `wacom`, dll.) dan kapabilitas `EV_ABS`, mendukung perangkat layar lipat (*foldables*), layar ganda, dan digitizer pena.
    - **Thread Listener Khusus Tiap Perangkat**: Membuka thread non-blocking CPU 0% untuk setiap perangkat sentuh fisik yang terdeteksi.
-   - **Velocity / Rapid Gesture Awareness (`is_rapid_touch`)**: Menerapkan circular buffer riwayat 16 kejadian sentuhan untuk mendeteksi flinging dan swipe cepat (≥3 sentuhan dalam jendela 150 ms) guna menaikkan frekuensi secara proaktif sebelum frame drop terjadi.
+   - **Velocity / Rapid Gesture Awareness (`is_rapid_touch`)**: Menerapkan circular buffer riwayat 16 kejadian sentuhan untuk mendeteksi flinging dan swipe cepat (â¥3 sentuhan dalam jendela 150 ms) guna menaikkan frekuensi secara proaktif sebelum frame drop terjadi.
 
 3. **Two-Tier Staircase Hysteresis (Anti-Flapping & Micro-Stutter Eliminator)**:
    - **Ramp-Up Instan (0 ms)**: Begitu sentuhan kaca terdeteksi atau beban render meningkat, GPU seketika melompat ke Moderate atau Peak tanpa penundaan.
@@ -2534,7 +2550,7 @@ Released on: 2026-10-27
    - **Penurunan Instan Saat Layar Mati (0 ms)**: Langsung menurunkan clock ke Idle saat layar mati untuk memaksimalkan deep sleep.
 
 4. **Pengaman Termal Proaktif (Proactive Thermal Guard)**:
-   - Memantau suhu baterai dan SoC secara real-time. Jika suhu mencapai ≥ 48.0°C pada profil selain `extreme`, status Peak otomatis dibatasi ke Moderate untuk mencegah thermal tripping keras dari OEM yang dapat memicu *thermal throttle lock* 100 MHz.
+   - Memantau suhu baterai dan SoC secara real-time. Jika suhu mencapai â¥ 48.0Â°C pada profil selain `extreme`, status Peak otomatis dibatasi ke Moderate untuk mencegah thermal tripping keras dari OEM yang dapat memicu *thermal throttle lock* 100 MHz.
 
 ---
 
@@ -2567,7 +2583,7 @@ Released on: 2026-10-27
 
 # Lynx Universal [Thermal & Anti-Throttling Redesign, Zero Redundancy & Dynamic Vendor Config Parser] 7.0.0-RC222
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC222** (Lynx Kernel Manager v3.2.56): **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling Berbasis Standar Desain Anti-Slop (/redesign-existing-projects): 4 Mode Cepat Terintegrasi, Slider Suhu Trip Point Dinamis (45°C-75°C), Sinkronisasi Otomatis File Vendor INI di Latar Belakang, Eliminasi Total Redundansi Tweak CPU, dan Penggantian Studio Konfigurasi 1600+ Baris Menjadi Komponen Modular Ringkas Serta Raw Editor Sheet**.
+> **Lynx Universal v7.0.0-RC222** (Lynx Kernel Manager v3.2.56): **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling Berbasis Standar Desain Anti-Slop (/redesign-existing-projects): 4 Mode Cepat Terintegrasi, Slider Suhu Trip Point Dinamis (45Â°C-75Â°C), Sinkronisasi Otomatis File Vendor INI di Latar Belakang, Eliminasi Total Redundansi Tweak CPU, dan Penggantian Studio Konfigurasi 1600+ Baris Menjadi Komponen Modular Ringkas Serta Raw Editor Sheet**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC222)
 1. **Redesain Menyeluruh Antarmuka Thermal & Anti-Throttling (`ThermalSubscreen.kt`)**:
@@ -2576,7 +2592,7 @@ Released on: 2026-10-27
    - **Pembersihan Total Redundansi Tweak**: Menghapus duplikasi pengaturan frekuensi CPU (*Ambang Bawah CPU Floor* dan *Kunci Frekuensi Maksimal*) dari halaman ini karena murni merupakan tanggung jawab domain kategori CPU.
 
 2. **Panel Penyesuaian Fleksibel & Anti-Throttling Terpusat**:
-   - Menghadirkan **SafeSlider Suhu Trip Point Dinamis (45°C - 75°C)** dengan pembacaan nilai real-time dan baris chip preset suhu cepat (`45° OEM`, `50°`, `52° Stabil`, `58° Performa`, `65°`, `75° Dominant`).
+   - Menghadirkan **SafeSlider Suhu Trip Point Dinamis (45Â°C - 75Â°C)** dengan pembacaan nilai real-time dan baris chip preset suhu cepat (`45Â° OEM`, `50Â°`, `52Â° Stabil`, `58Â° Performa`, `65Â°`, `75Â° Dominant`).
    - Sakelar inline **Netralkan Pembatasan OEM (Joyose / GOS)** untuk mencegah pemotongan refresh rate dan resolusi secara sepihak oleh vendor ponsel.
    - Sakelar inline **Cegah Layar Meredup (Anti-Dimming Termal)** untuk menjaga kecerahan layar tetap konstan di bawah beban tinggi atau suhu meningkat.
 
@@ -2611,15 +2627,15 @@ Released on: 2026-10-27
 
 # Lynx Universal [High-Precision HUD Gaming Macro Redesign, Bento Status Hub, & Anti-Clutter UI Refactoring] 7.0.0-RC220
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC220** (Lynx Kernel Manager v3.2.54): **Refactoring Menyeluruh & Redesain Antarmuka Gaming HUD Macro Controls (`HudComboControls`) Berbasis Standar Desain Anti-Slop & Redesign-Skill: Eliminasi Tumpang Tindih Kolom 240dp, Segmented Mode Bar 50/50 Full-Width Anti-Squish, Pemisahan Aksi TouchShare Anti-Line Wrap, Pengenalan Slot Tabs Kompak (`C₁`–`C₅`), Bento Status & Recording Hub Terintegrasi, Serta In-Place Expandable Import Box Bebas Window Dismissal Glitch**.
+> **Lynx Universal v7.0.0-RC220** (Lynx Kernel Manager v3.2.54): **Refactoring Menyeluruh & Redesain Antarmuka Gaming HUD Macro Controls (`HudComboControls`) Berbasis Standar Desain Anti-Slop & Redesign-Skill: Eliminasi Tumpang Tindih Kolom 240dp, Segmented Mode Bar 50/50 Full-Width Anti-Squish, Pemisahan Aksi TouchShare Anti-Line Wrap, Pengenalan Slot Tabs Kompak (`Câ`â`Câ`), Bento Status & Recording Hub Terintegrasi, Serta In-Place Expandable Import Box Bebas Window Dismissal Glitch**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC220)
 1. **Redesain Menyeluruh Gaming HUD Macro Controls (`HudComboControls` di `HudGamingCards.kt`)**:
    - Menerapkan prinsip `/redesign-existing-projects` untuk mengatasi masalah tata letak padat pada drawer sidebar Gaming HUD portrait ($\approx 240\text{ dp}$ lebar konten).
-   - **Segmented Mode Selector 50/50 Full-Width**: Mengatasi tombol mode eksekusi kedua yang terjepit menjadi 10dp (`[ ( | ) ]`) akibat penempatan label teks dan dua `FilterChip` dalam satu baris sempit. Kini label diletakkan di atas dengan bar segmen 50/50 yang seimbang dan responsif (`⚡ 1x Tekan` vs `🔁 Ulang (Loop)`).
+   - **Segmented Mode Selector 50/50 Full-Width**: Mengatasi tombol mode eksekusi kedua yang terjepit menjadi 10dp (`[ ( | ) ]`) akibat penempatan label teks dan dua `FilterChip` dalam satu baris sempit. Kini label diletakkan di atas dengan bar segmen 50/50 yang seimbang dan responsif (`â¡ 1x Tekan` vs `ð Ulang (Loop)`).
    - **Pemisahan & Penyederhanaan TouchShare Action Buttons**: Menghilangkan pembungkusan teks canggung 4 baris (`Salin / Kode / (TouchS / hare)`) dengan menyederhanakan string menjadi `Salin Kode` dan `Impor Kode` pada baris tombol berdampingan dengan ikon yang jelas.
-   - **Segmented Slot Selector Tabs (`C₁`–`C₅` + `+`)**: Menggantikan deretan chip nama panjang yang berantakan dengan tab slot minimalis dan elegan, dilengkapi inline renamer baris terpisah dan badge target aplikasi (`Penerima Sentuhan`).
-   - **Bento Status & Recording Hub**: Menggabungkan teks status yang sebelumnya terpisah dengan tombol rekam raksasa menjadi satu kartu Bento taktil terpadu: indikator status ketukan (`X Titik Terekam` / `Belum ada ketukan`), ikon sentuh melingkar, dan tombol aksi ringkas `[ 🔴 Rekam ]` / `[ ✎ Edit ]`.
+   - **Segmented Slot Selector Tabs (`Câ`â`Câ` + `+`)**: Menggantikan deretan chip nama panjang yang berantakan dengan tab slot minimalis dan elegan, dilengkapi inline renamer baris terpisah dan badge target aplikasi (`Penerima Sentuhan`).
+   - **Bento Status & Recording Hub**: Menggabungkan teks status yang sebelumnya terpisah dengan tombol rekam raksasa menjadi satu kartu Bento taktil terpadu: indikator status ketukan (`X Titik Terekam` / `Belum ada ketukan`), ikon sentuh melingkar, dan tombol aksi ringkas `[ ð´ Rekam ]` / `[ â Edit ]`.
    - **In-Place Expandable Import Box (`AnimatedVisibility`)**: Menghilangkan dialog pop-up modal eksternal Compose `Dialog` yang rentan ter-dismiss akibat event sentuhan `ACTION_OUTSIDE` di luar jendela overlay HUD, menggantikannya dengan kotak input in-place yang melipat secara halus langsung di dalam drawer.
 
 2. **Penyempurnaan String Sumber Daya Multibahasa**:
@@ -2675,7 +2691,7 @@ Released on: 2026-10-27
 
 # Lynx Universal [Ultra-Compact Gaming HUD Layout, In-Place Modal Information Overhaul, & Universal (i) Dialog Engine] 7.0.0-RC218
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC218** (Lynx Kernel Manager v3.2.52): **Pembaruan Arsitektur Antarmuka Floating Gaming HUD (HudSidebar) Menjadi Ultra-Compact & Ringkas: Eliminasi Paragraf Deskripsi Tebal dari Tampilan Kartu Utama dan Penggantian dengan Tombol Interaktif `( i )` (`HudInfoButton`), Arsitektur Dialog In-Place Non-Window (`HudInfoModal`) Berbasis `CompositionLocalProvider(LocalHudInfo)` Bebas Konflik `ACTION_OUTSIDE` WindowManager Overlay, Restrukturisasi 11 Modul HUD (Frame & Display, Quick Profiles, Gaming Add-ins, Bypass Charging, Network Turbo, Combo Recorder, ZoneTouch Master, GameShift Spike Watcher, AutoSkip, Screen Recorder, dan Cooldown Timer) dengan Pemadatan Tata Letak 35%–55% Tanpa Mengorbankan Kedalaman Petunjuk Teknis & Spesifikasi Driver Hardware**.
+> **Lynx Universal v7.0.0-RC218** (Lynx Kernel Manager v3.2.52): **Pembaruan Arsitektur Antarmuka Floating Gaming HUD (HudSidebar) Menjadi Ultra-Compact & Ringkas: Eliminasi Paragraf Deskripsi Tebal dari Tampilan Kartu Utama dan Penggantian dengan Tombol Interaktif `( i )` (`HudInfoButton`), Arsitektur Dialog In-Place Non-Window (`HudInfoModal`) Berbasis `CompositionLocalProvider(LocalHudInfo)` Bebas Konflik `ACTION_OUTSIDE` WindowManager Overlay, Restrukturisasi 11 Modul HUD (Frame & Display, Quick Profiles, Gaming Add-ins, Bypass Charging, Network Turbo, Combo Recorder, ZoneTouch Master, GameShift Spike Watcher, AutoSkip, Screen Recorder, dan Cooldown Timer) dengan Pemadatan Tata Letak 35%â55% Tanpa Mengorbankan Kedalaman Petunjuk Teknis & Spesifikasi Driver Hardware**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC218)
 1. **Arsitektur Dialog Informasi In-Place (`HudPanelComponents.kt` & `HudSidebar.kt`)**:
@@ -2690,12 +2706,12 @@ Released on: 2026-10-27
 3. **Pemadatan Kartu Kontrol Gaming Utama (`HudGamingCards.kt`)**:
    - **Glow & Edge Notification**: Menghilangkan teks deskripsi panjang; menyematkan parameter `info` langsung pada `AddinToggle`.
    - **Game Network Controls**: Menghapus lebih dari 5 baris paragraf deskripsi tebal untuk Network Turbo, Siaga Seluler, Tuning TCP, Wi-Fi latency, dan QoS; seluruh penjelasan teknis dipindahkan ke modal `( i )`.
-   - **Kombo Makro ($C_1$–$C_5$)**: Memadatkan tampilan kartu utama; seluruh petunjuk perekaman layar transparan, mode loop, TouchShare token, dan batasan tombol dipindahkan ke modal `( i )`.
+   - **Kombo Makro ($C_1$â$C_5$)**: Memadatkan tampilan kartu utama; seluruh petunjuk perekaman layar transparan, mode loop, TouchShare token, dan batasan tombol dipindahkan ke modal `( i )`.
    - **ZoneTouch Master**: Memindahkan penjelasan Esports Mode, toleransi sentuhan 2px (`view.touch_slop`), sampling rate IC, dan deadzone tepi ke modal `( i )`.
    - **GameShift Reactive Burst**: Memindahkan detail algoritma deteksi drop frame SurfaceFlinger dan durasi pendinginan histeresis 8 detik ke modal `( i )`.
 
 4. **Pemadatan Lab & Daya Baterai (`HudLab.kt`)**:
-   - **Bypass Charging**: Mengganti paragraf panjang dengan indikator ringkas status driver kernel (`Driver: sysfs / charger node`), memindahkan penjelasan proteksi termal auto-cut 42.0°C dan ambang batas dinamis ke modal `( i )`.
+   - **Bypass Charging**: Mengganti paragraf panjang dengan indikator ringkas status driver kernel (`Driver: sysfs / charger node`), memindahkan penjelasan proteksi termal auto-cut 42.0Â°C dan ambang batas dinamis ke modal `( i )`.
    - **Network Probe, Touch Master, & Focus Shield**: Seluruh teks keterangan dipadatkan dan dihubungkan ke modal `( i )` masing-masing seksi.
 
 5. **Pemadatan Konsol, Perekam Layar, & Profil Cepat (`HudCaptureConsole.kt`, `HudRecorderControls.kt`, `HudProfiles.kt`, `HudTools.kt`, & `HudOverview.kt`)**:
@@ -2709,17 +2725,17 @@ Released on: 2026-10-27
 
 # Lynx Universal [Kombo Makro C1-C5 Multi-Touch Fullscreen Visual Recorder, ZoneTouch Master Esports 2px Slop, TouchShare Base64 Passphrase, GameShift Reactive Turbo Burst, Smart Bypass Dynamic Threshold & Dual-Channel Network Turbo] 7.0.0-RC217
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC217** (Lynx Kernel Manager v3.2.51): **Implementasi Fitur Gaming Adaptif Terpadu Berbasis Analisis XArena GameSpace Tanpa Hardcode: Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3\dots$) dengan Perekam Visual Layar Penuh Transparan Presisi Tinggi (Delay Alami & Penomoran Berurutan $①, ②\dots$), Tombol Pemicu Mengambang Dalam Game dengan Dukungan Single-Tap Eksekusi Cepat & Long-Press Reposisi Menggunakan Region Sentuhan Eksklusif `TOUCHABLE_INSETS_REGION` (Zero Passthrough Latency), Ekspor/Impor Kombo Portabel TouchShare via Token Terenkripsi Base64 URL-Safe (`LYNX-COMBO#1#...`), ZoneTouch Master dengan Optimalisasi IC Hardware Sampling Boost (240Hz/360Hz), Sensitivitas Ultra-Peka 2px Slop (`view.touch_slop 2`), dan Matriks Deadzone Tepi Layar, GameShift Turbo Reaktif Berbasis Pemantau Drop Frame SurfaceFlinger dengan Histeresis Pendinginan 8 Detik, Kontrol Cerdas Bypass Charging dengan Ambang Batas Baterai Dinamis (20%–90%) dan Proteksi Termal Auto-Cut 42.0°C, Serta Dual-Channel Network Turbo Anti-Jitter untuk Wi-Fi (2.4GHz/5GHz) dan Siaga Seluler Cepat**.
+> **Lynx Universal v7.0.0-RC217** (Lynx Kernel Manager v3.2.51): **Implementasi Fitur Gaming Adaptif Terpadu Berbasis Analisis XArena GameSpace Tanpa Hardcode: Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3\dots$) dengan Perekam Visual Layar Penuh Transparan Presisi Tinggi (Delay Alami & Penomoran Berurutan $â , â¡\dots$), Tombol Pemicu Mengambang Dalam Game dengan Dukungan Single-Tap Eksekusi Cepat & Long-Press Reposisi Menggunakan Region Sentuhan Eksklusif `TOUCHABLE_INSETS_REGION` (Zero Passthrough Latency), Ekspor/Impor Kombo Portabel TouchShare via Token Terenkripsi Base64 URL-Safe (`LYNX-COMBO#1#...`), ZoneTouch Master dengan Optimalisasi IC Hardware Sampling Boost (240Hz/360Hz), Sensitivitas Ultra-Peka 2px Slop (`view.touch_slop 2`), dan Matriks Deadzone Tepi Layar, GameShift Turbo Reaktif Berbasis Pemantau Drop Frame SurfaceFlinger dengan Histeresis Pendinginan 8 Detik, Kontrol Cerdas Bypass Charging dengan Ambang Batas Baterai Dinamis (20%â90%) dan Proteksi Termal Auto-Cut 42.0Â°C, Serta Dual-Channel Network Turbo Anti-Jitter untuk Wi-Fi (2.4GHz/5GHz) dan Siaga Seluler Cepat**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC217)
 1. **Mesin Kombo Makro Multi-Slot ($C_1, C_2, C_3, C_4, C_5$) (`HudComboManager.kt` & `MacroCombo.kt`)**:
    - Menghadirkan sistem Kombo Makro terpadu yang mampu menyimpan hingga 5 konfigurasi kombo terpisah ($C_1$ hingga $C_5$), masing-masing dengan pengaturan nama kustom, urutan hingga 25 ketukan beruntun, serta penanda visual unik.
-   - Mendukung dua mode eksekusi sentuhan: **1x Tekan (One-Shot)** untuk kombo instan sekali jalan, dan **Ulang (Hold Loop)** dengan jeda antar-siklus yang dapat dikonfigurasi bebas (50–1000 ms).
+   - Mendukung dua mode eksekusi sentuhan: **1x Tekan (One-Shot)** untuk kombo instan sekali jalan, dan **Ulang (Hold Loop)** dengan jeda antar-siklus yang dapat dikonfigurasi bebas (50â1000 ms).
    - Eksekusi sentuhan root ultra-presisi via pipa `input tap X Y` dengan perhitungan koordinat layar dinamis berbasis `DisplayMetrics` aktual perangkat tanpa hardcode resolusi.
 
 2. **Perekam Visual Layar Penuh Transparan Presisi Tinggi (`HudComboRecorderWindow.kt`)**:
-   - Bilah kontrol atas mengambang bergaya konsol modern: tombol batal `( X )`, pengubah nama kombo inline `[ Nama: C₁ ✎ ]`, tombol status rekam `[ Rekam Lagi 🔴 ]` / `[ Merekam... ⏹ ]` dengan aksen border merah berdenyut, dan tombol simpan `( ✓ )`.
-   - Menghitung delay interval alami antar-ketukan secara real-time (`+NNN ms`) dan menampilkan penomoran visual berurutan ($①, ②, ③\dots$) di titik-titik sentuh nyata yang diletakkan pemain di atas layar.
+   - Bilah kontrol atas mengambang bergaya konsol modern: tombol batal `( X )`, pengubah nama kombo inline `[ Nama: Câ â ]`, tombol status rekam `[ Rekam Lagi ð´ ]` / `[ Merekam... â¹ ]` dengan aksen border merah berdenyut, dan tombol simpan `( â )`.
+   - Menghitung delay interval alami antar-ketukan secara real-time (`+NNN ms`) dan menampilkan penomoran visual berurutan ($â , â¡, â¢\dots$) di titik-titik sentuh nyata yang diletakkan pemain di atas layar.
    - Dilengkapi tombol melayang trigger $C_k$ yang dapat diseret bebas (*draggable trigger button*) ke posisi strategis di layar permainan sebelum perekaman dimulai.
 
 3. **Tombol Pemicu Mengambang Dalam Game Bebas Hambatan (`HudComboTriggersOverlay.kt`)**:
@@ -2735,7 +2751,7 @@ Released on: 2026-10-27
 5. **ZoneTouch Master & Akselerasi Touch IC Hardware (`HudZoneTouchManager.kt` & `core/touch_tuning.sh`)**:
    - Probing otomatis driver touch controller multi-vendor: Goodix (`game_mode`, `report_rate`), Focaltech (`game_mode`), Novatek (`nvt_game_mode`), MediaTek TPD (`/proc/touch_report_rate`, `tpd_game_mode`), dan Qualcomm dev nodes.
    - Pengaturan sensitivitas bidikan mikro ultra-peka `view.touch_slop 2` (2 piksel) untuk akurasi instan tanpa deadband.
-   - Pengaturan matriks deadzone tepi layar (0–32 dp) untuk mencegah sentuhan tidak disengaja oleh telapak tangan (*palm rejection*).
+   - Pengaturan matriks deadzone tepi layar (0â32 dp) untuk mencegah sentuhan tidak disengaja oleh telapak tangan (*palm rejection*).
    - Peningkatan prioritas penjadwalan kernel Linux Real-Time FIFO (`chrt -f -p 99`) untuk thread `InputReader`, `InputDispatcher`, dan `RenderThread`.
 
 6. **GameShift Turbo Reaktif Drop Frame Watcher (`HudGameShiftEngine.kt`)**:
@@ -2743,10 +2759,10 @@ Released on: 2026-10-27
    - Jika terdeteksi drop frame parah ($\ge 2$ frame tertunda / jank spike), sistem secara reaktif menyuntikkan burst frekuensi CPU/GPU hardware selama 3 detik.
    - Mekanisme histeresis pendinginan 8 detik untuk mencegah lonjakan suhu berlebih dan menjaga kestabilan baterai.
 
-7. **Kontrol Cerdas Bypass Charging & Proteksi Termal 42°C (`HudBypassSession.kt` & `HudLabRepository.kt`)**:
+7. **Kontrol Cerdas Bypass Charging & Proteksi Termal 42Â°C (`HudBypassSession.kt` & `HudLabRepository.kt`)**:
    - Ambang batas persentase pengisian daya baterai yang dapat diatur fleksibel oleh pengguna antara 20% hingga 90% (standar 40%).
    - Baterai mengisi daya normal hingga mencapai ambang batas, setelah itu jalur daya charger dialihkan langsung ke motherboard/SoC (0 mA ke baterai).
-   - Pemantau termal internal: jika suhu baterai mencapai atau melampaui 42.0°C saat bermain game dengan kabel terhubung, bypass diaktifkan paksa secara otomatis demi keselamatan sel baterai.
+   - Pemantau termal internal: jika suhu baterai mencapai atau melampaui 42.0Â°C saat bermain game dengan kabel terhubung, bypass diaktifkan paksa secara otomatis demi keselamatan sel baterai.
 
 8. **Dual-Channel Network Turbo Anti-Jitter (`HudNetworkStabilizer.kt` & `core/network_turbo.sh`)**:
    - Kunci latensi rendah Wi-Fi hardware via `WifiManager.WIFI_MODE_FULL_LOW_LATENCY` dan penonaktifan power save interface (`iw dev <wlan> set power_save off`).
@@ -2758,7 +2774,7 @@ Released on: 2026-10-27
 
 # Lynx Universal [Scene-Aware AutoSkip Engine, 3-Stage State Machine, 4-Tier Choice Hierarchy & Magic Box Pin Window] 7.0.0-RC216
 Released on: 2026-10-27
-> **Lynx Universal v7.0.0-RC216** (Lynx Kernel Manager v3.2.50): **Implementasi Mesin Cerdas Scene-Aware Auto-Skip untuk Genshin Impact dengan Deteksi Piksel Stream Sub-100ms Bebas Overhead, Siklus State Machine 4-Tahap ([ ⏸️ PAUSE ] -> [ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ MANUAL ]), Mekanisme Standby Hening Anti-Gangguan Kontrol Pemain saat Dialog Berhenti, Hirarki Pemilihan Opsi Percakapan 4-Tingkat Adaptif Resolusi Layar, Pembaruan Visual Token Dinamis HudSmartTriggerOverlay, serta Pemasangan Titik Ketukan Layar Interaktif Magic Box Pin Window**.
+> **Lynx Universal v7.0.0-RC216** (Lynx Kernel Manager v3.2.50): **Implementasi Mesin Cerdas Scene-Aware Auto-Skip untuk Genshin Impact dengan Deteksi Piksel Stream Sub-100ms Bebas Overhead, Siklus State Machine 4-Tahap ([ â¸ï¸ PAUSE ] -> [ ð¤ AUTO ] -> [ â¸ï¸ PAUSE ] -> [ â© MANUAL ]), Mekanisme Standby Hening Anti-Gangguan Kontrol Pemain saat Dialog Berhenti, Hirarki Pemilihan Opsi Percakapan 4-Tingkat Adaptif Resolusi Layar, Pembaruan Visual Token Dinamis HudSmartTriggerOverlay, serta Pemasangan Titik Ketukan Layar Interaktif Magic Box Pin Window**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC216)
 1. **Mesin Cerdas Scene-Aware Auto-Skip (`GenshinSkipEngine.kt` & `GenshinSkipRunner.kt`)**:
@@ -2766,7 +2782,7 @@ Released on: 2026-10-27
    - Menerapkan mekanisme **Standby Hening (Silent Standby)**: jika dialog selesai atau pemain kembali ke open-world / pertempuran, sistem seketika menghentikan ketukan (0 tap) dalam waktu $\le 0.4$ detik, membiarkan kontrol analog joystick, tombol skill, dan pergerakan kamera 100% bebas hambatan.
    - Deteksi otomatis melanjutkan ketukan seketika saat adegan dialog baru dimulai tanpa memerlukan masukan manual pemain.
 2. **State Machine 3-Mode Berputar 4-Tahap (`SkipMode`)**:
-   - Menggantikan toggle biner sederhana dengan siklus status deterministik: `[ ⏸️ PAUSE ] -> [ 🤖 AUTO ] -> [ ⏸️ PAUSE ] -> [ ⏩ MANUAL ] -> [ ⏸️ PAUSE ] -> [ 🤖 AUTO ]`.
+   - Menggantikan toggle biner sederhana dengan siklus status deterministik: `[ â¸ï¸ PAUSE ] -> [ ð¤ AUTO ] -> [ â¸ï¸ PAUSE ] -> [ â© MANUAL ] -> [ â¸ï¸ PAUSE ] -> [ ð¤ AUTO ]`.
    - **Mode PAUSE** (`#70757F` Muted): Berhenti total tanpa ketukan.
    - **Mode AUTO** (`#00E5FF` Cyan): Deteksi dialog cerdas berbasis adegan.
    - **Mode MANUAL** (`#FF9100` Orange): Ketukan beruntun cepat nonstop tanpa pemeriksaan adegan untuk cutscene panjang atau dialog tanpa tombol auto.
@@ -2789,7 +2805,7 @@ Released on: 2026-10-27
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC214)
 1. **Universal MediaTek Touch Boost (`PPM_POLICY_SYS_BOOST`) di Mode Balanced**:
    - Memperbarui logika translator di `native/lynxd/src/hardware/translator.rs` agar `PPM_POLICY_SYS_BOOST` selalu aktif (`9 1`) pada mode Balanced, Performance, dan Extreme (hanya dinonaktifkan pada Powersave).
-   - Menjamin lonjakan frekuensi seketika pada CPU cluster Little (CPU 0–5) maupun Big core (CPU 6–7) saat terjadi interaksi sentuh (swipe/tap), mengeliminasi *High Input Latency* tanpa membuang daya saat layar tidak disentuh.
+   - Menjamin lonjakan frekuensi seketika pada CPU cluster Little (CPU 0â5) maupun Big core (CPU 6â7) saat terjadi interaksi sentuh (swipe/tap), mengeliminasi *High Input Latency* tanpa membuang daya saat layar tidak disentuh.
 2. **Dynamic Proportional GPU Floor & GED Load-Based DVFS (`translator.rs` & `subsystems/gpu.rs`)**:
    - Menggantikan penetapan batas bawah statis dengan perhitungan proporsional dinamis berbasis tabel OPP hardware (`cap.gpu.opp_table.len() / 2`).
    - Menerapkan `custom_boost_gpu_freq` pada tingkat median (~50% dari OPP hardware) saat terjadi sentuhan atau rendering grafis, sementara `gpu_bottom_freq` tetap diizinkan turun ke level terendah saat idle.
@@ -2876,8 +2892,8 @@ Released on: 2026-10-26
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC210)
 1. **Hardware Performance Tri-Cluster & Animasi Sweep Ring Memori (`HudOverview.kt`)**:
-   - Menghadirkan kluster pemantauan 3 pilar: CPU (Beban %, Clock MHz, Suhu °C), GPU (Beban %, Clock MHz, Suhu °C), dan RAM (Used GiB, Status Pembersihan, Gauge Dinamis).
-   - Menambahkan animasi rotasi sweep ring neon cyan (`rememberInfiniteTransition`) pada gauge RAM saat pembersihan memori `[⚡ Bersihkan]` berlangsung, memberikan umpan balik visual langsung yang terintegrasi dengan Banner Feedback di bagian bawah.
+   - Menghadirkan kluster pemantauan 3 pilar: CPU (Beban %, Clock MHz, Suhu Â°C), GPU (Beban %, Clock MHz, Suhu Â°C), dan RAM (Used GiB, Status Pembersihan, Gauge Dinamis).
+   - Menambahkan animasi rotasi sweep ring neon cyan (`rememberInfiniteTransition`) pada gauge RAM saat pembersihan memori `[â¡ Bersihkan]` berlangsung, memberikan umpan balik visual langsung yang terintegrasi dengan Banner Feedback di bagian bawah.
    - Tata letak responsif adaptif: otomatis beralih menjadi 3 kolom sejajar pada layar lebar dan 2 kolom + 1 baris pada layar sempit tanpa kompresi font.
 2. **Elevasi Kartu Hero FPS & Oscilloscope Sparkline (`HudOverview.kt`)**:
    - Angka FPS monospaced tebal 32sp dengan aksen putih bersih dan label `FPS` neon cyan.
@@ -2890,7 +2906,7 @@ Released on: 2026-10-26
    - Menghadirkan Interactive Mode Selector Cards: kartu visual bento untuk memilih antara `Bilah Samping (Game Dock)` dan `Klasik Floating Overlay`.
    - Menghadirkan Gaming Add-ins Showcase Grid: pratinjau 8 fitur in-game (Perekam Layar MP4, Tangkapan Layar, Pembersih RAM, Bypass Charging, Touch Master, Game Network, Mode Fokus, dan Magic Box).
 4. **Pembersihan Karakter Encoding UTF-8 Rusak**:
-   - Membersihkan seluruh karakter em-dash yang rusak (`â€”`) kembali menjadi tanda pisah em-dash UTF-8 bersih (`—`) di seluruh berkas HUD dan katalog profil.
+   - Membersihkan seluruh karakter em-dash yang rusak (`Ã¢â¬â`) kembali menjadi tanda pisah em-dash UTF-8 bersih (`â`) di seluruh berkas HUD dan katalog profil.
 5. **Verifikasi Kompilasi & Pengujian Kode**:
    - Seluruh suite unit test `:app:testReleaseUnitTest` lolos 100% tanpa error.
    - Berkas rilis APK (`6.83 MB`) berhasil dibangun dengan optimasi penuh R8 ProGuard shrinker.
@@ -2907,13 +2923,13 @@ Released on: 2026-10-26
    - Dilengkapi pemuatan thumbnail bitmap terkompresi secara asinkron, tombol aksi cepat "Buka" (membuka galeri foto via intent), serta dukungan tap atau swipe to dismiss yang mulus.
 2. **Penyempurnaan Perekam Layar (Screen Recording) & Floating Pill Indicator (`HudRecordingIndicator.kt`)**:
    - Menghadirkan floating indicator berbentuk *Capsule Pill* mewah (tinggi minimal 48dp, border crimson `#FA6B75` 1.5dp, latar OLED obsidian) yang dapat digeser (draggable) dengan pembatasan area layar agar tidak keluar batas.
-   - Dilengkapi animasi pulsing red dot `🔴`, live timer monospaced presisi `00:00`, serta alur berhenti instan saat floating pill diketuk.
-   - Alur rekaman cerdas: panel laci Lynx Engine otomatis tertutup saat rekam dimulai, hitung mundur 3 detik (3.. 2.. 1..), dan status tile di panel berubah secara dinamis menjadi tombol Berhenti Merah `[⏹️ Berhenti mm:ss]` saat panel dibuka kembali saat merekam.
+   - Dilengkapi animasi pulsing red dot `ð´`, live timer monospaced presisi `00:00`, serta alur berhenti instan saat floating pill diketuk.
+   - Alur rekaman cerdas: panel laci Lynx Engine otomatis tertutup saat rekam dimulai, hitung mundur 3 detik (3.. 2.. 1..), dan status tile di panel berubah secara dinamis menjadi tombol Berhenti Merah `[â¹ï¸ Berhenti mm:ss]` saat panel dibuka kembali saat merekam.
 3. **Penyempurnaan Fitur Bersihkan RAM (Clean RAM) & Feedback Banner (`HudController.kt` & `HudFeedbackBanner`)**:
    - Menggantikan disclaimer statis dengan pembacaan langsung `/proc/meminfo` sebelum dan sesudah eksekusi `release-cache` dan kernel `drop_caches`.
-   - Mengkalkulasi selisih MB memori riil yang dibebaskan (`⚡ X MB RAM Dibebaskan · Tersedia Y.Y GB`) dan menampilkannya pada banner feedback Material 3 Glassmorphism dengan ikon petir `⚡` dan border cyan neon.
+   - Mengkalkulasi selisih MB memori riil yang dibebaskan (`â¡ X MB RAM Dibebaskan Â· Tersedia Y.Y GB`) dan menampilkannya pada banner feedback Material 3 Glassmorphism dengan ikon petir `â¡` dan border cyan neon.
 4. **Redesain Menyeluruh Quick Action Bar & Seluruh Halaman Material 3 Cyberpunk Obsidian**:
-   - Quick Action Bar adaptif 5 tile: `[📸 Tangkap] [📹 Rekam] [⚡ Bersihkan]` (Row 1) dan `[📌 Sematkan] [🛡️ Fokus]` (Row 2) dengan target sentuh ergonomis minimal 48×48 dp.
+   - Quick Action Bar adaptif 5 tile: `[ð¸ Tangkap] [ð¹ Rekam] [â¡ Bersihkan]` (Row 1) dan `[ð Sematkan] [ð¡ï¸ Fokus]` (Row 2) dengan target sentuh ergonomis minimal 48Ã48 dp.
    - Redesain panel header, status bar rekaman (`HudRecordingBar`), kartu prosesor CPU/GPU, kartu profil, serta konsistensi micro-borders 1dp `#1E2638` di seluruh subhalaman.
 5. **Koreksi Unit Test Suite (`StandardChargingScriptTest.kt` & `HudGamingAddinsTest.kt`)**:
    - Menyelaraskan verifikasi skrip pengisian daya standar OEM terhadap node arus batas Qualcomm yang dibuka pada RC207.
@@ -2932,7 +2948,7 @@ Released on: 2026-10-26
 2. **Penyempurnaan Skrip Ekstrem / Hyper Mode (`ExtremeChargingScript.kt`)**:
    - Memastikan pembukaan penuh pada node pembatas arus Qualcomm: `step_charging_enabled=0`, `system_temp_level=0`, `temp_state=0`, `thermal_input_current_limit=-1`, dan `charge_control_limit=3500000` uA pada skrip fallback Kotlin.
 3. **Verifikasi Operasional Perangkat Nyata (Redmi Note 7)**:
-   - Pengujian langsung di perangkat fisik Redmi Note 7 memastikan mode `⚡ HYPER` aktif dengan protokol `Qualcomm QC 3.0` murni, pengisian daya meningkat pesat (+1316 mA, 6.1 W pada 85.1%), suhu terjaga dingin di 37.8°C, dan bebas dari pembatasan termal / AICL throttling.
+   - Pengujian langsung di perangkat fisik Redmi Note 7 memastikan mode `â¡ HYPER` aktif dengan protokol `Qualcomm QC 3.0` murni, pengisian daya meningkat pesat (+1316 mA, 6.1 W pada 85.1%), suhu terjaga dingin di 37.8Â°C, dan bebas dari pembatasan termal / AICL throttling.
 
 ---
 
@@ -3022,16 +3038,16 @@ Released on: 2026-10-26
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC202)
 1. **Eliminasi Total Stuttering HUD & Autoskip Engine**:
    - Menghapus badai pengecekan multi-layer `dumpsys SurfaceFlinger --latency` pada `native/lynxd/src/hud/stream.rs`: ketika layer aktif sedang memproduksi frame, daemon mengunci pembacaan khusus pada layer tersebut tanpa mengganggu mutex `mStateLock` SurfaceFlinger.
-   - Mengeliminasi proses dump framebuffer `screencap` di latar belakang pada `GenshinSkipRunner` dan `GenshinSkipEngine` yang sebelumnya memicu micro-stutter setiap 650–1200ms pada game 60 FPS.
+   - Mengeliminasi proses dump framebuffer `screencap` di latar belakang pada `GenshinSkipRunner` dan `GenshinSkipEngine` yang sebelumnya memicu micro-stutter setiap 650â1200ms pada game 60 FPS.
 2. **Penanganan Presisi Layar Transisi Narasi (*Story Narration Screen Handler*)**:
-   - Menangani adegan layar hitam/putih berisi narasi cerita dengan prompt kuning *"Tekan untuk melanjutkan"* dan panah berlian `⬇` di bagian bawah tengah layar (`X=0.50`, `Y=0.88`).
+   - Menangani adegan layar hitam/putih berisi narasi cerita dengan prompt kuning *"Tekan untuk melanjutkan"* dan panah berlian `â¬` di bagian bawah tengah layar (`X=0.50`, `Y=0.88`).
    - Pengetukan berkala pada target narasi ini menjamin transisi adegan cerita berjalan mulus tanpa macet (*stuck*) meskipun tombol Putar Otomatis di pojok kiri atas tidak tersedia.
 3. **Kalibrasi Presisi Koordinat Pilihan Dialog (*Empirical Dialogue Choice Alignment*)**:
-   - Berdasarkan pengukuran piksel riil pada layar ultra-wide (2460×1080), posisi vertikal kapsul pilihan dialog di-refactor:
+   - Berdasarkan pengukuran piksel riil pada layar ultra-wide (2460Ã1080), posisi vertikal kapsul pilihan dialog di-refactor:
      - Slot 1 / Atas: `Y = 0.50` (540px)
      - Slot 2 / Tengah (Pilihan 1 pada 2 opsi): `Y = 0.58` (626px, riil: 624px)
      - Slot 3 / Bawah (Pilihan 2 pada 2 opsi atau pilihan tunggal): `Y = 0.66` (712px, riil: 715px)
-     - Kolom X Kapsul Pilihan: `X = 0.72` (1771px, riil: 1648–2237px)
+     - Kolom X Kapsul Pilihan: `X = 0.72` (1771px, riil: 1648â2237px)
 4. **Eksekusi Berantai Atomik Non-Blocking**:
    - Menggabungkan akselerasi teks dialog (`advance`), rotasi pilihan (`choice`), dan narasi (`narration`) ke dalam satu baris perintah root shell dengan interval `sleep 0.03`.
    - Mengeliminasi overhead fork Dalvik berkali-kali per detik dan membebaskan antrean root shell.
@@ -3040,36 +3056,36 @@ Released on: 2026-10-26
 
 # Lynx Universal [Redesain Material 3 Expressive & Tombol Bebas Geser 2D Seluruh Layar] 7.0.0-RC201
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC201** (Lynx Kernel Manager v3.2.43): **Redesain Menyeluruh Pemicu Auto-Skip Percakapan Berstandar Material 3 Expressive: Penggantian Total Ikon Emoji Kaku Menjadi Ikon Vektor Resolusi Tinggi (`FastForward`, `Pause`, `PlayArrow`); Permukaan Glassmorphic Squircle 42×42 dp (`RoundedCornerShape 13dp`) dengan Border Neon Bernapas Dinamis (`infiniteTransition`) & Titik Indikator Mikro Status Mesin; Kebebasan Geser 2D Penuh ke Seluruh Bagian Layar Menggunakan Jendela Melayang Terisolasi Khusus (`AutoSkipHostView`); Pembatasan Aman Presisi Terhadap Notch Kamera, Lubang Layar (*Camera Cutout*), & Batas Navigasi (`DisplayCutout Insets`); Serta Penjagaan Posisi Koordinat Layar Otomatis Antara Orientasi Landscape & Portrait**.
+> **Lynx Universal v7.0.0-RC201** (Lynx Kernel Manager v3.2.43): **Redesain Menyeluruh Pemicu Auto-Skip Percakapan Berstandar Material 3 Expressive: Penggantian Total Ikon Emoji Kaku Menjadi Ikon Vektor Resolusi Tinggi (`FastForward`, `Pause`, `PlayArrow`); Permukaan Glassmorphic Squircle 42Ã42 dp (`RoundedCornerShape 13dp`) dengan Border Neon Bernapas Dinamis (`infiniteTransition`) & Titik Indikator Mikro Status Mesin; Kebebasan Geser 2D Penuh ke Seluruh Bagian Layar Menggunakan Jendela Melayang Terisolasi Khusus (`AutoSkipHostView`); Pembatasan Aman Presisi Terhadap Notch Kamera, Lubang Layar (*Camera Cutout*), & Batas Navigasi (`DisplayCutout Insets`); Serta Penjagaan Posisi Koordinat Layar Otomatis Antara Orientasi Landscape & Portrait**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC201)
 1. **Redesain Menyeluruh Material 3 Expressive (*Modern M3 Token Design*)**:
-   - Menghilangkan tampilan emoji raw `⏩` / `⏸️` yang terkesan kaku/amatir.
+   - Menghilangkan tampilan emoji raw `â©` / `â¸ï¸` yang terkesan kaku/amatir.
    - Mengadopsi ikon vektor Material 3 Rounded resmi:
      - **Mode Skipping/Aktif**: Ikon `FastForward` berwarna Electric Cyan (`#00E5FF`) dengan animasi border neon bernapas (*breathing pulse* 900ms) dan bayangan bercahaya (*glow ambient shadow*).
      - **Mode Jeda (*Paused*)**: Ikon `Pause` bernuansa Golden Amber (`#FFB300`) dengan border solid tegas.
      - **Mode Siaga (*Standby*)**: Ikon `PlayArrow` bernuansa Ice White (`#ECEFF4`) dengan aksen titanium gelap.
    - Permukaan bertingkat (*tonal glassmorphic elevation*): latar gradasi gelap OLED, radius squircle 13dp, dan titik lentera mikro (*Micro Engine Beacon*) di sudut kanan atas.
 2. **Kebebasan Geser 2D Penuh ke Seluruh Area Layar (*Free 2D Floating Window*)**:
-   - Tombol auto-skip kini dipisahkan ke dalam jendela overlay mandiri (`AutoSkipHostView` 42×42 dp), melepaskannya dari keterikatan sisi gagang samping (`SidekickEdgeTab`).
+   - Tombol auto-skip kini dipisahkan ke dalam jendela overlay mandiri (`AutoSkipHostView` 42Ã42 dp), melepaskannya dari keterikatan sisi gagang samping (`SidekickEdgeTab`).
    - Pengguna bebas menyeret (*drag & drop*) tombol ke posisi mana pun di seluruh layar (tengah, pojok bawah, dekat kontrol sentuh karakter, dsb.).
 3. **Proteksi Batas Layar & Notch Kamera (*Notch & Edge Clamping Shield*)**:
    - Sistem membaca batas insets fisik layar (`WindowInsets.Type.displayCutout()` & `systemBars()`).
    - Tombol secara mutlak dicegah keluar dari tepian layar maupun masuk ke area terpotong kamera depan (*punch-hole / notch cutout*).
    - Menyimpan posisi fraksi (X, Y) secara terpisah untuk mode landscape dan portrait agar selalu muncul di posisi yang sama saat orientasi layar diputar.
 4. **Zero-Deadzone Alami 100%**:
-   - Karena luas jendela overlay mandiri ini persis seukuran tombol (42×42 dp), tidak ada lagi area transparan yang dapat menghalangi tombol kontrol in-game di sekelilingnya.
+   - Karena luas jendela overlay mandiri ini persis seukuran tombol (42Ã42 dp), tidak ada lagi area transparan yang dapat menghalangi tombol kontrol in-game di sekelilingnya.
 
 ---
 
 # Lynx Universal [Lencana Melayang 34dp Ultra-Kompak & Zero-Deadzone Pass-Through] 7.0.0-RC200
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC200** (Lynx Kernel Manager v3.2.42): **Pembaruan Desain & Efisiensi Sentuh Pemicu Pintar Auto-Skip: Transformasi Tombol Melayang Menjadi Lencana Sirkular Ultra-Kompak 34×34 dp (`CircleShape`) Ramping Menempel Rapi di Tepi Bezel Layar; Eliminasi Total Zona Mati Sentuh (*Zero-Deadzone Pass-Through*) Menggunakan `OnComputeInternalInsetsListener` (`TOUCHABLE_INSETS_REGION`) & Penolakan Intersepsi Sentuh Diluar Tombol (`dispatchTouchEvent -> false`) Sehingga Tombol In-Game Bebas Ditekan Tanpa Halangan; Perlindungan Anti-Kill OOM Tingkat Kernel (`oom_score_adj = -1000`) & Mode Layanan Persisten `START_STICKY` Menjamin HUD Tetap Kebal dari Tekanan Memori Saat Game Berat Memuat Data; Serta Optimalisasi Pembersihan Memori & Kompaksi zRAM Adaptif**.
+> **Lynx Universal v7.0.0-RC200** (Lynx Kernel Manager v3.2.42): **Pembaruan Desain & Efisiensi Sentuh Pemicu Pintar Auto-Skip: Transformasi Tombol Melayang Menjadi Lencana Sirkular Ultra-Kompak 34Ã34 dp (`CircleShape`) Ramping Menempel Rapi di Tepi Bezel Layar; Eliminasi Total Zona Mati Sentuh (*Zero-Deadzone Pass-Through*) Menggunakan `OnComputeInternalInsetsListener` (`TOUCHABLE_INSETS_REGION`) & Penolakan Intersepsi Sentuh Diluar Tombol (`dispatchTouchEvent -> false`) Sehingga Tombol In-Game Bebas Ditekan Tanpa Halangan; Perlindungan Anti-Kill OOM Tingkat Kernel (`oom_score_adj = -1000`) & Mode Layanan Persisten `START_STICKY` Menjamin HUD Tetap Kebal dari Tekanan Memori Saat Game Berat Memuat Data; Serta Optimalisasi Pembersihan Memori & Kompaksi zRAM Adaptif**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC200)
-1. **Lencana Melayang Sirkular 34×34 dp Ultra-Kompak (*Ultra-Compact Circular Badge*)**:
-   - Merevolusi tampilan tombol melayang dari bentuk kapsul lebar (~125dp) menjadi lencana mini melingkar ramping berukuran 34×34 dp (`CircleShape`).
-   - Tampilan bersih dengan ikon penunjuk arah `⏩` (oranye/putih saat siaga/aktif) dan `⏸️` (amber saat jeda) dengan border animasi halus.
+1. **Lencana Melayang Sirkular 34Ã34 dp Ultra-Kompak (*Ultra-Compact Circular Badge*)**:
+   - Merevolusi tampilan tombol melayang dari bentuk kapsul lebar (~125dp) menjadi lencana mini melingkar ramping berukuran 34Ã34 dp (`CircleShape`).
+   - Tampilan bersih dengan ikon penunjuk arah `â©` (oranye/putih saat siaga/aktif) dan `â¸ï¸` (amber saat jeda) dengan border animasi halus.
    - Mengurangi lebar jendela overlay hingga lebih dari 70%, menjaga area layar game tetap luas dan bebas dari penutupan visual.
 2. **Penembusan Sentuhan Bebas Hambatan (*Zero-Deadzone Pass-Through*)**:
    - Memperbaiki masalah tombol in-game yang tidak bisa ditekan saat berada di sekitar tombol auto-skip.
@@ -3086,7 +3102,7 @@ Released on: 2026-10-26
 
 # Lynx Universal [Pemicu Bebas-Genggam Otomatis & Kontrol Jeda Manual Auto-Skip] 7.0.0-RC199
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC199** (Lynx Kernel Manager v3.2.41): **Evolusi Cerdas Pemicu Auto-Skip Percakapan: Eksekusi Bebas-Genggam (*Autonomous Hands-Free Skipping*) Otomatis Aktif Seketika Saat Dialog Dimulai Tanpa Perlu Menekan Tombol Manual; Penyediaan Tombol Jeda Taktis (*Manual Pause / Resume Safety Guard*) Melalui Tombol Melayang Berwarna Amber `[ ⏸️ Jeda ]` Jika Pemain Ingin Berhenti Sejenak Membaca Alur Cerita; Pemulihan Otomatis Status Jeda Saat Percakapan Selesai; Serta Sampling Frekuensi Adaptif (1200ms Mode Siaga <0.5% CPU & 650ms Saat Dialog Aktif)**.
+> **Lynx Universal v7.0.0-RC199** (Lynx Kernel Manager v3.2.41): **Evolusi Cerdas Pemicu Auto-Skip Percakapan: Eksekusi Bebas-Genggam (*Autonomous Hands-Free Skipping*) Otomatis Aktif Seketika Saat Dialog Dimulai Tanpa Perlu Menekan Tombol Manual; Penyediaan Tombol Jeda Taktis (*Manual Pause / Resume Safety Guard*) Melalui Tombol Melayang Berwarna Amber `[ â¸ï¸ Jeda ]` Jika Pemain Ingin Berhenti Sejenak Membaca Alur Cerita; Pemulihan Otomatis Status Jeda Saat Percakapan Selesai; Serta Sampling Frekuensi Adaptif (1200ms Mode Siaga <0.5% CPU & 650ms Saat Dialog Aktif)**.
 
 ## Rangkuman Fitur & Peningkatan (7.0.0-RC199)
 1. **Eksekusi Otomatis Pemicu Tanpa Tekan Manual (*Autonomous Hands-Free Skipping*)**:
@@ -3094,7 +3110,7 @@ Released on: 2026-10-26
    - Begitu dialog NPC/cerita terdeteksi di layar, runner langsung otomatis memulai siklus akselerasi dialog dan pengetukan opsi tanpa mengharuskan pengguna mengetuk tombol melayang secara manual.
 2. **Kontrol Jeda Taktis (*Manual Pause / Resume Safety Guard*)**:
    - Tombol melayang tetap tersedia secara interaktif di layar. Jika pengguna menemukan adegan penting yang ingin dibaca perlahan:
-     - 1 ketukan pada tombol melayang saat *skipping* akan langsung menghentikan pengetukan seketika (*Pause*) dan mengubah tampilan tombol menjadi amber hangat `[ ⏸️ Jeda ]`.
+     - 1 ketukan pada tombol melayang saat *skipping* akan langsung menghentikan pengetukan seketika (*Pause*) dan mengubah tampilan tombol menjadi amber hangat `[ â¸ï¸ Jeda ]`.
      - 1 ketukan berikutnya akan langsung melanjutkan kembali (*Resume*) akselerasi dialog jika percakapan masih berlangsung.
 3. **Reset Otomatis Status Jeda Pasca-Dialog**:
    - Ketika percakapan selesai dan game kembali ke penjelajahan *open-world*, status jeda otomatis di-reset ke mode normal sehingga percakapan berikutnya akan langsung ter-skip secara otomatis tanpa perlu di-unpause manual.
@@ -3106,7 +3122,7 @@ Released on: 2026-10-26
 
 # Lynx Universal [Deteksi Akhir Percakapan & Auto-Disarm Cerdas Auto-Skip] 7.0.0-RC198
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC198** (Lynx Kernel Manager v3.2.41): **Implementasi Sistem Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection & Gameplay Shield*) pada Mesin Pemicu Pintar Auto-Skip: Memantau Keberadaan Lingkaran Tombol Kontrol Dialog Top-Left Melalui Pembacaan Stream Pipe Pixel Sub-Detik (`screencap | od`); Verifikasi Nilai Spektrum Warna Hangat Cream/Beige Ikon Dialog (`RGB ~ 236, 229, 216`); Penghentian Total Ketukan Layar Secara Otomatis (*Auto-Disarm*) Saat Dialog Selesai (Histeresis 2 Sampel Negatif ~1.5 Detik) Guna Mencegah Gangguan Kontrol Kamera Maupun Serangan di Open-World; Pemulihan Otomatis Status Tombol Melayang ke Mode Siaga `[ ⏩ Auto-Skip ]`; Fitur Pengaman Siaga Pra-Dialog (~4s Timeout); Serta Getaran Konfirmasi Haptik 35ms Saat Auto-Disarm Terpicu**.
+> **Lynx Universal v7.0.0-RC198** (Lynx Kernel Manager v3.2.41): **Implementasi Sistem Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection & Gameplay Shield*) pada Mesin Pemicu Pintar Auto-Skip: Memantau Keberadaan Lingkaran Tombol Kontrol Dialog Top-Left Melalui Pembacaan Stream Pipe Pixel Sub-Detik (`screencap | od`); Verifikasi Nilai Spektrum Warna Hangat Cream/Beige Ikon Dialog (`RGB ~ 236, 229, 216`); Penghentian Total Ketukan Layar Secara Otomatis (*Auto-Disarm*) Saat Dialog Selesai (Histeresis 2 Sampel Negatif ~1.5 Detik) Guna Mencegah Gangguan Kontrol Kamera Maupun Serangan di Open-World; Pemulihan Otomatis Status Tombol Melayang ke Mode Siaga `[ â© Auto-Skip ]`; Fitur Pengaman Siaga Pra-Dialog (~4s Timeout); Serta Getaran Konfirmasi Haptik 35ms Saat Auto-Disarm Terpicu**.
 
 ## Rangkuman Fitur & Perbaikan (7.0.0-RC198)
 1. **Deteksi Akhir Percakapan Otomatis (*Intelligent Dialogue-End Detection*)**:
@@ -3117,7 +3133,7 @@ Released on: 2026-10-26
    - Begitu urutan dialog selesai dan tampilan berpindah kembali ke dunia bebas/eksplorasi (2 kali pengecekan berturut-turut tanpa elemen dialog), seluruh proses pengetukan langsung dihentikan seketika (`stop()`).
    - Mencegah tombol skip terus mengetuk layar yang dapat mengganggu pergerakan karakter, perputaran kamera, maupun serangan mendadak saat pemain kembali ke open-world.
 3. **Sinkronisasi UI & Umpan Balik Haptik Taktil**:
-   - Tombol melayang `HudSmartTriggerOverlay` seketika berubah kembali dari status aktif menyala `[ ⏩ Skipping... ]` menjadi status siaga `[ ⏩ Auto-Skip ]`.
+   - Tombol melayang `HudSmartTriggerOverlay` seketika berubah kembali dari status aktif menyala `[ â© Skipping... ]` menjadi status siaga `[ â© Auto-Skip ]`.
    - Denyut haptik halus 35ms (`stopWithHaptic`) memberi sinyal taktil instan kepada pemain bahwa kendali karakter telah sepenuhnya diserahkan kembali ke tangan mereka.
    - Pengaman siaga (*standby guard*): jika tombol melayang diaktifkan sebelum berbicara dengan NPC dan dalam 4 detik tidak ada dialog yang dimulai, auto-skip otomatis beralih ke mode siaga tanpa spamming layar.
 
@@ -3138,15 +3154,15 @@ Released on: 2026-10-26
 
 ---
 
-# Lynx Universal [Pemicu Pintar · Auto-Skip Dialog Genshin Impact & Hoyo RPGs] 7.0.0-RC196
+# Lynx Universal [Pemicu Pintar Â· Auto-Skip Dialog Genshin Impact & Hoyo RPGs] 7.0.0-RC196
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC196** (Lynx Kernel Manager v3.2.40): **Peluncuran Fitur Taktis Gaming Pintar: `Pemicu Pintar · Auto-Skip Dialog (Genshin Impact & Hoyo RPGs)` yang Diadaptasi dari Arsitektur Cerdas XBoost AI Magic Box Infinix & Desktop Dialogue Skipper; Memadukan Kalkulator Koordinat Adaptif Lintas-Rasio Layar (16:9, 19.5:9, 20.5:9, 21:9) Tanpa Ketergantungan Koordinat Statis Kaku; Runner Ringan Tanpa I/O Disk Berfrekuensi Sampling 4 Hz (CPU < 0.3%); Tombol Melayang Cerdas `[ ⏩ Auto-Skip ]` (Otomatis Muncul Hanya Saat Game RPG Aktif di Layar Depan); Injeksi Sentuhan Sub-Milidetik Terpadu; Serta Pengendalian Lengkap Kecepatan Ketukan (180ms, 250ms, 380ms) dan Pemilihan Opsi Percakapan di Halaman `Alat` (`HudTools`)**.
+> **Lynx Universal v7.0.0-RC196** (Lynx Kernel Manager v3.2.40): **Peluncuran Fitur Taktis Gaming Pintar: `Pemicu Pintar Â· Auto-Skip Dialog (Genshin Impact & Hoyo RPGs)` yang Diadaptasi dari Arsitektur Cerdas XBoost AI Magic Box Infinix & Desktop Dialogue Skipper; Memadukan Kalkulator Koordinat Adaptif Lintas-Rasio Layar (16:9, 19.5:9, 20.5:9, 21:9) Tanpa Ketergantungan Koordinat Statis Kaku; Runner Ringan Tanpa I/O Disk Berfrekuensi Sampling 4 Hz (CPU < 0.3%); Tombol Melayang Cerdas `[ â© Auto-Skip ]` (Otomatis Muncul Hanya Saat Game RPG Aktif di Layar Depan); Injeksi Sentuhan Sub-Milidetik Terpadu; Serta Pengendalian Lengkap Kecepatan Ketukan (180ms, 250ms, 380ms) dan Pemilihan Opsi Percakapan di Halaman `Alat` (`HudTools`)**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC196)
 
-### 1. ⚡ Pemicu Pintar · Auto-Skip Dialog Genshin & Hoyo RPGs (`GenshinSkipEngine.kt`, `GenshinSkipRunner.kt`)
+### 1. â¡ Pemicu Pintar Â· Auto-Skip Dialog Genshin & Hoyo RPGs (`GenshinSkipEngine.kt`, `GenshinSkipRunner.kt`)
 - **Adaptasi Lintas-Rasio Layar Dinamis (*Aspect-Ratio & Orientation Invariant*)**:
-  - Mengeliminasi kelemahan skrip desktop koordinat statis: menghitung target sentuh secara matematis dari dimensi layar fisik (`screenWidth`, `screenHeight`), menghasilkan koordinat dialog advance (`X ≈ 72%`, `Y ≈ 60%`) dan kolom opsi dialog (`X ≈ 68%`, `Y ≈ 67%..77%`) yang presisi di layar standar 16:9 maupun ultra-wide 19.5:9 (Redmi Note 7) dan 20.5:9 (Infinix Note 11s).
+  - Mengeliminasi kelemahan skrip desktop koordinat statis: menghitung target sentuh secara matematis dari dimensi layar fisik (`screenWidth`, `screenHeight`), menghasilkan koordinat dialog advance (`X â 72%`, `Y â 60%`) dan kolom opsi dialog (`X â 68%`, `Y â 67%..77%`) yang presisi di layar standar 16:9 maupun ultra-wide 19.5:9 (Redmi Note 7) dan 20.5:9 (Infinix Note 11s).
   - Normalisasi otomatis orientasi layar (selalu menggunakan dimensi bentang lanskap game).
 - **Mendukung Game RPG Populer Secara Spesifik**:
   - `com.miHoYo.GenshinImpact` (Genshin Impact Global)
@@ -3155,32 +3171,32 @@ Released on: 2026-10-26
   - `com.HoYoverse.Nap` (Zenless Zone Zero)
   - `com.kurogame.wutheringwaves.global` (Wuthering Waves)
 
-### 2. 🛡️ Jaminan Kinerja "Zero-Lag & Smooth" (Bebas Stutter & Drop FPS)
+### 2. ð¡ï¸ Jaminan Kinerja "Zero-Lag & Smooth" (Bebas Stutter & Drop FPS)
 - **Zero Disk I/O**: Tidak pernah menulis file gambar screenshot mentah ke penyimpanan flash (`/sdcard/`).
 - **Low-Overhead Execution**:
   - Loop berjalan dengan konsumsi daya CPU < 0.3% menggunakan coroutine Kotlin `Dispatchers.IO`.
   - Pengecekan status layar mati atau aplikasi berpindah dari latar depan langsung memicu *pause* otomatis tanpa membebani game loop.
   - Injeksi sentuhan sub-milidetik ke driver input touchscreen (`/dev/input/event*`) atau fallback `input tap`.
 
-### 3. 🎯 Antarmuka Terpadu: Tombol Melayang Pintar & Kontrol di Tab `Alat` (`HudTools.kt`, `HudSmartTriggerOverlay.kt`, `HudMiniOverlay.kt`)
+### 3. ð¯ Antarmuka Terpadu: Tombol Melayang Pintar & Kontrol di Tab `Alat` (`HudTools.kt`, `HudSmartTriggerOverlay.kt`, `HudMiniOverlay.kt`)
 - **Tombol Melayang Pintar (*Smart Floating Trigger Pill*)**:
-  - Saat sakelar Pemicu Pintar aktif, tombol mini semi-transparan `[ ⏩ Auto-Skip ]` otomatis muncul di tepi layar ponsel ketika game RPG dideteksi di foreground.
-  - Mengetuk tombol tersebut langsung mengaktifkan akselerasi dialog dengan efek visual border cyan menyala `[ ⏩ Skipping... ]` dan dapat dihentikan kapan saja dengan 1 ketukan jari.
+  - Saat sakelar Pemicu Pintar aktif, tombol mini semi-transparan `[ â© Auto-Skip ]` otomatis muncul di tepi layar ponsel ketika game RPG dideteksi di foreground.
+  - Mengetuk tombol tersebut langsung mengaktifkan akselerasi dialog dengan efek visual border cyan menyala `[ â© Skipping... ]` dan dapat dihentikan kapan saja dengan 1 ketukan jari.
 - **Konfigurasi Lengkap di Tab `Alat`**:
   - Sakelar aktivasi Pemicu Pintar.
   - Pilihan Kecepatan Ketukan: **Cepat (180ms)**, **Alami (250ms)**, dan **Santai (380ms)**.
   - Pilihan Target Opsi Dialog: **Opsi 1 (Atas)** atau **Opsi Terakhir (Bawah)**.
-  - Penataan ulang tampilan *Magic Box · Cooldown Timer* menjadi lebih lapang dan bebas benturan teks.
+  - Penataan ulang tampilan *Magic Box Â· Cooldown Timer* menjadi lebih lapang dan bebas benturan teks.
 
 ---
 
 # Lynx Universal [Touch Master, Notification Shield, Brightness Lock & Tactical Cooldown Timer] 7.0.0-RC195
 Released on: 2026-10-26
-> **Lynx Universal v7.0.0-RC195** (Lynx Kernel Manager v3.2.39): **Ekspansi Ekosistem Fitur In-Game Gaming HUD: Peluncuran Modul 3 `Touch Master` (Akselerasi Responsivitas Sentuh Kernel MTK `tchbst`/`perfserv` & Qualcomm `schedtune`/`touchboost` Dilengkapi Bantalan Uji Sampel Sentuh Interaktif Real-Time Berakurasi Hz, Interval ms, dan Deteksi Multi-Jari); Modul 4 `Perisai Notifikasi & Fokus` (Pemblokir Banner Mengambang Heads-up Notifications & Selektor 3 Tingkat Mode Fokus dengan Pemulihan Otomatis Saat HUD Ditutup); Serta Utilitas Taktis `Kunci Kecerahan Game` (Mencegah Layar Meredup Mendadak Akibat Sensor Cahaya Tertutup Telapak Tangan Saat Menggenggam Ponsel) dan `Magic Box · Timer Cooldown` (Penghitung Waktu Mundur Respawn Buff/Objektif 30d, 60d, 2m, 3m yang Ringan & Efisien)**.
+> **Lynx Universal v7.0.0-RC195** (Lynx Kernel Manager v3.2.39): **Ekspansi Ekosistem Fitur In-Game Gaming HUD: Peluncuran Modul 3 `Touch Master` (Akselerasi Responsivitas Sentuh Kernel MTK `tchbst`/`perfserv` & Qualcomm `schedtune`/`touchboost` Dilengkapi Bantalan Uji Sampel Sentuh Interaktif Real-Time Berakurasi Hz, Interval ms, dan Deteksi Multi-Jari); Modul 4 `Perisai Notifikasi & Fokus` (Pemblokir Banner Mengambang Heads-up Notifications & Selektor 3 Tingkat Mode Fokus dengan Pemulihan Otomatis Saat HUD Ditutup); Serta Utilitas Taktis `Kunci Kecerahan Game` (Mencegah Layar Meredup Mendadak Akibat Sensor Cahaya Tertutup Telapak Tangan Saat Menggenggam Ponsel) dan `Magic Box Â· Timer Cooldown` (Penghitung Waktu Mundur Respawn Buff/Objektif 30d, 60d, 2m, 3m yang Ringan & Efisien)**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC195)
 
-### 1. ⚡ Modul 3 `HudLab` — Touch Master & Live Touch Sampling Pad (`HudLab.kt`, `HudLabRepository.kt`)
+### 1. â¡ Modul 3 `HudLab` â Touch Master & Live Touch Sampling Pad (`HudLab.kt`, `HudLabRepository.kt`)
 - **Akselerasi Responsivitas Sentuhan Hardware Terverifikasi**:
   - Mengidentifikasi dan mengontrol node kernel akselerasi sentuh secara dinamis:
     - **MediaTek**: `/proc/perfmgr/tchbst/user/usrtch`, `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_ta_boost`, dan `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_prefer_idle`.
@@ -3193,7 +3209,7 @@ Released on: 2026-10-26
     - **Interval Sentuhan**: `Interval (ms)` terukur presisi hingga 1 desimal.
     - **Deteksi Multi-Jari**: Jumlah titik sentuhan simultan maksimum yang tercatat saat pengujian.
 
-### 2. 🛡️ Modul 4 `HudLab` — Perisai Notifikasi & Fokus (`HudLab.kt`, `HudLabRepository.kt`, `HudController.kt`)
+### 2. ð¡ï¸ Modul 4 `HudLab` â Perisai Notifikasi & Fokus (`HudLab.kt`, `HudLabRepository.kt`, `HudController.kt`)
 - **Blokir Banner Mengambang (*Heads-Up Shield*)**:
   - Sakelar langsung untuk menonaktifkan notifikasi mengambang (*heads-up pop-up banners*) yang kerap menghalangi pandangan krusial saat bertarung sengit di dalam game, melalui `settings put global heads_up_notifications_enabled 0|1`.
   - Suara dan notifikasi tetap berjalan di latar belakang tanpa mengganggu game.
@@ -3202,11 +3218,11 @@ Released on: 2026-10-26
   - Kontrol terintegrasi 3 pilihan: **Normal** (`DND Off`), **Prioritas** (`DND Priority`), dan **Senyap** (`DND None/Total Silence`), tersinkronisasi dua arah dengan Quick Tile `Fokus` pada halaman Ringkasan.
   - Seluruh setelan DND dikembalikan ke status awal saat HUD dinonaktifkan.
 
-### 3. 🎯 Halaman `HudTools` — Kunci Kecerahan Game & Magic Box Cooldown Timer (`HudTools.kt`)
+### 3. ð¯ Halaman `HudTools` â Kunci Kecerahan Game & Magic Box Cooldown Timer (`HudTools.kt`)
 - **Kunci Kecerahan Game (*Game Brightness Lock*)**:
   - Sakelar 1-ketuk untuk mengunci kecerahan layar ke mode manual (`settings put system screen_brightness_mode 0`), mencegah kecerahan layar turun mendadak ketika sensor ambient tertutup oleh jari atau telapak tangan gamer saat memegang perangkat dalam posisi lanskap.
   - Mengembalikan mode kecerahan otomatis (`screen_brightness_mode 1`) secara otomatis saat HUD dimatikan.
-- **Magic Box · Timer Cooldown**:
+- **Magic Box Â· Timer Cooldown**:
   - Utilitas taktis penghitung waktu mundur 1-ketuk dengan preset cepat **30d**, **60d**, **2m**, dan **3m** untuk memantau waktu spawn monster buff, Lord/Turtle, atau cooldown spell lawan.
   - Tampilan format `MM:SS` kontras tinggi dengan aksen cyan saat aktif, tombol `Reset`, dan pemakaian CPU nyaris 0% (loop coroutine `1000 ms` hanya berjalan saat timer aktif).
 
@@ -3230,21 +3246,21 @@ Released on: 2026-10-25
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC192)
 
-### 1. 🧭 Material 3 Compact Vertical Navigation Rail (`HudNavigation.kt`, `HudLayoutPolicy.kt`, `HudSidebar.kt`)
+### 1. ð§­ Material 3 Compact Vertical Navigation Rail (`HudNavigation.kt`, `HudLayoutPolicy.kt`, `HudSidebar.kt`)
 - **Navigasi Vertikal 4 Halaman (`64 dp`) di Sisi Tepi Layar**:
-  - Mengelompokkan fitur HUD ke dalam 4 halaman terstruktur: **Ringkasan** (`Summary`), **Monitor** (`Details`), **Lab** (`Lab`), dan **Alat** (`Tools`) menggunakan *Compact M3 Navigation Rail* (`64 dp` lebar, indikator pil aktif `48×30 dp`, ikon + label jelas).
+  - Mengelompokkan fitur HUD ke dalam 4 halaman terstruktur: **Ringkasan** (`Summary`), **Monitor** (`Details`), **Lab** (`Lab`), dan **Alat** (`Tools`) menggunakan *Compact M3 Navigation Rail* (`64 dp` lebar, indikator pil aktif `48Ã30 dp`, ikon + label jelas).
   - Posisi rail otomatis menyesuaikan sisi tambatan (*dock left* atau *dock right*) agar selalu berada paling dekat dengan ibu jari di tepi layar.
   - Dilengkapi *fallback* otomatis ke `HudTopTabBar` apabila skala font ekstrem pengguna menyisakan lebar konten di bawah ambang aman `176 dp` (`HudLayoutPolicy.MIN_CONTENT`).
 - **Reklamasi Ruang Vertikal Lanskap**:
   - Memindahkan `HudQuickTileRow` dan `HudAppDock` ke dalam halaman **Ringkasan** sehingga halaman **Monitor**, **Lab**, dan **Alat** memperoleh ruang vertikal penuh di bawah `HudPanelHeader`.
 
-### 2. 🧪 Halaman Baru `HudLab` (`HudLab.kt` & `HudLabRepository.kt`)
-- **Modul 1 — Bypass Charging Terverifikasi Hardware**:
-  - Memeriksa kapabilitas hardware pengisian daya secara nyata melalui `lynxd charging status` (`Siap`, `Perlu Root`, atau `Tidak didukung`), menampilkan chip pengisi daya yang terdeteksi, sakelar aktif/nonaktif dengan verifikasi baca-balik (*readback verification*), indikator `• Bypass` pada pil status baterai di header HUD, serta telemetri arus (`mA`) dan suhu baterai (`°C`) secara langsung.
-- **Modul 2 — Diagnostik Jaringan Game (`Game Network Probe`)**:
-  - Mengukur latensi koneksi TCP (`Ping ms`), fluktuasi (`Jitter ms`), `Packet Loss (%)`, dan skor kualitas jaringan (`0–100`) secara *on-demand* hanya ketika tab **Lab** sedang dibuka (otomatis dihentikan saat berpindah tab demi menjaga penghematan baterai dan CPU).
+### 2. ð§ª Halaman Baru `HudLab` (`HudLab.kt` & `HudLabRepository.kt`)
+- **Modul 1 â Bypass Charging Terverifikasi Hardware**:
+  - Memeriksa kapabilitas hardware pengisian daya secara nyata melalui `lynxd charging status` (`Siap`, `Perlu Root`, atau `Tidak didukung`), menampilkan chip pengisi daya yang terdeteksi, sakelar aktif/nonaktif dengan verifikasi baca-balik (*readback verification*), indikator `â¢ Bypass` pada pil status baterai di header HUD, serta telemetri arus (`mA`) dan suhu baterai (`Â°C`) secara langsung.
+- **Modul 2 â Diagnostik Jaringan Game (`Game Network Probe`)**:
+  - Mengukur latensi koneksi TCP (`Ping ms`), fluktuasi (`Jitter ms`), `Packet Loss (%)`, dan skor kualitas jaringan (`0â100`) secara *on-demand* hanya ketika tab **Lab** sedang dibuka (otomatis dihentikan saat berpindah tab demi menjaga penghematan baterai dan CPU).
 
-### 3. 🔕 Tile Cepat `Fokus` (DND Prioritas) & Mini-Sparkline Frametime (`HudPanelHeader.kt`, `HudOverview.kt`, `HudController.kt`)
+### 3. ð Tile Cepat `Fokus` (DND Prioritas) & Mini-Sparkline Frametime (`HudPanelHeader.kt`, `HudOverview.kt`, `HudController.kt`)
 - **Mode Fokus Satu Ketukan**:
   - Mengganti tile cepat keempat (yang sebelumnya redundan dengan tab `Alat`) menjadi tombol **Fokus** (`DoNotDisturbOn`) yang mengaktifkan *Priority Do Not Disturb* dan otomatis memulihkan status DND awal pengguna ketika layanan HUD dihentikan.
 - **Frametime Mini-Sparkline di Kartu Hero**:
@@ -3264,13 +3280,13 @@ Released on: 2026-10-25
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC190)
 
-### 1. ⚡ Dual-Rail GPU Undervolt (`lynx_gpu_uv.kpm` v1.3.0)
+### 1. â¡ Dual-Rail GPU Undervolt (`lynx_gpu_uv.kpm` v1.3.0)
 - **Tegangan L2 Cache GPU Terintegrasi (`vsram_gpu`)**:
   - Memperluas jangkauan undervolt sehingga tidak hanya menyasar inti komputasi `vgpu`, melainkan menyelaraskan pemotongan pada `vsram_gpu` (-12.5 mV pada Peak Tier $\ge 840\text{ mV}$ dan -25.0 mV pada Mid/Low Tier).
   - Menjaga selisih tegangan $V_{\text{sram\_gpu}} - V_{\text{gpu}} \ge 100\text{ mV}$ secara ketat untuk mencegah *timing corruption* pada antarmuka level-shifter cache Mali-G57.
   - Memfilter secara ketat agar tidak menyentuh rail SRAM CPU (`vsram_proc11`, `vsram_proc12`).
 
-### 2. 🧠 Split Multi-Domain CPU Undervolt (`lynx_cpu_uv.kpm` v2.3.0)
+### 2. ð§  Split Multi-Domain CPU Undervolt (`lynx_cpu_uv.kpm` v2.3.0)
 - **Deep Undervolt Little Cores (`vproc11`)**:
   - Mengisolasi pemotongan Little Cores 6x Cortex-A55 sebesar **`-25.00 mV`** (4 step register @ 6.25 mV), memanfaatkan keleluasaan voltase Cortex-A55 untuk memangkas konsumsi daya idle dan background secara masif tanpa mengurangi kestabilan.
 - **Sweet Spot Big Cores (`vproc12`)**:
@@ -3282,11 +3298,11 @@ Released on: 2026-10-25
 
 # Lynx Universal [Pro MediaTek Gaming Engine & Autonomous Foreground Tracking] 7.0.0-RC189
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC189** (Lynx Kernel Manager v3.2.35): **Akselerasi Penuh Game Berat MediaTek (Helio / Dimensity) & Penyempurnaan Deteksi Aplikasi Depan Otonom: Mengintegrasikan Parameter Tuning MediaTek GED (Threshold DVFS 30%, Boost Amplifikasi 5x, Resolusi Dinamis GPU 95%-100% OPP Bebas Hardcode, & Bypass Fence 3D) Serta MediaTek FPSGO FBT (Ambang Termal 85°C Tanpa Throttling Artifisial CPU, Emergency Ultra Rescue, & BHR OPP); Memperbaiki Algoritma Detektor Aplikasi Depan Rust `detector.rs` Agar Mengenali Aplikasi Berprioritas Root (`oom_score_adj <= 0`) Serta Mengabaikan Sub-Proses Latar Belakang (`:provider`/`:service`); Mengoptimalkan Read-Ahead Penyimpanan 1024KB Untuk Streaming Aset Open-World Tanpa Stutter; Teruji Menghasilkan 31-33 FPS Stabil Dengan Suhu Baterai Aman 43°C Pada Pengujian Live Genshin Impact di Helio G96**.
+> **Lynx Universal v7.0.0-RC189** (Lynx Kernel Manager v3.2.35): **Akselerasi Penuh Game Berat MediaTek (Helio / Dimensity) & Penyempurnaan Deteksi Aplikasi Depan Otonom: Mengintegrasikan Parameter Tuning MediaTek GED (Threshold DVFS 30%, Boost Amplifikasi 5x, Resolusi Dinamis GPU 95%-100% OPP Bebas Hardcode, & Bypass Fence 3D) Serta MediaTek FPSGO FBT (Ambang Termal 85Â°C Tanpa Throttling Artifisial CPU, Emergency Ultra Rescue, & BHR OPP); Memperbaiki Algoritma Detektor Aplikasi Depan Rust `detector.rs` Agar Mengenali Aplikasi Berprioritas Root (`oom_score_adj <= 0`) Serta Mengabaikan Sub-Proses Latar Belakang (`:provider`/`:service`); Mengoptimalkan Read-Ahead Penyimpanan 1024KB Untuk Streaming Aset Open-World Tanpa Stutter; Teruji Menghasilkan 31-33 FPS Stabil Dengan Suhu Baterai Aman 43Â°C Pada Pengujian Live Genshin Impact di Helio G96**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC189)
 
-### 0. 🎮 Redesain Total Floating Game HUD & Bilah Samping Interaktif 2D (`feature/hud/ui/` & `LynxFloatingHudService.kt`)
+### 0. ð® Redesain Total Floating Game HUD & Bilah Samping Interaktif 2D (`feature/hud/ui/` & `LynxFloatingHudService.kt`)
 - **Tahan & Geser Bilah Samping Bebas 2D + Auto-Snap Kiri/Kanan**:
   - Memperbaiki penuh mekanisme drag pada bilah samping (*edge handle*), kapsul Mini HUD, dan header panel terbuka sehingga saat ditahan dan digeser, bilah berpindah secara mulus mengikuti jari pengguna (vertikal maupun horizontal) dan otomatis menempel (*snap*) ke tepi kiri atau tepi kanan layar sesuai posisi pelepasan.
   - Menghilangkan bug ruang kosong hitam di bagian bawah panel dengan menyelaraskan tinggi jendela overlay secara dinamis (`WRAP_CONTENT` + `heightIn`).
@@ -3294,17 +3310,17 @@ Released on: 2026-10-24
   - Mengganti bilah navigasi vertikal samping yang menyempitkan ruang konten menjadi `HudTopTabBar` (*segmented pill bar*) penuh di atas, memberikan 100% lebar panel untuk seluruh kartu di setiap halaman.
   - Merombak tampilan **Header & App Dock**: dilengkapi *drag handle pill* taktil, emblem **LYNX** menyala, indikator suhu & status pengisian baterai, serta kontainer *frosted dock* untuk ikon aplikasi mengambang.
   - **Tab Ringkasan (`HudOverview` & `HudProfiles`)**: Kartu Hero FPS berukuran besar dengan mini sparkline, kartu Bento ganda bersebelahan untuk **CPU** dan **GPU** (lengkap dengan persentase beban, clock MHz, suhu, dan progress bar), kartu pemilih **Profil Performa** dengan pil berbingkai tegas, serta tombol aksi cepat berikon (`Tangkap Layar`, `Lepas Cache`, `Alat`).
-  - **Tab Detail (`HudDetails`)**: Seluruh grup telemetri utama (**Frame & Display**, **CPU & GPU + Cluster Policies**, **RAM & Suhu**, **Baterai & Daya**) kini langsung terbuka dalam tata letak **Grid Bento 2×2** dengan indikator warna suhu semantik dan grafik gelombang bergradasi (`HudFrameChart`).
+  - **Tab Detail (`HudDetails`)**: Seluruh grup telemetri utama (**Frame & Display**, **CPU & GPU + Cluster Policies**, **RAM & Suhu**, **Baterai & Daya**) kini langsung terbuka dalam tata letak **Grid Bento 2Ã2** dengan indikator warna suhu semantik dan grafik gelombang bergradasi (`HudFrameChart`).
   - **Tab Alat (`HudTools`, `HudMiniSettings`, `HudFloatingSettings`)**: Pilihan **Display Hz** kini tampil langsung untuk pergantian 1-ketukan tanpa perlu membuka akordeon, sakelar **Pin Mini HUD** dan pemilih chip metrik lebih proporsional, serta tombol **Hentikan HUD** beraksen merah taktis.
 
-### 0b. 🧹 Perampingan Modul Pasca-Instalasi
-- File yang hanya dibutuhkan saat instalasi (pemilih tombol volume, berkas bahasa installer, dokumentasi, dan APK bawaan setelah berhasil terpasang) kini otomatis dihapus dari folder modul. Hemat sekitar 7–8 MB penyimpanan.
+### 0b. ð§¹ Perampingan Modul Pasca-Instalasi
+- File yang hanya dibutuhkan saat instalasi (pemilih tombol volume, berkas bahasa installer, dokumentasi, dan APK bawaan setelah berhasil terpasang) kini otomatis dihapus dari folder modul. Hemat sekitar 7â8 MB penyimpanan.
 - Skrip pengisian daya lama berbasis shell dipensiunkan; seluruh kontrol pengisian kini sepenuhnya ditangani mesin native.
 - Aplikasi tidak lagi menulis target arus tinggi langsung ke kernel saat mesin native aktif, sehingga tidak ada lagi tabrakan pengaturan antara aplikasi dan modul.
 
-### 1. ⚡ Akselerasi Game MediaTek GED & GPU Mali (`game.rs` & `mtk.rs`)
+### 1. â¡ Akselerasi Game MediaTek GED & GPU Mali (`game.rs` & `mtk.rs`)
 - **Resolusi Frekuensi GPU Dinamis Murni (Bebas Hardcode)**:
-  - Menghapus seluruh nilai frekuensi statis. Mesin native secara otomatis menginspeksi tabel OPP hardware perangkat (`HardwareCapability`), mendeteksi frekuensi puncak (`max_mhz`), dan mengunci batas bawah gaming (`gaming_floor_mhz`) secara dinamis pada $\ge 95\%$ dari frekuensi maksimum hardware (misal 910–950 MHz pada Helio G96, atau nilai yang setara pada Dimensity / Snapdragon Adreno / Exynos).
+  - Menghapus seluruh nilai frekuensi statis. Mesin native secara otomatis menginspeksi tabel OPP hardware perangkat (`HardwareCapability`), mendeteksi frekuensi puncak (`max_mhz`), dan mengunci batas bawah gaming (`gaming_floor_mhz`) secara dinamis pada $\ge 95\%$ dari frekuensi maksimum hardware (misal 910â950 MHz pada Helio G96, atau nilai yang setara pada Dimensity / Snapdragon Adreno / Exynos).
   - Menjamin frekuensi GPU tidak akan pernah drop ke batas bawah yang terlalu rendah saat beban render 3D tinggi.
 - **GED DVFS Aggressive Scaling**:
   - `g_fb_dvfs_threshold = 30`: GPU langsung melompat ke frekuensi tinggi saat beban framebuffer mencapai 30% (bukan menunggu hingga 80%).
@@ -3315,22 +3331,22 @@ Released on: 2026-10-24
   - `dvfs_period = 10 ms`: Waktu respons adaptasi clock GPU 10x lebih cepat (dari 100ms menjadi 10ms).
   - `power_policy = always_on`: Mencegah kolapsnya rel daya GPU saat transisi scene berat.
 
-### 2. 🎯 Stabilisasi Frame Rate MediaTek FPSGO FBT & Perlindungan CPU
+### 2. ð¯ Stabilisasi Frame Rate MediaTek FPSGO FBT & Perlindungan CPU
 - **FPSGO Emergency Ultra Rescue**:
   - `ultra_rescue = 1`, `rescue_second_enable = 1`, `rescue_percent = 100`: Secara otomatis mendeteksi drop frame dan menaikkan OPP CPU seketika untuk menyelamatkan deadline frame.
 - **Pencegahan Throttling Artifisial Suhu Rendah**:
-  - `thrm_temp_th = 85`: Menaikkan batas pemicu throttling FPSGO bawaan OEM dari 65°C menjadi 85°C.
+  - `thrm_temp_th = 85`: Menaikkan batas pemicu throttling FPSGO bawaan OEM dari 65Â°C menjadi 85Â°C.
   - `thrm_limit_cpu = 0`: Mencegah FPSGO memotong frekuensi CPU secara prematur di tengah pertempuran atau pertarungan intens.
   - `bhr_opp = 1` & `gcc_enable = 1`: Menjaga headroom beban CPU cluster besar.
 
-### 3. 🔍 Algoritma Deteksi Aplikasi Depan Otonom Presisi Tinggi (`detector.rs`)
+### 3. ð Algoritma Deteksi Aplikasi Depan Otonom Presisi Tinggi (`detector.rs`)
 - **Dukungan OOM Score Negatif (`oom_score_adj <= 0`)**:
   - Memperbaiki bug pada detektor procfs cgroup yang sebelumnya hanya memeriksa `oom_score_adj == 0`, sehingga aplikasi/game yang telah diberi prioritas root (`-1000`) kini langsung terdeteksi seketika tanpa terlewat.
 - **Pembersihan Sub-Proses Latar Belakang**:
   - Menyaring dan mengabaikan proses ContentProvider atau Service bertanda titik dua (seperti `:provider`, `:service`, `:channel`, `:push`, `:sandboxed_process`) agar tidak keliru dianggap sebagai antarmuka pengguna depan.
   - Otomatis mengekstrak nama paket induk murni (`base_pkg`).
 
-### 4. 🚀 Peningkatan I/O Read-Ahead Aset Open-World (1024KB)
+### 4. ð Peningkatan I/O Read-Ahead Aset Open-World (1024KB)
 - Meningkatkan buffer `read_ahead_kb` penyimpanan flash internal (`/sys/block/sda`, `sdb`, `sdc`, `mmcblk0`) menjadi **1024 KB** saat game aktif.
 - Melenyapkan *micro-stutter* saat *texture streaming*, teleportasi peta, dan pergerakan cepat pada game dunia terbuka (seperti Genshin Impact).
 
@@ -3342,12 +3358,12 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC188)
 
-### 1. 🧠 Pengawas VMA Native Mandiri (`lynxd` Watchdog - `memory.rs`)
+### 1. ð§  Pengawas VMA Native Mandiri (`lynxd` Watchdog - `memory.rs`)
 - Menanamkan `MemoryController::check_vma_health()` pada loop daemon utama (`runner.rs`).
 - Mengukur baris pemetaan memori virtual `/proc/<pid_system_server>/maps` secara instan langsung melalui Rust buffered reader (tanpa overhead shell spawn).
 - Memicu pemadatan memori kernel (`/proc/sys/vm/compact_memory = 1`) secara otomatis jika pemetaan melampaui 40.000 VMA guna menyatukan kembali fragmentasi alokasi sekunder alokator Scudo sebelum menyentuh batas bahaya.
 
-### 2. 🛡️ Plafon VMA Dinamis Berbasis Kapasitas RAM Fisik
+### 2. ð¡ï¸ Plafon VMA Dinamis Berbasis Kapasitas RAM Fisik
 - Menetapkan plafon VMA secara proporsional:
   - **`524.288` (512K slot)** pada perangkat RAM $\le 4$GB (seperti Redmi Note 7).
   - **`1.048.576` (1 Juta+ slot)** pada perangkat RAM $> 6$GB (seperti Infinix X698).
@@ -3361,7 +3377,7 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC187)
 
-### 1. 🛡️ Ekspansi Batas Pemetaan Memori Kernel 8x Lipat (`vm.max_map_count = 524288`)
+### 1. ð¡ï¸ Ekspansi Batas Pemetaan Memori Kernel 8x Lipat (`vm.max_map_count = 524288`)
 - **Pelebaran Kapasitas VMA Plafon**:
   - Menggantikan batas usang 32-bit bawaan Android (`65.530`) dengan standar kernel modern 64-bit (**`524.288`**).
   - Memberikan ruang napas 8x lebih luas sehingga akumulasi pemetaan memori socket jaringan (`NetworkStats`) maupun alokator grafis selama berhari-hari hanya memakai sebagian kecil (<15%) dari total kapasitas VMA.
@@ -3369,7 +3385,7 @@ Released on: 2026-10-24
   - **Early Service Router (`service.sh`)**: Menerapkan `524288` ke `/proc/sys/vm/max_map_count` pada saat booting sebelum zygote dan user apps aktif.
   - **Native Rust Engine (`memory.rs`)**: Menegakkan parameter secara deterministik di MemoryController `apply_ram()`.
 
-### 2. 🔐 Kebijakan Keamanan SELinux Terpadu (`sepolicy.rule`)
+### 2. ð Kebijakan Keamanan SELinux Terpadu (`sepolicy.rule`)
 - Menambahkan aturan:
   `allow magisk proc_max_map_count file { read write open getattr }`
   `allow init proc_max_map_count file { read write open getattr }`
@@ -3383,11 +3399,11 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Perbaikan (7.0.0-RC186)
 
-### 1. 🛡️ Mitigasi Keamanan IPC SurfaceFlinger (`LynxGpuControlRepository.kt`)
+### 1. ð¡ï¸ Mitigasi Keamanan IPC SurfaceFlinger (`LynxGpuControlRepository.kt`)
 - Menghapus eksekusi shell `service call SurfaceFlinger 1037` pada `setTextureCacheSize(mb: Int)`.
 - Mengamankan penerapan cache tekstur HWUI (`ro.hwui.texture_cache_size`, `layer_cache_size`, `path_cache_size`) agar berjalan murni melalui Android runtime properties tanpa mengirimkan transaksi binder mentah yang berisiko menolak parsing parcel di Android 11/14.
 
-### 2. 🔍 Audit Forensik & Verifikasi Diagnostik Memori Sistem
+### 2. ð Audit Forensik & Verifikasi Diagnostik Memori Sistem
 - Menganalisis berkas tombstone crash `tombstone_22` pada `system_server` (PID 2961) pasca uptime 4 jam.
 - Menemukan bahwa kegagalan dipicu oleh akumulasi 29.233 entri `[anon:scudo:secondary]` yang menyebabkan total VMA memori mencapai **65.511 entri**, melampaui batas kernel `vm.max_map_count = 65.530` dan menghasilkan `Scudo ERROR: internal map failure (NO MEMORY) requesting 12KB`.
 - Memverifikasi bahwa kernel Linux tidak mengalami crash atau watchdog panic (kernel uptime tetap utuh dan stabil).
@@ -3396,21 +3412,21 @@ Released on: 2026-10-24
 
 # Lynx Universal [HWUI Render Pipeline & Memory Harmonizer] 7.0.0-RC185
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC185** (Lynx Kernel Manager v3.2.31): **Penyelarasan Otomatis Kartu Memori & Pipeline Render Grafis Terhadap Mode Ekstrem GPU: Mengintegrasikan Alokasi Memori Cache Tekstur (128MB Maksimum), Disk Shader Blob Cache (512MB Ultra), Kompilasi Grafis Multi-Core (4 Inti Paralel), Pra-Pemuatan Efek Visual (Async Shader Pipeline), Serta Akselerasi VSync Hardware Layar (Pure HW VSync) Secara Langsung ke Preset Cepat Profil GPU; Mencegah Micro-Stutter Saat Kompilasi Efek Shader Game Berat, Memangkas Touch Input Latency Sebesar 5–15ms, Serta Menjamin Pemulihan Bersih Nilai Standar Saat Beralih Kembali ke Profil Seimbang atau Hemat Daya**.
+> **Lynx Universal v7.0.0-RC185** (Lynx Kernel Manager v3.2.31): **Penyelarasan Otomatis Kartu Memori & Pipeline Render Grafis Terhadap Mode Ekstrem GPU: Mengintegrasikan Alokasi Memori Cache Tekstur (128MB Maksimum), Disk Shader Blob Cache (512MB Ultra), Kompilasi Grafis Multi-Core (4 Inti Paralel), Pra-Pemuatan Efek Visual (Async Shader Pipeline), Serta Akselerasi VSync Hardware Layar (Pure HW VSync) Secara Langsung ke Preset Cepat Profil GPU; Mencegah Micro-Stutter Saat Kompilasi Efek Shader Game Berat, Memangkas Touch Input Latency Sebesar 5â15ms, Serta Menjamin Pemulihan Bersih Nilai Standar Saat Beralih Kembali ke Profil Seimbang atau Hemat Daya**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC185)
 
-### 1. 🎮 Harmonisasi Otomatis Preset Memori & Pipeline Render GPU (`LynxGpuControlRepository.kt`)
+### 1. ð® Harmonisasi Otomatis Preset Memori & Pipeline Render GPU (`LynxGpuControlRepository.kt`)
 - **Penyelarasan Mode Ekstrem Otomatis**:
   - Mengatur alokasi **Texture Cache** ke **`128MB (Maksimum)`** guna mencegah *cache eviction* pada perangkat RAM 8GB.
   - Memperluas **Disk Shader Blob Cache** ke **`512MB (Ultra)`** / 256MB agar ribuan pipeline shader game (Genshin Impact, MLBB, PUBG) tersimpan permanen di memori internal UFS, melenyapkan *on-the-fly shader stutter*.
   - Menyetel **Skia Compiler Worker Threads** ke **`4 Inti (Esports)`** untuk mempercepat pemuatan scene dan kompilasi shader paralel hingga 3x lipat.
   - Mengaktifkan **Pra-Pemuatan Efek Visual (Async Shader)** (`use_gpu_pixel_buffers=true` & `render_thread=true`) agar CPU render thread dan GPU pipeline berjalan paralel tanpa saling memblokir buffer swap.
-  - Mengaktifkan **Akselerasi VSync Hardware Layar (Pure HW VSync)** (`debug.cpurend.vsync=false`) untuk memotong touch input lag sebesar 5–15ms.
+  - Mengaktifkan **Akselerasi VSync Hardware Layar (Pure HW VSync)** (`debug.cpurend.vsync=false`) untuk memotong touch input lag sebesar 5â15ms.
 - **Pemulihan Otomatis Mode Seimbang**:
   - Mengembalikan parameter ke nilai standar ramah baterai (`72MB`, `128MB`, `Auto 0 Threads`, `Async Shader OFF`, `HW VSync Hybrid`) saat profil Seimbang aktif.
 
-### 2. 📱 Sinkronisasi Dua Arah State UI (`LynxViewModelGpu.kt` & `LynxGraphicsEngineRepository.kt`)
+### 2. ð± Sinkronisasi Dua Arah State UI (`LynxViewModelGpu.kt` & `LynxGraphicsEngineRepository.kt`)
 - Memperbarui state in-memory `graphicsHwui` secara instan saat pengguna menekan kartu preset profil GPU, sehingga selektor pada kartu "MEMORI & PIPELINE RENDER" langsung mencerminkan mode aktif.
 - Menambahkan fallback pembacaan `debug.hwui.blob_cache_size_mb` pada SELinux restricted environment.
 
@@ -3422,7 +3438,7 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC184)
 
-### 1. 🚀 Harmonisasi Penuh Tweak Deep Silicon ke Profil Utama & Mesin Native (`translator.rs`)
+### 1. ð Harmonisasi Penuh Tweak Deep Silicon ke Profil Utama & Mesin Native (`translator.rs`)
 - **Qualcomm Adreno Deep Silicon Integration**:
   - Mengintegrasikan node direct kernel KGSL ke dalam mesin translasi profil `lynxd` dan subsistem game (`game.rs`):
     - `sptp_pc = 0` pada Mode Ekstrem (mencegah penonaktifan shader processor & texture processor saat mikro-idle yang kerap memicu micro-stutter pada game berat).
@@ -3436,11 +3452,11 @@ Released on: 2026-10-24
     - Periode DVFS Mali dikunci pada 10ms (respon kilat terhadap fluktuasi beban render grafis).
     - Restorasi otomatis ke `0` saat kembali ke profil Seimbang / Hemat Daya.
 
-### 2. 📱 Sinkronisasi Presisi Preset GPU Companion App (`LynxGpuControlRepository.kt`)
+### 2. ð± Sinkronisasi Presisi Preset GPU Companion App (`LynxGpuControlRepository.kt`)
 - Menghubungkan seluruh fungsi silikon hardware Adreno dan pipa render grafis (`QualcommAdrenoSiliconExt.setSptpPc`, `setSkipSaveRestore`, `setWakeNice`, `setGpuLlcSlice`, `setAsyncShaderPipeline`) secara serentak ke dalam fungsi preset cepat (`applyGpuProfile`).
-- Menjaga keutuhan kode Kotlin dengan panjang baris tepat 667 baris (patuh aturan ketat ≤699 baris).
+- Menjaga keutuhan kode Kotlin dengan panjang baris tepat 667 baris (patuh aturan ketat â¤699 baris).
 
-### 3. 🛡️ Sinkronisasi Dua Arah Master Orchestrator
+### 3. ð¡ï¸ Sinkronisasi Dua Arah Master Orchestrator
 - Menjamin konsistensi status hardware baik saat pengguna mengaktifkan profil melalui Home Dashboard (`lynxd profile apply`), Quick Settings Tile, Floating HUD, maupun pemilihan manual pada Tab GPU & Silikon.
 
 ---
@@ -3451,14 +3467,14 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC183)
 
-### 1. 🌊 Pemulihan Kelancaran Frame Aplikasi Media & Sosial (`LynxMediaSafeguardManager.kt`)
+### 1. ð Pemulihan Kelancaran Frame Aplikasi Media & Sosial (`LynxMediaSafeguardManager.kt`)
 - **Penghapusan Override Penurunan Latch & Backpressure**:
   - Mengeliminasi pengaturan `setprop debug.sf.latch_unsignaled 0` dan `debug.sf.disable_backpressure 0` yang sebelumnya dipaksa saat membuka aplikasi browser atau media (Twitter, Chrome, Instagram, dsb.).
   - Mempertahankan `swapinterval=1` (aman untuk sinkronisasi pemutaran video ExoPlayer/MediaCodec) sekaligus mengunci `debug.sf.latch_unsignaled=1` dan `debug.sf.disable_backpressure=1` agar SurfaceFlinger tidak membatalkan atau membuang frame secara sepihak saat pengguna melakukan scrolling cepat.
 - **Eliminasi IPC Shell Blocking**:
   - Menghapus pembacaan `Shell.cmd("getprop...")` berulang yang sebelumnya memblokir alur thread UI saat berpindah antar layar.
 
-### 2. ⚡ Perlindungan Kelancaran Kompositor Saat Pengisian Daya (`LynxAppAutomationService.kt`)
+### 2. â¡ Perlindungan Kelancaran Kompositor Saat Pengisian Daya (`LynxAppAutomationService.kt`)
 - **Peredam Stutter Ripple Daya (*Charging Fluidity Preserver*)**:
   - Saat perangkat dicolokkan ke pengisi daya (`ACTION_POWER_CONNECTED`), service secara otomatis mengaktifkan parameter render engine optimal:
     - `debug.sf.latch_unsignaled = 1` & `debug.sf.auto_latch_unsignaled = 1`
@@ -3468,13 +3484,13 @@ Released on: 2026-10-24
 - **Pembersihan Memori Proaktif Saat Cas**:
   - Secara otomatis memanggil `LynxMemoryShield.checkAndProtectMemory()` saat cas dimulai untuk mengantisipasi lonjakan pekerjaan pemeliharaan latar belakang sistem Android (*JobScheduler / MediaScanner / Cloud Sync*).
 
-### 3. 📏 Kepatuhan Batas Baris Kode Ketat (≤699 Baris)
+### 3. ð Kepatuhan Batas Baris Kode Ketat (â¤699 Baris)
 - Seluruh modul Kotlin terverifikasi mematuhi standar ukuran file:
-  - `LynxAppAutomationService.kt`: 589 baris (≤699)
-  - `LynxMediaSafeguardManager.kt`: 105 baris (≤699)
-  - `LynxForegroundDetector.kt`: 193 baris (≤699)
-  - `LynxAutomationNotificationHelper.kt`: 153 baris (≤699)
-  - `LynxMemoryShield.kt`: 85 baris (≤699)
+  - `LynxAppAutomationService.kt`: 589 baris (â¤699)
+  - `LynxMediaSafeguardManager.kt`: 105 baris (â¤699)
+  - `LynxForegroundDetector.kt`: 193 baris (â¤699)
+  - `LynxAutomationNotificationHelper.kt`: 153 baris (â¤699)
+  - `LynxMemoryShield.kt`: 85 baris (â¤699)
 
 ---
 
@@ -3484,17 +3500,17 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC182)
 
-### 1. ⚡ Detektor Aplikasi Aktif Bebas IPC Dumpsys (`LynxForegroundDetector.kt`)
+### 1. â¡ Detektor Aplikasi Aktif Bebas IPC Dumpsys (`LynxForegroundDetector.kt`)
 - **Penghapusan Polling Dumpsys 250ms**:
-  - Mengeliminasi loop eksekusi shell `dumpsys window` dan `dumpsys activity top` yang memicu IPC root berat 4–8 kali per detik, membebaskan `system_server` dari lock kontensi `WindowManagerGlobalLock` yang membekukan SurfaceFlinger dan UI thread.
+  - Mengeliminasi loop eksekusi shell `dumpsys window` dan `dumpsys activity top` yang memicu IPC root berat 4â8 kali per detik, membebaskan `system_server` dari lock kontensi `WindowManagerGlobalLock` yang membekukan SurfaceFlinger dan UI thread.
   - Mengimplementasikan pendeteksian berlapis super cepat (Sub-10ms) membaca langsung kernel Linux cgroup `/dev/cpuset/top-app/cgroup.procs` dan `/proc/$pid/cmdline`.
   - Fallback in-memory ke Android `UsageStatsManager` tanpa invoke shell root sama sekali.
 - **Pengecekan Status Hidup Aplikasi Target O(1)**:
   - Menggantikan pemindaian membabi buta 700+ direktori `/proc` di Android (yang menghasilkan 2.800 I/O disk reads per detik) menjadi pengecekan langsung direktori tunggal `/proc/$pid/cmdline` berbasis cache PID yang tersimpan secara instan.
 
-### 2. 🛡️ Pelindung Memori Proaktif (`LynxMemoryShield.kt`)
+### 2. ð¡ï¸ Pelindung Memori Proaktif (`LynxMemoryShield.kt`)
 - **Mitigasi Thrashing ZRAM & kswapd0**:
-  - Mengoptimalkan parameter Virtual Memory kernel Linux pada perangkat RAM ≤4.5GB (seperti Redmi Note 7 SD660 4GB):
+  - Mengoptimalkan parameter Virtual Memory kernel Linux pada perangkat RAM â¤4.5GB (seperti Redmi Note 7 SD660 4GB):
     - `vm.swappiness = 60` (dari sebelumnya 90 yang membuat ZRAM membengkak hingga 2.3GB dan memicu kswapd0 berjalan terus-menerus tanpa henti).
     - `vm.vfs_cache_pressure = 100` (keseimbangan sempurna antara cache inode dentry dan halaman memori anonim).
     - `vm.extra_free_kbytes = 24300` (mencegah kernel panik saat aplikasi berat seperti browser atau game dialokasikan).
@@ -3502,26 +3518,26 @@ Released on: 2026-10-24
 - **Proactive Emergency Trimming**:
   - Rutin otomatis mendeteksi jika RAM bebas kritis di bawah 150MB dan menjalankan pembersihan `drop_caches=3` serta `compact_memory=1` untuk memulihkan kapasitas RAM fisik secara instan.
 
-### 3. 🛑 Eliminasi Konflik Daemon Ganda (`Mutual Exclusion`)
+### 3. ð Eliminasi Konflik Daemon Ganda (`Mutual Exclusion`)
 - **Kill lynx_watcher.sh Saat Service Aktif**:
   - `LynxAppProfileRepository.kt` dan `LynxAppAutomationService.kt` secara tegas menghentikan (`pkill -f lynx_watcher.sh`) skrip watcher latar belakang saat background automation service Kotlin berjalan, memastikan tidak ada dua daemon yang saling berebut memodifikasi sysfs governor atau renice proses CPU secara bersamaan.
 - **Optimalisasi Interval & Screen-OFF Power Awareness**:
   - Interval polling aplikasi ditingkatkan dari 250ms menjadi **1200ms** (1.2 detik), menurunkan beban CPU background hingga >85%.
   - Deteksi status layar cerdas: saat layar mati (`Screen OFF`), seluruh polling aplikasi diistirahatkan total, mengizinkan CPU masuk ke status Deep Sleep (C-States) tanpa hambatan.
 
-### 4. 🦀 Sinkronisasi Rust Native Daemon (`lynxd`)
+### 4. ð¦ Sinkronisasi Rust Native Daemon (`lynxd`)
 - **Pembatasan Laju Dumpsys (`detector.rs`)**:
   - Menambahkan pembatasan atomik 3 detik pada fallback `dumpsys` di native Rust daemon untuk mencegah kernel I/O saturation.
 - **Konfigurasi Swappiness Cerdas (`memory.rs`)**:
-  - Perangkat dengan RAM ≤ 4.5 GB secara default dikonfigurasi ke `swappiness = 60` guna menjaga responsivitas multitasking.
+  - Perangkat dengan RAM â¤ 4.5 GB secara default dikonfigurasi ke `swappiness = 60` guna menjaga responsivitas multitasking.
 
-### 5. 📏 Kepatuhan Standar Baris Kode Ketat (≤699 Baris)
+### 5. ð Kepatuhan Standar Baris Kode Ketat (â¤699 Baris)
 - Seluruh modul Kotlin yang baru dimodifikasi dan diisolasi mematuhi aturan ketat:
-  - `LynxAppAutomationService.kt`: 577 baris (≤699)
-  - `LynxForegroundDetector.kt`: 193 baris (≤699)
-  - `LynxAutomationNotificationHelper.kt`: 153 baris (≤699)
-  - `LynxAppProfileRepository.kt`: 116 baris (≤699)
-  - `LynxMemoryShield.kt`: 85 baris (≤699)
+  - `LynxAppAutomationService.kt`: 577 baris (â¤699)
+  - `LynxForegroundDetector.kt`: 193 baris (â¤699)
+  - `LynxAutomationNotificationHelper.kt`: 153 baris (â¤699)
+  - `LynxAppProfileRepository.kt`: 116 baris (â¤699)
+  - `LynxMemoryShield.kt`: 85 baris (â¤699)
 
 ---
 
@@ -3531,7 +3547,7 @@ Released on: 2026-10-24
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC181)
 
-### 1. 🎛️ Penyatuan Visual Akordeon Collapsible (`GpuCollapsibleSection` & `AdaptiveGpuHardwareCard`)
+### 1. ðï¸ Penyatuan Visual Akordeon Collapsible (`GpuCollapsibleSection` & `AdaptiveGpuHardwareCard`)
 - **Single Enclosing Surface**:
   - Mengubah arsitektur `GpuCollapsibleSection` di `GpuSubscreen.kt` dari sebelumnya berupa baris toggle mengambang terpisah di atas konten menjadi satu kesatuan kartu `Surface` (`RoundedCornerShape(16.dp)`, `Color(0xFF10141E)`).
   - Saat di-expand, kontainer kartu membuka secara mulus dengan pembatas halus `HorizontalDivider(0.6.dp)` antara header dan isi, tanpa celah aneh atau keterpisahan visual.
@@ -3539,7 +3555,7 @@ Released on: 2026-10-24
   - Menghapus pembungkus `LynxCard` redundan dari `AdaptiveGpuHardwareCard`, `GraphicsDriverHwuiCard`, dan `PerAppGraphicsHubCard`.
   - Kontrol driver silikon langsung mengalir secara alami di dalam satu kontainer kartu utama dengan banner identitas chipset & HAL terverifikasi yang rapi.
 
-### 2. 🛡️ Pembersihan Terminologi AI Slop (Anti-AI Slop Terminology Audit)
+### 2. ð¡ï¸ Pembersihan Terminologi AI Slop (Anti-AI Slop Terminology Audit)
 - **Mengganti Terjemahan Harfiah Konyol ('Lantai & Plafon')**:
   - Mengganti istilah "Braket Power Level (Lantai & Plafon)" dengan istilah teknis standar: **"Ambang Batas Power Level (Min & Max)"**.
   - Mengganti "Lantai (Min) mencegah underclock, Plafon (Max) membatasi puncak clock" dengan: **"Batas bawah (Min) cegah underclock, batas atas (Max) batasi clock puncak"**.
@@ -3547,55 +3563,55 @@ Released on: 2026-10-24
   - Mengganti "PwrLevel Floor (Lantai Clock)" menjadi: **"Power Level Floor (Batas Bawah Clock)"**.
   - Mengganti deskripsi modal dialog agar menggunakan istilah teknis resmi frekuensi dan efisiensi daya alih-alih metafora bangunan rumah.
 
-### 3. 📏 Kepatuhan Batas Baris Kode Ketat (≤699 Baris)
+### 3. ð Kepatuhan Batas Baris Kode Ketat (â¤699 Baris)
 - Seluruh berkas Kotlin terverifikasi mematuhi batas arsitektural:
-  - `GpuSubscreen.kt`: 689 baris (≤699)
-  - `GpuProfilesAndHardwareCard.kt`: 654 baris (≤699)
-  - `AdaptiveGpuSiliconControls.kt`: 427 baris (≤699)
-  - `GpuDeepSiliconCard.kt`: 407 baris (≤699)
-  - `GraphicsDriverHwuiCard.kt`: 399 baris (≤699)
-  - `LynxGpuDisplayComponents.kt`: 636 baris (≤699)
+  - `GpuSubscreen.kt`: 689 baris (â¤699)
+  - `GpuProfilesAndHardwareCard.kt`: 654 baris (â¤699)
+  - `AdaptiveGpuSiliconControls.kt`: 427 baris (â¤699)
+  - `GpuDeepSiliconCard.kt`: 407 baris (â¤699)
+  - `GraphicsDriverHwuiCard.kt`: 399 baris (â¤699)
+  - `LynxGpuDisplayComponents.kt`: 636 baris (â¤699)
 
 ---
 
 # Lynx Universal [Clean Header Redesign & Anti-Badge Pile Refinement] 7.0.0-RC180
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC180** (Lynx Kernel Manager v3.2.26): **Penyempurnaan Estetika Visual & Eliminasi Penumpukan Badge Sesuai Panduan /redesign-existing-projects: Menghilangkan Penumpukan Badge/Pill Ganda yang Sesak pada Header Live Grafis GPU (`GpuMasterTunerCard`) dengan Menghapus Duplikasi Pill Profil dan Maks Clock, Menjadikan Indikator Suhu `[🌡️ 44.6°C]` Sebagai Focal Point Tunggal yang Bersih di Sebelah Clock Utama; Serta Mentransformasi Micro-Tiles Menjadi Baris Telemetri Terpadu Minimalis (`GpuTelemetryStrip`) dengan Pembatas Hairline Vertikal Halus Tanpa Kotak Bertingkat (*Cards-Inside-Cards*) Demi Keterbacaan Optimal & Estetika Cyberpunk OLED yang Rapi**.
+> **Lynx Universal v7.0.0-RC180** (Lynx Kernel Manager v3.2.26): **Penyempurnaan Estetika Visual & Eliminasi Penumpukan Badge Sesuai Panduan /redesign-existing-projects: Menghilangkan Penumpukan Badge/Pill Ganda yang Sesak pada Header Live Grafis GPU (`GpuMasterTunerCard`) dengan Menghapus Duplikasi Pill Profil dan Maks Clock, Menjadikan Indikator Suhu `[ð¡ï¸ 44.6Â°C]` Sebagai Focal Point Tunggal yang Bersih di Sebelah Clock Utama; Serta Mentransformasi Micro-Tiles Menjadi Baris Telemetri Terpadu Minimalis (`GpuTelemetryStrip`) dengan Pembatas Hairline Vertikal Halus Tanpa Kotak Bertingkat (*Cards-Inside-Cards*) Demi Keterbacaan Optimal & Estetika Cyberpunk OLED yang Rapi**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC180)
 
-### 1. 🧹 Eliminasi Penumpukan Badge (Anti-Badge Pile & Visual De-Cluttering)
+### 1. ð§¹ Eliminasi Penumpukan Badge (Anti-Badge Pile & Visual De-Cluttering)
 - **Pembersihan Header Live Grafis GPU (`GpuMasterTunerCard.kt`)**:
-  - Menghapus badge profil aktif ganda (`[• SEIMBANG]`) yang sebelumnya menumpuk di baris clock, karena status profil aktif sudah sangat jelas tersorot pada tombol makro `GpuQuickProfilesCard` tepat di atasnya.
+  - Menghapus badge profil aktif ganda (`[â¢ SEIMBANG]`) yang sebelumnya menumpuk di baris clock, karena status profil aktif sudah sangat jelas tersorot pada tombol makro `GpuQuickProfilesCard` tepat di atasnya.
   - Menghapus pill `[Maks: 647 MHz]` yang redundan dengan dropdown pemilih frekuensi maksimum di bawahnya.
-  - Menyisakan lencana tunggal terfokus: **Live GPU Temperature Badge** (`[🌡️ 44.6°C]`) dengan ikon termostat dan warna semantik dinamis, memberikan ruang bernapas visual (*breathing room*) yang lapang.
+  - Menyisakan lencana tunggal terfokus: **Live GPU Temperature Badge** (`[ð¡ï¸ 44.6Â°C]`) dengan ikon termostat dan warna semantik dinamis, memberikan ruang bernapas visual (*breathing room*) yang lapang.
 
-### 2. ✨ Redesain Telemetry Strip Minimalis (`GpuHeroCard.kt`)
+### 2. â¨ Redesain Telemetry Strip Minimalis (`GpuHeroCard.kt`)
 - **Penghapusan Pola "Cards-Inside-Cards"**:
   - Menghapus kotak-kotak border ganda pada setiap metrik.
   - Menyajikan 4 metrik esensial (`ENGINE`, `GOVERNOR`, `DAYA`, `VRAM`) dalam satu permukaan terpadu yang elegan, dipisahkan oleh pembatas hairline vertikal tipis (`VerticalDivider` 0.6dp).
   - Tipografi berkontras tinggi dan padding yang proporsional menghasilkan pembacaan telemetri yang sangat bersih, profesional, dan nyaman di mata (*readability first*).
 
-### 3. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
+### 3. ð§© Kepatuhan Batas Kode Ketat (â¤699 Baris)
 - Seluruh berkas Kotlin terkait terverifikasi mematuhi batas arsitektural:
-  - `GpuHeroCard.kt`: 265 baris (≤699)
-  - `GpuMasterTunerCard.kt`: 580 baris (≤699)
-  - `GpuSubscreen.kt`: 678 baris (≤699)
+  - `GpuHeroCard.kt`: 265 baris (â¤699)
+  - `GpuMasterTunerCard.kt`: 580 baris (â¤699)
+  - `GpuSubscreen.kt`: 678 baris (â¤699)
 
 ---
 
 # Lynx Universal [Unified GPU Live Telemetry & Frequency Master, Panel Redundancy Elimination] 7.0.0-RC179
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC179** (Lynx Kernel Manager v3.2.25): **Konsolidasi Arsitektural Tab GPU Berdasarkan Sesi /grill-me & Konsensus UX: Mengeliminasi Panel Hero Atas yang Redundan dan Menyatukan Seluruh Telemetri Performa ke Dalam Satu Kartu Tunggal 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard`); Menerapkan Alur Logis Macro-to-Micro di Mana 4 Tombol Preset Cepat (`GpuQuickProfilesCard`) Memimpin di Posisi Atas, Diikuti Langsung oleh Kartu Live Grafis yang Diperkaya dengan 1-Baris 4-Kolom Micro-Tiles (Engine GL/VK, Governor Silikon, Daya Dinamis Watt, VRAM) Serta Lencana Profil Adaptif Semantik; Mengekstraksi Bottom Sheet Pemilih Frekuensi ke `GpuFrequencyPickerSheet` (`GpuHeroCard.kt`) Demi Mempertahankan Batas Arsitektural Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.
+> **Lynx Universal v7.0.0-RC179** (Lynx Kernel Manager v3.2.25): **Konsolidasi Arsitektural Tab GPU Berdasarkan Sesi /grill-me & Konsensus UX: Mengeliminasi Panel Hero Atas yang Redundan dan Menyatukan Seluruh Telemetri Performa ke Dalam Satu Kartu Tunggal 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard`); Menerapkan Alur Logis Macro-to-Micro di Mana 4 Tombol Preset Cepat (`GpuQuickProfilesCard`) Memimpin di Posisi Atas, Diikuti Langsung oleh Kartu Live Grafis yang Diperkaya dengan 1-Baris 4-Kolom Micro-Tiles (Engine GL/VK, Governor Silikon, Daya Dinamis Watt, VRAM) Serta Lencana Profil Adaptif Semantik; Mengekstraksi Bottom Sheet Pemilih Frekuensi ke `GpuFrequencyPickerSheet` (`GpuHeroCard.kt`) Demi Mempertahankan Batas Arsitektural Ketat â¤699 Baris pada Seluruh Berkas Kotlin**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC179)
 
-### 1. 🎯 Konsolidasi Panel Redundan Menjadi 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard.kt`)
+### 1. ð¯ Konsolidasi Panel Redundan Menjadi 'Pusat Telemetri & Frekuensi GPU' (`GpuMasterTunerCard.kt`)
 - **Pembersihan Data Ganda (Clock, HAL, Suhu, Beban)**:
   - Mengeliminasi kartu `GpuHeroCard` terpisah yang sebelumnya menduplikasi pembacaan clock frekuensi, nama vendor HAL, suhu silikon, dan persentase beban yang sudah tersedia pada Live Grafis.
-  - Memperbarui judul kartu utama menjadi **"Pusat Telemetri & Frekuensi GPU"** dengan lencana profil aktif semantik adaptif (`[⚡ SEIMBANG]`, `[🔋 HEMAT DAYA]`, `[🎮 ESPORTS]`, `[🔥 EKSTREM]`) beraksen warna dinamis di samping pembacaan suhu dan frekuensi clock maksimum silikon.
+  - Memperbarui judul kartu utama menjadi **"Pusat Telemetri & Frekuensi GPU"** dengan lencana profil aktif semantik adaptif (`[â¡ SEIMBANG]`, `[ð HEMAT DAYA]`, `[ð® ESPORTS]`, `[ð¥ EKSTREM]`) beraksen warna dinamis di samping pembacaan suhu dan frekuensi clock maksimum silikon.
 
-### 2. ⚡ Integrasi 1-Baris 4-Kolom Micro-Tiles Esensial (`GpuHeroCard.kt`)
+### 2. â¡ Integrasi 1-Baris 4-Kolom Micro-Tiles Esensial (`GpuHeroCard.kt`)
 - **Telemetri Esensial Padat Informasi**:
   - Menghadirkan komponen `GpuTelemetryStrip` setinggi ~42dp yang diletakkan tepat di bawah header clock utama dan sebelum kurva grafik beban:
     - **Engine**: Indikator backend perender aktif (`GL` / `VK` / `SkiaVK` / `ANGLE`).
@@ -3603,13 +3619,13 @@ Released on: 2026-10-24
     - **Daya**: Estimasi daya silikon dinamis dalam satuan Watt (`0.52 W`) berbasis frekuensi clock dan rasio beban.
     - **VRAM**: Konsumsi memori video grafis (`Dinamis` atau alokasi MB).
 
-### 3. 📐 Alur Tata Letak Macro-to-Micro yang Harmonis (`GpuSubscreen.kt`)
+### 3. ð Alur Tata Letak Macro-to-Micro yang Harmonis (`GpuSubscreen.kt`)
 - **Hierarki Navigasi Alami**:
   - Bagian atas langsung dibuka oleh **Section 1: Profil & Clock OPP** dengan 4 Tombol Preset Cepat sebagai penentu orientasi makro (Hemat Daya, Seimbang, Esports, Ekstrem).
   - Tepat di bawahnya, kartu tunggal **Pusat Telemetri & Frekuensi GPU** menyajikan telemetri real-time komprehensif, grafik beban komputasi bezier, proses render aktif, pemilih frekuensi min/max, dan pengunci clock.
   - Diikuti oleh 3 Section Accordion Collapsible (`Driver Hardware Kernel`, `Compositor & Pipeline HWUI`, `Pengaturan Per-Aplikasi`).
 
-### 4. 🧩 Pemecahan Modular & Kepatuhan Batas Kode (≤699 Baris)
+### 4. ð§© Pemecahan Modular & Kepatuhan Batas Kode (â¤699 Baris)
 - Mengekstraksi modal bottom sheet pemilih frekuensi ke `GpuFrequencyPickerSheet` di dalam `GpuHeroCard.kt`.
 - Hasil audit baris kode seluruh berkas Kotlin terkait:
   - `GpuMasterTunerCard.kt`: 642 baris (turun dari 691 baris, aman di bawah 699).
@@ -3620,11 +3636,11 @@ Released on: 2026-10-24
 
 # Lynx Universal [Collapsible Accordion Bento Sections, HUD Redundancy Cleanup & Clock Inhibitor Clarification] 7.0.0-RC178
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC178** (Lynx Kernel Manager v3.2.24): **Penyempurnaan Arsitektur Tab GPU & Display Berbasis Accordion Bento Dinamis Sesuai Rekomendasi UX Anti-Fatigue & Eliminasi Redundansi: Mengubah 3 Section Kompleks pada Tab GPU (Driver Hardware Kernel HAL, Compositor & Pipeline HWUI, Pengaturan Per-Aplikasi) Menjadi Kartu Accordion Collapsible (`GpuCollapsibleSection`) Beranimasi Halus dan Berumpan Balik Taktil yang Mewujudkan Pengalaman *Zero-Scroll Dashboard* Saat Pertama Kali Dibuka; Mengeliminasi Duplikasi Pemilih Gaya OSD pada Tab Lab Menjadi Kartu Integrasi Ringkas (`FloatingGameHudCard`) dengan Switch Cepat Tanpa Menimbun Ruang Layar; Menggantikan Metrik Redundan Layar pada `GpuHeroCard` Menjadi Telemetri Internal GPU Murni (Governor Dinamis & Lencana Clock Silikon); Serta Memperjelas Nomenklatur Switch `adreno_force_clk` Menjadi *Inhibitor Sleep Clock Osilator* Demi Menghilangkan Ambiguitas Terhadap Pengunci Frekuensi OPP, dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+> **Lynx Universal v7.0.0-RC178** (Lynx Kernel Manager v3.2.24): **Penyempurnaan Arsitektur Tab GPU & Display Berbasis Accordion Bento Dinamis Sesuai Rekomendasi UX Anti-Fatigue & Eliminasi Redundansi: Mengubah 3 Section Kompleks pada Tab GPU (Driver Hardware Kernel HAL, Compositor & Pipeline HWUI, Pengaturan Per-Aplikasi) Menjadi Kartu Accordion Collapsible (`GpuCollapsibleSection`) Beranimasi Halus dan Berumpan Balik Taktil yang Mewujudkan Pengalaman *Zero-Scroll Dashboard* Saat Pertama Kali Dibuka; Mengeliminasi Duplikasi Pemilih Gaya OSD pada Tab Lab Menjadi Kartu Integrasi Ringkas (`FloatingGameHudCard`) dengan Switch Cepat Tanpa Menimbun Ruang Layar; Menggantikan Metrik Redundan Layar pada `GpuHeroCard` Menjadi Telemetri Internal GPU Murni (Governor Dinamis & Lencana Clock Silikon); Serta Memperjelas Nomenklatur Switch `adreno_force_clk` Menjadi *Inhibitor Sleep Clock Osilator* Demi Menghilangkan Ambiguitas Terhadap Pengunci Frekuensi OPP, dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat â¤699 Baris**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC178)
 
-### 1. 🎛️ Collapsible Accordion Bento Sections pada Tab GPU (`GpuSubscreen.kt`)
+### 1. ðï¸ Collapsible Accordion Bento Sections pada Tab GPU (`GpuSubscreen.kt`)
 - **Struktur Halaman Zero-Scroll Tanpa Kelelahan Navigasi**:
   - Mengintegrasikan komponen baru `GpuCollapsibleSection` dengan indikator panah berputar dinamis (`chevronRotation`), umpan balik sentuh (*haptic feedback*), dan transisi vertikal mulus (`expandVertically + fadeIn`).
   - Section 1 (*Profil & Clock OPP*) tetap terbuka penuh sebagai pusat kendali frekuensi harian.
@@ -3632,32 +3648,32 @@ Released on: 2026-10-24
     - Saat tertutup, hanya memakan ruang ~50dp per bagian dengan micro-badge informatif (`KERNEL HAL`, `RENDER ENGINE`, `GAME & EMULATOR HUB`).
     - Satu ketukan pengguna akan memekarkan (*expand*) seluruh kontrol parameter tingkat lanjut secara instan tanpa perlu berpindah layar (*no navigation depth / no back button fatigue*).
 
-### 2. 🧹 Eliminasi Duplikasi Kontrol OSD Game HUD pada Tab Lab (`GpuSessionCards.kt`)
+### 2. ð§¹ Eliminasi Duplikasi Kontrol OSD Game HUD pada Tab Lab (`GpuSessionCards.kt`)
 - **Pembersihan Kartu Berat yang Redundan**:
   - Menghapus deretan tombol pemilih gaya OSD (RTSS Pillar, Nano-Ribbon, Dual Esport, Quad Tiles, Steam Deck) yang sebelumnya menduplikasi fungsionalitas subscreen utama `Floating Game HUD` (`GameHudSubscreen.kt`).
   - Mentransformasi `FloatingGameHudCard` di Tab Lab menjadi kartu integrasi performa ringkas setinggi ~60dp dengan switch aktivasi instan dan lencana gaya OSD aktif, membebaskan lebih dari 150dp ruang vertikal untuk fokus utama pengujian benchmark dan perekam frame BLAST.
 
-### 3. 🎯 Telemetri GPU Murni pada GpuHeroCard (`GpuHeroCard.kt`)
+### 3. ð¯ Telemetri GPU Murni pada GpuHeroCard (`GpuHeroCard.kt`)
 - **Pembersihan Metrik Layar yang Tumpang Tindih**:
   - Menggantikan tile `Layar: 60Hz` pada kotak micro-bento Row 1 menjadi pemantau **Governor Silikon Aktif** (`Adreno-TZ`, `Performance`, `Schedutil`, `Dynamic`) yang 100% relevan dengan domain GPU.
   - Memperbarui lencana pojok kanan atas dari indikator Hz menjadi pembacaan frekuensi aktif real-time silikon GPU (`${gpu.curFreqMhz} MHz` / `${gpu.maxFreqMhz} MHz`).
 
-### 4. ⚡ Klarifikasi Nomenklatur Bus Clock Sleep Inhibitor (`QualcommAdrenoAdapter.kt`)
+### 4. â¡ Klarifikasi Nomenklatur Bus Clock Sleep Inhibitor (`QualcommAdrenoAdapter.kt`)
 - **Pemisahan Tegas Konsep Clock Oscillator vs Clock Frequency**:
   - Mengubah penamaan sysfs `force_clk_on` dari *"Paksa Clock GPU Tetap Aktif"* menjadi *"Inhibitor Sleep Clock Osilator (Anti-Zero Drop)"* dengan deskripsi teknis eksplisit untuk mencegah kerancuan pengguna terhadap pengunci frekuensi OPP (*GPU Clock Lock*) di Tuner Card.
 
-### 5. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
-- Seluruh berkas Kotlin yang diperbarui (`GpuSubscreen.kt`: 684 baris, `GpuHeroCard.kt`: 371 baris, `GpuSessionCards.kt`: 311 baris, `QualcommAdrenoAdapter.kt`: 637 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+### 5. ð§© Kepatuhan Batas Kode Ketat (â¤699 Baris)
+- Seluruh berkas Kotlin yang diperbarui (`GpuSubscreen.kt`: 684 baris, `GpuHeroCard.kt`: 371 baris, `GpuSessionCards.kt`: 311 baris, `QualcommAdrenoAdapter.kt`: 637 baris) terverifikasi mematuhi batas arsitektural â¤699 baris.
 
 ---
 
 # Lynx Universal [4-Tab GPU & Display Architecture, DisplayHeroCard & Ergonomic Subscreens] 7.0.0-RC177
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC177** (Lynx Kernel Manager v3.2.23): **Pemisahan Arsitektural Subscreen GPU & Display Menjadi 4 Tab Mandiri Sesuai Konsensus /grill-me & Pedoman AGENTS.md Bagian 7.4: Memecah Tab Monolitik Menjadi 4 Domain Terfokus (Tab 0: GPU, Tab 1: Layar, Tab 2: Lab, Tab 3: Info) dengan Indikator Segmented Pill 4-Way Ergonomis; Menghadirkan `DisplayHeroCard` Mandiri pada Tab Layar Berisi Status Zen Pulse & Micro-Bento Grid 4x2 Responsif (Refresh, Mode, Resolusi, Warna, DC Dimming, TouchBoost, HBM, KCAL); Memisahkan Kartu Per-App Graphics Hub ke Dalam Section Header Mandiri pada Tab GPU; Menambahkan Section Header Tipografis Berpilar pada Tab Lab (Benchmark & Overlay, Analisis Frame SurfaceFlinger); Serta Menghubungkan Dialog GPU Stability Stress Test pada Tab Pager dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+> **Lynx Universal v7.0.0-RC177** (Lynx Kernel Manager v3.2.23): **Pemisahan Arsitektural Subscreen GPU & Display Menjadi 4 Tab Mandiri Sesuai Konsensus /grill-me & Pedoman AGENTS.md Bagian 7.4: Memecah Tab Monolitik Menjadi 4 Domain Terfokus (Tab 0: GPU, Tab 1: Layar, Tab 2: Lab, Tab 3: Info) dengan Indikator Segmented Pill 4-Way Ergonomis; Menghadirkan `DisplayHeroCard` Mandiri pada Tab Layar Berisi Status Zen Pulse & Micro-Bento Grid 4x2 Responsif (Refresh, Mode, Resolusi, Warna, DC Dimming, TouchBoost, HBM, KCAL); Memisahkan Kartu Per-App Graphics Hub ke Dalam Section Header Mandiri pada Tab GPU; Menambahkan Section Header Tipografis Berpilar pada Tab Lab (Benchmark & Overlay, Analisis Frame SurfaceFlinger); Serta Menghubungkan Dialog GPU Stability Stress Test pada Tab Pager dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat â¤699 Baris**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC177)
 
-### 1. 📑 Pemisahan 4 Tab Mandiri GPU, Layar, Lab & Info (`GpuDisplayTabRow.kt`)
+### 1. ð Pemisahan 4 Tab Mandiri GPU, Layar, Lab & Info (`GpuDisplayTabRow.kt`)
 - **Struktur Navigasi Tabular 4-Way**:
   - Mengembangkan navigasi subscreen menjadi 4 tab spesialisasi penuh:
     - **Tab 0: GPU** (`Icons.Default.SportsEsports`): Khusus untuk clock silikon GPU, OPP levels, driver hardware kernel (KGSL/GED), compositor HWUI Vulkan, shader rebuilder, dan hub grafis per-aplikasi.
@@ -3666,7 +3682,7 @@ Released on: 2026-10-24
     - **Tab 3: Info** (`Icons.Default.Memory`): Dashboard diagnosa hardware murni, status silikon anti-spoofing, OPP frequency table 7-level, dan matriks kapabilitas Vulkan.
   - Memangkas panjang scroll vertikal Tab GPU hingga lebih dari 50%, menghilangkan kelelahan navigasi (scroll fatigue).
 
-### 2. 📱 Hadirnya DisplayHeroCard Mandiri (`DisplayHeroCard.kt`)
+### 2. ð± Hadirnya DisplayHeroCard Mandiri (`DisplayHeroCard.kt`)
 - **Zen Pulse & Status Operasional Panel Layar**:
   - Kartu hero khusus dengan banner status real-time, lencana mode dinamis, dan indikator aktif.
 - **Matriks Status Micro-Bento 4x2 Responsif**:
@@ -3674,7 +3690,7 @@ Released on: 2026-10-24
   - Baris 2: `DC DIMMING` (Aktif / Off), `TOUCHBOOST` (Durasi ms / Off), `HBM` (Aktif / Off), `KCAL` (Hardware Driver / Standar).
   - Mengikuti standar anti-slop dengan `16.dp` horizontal padding, kontras tinggi OLED dark theme, dan responsivitas penuh pada berbagai rasio layar.
 
-### 3. 🎯 Section Header Mandiri & Integrasi Dialog Benchmark Lab
+### 3. ð¯ Section Header Mandiri & Integrasi Dialog Benchmark Lab
 - **Pemisahan Pengaturan Per-Aplikasi (Game Driver Hub)**:
   - Mengisolasi `PerAppGraphicsHubCard` di bawah section header `PENGATURAN PER-APLIKASI` (`GAME & EMULATOR HUB`).
 - **Section Header Tipografis pada Tab Lab**:
@@ -3682,52 +3698,52 @@ Released on: 2026-10-24
 - **Integrasi Penuh Dialog Uji Stres GPU**:
   - Menghubungkan pemicu `GPU Stability Stress Test` langsung ke `GpuStabilityStressDialog` di dalam subscreen pager, memungkinkan peluncuran benchmark instan.
 
-### 4. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
-- Seluruh berkas Kotlin yang diperbarui (`DisplayHeroCard.kt`: 363 baris, `GpuDisplayTabRow.kt`: 137 baris, `GpuSubscreen.kt`: 569 baris, `TuningTabSubscreenPagers.kt`: 315 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+### 4. ð§© Kepatuhan Batas Kode Ketat (â¤699 Baris)
+- Seluruh berkas Kotlin yang diperbarui (`DisplayHeroCard.kt`: 363 baris, `GpuDisplayTabRow.kt`: 137 baris, `GpuSubscreen.kt`: 569 baris, `TuningTabSubscreenPagers.kt`: 315 baris) terverifikasi mematuhi batas arsitektural â¤699 baris.
 
 ---
 
 # Lynx Universal [GPU & Display UI Redesign, Micro-Bento Grid & Segmented Navigation] 7.0.0-RC176
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC176** (Lynx Kernel Manager v3.2.22): **Penyempurnaan Estetika Visual & Arsitektur Navigasi Subscreen GPU & Display Sesuai Pedoman Redesign Anti-Slop: Mendesain Ulang Segmented Tab Row (`GpuDisplayTabRow.kt`) dengan Ketinggian Presisi 46dp, Indikator Pill Mengambang Berlatar Slate Kaca dan Akses Haptic Feedback Penuh yang 100% Selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`; Mentransformasi Pita Telemetri Hero Card Menjadi Kotak Metrik Micro-Bento 4x2 yang Responsif dan Bebas Pembungkus Titik Pemisah Monospace; Memutakhirkan Section Header Menjadi Pembatas Tipografis Berpilar Aksen Cyan/Oranye Bersih Tanpa Kotak Bertingkat; Serta Menghilangkan Label Mengambang Redundan pada Matriks Profil Cepat GPU dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat ≤699 Baris**.
+> **Lynx Universal v7.0.0-RC176** (Lynx Kernel Manager v3.2.22): **Penyempurnaan Estetika Visual & Arsitektur Navigasi Subscreen GPU & Display Sesuai Pedoman Redesign Anti-Slop: Mendesain Ulang Segmented Tab Row (`GpuDisplayTabRow.kt`) dengan Ketinggian Presisi 46dp, Indikator Pill Mengambang Berlatar Slate Kaca dan Akses Haptic Feedback Penuh yang 100% Selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`; Mentransformasi Pita Telemetri Hero Card Menjadi Kotak Metrik Micro-Bento 4x2 yang Responsif dan Bebas Pembungkus Titik Pemisah Monospace; Memutakhirkan Section Header Menjadi Pembatas Tipografis Berpilar Aksen Cyan/Oranye Bersih Tanpa Kotak Bertingkat; Serta Menghilangkan Label Mengambang Redundan pada Matriks Profil Cepat GPU dengan Seluruh Berkas Kotlin Tetap Mematuhi Batas Ketat â¤699 Baris**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC176)
 
-### 1. 🎛️ Unifikasi Segmented Tab Row GPU & Display (`GpuDisplayTabRow.kt`)
+### 1. ðï¸ Unifikasi Segmented Tab Row GPU & Display (`GpuDisplayTabRow.kt`)
 - **Desain Segmented Pill Berlatar Kaca Elegan**:
   - Mengurangi ketinggian tab bar dari 52dp menjadi 46dp ergonomis, selaras dengan `CpuTabRow` dan `ProfilesCategoryTabRow`.
   - Mengeliminasi garis tepi oranye 1dp yang mencolok pada tab Tuning dan menggantikannya dengan pill terangkat (`Color(0xFF1E2638)`) bergradien halus dan ikon Cyan responsif.
   - Mengintegrasikan tactile haptic feedback (`HapticFeedbackType.TextHandleMove`) pada setiap perpindahan tab.
   - Memisahkan komponen ke dalam berkas mandiri `GpuDisplayTabRow.kt` (117 baris) untuk memangkas `LynxGpuDisplayComponents.kt` dari 711 baris menjadi 624 baris.
 
-### 2. 📊 4x2 Micro-Bento Telemetry Grid pada GpuHeroCard (`GpuHeroCard.kt`)
+### 2. ð 4x2 Micro-Bento Telemetry Grid pada GpuHeroCard (`GpuHeroCard.kt`)
 - **Matriks Metrik Terstruktur & Tabular**:
-  - Menggantikan baris teks lama yang disatukan bullet dot (`•`) menjadi 8 micro-tile bento berkolom seimbang (`weight(1f)`):
-    - Baris 1: `Clock` (MHz dinamis), `Engine` (GL / Vulkan), `Layar` (Hz), dan `Suhu` (°C).
+  - Menggantikan baris teks lama yang disatukan bullet dot (`â¢`) menjadi 8 micro-tile bento berkolom seimbang (`weight(1f)`):
+    - Baris 1: `Clock` (MHz dinamis), `Engine` (GL / Vulkan), `Layar` (Hz), dan `Suhu` (Â°C).
     - Baris 2: `Daya` (Watt dinamis), `Pipeline` (Bottleneck state), `VRAM` (MB), dan `Beban` (%).
   - Memastikan keterbacaan sempurna tanpa risiko teks terpotong atau wrap acak pada berbagai DPI layar perangkat.
 
-### 3. 🎨 Penyelarasan Section Header & Matriks Profil Cepat (`GpuSubscreen.kt` & `GpuQuickProfilesCard.kt`)
+### 3. ð¨ Penyelarasan Section Header & Matriks Profil Cepat (`GpuSubscreen.kt` & `GpuQuickProfilesCard.kt`)
 - **Pembatas Tipografis Berpilar Aksen**:
   - Mengubah `GpuSectionHeader` dari kontainer kotak berat menjadi pembatas tipografis elegan dengan pilar aksen 3x18dp dan micro-badge semantik.
   - Mengeliminasi teks mengambang `PILIHAN PROFIL GPU` yang redundan di atas 4 tombol profil bento.
   - Menyempurnakan kartu pemicu `GPU Stability Stress Test` pada Tab Lab dengan ikon `Speed` terpadu.
 - **Konsistensi Grid Padding Horizontal 16dp (Anti-Stretching)**:
   - Mengunci seluruh komponen (`GpuHeroCard`, `GpuSectionHeader`, `GpuQuickProfilesCard`, `gpu_profile_override_status`, dan `gpu_stress_test_trigger`) pada margin horizontal standar **16dp**.
-  - Mengeliminasi distorsi kotak section yang sebelumnya melebar ke tepi layar (0–4dp margin) sehingga seluruh kartu berbagi baseline vertikal yang 100% simetris dengan `LynxCard`.
+  - Mengeliminasi distorsi kotak section yang sebelumnya melebar ke tepi layar (0â4dp margin) sehingga seluruh kartu berbagi baseline vertikal yang 100% simetris dengan `LynxCard`.
 
-### 4. 🧩 Kepatuhan Batas Kode Ketat (≤699 Baris)
-- Seluruh berkas Kotlin yang dimodifikasi (`GpuDisplayTabRow.kt`: 117 baris, `GpuHeroCard.kt`: 360 baris, `GpuQuickProfilesCard.kt`: 217 baris, `GpuSubscreen.kt`: 518 baris, `LynxGpuDisplayComponents.kt`: 624 baris) terverifikasi mematuhi batas arsitektural ≤699 baris.
+### 4. ð§© Kepatuhan Batas Kode Ketat (â¤699 Baris)
+- Seluruh berkas Kotlin yang dimodifikasi (`GpuDisplayTabRow.kt`: 117 baris, `GpuHeroCard.kt`: 360 baris, `GpuQuickProfilesCard.kt`: 217 baris, `GpuSubscreen.kt`: 518 baris, `LynxGpuDisplayComponents.kt`: 624 baris) terverifikasi mematuhi batas arsitektural â¤699 baris.
 
 ---
 
 # Lynx Universal [GPU & Display Architecture Reorganization & Redundancy Consolidation] 7.0.0-RC175
 Released on: 2026-10-24
-> **Lynx Universal v7.0.0-RC175** (Lynx Kernel Manager v3.2.21): **Restrukturisasi Arsitektural Menyeluruh Subscreen GPU & Display Sesuai Pedoman AGENTS.md Bagian 7.4: Mengonsolidasi 12 Kartu Terfragmentasi Menjadi 4 Domain Kategori Bersih Berbasis Section Header Cyberpunk (1. Profil & Clock OPP, 2. Driver Hardware Kernel, 3. Compositor & Pipeline HWUI, 4. Display & Kalibrasi Layar); Mengeliminasi Seluruh Redundansi Tweak Kernel & Pipeline (Hapus Switch Hardware Preemption Duplikat dengan Segmented Button 3-Way yang Sinkron ke Node Driver, Satukan Min & Max PwrLevel ke Dalam Braket Frekuensi Tunggal, Gabungkan VSync Swap Interval Bypass ke Dalam Antrean Frame Swapchain Buffering, serta Satukan Durasi TouchBoost ke Kartu Display); Modularisasi Kode Menyeluruh (`AdaptiveGpuSiliconControls.kt`, `GraphicsMemoryPipelineSection.kt`) dengan Seluruh Berkas .kt Tetap Mematuhi Batas Ketat ≤699 Baris**.
+> **Lynx Universal v7.0.0-RC175** (Lynx Kernel Manager v3.2.21): **Restrukturisasi Arsitektural Menyeluruh Subscreen GPU & Display Sesuai Pedoman AGENTS.md Bagian 7.4: Mengonsolidasi 12 Kartu Terfragmentasi Menjadi 4 Domain Kategori Bersih Berbasis Section Header Cyberpunk (1. Profil & Clock OPP, 2. Driver Hardware Kernel, 3. Compositor & Pipeline HWUI, 4. Display & Kalibrasi Layar); Mengeliminasi Seluruh Redundansi Tweak Kernel & Pipeline (Hapus Switch Hardware Preemption Duplikat dengan Segmented Button 3-Way yang Sinkron ke Node Driver, Satukan Min & Max PwrLevel ke Dalam Braket Frekuensi Tunggal, Gabungkan VSync Swap Interval Bypass ke Dalam Antrean Frame Swapchain Buffering, serta Satukan Durasi TouchBoost ke Kartu Display); Modularisasi Kode Menyeluruh (`AdaptiveGpuSiliconControls.kt`, `GraphicsMemoryPipelineSection.kt`) dengan Seluruh Berkas .kt Tetap Mematuhi Batas Ketat â¤699 Baris**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC175)
 
-### 1. 🏛️ Restrukturisasi 4 Domain Kategori GPU & Display (Anti Card-Fatigue)
+### 1. ðï¸ Restrukturisasi 4 Domain Kategori GPU & Display (Anti Card-Fatigue)
 - **Pengelompokan 4 Section Header Modern**:
   - *Domain 1: Profil & Clock OPP (`PRESET & TUNER`)*: Menyajikan `GpuQuickProfilesCard` (4 profil harmonik) dan `GpuMasterTunerCard` (pemilih clock OPP, pengunci frekuensi, grafik waveform beban real-time, dan pemantau proses render aktif).
   - *Domain 2: Driver Hardware Kernel (`KERNEL HAL`)*: Menyajikan `AdaptiveGpuHardwareCard` terpadu yang memadukan kontrol driver hardware SoC (Adreno KGSL & MTK GED/FPSGO) dan fitur register silikon tingkat rendah.
@@ -3735,41 +3751,41 @@ Released on: 2026-10-24
   - *Domain 4: Display & Kalibrasi Layar (`PANEL & OUTPUT`)*: Mengelompokkan `DisplayRefreshRateTouchCard`, `ColorManagementCard` (ColorMatrix 1015 & D65 White Point), serta `KcalHardwareCard`.
 - **Pengurangan Kelelahan Navigasi**: Memangkas jumlah kartu dari 12 kartu terfragmentasi menjadi 7 kartu terkonsolidasi, mereduksi kebutuhan scroll dari 7 kali swipe menjadi hanya 3 kali swipe ergonomis.
 
-### 2. ⚡ Eliminasi Redundansi Driver Kernel & Pipeline Compositor
+### 2. â¡ Eliminasi Redundansi Driver Kernel & Pipeline Compositor
 - **Unifikasi Hardware Preemption**:
-  Mengeliminasi switch boolean duplikat pada driver KGSL dan menggantikannya secara permanen dengan tombol segmented 3-way (`0 • Off`, `1 • Cmd Buffer`, `2 • Drawcall`) yang menyelaraskan node `/sys/class/kgsl/kgsl-3d0/preempt_level` dan `/sys/class/kgsl/kgsl-3d0/preemption`.
+  Mengeliminasi switch boolean duplikat pada driver KGSL dan menggantikannya secara permanen dengan tombol segmented 3-way (`0 â¢ Off`, `1 â¢ Cmd Buffer`, `2 â¢ Drawcall`) yang menyelaraskan node `/sys/class/kgsl/kgsl-3d0/preempt_level` dan `/sys/class/kgsl/kgsl-3d0/preemption`.
 - **Braket Power Level Terpadu (Lantai & Plafon)**:
   Menyatukan Max PwrLevel (plafon clock atas) dan Min PwrLevel (lantai clock bawah) ke dalam satu baris kartu terpadu dengan dialog penyesuaian kustom cepat.
 - **Konsolidasi Pipeline VSync & Swapchain**:
   Meleburkan `VSync Swap Interval Bypass` (`debug.egl.swapinterval 0/1`) langsung berdampingan dengan `Mode Antrean Frame Swapchain` (Double vs Triple Buffering) dalam kartu HWUI.
 - **Integrasi Presisi Sentuh TouchBoost**:
-  Memindahkan durasi TouchBoost (`debug.sf.touch_boost_duration_ms`) ke dalam `DisplayRefreshRateTouchCard` dengan pill interaktif (50–2000 ms) tepat di sebelah switch TouchBoost.
+  Memindahkan durasi TouchBoost (`debug.sf.touch_boost_duration_ms`) ke dalam `DisplayRefreshRateTouchCard` dengan pill interaktif (50â2000 ms) tepat di sebelah switch TouchBoost.
 
-### 3. 🧩 Modularisasi & Kepatuhan Batas Kode Ketat (≤699 Baris)
+### 3. ð§© Modularisasi & Kepatuhan Batas Kode Ketat (â¤699 Baris)
 - Pemisahan sub-komponen ke dalam `AdaptiveGpuSiliconControls.kt` (409 baris) dan `GraphicsMemoryPipelineSection.kt` (453 baris).
-- Seluruh 22 berkas Kotlin pada domain GPU & Display terverifikasi mematuhi batas arsitektural ≤699 baris kode tanpa pengecualian.
+- Seluruh 22 berkas Kotlin pada domain GPU & Display terverifikasi mematuhi batas arsitektural â¤699 baris kode tanpa pengecualian.
 
 ---
 
 # Lynx Universal [Schedutil Rate-Limit Precision Tuner & Sched Load Boost Anti-Inversion] 7.0.0-RC174
 Released on: 2026-10-23
-> **Lynx Universal v7.0.0-RC174** (Lynx Kernel Manager v3.2.20): **Penyempurnaan Domain CPU Subsystem Tingkat Lanjut: Menghadirkan Schedutil Rate-Limit Precision Tuner Berlatensi Mikrodetik (µs) dengan 5 Profil Terkalibrasi Per-Kluster Little vs Big Serta Dialog Input Kustom Presisi (`SchedutilCustomRateDialog.kt`); Mengintegrasikan Pengontrol Bias Kapasitas Tugas (Task Capacity Bias & Anti-Capacity Inversion Controller) Berbasis Kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` (`CpuSchedLoadBoostCard.kt`) untuk Mengeliminasi Fenomena Thread Stalling pada Render Thread; Serta Melakukan Pembersihan Kode Mati Menyeluruh Melalui Penghapusan Berkas Yatim `CpuClusterItemCard.kt` dan Konsolidasi `QuickTunablesBottomSheet.kt` pada `CompactClusterRow` Sehingga Mengurangi 97 Baris Kode Bersih dengan Seluruh Berkas Tetap Mematuhi Batas Ketat ≤699 Baris**.
+> **Lynx Universal v7.0.0-RC174** (Lynx Kernel Manager v3.2.20): **Penyempurnaan Domain CPU Subsystem Tingkat Lanjut: Menghadirkan Schedutil Rate-Limit Precision Tuner Berlatensi Mikrodetik (Âµs) dengan 5 Profil Terkalibrasi Per-Kluster Little vs Big Serta Dialog Input Kustom Presisi (`SchedutilCustomRateDialog.kt`); Mengintegrasikan Pengontrol Bias Kapasitas Tugas (Task Capacity Bias & Anti-Capacity Inversion Controller) Berbasis Kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` (`CpuSchedLoadBoostCard.kt`) untuk Mengeliminasi Fenomena Thread Stalling pada Render Thread; Serta Melakukan Pembersihan Kode Mati Menyeluruh Melalui Penghapusan Berkas Yatim `CpuClusterItemCard.kt` dan Konsolidasi `QuickTunablesBottomSheet.kt` pada `CompactClusterRow` Sehingga Mengurangi 97 Baris Kode Bersih dengan Seluruh Berkas Tetap Mematuhi Batas Ketat â¤699 Baris**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC174)
 
-### 1. ⏱️ Schedutil Rate-Limit Precision Tuner (Microsecond Latency Engine)
+### 1. â±ï¸ Schedutil Rate-Limit Precision Tuner (Microsecond Latency Engine)
 - **Kontrol Latensi Kenaikan & Penurunan Frekuensi CPU**:
   Mengatur parameter kernel schedutil `up_rate_limit_us` (jeda evaluasi kenaikan frekuensi saat beban melonjak) dan `down_rate_limit_us` (durasi penahanan clock tinggi saat beban kerja mereda guna mengeliminasi micro-stutter).
 - **5 Profil Presisi Terkalibrasi Arsitektur Per-Kluster**:
-  - *Esports (Ultra Latensi Rendah)*: Little 0µs / 5ms, Big 0µs / 2ms (akselerasi instan seketika).
-  - *Responsif (Agresif)*: Little 0µs / 10ms, Big 0µs / 5ms.
-  - *Seimbang (Standar)*: Little 1ms / 20ms, Big 0µs / 10ms.
+  - *Esports (Ultra Latensi Rendah)*: Little 0Âµs / 5ms, Big 0Âµs / 2ms (akselerasi instan seketika).
+  - *Responsif (Agresif)*: Little 0Âµs / 10ms, Big 0Âµs / 5ms.
+  - *Seimbang (Standar)*: Little 1ms / 20ms, Big 0Âµs / 10ms.
   - *Hemat Daya (Efisiensi)*: Little 10ms / 1ms, Big 20ms / 0.5ms.
-  - *Bawaan OEM*: 0µs / 30ms.
+  - *Bawaan OEM*: 0Âµs / 30ms.
 - **Dialog Kustom Angka Mikrodetik Presisi (`SchedutilCustomRateDialog.kt`)**:
-  Dilengkapi field input numerik langsung dan chip bantuan cepat (0µs Instan, 500µs, 1ms, 5ms; 2ms, 5ms, 10ms, 20ms) dengan validasi batas aman kernel.
+  Dilengkapi field input numerik langsung dan chip bantuan cepat (0Âµs Instan, 500Âµs, 1ms, 5ms; 2ms, 5ms, 10ms, 20ms) dengan validasi batas aman kernel.
 
-### 2. ⚖️ Sched Load Boost Per-Kluster (Koreksi Kapasitas Tugas / Anti-Capacity Inversion)
+### 2. âï¸ Sched Load Boost Per-Kluster (Koreksi Kapasitas Tugas / Anti-Capacity Inversion)
 - **Pengontrol Bias Kapasitas Tugas Hardware (`CpuSchedLoadBoostCard.kt`)**:
   Mengelola node sysfs kernel `/sys/devices/system/cpu/cpu*/sched_load_boost` secara terpisah antara kluster Little (cpu0..3) dan kluster Big (cpu4..7).
 - **Solusi Anti-Capacity Inversion**:
@@ -3780,20 +3796,20 @@ Released on: 2026-10-23
   - *Seimbang (0 Little / 0 Big)*: Distribusi netral scheduler Linux CFS/EAS standar.
   - *Hemat Daya (-6 Little / -6 Big)*: Efisiensi daya harian.
 
-### 3. 🧹 Konsolidasi UI, Pembersihan Kode Mati, & Kepatuhan Arsitektur
+### 3. ð§¹ Konsolidasi UI, Pembersihan Kode Mati, & Kepatuhan Arsitektur
 - **Eliminasi Kode Mati**: Menghapus berkas redundan `CpuClusterItemCard.kt` (-280 baris) dan mereduksi `CpuClusterTunerCard.kt` (-121 baris).
 - **Konsolidasi Bottom Sheet**: Seluruh alur konfigurasi governor schedutil dan tunables didelegasikan langsung ke `QuickTunablesBottomSheet.kt`.
-- **Kepatuhan Batas Kode**: Penurunan -97 baris bersih di codebase dengan seluruh berkas `.kt` mematuhi batas ketat ≤699 baris kode.
+- **Kepatuhan Batas Kode**: Penurunan -97 baris bersih di codebase dengan seluruh berkas `.kt` mematuhi batas ketat â¤699 baris kode.
 
 ---
 
 # Lynx Universal [Interactive Custom Number Tuning & Deep Interconnect Silicon GPU Tweaks] 7.0.0-RC170
 Released on: 2026-10-23
-> **Lynx Universal v7.0.0-RC170** (Lynx Kernel Manager v3.2.16): **Transformasi Sistem Parameter Bebas & Input Angka Kustom Manual (Custom Numeric Input Modal): Menghilangkan Batasan Preset Konstan Kaku Melalui Dialog Input Angka & Slider Presisi 1-Jari (`GpuCustomNumberDialog.kt`) Sehingga Pengguna Bebas Memasukkan Angka Manual pada Adreno Idle Timer (1–500ms), Devfreq Polling Interval (5–500ms), Alokasi Cache Tekstur (16–512MB), serta Disk Shader Blob Cache (32–2048MB); Menambahkan 4 Tweak Silikon Hardware GPU Lanjutan pada Kernel Qualcomm Adreno KGSL (PM-QoS Active Latency Interconnect 0µs Zero-Wakeup, Anti-Lag Clock Gating / Matikan HWCG, Paksa Clock GPU Tetap Aktif / Force Clk, Serta Toleransi Timeout Hang Shader / Long IB Detect 1000–8000ms); Serta Mempertahankan Standar Kode Ketat ≤699 Baris pada Seluruh Berkas Kotlin**.
+> **Lynx Universal v7.0.0-RC170** (Lynx Kernel Manager v3.2.16): **Transformasi Sistem Parameter Bebas & Input Angka Kustom Manual (Custom Numeric Input Modal): Menghilangkan Batasan Preset Konstan Kaku Melalui Dialog Input Angka & Slider Presisi 1-Jari (`GpuCustomNumberDialog.kt`) Sehingga Pengguna Bebas Memasukkan Angka Manual pada Adreno Idle Timer (1â500ms), Devfreq Polling Interval (5â500ms), Alokasi Cache Tekstur (16â512MB), serta Disk Shader Blob Cache (32â2048MB); Menambahkan 4 Tweak Silikon Hardware GPU Lanjutan pada Kernel Qualcomm Adreno KGSL (PM-QoS Active Latency Interconnect 0Âµs Zero-Wakeup, Anti-Lag Clock Gating / Matikan HWCG, Paksa Clock GPU Tetap Aktif / Force Clk, Serta Toleransi Timeout Hang Shader / Long IB Detect 1000â8000ms); Serta Mempertahankan Standar Kode Ketat â¤699 Baris pada Seluruh Berkas Kotlin**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC170)
 
-### 1. 🎛️ Input Angka Kustom Bebas (Custom Numeric Modal & Slider)
+### 1. ðï¸ Input Angka Kustom Bebas (Custom Numeric Modal & Slider)
 - **Dialog Kustom Angka Modern (`GpuCustomNumberDialog.kt`)**:
   Menghadirkan antarmuka modal OLED Dark Cyberpunk interaktif yang dilengkapi slider geser halus serta field input teks numerik langsung dengan validasi batas aman rentang nilai dan satuan otomatis.
 - **Dukungan Parameter Angka Kustom**:
@@ -3801,30 +3817,30 @@ Released on: 2026-10-23
   - *Devfreq Polling Interval*: Bebas ketik nilai dari `5` s/d `500` ms.
   - *Alokasi Cache Tekstur*: Bebas ketik nilai dari `16` s/d `512` MB.
   - *Kapasitas Disk Shader Blob Cache*: Bebas ketik nilai dari `32` s/d `2048` MB.
-  - *PM-QoS Active Latency*: Bebas ketik nilai dari `0` s/d `5000` µs.
+  - *PM-QoS Active Latency*: Bebas ketik nilai dari `0` s/d `5000` Âµs.
   - *Toleransi Timeout Long IB*: Bebas ketik nilai dari `500` s/d `10000` ms.
 - **Deteksi Cerdas Status Chip**:
-  Jika pengguna menerapkan angka non-preset, chip otomatis menyala dengan label dinamis: `[ ✎ <nilai> <satuan> ]` (misal `[ ✎ 35 ms ]` atau `[ ✎ 1024MB ]`).
+  Jika pengguna menerapkan angka non-preset, chip otomatis menyala dengan label dinamis: `[ â <nilai> <satuan> ]` (misal `[ â 35 ms ]` atau `[ â 1024MB ]`).
 
-### 2. ⚡ 4 Fitur Silikon GPU Mendalam Baru (Qualcomm Adreno KGSL)
+### 2. â¡ 4 Fitur Silikon GPU Mendalam Baru (Qualcomm Adreno KGSL)
 - **PM-QoS Active Latency** (`/sys/class/kgsl/kgsl-3d0/pmqos_active_latency`):
-  Mengatur batas jeda bangun interconnect GPU. Nilai `0 µs` memaksa bus interconnect siap seketika (*zero-latency interconnect wakeup*).
+  Mengatur batas jeda bangun interconnect GPU. Nilai `0 Âµs` memaksa bus interconnect siap seketika (*zero-latency interconnect wakeup*).
 - **Anti-Lag Clock Gating (Matikan HWCG)** (`/sys/class/kgsl/kgsl-3d0/hwcg`):
   Mematikan dynamic clock gating internal ALU saat gaming agar gerbang komputasi grafis selalu terbuka tanpa delay pensaklaran silikon.
 - **Paksa Clock GPU Tetap Aktif (Force Clk)** (`/sys/class/kgsl/kgsl-3d0/force_clk_on`):
   Memaksa generator detak clock GPU terus aktif berdenyut mencegah clock drop ke 0 MHz di sela pergantian scene game.
 - **Toleransi Timeout Hang Shader (Long IB Detect)** (`/sys/class/kgsl/kgsl-3d0/ft_long_ib_detect`):
-  Mengatur toleransi batas waktu pemulihan shader hang (1000–8000ms), krusial untuk mencegah emulator (Switch/Winlator/Mobox) force close saat kompilasi shader berat.
+  Mengatur toleransi batas waktu pemulihan shader hang (1000â8000ms), krusial untuk mencegah emulator (Switch/Winlator/Mobox) force close saat kompilasi shader berat.
 
 ---
 
 # Lynx Universal [Deep Silicon GPU Tuning, Swapchain Latency & Advanced Telemetry] 7.0.0-RC169
 Released on: 2026-10-23
-> **Lynx Universal v7.0.0-RC169** (Lynx Kernel Manager v3.2.15): **Ekspansi Besar GPU Subscreen & Studio Pipeline Grafis Generasi Baru: Menghadirkan 3 Tweak Silikon Mendalam Tingkat Kernel Qualcomm Adreno KGSL (In-Frame Power Collapse / IFPC Anti-Stutter, Hardware Preemption Mode untuk Memangkas Latensi Input Sentuhan, Serta Devfreq Polling Interval Scaler 10ms–100ms); Mengintegrasikan Panel Kontrol Swapchain Buffer Mode (Double Buffering 2 Buffers untuk Respon Input Instan vs Triple Buffering 3 Buffers Bebas Tearing); Meluncurkan Fitur Alokasi Disk Shader Blob Cache Ekstra (64MB s/d 512MB) Guna Mengeliminasi Stuttering Kompilasi Shader pada Game Open-World Berat; Menambahkan Ribbon Telemetri Analitik Real-Time Lanjutan pada `GpuHeroCard` (Estimasi Daya Watt GPU Silikon, Analisis Bottleneck CPU vs GPU, Alokasi VRAM, Serta Persentase Beban Komputasi); Serta Refaktor Modularisasi Arsitektur Data `SchedulerModels.kt` untuk Mematuhi Batas Ketat ≤699 Baris Kode**.
+> **Lynx Universal v7.0.0-RC169** (Lynx Kernel Manager v3.2.15): **Ekspansi Besar GPU Subscreen & Studio Pipeline Grafis Generasi Baru: Menghadirkan 3 Tweak Silikon Mendalam Tingkat Kernel Qualcomm Adreno KGSL (In-Frame Power Collapse / IFPC Anti-Stutter, Hardware Preemption Mode untuk Memangkas Latensi Input Sentuhan, Serta Devfreq Polling Interval Scaler 10msâ100ms); Mengintegrasikan Panel Kontrol Swapchain Buffer Mode (Double Buffering 2 Buffers untuk Respon Input Instan vs Triple Buffering 3 Buffers Bebas Tearing); Meluncurkan Fitur Alokasi Disk Shader Blob Cache Ekstra (64MB s/d 512MB) Guna Mengeliminasi Stuttering Kompilasi Shader pada Game Open-World Berat; Menambahkan Ribbon Telemetri Analitik Real-Time Lanjutan pada `GpuHeroCard` (Estimasi Daya Watt GPU Silikon, Analisis Bottleneck CPU vs GPU, Alokasi VRAM, Serta Persentase Beban Komputasi); Serta Refaktor Modularisasi Arsitektur Data `SchedulerModels.kt` untuk Mematuhi Batas Ketat â¤699 Baris Kode**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC169)
 
-### 1. ⚡ Optimasi Silikon Mendalam Driver Kernel GPU (Deep Silicon Tuning)
+### 1. â¡ Optimasi Silikon Mendalam Driver Kernel GPU (Deep Silicon Tuning)
 - **In-Frame Power Collapse (IFPC) Anti-Stutter** (`/sys/class/kgsl/kgsl-3d0/ifpc`):
   Menonaktifkan siklus tidur mikro GPU antar jeda frame render sehingga GPU selalu dalam status siap (*ready-to-render*), mengeliminasi *micro-stutter* saat game 3D kompetitif mengalami adegan berat.
 - **Hardware Preemption Mode** (`/sys/class/kgsl/kgsl-3d0/preemption`):
@@ -3832,13 +3848,13 @@ Released on: 2026-10-23
 - **Devfreq Polling Interval Scaler** (`/sys/class/kgsl/kgsl-3d0/devfreq/polling_interval`):
   Pilihan interval sampling beban GPU devfreq (10ms, 20ms, 50ms, 100ms) untuk responsivitas akselerasi clock instan tanpa jeda drop FPS.
 
-### 2. 🎮 Swapchain Buffer Mode & Disk Shader Blob Cache Expansion
+### 2. ð® Swapchain Buffer Mode & Disk Shader Blob Cache Expansion
 - **Swapchain Frame Latency Mode**:
   Menyediakan opsi peralihan instan antara *Double Buffering (2 Buffers)* untuk respon input kompetitif ultra-rendah dan *Triple Buffering (3 Buffers)* untuk stabilitas visual bebas tearing.
 - **Kapasitas Disk Shader Blob Cache (256MB / 512MB)**:
   Memperbesar batas disk cache kompilasi shader grafis OpenGL & Vulkan hingga 512MB untuk mencegah stuttering kompilasi ulang pada game open-world modern (*Genshin Impact, Honkai Star Rail, PUBG, COD: Mobile*).
 
-### 3. 📊 Ribbon Telemetri Lanjutan & Diagnostik Pintar (`GpuHeroCard.kt`)
+### 3. ð Ribbon Telemetri Lanjutan & Diagnostik Pintar (`GpuHeroCard.kt`)
 - Menampilkan estimasi konsumsi daya GPU secara real-time (Watt / mW) menggunakan formula dinamis silikon ($P \approx C \cdot V^2 \cdot f \cdot \text{Load}\%$).
 - Menampilkan indikator status *Pipeline Bottleneck* (GPU-Bound / CPU-Bound / Seimbang) dan estimasi VRAM teralokasi.
 
@@ -3850,14 +3866,14 @@ Released on: 2026-10-23
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC168)
 
-### 1. 🚀 Pemulihan Deteksi Vulkan Hardware & Pembukaan Engine SkiaVK / Graphite
+### 1. ð Pemulihan Deteksi Vulkan Hardware & Pembukaan Engine SkiaVK / Graphite
 - **Akar Masalah**: Panggilan `pm.hasSystemFeature(FEATURE_VULKAN_HARDWARE_VERSION)` tanpa parameter versi API mengembalikan `false` pada beberapa implementasi framework custom ROM Android 15. Hal ini menyebabkan variabel `isVulkanSupported` terdeteksi salah sebagai `false`, yang secara otomatis melumpuhkan opsi `SkiaVK` (Vulkan) dan `Skia Graphite` (Android 14+) menjadi status nonaktif (*Tidak Didukung*).
 - **Solusi Berlapis**:
   1. Membaca `systemAvailableFeatures` secara langsung dari memori proses framework (`mapNotNull { it.name }`) yang menangkap seluruh fitur `android.hardware.vulkan.*`.
   2. Memverifikasi node driver GPU kernel secara langsung (`/dev/kgsl-3d0` pada Qualcomm Adreno atau `/dev/mali0` pada MediaTek Mali) dan pustaka vendor Vulkan.
   3. Membuka akses penuh ke backend **SkiaVK (Vulkan)** dan **Skia Graphite (Android 14+)** bagi pengguna yang ingin menikmati akselerasi UI dengan latensi CPU lebih rendah dan frame pacing lebih konsisten.
 
-### 2. ⚡ Akselerasi Pembacaan Status Grafis (<50ms)
+### 2. â¡ Akselerasi Pembacaan Status Grafis (<50ms)
 - Menggantikan 6 pemanggilan shell lambat (`pm list packages`, `pm list features`, dan pembacaan `getprop` terpisah) dengan in-process `pm.getPackageInfo` serta query properti terkonsolidasi dalam satu siklus.
 - Mencegah UI menampilkan nilai default kosong saat subscreen pertama kali dibuka.
 
@@ -3869,16 +3885,16 @@ Released on: 2026-10-23
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC167)
 
-### 1. 🎯 Eliminasi Cacat Mutating Override Frekuensi GPU (`safeMax = curMhz`)
+### 1. ð¯ Eliminasi Cacat Mutating Override Frekuensi GPU (`safeMax = curMhz`)
 - **Akar Masalah Teridentifikasi**: Pada implementasi sebelumnya di `native/lynxd/src/hardware/capability.rs` dan `LynxGpuTelemetryRepository.kt` (Tier 0 & Tier 1), terdapat invarian keliru: `if (curMhz > safeMax) safeMax = curMhz`. Ketika pengguna memilih batas frekuensi maksimal yang lebih rendah (misalnya 266 MHz atau 430 MHz), setiap kali GPU sesaat melonjak ke 588 MHz saat transisi layar atau touch-event, sistem justru menimpa `safeMax` menjadi 588 MHz. Hal ini menghapus preferensi pengguna, membatalkan status lock (`isLocked` menjadi false karena `min != max`), dan mengembalikan badge UI ke clock tertinggi.
 - **Solusi Tuntas**: Invarian yang bermutasi tersebut telah dihapus secara menyeluruh. Pilihan batas frekuensi pengguna kini berstatus *immutable* dan dihormati sepenuhnya oleh kernel dan repositori telemetri.
 
-### 2. 🔒 Sinkronisasi Penguncian Frekuensi Hardware (Hardware Lock Synchronization)
+### 2. ð Sinkronisasi Penguncian Frekuensi Hardware (Hardware Lock Synchronization)
 - Daemon native `lynxd` (`capability.rs` dan `gpu.rs`) kini secara aktif membaca status `gpu.is_locked` dan `gpu.locked_freq_mhz` dari `ConfigStore`.
 - Jika penguncian aktif, driver Qualcomm Adreno, MediaTek Mali, dan Generic Devfreq secara tegas mengunci `min_freq_mhz` dan `max_freq_mhz` ke nilai yang sama, sekaligus menuliskan limit ke seluruh simpul devfreq terkait (`/sys/class/kgsl/kgsl-3d0/devfreq` dan `/sys/class/devfreq/*kgsl*`).
 - Komponen UI `LynxViewModelGpu.kt` secara instan memperbarui status `isLocked` berdasarkan kesamaan frekuensi min dan max (`minMhz == maxMhz`).
 
-### 3. ⚡ Ketahanan Pengisian Daya Cepat Saat Layar Mati / Lock Screen
+### 3. â¡ Ketahanan Pengisian Daya Cepat Saat Layar Mati / Lock Screen
 - Pada transisi layar mati (`ScreenState::Off`) dan layar menyala (`ScreenState::On`), daemon `lynxd` dan `LynxAppAutomationService` langsung mengeksekusi ulang konfigurasi pengisian daya tersimpan (`applySavedChargingConfig`).
 - Mengamankan simpul sysfs baterai dengan izin `0444` (`write_node_lock`), mencegah daemon termal OEM (`thermal-engine` / `mi_thermald`) mencekik arus kembali ke 500 mA saat ponsel terkunci.
 
@@ -3886,25 +3902,25 @@ Released on: 2026-10-23
 
 # Lynx Universal [Autonomous Screen-Off Charging Lock & Deep Sleep Kernel WakeLock Shield] 7.0.0-RC165
 Released on: 2026-10-23
-> **Lynx Universal v7.0.0-RC165** (Lynx Kernel Manager v3.2.11): **Penyempurnaan Total Ketahanan Pengisian Daya Cepat & Skrip Latar Belakang Saat Layar Mati / Lock / Deep Sleep: Mengintegrasikan Manajemen Kernel WakeLock Mandiri (`/sys/power/wake_lock`), Penjagaan Invarian Hardware Real-Time (`enforce_live_charging_invariants`), dan Netralisasi Otomatis Cooling Device Baterai (`neutralise_battery_cooling_devices`); Memperbaiki Cacat Kritis di Mana Daemon `lynxd` dan Kernel Sebelumnya Melakukan Early-Return Pasif Sehingga Driver OEM (Qualcomm `thermal-engine`, `pm660_charger`, dsb.) Mencekik Arus Pengisian Daya Kembali ke 500–666 mA Saat Layar Mati atau Aplikasi Lynx Ditutup; Serta Memastikan Profil Performa Tetap Terjaga Utuh Saat Perangkat Terhubung ke Pengisi Daya Tanpa Terdegradasi**.
+> **Lynx Universal v7.0.0-RC165** (Lynx Kernel Manager v3.2.11): **Penyempurnaan Total Ketahanan Pengisian Daya Cepat & Skrip Latar Belakang Saat Layar Mati / Lock / Deep Sleep: Mengintegrasikan Manajemen Kernel WakeLock Mandiri (`/sys/power/wake_lock`), Penjagaan Invarian Hardware Real-Time (`enforce_live_charging_invariants`), dan Netralisasi Otomatis Cooling Device Baterai (`neutralise_battery_cooling_devices`); Memperbaiki Cacat Kritis di Mana Daemon `lynxd` dan Kernel Sebelumnya Melakukan Early-Return Pasif Sehingga Driver OEM (Qualcomm `thermal-engine`, `pm660_charger`, dsb.) Mencekik Arus Pengisian Daya Kembali ke 500â666 mA Saat Layar Mati atau Aplikasi Lynx Ditutup; Serta Memastikan Profil Performa Tetap Terjaga Utuh Saat Perangkat Terhubung ke Pengisi Daya Tanpa Terdegradasi**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC165)
 
-### 1. ⚡ Penguncian Arus Pengisian Daya Tanpa Reversi (Screen-Off & Lock Screen Persistence)
-- **Akar Masalah Teridentifikasi**: Saat pengguna membuka aplikasi Lynx Companion, pengaturan pengisian daya (Hyper / Custom / Cool) diaplikasikan secara instan ke sysfs kernel. Namun, begitu aplikasi ditutup atau layar dimatikan (lock screen / deep sleep), `thermal-engine` milik OEM Qualcomm dan workqueue kernel secara berkala menuliskan limit baru ke `constant_charge_current_max` (menurunkannya ke 500–666 mA) serta mengaktifkan cooling device baterai ke status pembatasan.
+### 1. â¡ Penguncian Arus Pengisian Daya Tanpa Reversi (Screen-Off & Lock Screen Persistence)
+- **Akar Masalah Teridentifikasi**: Saat pengguna membuka aplikasi Lynx Companion, pengaturan pengisian daya (Hyper / Custom / Cool) diaplikasikan secara instan ke sysfs kernel. Namun, begitu aplikasi ditutup atau layar dimatikan (lock screen / deep sleep), `thermal-engine` milik OEM Qualcomm dan workqueue kernel secara berkala menuliskan limit baru ke `constant_charge_current_max` (menurunkannya ke 500â666 mA) serta mengaktifkan cooling device baterai ke status pembatasan.
 - **Bug Early-Return Pasif**: Sebelumnya, fungsi evaluasi `apply_from_config()` di `charging.rs` hanya memeriksa apakah file marker `/dev/` ada dan apakah `input_suspend=0` serta `charging_enabled=1`. Daemon berasumsi bahwa pengisian daya sudah berjalan normal sehingga tidak mengecek nilai riil register arus kernel, membiarkan arus terkunci di kecepatan rendah OEM.
 - **Solusi Invarian Aktif**: `enforce_live_charging_invariants()` kini berjalan pada setiap siklus `tick()`, langsung membaca register hardware riil (`constant_charge_current_max`, `current_max`, `input_current_limit`). Jika terdeteksi penurunan di bawah target pengguna, daemon seketika menuliskan ulang batas puncak pengguna (<1 detik).
 
-### 2. 🛡️ Netralisasi Cooling Device Baterai & Throttling `thermal-engine`
+### 2. ð¡ï¸ Netralisasi Cooling Device Baterai & Throttling `thermal-engine`
 - Fungsi `neutralise_battery_cooling_devices()` secara proaktif memindai seluruh `/sys/class/thermal/cooling_device*` bertipe `battery`, `batt`, `charger`, atau `pm660`.
 - Jika ditemukan `cur_state > 0` (pembatasan aktif yang dipicu oleh sensor termal OEM `quiet-therm-adc`), daemon seketika me-reset ke `0` dan menguncinya dengan izin `0444`, mencegah `thermal-engine` mencekik arus ke baterai.
 
-### 3. 🔋 Kernel WakeLock Shield Saat Terhubung ke Pengisi Daya
+### 3. ð Kernel WakeLock Shield Saat Terhubung ke Pengisi Daya
 - Saat perangkat terhubung ke charger dan sedang mengisi daya secara aktif, `lynxd` mengakuisisi kernel wakelock melalui `/sys/power/wake_lock` (`lynx_charging`).
 - Hal ini mencegah kernel Linux masuk ke status *Suspend-to-RAM* (deep sleep) yang membekukan proses latar belakang (`lynxd`), sehingga loop pemantau pengisian daya tetap aktif 100% dengan layar mati (layar tetap padam total, panel unpowered).
 - Begitu kabel dicabut atau fitur AutoCut / baterai mencapai 100%, wakelock segera dilepas via `/sys/power/wake_unlock`, membiarkan perangkat masuk ke deep sleep sejati tanpa menguras baterai.
 
-### 4. 🚀 Preservasi Profil Performa Latar Belakang Saat Mengisi Daya
+### 4. ð Preservasi Profil Performa Latar Belakang Saat Mengisi Daya
 - Memperbaiki logika `decision.rs` di mana sebelumnya layar mati selalu memaksa profil turun ke *Balance*.
 - Sekarang, jika perangkat terhubung ke charger (`is_hardware_plugged()`), profil performa tinggi (Performance / Extreme) dipertahankan penuh sehingga proses latar belakang, unduhan, dan kompilasi tidak mengalami perlambatan performa.
 
@@ -3916,7 +3932,7 @@ Released on: 2026-10-23
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC164)
 
-### 1. 🌐 Skalabilitas Universal Lintas Chipset Qualcomm Snapdragon
+### 1. ð Skalabilitas Universal Lintas Chipset Qualcomm Snapdragon
 - **Agnostik & Adaptif Penuh**: Sistem membaca tabel OPP (`available_frequencies`) dan jumlah power level (`num_pwrlevels`) secara langsung dari driver kernel perangkat saat runtime.
 - **Dukungan Menyeluruh**:
   - Snapdragon Seri 600 (SD660/636/625 - 7 Power Levels).
@@ -3924,7 +3940,7 @@ Released on: 2026-10-23
   - Snapdragon Flagship Modern (SD 8 Gen 1 / 8+ Gen 1 / 8 Gen 2 / 8 Gen 3 - 8 hingga 12+ Power Levels).
   - Seluruhnya secara otomatis menghitung indeks `max_idx`, memetakan `target_ceiling_pwr = 0` (Full Peak) dan `target_floor_pwr = max_idx` (Full Idle) pada profil Balance.
 
-### 2. ⚡ Fenomena 19.2 MHz Adreno: XO Crystal Oscillator Power Collapse
+### 2. â¡ Fenomena 19.2 MHz Adreno: XO Crystal Oscillator Power Collapse
 - **Penjelasan Hardware Silicon**: Angka 19 MHz (tepatnya 19.2 MHz / 19.200.000 Hz) adalah frekuensi kristal osilator dasar (*Crystal Oscillator / CXO*) dari Qualcomm Global Clock Controller (GCC).
 - **Status Slumber / Deep Sleep**: Saat tidak ada aplikasi yang mengirimkan *DrawCalls* grafis (layar diam), driver KGSL Qualcomm mematikan PLL GPU (Power Collapse) dan menurunkan clock domain GPU ke clock dasar 19.2 MHz untuk meminimalkan konsumsi daya ke level mikroampere.
 - **Badge Visual "XO SLEEP"**: Menambahkan badge informatif cyan `[ XO SLEEP ]` pada header telemetri `GpuMasterTunerCard.kt` saat clock terbaca di kisaran 19 MHz, memberikan kejelasan kepada pengguna bahwa GPU sedang beristirahat dalam efisiensi tertinggi.
@@ -3937,11 +3953,11 @@ Released on: 2026-10-23
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC163)
 
-### 1. 🔍 Diagnosis Mendalam & Penyebab GPU Qualcomm Tertahan di Hemat Daya
+### 1. ð Diagnosis Mendalam & Penyebab GPU Qualcomm Tertahan di Hemat Daya
 - **Investigasi Masalah**: Pada perangkat Snapdragon Qualcomm, driver KGSL memperlakukan `max_pwrlevel` sebagai batas atas clock (ceiling / performa tertinggi dengan indeks numerik terkecil, misal Index 0 = 750 MHz). Pada versi sebelumnya di `translator.rs`, profil `"balance"` dan mode default memetakan `target_max_pwr = max_idx` (indeks numerik terbesar, misal Index 6 = 160 MHz) karena asumsi terbalik bahwa `max_pwrlevel` adalah "lowest clock bound".
 - **Dampak Nyata**: Setiap kali perangkat cold boot (via `lynxd boot`) atau setiap kali daemon beralih kembali ke profil `"balance"` pasca keluar dari game, `lynxd` menuliskan Index 6 ke `/sys/class/kgsl/kgsl-3d0/max_pwrlevel`. Hal ini mengunci batas tertinggi clock GPU Adreno secara permanen ke 160 MHz (idle), menyebabkan rendering SurfaceFlinger, scroll feed, dan multitasking terasa berat dan tertahan seolah-olah baterai sedang sekarat.
 
-### 2. ⚡ Restorasi Skalabilitas Dinamis Penuh Adreno pada Profil Balance
+### 2. â¡ Restorasi Skalabilitas Dinamis Penuh Adreno pada Profil Balance
 - **Harmonisasi dengan Perilaku MediaTek GED**: Pada profil `"balance"`, GPU Qualcomm kini dipetakan ke:
   - `target_ceiling_pwr = 0`: GPU bebas melompat hingga frekuensi puncak tertinggi (misal 750 MHz) secara instan saat rendering UI atau beban multitasking membutuhkan daya komputasi grafis.
   - `target_floor_pwr = max_idx`: GPU dapat turun sepenuhnya ke frekuensi idle terendah (160 MHz) saat layar statis demi penghematan daya baterai yang optimal.
@@ -3957,7 +3973,7 @@ Released on: 2026-10-22
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC162)
 
-### 1. 🛡️ Urutan Clamping 3 Langkah Adreno KGSL Power Level
+### 1. ð¡ï¸ Urutan Clamping 3 Langkah Adreno KGSL Power Level
 - **Analisis Mendalam Driver Kernel (`kgsl_pwrctrl.c`)**: Driver Qualcomm KGSL memberlakukan batasan `min_pwrlevel >= max_pwrlevel` di mana `max_pwrlevel` adalah ceiling (performa tertinggi / indeks numerik rendah, misal Level 3 = 465 MHz) dan `min_pwrlevel` adalah floor (performa terendah / indeks numerik tinggi, misal Level 5 = 266 MHz).
 - **Protokol 3 Langkah Aman**:
   1. Relaksasi `min_pwrlevel` ke `lowestIdx` (Level 6 = 160 MHz) agar batasan kernel tidak pernah terlanggar saat menurunkan clock.
@@ -3965,15 +3981,15 @@ Released on: 2026-10-22
   3. Setel `min_pwrlevel` ke `safeMinPwr` (Level 5 = 266 MHz) dan `default_pwrlevel` ke `maxPwrIdx` (Level 3 = 465 MHz).
   4. Pulsa `pwrscale` (echo 1) agar governor langsung menurunkan clock saat itu juga tanpa menunggu idle timeout.
 
-### 2. ⚡ Eliminasi Trap Devfreq Kernel `-EINVAL`
+### 2. â¡ Eliminasi Trap Devfreq Kernel `-EINVAL`
 - Linux kernel devfreq menolak penulisan `max_freq` jika nilainya lebih kecil dari `min_freq` saat itu (`if (val < df->min_freq) return -EINVAL;`).
 - Diatasi secara mutlak dengan merelaksasi `min_freq` ke 0 sebelum menulis `max_freq`, kemudian menulis `min_freq` yang diinginkan pengguna.
 
-### 3. 🔍 Telemetri Presisi Sinkron OPP Hardware Driver
+### 3. ð Telemetri Presisi Sinkron OPP Hardware Driver
 - `LynxGpuTelemetryRepository.kt` kini membaca langsung node `min_pwrlevel` dan `max_pwrlevel` fisik KGSL dan memetakannya kembali ke nilai MHz tabel OPP.
 - `safeMax` dan `safeMin` pada telemetri terikat langsung ke batasan fisik driver kernel Qualcomm, mencegah desinkronisasi UI.
 
-### 4. ⚡ Refresh Telemetri UI Instan (150ms)
+### 4. â¡ Refresh Telemetri UI Instan (150ms)
 - `LynxViewModelGpu.kt` kini langsung memicu pembacaan ulang telemetri hardware 150ms setelah penulisan sysfs frekuensi, sehingga status aktif seketika ter-update pada kartu tanpa jeda loop background.
 
 ---
@@ -3984,18 +4000,18 @@ Released on: 2026-10-22
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC161)
 
-### 1. ⚡ Perbaikan Kritis Clamping Power Level Adreno KGSL (`min_pwrlevel` & `max_pwrlevel`)
+### 1. â¡ Perbaikan Kritis Clamping Power Level Adreno KGSL (`min_pwrlevel` & `max_pwrlevel`)
 - **Masalah Teridentifikasi**: Pada arsitektur driver GPU Qualcomm KGSL, urutan Power Level bersifat *inverted* (terbalik): `Level 0 = 750 MHz (Overclock Peak)`, `Level 1 = 647 MHz`, `Level 2 = 588 MHz`, `Level 3 = 465 MHz`, `Level 4 = 370 MHz`, `Level 5 = 266 MHz`, `Level 6 = 160 MHz`. Parameter `min_pwrlevel` adalah *ceiling bound* (indeks level minimum yang diizinkan, alias batas atas frekuensi). Sebelumnya, kode menuliskan `echo 0 > min_pwrlevel` yang membuka izin bagi kernel untuk melompat ke Level 0 (750 MHz). Akibatnya, saat pengguna memilih batas maksimum 465 MHz, governor hardware tetap melompat ke Level 2 (588 MHz) saat rendering UI.
 - **Solusi Tepat**: Memetakan target frekuensi maksimum (`maxMhz`) ke indeks level yang tepat (misal: 465 MHz -> Level 3) dan menulis `min_pwrlevel = 3` serta `default_pwrlevel = 3`. Ini secara fisik mengunci kernel driver agar dilarang keras memasuki Level 0, 1, dan 2. Untuk batas minimum (`minMhz`), sistem menyetel `max_pwrlevel` ke indeks level terkait sehingga GPU tidak turun di bawah batas tersebut.
 
-### 2. 🔍 Dynamic Multi-Path Devfreq & Auto-Detect Frequency Units
+### 2. ð Dynamic Multi-Path Devfreq & Auto-Detect Frequency Units
 - **Resolusi Jalur Devfreq**: Menggantikan path devfreq statis dengan pemindai multi-jalur dinamis (`/sys/class/kgsl/kgsl-3d0/devfreq`, `/sys/class/devfreq/*kgsl-3d0*`, dan `/sys/devices/platform/soc/*.qcom,kgsl-3d0/devfreq/*`).
 - **Deteksi Unit Frekuensi Otomatis**: Mendeteksi secara dinamis apakah kernel mengharapkan unit Hz (`freq * 1.000.000`), kHz (`freq * 1.000`), atau MHz murni dari token `available_frequencies`.
 
-### 3. 🎯 Perbaikan Bug Logika Badge UI Maksimum (`GpuMasterTunerCard.kt`)
+### 3. ð¯ Perbaikan Bug Logika Badge UI Maksimum (`GpuMasterTunerCard.kt`)
 - **Akurasi Badge Maksimum**: Mengeliminasi logika `if (gpu.curFreqMhz > gpu.maxFreqMhz) gpu.curFreqMhz else gpu.maxFreqMhz` yang sebelumnya salah menimpa badge "Maks:" menjadi 588 MHz saat frekuensi aktif sesaat terbaca lebih tinggi, mengembalikan sinkronisasi 100% dengan dropdown "Frekuensi Max: 465 MHz".
 
-### 4. 🦀 Sinkronisasi Native Engine Rust (`lynxd`) & Shell Fallback
+### 4. ð¦ Sinkronisasi Native Engine Rust (`lynxd`) & Shell Fallback
 - **Penyelarasan Algoritma**: Mengimplementasikan pemetaan indeks Power Level yang sama persis pada modul native Rust `lynxd` (`GpuController::set_freq`) dan shell fallback di `LynxGpuControlRepository.kt`.
 
 ---
@@ -4006,19 +4022,19 @@ Released on: 2026-10-22
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC160)
 
-### 1. 📱 Ground-Truth Physical Display Mode Detection
+### 1. ð± Ground-Truth Physical Display Mode Detection
 - **Eliminasi Total Fallback 120Hz Palsu**: Menghapus seluruh asumsi `listOf(60, 90, 120)` pada data model UI (`LynxGpuModels.kt`), kartu refresh rate (`DisplayRefreshRateTouchCard.kt`), dan telemetri diagnostik (`DisplayAndPipelineDiagnostics.kt`).
 - **Framework API Ground-Truth**: Memprioritaskan query langsung ke `Display.supportedModes` melalui Android Framework API di `DisplayCapabilityDetector.kt` dan `LynxDisplayRepository.kt`, sehingga panel 60Hz murni (seperti Redmi Note 7) terdeteksi presisi sebagai mode tunggal tanpa chip palsu, sementara ponsel gaming 144Hz/165Hz/240Hz terdeteksi penuh.
 
-### 2. ⚡ Force Peak FPS Unlocker (Bypass Batas Game/Aplikasi)
+### 2. â¡ Force Peak FPS Unlocker (Bypass Batas Game/Aplikasi)
 - **Bypass Limit Frame Rate Game**: Menyediakan selektor 1-tap Force Peak FPS (`[Standar/Off, 90 FPS, 120 FPS, 144 FPS, 240 FPS]`) pada `DisplayRefreshRateTouchCard.kt`.
 - **Sinkronisasi Framework & SurfaceFlinger**: Mengumumkan peak refresh rate secara paksa ke Android Settings Provider (`peak_refresh_rate`, `min_refresh_rate`, `user_refresh_rate`) sehingga mesin game (PUBG Mobile, Genshin Impact, MLBB, CODM) membuka setelan grafis 90/120/144 FPS tanpa perlu modul bypass terpisah.
 
-### 3. 🧵 Multithreaded Skia HWUI Shader Compiler (`debug.hwui.compiler_threads`)
+### 3. ð§µ Multithreaded Skia HWUI Shader Compiler (`debug.hwui.compiler_threads`)
 - **Anti-Stuttering Kompilasi Shader**: Menambahkan kontrol threads compiler Skia HWUI (Auto, 2 Threads, 4 Threads) pada `GraphicsDriverHwuiCard.kt`.
 - Mengalokasikan thread worker CPU terdedikasi untuk kompilasi shader grafis di latar belakang pada core CPU performa, mengeliminasi micro-stutter saat aset 3D baru pertama kali dipanggil.
 
-### 4. 📊 Tab Info: Tabel Visual Kernel OPP & Matriks Kapabilitas Vulkan
+### 4. ð Tab Info: Tabel Visual Kernel OPP & Matriks Kapabilitas Vulkan
 - **Visual OPP Frequency & Power Level Table (`GpuOppTableCard.kt`)**: Menampilkan seluruh langkah frekuensi diskrit kernel OPP (misal: 750, 647, 588, 465, 370, 266, 160 MHz) bersama indeks Power Level Adreno (`PwrLevel 0` s/d `PwrLevel 6`), badge status real-time `[ AKTIF ]`, penanda Turbo Peak vs Idle Base, dan status pembatasan thermal/governor.
 - **Vulkan & Hardware Extension Matrix**: Menampilkan status dukungan kapabilitas hardware pada `GpuSiliconIdentityCard` (Kompresi Tekstur ASTC, Aritmatika Half-Precision Float16, Kuantisasi Int8, Operasi Subgroups, dan Bindless Descriptor Indexing).
 
@@ -4026,24 +4042,24 @@ Released on: 2026-10-22
 
 # Lynx Universal [Zen Redesign GPU & Display Subscreen, Overclock OPP Unlocking, & KCAL Modularization] 7.0.0-RC159
 Released on: 2026-10-22
-> **Lynx Universal v7.0.0-RC159** (Lynx Kernel Manager v3.2.05): **Redesain Menyeluruh Subscreen GPU & Display Mengikuti Filosofi Zen & Anti-AI Slop: Menghadirkan Zen Reassurance Hero Card (`GpuHeroCard.kt`) dengan Dual-Layer Pulse Indicator, Status Badge Akselerasi Grafis & Layar, Refresh Rate Live, Serta Calm Unified Telemetry Ribbon; Ekstraksi 2x2 Bento Matrix Touch-First (≥48dp) 1-Tap pada `GpuQuickProfilesCard.kt` (Hemat Daya, Seimbang, Esports, Ekstrem); Penggantian Banner Peringatan Merah Menegangkan pada `GpuMasterTunerCard.kt` dengan Reassuring Safety Advisory Shield Berperisai Oranye Tenang; Redesain dan Pembersihan Bahasa Jargon Teknis Berlebih pada `GraphicsDriverHwuiCard.kt` dan `DisplayRefreshRateTouchCard.kt` Mengutamakan Manfaat Nyata Pengguna dan Kenyamanan Psikologis; Modularisasi `ColorManagementCard.kt` dengan Mengekstrak Driver Kernel KCAL ke File Terpisah `KcalHardwareCard.kt` Guna Mematuhi Batas Ketat ≤699 Baris Kode (Rule 14.1); Serta Optimasi Driver Qualcomm Adreno KGSL dengan Sinkronisasi Ganda Devfreq & Direct KGSL dan Power Level 0 Guard untuk Membuka Akses Penuh ke Tabel Frekuensi Overclock (750 MHz+)**.
+> **Lynx Universal v7.0.0-RC159** (Lynx Kernel Manager v3.2.05): **Redesain Menyeluruh Subscreen GPU & Display Mengikuti Filosofi Zen & Anti-AI Slop: Menghadirkan Zen Reassurance Hero Card (`GpuHeroCard.kt`) dengan Dual-Layer Pulse Indicator, Status Badge Akselerasi Grafis & Layar, Refresh Rate Live, Serta Calm Unified Telemetry Ribbon; Ekstraksi 2x2 Bento Matrix Touch-First (â¥48dp) 1-Tap pada `GpuQuickProfilesCard.kt` (Hemat Daya, Seimbang, Esports, Ekstrem); Penggantian Banner Peringatan Merah Menegangkan pada `GpuMasterTunerCard.kt` dengan Reassuring Safety Advisory Shield Berperisai Oranye Tenang; Redesain dan Pembersihan Bahasa Jargon Teknis Berlebih pada `GraphicsDriverHwuiCard.kt` dan `DisplayRefreshRateTouchCard.kt` Mengutamakan Manfaat Nyata Pengguna dan Kenyamanan Psikologis; Modularisasi `ColorManagementCard.kt` dengan Mengekstrak Driver Kernel KCAL ke File Terpisah `KcalHardwareCard.kt` Guna Mematuhi Batas Ketat â¤699 Baris Kode (Rule 14.1); Serta Optimasi Driver Qualcomm Adreno KGSL dengan Sinkronisasi Ganda Devfreq & Direct KGSL dan Power Level 0 Guard untuk Membuka Akses Penuh ke Tabel Frekuensi Overclock (750 MHz+)**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC159)
 
-### 1. 🛡️ Zen Reassurance Hero Card & Telemetry Ribbon Terpadu GPU & Layar
-- **GpuHeroCard (`GpuHeroCard.kt`)**: Zen Hero Card bergradien elegan dengan dual-layer breathing pulse ring, live display refresh rate pill, nama arsitektur GPU terverifikasi, dan pita telemetri tenang terpadu (`Clock: ... • Engine: ... • Layar: ... • Suhu: ...`) serta catatan penenang psikologis pengguna.
+### 1. ð¡ï¸ Zen Reassurance Hero Card & Telemetry Ribbon Terpadu GPU & Layar
+- **GpuHeroCard (`GpuHeroCard.kt`)**: Zen Hero Card bergradien elegan dengan dual-layer breathing pulse ring, live display refresh rate pill, nama arsitektur GPU terverifikasi, dan pita telemetri tenang terpadu (`Clock: ... â¢ Engine: ... â¢ Layar: ... â¢ Suhu: ...`) serta catatan penenang psikologis pengguna.
 - **Harmonisasi Estetika**: Menyelaraskan halaman GPU & Display dengan standar visual profil performa kernel (`TuningProfilesCategory.kt`), subscreen termal (`ThermalHeroCard.kt`), dan memori (`MemoryHeroCard.kt`).
 
-### 2. ⚡ 2x2 Bento Matrix Touch-First & Modularisasi GPU
-- **GpuQuickProfilesCard (`GpuQuickProfilesCard.kt`)**: Kartu selektor 4 preset GPU harmonis (Hemat Daya, Seimbang, Esports, Ekstrem) dalam format 2x2 bento touch-first dengan target sentuh ≥48dp, umpan balik visual instan, dan label manfaat yang jelas tanpa istilah bertele-tele.
+### 2. â¡ 2x2 Bento Matrix Touch-First & Modularisasi GPU
+- **GpuQuickProfilesCard (`GpuQuickProfilesCard.kt`)**: Kartu selektor 4 preset GPU harmonis (Hemat Daya, Seimbang, Esports, Ekstrem) dalam format 2x2 bento touch-first dengan target sentuh â¥48dp, umpan balik visual instan, dan label manfaat yang jelas tanpa istilah bertele-tele.
 - **KcalHardwareCard (`KcalHardwareCard.kt`)**: Mengekstrak kontrol kernel hardware KCAL dari `ColorManagementCard.kt` ke modul komponen terdedikasi, menurunkan kompleksitas berkas dan menjamin seluruh berkas UI GPU berada di bawah batas ketat 699 baris kode (Rule 14.1).
 
-### 3. 🕊️ Anti-AI Slop, Penghapusan Jargon Berlebih, & Kenyamanan Psikologis
+### 3. ðï¸ Anti-AI Slop, Penghapusan Jargon Berlebih, & Kenyamanan Psikologis
 - **Reassuring Safety Advisory Shield**: Menggantikan peringatan thermal throttling merah mencolok pada `GpuMasterTunerCard.kt` dengan perisai informasi oranye tenang yang menjelaskan perlindungan kernel tetap aktif.
 - **Bahasa Ramah Pengguna**: Mengganti deskripsi register driver yang membingungkan pada `GraphicsDriverHwuiCard.kt` dan `DisplayRefreshRateTouchCard.kt` dengan istilah manfaat nyata (Driver Game Khusus, Mesin Render Antarmuka, Pra-Pemuatan Efek Visual, Akselerasi VSync Hardware, Buka Limit FPS Game, Penurun Resolusi Game).
 - **Kalibrasi Layar Tenang (`ColorManagementCard.kt`)**: Penyederhanaan tampilan temperatur warna, saturasi, kontras, dan penyesuaian RGB individual dengan perlindungan penguncian sentuhan tak disengaja.
 
-### 4. ⚡ Unrestricted Overclock OPP Unlocking (Qualcomm Adreno KGSL)
+### 4. â¡ Unrestricted Overclock OPP Unlocking (Qualcomm Adreno KGSL)
 - **Sinkronisasi Ganda Devfreq & Direct KGSL**: Menjamin instruksi pengubahan frekuensi minimum dan maksimum ditulis serentak ke bus devfreq (`devfreq/min_freq`, `devfreq/max_freq`) dan node direct GPU controller (`min_clock_mhz`, `max_clock_mhz`).
 - **Power Level 0 Guard (`min_pwrlevel=0`)**: Memastikan batas atas daya (*lowest power level index*) direset ke 0 saat frekuensi tertinggi atau overclock (seperti 750 MHz pada kernel custom) dipilih, mencegah kernel menjepit frekuensi pada batas stock 647 MHz / 588 MHz.
 
@@ -4051,29 +4067,29 @@ Released on: 2026-10-22
 
 # Lynx Universal [Zen Bento Subscreen Redesign & Unified Design Language System] 7.0.0-RC158
 Released on: 2026-10-22
-> **Lynx Universal v7.0.0-RC158** (Lynx Kernel Manager v3.2.04): **Harmonisasi Estetika Menyeluruh Seluruh Subscreen Mengikuti Standar Emas Profil Performa Kernel: Menghadirkan Zen Reassurance Hero Card dengan Dual-Layer Pulse Indicator, Status Badge Reassuring, dan Calm Unified Telemetry Ribbon pada Subscreen Termal (`ThermalHeroCard.kt`), Memori & ZRAM (`MemoryHeroCard.kt`), Serta Subsystem Kernel (`SystemSubscreen.kt`); Menerapkan 2x2 Bento Matrix Touch-First (≥48dp) 1-Tap pada Subscreen Termal Sehingga Mengeliminasi Total Duplikasi Preset di Bawah Layar; Mengganti Banner Peringatan Merah Menegangkan dengan Reassuring Safety Advisory Card Berperisai Oranye Tenang; Menghapus Total Kartu Notifikasi Relokasi Usang (AI Slop) pada Subsystem; Mengatasi Slider Fatigue dengan Progressive Disclosure pada Parameter Virtual Memory Lanjutan di `MemorySubscreen.kt`; Serta Menyelaraskan Selektor Mode Pengisian Daya (`FastChargingControlCard.kt`) dan Mode Game HUD (`GameHudSubscreen.kt`) ke Format 2-Column Bento Modern Beranimasi**.
+> **Lynx Universal v7.0.0-RC158** (Lynx Kernel Manager v3.2.04): **Harmonisasi Estetika Menyeluruh Seluruh Subscreen Mengikuti Standar Emas Profil Performa Kernel: Menghadirkan Zen Reassurance Hero Card dengan Dual-Layer Pulse Indicator, Status Badge Reassuring, dan Calm Unified Telemetry Ribbon pada Subscreen Termal (`ThermalHeroCard.kt`), Memori & ZRAM (`MemoryHeroCard.kt`), Serta Subsystem Kernel (`SystemSubscreen.kt`); Menerapkan 2x2 Bento Matrix Touch-First (â¥48dp) 1-Tap pada Subscreen Termal Sehingga Mengeliminasi Total Duplikasi Preset di Bawah Layar; Mengganti Banner Peringatan Merah Menegangkan dengan Reassuring Safety Advisory Card Berperisai Oranye Tenang; Menghapus Total Kartu Notifikasi Relokasi Usang (AI Slop) pada Subsystem; Mengatasi Slider Fatigue dengan Progressive Disclosure pada Parameter Virtual Memory Lanjutan di `MemorySubscreen.kt`; Serta Menyelaraskan Selektor Mode Pengisian Daya (`FastChargingControlCard.kt`) dan Mode Game HUD (`GameHudSubscreen.kt`) ke Format 2-Column Bento Modern Beranimasi**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC158)
 
-### 1. 🛡️ Zen Reassurance Hero Cards & Telemetry Ribbon Terpadu
-- **Thermal Hero Card (`ThermalHeroCard.kt`)**: Menggantikan tabel 6-baris dan chip terpecah dengan Zen Hero Card berbingkai gradient subtle (`#10141F`), Zen pulse indicator dwi-lingkaran, chip status menenangkan, dan pita telemetri terpadu (`Batas Trip: ... • CPU Floor: ... • Anti-OEM: ... • Sensor: ... RW`).
+### 1. ð¡ï¸ Zen Reassurance Hero Cards & Telemetry Ribbon Terpadu
+- **Thermal Hero Card (`ThermalHeroCard.kt`)**: Menggantikan tabel 6-baris dan chip terpecah dengan Zen Hero Card berbingkai gradient subtle (`#10141F`), Zen pulse indicator dwi-lingkaran, chip status menenangkan, dan pita telemetri terpadu (`Batas Trip: ... â¢ CPU Floor: ... â¢ Anti-OEM: ... â¢ Sensor: ... RW`).
 - **Memory & ZRAM Hero Card (`MemoryHeroCard.kt`)**: Memberikan visualisasi ringkas dan tenang atas kapasitas RAM aktif (`ramUsedMb / ramTotalMb`), ZRAM terkompresi, algoritma kompresi, nilai swappiness, dan status KSM.
 - **Kernel Subsystem Hero Card (`SystemHeroCard.kt`)**: Menghilangkan kartu relokasi usang dan menghadirkan identitas platform SoC & kernel Linux yang terverifikasi root dengan status scanner adaptif dinamis.
 
-### 2. ⚡ 2x2 Bento Matrix Touch-First & Eliminasi Duplikasi
+### 2. â¡ 2x2 Bento Matrix Touch-First & Eliminasi Duplikasi
 - **4 Mode Termal 1-Tap Langsung di Atas (`ThermalSubscreen.kt`)**: Menempatkan Default OEM, Thermal Stabil, Performa, dan Hardware Safety Dominant langsung di bawah kartu Hero dengan target sentuh ergonomis $\ge 48\text{ dp}$ dan status `AKTIF` dinamis.
 - **Eliminasi Redundansi**: Menghapus total komponen kartu preset ganda di bagian bawah layar yang sebelumnya menduplikasi fungsionalitas mode termal.
 - **Normalisasi Sensor Termal Hardware**: Memetakan string nama sensor raw yang membingungkan (`tsens_tz_sensor`, `mtkts_AP`) menjadi label yang manusiawi dan ramah pengguna ("SoC Sensor", "AP Core", "Baterai", "Charger PMIC").
 
-### 3. 🕊️ Psychological Safety & Anti-Anxiety UI
+### 3. ðï¸ Psychological Safety & Anti-Anxiety UI
 - **Reassuring Safety Advisory Card**: Menghilangkan banner merah mencolok yang memicu stres pengguna saat mode bypass termal aktif, menggantikannya dengan kartu advisory perisai oranye elegan yang menjelaskan bahwa proteksi termal silikon kernel dan cutoff pengisian daya tetap siaga melindungi perangkat.
 - **Pembersihan AI Slop Relokasi**: Menghapus dua kartu teks statis pemberitahuan relokasi ("Fitur X kini dipusatkan di sub-halaman Y") pada `SystemSubscreen.kt` yang mengotori tampilan.
 
-### 4. 🎛️ Progressive Disclosure & Pencegahan Slider Fatigue (`MemorySubscreen.kt`)
+### 4. ðï¸ Progressive Disclosure & Pencegahan Slider Fatigue (`MemorySubscreen.kt`)
 - **Tampilan Utama Bersih & Tenang**: Memprioritaskan 3 preset Virtual Memory (Gaming, Balanced, Battery), selektor algoritma ZRAM (LZ4, ZSTD, LZO), dan slider alokasi ZRAM fisik.
 - **Accordion Konfigurasi VM Lanjutan**: Membungkus 5 slider kernel writeback (Dirty Ratio, Background Ratio, VFS Cache Pressure, Expire Centisecs, Writeback Interval) ke dalam wadah pengungkapan progresif (*progressive disclosure*) yang dapat dibuka/tutup secara elegan sesuai kebutuhan pengguna tingkat lanjut.
 
-### 5. 🔋 Harmonisasi Bento Pengisian Daya & Game HUD
+### 5. ð Harmonisasi Bento Pengisian Daya & Game HUD
 - **Fast Charging Bento Matrix (`FastChargingControlCard.kt`)**: Memperbarui kartu selektor 4 mode pengisian daya (Cool, Standard, Hyper, Custom) dengan rounded corners 14dp, transisi warna halus `animateColorAsState`, dan indikator status aktif.
 - **Game HUD Format Selector (`GameHudSubscreen.kt`)**: Mengubah kartu pemilihan mode Bilah Samping XBOOST vs Floating OSD menjadi 2-Column Bento card yang ringkas dan modern.
 
@@ -4081,25 +4097,25 @@ Released on: 2026-10-22
 
 
 Released on: 2026-10-22
-> **Lynx Universal v7.0.0-RC157** (Lynx Kernel Manager v3.2.03): **Ekspansi Arsitektur GPU Silikon Universal & Studio Pipeline Compositor Android: Menghadirkan 2 Hardware Abstraction Layer (HAL) GPU Baru untuk Menjamin Kompatibilitas Menyeluruh pada Seluruh Lini Chipset Android Dunia — Samsung Exynos / Google Tensor / AMD RDNA Xclipse (`SamsungExynosXclipseAdapter.kt`) dengan Kontrol Devfreq Governor, Polling Interval, dan Sysfs OneUI/GKI `/sys/kernel/gpu/`, Serta Unisoc Spreadtrum (`UnisocSprdAdapter.kt`) dengan Scene-Frequency Governor & Scene Boost GPU; Menambahkan 3 Mikro-Tweak Silikon Mendalam pada GPU Qualcomm Adreno (`QualcommAdrenoAdapter.kt`): Adreno Touch-Wake (`wake_on_touch`) untuk Memangkas Latensi Input-to-Display, Supresi KGSL Crash Dumper (`snapshot_crashdumper`) untuk Mencegah Freeze/Stutter Saat Shader Glitch, dan Penguncian Batas Atas Clock (`max_pwrlevel`); Mengintegrasikan Panel Universal Compositor & Pipeline Memory Android pada `GraphicsDriverHwuiCard.kt` dengan Pengatur Alokasi VRAM Texture Cache HWUI (48MB–128MB), Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`), dan Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`); Serta Meluncurkan Esports Dynamic Render Scaler Presisi pada `DisplayRefreshRateTouchCard.kt` (Preset 720p Esports Boost +40% FPS, 900p Balanced +20% FPS, dan Native Full Resolution Reset) dengan Perhitungan Aspek Rasio Otomatis Bebas Distorsi Teks**.
+> **Lynx Universal v7.0.0-RC157** (Lynx Kernel Manager v3.2.03): **Ekspansi Arsitektur GPU Silikon Universal & Studio Pipeline Compositor Android: Menghadirkan 2 Hardware Abstraction Layer (HAL) GPU Baru untuk Menjamin Kompatibilitas Menyeluruh pada Seluruh Lini Chipset Android Dunia â Samsung Exynos / Google Tensor / AMD RDNA Xclipse (`SamsungExynosXclipseAdapter.kt`) dengan Kontrol Devfreq Governor, Polling Interval, dan Sysfs OneUI/GKI `/sys/kernel/gpu/`, Serta Unisoc Spreadtrum (`UnisocSprdAdapter.kt`) dengan Scene-Frequency Governor & Scene Boost GPU; Menambahkan 3 Mikro-Tweak Silikon Mendalam pada GPU Qualcomm Adreno (`QualcommAdrenoAdapter.kt`): Adreno Touch-Wake (`wake_on_touch`) untuk Memangkas Latensi Input-to-Display, Supresi KGSL Crash Dumper (`snapshot_crashdumper`) untuk Mencegah Freeze/Stutter Saat Shader Glitch, dan Penguncian Batas Atas Clock (`max_pwrlevel`); Mengintegrasikan Panel Universal Compositor & Pipeline Memory Android pada `GraphicsDriverHwuiCard.kt` dengan Pengatur Alokasi VRAM Texture Cache HWUI (48MBâ128MB), Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`), dan Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`); Serta Meluncurkan Esports Dynamic Render Scaler Presisi pada `DisplayRefreshRateTouchCard.kt` (Preset 720p Esports Boost +40% FPS, 900p Balanced +20% FPS, dan Native Full Resolution Reset) dengan Perhitungan Aspek Rasio Otomatis Bebas Distorsi Teks**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC157)
 
-### 1. ⚡ 2 HAL Adapter GPU Baru: Samsung Exynos AMD RDNA Xclipse & Unisoc Spreadtrum
+### 1. â¡ 2 HAL Adapter GPU Baru: Samsung Exynos AMD RDNA Xclipse & Unisoc Spreadtrum
 - **Samsung Exynos & AMD RDNA Xclipse HAL (`SamsungExynosXclipseAdapter.kt`)**: Mendukung penuh chipset Samsung Exynos (Mali tradisional & AMD RDNA Xclipse 920/940 pada Exynos 2200/2400) serta Google Tensor G-series via `/sys/class/devfreq/*sgpu*` dan antarmuka OneUI kernel `/sys/kernel/gpu/` (governor, polling interval, power policy, clock booster, dan thermal throttling bypass).
 - **Unisoc Spreadtrum GPU HAL (`UnisocSprdAdapter.kt`)**: Mendukung lini SoC Unisoc T606, T612, T616, T618, T760, T820, dan SC9863A melalui antarmuka `scene-frequency` (`sprd-governor`, `scene_boost_gpu`) dan GPU platform devfreq.
 
-### 2. 🎮 3 Mikro-Tweak Silikon GPU Adreno Lanjutan (`QualcommAdrenoAdapter.kt`)
+### 2. ð® 3 Mikro-Tweak Silikon GPU Adreno Lanjutan (`QualcommAdrenoAdapter.kt`)
 - **Adreno Touch-Wake (`wake_on_touch`)**: Membangunkan GPU Adreno seketika saat digitizer layar mendeteksi sentuhan pertama sebelum frame pertama dirender, memangkas latensi input-to-display secara signifikan.
 - **Supresi KGSL Crash Dumper (`snapshot_crashdumper`)**: Menonaktifkan dump snapshot crash GPU agar tidak memicu freeze 1-2 detik saat game mengalami glitch shader kecil.
 - **Penguncian Batas Atas Clock (`max_pwrlevel`)**: Mengontrol level daya maksimum driver KGSL untuk pembatasan termal presisi atau pelepasan performa penuh.
 
-### 3. 🎨 Panel Universal Compositor & Pipeline Memory Android (`GraphicsDriverHwuiCard.kt`)
-- **Alokasi VRAM Texture Cache HWUI (48MB – 128MB)**: Selektor preset instan untuk `ro.hwui.texture_cache_size`, `ro.hwui.layer_cache_size`, dan `ro.hwui.path_cache_size` guna mengeliminasi stuttering saat scrolling aplikasi dengan gambar banyak.
+### 3. ð¨ Panel Universal Compositor & Pipeline Memory Android (`GraphicsDriverHwuiCard.kt`)
+- **Alokasi VRAM Texture Cache HWUI (48MB â 128MB)**: Selektor preset instan untuk `ro.hwui.texture_cache_size`, `ro.hwui.layer_cache_size`, dan `ro.hwui.path_cache_size` guna mengeliminasi stuttering saat scrolling aplikasi dengan gambar banyak.
 - **Asynchronous Shader Pre-Caching (`debug.hwui.use_gpu_pixel_buffers`)**: Kompilasi shader Vulkan/OpenGL secara asinkron di GPU untuk mencegah stutter saat efek grafis baru pertama kali muncul.
 - **Pure Hardware VSync Acceleration (`debug.cpurend.vsync=false`)**: Memaksa SurfaceFlinger menggunakan sinyal hardware VSync murni dari panel display dan mematikan fallback CPU rendering VSync.
 
-### 4. 🚀 Esports Dynamic Render Scaler Presisi (`DisplayRefreshRateTouchCard.kt`)
+### 4. ð Esports Dynamic Render Scaler Presisi (`DisplayRefreshRateTouchCard.kt`)
 - **Penskalaan Resolusi Cerdas**: Menyediakan 3 tombol preset instan (Native Full Res, 900p Balanced +20% FPS, dan 720p Esports +40% FPS) via `wm size` dan `wm density` AOSP.
 - **Proteksi Aspek Rasio Otomatis**: Menghitung rasio aspek vertikal secara dinamis berdasarkan resolusi fisik perangkat sehingga tidak terjadi peregangan (*stretching*) atau distorsi tampilan teks.
 - **Info Resolusi Real-time & Reset Aman**: Menampilkan status resolusi fisik vs aktif secara transparan dengan peringatan keamanan dan opsi reset 1-klik ke Native.
@@ -4112,35 +4128,35 @@ Released on: 2026-10-22
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC156)
 
-### 1. ⚡ 4 Mikro-Tweak Penjadwal Silikon Lanjutan (`CpuUnifiedSystemAccordions.kt`)
+### 1. â¡ 4 Mikro-Tweak Penjadwal Silikon Lanjutan (`CpuUnifiedSystemAccordions.kt`)
 - **Rotasi Inti Tugas Berat (Big Task Rotation / WALT)**: Mengaktifkan rotasi thread intensif antar-inti Big secara periodik (`/proc/sys/kernel/sched_walt_rotate_big_tasks`, `/proc/sys/kernel/sched_big_task_rotation`, atau `/proc/perfmgr/boost_ctrl/eas_ctrl/sched_big_task_rotation`). Hal ini mencegah satu inti silikon menerima beban terus-menerus yang dapat memicu akumulasi panas lokal (*thermal hotspot*) dan thermal throttling.
 - **Bangun Latensi Rendah (C-State Aware Scheduling)**: Menyesuaikan parameter `/proc/sys/kernel/sched_cstate_aware` agar kernel Linux memprioritaskan CPU yang sedang berada dalam status tidur dangkal (*shallow sleep*) saat ada interupsi sentuhan, sehingga memangkas latensi bangun CPU (*wake-up latency*) secara signifikan.
 - **Penjadwal Sadar Energi (Energy-Aware EAS Switch)**: Mengontrol status `/proc/sys/kernel/sched_energy_aware` dan `/sys/devices/system/cpu/eas/enable`. Pengguna dapat memilih kalkulasi biaya energi baterai cerdas (EAS Aktif) atau throughput mentah CFS tanpa batasan (*Pure Throughput Mode*) untuk skenario benchmark dan gaming kompetitif.
 - **Boost I/O Penyimpanan (Storage I/O Wait Boost)**: Menautkan saklar ke node governor schedutil/walt/sugov_ext (`/sys/devices/system/cpu/cpufreq/policy*/schedutil/iowait_boost_enable`) agar frekuensi clock CPU melonjak seketika saat proses membaca data besar dari media penyimpanan UFS/eMMC, memotong waktu *loading screen* pada game berat.
 
-### 2. 🎨 Desain Antarmuka Clean, Rapi, & Ergonomis (Anti-Clutter UX)
+### 2. ð¨ Desain Antarmuka Clean, Rapi, & Ergonomis (Anti-Clutter UX)
 - **Sub-Kartu Obsidian Kolapsibel**: Seluruh 4 mikro-tweak dikemas rapi di bawah kartu *Prioritas Frekuensi (EAS Boost)* dalam wadah `Surface` berlatar belakang Obsidian (`#10141F`) dengan border kaca halus (`0x18FFFFFF`).
-- **Pengungkapan Progresif (*Progressive Disclosure*)**: Tampilan default tetap bersih dan ringkas hanya menampilkan header dengan ikon tune dan deskripsi singkat. Saat diketuk, kartu meluncur terbuka (*glide open*) dengan animasi halus `AnimatedVisibility` (150–250ms).
+- **Pengungkapan Progresif (*Progressive Disclosure*)**: Tampilan default tetap bersih dan ringkas hanya menampilkan header dengan ikon tune dan deskripsi singkat. Saat diketuk, kartu meluncur terbuka (*glide open*) dengan animasi halus `AnimatedVisibility` (150â250ms).
 - **Target Sentuh Ergonomis & Touch-First**: Setiap toggle menggunakan komponen `LynxSwitch` terstandarisasi dengan touch target $\ge 48\text{ dp}$, penjelasan fungsi manusiawi yang mudah dipahami, serta debounce guard anti-race condition.
 
 ---
 
 # Lynx Universal [Authentic SurfaceFlinger FPS Layer Parser & Standalone Profile Fallback] 7.0.0-RC155
 Released on: 2026-10-22
-> **Lynx Universal v7.0.0-RC155** (Lynx Kernel Manager v3.2.01): **Penyempurnaan Kritis Mesin Telemetri Native Game HUD (Authentic SurfaceFlinger Present Time Engine & Multi-Tier Profile Fallback): Memperbaiki Masalah FPS dan Frame Time Bergaris (`— fps`, `— ms`) Melalui Pembersihan Nama Layer SurfaceFlinger Android 14/15 (`RequestedLayerState{...}`) Sebelum Kueri `--latency` Sehingga Menghasilkan 100% Data Waktu Hadir Hardware Murni Tanpa Angka Palsu; Menghilangkan Bug Pembersihan Kandidat Multi-Layer (`candidates.len() > 1`) Dengan Memilih Layer Render Teraktif Berdasarkan Timestamp Terkini Serta Memprioritaskan SurfaceView/BLAST; Mengaktifkan Deteksi Refresh Rate Otomatis (`display_hz`) Langsung Dari Header SurfaceFlinger; Mengatasi Label "Tidak Tersedia" Pada Mode Performa Dengan Sistem Fallback Berlapis (Memeriksa State Module, File `/data/adb/lynx/active_profile`, `config.json`, Serta Properti Sistem `lynx.mode`); Serta Memperbaiki Ekstraksi Suhu SoC Package (`msm-therm`, `quiet-therm`, `pm660`) dan Utilisasi Beban GPU Adreno**.
+> **Lynx Universal v7.0.0-RC155** (Lynx Kernel Manager v3.2.01): **Penyempurnaan Kritis Mesin Telemetri Native Game HUD (Authentic SurfaceFlinger Present Time Engine & Multi-Tier Profile Fallback): Memperbaiki Masalah FPS dan Frame Time Bergaris (`â fps`, `â ms`) Melalui Pembersihan Nama Layer SurfaceFlinger Android 14/15 (`RequestedLayerState{...}`) Sebelum Kueri `--latency` Sehingga Menghasilkan 100% Data Waktu Hadir Hardware Murni Tanpa Angka Palsu; Menghilangkan Bug Pembersihan Kandidat Multi-Layer (`candidates.len() > 1`) Dengan Memilih Layer Render Teraktif Berdasarkan Timestamp Terkini Serta Memprioritaskan SurfaceView/BLAST; Mengaktifkan Deteksi Refresh Rate Otomatis (`display_hz`) Langsung Dari Header SurfaceFlinger; Mengatasi Label "Tidak Tersedia" Pada Mode Performa Dengan Sistem Fallback Berlapis (Memeriksa State Module, File `/data/adb/lynx/active_profile`, `config.json`, Serta Properti Sistem `lynx.mode`); Serta Memperbaiki Ekstraksi Suhu SoC Package (`msm-therm`, `quiet-therm`, `pm660`) dan Utilisasi Beban GPU Adreno**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC155)
 
-### 1. ⚡ Resolusi Parsing Layer SurfaceFlinger Android 14/15 (Authentic FPS & Frame Time)
-- **Akar Masalah Terselesaikan**: Pada Android 14 dan Android 15, `dumpsys SurfaceFlinger --list` menghasilkan string berformat `RequestedLayerState{<layer_name> parentId=...}`. Sebelumnya, string mentah ini langsung dikirim ke `dumpsys SurfaceFlinger --latency`, menyebabkan SurfaceFlinger menolak kueri dan hanya mengembalikan periode refresh tanpa catatan frame (0 frames), sehingga FPS dan Frame Time selalu tampil sebagai tanda hubung (`— fps`, `— ms`).
+### 1. â¡ Resolusi Parsing Layer SurfaceFlinger Android 14/15 (Authentic FPS & Frame Time)
+- **Akar Masalah Terselesaikan**: Pada Android 14 dan Android 15, `dumpsys SurfaceFlinger --list` menghasilkan string berformat `RequestedLayerState{<layer_name> parentId=...}`. Sebelumnya, string mentah ini langsung dikirim ke `dumpsys SurfaceFlinger --latency`, menyebabkan SurfaceFlinger menolak kueri dan hanya mengembalikan periode refresh tanpa catatan frame (0 frames), sehingga FPS dan Frame Time selalu tampil sebagai tanda hubung (`â fps`, `â ms`).
 - **Sanitasi Layer Native Presisi (`clean_layer_name`)**: Daemon Rust kini secara otomatis membersihkan awalan `RequestedLayerState{` / `Layer{` dan membuang atribut metadata di akhir (`parentId=`, `relativeParentId=`, `z=`, `!handle`) sehingga layer bersih (`com.noir.lynx/com.noir.lynx.ui.MainActivity#...`, `com.android.chrome/...#...`) diproses sempurna oleh SurfaceFlinger dan menghasilkan 128 baris timestamp fisik aktual (`actualPresentTime`).
 - **Resolusi Cerdas Multi-Layer (Multi-Candidate Resolution)**: Menghapus logika lama yang keliru mereset layer menjadi `unsupported` saat `candidates.len() > 1`. Modul kini mengurutkan kandidat layer berdasarkan timestamp frame paling mutakhir (`b.0.cmp(&a.0)`), memberikan prioritas pada `SurfaceView` dan `BLAST`, serta mengambil layer rendering teraktif (`candidates.first()`).
 
-### 2. 🛡️ Mode Performa Mandiri & Fallback Cerdas (Zero "Tidak Tersedia")
+### 2. ð¡ï¸ Mode Performa Mandiri & Fallback Cerdas (Zero "Tidak Tersedia")
 - **Pendeteksian Profil Berlapis (`detect_active_profile`)**: Pada lingkungan Standalone Root (saat modul belum terpasang di Magisk/KernelSU), daemon native Rust secara otomatis memeriksa status profil dari `/data/adb/lynx/active_profile`, berkas konfigurasi `/data/adb/lynx/config.json`, atau properti sistem `getprop lynx.mode`.
 - **Sinkronisasi UI Kotlin**: Komponen UI `HudProfiles` dan `HudOverview` kini menggunakan fallback cerdas ke `LynxRepository.readCurrentProfileFast()` sehingga chip profil aktif (Seimbang, Kinerja, Ekstrem, Hemat Daya, Auto) selalu tampil nyata dan konsisten, tidak pernah lagi tertulis "Tidak tersedia".
 
-### 3. 📊 Metrik Telemetri Hardware Nyata Tambahan (Display Hz, SoC Temp, & GPU Load)
+### 3. ð Metrik Telemetri Hardware Nyata Tambahan (Display Hz, SoC Temp, & GPU Load)
 - **Pengukuran Refresh Rate Display Otomatis (`display_hz`)**: Mengambil nilai periode refresh fisik (misalnya $16.66\text{ ms} = 60\text{ Hz}$) langsung dari baris pertama kueri `--latency` SurfaceFlinger secara presisi tanpa ketergantungan API pihak ketiga.
 - **Deteksi Sensor Suhu SoC Lengkap**: Menambahkan pola pengenalan sensor suhu silikon SoC Snapdragon (`msm-therm`, `pm`, `quiet-therm`) sehingga `soc_temp` terbaca autentik pada chipset Qualcomm MSM/SDM/SM.
 - **Parsing Persentase GPU Adreno (`gpu_load`)**: Menambahkan pembersihan karakter `%` pada parsing string node sysfs Adreno (`/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage`) sehingga beban GPU Adreno terdeteksi secara akurat.
@@ -4153,15 +4169,15 @@ Released on: 2026-10-21
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC154)
 
-### 1. 🎯 Resolusi Masalah Ketukan Ikon HUD Dock (Dynamic WindowManager Layout Sizing)
+### 1. ð¯ Resolusi Masalah Ketukan Ikon HUD Dock (Dynamic WindowManager Layout Sizing)
 - **Akar Masalah Terselesaikan**: Sebelumnya jendela Game HUD diinisialisasi dengan ukuran handle tertutup (~120px) dan tidak memperbarui atribut jendela WindowManager saat laci bilah samping (sidebar) dibuka. Akibatnya, sentuhan pada ikon dock (seperti Kalkulator atau WhatsApp di x > 120px) dianggap sentuhan di luar jendela (*ACTION_OUTSIDE*) yang menembus ke aplikasi di bawahnya (seperti Chrome) dan menutup HUD.
 - **Pembaruan Dinamis Seketika**: `LynxFloatingHudService` kini secara reaktif memantau status `open` dan seketika menyesuaikan `params.width` ke ukuran penuh panel sidebar (`viewport.panelWidth * density`) saat dibuka, serta mengembalikannya ke `WRAP_CONTENT` saat tertutup. Seluruh sentuhan pada bilah dock kini 100% responsif, akurat, dan langsung meluncurkan aplikasi mengambang yang dipilih.
 
-### 2. ⌨️ Pembukaan Penuh Akses Keyboard Virtual IME Gboard (`FLAG_ALT_FOCUSABLE_IM` & Task Focus)
+### 2. â¨ï¸ Pembukaan Penuh Akses Keyboard Virtual IME Gboard (`FLAG_ALT_FOCUSABLE_IM` & Task Focus)
 - **Zero IME Blocking**: Menambahkan bendera `FLAG_ALT_FOCUSABLE_IM` pada semua lapisan overlay (`LynxFloatingHudService`, `LynxFloatingWindowManager`, dan `LynxCornerGrip`), memberitahukan WindowManager sistem bahwa overlay tidak mengganggu rantai fokus IME.
 - **Pemberian Fokus Tugas Atomik (`cmd activity task focus <taskId>`)**: Setelah jendela aplikasi diluncurkan dan diatur ukurannya, modul mengeksekusi pengalihan fokus input langsung ke task aplikasi mengambang tersebut. Mengetuk kolom teks atau pencarian (seperti bilah pencarian Pengaturan, pesan WhatsApp, atau input web) seketika memunculkan keyboard Gboard tanpa tertahan.
 
-### 3. 🪟 Integrasi Sempurna Siaran Asli LMO Freeform & AOSP Windowing Fallback
+### 3. ðª Integrasi Sempurna Siaran Asli LMO Freeform & AOSP Windowing Fallback
 - **Deteksi Cerdas LMO Freeform**: Modul memeriksa keberadaan paket `com.libremobileos.freeform`. Jika tersedia, peluncuran disinkronkan melalui siaran asli `START_FREEFORM` dengan parameter `packageName` dan `activityName` lengkap, sehingga memanfaatkan caption bar dan resize handle bawaan sistem secara mulus.
 - **Universal AOSP Fallback**: Pada ROM berbasis AOSP atau kustom lainnya, aplikasi dibuka via `am start -n <cmp> --windowingMode 5` dengan penyesuaian ukuran dan penempatan sudut cerdas tanpa konflik mount atau crash.
 
@@ -4173,22 +4189,22 @@ Released on: 2026-10-21
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC153)
 
-### 1. 🪟 Arsitektur Multi-Window Asli Real-App Bebas Halangan (`LynxFreeformManager.kt`)
+### 1. ðª Arsitektur Multi-Window Asli Real-App Bebas Halangan (`LynxFreeformManager.kt`)
 - **Aplikasi Asli Sistem (Real Applications)**: Aplikasi asli yang terpasang di perangkat (WhatsApp, Chrome, YouTube, Telegram, Discord, dll.) dibuka dalam mode *Freeform* (`cmd activity start-activity --windowingMode 5 -n <cmp>`).
 - **Pelacakan Task ID Instan & Presisi**: Mengambil identitas task aktif secara atomik dari `dumpsys activity activities | grep -E 'Task{.*mode=freeform'` dan langsung menerapkan preset ukuran awal secara instan via `cmd activity task resizeable <taskId> 3; cmd activity task resize <taskId> <l> <t> <r> <b>`.
 
-### 2. 🎯 Tactical Corner Grip & Throttled Live Resizer (`FreeformCornerGrip.kt`)
+### 2. ð¯ Tactical Corner Grip & Throttled Live Resizer (`FreeformCornerGrip.kt`)
 - **Zero Fullscreen Blocking**: Berbeda dari overlay sebelumnya yang menutupi seluruh layar, *Corner Grip* hanya menempati pojok kanan bawah jendela aplikasi sebesar $48\times 48\text{ dp}$. Seluruh area aplikasi (99.9% layar) bebas 100% dari overlay sehingga mengetik keyboard, scrolling, dan interaksi game berjalan dengan responsivitas asli 0.00ms.
 - **Throttled Live Resizer (Anti-Stutter)**: Saat sudut jendela digeser dengan jari, perintah root `cmd activity task resize` dibatasi ke interval 35ms (30 FPS) menggunakan Coroutines Job sehingga bebas dari kemacetan antrean `su`, dan posisi final di-commit secara presisi saat jari dilepas.
 - **Bilah Presets 1-Ketuk (1-Tap Quick Presets Pill)**: Mengetuk sudut grip menampilkan menu melayang instan:
   - `[ 55% ]`: Preset Kompak cepat.
   - `[ 70% ]`: Preset Standar ergonomis.
   - `[ 85% ]`: Preset Lebar multi-tasking.
-  - `[ ▢ ]`: Maksimalkan / Pulihkan ukuran.
+  - `[ â¢ ]`: Maksimalkan / Pulihkan ukuran.
   - `[ _ ]`: Minimalkan ke gelembung melayang di tepi layar.
-  - `[ ✕ ]`: Tutup task secara bersih via `cmd activity task kill` & `am force-stop`.
+  - `[ â ]`: Tutup task secara bersih via `cmd activity task kill` & `am force-stop`.
 
-### 3. ⚡ Dukungan Multi-App Multitasking Simultan & Minimized Bubble Dock
+### 3. â¡ Dukungan Multi-App Multitasking Simultan & Minimized Bubble Dock
 - **Dukungan Banyak Aplikasi Sekaligus**: Setiap aplikasi mengambang yang dibuka memiliki *Corner Anchor*-nya sendiri tanpa saling berbenturan.
 - **Minimized Bubble Dock**: Aplikasi yang diminimalkan tersimpan rapi sebagai gelembung ramping di tepi layar dan dapat dipulihkan seketika dengan 1 ketukan.
 
@@ -4196,47 +4212,47 @@ Released on: 2026-10-21
 
 # Lynx Universal [Standalone Overlay Floating Window Studio & Freeform Multi-Engine] 7.0.0-RC152
 Released on: 2026-10-21
-> **Lynx Universal v7.0.0-RC152** (Lynx Kernel Manager v3.1.98): **Implementasi Penuh Arsitektur Jendela Mengambang Mandiri (Standalone Overlay Floating Window Studio) & Penyempurnaan Mesin Peluncuran Ganda (Dual-Engine System): Menghadirkan Jendela Mengambang Mandiri (Standalone Overlay Window) Berbasis `WindowManager` & Jetpack Compose yang Berjalan 100% Imun Terhadap Keterbatasan OEM Freeform Maupun Pembatasan ROM; Dilengkapi Fitur Ubah Ukuran Dinamis (Interactive Corner Resize Grip) di Sudut Kanan Bawah dengan Pembatasan Batas Halus (Smooth Bounds Clamping); Mendukung Gerakan Seret Presisi (Draggable Window Header), Pengatur Transparansi Multi-Tingkat (100%, 80%, 60%, 40% Opacity Cycle), Pengalih Preset Cepat (Kompak, Standar, Lebar), Serta Minimized Bubble Pill yang Ramping di Tepi Layar; Mengintegrasikan 4 Alat Taktis Bawaan (Built-in Power Tools) di Dalam Jendela Mengambang Meliputi In-Game Web Browser & Wiki Interaktif dengan Bookmark Game Cepat, Kalkulator Game & Formula DPS/EHP/CDR, Catatan Taktis Game dengan Penyimpanan Persisten, Serta Countdown Timer Objektif (Turtle, Lord, Dragon, Flash, Cleanse, Ult); Memperbaiki Logika Peluncuran System Freeform Bawaan dengan Eksekusi Langsung Root `cmd package resolve-activity` dan `am start --windowingMode 5` Sesuai Mekanisme Terbukti pada Versi Awal; Serta Menghadirkan Pengalih Mode Mesin (⚡ Standalone Studio vs 🪟 System Freeform) Langsung Pada Header Dock Bilah Samping Maupun Subscreen Game HUD**.
+> **Lynx Universal v7.0.0-RC152** (Lynx Kernel Manager v3.1.98): **Implementasi Penuh Arsitektur Jendela Mengambang Mandiri (Standalone Overlay Floating Window Studio) & Penyempurnaan Mesin Peluncuran Ganda (Dual-Engine System): Menghadirkan Jendela Mengambang Mandiri (Standalone Overlay Window) Berbasis `WindowManager` & Jetpack Compose yang Berjalan 100% Imun Terhadap Keterbatasan OEM Freeform Maupun Pembatasan ROM; Dilengkapi Fitur Ubah Ukuran Dinamis (Interactive Corner Resize Grip) di Sudut Kanan Bawah dengan Pembatasan Batas Halus (Smooth Bounds Clamping); Mendukung Gerakan Seret Presisi (Draggable Window Header), Pengatur Transparansi Multi-Tingkat (100%, 80%, 60%, 40% Opacity Cycle), Pengalih Preset Cepat (Kompak, Standar, Lebar), Serta Minimized Bubble Pill yang Ramping di Tepi Layar; Mengintegrasikan 4 Alat Taktis Bawaan (Built-in Power Tools) di Dalam Jendela Mengambang Meliputi In-Game Web Browser & Wiki Interaktif dengan Bookmark Game Cepat, Kalkulator Game & Formula DPS/EHP/CDR, Catatan Taktis Game dengan Penyimpanan Persisten, Serta Countdown Timer Objektif (Turtle, Lord, Dragon, Flash, Cleanse, Ult); Memperbaiki Logika Peluncuran System Freeform Bawaan dengan Eksekusi Langsung Root `cmd package resolve-activity` dan `am start --windowingMode 5` Sesuai Mekanisme Terbukti pada Versi Awal; Serta Menghadirkan Pengalih Mode Mesin (â¡ Standalone Studio vs ðª System Freeform) Langsung Pada Header Dock Bilah Samping Maupun Subscreen Game HUD**.
 
 ## Rangkuman Fitur & Arsitektur Baru (7.0.0-RC152)
 
-### 1. 🪟 Arsitektur Jendela Mengambang Mandiri (`LynxFloatingWindowManager.kt` & `FloatingWindowFrame.kt`)
+### 1. ðª Arsitektur Jendela Mengambang Mandiri (`LynxFloatingWindowManager.kt` & `FloatingWindowFrame.kt`)
 - **Standalone Overlay Window**: Berjalan di atas sesi permainan melalui Android `WindowManager` (`TYPE_APPLICATION_OVERLAY`) tanpa mengganggu atau memutus fokus game.
-- **Interaktif Ubah Ukuran (Corner Resize Handle)**: Hadir dengan pegangan sudut (grip handle) di pojok kanan-bawah yang dapat digeser secara sentuhan bebas untuk mengubah lebar dan tinggi jendela secara *real-time* dengan batasan aman ($250\text{–}600\text{ dp}$ lebar, $220\text{–}800\text{ dp}$ tinggi).
+- **Interaktif Ubah Ukuran (Corner Resize Handle)**: Hadir dengan pegangan sudut (grip handle) di pojok kanan-bawah yang dapat digeser secara sentuhan bebas untuk mengubah lebar dan tinggi jendela secara *real-time* dengan batasan aman ($250\text{â}600\text{ dp}$ lebar, $220\text{â}800\text{ dp}$ tinggi).
 - **Pengatur Transparansi (Opacity Cycle)**: Tombol 1-ketuk untuk mengganti transparansi jendela ($100\% \to 80\% \to 60\% \to 40\%$) sehingga pemain tetap dapat melihat pergerakan musuh di balik panduan peta atau kalkulator.
 - **Minimized Bubble Pill**: Dapat diminimalkan menjadi gelembung mengambang ramping berukuran $52\times 52\text{ dp}$ di tepi layar yang dapat diketuk kapan saja untuk kembali ke ukuran semula.
 
-### 2. ⚡ 4 Alat Bawaan Game Booster di Dalam Jendela Mengambang
-1. **🌐 In-Game Web Browser & Wiki Hub (`FloatingBrowserTool.kt`)**: Browser perangkat keras berbasis `WebView` dengan navigasi lengkap (Maju, Mundur, Refresh, Input URL) dan tombol pintas panduan game (Genshin Interactive Map, MLBB Wiki, Game8 Guides, YouTube Gaming, Google Search) tanpa meninggalkan game.
-2. **🧮 Kalkulator Game & Formula DPS/EHP (`FloatingCalculatorTool.kt`)**: Kalkulator lengkap disertai formula stat game instan seperti *Damage Reduction (DR%)*, *Cooldown Reduction (CDR%)*, dan *Effective HP (EHP)*.
-3. **📝 Catatan Taktis Persisten (`FloatingNotesTool.kt`)**: Kertas coretan catatan taktis dengan penyimpanan otomatis lokal, penghitung karakter, tombol salin/hapus, dan chip makro stempel waktu instan (`[Flash 5m]`, `[Lord 8m]`, `[Turtle 2m]`, `[Ult 60s]`).
-4. **⏱️ Timer Objektif Real-Time (`FloatingTimersTool.kt`)**: Penghitung mundur multi-objektif dengan bilah progres berwarna, tombol putar/jeda/ulang, dan getaran notifikasi saat respawn tiba.
+### 2. â¡ 4 Alat Bawaan Game Booster di Dalam Jendela Mengambang
+1. **ð In-Game Web Browser & Wiki Hub (`FloatingBrowserTool.kt`)**: Browser perangkat keras berbasis `WebView` dengan navigasi lengkap (Maju, Mundur, Refresh, Input URL) dan tombol pintas panduan game (Genshin Interactive Map, MLBB Wiki, Game8 Guides, YouTube Gaming, Google Search) tanpa meninggalkan game.
+2. **ð§® Kalkulator Game & Formula DPS/EHP (`FloatingCalculatorTool.kt`)**: Kalkulator lengkap disertai formula stat game instan seperti *Damage Reduction (DR%)*, *Cooldown Reduction (CDR%)*, dan *Effective HP (EHP)*.
+3. **ð Catatan Taktis Persisten (`FloatingNotesTool.kt`)**: Kertas coretan catatan taktis dengan penyimpanan otomatis lokal, penghitung karakter, tombol salin/hapus, dan chip makro stempel waktu instan (`[Flash 5m]`, `[Lord 8m]`, `[Turtle 2m]`, `[Ult 60s]`).
+4. **â±ï¸ Timer Objektif Real-Time (`FloatingTimersTool.kt`)**: Penghitung mundur multi-objektif dengan bilah progres berwarna, tombol putar/jeda/ulang, dan getaran notifikasi saat respawn tiba.
 
-### 3. 🛠️ Pemulihan Logika Peluncuran System Freeform Bawaan (`HudController.kt`)
+### 3. ð ï¸ Pemulihan Logika Peluncuran System Freeform Bawaan (`HudController.kt`)
 - Mengembalikan mekanisme eksekusi langsung via *Root Shell* (`cmd package resolve-activity --brief <pkg>` dilanjutkan `am start -n <cmp> --windowingMode 5`) tanpa melewati perantara `context.startActivity` yang kerap memicu paksaan layar penuh pada Android 14/15.
-- Pengguna dapat memilih bebas antara mode **⚡ Standalone Studio** (direkomendasikan) atau **🪟 System Freeform** langsung dari header dock bilah samping maupun menu pengaturan HUD.
+- Pengguna dapat memilih bebas antara mode **â¡ Standalone Studio** (direkomendasikan) atau **ðª System Freeform** langsung dari header dock bilah samping maupun menu pengaturan HUD.
 
 ---
 
 # Lynx Universal [Dynamic Freeform Window Engine & Dock Apps Resizing Architecture] 7.0.0-RC151
 Released on: 2026-10-21
-> **Lynx Universal v7.0.0-RC151** (Lynx Kernel Manager v3.1.97): **Implementasi Mesin Peluncur Jendela Mengambang (Dynamic Freeform Window Engine) & Pengatur Ukuran Multi-Tasking Fleksibel untuk Aplikasi Dock Game HUD: Menghadirkan Kemampuan Membuka Seluruh Aplikasi Dock Cepat (WhatsApp, Chrome, YouTube, Telegram, Discord, Kalkulator) Langsung Sebagai Jendela Mengambang (Floating Window) di Atas Sesi Permainan; Dilengkapi Penghitung Batas Layar Dinamis (`ActivityOptions.setLaunchBounds` & `WINDOWING_MODE_FREEFORM = 5`) Serta Fallback Root Shell `am start --windowingMode 5`; Menyediakan 3 Preset Ukuran Fleksibel (Kompak 55%×50%, Standar 70%×65%, Lebar 85%×80%) dan Mode Kustom Presisi dengan Slider Lebar & Tinggi Bebas; Memasang Pengalih Cepat Preset Pada Header Dock HUD; Menambahkan Kartu Konfigurasi Khusus Pada Subscreen HUD; Serta Mengintegrasikan Eksekusi Otomatis Paksa Freeform Sistem (`settings put global enable_freeform_support 1` & `force_resizable_activities 1`) Demi Menjamin Seluruh Aplikasi Dapat Diubah Ukurannya Secara Mulus dan Stabil**.
+> **Lynx Universal v7.0.0-RC151** (Lynx Kernel Manager v3.1.97): **Implementasi Mesin Peluncur Jendela Mengambang (Dynamic Freeform Window Engine) & Pengatur Ukuran Multi-Tasking Fleksibel untuk Aplikasi Dock Game HUD: Menghadirkan Kemampuan Membuka Seluruh Aplikasi Dock Cepat (WhatsApp, Chrome, YouTube, Telegram, Discord, Kalkulator) Langsung Sebagai Jendela Mengambang (Floating Window) di Atas Sesi Permainan; Dilengkapi Penghitung Batas Layar Dinamis (`ActivityOptions.setLaunchBounds` & `WINDOWING_MODE_FREEFORM = 5`) Serta Fallback Root Shell `am start --windowingMode 5`; Menyediakan 3 Preset Ukuran Fleksibel (Kompak 55%Ã50%, Standar 70%Ã65%, Lebar 85%Ã80%) dan Mode Kustom Presisi dengan Slider Lebar & Tinggi Bebas; Memasang Pengalih Cepat Preset Pada Header Dock HUD; Menambahkan Kartu Konfigurasi Khusus Pada Subscreen HUD; Serta Mengintegrasikan Eksekusi Otomatis Paksa Freeform Sistem (`settings put global enable_freeform_support 1` & `force_resizable_activities 1`) Demi Menjamin Seluruh Aplikasi Dapat Diubah Ukurannya Secara Mulus dan Stabil**.
 
 ## Rangkuman Fitur & Arsitektur Jendela Mengambang Baru (7.0.0-RC151)
 
-### 1. 🚀 Mesin Peluncur Freeform Multi-Window Cerdas (`HudController.kt`)
+### 1. ð Mesin Peluncur Freeform Multi-Window Cerdas (`HudController.kt`)
 - **Peluncuran Jendela Mengambang Mulus**: Saat pengguna mengetuk ikon aplikasi di dock HUD saat game berlangsung, sistem secara otomatis meluncurkannya dalam mode *Freeform Floating Window* alih-alih layar penuh.
 - **Kombinasi Multi-Lapisan**: Memadukan `ActivityOptions.setLaunchBounds(bounds)`, refleksi `setLaunchWindowingMode(5)`, bendera `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK`, dan properti OEM (`miui.action.EXTRA_IS_FLOATING_WINDOW`, `is_floating_window`) dengan fallback *Root Shell* (`am start -n <cmp> --windowingMode 5 --bounds <bounds>`) untuk memastikan keandalan 100% pada berbagai ROM Android (AOSP, MIUI/HyperOS, Transsion XOS, ColorOS).
 
-### 2. 📐 Kontrol Ukuran Fleksibel & Pengalih Cepat di Dock HUD (`HudPanelHeader.kt` & `HudPreferences.kt`)
-- **Pengalih Cepat Satu Sentuhan di Dock HUD**: Di bagian atas daftar aplikasi dock, hadir lencana status mengambang interaktif (`[ ⛶ Standar (70%) ]`). Mengetuk lencana langsung menggulir preset ukuran instan (*Kompak $	o$ Standar $	o$ Lebar*) tanpa perlu keluar dari game.
+### 2. ð Kontrol Ukuran Fleksibel & Pengalih Cepat di Dock HUD (`HudPanelHeader.kt` & `HudPreferences.kt`)
+- **Pengalih Cepat Satu Sentuhan di Dock HUD**: Di bagian atas daftar aplikasi dock, hadir lencana status mengambang interaktif (`[ â¶ Standar (70%) ]`). Mengetuk lencana langsung menggulir preset ukuran instan (*Kompak $	o$ Standar $	o$ Lebar*) tanpa perlu keluar dari game.
 - **Spektrum 3 Preset Ergonomis**:
-  1. *Kompak (55% × 50%)*: Optimal untuk percakapan singkat WhatsApp/Telegram dan perhitungan cepat kalkulator tanpa menghalangi visual game.
-  2. *Standar (70% × 65%)*: Ukuran seimbang untuk membaca panduan browser Chrome, media YouTube, atau chat Discord.
-  3. *Lebar (85% × 80%)*: Pengalaman multi-tasking komprehensif saat rehat match game.
+  1. *Kompak (55% Ã 50%)*: Optimal untuk percakapan singkat WhatsApp/Telegram dan perhitungan cepat kalkulator tanpa menghalangi visual game.
+  2. *Standar (70% Ã 65%)*: Ukuran seimbang untuk membaca panduan browser Chrome, media YouTube, atau chat Discord.
+  3. *Lebar (85% Ã 80%)*: Pengalaman multi-tasking komprehensif saat rehat match game.
 
-### 3. 🛠️ Kartu Konfigurasi Floating Windows & Slider Presisi (`GameHudSubscreen.kt`)
-- **Kartu Khusus Pengaturan Dock Floating Windows**: Menyediakan master toggle aktivasi, seleksi 4 preset ukuran, dan penggeser slider kustom presisi (*Lebar 35%–95%* dan *Tinggi 35%–90%*).
+### 3. ð ï¸ Kartu Konfigurasi Floating Windows & Slider Presisi (`GameHudSubscreen.kt`)
+- **Kartu Khusus Pengaturan Dock Floating Windows**: Menyediakan master toggle aktivasi, seleksi 4 preset ukuran, dan penggeser slider kustom presisi (*Lebar 35%â95%* dan *Tinggi 35%â90%*).
 - **Tombol Paksa Freeform Sistem (Root)**: Menyediakan tombol 1-sentuh untuk mengeksekusi `settings put global enable_freeform_support 1` dan `settings put global force_resizable_activities 1` secara permanen, sehingga aplikasi yang semula melarang multi-window pun dapat dipaksa berjalan dalam jendela mengambang yang dapat diubah ukurannya.
 
 ---
@@ -4247,19 +4263,19 @@ Released on: 2026-10-21
 
 ## Rangkuman Redesain & Peningkatan Estetika (7.0.0-RC150)
 
-### 1. 🎮 Bento Hero Performance Card (`HudOverview.kt`)
-- **Struktur Bersatu & Presisi**: Mengeliminasi teks status mentah yang tercecer dan menggantinya dengan kartu performa Bento terpadu. Sisi kiri menyajikan counter FPS monolitik berdigit besar dengan indikator status siaga/aktif titik bulat (`●`), dipisahkan garis vertikal kaca halus dari sisi kanan yang memuat metrik Frame Time (`ms`) dan Display Refresh Rate (`Hz`).
+### 1. ð® Bento Hero Performance Card (`HudOverview.kt`)
+- **Struktur Bersatu & Presisi**: Mengeliminasi teks status mentah yang tercecer dan menggantinya dengan kartu performa Bento terpadu. Sisi kiri menyajikan counter FPS monolitik berdigit besar dengan indikator status siaga/aktif titik bulat (`â`), dipisahkan garis vertikal kaca halus dari sisi kanan yang memuat metrik Frame Time (`ms`) dan Display Refresh Rate (`Hz`).
 - **Eliminasi Teks Duplikat**: Menghapus teks "Tidak tersedia" yang berulang secara canggung pada status siaga, menggantikannya dengan tipografi monospace bergradasi kontras yang tenang dan elegan.
 
-### 2. ⚡ Dual Precision Tachometer Gauges CPU & GPU (`HudOverview.kt`)
+### 2. â¡ Dual Precision Tachometer Gauges CPU & GPU (`HudOverview.kt`)
 - **Estetika Cyber Tachometer Konsol**: Piringan pengukur beban CPU dan GPU kini menampilkan busur ganda bercahaya halus (*halo glow*) beraksen dinamis profil (Oranye Amber Gaming untuk Kinerja/Extreme, Hijau Emerald Eco untuk Hemat, dan Cyan Cyber Mint untuk Seimbang).
 - **Kapsul Frekuensi Silikon**: Di bawah piringan persentase beban, hadir kapsul berpenanda frekuensi clock fisik (`MHz`) dalam font monospace semi-bold yang rapi.
 
-### 3. 🎯 Segmented Profile Pill & Matriks 4 Alat Cepat (`HudProfiles.kt` & `HudOverview.kt`)
+### 3. ð¯ Segmented Profile Pill & Matriks 4 Alat Cepat (`HudProfiles.kt` & `HudOverview.kt`)
 - **Kontrol Profil Bersegmen**: Mengganti pilihan profil datar dengan bilah bersegmen (*segmented pill bar*) berkapsul elevated. Pilihan aktif memancarkan pendaran warna aksen lembut dengan umpan balik sentuhan instan.
 - **Matriks 4 Alat Cepat Premium**: 4 tombol alat cepat (Tangkap Layar, Display Hz, Bersihkan RAM, dan Alat Lengkap) kini dilengkapi wadah squircle ikon berpenanda warna aksen fungsional, label primer semi-bold, dan sublabel penjelas yang rapi dengan target sentuh setidaknya 48dp.
 
-### 4. 💎 Header Kapsul & Dock Aplikasi Frosted Glass (`HudPanelHeader.kt`)
+### 4. ð Header Kapsul & Dock Aplikasi Frosted Glass (`HudPanelHeader.kt`)
 - **Header Terpadu**: Mengganti teks aplikasi yang redundan dengan penanda status konsol gaming modern, persentase baterai ringkas tanpa spasi ganjil (`15%`), jam digital monospace, dan tombol tutup melingkar minimalis.
 - **Dock Aplikasi Kapsul**: Ikon aplikasi cepat kini tertata rapi di dalam dock horizontal frosted glass berkontur squircle dengan batas halus yang nyaman disentuh.
 
@@ -4271,14 +4287,14 @@ Released on: 2026-10-21
 
 ## Rangkuman Perbaikan & Redesain HUD (7.0.0-RC149)
 
-### 1. 🚀 Solusi Tuntas Masalah HUD Tidak Bisa Dibuka (`HudMiniSettings.kt` & `GameHudSubscreen.kt`)
+### 1. ð Solusi Tuntas Masalah HUD Tidak Bisa Dibuka (`HudMiniSettings.kt` & `GameHudSubscreen.kt`)
 - **Akar Masalah**: Evaluasi tata letak `HudMiniSettings` sebelumnya memuat 19 `BoxWithConstraints` bersarang dan 18 pengukuran teks `TextMeasurer` berturut-turut di dalam item `LazyColumn`. Hal ini memicu loop rekursi layout Compose (*re-entrancy measurement loop*) dan kehabisan memori grafis saat pengguna menavigasi ke tab HUD, menyebabkan layar membeku (*freeze*).
 - **Arsitektur Bento Baru**: Mengganti total implementasi subscreen HUD dengan standar komponen Bento native Lynx (`LynxCard`, `AccentCyan`, `AccentOrange`, switch modern), memisahkan Kartu Master Aktivasi & Izin Overlay, Kartu Pemilihan Mode Tampilan (Bilah Samping vs OSD Klasik 6 Gaya), dan Matriks Pilihan Metrik ringan tanpa beban layout dinamis.
 
-### 2. 👆 Responsivitas Sentuhan Gagang Mini Overlay (`HudMiniOverlay.kt`)
+### 2. ð Responsivitas Sentuhan Gagang Mini Overlay (`HudMiniOverlay.kt`)
 - **Eliminasi Konflik Gestur**: Memisahkan modifier `.clickable` yang sebelumnya tertelan oleh `pointerInput { detectDragGestures }`. Menghadirkan blok `detectTapGestures(onTap = { onOpen() })` independen serta akumulator pergeseran horizontal (`accDx > 12f`) sehingga gagang HUD dapat dibuka dengan ketukan santai satu jari maupun sapuan geser (*swipe-to-open*) yang mulus.
 
-### 3. 🎮 Konsol Bilah Samping XBOOST & 4 Alat Cepat (`HudOverview.kt` & `HudPanelHeader.kt`)
+### 3. ð® Konsol Bilah Samping XBOOST & 4 Alat Cepat (`HudOverview.kt` & `HudPanelHeader.kt`)
 - **Indikator Waktu Real-Time**: Header panel bilah samping kini menampilkan jam sistem langsung (`HH:mm`) berdampingan dengan persentase baterai.
 - **Dual Concentric Dynamic Gauges**: Piringan pengukur beban dan clock CPU & GPU kini mengadopsi warna busur dinamis adaptif profil: Oranye Menyala (`#FFFF7A00`) saat Profil Kinerja/Extreme aktif, Hijau Segar (`#FF00E676`) saat Profil Hemat, dan Cyber Cyan (`#FF58E5D1`) saat Profil Seimbang.
 - **Matriks 4 Alat Cepat**: Menghadirkan tombol aksi cepat ergonomis dengan target sentuh setidaknya 48dp:
@@ -4295,17 +4311,17 @@ Released on: 2026-10-21
 
 ## Rangkuman Fitur & Arsitektur Diagnostik Baru (7.0.0-RC148)
 
-### 1. 🚨 Smart Crash Alert Banner Proaktif di Dashboard Utama (`DashboardTabContent.kt`)
+### 1. ð¨ Smart Crash Alert Banner Proaktif di Dashboard Utama (`DashboardTabContent.kt`)
 - **Deteksi Otomatis Saat Boot**: Saat aplikasi Companion dibuka pasca-reboot, sistem membaca `sys.boot.reason` dan `SYSTEM_LAST_KMSG` secara asinkron. Jika ditemukan tanda *kernel panic, watchdog, oops*, atau *die*, banner peringatan visual bertema *Crimson OLED Alert* otomatis muncul di bawah header dashboard.
 - **Transparansi Hardware**: Banner langsung memaparkan alasan boot abnormal dan fungsi kernel yang mengalami crash (misalnya `pc: shrink_page_list+0x120/0x1810`), dengan tombol 1-sentuh untuk langsung membuka subscreen forensik terkait atau tombol tutup (*dismiss*) tanpa memicu notifikasi berulang.
 
-### 2. 🗂️ 4 Tab Kategori Pusat Log & Forensik Sistem (`LogDiagnosticsSubscreen.kt`)
+### 2. ðï¸ 4 Tab Kategori Pusat Log & Forensik Sistem (`LogDiagnosticsSubscreen.kt`)
 - **Tab 1: Kernel Panic & Last Kmsg**: Menganalisis riwayat crash kernel terdahulu melalui rantai prioritas bertingkat (`dumpsys dropbox SYSTEM_LAST_KMSG` $\to$ `/sys/fs/pstore/console-ramoops-0` $\to$ `/proc/last_kmsg`). Dilengkapi status badge (Normal vs Panic) dan terminal viewer teks lengkap dengan tombol salin.
 - **Tab 2: Android Crash & ANR Dropbox**: Memilah entri crash level user-space dari `dumpsys dropbox` (`data_app_crash`, `data_app_anr`, `system_server_crash`). Menampilkan daftar kartu insiden bersih dengan timestamp, nama paket, PID, dan subject crash. Mengetuk kartu membuka *Modal Bottom Sheet* yang menyajikan stack trace lengkap tanpa memotong baris.
 - **Tab 3: Daemon & Engine Lynx**: Menyajikan telemetri operasional daemon Rust `lynxd` (`/data/adb/modules/Lynx/logs/lynxd.log`), mencatat setiap transisi profil AI, event charging bypass, dan status watchdog nirkabel, lengkap dengan chip filter cepat (*Semua, Hanya Error, Profil, Baterai*).
 - **Tab 4: Live Dmesg Ring Buffer**: Menampilkan buffer sirkular kernel Linux terkini dengan filter teks pencarian langsung dan penyegaran instan.
 
-### 3. 📦 Generator Paket Diagnostik 1-Klik & Ringkasan Cepat (`LogDiagnosticsRepository.kt`)
+### 3. ð¦ Generator Paket Diagnostik 1-Klik & Ringkasan Cepat (`LogDiagnosticsRepository.kt`)
 - **Paket ZIP Forensik Lengkap**: Tombol *"Ekspor Laporan ZIP"* mengompresi 6 berkas esensial (`00_BOOT_SUMMARY.txt`, `01_KERNEL_LAST_KMSG.txt`, `02_ANDROID_DROPBOX_CRASHES.txt`, `03_LYNX_DAEMON_LOG.txt`, `04_DMESG_RING_BUFFER.txt`, dan `05_DEVICE_PROPERTIES.txt`) ke direktori `/sdcard/Lynx/Diagnostics/` dan memicu `Intent.ACTION_SEND` native Android (Share Sheet) untuk kemudahan pengiriman ke pengembang, komunitas Telegram, atau GitHub Issues.
 - **Salin Ringkasan Cepat**: Tombol *"Salin Ringkasan"* memformat intisari krusial perangkat (Model, Chipset, Kernel, Boot Reason, dan Panic Signature) dalam teks ringkas yang rapi ke clipboard sistem dalam satu ketukan.
 
@@ -4317,12 +4333,12 @@ Released on: 2026-10-21
 
 ## Rangkuman Perbaikan & Investigasi Forensik (7.0.0-RC147)
 
-### 1. 🔍 Investigasi Forensik Random Reboot Layar Mati (Deep Sleep Failure)
+### 1. ð Investigasi Forensik Random Reboot Layar Mati (Deep Sleep Failure)
 - **Akar Masalah Utama**: Pada fungsi `ScreenDetector::detect()` di `native/lynxd/src/daemon/screen.rs`, ketika nilai `brightness` terbaca `0` (layar mati), kode memiliki komentar *"Fall through to verify if b == 0 is real"*, sehingga eksekusi jatuh ke Tier 4 Fallback (`dumpsys power`). Di dalam loop `runner.rs`, deteksi layar dieksekusi setiap 500ms saat layar mati, memicu pemanggilan proses Java Binder `/system/bin/dumpsys power` sebanyak **120 kali per menit (7.200 kali per jam)**!
 - **Dampak Fatal**: CPU Snapdragon tidak pernah bisa masuk ke status tidur lelap (*Deep Sleep / C-States*), baterai lambat terisi (stuck di 98%), dan setelah ~1 jam antrean Binder / Watchdog Android memicu *kernel panic / system_server reboot*.
 - **Solusi Tuntas**: Ketika nilai brightness bernilai 0, sistem langsung mengembalikan `ScreenState::Off` dalam 0.03ms melalui pembacaan sysfs tanpa fork proses. Interval pemeriksaan layar saat deep sleep juga diperpanjang menjadi 1000ms untuk meminimalkan beban CPU.
 
-### 2. 📡 Persistensi Kunci Port ADB Nirkabel 5555 (`adb.rs`)
+### 2. ð¡ Persistensi Kunci Port ADB Nirkabel 5555 (`adb.rs`)
 - **Akar Masalah Port 5555 Mati Pasca-Reboot**: Android secara default menghentikan listener TCP port 5555 saat boot ulang dan beralih ke mode USB-only. Pada implementasi sebelumnya, `setprop_persistent()` menggunakan flag `-n` (`resetprop -n`) yang sengaja mengabaikan penyimpanan persisten. Selain itu, konfigurasi `adb_keepalive.enabled` berstatus `false` secara default.
 - **Solusi**: Mengganti eksekusi ke `resetprop -p` agar properti tersimpan permanen di `/data/property/persistent_properties`, serta menetapkan `adb_keepalive.enabled = true` secara default di `config_store.rs` dan `config.json` agar `adbd` langsung mengikat port 5555 pada setiap cold boot.
 
@@ -4334,24 +4350,24 @@ Released on: 2026-10-21
 
 ## Rangkuman Redesain & Peningkatan Arsitektur (7.0.0-RC146)
 
-### 1. 🛡️ Kenyamanan Psikologis Pengguna & Rekayasa Hero Telemetri (`CpuHardwareMonitorCard.kt`)
+### 1. ð¡ï¸ Kenyamanan Psikologis Pengguna & Rekayasa Hero Telemetri (`CpuHardwareMonitorCard.kt`)
 - **Pelepasan Beban Alarm Core 0**: Mengganti dialog peringatan yang menakutkan (*"Mematikan Core 0 akan memicu kernel panic seketika"*) menjadi dialog penjelas yang menenangkan (*"Core 0 berfungsi sebagai Master Core untuk sistem operasi Android dan kernel. Demi menjaga stabilitas serta responsivitas perangkat, Core 0 selalu dipertahankan aktif secara otomatis"*).
 - **Penanda Kunci Master Core Visual**: Menambahkan ikon gembok `Icons.Default.Lock` berukuran proporsional pada chip inti `C0` di grid 2x4, memberikan pemahaman intuitif langsung tanpa menimbulkan kecemasan.
 - **Dialog Hotplug Ergonomis**: Mengganti modal konfirmasi generik menjadi dialog tindakan spesifik ("Parkir Inti CPU X?" / "Aktifkan Inti CPU X?") dengan teks penjelas yang mengutamakan pemahaman orang awam dan tombol tindakan berlabel tegas ("Nonaktifkan Inti" / "Aktifkan Inti").
 - **Header Sentence-Case Bersih**: Mengubah judul all-caps `"STATUS INTI CPU (8 CORES)"` menjadi `"Status Inti CPU (8 Inti)"` dengan tipografi semi-bold modern.
 
-### 2. ⚡ Pemangkasan Clutter & Optimalisasi Proses CPU Aktif (`CpuProcessMonitoring.kt`)
+### 2. â¡ Pemangkasan Clutter & Optimalisasi Proses CPU Aktif (`CpuProcessMonitoring.kt`)
 - **Pengungkapan Progresif (Anti-Cognitive Fatigue)**: Menghapuskan tumpukan panjang 15 proses secara default. Antarmuka kini menampilkan 5 proses teratas yang paling relevan dengan tombol ekspansi taktil *"Lihat 15 Proses Aktif"* / *"Tampilkan Ringkas (5 Teratas)"*.
 - **Penyelarasan Desain Master Bento**: Membungkus daftar proses dalam kartu `Surface(16.dp)` bertema gelap `Color(0xFF10141F)` dengan border gradien vertikal lembut yang selaras dengan Tab Performa dan Tab Sistem.
 - **Hierarki Tipografi Manusiawi**: Nama aplikasi ditampilkan tebal dan mudah dibaca (dengan caching nama aplikasi dan ikon aplikasi sistem/pengguna), sedangkan PID dan nama paket diletakkan sebagai teks sekunder monospace yang tenang.
 - **Indikator Beban Halus**: Persentase CPU menggunakan angka monospace tabular dengan mikro-bar melengkung dinamis (Cyan untuk beban normal, Oranye untuk $\ge 15\%$, dan Merah untuk $\ge 50\%$).
 
-### 3. 🔬 Restrukturisasi Topologi Silikon & OPP Frequency (`CpuTopologyAndVerification.kt`)
+### 3. ð¬ Restrukturisasi Topologi Silikon & OPP Frequency (`CpuTopologyAndVerification.kt`)
 - **Bento Hardware Overview 2x2**: Menyajikan spesifikasi silikon dalam 4 kartu ringkas: Model Chipset, Susunan Inti & ISA, Interkoneksi Bus (CCI/DSU), serta Driver CPUFreq & Idle C-States.
-- **Accordion Kluster Adaptif**: Setiap kluster CPU kini memiliki kartu accordion mandiri berbadge Little (`AccentGreen`) atau Big (`AccentOrange`), lengkap dengan rentang frekuensi (`min–max MHz`), kapasitas EAS, latensi transisi, dan distribusi frekuensi dominan (*Time-In-State*).
+- **Accordion Kluster Adaptif**: Setiap kluster CPU kini memiliki kartu accordion mandiri berbadge Little (`AccentGreen`) atau Big (`AccentOrange`), lengkap dengan rentang frekuensi (`minâmax MHz`), kapasitas EAS, latensi transisi, dan distribusi frekuensi dominan (*Time-In-State*).
 - **Daftar Stepping Frekuensi Rapi**: Menampilkan deretan titik frekuensi OPP dalam format monospace tabular dengan pemisah titik tengah yang mudah dipindai tanpa memakan ruang vertikal berlebih.
 
-### 4. 🧩 Pemisahan Modularitas & Kepatuhan Aturan Baris Kode (`CpuDeveloperVerificationSheet.kt`)
+### 4. ð§© Pemisahan Modularitas & Kepatuhan Aturan Baris Kode (`CpuDeveloperVerificationSheet.kt`)
 - **Ekstraksi Sheet Verifikasi Sysfs**: Memindahkan `CpuDeveloperVerificationSheet` ke berkas mandiri sehingga seluruh berkas UI CPU tetap berada di bawah batas ketat 699 baris (`CpuHardwareMonitorCard`: 498 baris, `CpuProcessMonitoring`: 378 baris, `CpuTopologyAndVerification`: 440 baris, `CpuDeveloperVerificationSheet`: 265 baris).
 - **Akses Transparan & Reassuring**: Tombol verifikasi di bagian bawah topologi silikon hadir dengan badge hijau *"100% Asli"* yang memberikan kepastian penuh kepada pengguna atas integritas tuning kernel hardware.
 
@@ -4363,23 +4379,23 @@ Released on: 2026-10-21
 
 ## Rangkuman Perbaikan & Audit Arsitektur (7.0.0-RC145)
 
-### 1. ⚡ Perbaikan UI Intent Recording (`LynxViewModelBattery.kt`)
+### 1. â¡ Perbaikan UI Intent Recording (`LynxViewModelBattery.kt`)
 - **Akar Masalah**: Saat pengguna memilih Mode Hyper (`setChargingMode("hyper")`), fungsi tidak memanggil `recordSettingIntent()`. Pada siklus polling telemetri berikutnya (setiap 1-2 detik), `mergeStateWithActiveIntents()` menganggap tidak ada intensi pengguna yang sedang berlangsung dan langsung menimpa status UI kembali ke `standard` dari snapshot kernel/config lama.
 - **Solusi**: Mendaftarkan rekaman intensi pengguna secara lengkap untuk `"charging.charging_mode"`, `"charging.extreme_charging_enabled"`, `"charging.limit_current_ma"`, dan `"charging.is_unconstrained_max_hw"`, sehingga status UI terkunci stabil dan tidak berkedip/kembali sendiri.
 
-### 2. 🛡️ Penanganan Prioritas Mode Hyper pada Daemon Rust (`hardware/charging.rs`)
-- **Akar Masalah**: Pada evaluasi Tier 4 AutoCut Smart Limit (80%–99%), fungsi tidak memiliki guard `!is_hyper`. Jika AutoCut aktif atau baterai mencapai 80%, Tier 4 langsung memotong arus dan mengaktifkan bypass limit, membatalkan Mode Hyper.
+### 2. ð¡ï¸ Penanganan Prioritas Mode Hyper pada Daemon Rust (`hardware/charging.rs`)
+- **Akar Masalah**: Pada evaluasi Tier 4 AutoCut Smart Limit (80%â99%), fungsi tidak memiliki guard `!is_hyper`. Jika AutoCut aktif atau baterai mencapai 80%, Tier 4 langsung memotong arus dan mengaktifkan bypass limit, membatalkan Mode Hyper.
 - **Solusi**: Menambahkan perlindungan `!is_hyper` eksplisit pada Tier 4 AutoCut sehingga Mode Hyper memiliki otoritas tertinggi untuk pengisian cepat unconstrained tanpa terdistorsi limit cerdas.
 
-### 3. 🔧 Ketahanan Skrip Shell Fallback (`ExtremeChargingScript.kt`)
+### 3. ð§ Ketahanan Skrip Shell Fallback (`ExtremeChargingScript.kt`)
 - **Akar Masalah**: Verifikasi `[ "$failed" -eq 0 ]` memicu kegagalan total (`exit 1`) jika salah satu node sysfs OEM berstatus read-only atau tidak merespons, memicu toast kesalahan "Gagal menerapkan mode pengisian daya".
 - **Solusi**: Mengganti pemeriksaan kaku dengan evaluasi progresif, menjamin penulisan `/dev/lynx_extreme_charging` dan `/dev/lynx_charging_state` selalu berhasil dan mengembalikan kode sukses `0`.
 
-### 4. 🚀 Atomisitas Transaksi Config Daemon (`native/lynxd/src/main.rs`)
+### 4. ð Atomisitas Transaksi Config Daemon (`native/lynxd/src/main.rs`)
 - **Perbaikan**: Mengganti 5 panggilan `ConfigStore::set` terpisah yang berulang kali mengakuisisi dan melepas `/dev/lynx_config.lock` menjadi satu transaksi atomik `ConfigStore::set_batch()` untuk menghilangkan contention antar subproses.
 
-### 5. 📱 Visual Siaga Ergonomis (`FastChargingControlCard.kt` & `ChargingHeroDisplayCard.kt`)
-- **Perbaikan**: Saat kabel charger belum terhubung dan Mode Hyper dipilih, UI kini menampilkan badge "⚡ MODE HYPER SIAGA • Hubungkan Charger" secara informatif, memberikan kepastian bagi pengguna.
+### 5. ð± Visual Siaga Ergonomis (`FastChargingControlCard.kt` & `ChargingHeroDisplayCard.kt`)
+- **Perbaikan**: Saat kabel charger belum terhubung dan Mode Hyper dipilih, UI kini menampilkan badge "â¡ MODE HYPER SIAGA â¢ Hubungkan Charger" secara informatif, memberikan kepastian bagi pengguna.
 
 ---
 
@@ -4389,7 +4405,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Perbaikan & Redesain Arsitektur (7.0.0-RC144)
 
-### 1. 🎨 Redesain Tab Sistem (`CpuUnifiedSystemCard.kt`)
+### 1. ð¨ Redesain Tab Sistem (`CpuUnifiedSystemCard.kt`)
 - **Penyatuan Kartu (*Unified Master Experience*)**:
   - Mengeliminasi fragmentasi 4 kartu terpisah (`Status Profil`, `CpuIdleCoreParkingCard`, `CpuSetsTaskShieldCard`, `KernelSchedulerCard`) menjadi satu kesatuan kartu master terstruktur dengan background `Color(0xFF10141F)` dan border gradient lembut.
 - **Header Status & Preset Harmonik 1-Klik**:
@@ -4407,7 +4423,7 @@ Released on: 2026-10-21
     - Preset alokasi tugas (Standar OEM / Gaming Shield / Fokus Latar Depan).
     - Tombol akses lembar matriks alokasi inti manual.
 
-### 2. 📊 Redesain Tab Monitor (`CpuHardwareMonitorCard.kt`)
+### 2. ð Redesain Tab Monitor (`CpuHardwareMonitorCard.kt`)
 - **Master Telemetry & Waveform Hero Card**:
   - Indikator status live stream yang tenang dan tidak menyilaukan mata.
   - Kluster metrik hero: Angka besar beban CPU total dengan badge klasifikasi dinamis (*Beban Ringan / Optimal / Tinggi / Puncak*), disandingkan dengan mini-panel spesifikasi Suhu, Clock Rata-rata, dan Clock Puncak dalam font monospace tabular.
@@ -4426,7 +4442,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC143)
 
-### 1. 🔍 Bukti Mutlak Stack Trace Dropbox ART (*The Definitive Smoking Gun*)
+### 1. ð Bukti Mutlak Stack Trace Dropbox ART (*The Definitive Smoking Gun*)
 - **Keluhan Pengguna**:
   - Aplikasi masih tetap mengalami *Not Responding* bahkan tidak bisa digerakkan sama sekali.
 - **Hasil Ekstraksi Dropbox ART Thread Dump (`data_app_anr` PID 29384)**:
@@ -4453,7 +4469,7 @@ Released on: 2026-10-21
   5. Ditambah lagi, terdapat 2 proses shell orphan runaway di sistem (PID 5995 dan 18764) yang memakan 100% CPU core 5 dan 6 (`State: R, 85% kernel`).
   6. Ketika pengguna menyentuh layar, Android `InputDispatcher` menunggu antrean looper Main Thread yang sedang terblokir mutex. Setelah 15 detik, sistem memunculkan dialog **Application Not Responding (ANR)** dan membekukan aplikasi total.
 
-### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+### 2. â¡ Solusi & Pembaruan Arsitektur Inti
 1. **Zero-Shell Compose Architecture**:
    - `LynxAppAutomationService.currentBaseline` diubah menjadi properti in-memory murni berbasis `@Volatile var cachedBaseline: String = "balance"`.
    - Properti ini diperbarui saat startup di IO thread atau saat pergantian profil manual, dan tidak pernah lagi mengeksekusi perintah shell saat diakses oleh fungsi `@Composable`.
@@ -4475,7 +4491,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC142)
 
-### 1. 🔍 Investigasi Ilmiah & Bedah Akar Masalah (*The Smoking Gun*)
+### 1. ð Investigasi Ilmiah & Bedah Akar Masalah (*The Smoking Gun*)
 - **Keluhan Pengguna**:
   - Saat masuk aplikasi segera setelah instalasi awal, aplikasi terasa sangat berat, membeku, hingga memicu dialog sistem *Force Close / Not Responding* (ANR).
 - **Hasil Audit Logcat Real-Device & Temuan Akar Masalah**:
@@ -4494,7 +4510,7 @@ Released on: 2026-10-21
      - Fungsi `ensureDaemonRunning()` sebelumnya hanya dipanggil melalui `LynxBootReceiver` pada reboot perangkat.
      - Jika pengguna membuka aplikasi setelah instalasi tanpa me-reboot ponsel terlebih dahulu, biner `lynxd` dari aset APK belum diekstrak ke `/data/local/tmp/lynxd`, menyebabkan seluruh polling telemetri jatuh ke fallback skrip shell yang lambat.
 
-### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+### 2. â¡ Solusi & Pembaruan Arsitektur Inti
 1. **Pembersihan Boot Instan Non-Blocking (3ms)**:
    - Menghapus total perulangan traversal `/proc` dan menggantikannya dengan pembersihan terarah `pkill -9 -f "/data/adb/modules/Lynx"`.
    - Mengalihkan eksekusi pembersihan boot dari `.exec()` ke `.submit()` sehingga berjalan di latar belakang tanpa memblokir kesiapan shell root bagi aplikasi.
@@ -4515,7 +4531,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC141)
 
-### 1. 🔍 Investigasi Ilmiah & Bedah Akar Masalah (*The Smoking Gun*)
+### 1. ð Investigasi Ilmiah & Bedah Akar Masalah (*The Smoking Gun*)
 - **Keluhan Pengguna**:
   - Multitasking pada mode `performance` masih terasa kurang lancar.
   - Membuka streaming video di aplikasi Twitter (X) dan TikTok sembari scrolling cepat dan melakukan buffering beberapa video sekaligus mengalami lag parah dan frame drop (*patah-patah*).
@@ -4525,20 +4541,20 @@ Released on: 2026-10-21
      - Pada `native/lynxd/src/decision/decision.rs`, konstruktor `DecisionEngine::new` mengonversi profil dasar secara sepihak:
        `if initial_profile == "performance" || initial_profile == "extreme" { "balance" } else { initial_profile }`.
      - Ketika pengguna memilih mode `performance` di Companion App atau HUD untuk harian, `baseline_profile` dipaksa menjadi `"balance"`.
-     - Saat pengguna membuka aplikasi Twitter atau TikTok (yang tidak masuk kategori `Game` atau `Benchmark`), logika `evaluate()` mendeteksi aplikasi non-target. Setelah histeresis cooldown 3–5 detik, daemon mengeksekusi `ApplyProfile` dan **menurunkan paksa profil perangkat dari `performance` kembali ke `balance`** tanpa sepengetahuan pengguna!
+     - Saat pengguna membuka aplikasi Twitter atau TikTok (yang tidak masuk kategori `Game` atau `Benchmark`), logika `evaluate()` mendeteksi aplikasi non-target. Setelah histeresis cooldown 3â5 detik, daemon mengeksekusi `ApplyProfile` dan **menurunkan paksa profil perangkat dari `performance` kembali ke `balance`** tanpa sepengetahuan pengguna!
   2. **Lantai Frekuensi Nol (`min_percent: 0`) pada Mode Balanced**:
      - Pada `native/lynxd/src/profile/balanced.rs`, `min_percent` disetel ke `0`.
      - Akibatnya, pada jeda sentuhan layar atau di antara frame video, CPU Snapdragon 660 (Redmi Note 7) anjlok ke **633 MHz**, dan Helio G96 (Infinix Note 11 Pro) anjlok ke **500 MHz**.
-     - Ketika pengguna melakukan *fling scroll* atau video berikutnya mulai melakukan *chunk buffering*, CPU 500–633 MHz tidak sanggup mengejar tenggat waktu render frame VSYNC 60Hz (16.6ms) / 90Hz (11.1ms), memicu drop frame hingga 70% dan lag visual.
+     - Ketika pengguna melakukan *fling scroll* atau video berikutnya mulai melakukan *chunk buffering*, CPU 500â633 MHz tidak sanggup mengejar tenggat waktu render frame VSYNC 60Hz (16.6ms) / 90Hz (11.1ms), memicu drop frame hingga 70% dan lag visual.
   3. **Qualcomm WALT Migration Latch yang Terlalu Tinggi (`sched_upmigrate: "85 95"`)**:
-     - Pada mode Balanced, ambang migrasi WALT `sched_upmigrate` berada di `"85 95"`. Thread rendering UI dan decoding H.264/HEVC/VP9 yang berjalan di kluster Little tertahan hingga menyentuh beban 85–95% sebelum diizinkan pindah ke kluster Big (Kryo 260 Gold), menyebabkan kluster Little tersedak (*core saturation*) sementara kluster Big menganggur.
+     - Pada mode Balanced, ambang migrasi WALT `sched_upmigrate` berada di `"85 95"`. Thread rendering UI dan decoding H.264/HEVC/VP9 yang berjalan di kluster Little tertahan hingga menyentuh beban 85â95% sebelum diizinkan pindah ke kluster Big (Kryo 260 Gold), menyebabkan kluster Little tersedak (*core saturation*) sementara kluster Big menganggur.
   4. **Starvation pada Thread Decoder & Worker Buffer (`cpuctl` & `schedtune`)**:
      - Dalam Android, UI thread dan RenderThread berada di cgroup `top-app`, sedangkan worker buffer streaming (OkHttp/Cronet) dan thread pembantu MediaCodec berada di cgroup `foreground`.
      - Rasio CFS `cpu.shares` sebelumnya adalah `top-app: 4096 / 2048` berbanding `foreground: 1024`. Saat scrolling cepat, `top-app` menyedot hampir seluruh siklus CPU, membuat thread decoding di `foreground` mengalami *CPU starvation*. Buffer video mengering seketika, menghasilkan efek *buffering stutter* dan macet.
   5. **Penonaktifan Frame Pacer & Smart Boost MediaTek GED pada Mode Balanced**:
      - Pada `native/lynxd/src/hardware/translator.rs`, flag `FPSGO_ENABLE` dan `ged_smart_boost` disetel ke `"0"` pada mode Balanced. Tanpa frame pacer native MediaTek, pemutaran video feed di Mali GPU kehilangan stabilisasi ritme frame.
 
-### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+### 2. â¡ Solusi & Pembaruan Arsitektur Inti
 - **Integritas Profil Dasar Pengguna (*User Baseline Profile Integrity*)**:
   - `DecisionEngine` kini menghormati seutuhnya profil yang dipilih pengguna. Jika baseline adalah `performance`, daemon tidak akan pernah menurunkan profil ke `balance` saat aplikasi non-game dibuka.
   - Menambahkan reload dinamis `/data/adb/lynx/baseline_profile` setiap 2 detik pada loop daemon `runner.rs`.
@@ -4560,7 +4576,7 @@ Released on: 2026-10-21
 - **Ekspansi Basis Data Media Apps**:
   - Menambahkan Twitter/X, TikTok, Instagram, YouTube ReVanced, Twitch, dan Facebook ke dalam `MEDIA_APPS`.
 
-### 3. 📱 Optimasi Silky 60/120 FPS LynxCompanion & Arsitektur Swipeable Tab Pager
+### 3. ð± Optimasi Silky 60/120 FPS LynxCompanion & Arsitektur Swipeable Tab Pager
 - **Preservasi Scroll State Antar-Tab (`rememberSaveable`)**:
   - Mengangkat (*hoisting*) `LazyListState` ke tingkat subscreen menggunakan `rememberSaveable(saver = LazyListState.Saver)` pada seluruh sub-halaman bertab (CPU, GPU, Baterai, Profil, Jaringan/Audio).
   - Menghilangkan *state destruction* dan alokasi ulang memori saat berpindah atau menggeser tab, menjaga posisi scroll masing-masing tab tetap utuh tanpa reset ke atas.
@@ -4580,7 +4596,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC140)
 
-### 1. 🔍 Investigasi Ilmiah & Bedah Akar Masalah
+### 1. ð Investigasi Ilmiah & Bedah Akar Masalah
 - **Pertanyaan Pengguna**:
   - Mengapa di `/data/adb/modules/` sudah ada folder `Lynx` dan `Lynx_legacy` padahal pengguna belum me-flash modul Lynx?
   - Mengapa kedua folder tersebut tidak tampil di daftar modul Root Manager (Magisk / KernelSU / APatch)?
@@ -4596,7 +4612,7 @@ Released on: 2026-10-21
      - Root Manager **secara mutlak mewajibkan adanya berkas metadata `module.prop`** yang valid di dalam setiap folder modul (`/data/adb/modules/<id>/module.prop`).
      - Karena folder `Lynx` dan `Lynx_legacy` tersebut tercipta oleh aplikasi dan bukan hasil flash ZIP lewat Root Manager, kedua folder tersebut **tidak memiliki `module.prop`**. Akibatnya, Root Manager mengabaikannya dan tidak menampilkannya di tab Modules.
 
-### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+### 2. â¡ Solusi & Pembaruan Arsitektur Inti
 - **Verifikasi Wajib `module.prop` pada `isModuleInstalled()`**:
   - Status modul terpasang kini secara ketat memeriksa:
     `[ -d '$MODULE_DIR' ] && [ -f '$MODULE_DIR/module.prop' ]`
@@ -4615,7 +4631,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Investigasi & Perbaikan Arsitektur (7.0.0-RC138)
 
-### 1. 🔍 Investigasi Ilmiah & Akar Masalah Utama (*The Smoking Gun*)
+### 1. ð Investigasi Ilmiah & Akar Masalah Utama (*The Smoking Gun*)
 - **Gejala Masalah**:
   - Pada pengujian pengisian daya Redmi Note 7 (Qualcomm Snapdragon 660, PMIC PM660) dari 2% dalam kondisi layar mati (deep sleep), baterai terhenti di angka 98% selama hampir 2 jam dan tidak pernah mencapai 100% (Full).
 - **Temuan Akar Masalah**:
@@ -4623,13 +4639,13 @@ Released on: 2026-10-21
      - Pada implementasi `apply_regulated_charging` di [charging.rs](file:///e:/Data/GitHub/Lynx/native/lynxd/src/hardware/charging.rs), terdapat kondisi `let restrict = if effective_ma <= 1500 { "1" } else { "0" };`.
      - Ketika pengisian mencapai fase Smart Tapering (>= 95% SoC) atau mode hemat/cool, arus diturunkan ke 1000mA, yang secara otomatis memicu penulisan `restricted_charging = 1` ke `/sys/class/qcom-battery/restricted_charging`.
      - Dalam driver kernel Qualcomm (`drivers/power/supply/qcom/smb-lib.c`), `restricted_charging = 1` adalah fitur **Store Demo Mode** yang mengeksekusi `vote(chg->fv_votable, RESTRICTED_CHARGING_VOTER, true, chg->batt_profile_fv_uv - 200000)`. Hal ini menurunkan target tegangan float dari **4.40V menjadi 4.20V**!
-     - Pada sel baterai Li-Po 4.40V (BN4A), tegangan 4.20V merepresentasikan kapasitas **~97%–98%**. Begitu sel mencapai 4.20V, arus masuk seketika anjlok ke 0 mA karena beda potensial habis, namun PMIC **TIDAK PERNAH** mendeteksi voltase ambang batas pengisian penuh (4.40V). Akibatnya, status tidak pernah berubah menjadi `Full` dan baterai terhenti di 98% selamanya.
+     - Pada sel baterai Li-Po 4.40V (BN4A), tegangan 4.20V merepresentasikan kapasitas **~97%â98%**. Begitu sel mencapai 4.20V, arus masuk seketika anjlok ke 0 mA karena beda potensial habis, namun PMIC **TIDAK PERNAH** mendeteksi voltase ambang batas pengisian penuh (4.40V). Akibatnya, status tidak pernah berubah menjadi `Full` dan baterai terhenti di 98% selamanya.
   2. **Penguncian Node Sysfs (`write_node_lock` / `chmod 0444`)**:
      - Mengunci node arus pengisian (`constant_charge_current_max`, `constant_charge_current`, `current_max`, `input_current_limit`) ke izin `0444` pada Qualcomm menghalangi worker kernel `smb-lib` dan daemon `android.hardware.health` dalam menurunkan arus saturasi secara halus ke ambang batas terminasi pengisian (`iterm ~150mA`).
   3. **Disabling Step Charging (`step_charging_enabled = 0`)**:
      - Mematikan step charging pada kernel Qualcomm Xiaomi menghentikan transisi multi-tahap tegangan float yang dikelola oleh driver `step-chg-jeita.c`.
 
-### 2. ⚡ Solusi & Pembaruan Arsitektur Inti
+### 2. â¡ Solusi & Pembaruan Arsitektur Inti
 - **Mengunci `restricted_charging = 0` pada Seluruh Mode Pengisian Aktif**:
   - `restricted_charging` kini secara mutlak bernilai `"0"` pada seluruh mode pengisian standar, cool, custom, maupun Smart Tapering. Nilai `"1"` secara ketat hanya diperbolehkan pada Hardware Bypass Charging manual atau AutoCut 100%.
 - **Penulisan Node Dinamis Tanpa Penguncian Izin (`write_node` 0666/0644)**:
@@ -4647,7 +4663,7 @@ Released on: 2026-10-21
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC133)
 
-### 1. ⏳ Eliminasi Total Batasan Auto-Collapse Timer (Bebas Menghilang Sendiri)
+### 1. â³ Eliminasi Total Batasan Auto-Collapse Timer (Bebas Menghilang Sendiri)
 - **Akar Masalah**:
   - Pada versi sebelumnya, terdapat timer inaktivitas `delay(12000L)` yang secara otomatis menutup panel drawer Game HUD setelah beberapa detik.
   - Akibatnya, saat pengguna sedang menganalisis statistik frekuensi CPU/GPU, membaca metrik frame rate, atau hendak memilih profil daya, overlay tiba-tiba tertutup sendiri secara mengejutkan (*disruptive*).
@@ -4655,7 +4671,7 @@ Released on: 2026-10-21
   - Menghapus 100% logika auto-collapse timer di [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
   - Overlay kini **bertahan penuh tanpa batas waktu** selama pengguna menginginkannya, memberikan ketenangan dan fleksibilitas optimal saat melakukan tuning in-game.
 
-### 2. 🎯 Intersepsi Ketukan di Luar Overlay (`ACTION_OUTSIDE` Dismissal)
+### 2. ð¯ Intersepsi Ketukan di Luar Overlay (`ACTION_OUTSIDE` Dismissal)
 - **Akar Masalah**:
   - Meskipun flag `FLAG_WATCH_OUTSIDE_TOUCH` telah dikonfigurasi pada `WindowManager.LayoutParams`, view root overlay belum memiliki handler sentuhan untuk mendeteksi event `MotionEvent.ACTION_OUTSIDE`.
   - Akibatnya, ketukan pengguna di luar jendela overlay diabaikan oleh sistem dan tidak menutup panel.
@@ -4673,20 +4689,20 @@ Released on: 2026-10-21
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC132)
 
-### 1. 📏 Garis Tepi Ultra-Ramping (Laser Line Dock ~3.5dp)
+### 1. ð Garis Tepi Ultra-Ramping (Laser Line Dock ~3.5dp)
 - **Akar Masalah**:
   - Pada versi RC131, tab kapsul bilah sisi berukuran ~40dp dirasa terlalu tebal/lebar dan memakan ruang pandang layar saat pengguna bermain game atau menonton konten video di smartphone.
 - **Solusi**:
   - Mengembalikan bentuk visual handle tepi menjadi garis laser vertikal ultra-ramping selebar 3.5dp dan tinggi 44dp dengan sudut lengkung halus (2dp).
   - Tampilan visual menempel anggun di bezel layar dengan micro-dock backing bergradien gelap semi-transparan (`Color(0xD90A0E16)`) bergaris tepi tipis 0.8dp, memberikan estetika modern, minimalis, dan sama sekali tidak mengganggu pandangan visual in-game.
 
-### 2. 🎯 Invisible Hit-Buffer: Presisi Sentuh Tinggi Tanpa Meleset (Zero-Miss Taps)
+### 2. ð¯ Invisible Hit-Buffer: Presisi Sentuh Tinggi Tanpa Meleset (Zero-Miss Taps)
 - **Inovasi Rekayasa**:
   - Meskipun garis visualnya sangat ramping (3.5dp), area hit-box sentuhan diperluas secara tak kasat mata (*invisible hit-buffer*) menggunakan padding internal selebar 14dp dan container ergonomis.
   - Jempol pengguna dapat mendarat dengan santai dan natural di sekitar tepi garis tanpa perlu membidik secara kaku dengan ujung kuku.
   - Dipadukan dengan toleransi `touchSlop = 16.dp.toPx()`, satu ketukan ringan jempol langsung terdeteksi seketika dan membuka panel Game HUD secara instan (*zero latency*).
 
-### 3. 🛡️ Proteksi Penuh Pelindung Gestur 220dp Horizontal & Imunitas Back Gesture
+### 3. ð¡ï¸ Proteksi Penuh Pelindung Gestur 220dp Horizontal & Imunitas Back Gesture
 - **Konsistensi Keamanan**:
   - Pelindung eksklusi gestur Android (`systemGestureExclusionRects`) tetap aktif membentang 220dp secara horizontal.
   - Membuka bilah sisi baik dengan ketukan ringan maupun tarikan usapan jempol terbukti 100% kebal dari picuan *Back Gesture* navigasi Android.
@@ -4699,28 +4715,28 @@ Released on: 2026-10-21
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC131)
 
-### 1. 🛡️ Pelindung Gestur Horizontal 220dp (Eliminasi Total Sabotase Back Gesture)
+### 1. ð¡ï¸ Pelindung Gestur Horizontal 220dp (Eliminasi Total Sabotase Back Gesture)
 - **Akar Masalah**:
-  - Pada versi sebelumnya, area eksklusi `systemGestureExclusionRects` hanya berdimensi selebar kotak fisik tab (sekitar 28–30dp). Ketika pengguna melakukan usapan (*swipe right*) dari tepi layar, begitu jempol bergerak melebihi 30dp menuju tengah layar, sentuhan langsung keluar dari batas eksklusi dan ditangkap oleh `EdgeBackGestureHandler` SystemUI Android sebagai **Back Gesture**.
+  - Pada versi sebelumnya, area eksklusi `systemGestureExclusionRects` hanya berdimensi selebar kotak fisik tab (sekitar 28â30dp). Ketika pengguna melakukan usapan (*swipe right*) dari tepi layar, begitu jempol bergerak melebihi 30dp menuju tengah layar, sentuhan langsung keluar dari batas eksklusi dan ditangkap oleh `EdgeBackGestureHandler` SystemUI Android sebagai **Back Gesture**.
 - **Solusi**:
   - Berdasarkan pedoman resmi arsitektur Android, batasan kuota sistem gesture exclusion (maksimal 200dp) hanya diberlakukan secara vertikal per tepi layar, sedangkan **lebar horizontal tidak dibatasi oleh OS**.
   - Mengonfigurasi `exclusionW = (220 * dm.density).toInt()` pada `LynxFloatingHudService.kt` di dalam listener `updateSystemGestureExclusion` dan `addOnLayoutChangeListener`.
   - Dengan bentangan pelindung 220dp ke arah dalam layar, seluruh gerakan usap jari berada 100% di dalam zona aman terlindungi, menjamin sistem Android tidak akan pernah memicu *Back Gesture* saat pengguna menarik handle bilah sisi.
 
-### 2. ⚡ Arsitektur "Tap-First": Membuka Bilah Sisi Cukup dengan Satu Ketukan Ringan
+### 2. â¡ Arsitektur "Tap-First": Membuka Bilah Sisi Cukup dengan Satu Ketukan Ringan
 - **Akar Masalah**:
-  - Logika gesture pointer sebelumnya menggunakan ambang `10f` (piksel mentah, setara ~2.5mm). Saat jempol manusia mendarat di layar sentuh kapasitif, deformasi daging jempol secara alami bergeser 10–20 piksel. Akibatnya, hampir seluruh ketukan biasa salah dideteksi sebagai *drag*, membatalkan aksi pembukaan dan memaksa pengguna untuk mengusap tepi layar.
+  - Logika gesture pointer sebelumnya menggunakan ambang `10f` (piksel mentah, setara ~2.5mm). Saat jempol manusia mendarat di layar sentuh kapasitif, deformasi daging jempol secara alami bergeser 10â20 piksel. Akibatnya, hampir seluruh ketukan biasa salah dideteksi sebagai *drag*, membatalkan aksi pembukaan dan memaksa pengguna untuk mengusap tepi layar.
 - **Solusi**:
-  - Menerapkan `touchSlop = 18.dp.toPx()` (~54–70px) pada [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
+  - Menerapkan `touchSlop = 18.dp.toPx()` (~54â70px) pada [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
   - Menambahkan konsumsi instan `down.consume()` dan `change.consume()` sejak kontak pertama sentuhan untuk mengunci fokus ke overlay Lynx.
   - Setiap ketukan ringan jempol kini **100% terjamin** membuka panel game bar secara instan (zero latency) tanpa pengguna perlu melakukan gerakan mengusap atau menarik handle sama sekali.
   - Usapan horizontal tetap didukung penuh bagi pengguna yang terbiasa menarik handle, dengan kekebalan penuh terhadap gestur Back.
 
-### 3. 📐 Dimensi Handle Tepi Lebih Ergonomis & Target Sentuh Lebih Luas
+### 3. ð Dimensi Handle Tepi Lebih Ergonomis & Target Sentuh Lebih Luas
 - **Pembaruan**:
   - Memperlebar dimensi visual handle tepi menjadi ~40dp dengan padding horizontal 9dp dan sudut lengkung halus 16dp.
   - Memberikan jarak yang nyaman dari batas fisik 0px bezel ponsel, memastikan jempol mendarat tepat pada handle tanpa menyentuh zona sempit tepi luar.
-  - Indikator visual panah chevron `›` dan glowing spine ganda yang lebih tegas, mengomunikasikan fungsi "Ketuk / Tarik" secara jernih dan intuitif.
+  - Indikator visual panah chevron `âº` dan glowing spine ganda yang lebih tegas, mengomunikasikan fungsi "Ketuk / Tarik" secara jernih dan intuitif.
 
 ---
 
@@ -4730,7 +4746,7 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC130)
 
-### 1. 🛡️ Perlindungan Total Gestur Navigasi Android (Anti-Back Gesture Shielding)
+### 1. ð¡ï¸ Perlindungan Total Gestur Navigasi Android (Anti-Back Gesture Shielding)
 - **Akar Masalah**:
   - Pada ponsel Android 10+ dengan sistem navigasi gestur (*gesture navigation*), usapan dari tepi kiri atau kanan layar dialokasikan oleh sistem operasi sebagai perintah **Kembali (Back Gesture)**.
   - Saat HUD berada pada Mode Bilah Sisi (docked di tepi `x = 0`), sentuhan atau tarikan handle oleh pengguna sering kali disabotase oleh `EdgeBackGestureHandler` SystemUI Android sebagai gestur Back, sehingga game atau aplikasi yang sedang berjalan tiba-tiba keluar, pause, atau membatalkan aksi in-game.
@@ -4739,7 +4755,7 @@ Released on: 2026-10-20
   - Menerapkan `Modifier.systemGestureExclusion()` langsung pada container Composable tab handle dan slide-out drawer di [HudEdgeDrawer.kt](file:///e:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/service/HudEdgeDrawer.kt).
   - Menjaga ketinggian area handle tetap berada di bawah batas ambang 200dp Android per-tepi layar, menjamin sistem operasi secara mutlak mengecualikan area Bilah Sisi dari penangkapan gestur Back.
 
-### 2. 🎯 Dekomposisi Gestur Sentuh Cerdas (Anti-Accidental Pop-up)
+### 2. ð¯ Dekomposisi Gestur Sentuh Cerdas (Anti-Accidental Pop-up)
 - **Akar Masalah**:
   - Versi sebelumnya menggunakan ambang pemicu tunggal yang sangat tipis (`dx > 14f`). Ketika pengguna hanya bermaksud menggeser ketinggian handle ke atas/bawah agar tidak menutupi kontrol game di layar, gerakan jari yang sedikit miring langsung membuka paksa seluruh panel drawer secara mengejutkan (*jarring/disruptive*).
 - **Solusi**:
@@ -4748,15 +4764,15 @@ Released on: 2026-10-20
     - **Vertical Drag (`abs(dy) > abs(dx) * 1.2f`)**: Didedikasikan murni untuk mereposisi ketinggian handle di sepanjang bezel layar (`onDragVertical(deltaY)`), tanpa pernah membuka drawer.
     - **Horizontal Swipe Right (`dx > 30f` & `abs(dx) > abs(dy)`)**: Membuka drawer secara terencana saat pengguna sengaja menarik tab ke arah tengah layar.
 
-### 3. 🍱 Redesain Antarmuka Bilah Sisi Zen Bento (Anti-Cognitive Overload)
+### 3. ð± Redesain Antarmuka Bilah Sisi Zen Bento (Anti-Cognitive Overload)
 - **Akar Masalah**:
   - Desain lama menumpuk 4 baris teks sangat rapat dengan lebih dari 20 angka desimal kecil (8.5sp), singkatan teknis padat, dan warna neon yang saling bertabrakan (Cyan, Magenta, Green, Gold, Orange, Red sekaligus). Hal ini memicu kelelahan visual dan stres kognitif saat pengguna melirik performa di tengah permainan.
 - **Solusi**:
   - **Palet Obsidian Glass Terkalibrasi**: Latar belakang dark glass OLED `#0B1017` bergradien halus dengan aksen tunggal yang dominan (Precision Cyan `#00E5FF`) dan indikator titik status semantik yang tenang.
   - **Susunan 2x2 Bento Stat Tiles**:
-    - **Tile GPU**: Frekuensi MHz tebal + Beban % dan Suhu Kernel (°C).
-    - **Tile CPU**: Ringkasan Core/Clock + Beban % dan Suhu Kernel (°C).
-    - **Tile Baterai**: Suhu (°C) & Persentase Baterai + Arus (mA) dan Konsumsi Daya Watt.
+    - **Tile GPU**: Frekuensi MHz tebal + Beban % dan Suhu Kernel (Â°C).
+    - **Tile CPU**: Ringkasan Core/Clock + Beban % dan Suhu Kernel (Â°C).
+    - **Tile Baterai**: Suhu (Â°C) & Persentase Baterai + Arus (mA) dan Konsumsi Daya Watt.
     - **Tile Memori**: RAM Terpakai/Total + Persentase & ZRAM GB.
   - **Hero Performance Card**: Live FPS counter besar 24sp monospace tabular + Kapsul status stabilitas frametime (`STABIL` / `AKTIF`) + Frametime sparkline canvas.
   - **Segmented Performance Modes**: 4 tombol profil ergonomis (BAL, PERF, EXT, PWR) dengan tinggi sentuh 38dp+ yang nyaman dijangkau satu jempol.
@@ -4767,53 +4783,53 @@ Released on: 2026-10-20
 
 # Lynx Universal [Game HUD Subsystem & Overlay Engine Bug Overhaul] 7.0.0-RC129
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC129** (Lynx Kernel Manager v3.1.75): **Perombakan Menyeluruh Sub-Sistem Floating Game HUD, OSD Telemetri, & Window Overlay Engine untuk Menutup Seluruh Celah Logika & Menumpas Bug Kritis: Eliminasi Nilai Hardcoded/Mock Suhu (Hardcoded 58°C & Rumus Palsu +15) Digantikan dengan Pembacaan Asli Zona Termal Kernel Linux (`cpu`, `soc`, `gpu`, `mali`, `kgsl`, `tsens`); Sinkronisasi Status Reaktif Penuh Dua Arah via `isRunningFlow` Antara Quick Settings Tile, Notification Action, Automation Watcher, Floating Close Button, dan UI Switch; Perbaikan Bug Dislokasi Mid-Air pada Mode Tampilan Layar (Bilah Sisi vs Jendela Bebas); Mekanisme Penjaga Orientasi Layar (Screen Rotation Auto-Clamping) Mencegah HUD Hilang di Luar Layar Saat Masuk Game Landscape; Pelindung Tidur Layar (Screen-State Power-Awareness & Sleep Shield) Menghentikan Total Polling Telemetri Saat Layar Mati (0% CPU Wake Lock); Optimasi Buffer I/O SharedPreferences dengan Debounce 300ms Saat Drag; Serta Watchdog Izin Overlay Cerdas dengan Deteksi Otomatis & Pemulihan Instan**.
+> **Lynx Universal v7.0.0-RC129** (Lynx Kernel Manager v3.1.75): **Perombakan Menyeluruh Sub-Sistem Floating Game HUD, OSD Telemetri, & Window Overlay Engine untuk Menutup Seluruh Celah Logika & Menumpas Bug Kritis: Eliminasi Nilai Hardcoded/Mock Suhu (Hardcoded 58Â°C & Rumus Palsu +15) Digantikan dengan Pembacaan Asli Zona Termal Kernel Linux (`cpu`, `soc`, `gpu`, `mali`, `kgsl`, `tsens`); Sinkronisasi Status Reaktif Penuh Dua Arah via `isRunningFlow` Antara Quick Settings Tile, Notification Action, Automation Watcher, Floating Close Button, dan UI Switch; Perbaikan Bug Dislokasi Mid-Air pada Mode Tampilan Layar (Bilah Sisi vs Jendela Bebas); Mekanisme Penjaga Orientasi Layar (Screen Rotation Auto-Clamping) Mencegah HUD Hilang di Luar Layar Saat Masuk Game Landscape; Pelindung Tidur Layar (Screen-State Power-Awareness & Sleep Shield) Menghentikan Total Polling Telemetri Saat Layar Mati (0% CPU Wake Lock); Optimasi Buffer I/O SharedPreferences dengan Debounce 300ms Saat Drag; Serta Watchdog Izin Overlay Cerdas dengan Deteksi Otomatis & Pemulihan Instan**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC129)
 
-### 1. 🌡️ Eliminasi Total Mocking Suhu Palsu & Pembacaan Nyata Zona Termal Kernel
+### 1. ð¡ï¸ Eliminasi Total Mocking Suhu Palsu & Pembacaan Nyata Zona Termal Kernel
 - **Akar Masalah**:
-  - Pada implementasi sebelumnya, suhu GPU di-hardcode mati bernilai `58°C` pada 5 berkas tata letak HUD (`HudEdgeDrawer.kt`, `HudLayoutStyles.kt`, dan `HudDeckAndTelemetryStyles.kt`).
-  - Suhu CPU dimanipulasi dengan rumus matematika tiruan `battTempC + 15°C` yang tidak merefleksikan temperatur silikon sebenarnya.
+  - Pada implementasi sebelumnya, suhu GPU di-hardcode mati bernilai `58Â°C` pada 5 berkas tata letak HUD (`HudEdgeDrawer.kt`, `HudLayoutStyles.kt`, dan `HudDeckAndTelemetryStyles.kt`).
+  - Suhu CPU dimanipulasi dengan rumus matematika tiruan `battTempC + 15Â°C` yang tidak merefleksikan temperatur silikon sebenarnya.
 - **Solusi**:
   - Menambahkan pembacaan langsung tipe sensor kernel dari `/sys/class/thermal/thermal_zone*/type` dan `/sys/class/thermal/thermal_zone*/temp` pada `LynxHudTelemetryRepository.kt` untuk arsitektur Qualcomm, MediaTek, dan Generic Linux.
   - Menambahkan field resmi `cpuTempC: Float` dan `gpuTempC: Float` pada model data `FloatingHudTelemetry`.
   - Mengonfigurasi fallback berjenjang yang aman tanpa pernah menampilkan angka statis atau palsu.
 
-### 2. 🔄 Sinkronisasi Status Reaktif Penuh (`isRunningFlow`)
+### 2. ð Sinkronisasi Status Reaktif Penuh (`isRunningFlow`)
 - **Akar Masalah**:
   - `LynxFloatingHudService.isRunning` sebelumnya berstatus private Boolean biasa tanpa flow observer. Ketika HUD dimatikan dari tombol notifikasi, tombol "X" overlay, Quick Tile, atau watcher otomasi, switch di `GameHudSubscreen.kt` tetap menyala (desync).
 - **Solusi**:
   - Mengubah status HUD menjadi `val isRunningFlow = MutableStateFlow(false)`.
   - `LynxViewModel` mengoleksi flow ini secara asinkron sehingga sakelar HUD di aplikasi selalu 100% akurat dan sinkron dengan status foreground service.
 
-### 3. 🎯 Perbaikan Bug Dislokasi Posisi Mode Mid-Air (Bilah Sisi vs Jendela Bebas)
+### 3. ð¯ Perbaikan Bug Dislokasi Posisi Mode Mid-Air (Bilah Sisi vs Jendela Bebas)
 - **Akar Masalah**:
   - Ketika pengguna mengubah mode tampilan layar di `GameHudSubscreen.kt`, intent `ACTION_SET_MODE` hanya mengubah nilai internal flow tanpa memperbarui koordinat WindowManager. Akibatnya, Bilah Sisi (Edge Drawer) melayang canggung di tengah layar (misal x = 400).
 - **Solusi**:
   - Mengimplementasikan `updateModePosition(mode: Int)` pada `LynxFloatingHudService.kt` yang secara otomatis mengunci `layoutParams.x = 0` saat beralih ke Mode Bilah Sisi dan merestorasi koordinat tersimpan yang aman saat beralih ke Mode Jendela Bebas.
 
-### 4. 📱 Penjaga Orientasi Layar (Rotation Auto-Clamping) & Anti-Off-Screen Loss
+### 4. ð± Penjaga Orientasi Layar (Rotation Auto-Clamping) & Anti-Off-Screen Loss
 - **Akar Masalah**:
   - `LynxFloatingHudService` sebelumnya tidak meng-override `onConfigurationChanged`. Ketika ponsel diputar ke orientasi Landscape saat bermain game (2400x1080) dari Portrait (1080x2400), koordinat Y jendela terlempar ke luar layar tanpa bisa dijangkau pengguna.
 - **Solusi**:
   - Mengimplementasikan listener rotasi konfigurasi dengan fungsi `clampHudPositionToScreen()`.
   - Seluruh pergeseran jendela (drag gesture) dibatasi ketat dalam batas aman layar (`metrics.widthPixels` dan `metrics.heightPixels`) dengan margin safe-area.
 
-### 5. 🛡️ Screen-State Sleep Shield (Zero CPU Wake Lock Saat Layar Mati)
+### 5. ð¡ï¸ Screen-State Sleep Shield (Zero CPU Wake Lock Saat Layar Mati)
 - **Akar Masalah**:
   - Loop polling telemetri berjalan tanpa henti setiap 500ms bahkan saat layar ponsel dimatikan dan dimasukkan ke saku celana, memicu perintah root shell dan dumpsys berkala yang mencegah kernel masuk ke C-states (Deep Sleep).
 - **Solusi**:
   - Mendaftarkan receiver `Intent.ACTION_SCREEN_OFF` dan `ACTION_SCREEN_ON`.
   - Polling telemetri ditidurkan sepenuhnya saat layar mati dan seketika dibangunkan tanpa latensi saat layar kembali aktif.
 
-### 6. ⚡ Optimasi SharedPreferences I/O Anti-Jank (Debounce 300ms)
+### 6. â¡ Optimasi SharedPreferences I/O Anti-Jank (Debounce 300ms)
 - **Akar Masalah**:
   - Operasi penulisan SharedPreferences (`putInt("hud_y", ...).apply()`) dieksekusi pada setiap piksel gerakan geser, membanjiri antrean commit disk I/O dan memicu micro-stutter pada UI gesture.
 - **Solusi**:
   - Menerapkan fungsi `debouncedSavePosition` dengan jeda tunda 300ms setelah gestur berhenti, menjaga responsivitas sentuhan 120 FPS tanpa overhead disk.
 
-### 7. 🛡️ Watchdog Izin Overlay Cerdas & UI Explanatory Banner
+### 7. ð¡ï¸ Watchdog Izin Overlay Cerdas & UI Explanatory Banner
 - **Solusi**:
   - Menyediakan kartu peringatan `HudOverlayPermissionCard` yang tampil jika izin overlay belum aktif, lengkap dengan tombol langsung untuk mencoba grant root otomatis atau membuka pengaturan sistem `Settings.ACTION_MANAGE_OVERLAY_PERMISSION`.
   - Memvalidasi izin sebelum menjalankan service untuk mencegah crash `BadTokenException` atau status zombie notification.
@@ -4822,33 +4838,33 @@ Released on: 2026-10-20
 
 # Lynx Universal [Smart Thermal Presets, Video Decode & Multitasking Balanced Tuning] 7.0.0-RC128
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC128** (Lynx Kernel Manager v3.1.74): **Optimalisasi Menyeluruh Profil Global Balanced untuk Kelancaran Pemutaran Video (YouTube 1080p60/4K, TikTok, Reels) & Multitasking Harian pada Seluruh Tingkatan Perangkat (Low-End, Mid-End, & Flagship): Eliminasi Ceiling 75% Menjadi Dynamic 0-100% Burst Schedutil pada Native Daemon Rust (`balanced.rs`) Agar Perangkat Low-End Tidak Mengalami Frame-Drop; Penyetelan Presisi VM Memory (`vfs_cache_pressure = 80`, `swappiness = 70`, `watermark_boost_factor = 0`) Guna Menghilangkan Stutter kswapd & Mencegah Reload Aplikasi Latar Belakang; 4 Smart Thermal Presets 1-Klik pada Vendor Thermal Studio (Multimedia & Video Lancar, Harian Seimbang Pro, Sustained Gaming, Dingin Tropis); Sakelar Cepat Anti-Dimming 54°C & Headroom CPU/GPU +4°C; Serta Badge & Penjelasan Ramah Pemula untuk Seluruh Seksi Kernel**.
+> **Lynx Universal v7.0.0-RC128** (Lynx Kernel Manager v3.1.74): **Optimalisasi Menyeluruh Profil Global Balanced untuk Kelancaran Pemutaran Video (YouTube 1080p60/4K, TikTok, Reels) & Multitasking Harian pada Seluruh Tingkatan Perangkat (Low-End, Mid-End, & Flagship): Eliminasi Ceiling 75% Menjadi Dynamic 0-100% Burst Schedutil pada Native Daemon Rust (`balanced.rs`) Agar Perangkat Low-End Tidak Mengalami Frame-Drop; Penyetelan Presisi VM Memory (`vfs_cache_pressure = 80`, `swappiness = 70`, `watermark_boost_factor = 0`) Guna Menghilangkan Stutter kswapd & Mencegah Reload Aplikasi Latar Belakang; 4 Smart Thermal Presets 1-Klik pada Vendor Thermal Studio (Multimedia & Video Lancar, Harian Seimbang Pro, Sustained Gaming, Dingin Tropis); Sakelar Cepat Anti-Dimming 54Â°C & Headroom CPU/GPU +4Â°C; Serta Badge & Penjelasan Ramah Pemula untuk Seluruh Seksi Kernel**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC128)
 
-### 1. 🎬 Penyetelan Profil Global Balanced Khusus Video Streaming & Multitasking
+### 1. ð¬ Penyetelan Profil Global Balanced Khusus Video Streaming & Multitasking
 - **Akar Masalah**:
   - Pada perangkat kelas pemula (low-end) dan menengah (mid-end), pembatasan frekuensi maksimum 75% pada profil balanced memangkas clock CPU menjadi terlalu rendah (~1.35GHz - 1.5GHz). Ketika memutar video beresolusi tinggi 1080p60 atau 4K sambil multitasking, proses decoding video hardware (Venus/VIDC) dan SurfaceFlinger kekurangan kapasitas burst, memicu *frame-drop* dan audio desync.
   - Selain itu, nilai `vfs_cache_pressure = 100` dan lonjakan `watermark_boost_factor` memicu pembersihan cache direktori secara agresif, menyebabkan aplikasi seperti WhatsApp dan peramban web harus reload ulang saat berpindah aplikasi.
 - **Solusi**:
-  - Membuka limit frekuensi CPU pada `native/lynxd/src/profile/balanced.rs` menjadi dinamis 0–100%. Schedutil tetap bekerja efisien di frekuensi terendah saat idle, namun memiliki akses kapasitas 100% instan untuk lonjakan komputasi decoding frame dan perpindahan aplikasi.
+  - Membuka limit frekuensi CPU pada `native/lynxd/src/profile/balanced.rs` menjadi dinamis 0â100%. Schedutil tetap bekerja efisien di frekuensi terendah saat idle, namun memiliki akses kapasitas 100% instan untuk lonjakan komputasi decoding frame dan perpindahan aplikasi.
   - Menyetel `uclamp_min_percent = 12%` sebagai batas bawah responsivitas UI untuk memastikan SurfaceFlinger berjalan mulus tanpa micro-stall.
   - Mengonfigurasi `vfs_cache_pressure = 80` dan `watermark_boost_factor = 0` pada `native/lynxd/src/subsystems/memory.rs` untuk mempertahankan cache aplikasi dan mencegah kswapd menginterupsi pemutaran video.
 
-### 2. 🎛️ 4 Preset Termal Cerdas 1-Klik (*Smart Thermal Presets*)
+### 2. ðï¸ 4 Preset Termal Cerdas 1-Klik (*Smart Thermal Presets*)
 - **Solusi**:
   - Menambahkan baris kartu bento interaktif dengan 4 preset kurasi:
-    1. **🎬 Multimedia & Video Lancar**: Melonggarkan trip point `[LCD_MANAGEMENT]` dan trip sensor video ke 52°C/56°C, menjaga refresh rate layar 60Hz/90Hz/120Hz tetap stabil tanpa frame drop saat menonton YouTube/Reels.
-    2. **⚖️ Harian Seimbang Pro (Default)**: Penyetelan harian optimal anti-dimming 50°C/54°C dan tangga pengisian daya sejuk.
-    3. **🚀 Sustained Gaming (Anti-Lag)**: Memberikan headroom termal $+4^\circ\text{C}$ pada seluruh cluster CPU Silver/Gold dan GPU agar tidak terjadi penurunan FPS mendadak setelah 5 menit bermain.
-    4. **❄️ Dingin Tropis & Baterai Awet**: Pendinginan dini untuk melindungi baterai dari panas berlebih di lingkungan tropis.
+    1. **ð¬ Multimedia & Video Lancar**: Melonggarkan trip point `[LCD_MANAGEMENT]` dan trip sensor video ke 52Â°C/56Â°C, menjaga refresh rate layar 60Hz/90Hz/120Hz tetap stabil tanpa frame drop saat menonton YouTube/Reels.
+    2. **âï¸ Harian Seimbang Pro (Default)**: Penyetelan harian optimal anti-dimming 50Â°C/54Â°C dan tangga pengisian daya sejuk.
+    3. **ð Sustained Gaming (Anti-Lag)**: Memberikan headroom termal $+4^\circ\text{C}$ pada seluruh cluster CPU Silver/Gold dan GPU agar tidak terjadi penurunan FPS mendadak setelah 5 menit bermain.
+    4. **âï¸ Dingin Tropis & Baterai Awet**: Pendinginan dini untuk melindungi baterai dari panas berlebih di lingkungan tropis.
 
-### 3. 📱 Sakelar Cepat Makro (*Anti-Dimming 54°C & CPU Headroom*)
+### 3. ð± Sakelar Cepat Makro (*Anti-Dimming 54Â°C & CPU Headroom*)
 - **Solusi**:
   - Sakelar 1-klik untuk mencegah layar otomatis meredup sendiri di bawah sinar matahari.
   - Sakelar 1-klik untuk melonggarkan batas throttling CPU/GPU tanpa harus mengedit parameter manual.
 
-### 4. 🏷️ Badge & Deskripsi Ramah Pengguna pada Setiap Seksi
+### 4. ð·ï¸ Badge & Deskripsi Ramah Pengguna pada Setiap Seksi
 - **Solusi**:
   - Mengonversi nama seksi daemon teknis (`[SS-MSM-THERM-SILVER]`, `[SS-GPU]`, `[LCD_MANAGEMENT]`) menjadi bahasa yang mudah dimengerti lengkap dengan penjelasan fungsinya.
 
@@ -4860,33 +4876,33 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC125)
 
-### 1. 🎛️ Eliminasi Total Nilai Hardcoded pada Konfigurasi Thermal Vendor
+### 1. ðï¸ Eliminasi Total Nilai Hardcoded pada Konfigurasi Thermal Vendor
 - **Akar Masalah**:
-  - Sebelumnya, antarmuka `VendorThermalStudioCard` dan `VendorThermalConfigManager` mengasumsikan nama seksi statis (hanya `[BATTERY_CHARGING_CTL]`) dan nilai penggantian hardcoded (seperti `56000 60000` atau kenaikan +5°C tetap). Pendekatan ini membatasi keleluasaan pengguna pada perangkat Snapdragon atau MediaTek yang memiliki variasi trip point berbeda (2, 3, 5, atau 7 level) dan seksi tambahan seperti `[LCD_MANAGEMENT]`, `[SS-MSM-THERM-*]`, `[SS-GPU]`, dsb.
+  - Sebelumnya, antarmuka `VendorThermalStudioCard` dan `VendorThermalConfigManager` mengasumsikan nama seksi statis (hanya `[BATTERY_CHARGING_CTL]`) dan nilai penggantian hardcoded (seperti `56000 60000` atau kenaikan +5Â°C tetap). Pendekatan ini membatasi keleluasaan pengguna pada perangkat Snapdragon atau MediaTek yang memiliki variasi trip point berbeda (2, 3, 5, atau 7 level) dan seksi tambahan seperti `[LCD_MANAGEMENT]`, `[SS-MSM-THERM-*]`, `[SS-GPU]`, dsb.
 - **Solusi**:
   - Membangun struktur data INI dokumen universal `ThermalIniDocument`, `ThermalIniSection`, dan `ThermalIniProperty` yang mampu membaca, memodifikasi, dan menulis kembali berkas konfigurasi termal vendor secara presisi tanpa merusak format asli.
   - Mendukung pembagian token fleksibel baik berbasis pemisah spasi (`key value` ala Qualcomm) maupun tanda sama dengan (`key=value`).
 
-### 2. ⚡ Pemilih Seksi Dinamis & Hybrid Tuner (Slider + Teks Presisi)
+### 2. â¡ Pemilih Seksi Dinamis & Hybrid Tuner (Slider + Teks Presisi)
 - **Solusi**:
   - Menyediakan *Section Selector Chips* yang secara dinamis menampilkan seluruh seksi yang terdapat pada berkas vendor perangkat pengguna.
   - Untuk parameter ambang batas suhu (`thresholds`, `thresholds_clr`, `set_point`, `set_point_clr`), pengguna dapat:
     1. Mengetikkan angka eksak langsung di `OutlinedTextField` (misal: `40000 42000 45000 48000 52000`).
-    2. Menyesuaikan derajat Celsius (°C) secara taktil menggunakan kombinasi Slider dan Tombol Stepper (- / +) dengan target sentuh ergonomis >= 44dp.
-    3. Menggunakan tombol cepat *"Auto -2°C Clr"* untuk otomatis menghitung dan menyinkronkan histeresis pemulihan suhu tanpa kalkulasi manual.
+    2. Menyesuaikan derajat Celsius (Â°C) secara taktil menggunakan kombinasi Slider dan Tombol Stepper (- / +) dengan target sentuh ergonomis >= 44dp.
+    3. Menggunakan tombol cepat *"Auto -2Â°C Clr"* untuk otomatis menghitung dan menyinkronkan histeresis pemulihan suhu tanpa kalkulasi manual.
 
-### 3. 🔍 Chip Rekomendasi Sensor Kernel Real-Time
+### 3. ð Chip Rekomendasi Sensor Kernel Real-Time
 - **Solusi**:
   - Mengueri langsung daftar tipe sensor fisik yang aktif di kernel Linux melalui `/sys/class/thermal/thermal_zone*/type`.
   - Menampilkan *Recommendation Chips* (seperti `quiet-therm-adc`, `battery`, `bms`, `msm-therm-adc`, `backlight_therm`, `gpu-usr`) yang dapat di-tap pengguna untuk langsung mengisi parameter sensor tanpa risiko salah ketik.
 
-### 4. 📝 Mode Raw INI Editor & Pemulihan Bertingkat
+### 4. ð Mode Raw INI Editor & Pemulihan Bertingkat
 - **Solusi**:
   - Menghadirkan *Toggle Mode* antara Visual Studio Wizard dan Raw Editor Monospace bagi power user yang ingin menyalin atau menyunting seluruh isi berkas `.conf` secara bebas.
   - Menambahkan tombol *Sinkronkan ke Visual* untuk memvalidasi dan mengurai teks raw kembali ke struktur studio.
   - Menyediakan tombol pemulihan bertingkat: *Reset Seksi* (mengembalikan seksi yang dipilih ke nilai bawaan OEM) dan *Pulihkan Seluruh File ke Stock Baseline OEM* (menghapus overlay Magisk secara aman).
 
-### 5. 🚀 Uji Coba Instan (Live Bind Mount) & Magisk Magic Mount
+### 5. ð Uji Coba Instan (Live Bind Mount) & Magisk Magic Mount
 - **Solusi**:
   - Mempertahankan dan menyempurnakan mekanisme pengujian instan *Live Bind Mount* ke `/vendor/etc/thermal-engine.conf` disertai pemuatan ulang otomatis daemon `thermal-engine` tanpa perlu reboot perangkat.
   - Tombol simpan permanen ke direktori modul `/system/vendor/etc/...` dengan dialog konfirmasi restart yang ramah pengguna.
@@ -4899,28 +4915,28 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC124)
 
-### 1. 💾 Eliminasi Hardcoding & Implementasi Mesin Tri-Tier Native Rust
+### 1. ð¾ Eliminasi Hardcoding & Implementasi Mesin Tri-Tier Native Rust
 - **Akar Masalah**:
   - Sebelumnya, `translator.rs` melakukan perulangan statis pada nama blok `["sda", "sdb", "sdc", "mmcblk0", "mmcblk1"]` dan mengasumsikan seluruh `mmcblk*` adalah sama. Padahal pada perangkat UFS, `mmcblk0` adalah MicroSD eksternal, sedangkan pada perangkat eMMC, `mmcblk0` adalah flash internal.
 - **Solusi**:
   - Mengintegrasikan fungsi dinamis `StoragePolicy::profile_targets` pada `translator.rs` dan `storage.rs` yang mengiterasi seluruh `cap.storage.devices` hasil deteksi sysfs.
   - Membedakan perlakuan antrean blok secara mutlak antara UFS (full-duplex parallel queue), eMMC 5.1 (half-duplex serialized queue), dan MicroSD (serial SDR104 bus).
 
-### 2. 🛡️ Proteksi eMMC 5.1 dari Overload Enkripsi Android (`blk_crypto_wq`)
+### 2. ð¡ï¸ Proteksi eMMC 5.1 dari Overload Enkripsi Android (`blk_crypto_wq`)
 - **Akar Masalah**:
-  - Penyetelan read-ahead 512KB–2048KB pada partisi `/data` eMMC 5.1 yang terenkripsi FBE memaksa kernel mendekripsi blok besar untuk setiap pembacaan acak 4KB, menyebabkan `%iowait` melonjak hingga 40% dan antarmuka Android membeku (UI freeze).
+  - Penyetelan read-ahead 512KBâ2048KB pada partisi `/data` eMMC 5.1 yang terenkripsi FBE memaksa kernel mendekripsi blok besar untuk setiap pembacaan acak 4KB, menyebabkan `%iowait` melonjak hingga 40% dan antarmuka Android membeku (UI freeze).
 - **Solusi**:
   - Mengunci read-ahead eMMC pada 128KB untuk profil Seimbang/Hemat Daya dan maksimum 256KB untuk Performa.
-  - Membatasi kedalaman antrean eMMC (`nr_requests = 64/128`) untuk mencegah bufferbloat, serta mempercepat `read_expire` ke 64–80 ms.
+  - Membatasi kedalaman antrean eMMC (`nr_requests = 64/128`) untuk mencegah bufferbloat, serta mempercepat `read_expire` ke 64â80 ms.
 
-### 3. 🎮 Optimalisasi MicroSD Gaming (512KB Burst Read) & F2FS Dynamic IPU
+### 3. ð® Optimalisasi MicroSD Gaming (512KB Burst Read) & F2FS Dynamic IPU
 - **Akar Masalah**:
   - Kartu MicroSD memiliki latensi bus komando yang tinggi. Pembacaan aset game besar (OBB/pak) dengan ukuran buffer terlalu kecil membebani controller, sementara background Garbage Collection F2FS (`f2fs_gc`) di latar belakang sering memicu frame drop.
 - **Solusi**:
   - Menyetel prefetch MicroSD ke 512KB pada mode Performa/Ekstrem sesuai data empiris uji MountX, memangkas latensi tunggu blok hingga lebih dari 50%.
   - Mengaktifkan F2FS In-Place Updates (`ipu_policy = 3`) dan memperpanjang interval checkpoint ke 300 detik saat game aktif untuk mematikan intervensi background GC di tengah pertarungan render 60/120 FPS.
 
-### 4. 🔀 Device-Mapper (`dm-*`) Transparent Tunneling
+### 4. ð Device-Mapper (`dm-*`) Transparent Tunneling
 - **Solusi**:
   - Menelusuri relasi `slaves/` pada setiap antrean virtual `/sys/block/dm-*` untuk mewarisi parameter read-ahead dan queue affinity perangkat fisik induk (UFS atau eMMC).
 
@@ -4928,11 +4944,11 @@ Released on: 2026-10-20
 
 # Lynx Universal [Reliable Toast Architecture, Adaptive Bento Island & Background Feedback Engine] 7.0.0-RC123
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC123** (Lynx Kernel Manager v3.1.69): **Arsitektur Umpan Balik Visual & Toast Andal (Tetap Aktif Saat Aplikasi Ditutup / Berjalan di Latar Belakang): Transmisi Aman `goAsync()` pada `LynxProfileReceiver` yang Mencegah OS Membekukan Thread IPC Sebelum Toast Muncul; Sinkronisasi Langsung Toast Sistem Tanpa Tertahan Looper Handler; Penanganan Khusus Android 14 FGS `specialUse` pada `LynxToastOverlayService`; Eliminasi Duplikasi Kata "Mode" pada Notifikasi Sistem (`⚖️ Mode Seimbang Aktif`); Serta Redesain Adaptive Bento Dynamic Island (Ambang Batas Cerdas 18 Karakter, Bobot Lebar Bebas Pemotongan Canggung, & Pelabelan Tag Semantik Berdasarkan Tipe Pesan)**.
+> **Lynx Universal v7.0.0-RC123** (Lynx Kernel Manager v3.1.69): **Arsitektur Umpan Balik Visual & Toast Andal (Tetap Aktif Saat Aplikasi Ditutup / Berjalan di Latar Belakang): Transmisi Aman `goAsync()` pada `LynxProfileReceiver` yang Mencegah OS Membekukan Thread IPC Sebelum Toast Muncul; Sinkronisasi Langsung Toast Sistem Tanpa Tertahan Looper Handler; Penanganan Khusus Android 14 FGS `specialUse` pada `LynxToastOverlayService`; Eliminasi Duplikasi Kata "Mode" pada Notifikasi Sistem (`âï¸ Mode Seimbang Aktif`); Serta Redesain Adaptive Bento Dynamic Island (Ambang Batas Cerdas 18 Karakter, Bobot Lebar Bebas Pemotongan Canggung, & Pelabelan Tag Semantik Berdasarkan Tipe Pesan)**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC123)
 
-### 1. 🛡️ Garansi Toast Tetap Aktif Saat Aplikasi Tertutup (`goAsync` & Bulletproof Fallback)
+### 1. ð¡ï¸ Garansi Toast Tetap Aktif Saat Aplikasi Tertutup (`goAsync` & Bulletproof Fallback)
 - **Akar Masalah**:
   - Pada Android 12, 13, dan 14, sistem membatasi pemanggilan `startForegroundService` dari latar belakang. Ketika aplikasi Lynx Companion ditutup atau disapu dari daftar Recent Apps, proses penerima siaran (*BroadcastReceiver*) langsung dibekukan (*freezer*) oleh OS, menyebabkan pesan Toast sistem yang dikirim melalui `Handler.post` tertahan atau tidak pernah tampil.
   - Selain itu, kegagalan `windowManager.addView` sebelumnya ditelan tanpa fallback visual.
@@ -4942,16 +4958,16 @@ Released on: 2026-10-20
   - Menyediakan fallback instan ke Toast Sistem jika `startForegroundService` atau `windowManager.addView` terhalang oleh pembatasan keamanan Android.
   - Menyelaraskan registrasi FGS Android 14 `ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE` pada `LynxToastOverlayService`.
 
-### 2. 🏝️ Adaptive Bento Dynamic Island & Threshold 18 Karakter
+### 2. ðï¸ Adaptive Bento Dynamic Island & Threshold 18 Karakter
 - **Akar Masalah**:
-  - Ambang batas pesan panjang sebelumnya diatur pada 28 karakter. Akibatnya, kalimat menengah (20–27 karakter) dipaksakan masuk ke dalam kapsul mini 1-baris, menyebabkan teks bertabrakan dengan ikon, terpotong canggung (*ellipsize* di tengah kata), atau mendorong badge status keluar layar.
+  - Ambang batas pesan panjang sebelumnya diatur pada 28 karakter. Akibatnya, kalimat menengah (20â27 karakter) dipaksakan masuk ke dalam kapsul mini 1-baris, menyebabkan teks bertabrakan dengan ikon, terpotong canggung (*ellipsize* di tengah kata), atau mendorong badge status keluar layar.
 - **Solusi**:
   - Menurunkan ambang batas bento ke 18 karakter: pesan ringkas (< 18 karakter) menggunakan kapsul mini yang ramping dengan `Modifier.weight(1f, fill = false)` agar bebas terpotong; pesan menengah/panjang (> 18 karakter atau baris baru) otomatis bermetamorfosis menjadi kartu *Adaptive Bento Dynamic Island* 2-baris yang lapang dan elegan.
   - Menyematkan tombol tutup (*close affordance*) yang interaktif dan pelabelan tag dinamis semantik (`GAGAL`, `PERINGATAN`, `SUKSES`, `AKSI`, `AKTIF`) sesuai jenis notifikasi.
 
-### 3. ✨ Eliminasi Duplikasi Kata pada Toast Sistem
+### 3. â¨ Eliminasi Duplikasi Kata pada Toast Sistem
 - **Akar Masalah**:
-  - Teks toast sistem sering menampilkan pengulangan kata canggung (contoh: `⚖️ Mode Mode Seimbang Aktif`).
+  - Teks toast sistem sering menampilkan pengulangan kata canggung (contoh: `âï¸ Mode Mode Seimbang Aktif`).
 - **Solusi**:
   - Menyematkan pembersih string `cleanLabel` yang secara cerdas mendeteksi dan menghapus prefiks kata *"Mode "* ganda sebelum diformat, menghasilkan kalimat notifikasi yang ringkas, bersih, dan natural.
 
@@ -4963,7 +4979,7 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC122)
 
-### 1. 🧘 Redesain Kapsul Segmented Tab Melayang (`ProfilesCategoryTabRow`)
+### 1. ð§ Redesain Kapsul Segmented Tab Melayang (`ProfilesCategoryTabRow`)
 - **Akar Masalah**:
   - Pergantian antara Tab 0 (*Profile*) dan Tab 1 (*Otomasi Aplikasi*) sebelumnya memicu perubahan warna aksen mendadak dari `AccentOrange` ke `AccentCyan` di seluruh wadah, memicu ketidaknyamanan visual (*visual dissonance*).
   - Tab menggunakan ikon gamepad agresif dan border neon tebal yang memberi kesan ramai ("AI slop").
@@ -4972,21 +4988,21 @@ Released on: 2026-10-20
   - Mengganti ikon dengan metafora fungsional yang tenang (`Icons.Default.Tune` dan `Icons.Default.AutoMode`).
   - Menambahkan interpolasi animasi warna halus (`animateColorAsState` 180ms) dan umpan balik haptik taktil (`HapticFeedbackType.TextHandleMove`) saat berpindah tab.
 
-### 2. 🌊 Kartu Hero Status Reassurance (`tab0_hero_active_card`)
+### 2. ð Kartu Hero Status Reassurance (`tab0_hero_active_card`)
 - **Akar Masalah**:
   - Kartu hero profil aktif sebelumnya memiliki 5 lapisan batas bertingkat (*border-inside-border*) dan 4 warna neon saturasi tinggi yang menyala bersamaan, diperparah teks huruf besar berteriak (`STATUS ENGINE AKTIF`, `OTOMASI AKTIF`), memicu keletihan kognitif pengguna.
 - **Solusi**:
   - Mengubah indikator status menjadi *Reassurance Pulse* dengan halo halus (`alpha = 0.18f`) dan titik 6dp yang memberi rasa aman dan kepastian performa.
   - Mengganti teks huruf besar menjadi tipografi *Sentence Case* yang ramah dan tenang.
-  - Menyatukan ringkasan subsistem menjadi pita telemetri 1-baris tanpa kotak batas bersarang (`CPU Schedutil • GPU DVFS • Termal Dinamis`).
+  - Menyatukan ringkasan subsistem menjadi pita telemetri 1-baris tanpa kotak batas bersarang (`CPU Schedutil â¢ GPU DVFS â¢ Termal Dinamis`).
 
-### 3. 🛡️ Katalog Profil Tenang & Obsidian Card (`ProfileGrid`)
+### 3. ð¡ï¸ Katalog Profil Tenang & Obsidian Card (`ProfileGrid`)
 - **Akar Masalah**:
-  - Kartu profil aktif sebelumnya menggunakan border neon `0.70f` yang menyilaukan mata dan badge `[✓ AKTIF]` tebal berteriak.
+  - Kartu profil aktif sebelumnya menggunakan border neon `0.70f` yang menyilaukan mata dan badge `[â AKTIF]` tebal berteriak.
   - Tombol aksi "Simpan Profil Kustom" menggunakan warna oranye mencolok yang bersaing dengan profil utama.
 - **Solusi**:
   - Melembutkan border kartu terpilih ke batas presisi 35% pada latar belakang obsidian gelap (`0xFF121622`).
-  - Mengganti badge `[✓ AKTIF]` dengan pil minimalis bergradasi lembut (`Aktif` dengan glowing dot).
+  - Mengganti badge `[â AKTIF]` dengan pil minimalis bergradasi lembut (`Aktif` dengan glowing dot).
   - Merapikan baris tag subsistem menjadi kapsul bersahaja (`0xFF0F131D`).
   - Memperbarui tombol "Simpan Profil Kustom" menjadi permukaan *machined dark* yang tenang dan serasi dengan antarmuka.
 
@@ -4994,7 +5010,7 @@ Released on: 2026-10-20
 
 # Lynx Universal [Vendor Thermal Studio: Live Radar, Anti-Dimming & Runtime Bind Mount Engine] 7.0.0-RC121
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56�C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5�C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.
+> **Lynx Universal v7.0.0-RC121** (Lynx Kernel Manager v3.1.67): **Revolusi Studio Konfigurasi Thermal Vendor (`thermal-engine.conf` / MediaTek `.tp`): Radar Telemetri Mitigasi Real-Time (Pemindaian Suhu Sensor `quiet-therm-adc` & Penyorotan Tingkat Throttling Aktif Secara Visual); Fitur Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]` Threshold Boost ke 56ï¿½C Agar Kecerahan Layar Tidak Meredup Sendiri Saat Ponsel Hangat/Dicas); Headroom Termal CPU & GPU Cluster (+5ï¿½C Set Point Throttling untuk Mempertahankan FPS Gaming); Mesin Pengujian Instan Tanpa Reboot (*Live Runtime Bind Mount & Clean Daemon Restart*); serta Penyimpanan Permanen Otomatis via Magisk/KernelSU Magic Mount Overlay**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC121)
 
@@ -5007,13 +5023,13 @@ Released on: 2026-10-20
 
 ### 2. ?? Aturan Anti-Dimming Layar Otomatis (`[LCD_MANAGEMENT]`)
 - **Akar Masalah**:
-  - Konfigurasi bawaan vendor pada banyak perangkat Qualcomm memicu penurunan kecerahan layar (*backlight throttling*) saat suhu internal mencapai 45�C�48�C, menyebabkan layar tiba-tiba gelap saat bermain game di luar ruangan atau saat pengisian cepat.
+  - Konfigurasi bawaan vendor pada banyak perangkat Qualcomm memicu penurunan kecerahan layar (*backlight throttling*) saat suhu internal mencapai 45ï¿½Cï¿½48ï¿½C, menyebabkan layar tiba-tiba gelap saat bermain game di luar ruangan atau saat pengisian cepat.
 - **Solusi**:
-  - Menambahkan sakelar *Anti-Dimming* yang secara cerdas menaikkan ambang batas `[LCD_MANAGEMENT]` ke 56�C / 60�C, menjaga visibilitas layar tetap cerah maksimal tanpa intervensi daemon yang mengganggu.
+  - Menambahkan sakelar *Anti-Dimming* yang secara cerdas menaikkan ambang batas `[LCD_MANAGEMENT]` ke 56ï¿½C / 60ï¿½C, menjaga visibilitas layar tetap cerah maksimal tanpa intervensi daemon yang mengganggu.
 
-### 3. ?? Headroom Termal CPU Cluster & GPU Adreno (+5�C Sustained Gaming)
+### 3. ?? Headroom Termal CPU Cluster & GPU Adreno (+5ï¿½C Sustained Gaming)
 - **Solusi**:
-  - Menyediakan opsi *CPU & GPU Thermal Headroom* yang memperluas set point mitigasi frekuensi clock `[SS-MSM-THERM-SILVER]`, `[SS-MSM-THERM-GOLD]`, dan `[SS-GPU]` sebesar +5�C, mencegah terjadinya *micro-stutter* dan *frame drop* dini saat temperatur SoC naik perlahan selama sesi gaming kompetitif.
+  - Menyediakan opsi *CPU & GPU Thermal Headroom* yang memperluas set point mitigasi frekuensi clock `[SS-MSM-THERM-SILVER]`, `[SS-MSM-THERM-GOLD]`, dan `[SS-GPU]` sebesar +5ï¿½C, mencegah terjadinya *micro-stutter* dan *frame drop* dini saat temperatur SoC naik perlahan selama sesi gaming kompetitif.
 
 ### 4. ? Mesin Uji Coba Instan Tanpa Reboot (*Live Runtime Bind Mount*)
 - **Solusi**:
@@ -5024,11 +5040,11 @@ Released on: 2026-10-20
 
 # Lynx Universal [UI Smoothness, Anti-ZRAM Thrashing & Fast eMMC Cold-Boot Engine] 7.0.0-RC120
 Released on: 2026-10-20
-> **Lynx Universal v7.0.0-RC120** (Lynx Kernel Manager v3.1.66): **Optimasi Responsivitas UI & Kecepatan *Cold-Boot* Aplikasi (WhatsApp, dll.) untuk Perangkat Low/Mid-End (eMMC 5.1 & RAM 3GB–4GB): Hierarki Prioritas CFS `/dev/cpuctl/cpu.shares` (`top-app=2048/4096` vs `background=128` & `dex2oat=128`) serta EAS `/dev/stune` (`top-app schedtune.boost=15` di Mode Balance) agar Aplikasi Utama Tidak Direbut CPU-nya oleh Layanan Latar Belakang; Pemangkasan `read_ahead_kb` eMMC (`mmcblk0`) dari 512 KB ke 128 KB di Mode Balance (Menghilangkan Kemacetan Dekripsi `blk_crypto_wq` & Antrean *Random Read* 37% `%iow` saat Buka WhatsApp); Penyeimbangan Anti-ZRAM Thrashing (`vm.swappiness=60`, `vfs_cache_pressure=120`, `dirty_background_ratio=5`, `dirty_ratio=12`) untuk Menghentikan `[kswapd0]` Memeras CPU; serta Sinkronisasi Biner `lynxd` & Pemulihan Memori Otomatis di Latar Belakang (`MY_PACKAGE_REPLACED`)**.
+> **Lynx Universal v7.0.0-RC120** (Lynx Kernel Manager v3.1.66): **Optimasi Responsivitas UI & Kecepatan *Cold-Boot* Aplikasi (WhatsApp, dll.) untuk Perangkat Low/Mid-End (eMMC 5.1 & RAM 3GBâ4GB): Hierarki Prioritas CFS `/dev/cpuctl/cpu.shares` (`top-app=2048/4096` vs `background=128` & `dex2oat=128`) serta EAS `/dev/stune` (`top-app schedtune.boost=15` di Mode Balance) agar Aplikasi Utama Tidak Direbut CPU-nya oleh Layanan Latar Belakang; Pemangkasan `read_ahead_kb` eMMC (`mmcblk0`) dari 512 KB ke 128 KB di Mode Balance (Menghilangkan Kemacetan Dekripsi `blk_crypto_wq` & Antrean *Random Read* 37% `%iow` saat Buka WhatsApp); Penyeimbangan Anti-ZRAM Thrashing (`vm.swappiness=60`, `vfs_cache_pressure=120`, `dirty_background_ratio=5`, `dirty_ratio=12`) untuk Menghentikan `[kswapd0]` Memeras CPU; serta Sinkronisasi Biner `lynxd` & Pemulihan Memori Otomatis di Latar Belakang (`MY_PACKAGE_REPLACED`)**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC120)
 
-### 1. ⚡ Hierarki Prioritas CFS `cpuctl` & EAS `schedtune` (Anti-Starvation Aplikasi Utama)
+### 1. â¡ Hierarki Prioritas CFS `cpuctl` & EAS `schedtune` (Anti-Starvation Aplikasi Utama)
 - **Akar Masalah Forensik**:
   - Pada kernel EAS 4.9/4.14/4.19 (seperti Redmi Note 7 Snapdragon 660), node `/sys/module/cpu_boost` dan `/proc/sys/kernel/sched_upmigrate` tidak tersedia; penempatan tugas ke *Big Cluster* sepenuhnya dikendalikan oleh `/dev/stune` (`schedtune`) dan pembagian waktu CPU oleh `/dev/cpuctl` (`cpu.shares`).
   - Sebelumnya, seluruh grup `/dev/cpuctl/*/cpu.shares` (`top-app`, `foreground`, `background`, `system-background`, `dex2oat`) bernilai sama (`1024`), dan `translator.rs` menyetel `/dev/stune/top-app/schedtune.boost = 0` di mode `Balance`. Akibatnya, saat membuka WhatsApp atau menggulir UI, aplikasi latar belakang berat mendapat bobot CPU yang setara dengan aplikasi di layar utama.
@@ -5036,20 +5052,20 @@ Released on: 2026-10-20
   - Mengatur hierarki tegas `/dev/cpuctl/*/cpu.shares`: `top-app = 2048` (`4096` saat Gaming/Extreme), `foreground = 1024`, `system-background = 256`, `background = 128`, dan `dex2oat = 128`.
   - Mengatur `/dev/stune/top-app/schedtune.boost = 15` (`prefer_idle = 1`) dan `foreground/schedtune.boost = 5` pada mode `Balance`, serta mengunci `background/schedtune.boost = 0` (`prefer_idle = 0`, `prefer_high_cap = 0`).
 
-### 2. 💾 Optimasi Antrean I/O eMMC 5.1 (`read_ahead_kb = 128` & `nr_requests = 64`)
+### 2. ð¾ Optimasi Antrean I/O eMMC 5.1 (`read_ahead_kb = 128` & `nr_requests = 64`)
 - **Akar Masalah**:
   - Penyimpanan **eMMC 5.1** bersifat *half-duplex* dan menggunakan dekripsi perangkat lunak (`[kworker/u17:4-blk_crypto_wq]`). Saat `read_ahead_kb` disetel ke `512` KB di mode `Balance`, setiap pembacaan acak 4KB dari database SQLite atau `.odex` WhatsApp memaksa kernel membaca dan mendekripsi 512 KB penuh, memicu **37% I/O Wait (`%iow`)**.
 - **Solusi**:
   - Memisahkan kebijakan `read_ahead_kb` antara **UFS (`sda`/`sdb`/`sdc`)** dan **eMMC (`mmcblk0`/`mmcblk1`)**: pada eMMC disetel ke **128 KB** di mode `Balance`/`Powersave` (`256 KB` di `Performance`, `512 KB` di `Extreme`) dengan `nr_requests = 64`, `read_expire = 125`, dan `writes_starved = 4` agar pembacaan peluncuran aplikasi selalu diprioritaskan di atas penulisan latar belakang.
 
-### 3. 🧠 Penyeimbangan Memori Anti-ZRAM Thrashing (`kswapd0` Relief)
+### 3. ð§  Penyeimbangan Memori Anti-ZRAM Thrashing (`kswapd0` Relief)
 - **Akar Masalah**:
   - Pada perangkat RAM $\le 4\text{GB}$, nilai `vm.swappiness = 90` menyebabkan `[kswapd0]` terus-menerus mengompresi memori aktif aplikasi (`AnonPages`) ke ZRAM hingga mencapai 2.39 GB sementara `MemFree` tersisa 46 MB dan `Dirty` menumpuk hingga 46.8 MB.
 - **Solusi**:
   - Menurunkan `vm.swappiness` ke `60` dan menaikkan `vm.vfs_cache_pressure` ke `120` untuk RAM $\le 4.5\text{GB}$ agar kernel membuang *cache* berkas usang terlebih dahulu daripada melakukan *swap thrashing* pada aplikasi aktif.
   - Menambahkan `dirty_background_ratio = 5`, `dirty_ratio = 12`, dan `watermark_scale_factor = 15`, serta pembersihan otomatis *clean pagecache* & proses *cached* latar belakang saat `MemFree < 150 MB`.
 
-### 4. 🔄 Sinkronisasi Otomatis Biner `lynxd` & Hot-Reload di Latar Belakang (`MY_PACKAGE_REPLACED`)
+### 4. ð Sinkronisasi Otomatis Biner `lynxd` & Hot-Reload di Latar Belakang (`MY_PACKAGE_REPLACED`)
 - Memperbarui `LynxRepository.ensureDaemonRunning()` agar selalu membandingkan aset `bin/lynxd` di dalam APK terhadap biner yang terpasang (`cmp -s`) sekali setiap sesi, serta mendaftarkan `ACTION_MY_PACKAGE_REPLACED` pada `LynxBootReceiver` agar setiap pembaruan APK otomatis memperbarui daemon `lynxd` dan menerapkan profil aktif di latar belakang tanpa perlu membuka aplikasi secara manual.
 
 ---
@@ -5060,7 +5076,7 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC119)
 
-### 1. ⚡ Penghapusan Paksaan `powersave` saat Layar Mati (Akar Masalah Lag 20+ Detik pada Redmi Note 7)
+### 1. â¡ Penghapusan Paksaan `powersave` saat Layar Mati (Akar Masalah Lag 20+ Detik pada Redmi Note 7)
 - **Akar Masalah Forensik**:
   - Sebelumnya, `LynxAppAutomationService` dan `lynx_watcher.sh` secara paksa mengeksekusi profil `powersave` setiap kali layar mati (`ACTION_SCREEN_OFF`).
   - Pada perangkat seperti Redmi Note 7 (Snapdragon 660, eMMC 5.1), profil `powersave` mengunci governor CPU ke `powersave` (633 MHz), memangkas batas clock maksimum ke 60%, memarkir seluruh 4 Big Core Kryo Gold (`core_ctl/min_cpus = 0`), mematikan touch boost (`input_boost_ms = 0`), dan mengisolasi `/dev/cpuset/top-app/cpus` hanya ke core kecil `0-3`.
@@ -5070,7 +5086,7 @@ Released on: 2026-10-20
   - Menghapus total paksaan profil `powersave` saat `ACTION_SCREEN_OFF`.
   - Saat layar mati, sistem hanya mengembalikan profil ke `baselineProfile` (`balance`) apabila sebelumnya sedang berada di dalam game (`performance`/`extreme`). Dalam mode `balance`, governor `schedutil` dan `cpuidle` tetap menidurkan CPU ke 0 mA saat layar mati, namun siap merespons secara instan begitu tombol daya ditekan.
 
-### 2. 🚀 Mesin Native `wakeup-boost` (Lonjakan Transien Penyerap *Thundering Herd*)
+### 2. ð Mesin Native `wakeup-boost` (Lonjakan Transien Penyerap *Thundering Herd*)
 - **Solusi**:
   - Menambahkan fungsi native `SystemController::wakeup_boost(duration_ms)` pada `lynxd` (`lynxd system wakeup-boost 2000`) yang dipicu seketika saat `ACTION_SCREEN_ON` dan `ACTION_USER_PRESENT`.
   - Selama 2 detik pertama saat bangun tidur:
@@ -5078,7 +5094,7 @@ Released on: 2026-10-20
     - Mengaktifkan Qualcomm WALT `sched_boost = 1` dan membuka parkir sedikitnya 2 Big Core (`core_ctl/min_cpus = 2`) serta `input_boost_ms = 120` (atau `req_boost = 1` pada MediaTek).
     - Menyerap dan menuntaskan seluruh lonjakan antrean tugas bangun tidur dalam waktu $<300\text{ms}$ tanpa *frame drop* sedikit pun, lalu secara mulus kembali ke ritme hemat daya `balance` setelah 2 detik.
 
-### 3. ⏱️ Eliminasi Perangkap Tidur 20 Detik pada Daemon `lynxd` (`runner.rs` & `decision.rs`)
+### 3. â±ï¸ Eliminasi Perangkap Tidur 20 Detik pada Daemon `lynxd` (`runner.rs` & `decision.rs`)
 - **Akar Masalah**:
   - Pada `native/lynxd/src/daemon/runner.rs`, saat layar mati dan charger tidak terpasang, daemon tidur selama `Duration::from_secs(20)` dalam potongan 5 detik tanpa memeriksa apakah layar sudah menyala kembali. Jika pengguna menyalakan layar, `lynxd` tetap tertidur buta hingga 20 detik.
   - Selain itu, pada `decision.rs`, jika profil sedang berada di `powersave`, mesin keputusan memilih `MaintainCurrent` saat layar menyala di *launcher*, membuat perangkat terjebak di `powersave`.
@@ -5094,63 +5110,63 @@ Released on: 2026-10-20
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC118)
 
-### 1. 🏝️ Arsitektur Adaptif Dynamic Island (`LynxModeToastHud.kt`)
+### 1. ðï¸ Arsitektur Adaptif Dynamic Island (`LynxModeToastHud.kt`)
 - **Akar Masalah**:
   Sebelumnya `JewelToastPill` dikunci pada satu baris horizontal dengan `maxLines = 1` dan `widthIn(max = 240.dp)`. Jika pesan notifikasi panjang (misal: pesan sukses kustomisasi profil, penjelasan galat kernel, atau status sistem), teks terpotong secara canggung menjadi `Kustomisasi pada Profil B...`, atau jika teks membungkus, bentuk kapsul `CircleShape` menjadi terdistorsi dan rusak.
 - **Solusi (Adaptive Morphing)**:
-  - **Mode Ramping (Pesan Singkat $\le 28$ Karakter)**: Tetap mempertahankan kapsul horizontal ultra-ramping (`CircleShape`, tinggi 30–34dp) dengan glowing jewel dot, ikon mikro, dan badge status.
+  - **Mode Ramping (Pesan Singkat $\le 28$ Karakter)**: Tetap mempertahankan kapsul horizontal ultra-ramping (`CircleShape`, tinggi 30â34dp) dengan glowing jewel dot, ikon mikro, dan badge status.
   - **Mode Bento Melebar (Pesan Panjang / Error $> 28$ Karakter)**: Secara otomatis bermetamorfosis menjadi **Bento Glass Card** (`RoundedCornerShape(16.dp)`, lebar maks 340dp) dengan Tier 1 (Dot + Ikon + Chip Kategori + Tombol Tutup) dan Tier 2 (Teks lengkap berjarak baris 16.5sp hingga 4 baris terbaca utuh tanpa terpotong).
   - Mengintegrasikan modifier `.animateContentSize()` dengan spring physics lembut agar transisi antara mode ringkas dan melebar mengalir dinamis tanpa hentakan visual.
 
-### 2. 🚀 Penjaminan Eksekusi Native System Toast (Anti Notifikasi Hilang)
+### 2. ð Penjaminan Eksekusi Native System Toast (Anti Notifikasi Hilang)
 - **Akar Masalah**:
   Saat pengguna memilih gaya feedback *"System Toast (OS Text)"*, HUD Compose dinonaktifkan (benar), namun `triggerModeFeedback` dan peralihan profil sebelumnya tidak pernah memanggil `Toast.makeText` dari dalam aplikasi. Akibatnya, setiap kali profil berganti, layar diam total tanpa notifikasi apa pun, memicu kerancuhan pengguna.
 - **Solusi**:
   Menyematkan listener reaktif `LaunchedEffect(toastData?.timestamp)` di dalam `LynxModeToastHud`. Ketika mode `system_toast` aktif dan ada data toast yang masuk (baik pergantian mode profil, sukses, info, maupun galat), sistem secara otomatis dan andal mengeksekusi `android.widget.Toast.makeText(...)`.
 
-### 3. 🧼 Pembersihan Format Teks Toast Sistem (Anti Format Aneh)
+### 3. ð§¼ Pembersihan Format Teks Toast Sistem (Anti Format Aneh)
 - **Akar Masalah**:
-  Pada Android 12+, sistem operasi secara otomatis menyertakan ikon aplikasi Lynx di samping teks Toast. Format lama yang mengirim string `[App Icon] 🔥 Lynx: Mode Ekstrem (Extreme)` terlihat kotor, repetitif, dan aneh bagi pengguna.
+  Pada Android 12+, sistem operasi secara otomatis menyertakan ikon aplikasi Lynx di samping teks Toast. Format lama yang mengirim string `[App Icon] ð¥ Lynx: Mode Ekstrem (Extreme)` terlihat kotor, repetitif, dan aneh bagi pengguna.
 - **Solusi**:
   Membuat parser `formatCleanSystemToast` yang menyaring teks redundan:
-  - Mode Profil: `🔥 Mode Ekstrem Aktif` / `⚖️ Mode Seimbang Aktif`
-  - Pesan Sukses: `✓ Profil Berhasil Disimpan`
-  - Pesan Galat: `⚠ Gagal Menulis Node Kernel`
+  - Mode Profil: `ð¥ Mode Ekstrem Aktif` / `âï¸ Mode Seimbang Aktif`
+  - Pesan Sukses: `â Profil Berhasil Disimpan`
+  - Pesan Galat: `â  Gagal Menulis Node Kernel`
   Hasilnya tampak bersih, profesional, dan selaras dengan standar antarmuka Android modern.
 
-### 4. 🛡️ Perlindungan Penelanan Notifikasi Sukses (`LynxAppShell.kt`)
+### 4. ð¡ï¸ Perlindungan Penelanan Notifikasi Sukses (`LynxAppShell.kt`)
 - Memperbaiki pengkondisian `uiState.successMessage` agar jika pesan bertuliskan profil/mode diterapkan namun `activeModeToast` belum terpasang, pesan tetap diarahkan ke Universal Toast HUD tanpa tertelan atau hilang.
 
 ---
 
 # Lynx Universal [Dynamic Island Rapid-Click Polish & Single-Source HUD Feedback] 7.0.0-RC117
 Released on: 2026-10-19
-> **Lynx Universal v7.0.0-RC117** (Lynx Kernel Manager v3.1.63): **Perbaikan Komprehensif Notifikasi Lynx Island & Feedback HUD: Eliminasi Total Tumpang Tindih Ganda (Dual Overlay Collision WindowManager vs Compose); Penegakan Logika Visibilitas Mode-Aware pada `LynxModeToastHud` (Mode Disabled, Status Bar, & System Toast Tidak Lagi Memicu Dynamic Island Secara Liar); Transisi Animasi Halus Tanpa Flicker (`AnimatedContent` + `animateColorAsState` pada Rapid-Click); Tombol Live Test Cerdas Sesuai Mode Pilihan Aktif; Debounce Persistensi Konfigurasi Root Daemon; serta Target Sentuh Opsi Feedback Terstandardisasi ≥48dp**.
+> **Lynx Universal v7.0.0-RC117** (Lynx Kernel Manager v3.1.63): **Perbaikan Komprehensif Notifikasi Lynx Island & Feedback HUD: Eliminasi Total Tumpang Tindih Ganda (Dual Overlay Collision WindowManager vs Compose); Penegakan Logika Visibilitas Mode-Aware pada `LynxModeToastHud` (Mode Disabled, Status Bar, & System Toast Tidak Lagi Memicu Dynamic Island Secara Liar); Transisi Animasi Halus Tanpa Flicker (`AnimatedContent` + `animateColorAsState` pada Rapid-Click); Tombol Live Test Cerdas Sesuai Mode Pilihan Aktif; Debounce Persistensi Konfigurasi Root Daemon; serta Target Sentuh Opsi Feedback Terstandardisasi â¥48dp**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC117)
 
-### 1. 🏝️ Eliminasi Tumpang Tindih Ganda (*Dual Overlay Collision*)
+### 1. ðï¸ Eliminasi Tumpang Tindih Ganda (*Dual Overlay Collision*)
 - **Akar Masalah**:
   Saat pengguna mengetuk opsi gaya feedback di dalam aplikasi, fungsi `setModeFeedbackStyle` mengirim broadcast Intent OS yang memicu `LynxToastOverlayService` (menempelkan WindowManager System Overlay), sementara UI juga memicu `triggerModeFeedback` (menampilkan Compose HUD in-app). Kedua overlay saling bertumpuk di piksel yang sama, membuat teks tampak kabur/tebal dan bayangan berantakan.
 - **Solusi**:
   Menghilangkan broadcast `previewIntent` internal di dalam `setModeFeedbackStyle`. Preview di dalam aplikasi murni ditangani oleh Compose In-App HUD, sementara `LynxToastOverlayService` direservasi khusus untuk transisi latar belakang (saat bermain game atau perubahan dari daemon root `lynxd`).
 
-### 2. 🎯 Logika Visibilitas Mode-Aware (`LynxModeToastHud.kt`)
+### 2. ð¯ Logika Visibilitas Mode-Aware (`LynxModeToastHud.kt`)
 - **Akar Masalah**:
   Sebelumnya composable `LynxModeToastHud` menggunakan `when (feedbackStyle)` yang memasukkan seluruh gaya selain `jewel_bottom` ke blok `else`, sehingga mode `system_toast`, `status_bar`, dan bahkan `disabled` tetap memunculkan Jewel Dynamic Island di atas layar.
 - **Solusi**:
   Menegakkan aturan seleksi ketat: mode profil (`ToastType.MODE`) hanya memicu HUD visual jika style adalah `jewel_top` atau `jewel_bottom`. Pilihan `disabled` dan `status_bar` hening total dari HUD, sedangkan `system_toast` memicu gelembung teks OS native.
 
-### 3. ✨ Transisi Halus pada Penekanan Cepat (*Rapid-Click Morphing*)
+### 3. â¨ Transisi Halus pada Penekanan Cepat (*Rapid-Click Morphing*)
 - **Akar Masalah**:
   Saat pengguna menekan tombol mode secara cepat berulang-ulang, Compose `AnimatedVisibility` tidak merestart animasi masuk karena visibilitas tetap bernilai true, menyebabkan teks dan warna berganti seketika secara patah atau berkedip liar (*flicker*).
 - **Solusi**:
   Membungkus elemen isi kapsul (`JewelToastPill`) dalam `AnimatedContent` dengan transisi `fadeIn + scaleIn` dan `fadeOut + scaleOut`, serta menginterpolasi warna aksen menggunakan `animateColorAsState(tween(200))`. Seluruh perpindahan status saat penekanan cepat kini bertransisi dengan mulus seperti air mengalir.
 
-### 4. 🧪 Tombol "Live Test" Cerdas Sesuai Mode Pilihan
+### 4. ð§ª Tombol "Live Test" Cerdas Sesuai Mode Pilihan
 - Menghubungkan tombol *"Uji Coba Animasi Toast (Live Test)"* dengan mode yang sedang aktif. Jika pengguna memilih *System Toast*, tombol akan memunculkan Toast native Android lengkap dengan emoji; jika *Jewel Top/Bottom*, memicu Dynamic Island; dan jika *Disabled*, mengonfirmasi status hening.
 
-### 5. ⚡ Debouncing Root Shell & Peningkatan Target Sentuh
+### 5. â¡ Debouncing Root Shell & Peningkatan Target Sentuh
 - Operasi penulisan shell root ke `/data/adb/lynx/feedback_style` kini di-debounce sebesar 350ms guna mencegah banjir antrean proses root saat pengguna beralih mode dengan cepat.
 - Seluruh kartu opsi feedback di `ProfilesFeedbackBottomSheet` ditingkatkan ke tinggi sentuh minimal **48dp**, switch dual morph dibungkus dalam kontainer **48x48dp**, dan tombol Live Test berdimensi **48dp** (kepatuhan penuh Rule 1).
 
@@ -5158,21 +5174,21 @@ Released on: 2026-10-19
 
 # Lynx Universal [Touch-First Bento Architecture & Kernel Profiles Redesign] 7.0.0-RC116
 Released on: 2026-10-19
-> **Lynx Universal v7.0.0-RC116** (Lynx Kernel Manager v3.1.62): **Redesain Menyeluruh Antarmuka Profil Performa Kernel Berbasis Arsitektur Bento 2-Tier; Peningkatan Target Sentuh Ergonomis Penuh (≥44–48dp Sesuai Standar Rule 1 & Touch-First); Segmented Cooldown Bar Nothing OS Berdimensi 46dp (40dp Active Tap Pill); Tombol Tambah 44dp & Overflow 44x44dp; Harmonisasi Tipografi & Token Desain Resmi (BgElevated, BgDeepOled, BorderSubtle, BorderGlass); serta Tombol CTA "Simpan Profil Kustom" 52dp**.
+> **Lynx Universal v7.0.0-RC116** (Lynx Kernel Manager v3.1.62): **Redesain Menyeluruh Antarmuka Profil Performa Kernel Berbasis Arsitektur Bento 2-Tier; Peningkatan Target Sentuh Ergonomis Penuh (â¥44â48dp Sesuai Standar Rule 1 & Touch-First); Segmented Cooldown Bar Nothing OS Berdimensi 46dp (40dp Active Tap Pill); Tombol Tambah 44dp & Overflow 44x44dp; Harmonisasi Tipografi & Token Desain Resmi (BgElevated, BgDeepOled, BorderSubtle, BorderGlass); serta Tombol CTA "Simpan Profil Kustom" 52dp**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC116)
 
-### 1. 🍱 Arsitektur Kartu Bento 2-Tier pada Profil Performa Kernel (`ProfileGrid.kt`)
+### 1. ð± Arsitektur Kartu Bento 2-Tier pada Profil Performa Kernel (`ProfileGrid.kt`)
 - **Akar Masalah**:
   Seluruh elemen kartu profil (ikon 42dp, judul, deskripsi 2 baris, tags subsistem, badge status [AKTIF], dan tombol menu) sebelumnya berdesakan dalam satu baris horizontal, memicu pemotongan teks (*truncation*) dan distorsi visual pada layar beresolusi non-reguler, layar kecil, atau DPI tinggi.
 - **Solusi**:
-  - **Tier 1 (Header Bar)**: Ikon squircle 44dp, nama profil 15sp Bold, badge status ("Tersuai" / "Kustom"), badge status aktif [✓ AKTIF], dan tombol menu opsi 48dp terpusat dalam baris mandiri.
+  - **Tier 1 (Header Bar)**: Ikon squircle 44dp, nama profil 15sp Bold, badge status ("Tersuai" / "Kustom"), badge status aktif [â AKTIF], dan tombol menu opsi 48dp terpusat dalam baris mandiri.
   - **Tier 2 (Body & Subsystem Tags)**: Teks deskripsi profil 12sp (line-height 16.5sp) membentang selebar kartu tanpa terpotong, disertai baris horizontal chip spesifikasi hardware kernel (*Dynamic Devfreq, Schedutil, Gaming, dll.*).
   - **Tombol CTA Simpan Profil Kustom 52dp**: Ditingkatkan ke tinggi 52dp dengan teks ringkas dan tegas *"Simpan Profil Kustom"*.
 
-### 2. 📱 Peningkatan Target Sentuh Ergonomis & Touch-First (Rule 1 Compliance)
+### 2. ð± Peningkatan Target Sentuh Ergonomis & Touch-First (Rule 1 Compliance)
 - **Tombol Tambah Aturan & Overflow (`TuningProfilesCategory.kt`)**:
-  Tombol `+ Tambah` ditingkatkan dari 36dp ke **44dp**, dan tombol menu overflow `⋮` ditingkatkan ke **44x44dp**.
+  Tombol `+ Tambah` ditingkatkan dari 36dp ke **44dp**, dan tombol menu overflow `â®` ditingkatkan ke **44x44dp**.
 - **Master Switch & App Rule Switch**:
   Dibungkus dalam kontainer touch-box **48x48dp** untuk menjamin respons sentuhan jari satu tangan tanpa risiko salah sentuh (*miss-touch*).
 - **Tombol Menu Profil**:
@@ -5180,7 +5196,7 @@ Released on: 2026-10-19
 - **Tab Row Segmented Capsule**:
   Tinggi bar navigasi tab (`ProfilesCategoryTabRow`) ditingkatkan dari 48dp ke **52dp** (pil tab aktif otomatis menjadi 44dp touch-compliant).
 
-### 3. ⏱️ Segmented Cooldown Capsule Gaya Nothing OS
+### 3. â±ï¸ Segmented Cooldown Capsule Gaya Nothing OS
 - **Peningkatan Dimensi Taktil**:
   Bar pilihan masa penahanan cooldown aplikasi (`5s`, `30s`, `1m`, `3m`, `Tetap`) ditingkatkan dari 38dp ke **46dp** (`RoundedCornerShape(12.dp)`), dengan tinggi efektif masing-masing pil opsi sebesar **40dp** dan aksen neon Cyan 60%.
 - **Scrollabilitas Dialog**:
@@ -5194,7 +5210,7 @@ Released on: 2026-10-19
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC115)
 
-### 1. 🎯 Eliminasi Paradoks Identitas Komputasi pada Profil Bawaan
+### 1. ð¯ Eliminasi Paradoks Identitas Komputasi pada Profil Bawaan
 - **Akar Masalah**:
   Saat pengguna mengedit profil bawaan (seperti *Seimbang*), antarmuka sebelumnya tetap menyajikan 4 tombol mode (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`). Hal ini memicu kebingungan psikologis besar bagi pengguna (*"Jika saya memilih Ekstrem di dalam profil Seimbang, profil ini sebenarnya Seimbang atau Ekstrem?"*).
 - **Solusi**:
@@ -5202,20 +5218,20 @@ Released on: 2026-10-19
   - **Kartu Komputasi Inti Informatif**: Menyajikan kartu status ringkas berlatar OLED dengan penjelasan governor CPU dan clock GPU bawaan Lynx.
   - **Sakelar Pemisah Mandiri (*Decouple Switch*)**: Opsi kustomisasi terpisah CPU & GPU tetap disediakan bagi *power user* yang ingin memodifikasi governor atau preset grafis spesifik secara sengaja.
 
-### 2. 🎛️ Revolusi Saklar Kosong Menjadi Pilihan Parameter Konkret (*Direct Option Chips*)
+### 2. ðï¸ Revolusi Saklar Kosong Menjadi Pilihan Parameter Konkret (*Direct Option Chips*)
 - **Akar Masalah**:
   Sebelumnya, subsistem hardware hanya berupa sakelar toggle ON/OFF generik tanpa nilai yang bisa diubah (*blind snapshot*). Pengguna bingung apakah mematikan saklar berarti mematikan ZRAM di HP mereka, dan tidak tahu di mana mereka bisa mengatur refresh rate atau batas baterai.
 - **Solusi**:
   - **Kontrol Nilai Nyata**: Setiap kali sakelar subsistem diaktifkan, panel interaktif `AnimatedVisibility` terbuka dan menampilkan chip pilihan nilai langsung:
     - **Layar & Sentuhan**: Kunci Refresh Rate (`Bebas / Auto`, `60 Hz`, `90 Hz`, `120 Hz`) dan Respon Sentuhan TouchBoost (`Aktif`, `Standar`).
-    - **Kebijakan Termal**: Mode Mitigasi (`Standar OEM`, `Stabil Dingin`, `Performa Tinggi`) dan Batas Suhu Maksimum (`40°C`, `45°C`, `48°C`, `50°C`, `55°C`).
+    - **Kebijakan Termal**: Mode Mitigasi (`Standar OEM`, `Stabil Dingin`, `Performa Tinggi`) dan Batas Suhu Maksimum (`40Â°C`, `45Â°C`, `48Â°C`, `50Â°C`, `55Â°C`).
     - **Batas Pengisian Baterai**: Batas Kapasitas AutoCut (`70%`, `80%`, `85%`, `90%`, `100%`) dan Smart Tapering Arus (`Aktif`, `Standar`).
     - **Memori & ZRAM**: Rasio Swappiness (`60%`, `100%`, `130%`, `160%`, `200%`) dan Multi-Gen LRU (`Aktif`, `Nonaktif`).
     - **Wi-Fi & Jaringan**: Algoritma TCP Congestion (`BBR`, `Cubic`, `Westwood`) dan Wi-Fi Ping Stabilizer (`Aktif`, `Nonaktif`).
     - **Sound & Audio DAC**: Low-Latency MMAP Audio (`Aktif`, `Standar`) dan Direct DAC Offload / BT Crackle Guard (`Aktif`, `Standar`).
   - **Kejelasan Status Non-Aktif**: Saat sakelar OFF, teks status secara transparan menegaskan: *"Mengikuti setelan sistem saat ini (tidak diubah)"*, menghilangkan keraguan pengguna.
 
-### 3. 💾 Penegakan Prioritas Persistensi Setelan Kernel (`profile.settings` Priority Guard)
+### 3. ð¾ Penegakan Prioritas Persistensi Setelan Kernel (`profile.settings` Priority Guard)
 - Memperbarui `saveKernelPerformanceProfile` pada `LynxViewModelKernelProfiles.kt` agar memprioritaskan nilai konfigurasi eksplisit dari `profile.settings` yang dipilih oleh pengguna di dialog sebelum mengambil nilai fallback dari kondisi hardware aktif (`state.*`).
 
 ---
@@ -5226,7 +5242,7 @@ Released on: 2026-10-19
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC114)
 
-### 1. 🎯 Eliminasi Paradoks "Profil Induk" pada Profil Bawaan Sistem
+### 1. ð¯ Eliminasi Paradoks "Profil Induk" pada Profil Bawaan Sistem
 - **Akar Masalah**:
   Saat pengguna mengedit profil bawaan Lynx (seperti *Balance*, *Performance*, *Extreme*, *Powersave*), dialog kustomisasi sebelumnya menampilkan pemilih bertuliskan `"PROFIL INDUK (BASE PROFILE)"` dengan 4 pilihan (*Hemat Daya, Seimbang, Performa, Ekstrem*). Hal ini menimbulkan kebingungan konseptual besar bagi pengguna: profil bawaan adalah entitas master/induk itu sendiri, sehingga keberadaan pemilih induk memberi kesan seolah profil bawaan memiliki induk lain atau mengubahnya akan mengubah profil dasar menjadi profil lain secara tidak terduga.
 - **Solusi**:
@@ -5236,7 +5252,7 @@ Released on: 2026-10-19
   - **Harmonized 1-Click Compute Presets**: Menghadirkan 4 chip harmonik terpadu (*Hemat Daya, Seimbang, Performa, Ekstrem*) yang secara cerdas menyelaraskan kebijakan frekuensi CPU dan profil grafis GPU dalam satu sentuhan cepat.
   - **Sakelar Pemisah Mandiri (*Decouple Switch*)**: Menyediakan toggle *"Kustomisasi preset CPU & GPU secara terpisah"*. Jika diaktifkan, menu pemilihan individual CPU dan GPU akan muncul secara mulus via `AnimatedVisibility`, memberikan kebebasan penuh bagi *power user* yang ingin mengombinasikan CPU Performance dengan GPU Balanced tanpa membingungkan pengguna umum.
 
-### 2. 🔍 Transparansi Nilai Nyata Subsistem Hardware (*Live Parameter Badges*)
+### 2. ð Transparansi Nilai Nyata Subsistem Hardware (*Live Parameter Badges*)
 - **Akar Masalah**:
   Sebelumnya, fitur "Sinkronisasi Subsistem Hardware" hanya berupa sakelar ON/OFF generik (*blind snapshot*). Pengguna tidak mengetahui pengaturan atau nilai apa sebenarnya yang tersimpan dan akan dieksekusi ke kernel saat profil aktif.
 - **Solusi**:
@@ -5245,15 +5261,15 @@ Released on: 2026-10-19
     - **Layar & Sentuhan**: Menampilkan status TouchBoost, frekuensi Refresh Rate terkunci (Hz), dan rendering Skia Vulkan.
     - **Wi-Fi & Jaringan**: Menampilkan algoritma kongesti TCP (Cubic/BBR/Westwood), status Wi-Fi Ping Stabilizer, dan antrean paket FQ-CoDel.
     - **Sound DAC**: Menampilkan status MMAP Low-Latency, Direct DAC Offload, dan FastTrack audio.
-    - **Kebijakan Termal**: Menampilkan mode throttling aktif (STABLE, PERFORMANCE, HARDWARE SAFETY) dan limit ambang suhu custom limit (°C).
+    - **Kebijakan Termal**: Menampilkan mode throttling aktif (STABLE, PERFORMANCE, HARDWARE SAFETY) dan limit ambang suhu custom limit (Â°C).
     - **Batas Pengisian Baterai**: Menampilkan persentase batas pengisian daya (%), batas arus pengisian (mA), dan proteksi Smart Tapering.
   - Setiap kali sakelar subsistem diaktifkan, baris badge nilai muncul secara elegan dalam kontainer *horizontal scrollable row*, memberikan kepastian visual penuh kepada pengguna sebelum menyimpan profil.
 
-### 3. 🌐 Purifikasi Terminologi Global ("Ikuti Global" & "Kustomisasi Subsistem")
+### 3. ð Purifikasi Terminologi Global ("Ikuti Global" & "Kustomisasi Subsistem")
 - **Pembersihan Kosakata Usang**:
   - Mengganti istilah membingungkan `"Ikuti induk"` pada subscreen frekuensi CPU dan profil grafis GPU menjadi **"Ikuti Global"** (Bahasa Inggris: *"Follow Global"*).
   - Mengganti dialog konfirmasi beralih profil menjadi: *"Pertahankan kustomisasi subsistem saat mengganti profil global, atau reset semua subsistem mengikuti profil baru?"*.
-  - Mengganti format teks status override pada daftar profil menjadi: *"Profil Global [Nama] · kustomisasi [Subsistem]"*.
+  - Mengganti format teks status override pada daftar profil menjadi: *"Profil Global [Nama] Â· kustomisasi [Subsistem]"*.
   - Menyinkronkan seluruh kamus terjemahan di `strings.xml`, `values-id/strings.xml`, `values-en/strings.xml`, dan pustaka penerjemah reaktif `LegacyUiTextResources.kt`.
 
 ---
@@ -5264,7 +5280,7 @@ Released on: 2026-10-19
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC113)
 
-### 1. 🛡️ Eliminasi Total Bug Prematur Switch Toggle (`optimistic = false` Latch)
+### 1. ð¡ï¸ Eliminasi Total Bug Prematur Switch Toggle (`optimistic = false` Latch)
 - **Akar Masalah**:
   Pada komponen `LynxSwitch`, saat baris atau sakelar ditekan, status internal `localChecked` langsung diubah secara optimis menjadi `true` (`localChecked = next`) sebelum callback `onCheckedChange` memunculkan dialog konfirmasi. Akibatnya, sakelar di belakang dialog sudah terlihat menyala hijau (ON) meskipun pengguna belum menekan tombol "Pahami & Aktifkan". Jika pengguna membatalkan dialog, sakelar tetap terlihat aktif.
 - **Solusi**:
@@ -5273,21 +5289,21 @@ Released on: 2026-10-19
   - Pada mode terkontrol (`optimistic = false`), sakelar murni mencerminkan status `checked` dari ViewModel/State dan **TIDAK PERNAH** membalik statusnya secara optimis sebelum dialog dikonfirmasi oleh pengguna.
   - Jika pengguna menekan "Batal" atau menyentuh luar dialog, sakelar tetap berada dalam kondisi **OFF** tanpa efek samping.
 
-### 2. ⚡ Penyesuaian Dialog Edukasi & Rekomendasi Kompatibilitas Hardware
+### 2. â¡ Penyesuaian Dialog Edukasi & Rekomendasi Kompatibilitas Hardware
 - **Analisis Hardware**:
   - **Perangkat Dual-Path (Dedicated Bypass IC)**: (ROG Phone, Infinix Bypass, Black Shark, Sony) memiliki saklar hardware terpisah yang mengalirkan arus adaptor langsung ke motherboard tanpa melewati sel baterai (0 mA, baterai tidak terkuras sama sekali).
   - **Perangkat Single-Path (Redmi Note 7, Xiaomi/POCO standar, & mayoritas ponsel)**: Jalur charger dan beban sistem menyatu pada satu PMIC tanpa saklar fisik bypass.
-  - **Celah Flapping saat Ponsel Aktif**: Pada perangkat Single-Path, jika batas pengisian diatur di bawah 100% (misal 80%) saat ponsel aktif dipakai (layar menyala/game), beban konsumsi mesin (350–700mA) melebihi arus input yang dibatasi. Sel baterai tetap tekor tersedot, persentase baterai turun, lalu charger aktif kembali (siklus histeresis mati-nyala berulang).
+  - **Celah Flapping saat Ponsel Aktif**: Pada perangkat Single-Path, jika batas pengisian diatur di bawah 100% (misal 80%) saat ponsel aktif dipakai (layar menyala/game), beban konsumsi mesin (350â700mA) melebihi arus input yang dibatasi. Sel baterai tetap tekor tersedot, persentase baterai turun, lalu charger aktif kembali (siklus histeresis mati-nyala berulang).
 - **Panduan & Rekomendasi Resmi**:
   - Dialog peringatan diperbarui secara detail dalam bahasa Indonesia dan Inggris.
   - Untuk cas semalaman/saat tidur: Disarankan menggunakan batas **100% (AutoCut)** agar pemutusan arus terjadi secara alami dan aman saat kondisi layar mati (standby) tanpa flapping.
-  - Untuk bermain game sambil cas: Disarankan beralih ke **Mode Dingin (~1200–1500mA)** pada tab Mode Pengisian Cepat agar suhu perangkat terjaga adem tanpa membuat baterai tekor.
+  - Untuk bermain game sambil cas: Disarankan beralih ke **Mode Dingin (~1200â1500mA)** pada tab Mode Pengisian Cepat agar suhu perangkat terjaga adem tanpa membuat baterai tekor.
 
-### 3. 📱 Pengalaman Pengguna Responsif & Anti-Overflow
+### 3. ð± Pengalaman Pengguna Responsif & Anti-Overflow
 - Menambahkan kontainer `Box` dengan `Modifier.verticalScroll(rememberScrollState())` pada isi dialog `AlertDialog` di `BatteryProtectionCard`.
 - Memastikan teks panduan lengkap dapat dibaca dan digulir dengan nyaman di berbagai rasio layar, resolusi non-reguler, mode portrait, maupun landscape sesuai standar Rule 1.
 
-### 4. 🎚️ Real-Time Continuous Value & Step Tracking pada Seluruh Slider Aplikasi
+### 4. ðï¸ Real-Time Continuous Value & Step Tracking pada Seluruh Slider Aplikasi
 - **Akar Masalah**:
   Komponen `SafeSlider` (yang menaungi seluruh slider kustom maupun Material di dalam Lynx Companion) sebelumnya menahan pemanggilan `onValueChange` selama gestur *drag* berlangsung dan hanya memanggilnya satu kali saat jari dilepas (`released`). Akibatnya, seluruh slider di seluruh aplikasi (ZRAM, Swappiness, VM Dirty Ratio, VFS Cache Pressure, KSM, Read-Ahead Buffer, Uclamp Boost, Color Temp, Saturation, Contrast, RGB Gains, KCAL Saturation, Sound Gain, Deep Tunables, Voltage Offset, hingga Manual Precision Slider pada TweakSheet) tampak bergerak namun angka/parameter pada teks dan badge tidak pernah berubah selama digeser, sehingga pengguna tidak mengetahui nilai dan step yang sedang dituju sebelum mengangkat jari.
 - **Solusi**:
@@ -5300,11 +5316,11 @@ Released on: 2026-10-19
 
 # Lynx Universal [Zero-Bouncing Switch Latch & Instant Profile Script Acceleration] 7.0.0-RC112
 Released on: 2026-10-19
-> **Lynx Universal v7.0.0-RC112** (Lynx Kernel Manager v3.1.58): **Pemberantasan Tuntas Bug Bouncing Switch ("Tombol yang Dinonaktifkan Balik Menjadi Aktif Sesaat"); Implementasi Sistem Pengunci Niat Pengguna (`activeSettingIntents`) Anti-Stale-Read eMMC pada Seluruh Pengaturan LynxState; Eliminasi Timer Revert Prematur 650ms pada `LynxSwitch`; Akselerasi Super Cepat Deteksi Aplikasi Foreground Android 8–15 via FocusedApp Window (<25ms); Penghapusan Total Pemblokiran Mutex AMS Global saat Membuka Aplikasi dengan Telemetri Baterai Asinkron; serta Batch Atomic Update `lynxd state set` (1 Kali Eksekusi vs 8 Kali Tulis Sinkron)**.
+> **Lynx Universal v7.0.0-RC112** (Lynx Kernel Manager v3.1.58): **Pemberantasan Tuntas Bug Bouncing Switch ("Tombol yang Dinonaktifkan Balik Menjadi Aktif Sesaat"); Implementasi Sistem Pengunci Niat Pengguna (`activeSettingIntents`) Anti-Stale-Read eMMC pada Seluruh Pengaturan LynxState; Eliminasi Timer Revert Prematur 650ms pada `LynxSwitch`; Akselerasi Super Cepat Deteksi Aplikasi Foreground Android 8â15 via FocusedApp Window (<25ms); Penghapusan Total Pemblokiran Mutex AMS Global saat Membuka Aplikasi dengan Telemetri Baterai Asinkron; serta Batch Atomic Update `lynxd state set` (1 Kali Eksekusi vs 8 Kali Tulis Sinkron)**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC112)
 
-### 1. 🛡️ Eliminasi Total Bug Bouncing Switch & Sistem Pengunci Niat (`activeSettingIntents`)
+### 1. ð¡ï¸ Eliminasi Total Bug Bouncing Switch & Sistem Pengunci Niat (`activeSettingIntents`)
 - **Akar Masalah**:
   1. Pada komponen UI `LynxSwitch`, terdapat `LaunchedEffect(lastClickTime) { delay(650L); localChecked = checked; }`. Timer 650ms buatan ini memaksa tombol sakelar kembali ke nilai properti `checked` lama jika operasi root atau penulisan disk pada penyimpanan eMMC lambat (>650ms). Akibatnya, tombol yang dinonaktifkan (OFF) sesaat memantul kembali ke ON sebelum akhirnya kembali ke OFF.
   2. Pada lapisan arsitektur ViewModel (`LynxViewModel.kt`), subsistem kluster CPU, core, GPU, refresh rate, penjadwal, idle, dan cpuset memiliki sistem *Intent Latch* (`activeClusterIntents`, `activeSchedulerIntent`, dsb.), namun `LynxState` **TIDAK** memilikinya. Saat `refreshState()` atau `StateFileObserver` membaca `config.json` dari disk sebelum operasi tulis selesai, status basi (`true`) ditimpa kembali ke UI.
@@ -5314,15 +5330,15 @@ Released on: 2026-10-19
   - **Sistem Pengunci Niat `activeSettingIntents`**: Memperkenalkan peta atomik `activeSettingIntents` berbasis `ConcurrentHashMap` dan fungsi penggabung `mergeStateWithActiveIntents(rawState)`. Nilai tombol yang diubah pengguna dikunci selama jendela toleransi 4.5 detik. Apapun hasil pembacaan disk sementara yang belum sinkron tidak akan pernah lagi menimpa status interaksi pengguna.
   - **Penghapusan Penulisan Duplikat**: Membersihkan pemanggilan `writeStateKey` berlebih di `ChargingRepository.setAutoCutEnabled`.
 
-### 2. ⚡ Deteksi Aplikasi Terdepan Super Cepat (<25ms) & Eliminasi Antrean AMS Lock
+### 2. â¡ Deteksi Aplikasi Terdepan Super Cepat (<25ms) & Eliminasi Antrean AMS Lock
 - **Akar Masalah**:
   1. Perintah `dumpsys activity activities | grep -m1 'topResumedActivity'` mengembalikan string kosong pada Android 15 dan banyak custom ROM, menyebabkan `queryTopResumedPackage()` gagal mendeteksi aplikasi baru dan menahan notifikasi profil hingga berdetik-detik.
-  2. Saat aplikasi baru dibuka, `getLiveBatteryTelemetry()` memanggil `registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))` secara sinkron. Panggilan ini berebut mutex lock global pada `ActivityManagerService` Android yang sedang sibuk memproses inisialisasi aplikasi baru, memblokir thread notifikasi selama 1–2 detik.
+  2. Saat aplikasi baru dibuka, `getLiveBatteryTelemetry()` memanggil `registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))` secara sinkron. Panggilan ini berebut mutex lock global pada `ActivityManagerService` Android yang sedang sibuk memproses inisialisasi aplikasi baru, memblokir thread notifikasi selama 1â2 detik.
 - **Solusi**:
   - **Deteksi Window Manager Berkecepatan Tinggi (<25ms)**: Mengintegrasikan kueri langsung `dumpsys window 2>/dev/null | grep -m1 'mFocusedApp'` yang mengekstrak package terdepan secara akurat dalam 25ms di semua versi Android (Android 8 s/d Android 15), dengan cadangan instan `dumpsys activity top 2>/dev/null | grep -m1 'ACTIVITY '` (20ms).
   - **Telemetri Baterai Ter-Cache Asinkron**: Mendaftarkan `batteryReceiver` berdedikasi satu kali saat inisialisasi service. `getLiveBatteryTelemetry()` kini membaca nilai ter-cache di memori RAM dalam **0.0001 ms** tanpa Binder IPC dan tanpa perebutan lock AMS. Notifikasi profil kini muncul seketika saat aplikasi/game dibuka!
 
-### 3. 🚀 Pengelompokan Atomik `lynxd state set` & Eksekusi Profil Bebas Delay
+### 3. ð Pengelompokan Atomik `lynxd state set` & Eksekusi Profil Bebas Delay
 - **Akar Masalah**: Pemilihan profil manual pada `setProfile()` mengeksekusi 4 perintah `lynxd state set` berurutan dalam subshell, diikuti oleh 4 panggilan terpisah `writeStateKey`. Hal ini memicu hingga 8 kali fsync disk dan 5 kali pemanggilan root subshell, memakan waktu hingga 2.5 detik pada flash eMMC.
 - **Solusi**:
   - Mengelompokkan seluruh pembaruan kunci profil (`active_profile`, `kernel_profile_id`, `baseline_profile`, `profile_overrides`) ke dalam **SATU panggilan atomik batch**:
@@ -5338,8 +5354,8 @@ Released on: 2026-10-19
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC111)
 
-### 1. ⚡ Deteksi Foreground App Sub-Milidetik Berbasis Kernel Procfs/Cpuset (<0.1ms)
-- **Akar Masalah**: Pada perangkat kelas pemula (low-end) dengan penyimpanan flash eMMC 5.1 (seperti Redmi Note 7 / Snapdragon 660), pemantau aplikasi aktif (`queryTopResumedPackage`) mengandalkan panggilan shell `dumpsys window` yang memicu lock contention pada `system_server` Android, memakan waktu 1.5–3 detik, dan sering memicu *Broken Pipe* saat perangkat sedang sibuk membuka game berat.
+### 1. â¡ Deteksi Foreground App Sub-Milidetik Berbasis Kernel Procfs/Cpuset (<0.1ms)
+- **Akar Masalah**: Pada perangkat kelas pemula (low-end) dengan penyimpanan flash eMMC 5.1 (seperti Redmi Note 7 / Snapdragon 660), pemantau aplikasi aktif (`queryTopResumedPackage`) mengandalkan panggilan shell `dumpsys window` yang memicu lock contention pada `system_server` Android, memakan waktu 1.5â3 detik, dan sering memicu *Broken Pipe* saat perangkat sedang sibuk membuka game berat.
 - **Solusi**:
   - Mengimplementasikan **Tier 0 Direct Procfs/Cpuset Reader** (`getTopPackageFromCpuset`): Membaca langsung node virtual kernel Linux `/dev/cpuset/top-app/cgroup.procs` (atau `/sys/fs/cgroup/top-app/cgroup.procs`) via standard Java `File` tanpa forking proses shell root.
   - Memverifikasi proses terdepan melalui `/proc/$pid/oom_score_adj == 0` (FOREGROUND_APP_ADJ) dan mengekstrak package name dari `/proc/$pid/cmdline`.
@@ -5347,23 +5363,23 @@ Released on: 2026-10-19
   - Mempercepat loop watcher dari 1000ms menjadi **250ms ultra-responsif**, sehingga game yang baru dibuka langsung terdeteksi seketika.
   - Memperbarui fallback ke perintah ringan `dumpsys activity activities | grep -m1 topResumedActivity` (<30ms) sesuai standar AGENTS.md.
 
-### 2. 🚀 Zero-IO Fast Path untuk Profil Otomasi & Watcher Sementara
-- **Akar Masalah**: Setiap kali pengguna membuka atau menutup aplikasi/game, fungsi `setProfile()` di `LynxAppStateRepository.kt` melakukan hingga 6 kali penulisan I/O sinkron ke penyimpanan eMMC (`lynxd state set active_profile`, `lynxd state set kernel_profile_id`, `writeStateKey`, `echo baseline > active_profile`, dan pembacaan/penulisan ulang JSON di blok `finally`). Pada flash storage eMMC, antrean penulisan disk memblokir eksekusi hingga 1.5–2 detik.
+### 2. ð Zero-IO Fast Path untuk Profil Otomasi & Watcher Sementara
+- **Akar Masalah**: Setiap kali pengguna membuka atau menutup aplikasi/game, fungsi `setProfile()` di `LynxAppStateRepository.kt` melakukan hingga 6 kali penulisan I/O sinkron ke penyimpanan eMMC (`lynxd state set active_profile`, `lynxd state set kernel_profile_id`, `writeStateKey`, `echo baseline > active_profile`, dan pembacaan/penulisan ulang JSON di blok `finally`). Pada flash storage eMMC, antrean penulisan disk memblokir eksekusi hingga 1.5â2 detik.
 - **Solusi**:
   - Menerapkan **Fast Path In-Memory** untuk pemanggil sementara (`caller == "watcher"` / `"automation"`).
   - Tweak kernel sysfs diterapkan langsung via `lynxd profile apply` dan `setprop lynx.mode` dalam memori RAM tanpa menyentuh atau memodifikasi berkas `config.json` di eMMC.
   - Menghilangkan seluruh disk churn, pemadatan JSON berulang, dan operasi restorasi di blok `finally`. Integritas profil dasar pengguna di penyimpanan tetap 100% terjaga dan aman.
   - Durasi penerapan tweak hardware berkurang drastis dari 1500ms+ menjadi **<15ms**!
 
-### 3. 🦀 Non-Blocking Native Executor & Detached System Notifications (`lynxd`)
-- **Akar Masalah**: Pada `native/lynxd/src/daemon/runner.rs`, fungsi `notify_profile_transition` mengeksekusi `/system/bin/cmd notification post` dan `/system/bin/am broadcast` secara sinkron (`.status()`). Memulai JVM Android (`/system/bin/am`) pada perangkat low-end memakan waktu 1–2 detik, menahan seluruh proses penerapan tweak kernel hingga proses notifikasi selesai.
+### 3. ð¦ Non-Blocking Native Executor & Detached System Notifications (`lynxd`)
+- **Akar Masalah**: Pada `native/lynxd/src/daemon/runner.rs`, fungsi `notify_profile_transition` mengeksekusi `/system/bin/cmd notification post` dan `/system/bin/am broadcast` secara sinkron (`.status()`). Memulai JVM Android (`/system/bin/am`) pada perangkat low-end memakan waktu 1â2 detik, menahan seluruh proses penerapan tweak kernel hingga proses notifikasi selesai.
 - **Solusi**:
   - Memisahkan seluruh pemanggilan notifikasi sistem dan broadcast intent ke thread independen yang terlepas (`std::thread::spawn`). Tweak kernel diterapkan ke node hardware secara instan (<2ms), dan daemon langsung kembali ke loop eksekusi tanpa menunggu JVM startup.
   - Pada `native/lynxd/src/apply/executor.rs`: Persistensi snapshot pre-commit dan post-commit kini didelegasikan secara asinkron ke background thread.
   - Pada `native/lynxd/src/utils/mod.rs`: `update_module_prop_description` dijalankan secara asinkron dan memeriksa apakah deskripsi sudah cocok sebelum menulis ke disk, menghindari siklus tulis berlebih pada penyimpanan eMMC.
   - Memperpendek interval polling daemon saat layar aktif dari 5 detik menjadi 1 detik dengan chunking 250ms untuk deteksi pengisian daya dan transisi yang instan.
 
-### 4. 📱 Restorasi Asinkron & Umpan Balik Instan Lynx Companion
+### 4. ð± Restorasi Asinkron & Umpan Balik Instan Lynx Companion
 - Pada `LynxAppAutomationService.kt`: Pemulihan refresh rate layar dan profil dasar saat aplikasi ditutup kini didelegasikan sepenuhnya ke `Dispatchers.IO`. Loop watcher tidak pernah terblokir oleh operasi apapun.
 - Notifikasi status bar dan peluncuran Game HUD diperbarui secara instan pada frame 0 (<16ms) saat aplikasi dibuka.
 
@@ -5375,7 +5391,7 @@ Released on: 2026-10-19
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC110)
 
-### 1. ⚡ Arsitektur Penskalaan Vendor Cerdas: Devfreq (Qualcomm) vs DVFS (MediaTek)
+### 1. â¡ Arsitektur Penskalaan Vendor Cerdas: Devfreq (Qualcomm) vs DVFS (MediaTek)
 - **Klarifikasi Faktual**: Secara terminologi silikon semikonduktor, *DVFS (Dynamic Voltage and Frequency Scaling)* adalah prinsip penskalaan umum, namun dalam implementasi kernel driver Android:
   - **Qualcomm Snapdragon** mengimplementasikan penskalaan GPU melalui subsistem **KGSL Devfreq** (`/sys/class/kgsl/kgsl-3d0/devfreq/`) dan CPU via EAS Schedutil / CPUFreq.
   - **MediaTek** mengimplementasikan penskalaan melalui arsitektur subsistem khusus bernama **DVFS / DVFSRC** (`DVFSRC`, `mt_gpufreq_dvfs`, `GED DVFS Margin`, dan `dvfs_loading_mode`).
@@ -5385,12 +5401,12 @@ Released on: 2026-10-19
   - Pada `TelemetryDashboardCards`: Teks idle GPU kini mendeteksi arsitektur secara real-time (`Dynamic Devfreq` untuk Adreno, `Dynamic DVFS` untuk Mali, dan `Dynamic Scaling` untuk generic).
   - Pada `TuningProfilesCategory`: Fallback badge telemetri GPU kini dinamis (`Adreno Boost` pada Qualcomm, `GED Boost` pada MediaTek, `GPU Boost` pada generic), mengeliminasi kebocoran nama "GED Boost" pada ponsel Snapdragon saat telemetri inisialisasi.
 
-### 2. 🎛️ Penyesuaian Dinamis Mode Daya Silikon & Telemetri Transisi CPU
+### 2. ðï¸ Penyesuaian Dinamis Mode Daya Silikon & Telemetri Transisi CPU
 - **Mode Daya Silikon**: Pada `PlatformHardwareEngineCard`, judul kini menyesuaikan otomatis: `Mode Daya Silikon (Hardware Devfreq)` untuk Qualcomm dan `Mode Daya Silikon (Hardware DVFS)` untuk MediaTek.
 - **Transisi & Latensi Frekuensi CPU**: Pada `CpuTopologyAndVerification`, mengganti label hardcoded `LATENSI DVFS` dan `TRANSISI DVFS` menjadi `LATENSI TRANSISI` dan `TOTAL TRANSISI` yang 100% akurat secara matematis dan teknis untuk Linux CPUFreq (`cpuinfo_transition_latency` dan `stats/total_trans`).
 - **Harmonisasi Bahasa Indonesia**: Mengubah label profil `"Extreme"` di `QuickProfileSwitcherCard` menjadi `"Ekstrem"` agar konsisten dengan standar antarmuka Lynx.
 
-### 3. 🌐 Sinkronisasi WebUI Universal
+### 3. ð Sinkronisasi WebUI Universal
 - Memperbarui `webroot/app.js` dan `webroot/index.html` agar pemilih target frekuensi OPP GPU dan governor hardware mendeteksi platform secara otomatis (`Devfreq` pada Qualcomm vs `DVFS` pada MediaTek vs `Scaling` pada generic) tanpa teks hardcoded vendor.
 
 ---
@@ -5401,27 +5417,27 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC102)
 
-### 1. 🛑 Eliminasi Pemblokiran Main Thread (Input Dispatching Timed Out / ANR Fix)
+### 1. ð Eliminasi Pemblokiran Main Thread (Input Dispatching Timed Out / ANR Fix)
 - **Akar Masalah**: Pada `LynxViewModel.kt`, fungsi `initializeApp()` dijalankan di dalam `viewModelScope.launch` default yang mengikat `Dispatchers.Main.immediate`. Memanggil `.await()` pada 12 tugas `async` secara langsung pada thread utama memblokir Looper UI Android dan Choreographer selama proses pembacaan I/O, memicu ANR ("Input dispatching timed out / Waited 15000ms for MotionEvent") saat pengguna melakukan gestur sentuh atau swipe pada perangkat low-end (Redmi Note 7 / Snapdragon 660).
 - **Solusi**:
   - Memindahkan seluruh `initializeApp()` secara penuh ke `viewModelScope.launch(Dispatchers.IO)`. Seluruh eksekusi paralel Stage 1 dan `.await()` berlangsung di background thread; Main thread 100% bebas dari milidetik pertama.
   - Memindahkan `startFileObserver()`, `setAppForeground()` root check, dan seluruh observer sistem ke `Dispatchers.IO`.
 
-### 2. ⚡ Migrasi 100% Eksekusi Tweak & Root Shell ke Dispatchers.IO
+### 2. â¡ Migrasi 100% Eksekusi Tweak & Root Shell ke Dispatchers.IO
 - **Akar Masalah**: Puluhan fungsi setter tweak pada `LynxViewModelCpuProfileSelection.kt`, `LynxViewModelThermalNetwork.kt`, `LynxViewModelStorageThermal.kt`, `LynxViewModelScheduler.kt`, `LynxViewModelMemoryNetwork.kt`, dan `LynxViewModelSystemTuning.kt` meluncurkan coroutine tanpa `Dispatchers.IO`. Akibatnya, perintah shell seperti `Shell.cmd("echo $value > /proc/sys/vm/swappiness").exec()` dieksekusi sinkron langsung di UI Thread saat pengguna menggeser slider atau menekan toggle, menyebabkan lag parah dan frame drop.
 - **Solusi**:
   - Mengonversi seluruh setter dan mutasi state kernel (`setKey`, `setProfile`, `setThermalMode`, `setSwappiness`, `applyGovernorPreset`, `applyCpuSetPreset`, `setSchedulerApplyOnBoot`, dll.) agar selalu menggunakan `Dispatchers.IO`.
   - UI merespons perubahan slider dan toggle secara instan optimistik pada frame 0 (<16ms), sementara penulisan kernel dan sysfs diselesaikan di latar belakang tanpa menghambat rendering UI.
 
-### 3. 🌡️ Tampilan Instan Matriks Sensor Termal Tanpa Layout Shift
+### 3. ð¡ï¸ Tampilan Instan Matriks Sensor Termal Tanpa Layout Shift
 - **Akar Masalah**: Siklus awal `readThermalZones()` sebelumnya melakukan iterasi loop statis `for (tpIdx in 0..6)` pada 31 zone (217 operasi `stat()` file sysfs di `/sys/class/thermal/`) untuk memeriksa keberadaan berkas trip points, memicu I/O stall ratusan milidetik. Selain itu, kartu disembunyikan jika `zones.isEmpty()`, menyebabkan lonjakan layout (layout jump) saat sensor baru selesai dimuat.
 - **Solusi**:
   - Menghapus pengecekan 200+ stat trip point dari pembacaan temperatur berkala di `LynxThermalControlRepository.kt` (inspeksi trip point mendalam dipisahkan hanya untuk subscreen thermal tuning). Waktu baca sensor turun dari ~300ms ke **<2ms**!
   - Menambahkan cache in-memory `lastKnownZones` yang dipertahankan antar-siklus.
   - Memperbarui `DashboardTabContent.kt` agar kartu "Matriks Sensor Termal Hardware" selalu terpasang di layout dengan placeholder progresif, mencegah layout shift dan memastikan sensor termal muncul seketika saat aplikasi dibuka.
 
-### 4. 🚀 Peningkatan Responsivitas Tab Live Monitor CPU & Deteksi Aplikasi
-- **Akar Masalah**: `streamCpuMonitor()` sebelumnya hanya menginisialisasi `topProcesses` sekali saja dan tidak pernah memperbaruinya kembali secara berkala. Selain itu, fungsi `readInstalledApps()` dan `readInstalledAppInfos()` menjalankan perintah root `pm list packages -3` yang mem-fork proses Java JVM Android, memakan waktu 1,5–2 detik.
+### 4. ð Peningkatan Responsivitas Tab Live Monitor CPU & Deteksi Aplikasi
+- **Akar Masalah**: `streamCpuMonitor()` sebelumnya hanya menginisialisasi `topProcesses` sekali saja dan tidak pernah memperbaruinya kembali secara berkala. Selain itu, fungsi `readInstalledApps()` dan `readInstalledAppInfos()` menjalankan perintah root `pm list packages -3` yang mem-fork proses Java JVM Android, memakan waktu 1,5â2 detik.
 - **Solusi**:
   - Mengintegrasikan pembaruan berkala proses teratas (`readTopCpuProcesses()`) di dalam loop `streamCpuMonitor()` setiap 2 siklus, sehingga daftar proses CPU aktif terus terbarui secara live dan dinamis.
   - Mengganti pemanggilan shell `pm list packages` dengan Android Binder IPC murni (`packageManager.getInstalledApplications(0)`) yang selesai dalam **<25ms** dengan **0 root shells**, dilengkapi in-memory caching.
@@ -5435,7 +5451,7 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC101)
 
-### 1. 🌡️ Tampilan Instan Matriks Sensor Termal Hardware di Dashboard
+### 1. ð¡ï¸ Tampilan Instan Matriks Sensor Termal Hardware di Dashboard
 - **Akar Masalah**: Pada versi sebelumnya, `readThermalZones()` tidak pernah dipanggil pada Stage 1 hidrasi awal di `LynxViewModel.kt`. Lebih dari itu, di dalam loop polling telemetri, `readThermalZones()` hanya dieksekusi jika pengguna sedang berada di dalam subscreen "thermal" (`isThermalCategoryActive`). Akibatnya, saat aplikasi pertama kali dibuka di halaman Dashboard, kartu "Matriks Sensor Termal Hardware" selalu tersembunyi/kosong dan baru muncul jika pengguna masuk ke kategori thermal lalu kembali ke Dashboard.
 - **Solusi**:
   - Menyertakan `readThermalZones()` secara langsung di dalam Stage 1 hidrasi awal secara paralel (`async(Dispatchers.IO)`), sehingga saat `isLoading = false`, `uiState.thermalZones` sudah terisi penuh seketika.
@@ -5443,7 +5459,7 @@ Released on: 2026-10-18
   - Mengimplementasikan `ThermalMeta` caching di `LynxThermalControlRepository.kt` untuk menyimpan metadata sensor statis; pembaruan berikutnya hanya membaca berkas `temp` murni via Kotlin File (<0.2ms, zero shell execution).
   - Mengoptimalkan pengurutan `displayZones` di `DashboardTabContent.kt` dengan memprioritaskan sensor esensial (CPU, GPU, Baterai, dan PMIC/SoC) serta membungkusnya dengan `remember(zones)` demi mencegah recomposition berlebih.
 
-### 2. ⚡ Hidrasi Paralel Stage-1 & Percepatan Drastis Cold-Start (Initial Load)
+### 2. â¡ Hidrasi Paralel Stage-1 & Percepatan Drastis Cold-Start (Initial Load)
 - **Akar Masalah**: Inisialisasi awal di `LynxViewModel.kt` menjalankan 12 operasi I/O secara sekuensial pada satu thread coroutine, ditambah probe root shell ganda (`canExecuteSuDirectly` dengan timeout 2 detik) dan pembersihan boot sinkron, menyebabkan layar loading/blank terasa lambat (2-3 detik) di perangkat low-end.
 - **Solusi**:
   - Memparalelkan 12 operasi pembacaan Stage 1 (`readState`, `readClusters`, `readTelemetry`, `readNativeStatus`, `readGpuInfo`, `readCpuCores`, `readCpuStatLoads`, `getSocPlatformName`, `readBatteryDetails`, `readThermalZones`, `loadCachedDeepTunables`) menggunakan `coroutineScope { async(Dispatchers.IO) }`.
@@ -5451,7 +5467,7 @@ Released on: 2026-10-18
   - Memberikan `cachedTargetSoc` dan `lastActiveProfile` in-memory caching pada `LynxAppStateRepository.kt` dan `LynxRepository.kt`, memangkas fork shell repetitif pada setiap pembacaan state.
   - Waktu cold-start turun drastis dari **~2.500 ms** menjadi **<150 ms**!
 
-### 3. 🎯 Eliminasi Total Forking Root Shell pada Telemetry Loop 1-Detik
+### 3. ð¯ Eliminasi Total Forking Root Shell pada Telemetry Loop 1-Detik
 - **Akar Masalah**: Pada `LynxTelemetryReader.kt`, setiap 1.000 ms sistem mencoba membaca file tmpfs melalui perintah shell `cat` dan `lynxd telemetry` sebelum beralih ke `sampleSysfsTelemetryDirect()`. Pada perangkat tanpa daemon resident, hal ini memicu 1-2 kali eksekusi `Shell.cmd()` setiap detik saat pengguna hanya melihat dashboard, menyebabkan lonjakan CPU (stutter/lag) dan perebutan antrean shell (lock contention) saat pengguna ingin mengubah tweak.
 - **Solusi**:
   - Mempromosikan `sampleSysfsTelemetryDirect()` langsung ke Tier 0.5 (tepat setelah pengecekan berkas RAM tmpfs lokal dan sebelum pemanggilan shell apa pun).
@@ -5463,11 +5479,11 @@ Released on: 2026-10-18
 
 # Lynx Universal [Low-End Device Responsiveness & Zero-Overhead Sysfs Architecture Overhaul] 7.0.0-RC100
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC100** (Lynx Kernel Manager v3.1.53): **Peningkatan Responsivitas Ekstrem untuk Perangkat Low-End (Snapdragon 660 / Redmi Note 7) — Transisi ke Tier-0 Direct Java/Kotlin File I/O untuk Thermal Zones, CPU Clusters, CPUSets, CPUIdle, VM, I/O Schedulers, dan TCP Congestion Control (Memangkas Latensi Baca dari ~500ms Menjadi <0.5ms Tanpa Root Shell FIFO Queue); In-Memory Caching Dua Arah dengan Zero Artificial Delays; Prapembuatan Snapshot Proses Awal CPU Monitor untuk Mengeliminasi Loading Delay Kosong; Pembaruan Drawables Mode Otomasi (`ic_mode_extreme`, `ic_mode_performance`, dll.); serta Validasi Komprehensif Langsung pada Device Fisik Redmi Note 7**.
+> **Lynx Universal v7.0.0-RC100** (Lynx Kernel Manager v3.1.53): **Peningkatan Responsivitas Ekstrem untuk Perangkat Low-End (Snapdragon 660 / Redmi Note 7) â Transisi ke Tier-0 Direct Java/Kotlin File I/O untuk Thermal Zones, CPU Clusters, CPUSets, CPUIdle, VM, I/O Schedulers, dan TCP Congestion Control (Memangkas Latensi Baca dari ~500ms Menjadi <0.5ms Tanpa Root Shell FIFO Queue); In-Memory Caching Dua Arah dengan Zero Artificial Delays; Prapembuatan Snapshot Proses Awal CPU Monitor untuk Mengeliminasi Loading Delay Kosong; Pembaruan Drawables Mode Otomasi (`ic_mode_extreme`, `ic_mode_performance`, dll.); serta Validasi Komprehensif Langsung pada Device Fisik Redmi Note 7**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC100)
 
-### 1. ⚡ Zero-Overhead Direct Sysfs File I/O (Tier-0 Architecture)
+### 1. â¡ Zero-Overhead Direct Sysfs File I/O (Tier-0 Architecture)
 - **Akar Masalah**: Pada ponsel berspesifikasi rendah/menengah seperti Snapdragon 660, eksekusi perintah shell interaktif via `Shell.cmd()` menimbulkan overhead forking proses (~50-150ms per shell). Membaca 31 thermal zone atau puluhan parameter sysfs (CPUSets, CPUIdle, VM, TCP) secara berulang menimbulkan antrean panjang (FIFO bottleneck) pada daemon superuser, memicu lag parah dan frame drop pada UI Jetpack Compose.
 - **Solusi**:
   - Mengimplementasikan pembacaan berkas langsung (*Tier-0 Direct File I/O*) menggunakan `java.io.File.readText()` untuk seluruh node sysfs yang berstatus *world-readable* (`0644`/`0444`).
@@ -5475,27 +5491,27 @@ Released on: 2026-10-18
   - Waktu baca CPU clusters, CPUSets, dan C-States terpangkas dari **~300 ms** menjadi **~0.2 ms**.
   - Waktu baca Virtual Memory (`swappiness`, `dirty_ratio`, `vfs_cache_pressure`) dan TCP congestion algorithms terpangkas dari 7 pemanggilan shell berturut-turut (~800 ms) menjadi satu pembacaan memori lokal (<0.1 ms).
 
-### 2. 🚀 In-Memory Caching Dua Arah & Eliminasi Artificial Delays
+### 2. ð In-Memory Caching Dua Arah & Eliminasi Artificial Delays
 - Menghapus lebih dari 20 pemanggilan `delay(200L)` / `delay(300L)` buatan serta *shell re-read* redundan di seluruh ViewModels (`LynxViewModelCpuIdle`, `LynxViewModelScheduler`, `LynxViewModelGpu`, `LynxViewModelMemoryNetwork`, `LynxViewModelTabsAndSystem`).
 - Setter konfigurasi kini langsung memperbarui state in-memory secara asinkron; UI merespons perubahan slider dan toggle sentuh secara instan (**<30 ms**) tanpa menunggu siklus I/O shell selesai.
 
-### 3. 📊 Eliminasi Blank Delay pada Tab Live Monitor CPU
+### 3. ð Eliminasi Blank Delay pada Tab Live Monitor CPU
 - Mengisi *in-memory cache* proses awal (`cachedTopProcesses`) dengan baseline proses kernel esensial (`system_server`, `surfaceflinger`, `com.android.systemui`).
 - Mengeliminasi pesan kosong "Menunggu snapshot proses awal..."; Tab Live Monitor kini langsung terbuka instan (**<10 ms**) dengan grafik beban dan matriks inti prosesor yang aktif seketika.
 
-### 4. 🎨 Perbaikan Resource Drawables Mode Otomasi
+### 4. ð¨ Perbaikan Resource Drawables Mode Otomasi
 - Menambahkan aset vector drawables resmi (`ic_mode_extreme.xml`, `ic_mode_performance.xml`, `ic_mode_powersave.xml`, `ic_mode_auto.xml`, `ic_mode_balance.xml`) di `res/drawable/` untuk menunjang status bar dan notifikasi otomasi dinamis tanpa konflik kompilasi R class.
 
 ---
 
 # Lynx Universal [Qualcomm Snapdragon Charging Architecture & Flapping Elimination Overhaul] 7.0.0-RC99
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC99** (Lynx Kernel Manager v3.1.51): **Overhaul Arsitektur Pengisian Daya Qualcomm Snapdragon & PMIC PM660 / SDM660 (Redmi Note 7 `lavender`) — Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination) via Trickle Maintenance Float Mode, Optimalisasi Arus Maksimal Target 3.000 mA s/d 3.500 mA (QC 3.0 18W Limit), Clamping USB ICL 3.000 mA, Pencegahan Deadlock IPC Sockets `thermal-engine`, Penguncian Cooling Device Baterai ke State 0, Debounce Guard 3.000ms pada Power Broadcast Receivers, serta Dokumentasi Arsitektur Mendalam**.
+> **Lynx Universal v7.0.0-RC99** (Lynx Kernel Manager v3.1.51): **Overhaul Arsitektur Pengisian Daya Qualcomm Snapdragon & PMIC PM660 / SDM660 (Redmi Note 7 `lavender`) â Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination) via Trickle Maintenance Float Mode, Optimalisasi Arus Maksimal Target 3.000 mA s/d 3.500 mA (QC 3.0 18W Limit), Clamping USB ICL 3.000 mA, Pencegahan Deadlock IPC Sockets `thermal-engine`, Penguncian Cooling Device Baterai ke State 0, Debounce Guard 3.000ms pada Power Broadcast Receivers, serta Dokumentasi Arsitektur Mendalam**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC99)
 
-### 1. ⚡ Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination)
-- **Akar Masalah**: Pada PMIC Qualcomm PM660 (topologi *single-path switching buck converter*), tidak terdapat sakelar bypass fisik terpisah. Ketika pengisian daya diputus total (`charging_enabled=0` atau `restrict_cur=0`), PM660 mematikan FET gerbang masukan `CHG_IN`. Hal ini menyebabkan beban arus pada kabel USB turun ke 0 mA, memicu adaptor Quick Charge 3.0 mematikan jalur tegangan VBUS (0V), memicu siaran Android `ACTION_POWER_DISCONNECTED`, yang kemudian memicu pemulihan `charging_enabled=1`, menyalakan charger kembali (`ACTION_POWER_CONNECTED`), lalu daemon memotongnya lagi dalam siklus flapping 1,1–1,5 detik.
+### 1. â¡ Eliminasi Total Bug Charger Mati-Nyala (1-Second Flapping Elimination)
+- **Akar Masalah**: Pada PMIC Qualcomm PM660 (topologi *single-path switching buck converter*), tidak terdapat sakelar bypass fisik terpisah. Ketika pengisian daya diputus total (`charging_enabled=0` atau `restrict_cur=0`), PM660 mematikan FET gerbang masukan `CHG_IN`. Hal ini menyebabkan beban arus pada kabel USB turun ke 0 mA, memicu adaptor Quick Charge 3.0 mematikan jalur tegangan VBUS (0V), memicu siaran Android `ACTION_POWER_DISCONNECTED`, yang kemudian memicu pemulihan `charging_enabled=1`, menyalakan charger kembali (`ACTION_POWER_CONNECTED`), lalu daemon memotongnya lagi dalam siklus flapping 1,1â1,5 detik.
 - **Solusi Rekayasa Hardware (*Trickle Maintenance Float*)**:
   - Pada perangkat Qualcomm tanpa node bypass fisik terpisah (`detect_hw_bypass_node().is_none()`), sistem mengaktifkan mode **Trickle Maintenance Float**.
   - `charging_enabled` dipertahankan **1** dan `input_suspend` dipertahankan **0**.
@@ -5503,59 +5519,59 @@ Released on: 2026-10-18
   - Arus masukan USB (`input_current_limit` / `current_max`) disediakan hingga 1.500 mA untuk menyuplai seluruh konsumsi daya sistem papan induk (Vsys: CPU, layar, modem) langsung dari adaptor tanpa membebani baterai.
   - VBUS adaptor tidak pernah drop, kabel tidak terputus, dan bug charger mati-nyala tuntas 100%.
 
-### 2. 🚀 Peningkatan Arus Pengisian Qualcomm: Target 3.000 mA s/d 3.500 mA (QC 3.0 Hardware Limit)
+### 2. ð Peningkatan Arus Pengisian Qualcomm: Target 3.000 mA s/d 3.500 mA (QC 3.0 Hardware Limit)
 - **Sebelumnya**: Deteksi platform yang keliru mengklasifikasikan Redmi Note 7 sebagai Xiaomi murni, memicu pembatasan generik atau permintaan arus ekstrem di luar batas IC (5A) yang memicu brownout PM660.
 - **Sesudahnya**:
-  - Arus pengisian baterai maksimum (`constant_charge_current_max` / FCC) pada single-cell Qualcomm QC 3.0 dibuka hingga **3.500 mA** (headroom maksimal 18W pada tegangan sel 3,8–4,2V).
+  - Arus pengisian baterai maksimum (`constant_charge_current_max` / FCC) pada single-cell Qualcomm QC 3.0 dibuka hingga **3.500 mA** (headroom maksimal 18W pada tegangan sel 3,8â4,2V).
   - Batas masukan arus USB (`USB_ICL` / `current_max` pada rel USB) dikunci secara presisi pada **3.000 mA** untuk mencegah tersandungnya proteksi arus berlebih (*Overcurrent Protection / OCP*) pada PHY Type-C PM660.
 
-### 3. 🛡️ Pencegahan Deadlock IPC Thermal Engine & Penguncian Cooling Device Baterai
+### 3. ð¡ï¸ Pencegahan Deadlock IPC Thermal Engine & Penguncian Cooling Device Baterai
 - **Masalah**: Pembekuan proses melalui `killall -STOP thermal-engine` pada chipset Qualcomm SDM660 membekukan 4 domain socket IPC aktif di `/dev/socket/thermal-*`, menyebabkan layanan Android Hardware Thermal HAL HIDL mengalami kebuntuan (*deadlock*).
 - **Solusi**:
   - Modul memastikan `thermal-engine` **TIDAK PERNAH** dibekukan pada SoC Qualcomm, melainkan di-resume (`SIGCONT`) untuk menjaga integritas socket IPC.
   - Untuk mencegah penurunan arus akibat pembatasan termal OEM, modul secara otomatis memindai dan mengunci `cooling_device` ber-tipe `battery` ke `cur_state = 0` (locked 0444).
   - Node `/sys/class/qcom-battery/system_temp_level` dikunci ke `0` dan `thermal_input_current_limit` dikunci ke `-1`.
 
-### 4. ⏱️ Debounce Guard 3.000 ms pada Power Broadcast Receivers
+### 4. â±ï¸ Debounce Guard 3.000 ms pada Power Broadcast Receivers
 - Menambahkan filter debounce 3.000 ms pada `LynxPowerReceiver` dan `LynxAppAutomationService`.
 - Mencegah ledakan eksekusi broadcast paralel (*broadcast storm*) saat charger ditancapkan atau saat terjadi fluktuasi transien tegangan pada kabel.
 
-### 5. 🔍 Penguatan Deteksi SoC Anti-Spoofing & Ground Truth Devicetree
+### 5. ð Penguatan Deteksi SoC Anti-Spoofing & Ground Truth Devicetree
 - Fungsi `is_qualcomm_soc()` dan `is_mediatek_soc()` kini memverifikasi langsung string `compatible` di Device Tree Blob (`/sys/firmware/devicetree/base/compatible`), driver platform `pm660_charger`, serta node karakter GPU `/dev/kgsl-3d0` dan `/dev/mali0`, kebal terhadap manipulasi modul spoofing props manapun.
 
-### 6. 📚 Publikasi Dokumen Arsitektur Hardware Qualcomm SDM660 / PM660
+### 6. ð Publikasi Dokumen Arsitektur Hardware Qualcomm SDM660 / PM660
 - Dokumen komprehensif diterbitkan di `archive/device_reference/redmi_note_7_sdm660/ARCHITECTURE_CHARGING_QUALCOMM.md` yang merinci jalur SPMI bus, switching buck FET topology, diagram blok sirkuit, register sysfs Linux, dan tabel operasional charging states.
 
 ---
 
 # Lynx Universal [Low-End Device Responsiveness & Performance Engine Overhaul] 7.0.0-RC97
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC97** (Lynx Kernel Manager v3.1.50): **Optimasi Menyeluruh Kinerja Perangkat Low-End & Mid-End (Snapdragon 660 / Redmi Note 7) — Staged Lazy Hydration (<200ms Cold Boot), Eliminasi Total Pemblokiran Sysfs di Main UI Thread, Virtualisasi Penuh Compose LazyList, Bundling Embedded Native Daemon (`lynxd`) di Assets dengan Sinkronisasi Ganda, Resolusi Dinamis LYNXD_PATH, dan Throttling Polling Cerdas Berbasis Layar Aktif**.
+> **Lynx Universal v7.0.0-RC97** (Lynx Kernel Manager v3.1.50): **Optimasi Menyeluruh Kinerja Perangkat Low-End & Mid-End (Snapdragon 660 / Redmi Note 7) â Staged Lazy Hydration (<200ms Cold Boot), Eliminasi Total Pemblokiran Sysfs di Main UI Thread, Virtualisasi Penuh Compose LazyList, Bundling Embedded Native Daemon (`lynxd`) di Assets dengan Sinkronisasi Ganda, Resolusi Dinamis LYNXD_PATH, dan Throttling Polling Cerdas Berbasis Layar Aktif**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC97)
 
-### 1. 🚀 Staged Lazy Hydration (<200ms Cold Boot)
-- **Sebelumnya**: Saat aplikasi dibuka, seluruh modul dan metadata subsistem (CPU model, GPU capability, thermal zones, scheduler tunables, SELinux status, dan ADB) dimuat sekaligus secara paralel blocking sebelum UI ditampilkan, menyebabkan lag dan freeze 4–8 detik pada ponsel low-end seperti Redmi Note 7 (eMMC 5.1).
+### 1. ð Staged Lazy Hydration (<200ms Cold Boot)
+- **Sebelumnya**: Saat aplikasi dibuka, seluruh modul dan metadata subsistem (CPU model, GPU capability, thermal zones, scheduler tunables, SELinux status, dan ADB) dimuat sekaligus secara paralel blocking sebelum UI ditampilkan, menyebabkan lag dan freeze 4â8 detik pada ponsel low-end seperti Redmi Note 7 (eMMC 5.1).
 - **Sesudahnya**: Menerapkan arsitektur inisialisasi bertahap (*Staged Lazy Hydration*). Tahap 1 hanya memuat state vital dashboard (<200ms) dan langsung membuka UI secara responsif. Observer file dan polling telemetri dimulai seketika, sementara metadata subsistem sekunder dimuat secara bertahap di latar belakang via `Dispatchers.IO` tanpa mengunci antarmuka.
 
-### 2. ⚡ Eliminasi Total Pemblokiran Sysfs di Main UI Thread
+### 2. â¡ Eliminasi Total Pemblokiran Sysfs di Main UI Thread
 - **Masalah**: `ChargingHeroDisplayCard` sebelumnya mengeksekusi pembacaan 30+ berkas node sysfs power supply langsung di dalam `LaunchedEffect` tanpa pembungkus background thread. Karena launched effect berjalan di `Dispatchers.Main.immediate`, thread UI Android terhenti (*blocked*) menunggu mutex kernel pada setiap tick frame. Selain itu, loop penghitung Coulomb 250ms memicu rekomposisi 4 kali per detik pada komponen 1.637 baris yang memicu freeze GC ART 161ms.
 - **Solusi**: Seluruh I/O sysfs dibungkus ketat di dalam `withContext(Dispatchers.IO)` dan loop Coulomb distabilkan ke interval 1000ms, mengeliminasi stutter dan GC thrashing secara tuntas.
 
-### 3. 🧩 Virtualisasi Penuh Compose LazyList
+### 3. ð§© Virtualisasi Penuh Compose LazyList
 - **Pusat Tuning**: Mengganti `Column` raksasa monolitik menjadi 10 item `LazyListScope` terpisah. Setiap kartu kini di-measure dan di-draw secara independen dengan sistem daur ulang view (*view recycling*).
 - **CPU & Battery Subscreen**: Memecah sub-halaman menjadi komponen virtual terisolasi, mencegah rekomposisi kaskade di seluruh layar saat satu metrik berubah.
 
-### 4. 🦀 Embedded Native Daemon (`lynxd`) Bundling & Dual-Path Sync
+### 4. ð¦ Embedded Native Daemon (`lynxd`) Bundling & Dual-Path Sync
 - Menyematkan biner mesin Rust `lynxd` (944 KB) langsung di dalam assets APK (`LynxCompanion/app/src/main/assets/bin/lynxd`).
 - Mekanisme `ensureDaemonRunning()` secara otomatis mengekstrak biner ke `/data/local/tmp/lynxd` dan menyinkronkannya ke `/data/adb/modules/Lynx/system/bin/lynxd` saat root terdeteksi, meluncurkan daemon secara otomatis tanpa ketergantungan flash modul.
 - Membuka akses telemetri super-cepat Tier 1 RAM (`/dev/lynxd_telemetry.json`) berkecepatan sub-0.05ms tanpa overhead pembuatan subshell Linux.
 
-### 5. 🛡️ Resolusi Dinamis LYNXD_PATH di Seluruh Repositori
+### 5. ð¡ï¸ Resolusi Dinamis LYNXD_PATH di Seluruh Repositori
 - Menghapus seluruh string path statis `/data/adb/modules/Lynx/system/bin/lynxd` yang sebelumnya memicu error shell *inaccessible or not found* saat modul sedang dinonaktifkan atau belum di-mount.
 - Menggantikannya dengan resolver dinamis `LynxRepository.getLynxdPath()` yang otomatis memilih path aktif terbaik (`$MODULE_DIR` atau `/data/local/tmp/lynxd`).
 
-### 6. ⏱️ Polling Cerdas Berbasis Layar Aktif (Screen-Aware Telemetry)
+### 6. â±ï¸ Polling Cerdas Berbasis Layar Aktif (Screen-Aware Telemetry)
 - Data berat seperti 40+ zona termal dan proses CPU teratas (`topCpuProcesses`) kini hanya dipolling saat sub-halaman terkait aktif di layar, membebaskan siklus CPU untuk rendering 60 FPS.
 
 ---
@@ -5566,52 +5582,52 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC95)
 
-### 1. 🔄 Pemulihan Otomatis Status Root Saat Aplikasi Kembali ke Foreground (`setAppForeground`)
+### 1. ð Pemulihan Otomatis Status Root Saat Aplikasi Kembali ke Foreground (`setAppForeground`)
 - **Masalah**: Pengguna membuka Lynx untuk pertama kali saat izin root belum diberikan (atau dialog konfirmasi Magisk/KernelSU/APatch masih pending). Setelah berpindah ke manajer root dan memberikan izin lalu kembali ke Lynx, aplikasi tetap tertahan di layar *Akses Superuser Diperlukan* tanpa memeriksa ulang.
 - **Solusi**:
   - `setAppForeground(true)` kini secara proaktif mendeteksi jika `isRootAvailable == false`. Bila pengguna kembali dari manajer root dan izin telah aktif, sistem langsung menjalankan `initializeApp()` secara otomatis tanpa perlu restart aplikasi.
   - LibSU kini secara eksplisit menutup instance shell non-root usang (`Shell.getCached()?.close()`) agar instansiasi `su` baru dieksekusi secara segar (*fresh spawn*).
 
-### 2. 🛡️ Tombol Interaktif & Auto-Retry Loop pada `ErrorScreen`
-- Menambahkan tombol interaktif `[ 🔄 Periksa Ulang Izin Root ]` dengan desain Cyberpunk Dark.
+### 2. ð¡ï¸ Tombol Interaktif & Auto-Retry Loop pada `ErrorScreen`
+- Menambahkan tombol interaktif `[ ð Periksa Ulang Izin Root ]` dengan desain Cyberpunk Dark.
 - Menambahkan auto-retry loop berbasis coroutine (`LaunchedEffect` interval 2 detik) yang terus memantau status grant root secara mulus di latar belakang layar error.
 
 ---
 
 # Lynx Universal [Elegant Notification & Feedback Bottom Sheet Redesign] 7.0.0-RC94
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC94** (Lynx Kernel Manager v3.1.46): **Redesain Elegan Komponen Notifikasi & Feedback — Tombol Bel Header Ghost/Minimal (Tanpa Fill Cyan Terang), Bottom Sheet Dark Minimal dengan Drag Handle Ramping, Header Ikon Low-Alpha, Option Card Compact, Radio Indicator 2-Layer Presisi, Divider Halus, Switch Morpher Rapi, dan Tombol Live Test Subtle**.
+> **Lynx Universal v7.0.0-RC94** (Lynx Kernel Manager v3.1.46): **Redesain Elegan Komponen Notifikasi & Feedback â Tombol Bel Header Ghost/Minimal (Tanpa Fill Cyan Terang), Bottom Sheet Dark Minimal dengan Drag Handle Ramping, Header Ikon Low-Alpha, Option Card Compact, Radio Indicator 2-Layer Presisi, Divider Halus, Switch Morpher Rapi, dan Tombol Live Test Subtle**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC94)
 
-### 1. 🔔 Redesain Tombol Bel (Header Subscreen Profile)
-- **Sebelumnya**: Kotak `36dp` dengan fill `AccentCyan 14%` dan border cyan terang — terlalu mencolok dan tidak selaras dengan elemen header sekitarnya.
-- **Sesudahnya**: Ghost button `34dp` dengan warna dasar `#141820` dan border `#2A2E3A` subtle. Ikon bel kini berwarna `AccentCyan.copy(alpha = 0.75f)` — tampil hadir tanpa mendominasi.
+### 1. ð Redesain Tombol Bel (Header Subscreen Profile)
+- **Sebelumnya**: Kotak `36dp` dengan fill `AccentCyan 14%` dan border cyan terang â terlalu mencolok dan tidak selaras dengan elemen header sekitarnya.
+- **Sesudahnya**: Ghost button `34dp` dengan warna dasar `#141820` dan border `#2A2E3A` subtle. Ikon bel kini berwarna `AccentCyan.copy(alpha = 0.75f)` â tampil hadir tanpa mendominasi.
 
-### 2. 📋 Redesain ProfilesFeedbackBottomSheet (Bottom Sheet Gaya Notifikasi)
-- **Drag Handle**: Dirampingkan dari `38×4dp pill putih 33%` menjadi `36×3dp surface `#2A2E38`` dengan border-radius kotak — lebih modern dan diskrit.
-- **Container Color**: `#0D1017 FA` → `#0E1118 FF` (solid tanpa alpha bocoran).
-- **Header**: Icon tile dari `Surface 36dp fill cyan 15%` → `Box 34dp clip + background cyan 8%` — lebih ringan secara visual.
-- **Option Cards**: Spacing `6dp` → `5dp`, padding `vertical=10dp` → `vertical=9dp`, border lebih tipis dan warna background `#141820` lebih gelap-bersih.
-- **Radio Indicator**: Dari circle `16dp` polos → **2-layer precision**: outer ring `18dp BorderStroke 1.5dp AccentCyan` + inner filled dot `8dp AccentCyan` saat selected. Unselected: `18dp BorderStroke 1dp #3A3E4A`. Jauh lebih terbaca dan premium.
-- **Divider**: Dari `BorderGlass 60%` → `#1E222C 0.7dp` — divider solid gelap bersih.
+### 2. ð Redesain ProfilesFeedbackBottomSheet (Bottom Sheet Gaya Notifikasi)
+- **Drag Handle**: Dirampingkan dari `38Ã4dp pill putih 33%` menjadi `36Ã3dp surface `#2A2E38`` dengan border-radius kotak â lebih modern dan diskrit.
+- **Container Color**: `#0D1017 FA` â `#0E1118 FF` (solid tanpa alpha bocoran).
+- **Header**: Icon tile dari `Surface 36dp fill cyan 15%` â `Box 34dp clip + background cyan 8%` â lebih ringan secara visual.
+- **Option Cards**: Spacing `6dp` â `5dp`, padding `vertical=10dp` â `vertical=9dp`, border lebih tipis dan warna background `#141820` lebih gelap-bersih.
+- **Radio Indicator**: Dari circle `16dp` polos â **2-layer precision**: outer ring `18dp BorderStroke 1.5dp AccentCyan` + inner filled dot `8dp AccentCyan` saat selected. Unselected: `18dp BorderStroke 1dp #3A3E4A`. Jauh lebih terbaca dan premium.
+- **Divider**: Dari `BorderGlass 60%` â `#1E222C 0.7dp` â divider solid gelap bersih.
 - **Morph Switch**: Teks lebih ringkas, subtitle `alpha 0.65`, Switch unchecked thumb/track konsisten dengan palet gelap.
-- **Live Test Button**: Dari `BgElevated border 0.8dp cyan 50%` → `#141820 border 0.7dp cyan 35%` — subtle, tidak bersaing dengan pilihan utama.
+- **Live Test Button**: Dari `BgElevated border 0.8dp cyan 50%` â `#141820 border 0.7dp cyan 35%` â subtle, tidak bersaing dengan pilihan utama.
 
 ---
 
 # Lynx Universal [Low-Profile Telemetry Badge Row & Ergonomic Vertical Padding Optimization] 7.0.0-RC93
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC93** (Lynx Kernel Manager v3.1.45): **Optimalisasi Presisi Tinggi Baris Badge Otomasi Aplikasi: Pengetatan Padding Vertikal Bawah (*Bottom Chin* dari 10dp ke 5dp), Perampingan Spacer Pemisah Kaca (4–5dp), Format Low-Profile Badge Kapsul Mode, Refresh Rate, dan HUD (Tinggi Ramping & Elegan Tanpa Ruang Kosong Berlebih), Serta Pembaruan Biner Release**.
+> **Lynx Universal v7.0.0-RC93** (Lynx Kernel Manager v3.1.45): **Optimalisasi Presisi Tinggi Baris Badge Otomasi Aplikasi: Pengetatan Padding Vertikal Bawah (*Bottom Chin* dari 10dp ke 5dp), Perampingan Spacer Pemisah Kaca (4â5dp), Format Low-Profile Badge Kapsul Mode, Refresh Rate, dan HUD (Tinggi Ramping & Elegan Tanpa Ruang Kosong Berlebih), Serta Pembaruan Biner Release**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC93)
 
-### 1. 📉 Penyesuaian Presisi Tinggi Baris Badge (`Low-Profile Badge Row`)
+### 1. ð Penyesuaian Presisi Tinggi Baris Badge (`Low-Profile Badge Row`)
 - **Eliminasi Ruang Kosong Vertikal Bawah**: Menanggapi umpan balik terkait baris badge yang sebelumnya terasa terlalu tinggi karena padding bawah yang berlebih. Dilakukan reduksi:
   - Padding bawah kartu dipangkas dari `10.dp` menjadi `5.dp` (`padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 5.dp)`).
-  - Spacer di atas dan di bawah garis pemisah kaca dirampingkan dari `7.dp` menjadi `4–5.dp`.
+  - Spacer di atas dan di bawah garis pemisah kaca dirampingkan dari `7.dp` menjadi `4â5.dp`.
 - **Format Low-Profile Kapsul Mode & Telemetri**:
-  - Badge mode profil (`● Ekstrem`, `● Performa`, `● Seimbang`, `● Hemat Daya`) kini menggunakan padding vertikal ramping (`vertical = 1.5.dp`), dot diameter 4.5dp, dan font 10sp tebal.
+  - Badge mode profil (`â Ekstrem`, `â Performa`, `â Seimbang`, `â Hemat Daya`) kini menggunakan padding vertikal ramping (`vertical = 1.5.dp`), dot diameter 4.5dp, dan font 10sp tebal.
   - Badge target refresh rate (`120 Hz`, `90 Hz`) dan floating HUD (`HUD ON`) dipadatkan secara proporsional (`vertical = 1.5.dp`).
   - Baris badge kini memeluk badge-badge secara pas (*tight wrapping*), terlihat jauh lebih ramping, proporsional, dan menyatu sempurna dengan badan kartu.
 
@@ -5623,45 +5639,45 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC92)
 
-### 1. 🎴 Arsitektur 2-Tier Proporsional Tanpa Penumpukan
+### 1. ð´ Arsitektur 2-Tier Proporsional Tanpa Penumpukan
 - **Pemisahan Elemen Jernih**: Menjawab kebutuhan tampilan yang lega namun tetap compact:
   - **Baris 1**: Nama aplikasi berbobot tebal (14sp) didampingi tag neon `[GAME]` jika aplikasi terdaftar sebagai game.
   - **Baris 2**: Nama paket aplikasi lengkap (`packageName`) dengan kontras lembut (11.5sp), memberikan kejelasan identitas aplikasi tanpa terpotong atau berdesakan.
   - **Sisi Kanan Atas**: Master Switch (scale 0.82f) dengan touch target aman dan responsif.
 - **Baris Baru di Bawah (Dedicated Telemetry Row)**:
   - Menempatkan seluruh parameter otomasi pada baris tersendiri di bawah garis pemisah kaca halus:
-    - Mode-mode profil aktif (`● Ekstrem`, `● Performa`, `● Seimbang`, `● Hemat Daya`) dengan status dot bercahaya.
+    - Mode-mode profil aktif (`â Ekstrem`, `â Performa`, `â Seimbang`, `â Hemat Daya`) dengan status dot bercahaya.
     - Kunci refresh rate panel (`90 Hz`, `120 Hz`) saat aktif.
     - Floating Game HUD (`HUD ON`) saat aktif.
   - Teks affordance `Kustomisasi >` di pojok kanan bawah memandu pengguna untuk mengakses dialog overlay kustomisasi mendalam.
 
-### 2. 📏 Proporsi Tinggi Ideal (~95dp)
+### 2. ð Proporsi Tinggi Ideal (~95dp)
 - Menemukan titik temu estetika antara kartu lawas yang terlalu tinggi (~135dp) dan layout tunggal yang terlalu padat, menghasilkan tinggi kartu ideal ~95dp dengan padding `horizontal = 14.dp, vertical = 10.dp` yang nyaman di mata dan optimal pada navigasi jari satu tangan.
 
 ---
 
 # Lynx Universal [Compact App Automation Bento Cards & Fluid Screen Utilization Architecture] 7.0.0-RC91
 Released on: 2026-10-18
-> **Lynx Universal v7.0.0-RC91** (Lynx Kernel Manager v3.1.43): **Redesain Menyeluruh App Rule Bento Card Menjadi Format Ultra-Compact (~58dp vs Sebelumnya ~135dp), Penghematan Ruang Vertikal >50% Memungkinkan 7–8 Kartu Aplikasi Terlihat Sekaligus dalam Satu Layar, Eliminasi Divider Statis dan Spacer Berlebih Tanpa Mengorbankan Kelengkapan Tag & Telemetri, Pengetatan Spacing Virtualized LazyColumn (8dp), Serta Interaktivitas Penuh Tap-to-Customize Dialog Overlay**.
+> **Lynx Universal v7.0.0-RC91** (Lynx Kernel Manager v3.1.43): **Redesain Menyeluruh App Rule Bento Card Menjadi Format Ultra-Compact (~58dp vs Sebelumnya ~135dp), Penghematan Ruang Vertikal >50% Memungkinkan 7â8 Kartu Aplikasi Terlihat Sekaligus dalam Satu Layar, Eliminasi Divider Statis dan Spacer Berlebih Tanpa Mengorbankan Kelengkapan Tag & Telemetri, Pengetatan Spacing Virtualized LazyColumn (8dp), Serta Interaktivitas Penuh Tap-to-Customize Dialog Overlay**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC91)
 
-### 1. 📐 Format Ultra-Compact Bento Card (`AppRuleBentoCard`)
+### 1. ð Format Ultra-Compact Bento Card (`AppRuleBentoCard`)
 - **Reduksi Tinggi Vertikal >50%**: Mengubah tata letak kartu aturan aplikasi dari format 2-zona bertingkat dengan divider statis (~135dp) menjadi kartu horizontal kompak (~58dp) dengan padding ergonomis (`horizontal = 12.dp, vertical = 9.dp`) dan radius sudut `RoundedCornerShape(13.dp)`.
 - **Optimalisasi Ruang Layar Fisik**: Pengguna perangkat smartphone (rasio 20:9 dan 21:9) kini dapat memantau 7 hingga 8 aturan game/aplikasi secara simultan dalam satu viewport tanpa perlu scrolling konstan.
 
-### 2. 🎴 Harmonisasi Informasi & Zero Data Loss
+### 2. ð´ Harmonisasi Informasi & Zero Data Loss
 Meskipun tinggi kartu dipadatkan secara signifikan, tidak ada satu pun informasi fungsional yang dikorbankan:
 - **Ikon Aplikasi**: Berukuran 38dp rounded (`clip(RoundedCornerShape(9.dp))`) dengan visual tajam.
 - **Baris 1**: Nama aplikasi tebal (13.5sp) disertai badge neon `[GAME]` (jika teridentifikasi sebagai game) yang terlindung dari pemotongan teks.
 - **Baris 2**:
-  - Badge Mode Profil Kapsul (`● Performa`, `● Seimbang`, `● Ekstrem`, `● Hemat Daya`) dengan status dot semantik.
+  - Badge Mode Profil Kapsul (`â Performa`, `â Seimbang`, `â Ekstrem`, `â Hemat Daya`) dengan status dot semantik.
   - Badge Target Refresh Rate (misal `90 Hz`, `120 Hz`).
   - Badge Floating HUD (`HUD`).
   - Subtitle nama paket aplikasi dengan elipsis otomatis.
 - **Sisi Kanan**: Master Switch aktif/nonaktif (scale 0.8f) dan ikon subtle Chevron Right `>` sebagai penanda affordance sentuhan.
 
-### 3. 🎯 Navigasi Kustomisasi Intuitif & Pengetatan Spacing LazyColumn
+### 3. ð¯ Navigasi Kustomisasi Intuitif & Pengetatan Spacing LazyColumn
 - **Akses Cepat Tap-to-Customize**: Mengetuk area mana pun pada kartu langsung membuka Overlay Floating Dialog Kustomisasi Aturan Aplikasi secara instan dengan feedback sentuh ripple modern.
 - **Pengetatan Spacing Antar Item**: Mengatur `verticalArrangement = Arrangement.spacedBy(8.dp)` pada LazyColumn untuk ritme visual yang lebih padat, rapi, dan seimbang.
 
@@ -5673,7 +5689,7 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC90)
 
-### 1. 🔤 Pengurutan Deterministik Alfabetis (A-Z) di Seluruh Lapisan
+### 1. ð¤ Pengurutan Deterministik Alfabetis (A-Z) di Seluruh Lapisan
 - **Konsistensi Urutan Mutlak**: Seluruh daftar aturan aplikasi (`AppProfileRule`) kini diurutkan secara ketat menurut abjad nama aplikasi (`appName` dengan fallback `packageName`) case-insensitive di seluruh lapisan:
   - Repository disk (`LynxAppProfileRulesRepository` saat load, save individual, save all, dan auto-detect).
   - ViewModel reactive state (`LynxViewModel` & `LynxViewModelAutomation` pada inisialisasi state, mutasi update, dan sinkronisasi game).
@@ -5681,11 +5697,11 @@ Released on: 2026-10-18
   - Dialog pemilihan aplikasi baru (`availableApps` terurut rapi menurut label aplikasi).
 - **Eliminasi Bug Melompatnya Urutan (*List Jumbling Elimination*)**: Memperbaiki kelemahan filter-and-append (`filter + rule`) yang sebelumnya memindahkan aplikasi yang baru saja dikonfigurasi ke posisi paling bawah, sehingga daftar tidak lagi melompat atau menggeser posisi item lain saat pengguna mengonfigurasi beberapa aplikasi secara beruntun.
 
-### 2. 🛡️ Mode Badge Aman: Beralih ke Dialog Kustomisasi (Anti Miss-Touch)
+### 2. ð¡ï¸ Mode Badge Aman: Beralih ke Dialog Kustomisasi (Anti Miss-Touch)
 - **Penghapusan Direct In-Place Cycling**: Menghapus tombol swap dan aksi siklus profil langsung (`onCycleProfile`) pada badge profil kartu aturan. Penggantian profil secara tidak sengaja akibat sentuhan cepat kini dicegah sepenuhnya.
 - **Pemicu Dialog Overlay Terpadu**: Mengetuk badge profil kini membuka Overlay Floating Dialog Kustomisasi secara aman, di mana pengguna dapat memilih profil target (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`), refresh rate, serta opsi HUD dengan pratinjau dan konfirmasi yang jelas.
 
-### 3. 🧩 Isolasi State Dialog Berbasis Objek Rule
+### 3. ð§© Isolasi State Dialog Berbasis Objek Rule
 - **Pembersihan Cache State Form**: Memperbaiki deklarasi `remember` pada form edit aturan aplikasi di `MainDashboard.kt` dari yang sebelumnya hanya berbasis `rule.packageName` menjadi berbasis referensi penuh objek `rule`. Hal ini memastikan perpindahan edit antar aplikasi yang berbeda selalu memuat nilai parameter yang segar dan akurat tanpa residu state lama.
 
 ---
@@ -5696,7 +5712,7 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC89)
 
-### 1. 🎴 Transformasi ke Cyberpunk Bento Cards (`AppRuleBentoCard`)
+### 1. ð´ Transformasi ke Cyberpunk Bento Cards (`AppRuleBentoCard`)
 - **Desain Kartu Independen & Elegan**: Menggantikan divider list datar usang dengan kartu Bento mandiri (`RoundedCornerShape(16.dp)`, latar belakang `BgElevated`, dan border `AccentCyan` responsif).
 - **Hierarki Visual Jernih**:
   - Ikon aplikasi berukuran 42dp rounded dengan caching cerdas `AppIconLoader`.
@@ -5705,20 +5721,20 @@ Released on: 2026-10-18
 - **One-Tap Profile Cycle Pill**: Tombol interaktif untuk mengganti profil target game/aplikasi secara instan (Powersave -> Seimbang -> Performa -> Ekstrem) lengkap dengan indikator dot warna status dan ikon swap, meminimalisir langkah navigasi bagi pengguna.
 - **Afodansi Kustomisasi**: Menambahkan indikator teks dan chevron `Kustomisasi >` di pojok kanan bawah setiap kartu untuk membuka dialog penyesuaian aturan mendalam.
 
-### 2. ⚡ Harmonisasi Hero Service Card (`AutomationHeroServiceCard`)
+### 2. â¡ Harmonisasi Hero Service Card (`AutomationHeroServiceCard`)
 - **Status Presence Tinggi**: Menyamakan bahasa desain dengan Hero Card di Tab Profile, dilengkapi:
   - Badge status layanan: `OTOMASI PROFIL AKTIF` (Hijau/Cyan) dan `OTOMASI NONAKTIF` (Netral).
   - Badge override reaktif: `OVERRIDE AKTIF: [Nama Game]` bernuansa oranye saat game sedang berjalan di foreground.
   - Kartu indikator pemulihan profil dasar: `Profil Dasar Pemulihan: [Nama Profil]` serta counter aturan aktif real-time.
 - **Nothing OS Segmented Cooldown Capsule**: Selector waktu penahanan profil (`5s`, `30s`, `1m`, `3m`, `Tetap`) berbingkai kapsul dengan highlight Cyan dan teks panduan rekomendasi.
 
-### 3. 🌊 Virtualized Fluid 120 FPS Scrolling & Eliminasi Nested Scroll
+### 3. ð Virtualized Fluid 120 FPS Scrolling & Eliminasi Nested Scroll
 - **Single Root LazyColumn**: Mengeliminasi arsitektur statis dua zona yang memicu keterbatasan tinggi dan konflik gestur sentuh. Seluruh halaman kini mengalir dalam satu `LazyColumn` virtual dengan `rememberFluidFlingBehavior()`.
 - **Deselerasi Kinetik Natural**: Menjamin fluiditas 60/120 FPS bebas lag dan stutter pada layar refresh rate tinggi perangkat fisik.
 - **Floating Dock Clearance**: Spacer navigasi bawah dinamis (`115.dp + navigationBarsPadding()`) menjamin kartu aturan terakhir tidak pernah terhalang oleh floating dock bar.
 
-### 4. 🛡️ Eliminasi Glitch Sudut Putih DropdownMenu secara Native
-- **Solusi Material 3 Natively Themed**: Menghilangkan artefak sudut putih pada menu opsi overflow (⋮) dengan menyuplai `containerColor = BgElevated` dan bentuk sudut `RoundedCornerShape(12.dp)` terpotong rapi.
+### 4. ð¡ï¸ Eliminasi Glitch Sudut Putih DropdownMenu secara Native
+- **Solusi Material 3 Natively Themed**: Menghilangkan artefak sudut putih pada menu opsi overflow (â®) dengan menyuplai `containerColor = BgElevated` dan bentuk sudut `RoundedCornerShape(12.dp)` terpotong rapi.
 - **Aksi Cepat & Jelas**: Menu dropdown menyajikan opsi "Pindai Game Terpasang" (Cyan) dan "Hapus Semua Aturan" (Merah) dengan ikon tajam dan batas pemisah kaca.
 
 ---
@@ -5729,18 +5745,18 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC88)
 
-### 1. 🎮 Refleksi Status Fisik Hardware Kernel pada Dashboard Utama
+### 1. ð® Refleksi Status Fisik Hardware Kernel pada Dashboard Utama
 - **Kejujuran Status Fisik Hardware (*Physical Hardware Truth*)**: Menjawab kebutuhan transparansi performa saat pengguna membuka game lalu berpindah/mengecek Dashboard Lynx Companion. 4-Way Mode Selector (`Hemat Daya`, `Seimbang`, `Performa`, `Ekstrem`) secara real-time mencerminkan status profil kernel yang sesungguhnya sedang aktif (misalnya saat bermain game pemicu performa tinggi, tombol `Performa` atau `Ekstrem` akan menyala aktif).
 - **Zero Ambiguity**: Mencegah kebingungan di mana CPU/GPU bekerja pada clock maksimum namun antarmuka secara keliru tetap menampilkan "Seimbang".
 
-### 2. ⚡ Smart Automation Status Pill dengan Deteksi Game Aktif Real-Time
+### 2. â¡ Smart Automation Status Pill dengan Deteksi Game Aktif Real-Time
 - **Deteksi Otomatis & Identitas Game**: Smart Automation Status Pill di Dashboard kini terhubung langsung ke daemon pemantau `LynxAppAutomationService` melalui getter reaktif `activeGamePackage` dan `activeGameName`.
 - **Umpan Balik Visual Transparan**: Saat game terdeteksi berjalan di foreground, status pill beralih ke warna aksen Oranye menyala dengan pesan jelas:
-  - Header: `🎮 OVERRIDE AKTIF: [Nama Game]`
+  - Header: `ð® OVERRIDE AKTIF: [Nama Game]`
   - Subtitle: `Kembali ke [Profil Dasar] saat keluar game`
 - **Siklus Pemulihan Otomatis**: Saat game diminimalkan atau ditutup dan jendela *cooldown buffer* berakhir, status pill kembali ke status siaga hijau/cyan dan selector mode secara mulus memulihkan posisi tombol ke profil dasar pengguna.
 
-### 3. 🛡️ Dynamic Live Baseline Recovery di Seluruh UI (Dashboard & Tab Profil)
+### 3. ð¡ï¸ Dynamic Live Baseline Recovery di Seluruh UI (Dashboard & Tab Profil)
 - **Akurasi Pemulihan Mutlak**: Memperbaiki pembacaan baseline di `DashboardHeaderItem.kt` dan hero card `TuningProfilesCategory.kt` dengan mengonsumsi `LynxAppAutomationService.currentBaseline` secara terpusat.
 - **Konsistensi Dua Arah**: Saat game sedang meng-override mode ke `Performa` atau `Ekstrem`, kartu "Profil Dasar Pemulihan" tidak akan keliru menampilkan profil game, melainkan tetap secara akurat menampilkan profil dasar asli yang dipilih pengguna (misalnya `Seimbang` atau `Hemat Daya`).
 
@@ -5752,18 +5768,18 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC87)
 
-### 1. 🎛️ Smart Automation & Baseline Status Pill di Dashboard Utama
+### 1. ðï¸ Smart Automation & Baseline Status Pill di Dashboard Utama
 - **Sinkronisasi Status Real-time**: Menambahkan Smart Automation Status Pill tepat di atas 4-way mode selector di Dashboard utama yang secara transparan menampilkan status engine aktif:
-  - Mode Auto (AI): `AUTO (AI) ENGINE AKTIF • Adaptif Pintar • Profil Pemulihan: [Profil Dasar]` dengan tombol detail interaktif.
-  - Mode Override Game: `OVERRIDE OTOMASI AKTIF • Kembali ke [Profil Dasar] saat keluar game` berdenyut dengan aksen semantik.
-  - Mode Siaga: `OTOMASI PROFIL SIAGA • Profil Dasar Pemulihan: [Profil Dasar]`.
+  - Mode Auto (AI): `AUTO (AI) ENGINE AKTIF â¢ Adaptif Pintar â¢ Profil Pemulihan: [Profil Dasar]` dengan tombol detail interaktif.
+  - Mode Override Game: `OVERRIDE OTOMASI AKTIF â¢ Kembali ke [Profil Dasar] saat keluar game` berdenyut dengan aksen semantik.
+  - Mode Siaga: `OTOMASI PROFIL SIAGA â¢ Profil Dasar Pemulihan: [Profil Dasar]`.
 - **Harmonisasi 4-Way Mode Selector**: Mengeliminasi bug tampilan unselected saat mode `Auto (AI)` aktif. Kini tombol `Seimbang` ditandai dengan aksen Cyan dan subjudul `"Basis Auto (AI)"`, memberikan umpan balik visual yang utuh tanpa kebingungan.
 
-### 2. 🛡️ Dialog Edukasi & Konfirmasi Pengaktifan Layanan Otomasi
+### 2. ð¡ï¸ Dialog Edukasi & Konfirmasi Pengaktifan Layanan Otomasi
 - **Penjelasan Transparan & Edukatif**: Mengaktifkan sakelar "Layanan Otomasi Profil" kini menampilkan dialog konfirmasi elegan yang menerangkan mekanisme penimpaan profil sementara saat game berjalan dan pemulihan otomatis ke profil dasar saat game ditutup.
 - **Persistensi "Jangan Tampilkan Lagi"**: Dilengkapi checkbox cerdas yang menyimpan preferensi pengguna di SharedPreferences, sehingga power user yang sudah paham alur kerja otomasi tidak terganggu oleh konfirmasi berulang.
 
-### 3. ✨ Redesain Menu "Kustomisasi" (Zero Corner Glitch & Cyberpunk Glassmorphism)
+### 3. â¨ Redesain Menu "Kustomisasi" (Zero Corner Glitch & Cyberpunk Glassmorphism)
 - **Eliminasi Artefak Putih**: Memperbaiki container shape, elevation, dan border Material 3 DropdownMenu secara native sehingga menghilangkan glitch sudut putih yang mengganggu estetika.
 - **Desain Mewah Berbasis Glassmorphic Card**: Seluruh menu item dilengkapi ikon bernuansa neon dalam wadah rounded transparan, tipografi tajam, serta microcopy penjelas fungsi ("Sesuaikan parameter profil", "Reset ke nilai pabrik Lynx", "Duplikasi sebagai profil baru").
 - **Spacing Navigasi Bawah Presisi**: Menambahkan padding ekstra di bawah tombol simpan profil kustom sehingga konten tidak lagi tertutup oleh floating dock bar.
@@ -5776,24 +5792,24 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC86)
 
-### 1. 🎯 Model Baseline Dinamis (*User Baseline Persistence*)
+### 1. ð¯ Model Baseline Dinamis (*User Baseline Persistence*)
 - **Penyelarasan Logika Profil Tetap & Otomasi**: Menghilangkan kebingungan antara profil statis dan layanan otomasi. Profil manual yang dipilih pengguna (`Performance`, `Balance`, `Extreme`, atau `Powersave`) kini bertindak sebagai **User Baseline** yang persisten.
 - **Siklus Pemulihan Presisi**: Saat game atau aplikasi dengan aturan khusus dibuka, sistem beralih sementara ke profil target game. Saat game ditutup atau cooldown buffer habis, sistem secara konsisten kembali ke profil dasar pilihan pengguna, bukan lagi dipaksa kembali ke `Balance`.
 - **Dukungan Penuh Powersave & Extreme sebagai Baseline**: Memperbaiki `LynxRepository.readBaselineProfile()` dan `LynxAppStateRepository.setProfile()` agar mengakomodasi seluruh spektrum mode tanpa pembatasan `powersave` atau mode kustom.
 
-### 2. ⚡ Preset 1-Klik Auto (AI) & Aktivasi Layanan Otomasi
+### 2. â¡ Preset 1-Klik Auto (AI) & Aktivasi Layanan Otomasi
 - **Korespondensi Cerdas 1-Klik**: Memilih profil `Auto (AI)` kini bertindak sebagai jalan pintas cerdas yang mengunci profil dasar ke `Seimbang` (`balance`) dan secara otomatis mengaktifkan Layanan Otomasi Profil (`LynxAppAutomationService`) jika sebelumnya dalam keadaan nonaktif.
 - **Transisi Mulus**: Saat berpindah dari `Auto (AI)` ke profil tetap (misal `Performa`), layanan otomasi tetap berjalan aktif dengan profil baru tersebut sebagai profil pemulihan utama saat keluar dari game.
 
-### 3. 🎨 Dual-Badge Hero Card & Dynamic Baseline Recovery Card
+### 3. ð¨ Dual-Badge Hero Card & Dynamic Baseline Recovery Card
 - **Dual-Badge Indikator Hero Card**: Menampilkan status engine aktif (`STATUS ENGINE AKTIF` atau `AUTO (AI) ENGINE`) berdampingan dengan badge status otomasi (`OTOMASI AKTIF`) dan badge override (`OVERRIDE AKTIF`).
 - **Dynamic Baseline Recovery Card**: Menampilkan kartu informatif reaktif instan (0 ms tanpa I/O overhead) di dalam Hero Card yang memperlihatkan profil dasar pemulihan aktif secara transparan kepada pengguna.
 - **Deskripsi Profil Padat & Anti-Truncate**: Seluruh kartu profil pada katalog kini menggunakan teks deskripsi 2-baris yang padat, jelas, dan bebas dari pemotongan teks (*zero text truncation*).
 
-### 4. 🔔 Notifikasi Status Bar Informatif
+### 4. ð Notifikasi Status Bar Informatif
 - **Transparansi Status Bar**: Notifikasi latar depan kini menampilkan status profil aktif sekaligus profil dasar pemulihan:
-  - Saat Game Aktif: `[Nama Game] • 120Hz • Kembali ke [Profil Dasar] • [Suhu] • [Baterai%]`
-  - Saat Siaga / Standby: `Otomasi Siaga • Profil Dasar: [Profil Dasar] • [Suhu] • [Baterai%]`
+  - Saat Game Aktif: `[Nama Game] â¢ 120Hz â¢ Kembali ke [Profil Dasar] â¢ [Suhu] â¢ [Baterai%]`
+  - Saat Siaga / Standby: `Otomasi Siaga â¢ Profil Dasar: [Profil Dasar] â¢ [Suhu] â¢ [Baterai%]`
 
 ---
 
@@ -5803,10 +5819,10 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC85)
 
-### 1. 📊 Matriks Penyetelan Dalvik VM & VM Kernel Berbasis Kapasitas RAM
+### 1. ð Matriks Penyetelan Dalvik VM & VM Kernel Berbasis Kapasitas RAM
 Sistem secara otomatis mendeteksi kapasitas `MemTotal` dari `/proc/meminfo` saat instalasi modul maupun saat boot awal via `lynxd`, mengelompokkan perangkat ke dalam 4 tier presisi:
 
-| Parameter Tuning | Tier 1: 3GB – 4GB RAM (Konservatif) | Tier 2: 6GB RAM (Seimbang / Mid-Range) | Tier 3: 8GB – 10GB RAM (Performa Tinggi) | Tier 4: 12GB+ RAM (Unggulan / Ekstrem) |
+| Parameter Tuning | Tier 1: 3GB â 4GB RAM (Konservatif) | Tier 2: 6GB RAM (Seimbang / Mid-Range) | Tier 3: 8GB â 10GB RAM (Performa Tinggi) | Tier 4: 12GB+ RAM (Unggulan / Ekstrem) |
 | :--- | :--- | :--- | :--- | :--- |
 | **`dalvik.vm.heapstartsize`** | `8m` | `16m` | `16m` | `24m` |
 | **`dalvik.vm.heapgrowthlimit`** | `192m` | `256m` | `384m` | `512m` |
@@ -5818,18 +5834,18 @@ Sistem secara otomatis mendeteksi kapasitas `MemTotal` dari `/proc/meminfo` saat
 | **`vm.swappiness`** | `90` (maksimalkan ZRAM) | `80` (seimbang) | `80` (seimbang) | `70` (prioritaskan fisik) |
 | **`vm.dirty_ratio` / `bg`** | `15%` / `5%` | `20%` / `8%` | `20%` / `10%` | `20%` / `10%` |
 
-### 2. 🛡️ Mitigasi Masalah Spesifik RAM 4GB & 6GB
+### 2. ð¡ï¸ Mitigasi Masalah Spesifik RAM 4GB & 6GB
 - **Perangkat RAM 4GB**: Mencegah Low Memory Killer (LMK) membunuh aplikasi latar belakang secara agresif dan mencegah launcher me-reload saat berpindah aplikasi akibat alokasi heap yang terlalu rakus.
 - **Perangkat RAM 6GB**: Memberikan kapasitas ideal bagi multitasking harian tanpa micro-stutter saat siklus pembersihan ART GC berlangsung.
-- **Perangkat RAM 8GB–12GB+**: Menjamin ketersediaan virtual address space dan native heap yang sangat lega untuk mencegah kerusakan `bad_alloc` OOM pada `system_server` bahkan setelah uptime ratusan jam.
+- **Perangkat RAM 8GBâ12GB+**: Menjamin ketersediaan virtual address space dan native heap yang sangat lega untuk mencegah kerusakan `bad_alloc` OOM pada `system_server` bahkan setelah uptime ratusan jam.
 
-### 3. ⚙️ Injeksi Otomatis Ganda (`customize.sh` + `lynxd`)
+### 3. âï¸ Injeksi Otomatis Ganda (`customize.sh` + `lynxd`)
 - **Fase Instalasi (`customize.sh`)**: Fungsi `tune_dalvik_heap()` menyaring dan menginjeksikan properti yang tepat ke `$MODPATH/system.prop` sebelum modul aktif.
 - **Fase Booting (`lynxd`)**: Modul Rust `MemoryController::apply_ram()` menerapkan penyetelan VM sysfs dan mengeksekusi `resetprop` secara runtime untuk menjamin konsistensi 100% pada semua lingkungan (Magisk, KernelSU, APatch).
 
-### 4. ⚡ Voltage-Gated Charge Pump & Anti-Flapping Smart Handshake
+### 4. â¡ Voltage-Gated Charge Pump & Anti-Flapping Smart Handshake
 - **Pencegahan UVLO RT9759 pada Colokan Pertama**: Menahan `enable_sc = 0` saat tegangan adapter VBUS masih berada di fase awal 5V ($< 6.500\text{ mV}$) agar sirkuit terhindar dari *Under-Voltage Lockout / Reverse Current Fault* ($2,35\text{V} < V_{\text{BAT}}$), sehingga negosiasi *Pump Express* (PE 2.0/4.0/PPS) dapat berjalan bebas tanpa aborting.
-- **Transisi Otomatis Instan ke Super Fast Charge**: Begitu adapter menaikkan tegangan ke $\ge 6.500\text{ mV}$ (9V/10V), daemon `lynxd` langsung mengaktifkan `enable_sc = 1` secara instan, mengalirkan arus puncak 33W (>4.000–6.000 mA) tanpa perlu cabut-pasang kabel secara manual.
+- **Transisi Otomatis Instan ke Super Fast Charge**: Begitu adapter menaikkan tegangan ke $\ge 6.500\text{ mV}$ (9V/10V), daemon `lynxd` langsung mengaktifkan `enable_sc = 1` secara instan, mengalirkan arus puncak 33W (>4.000â6.000 mA) tanpa perlu cabut-pasang kabel secara manual.
 - **Proteksi Cerdas Anti-Flapping Multi-Device**:
   - Qualcomm Snapdragon 100% terlindung dari interupsi pulsa FET agar kontrak USB-PD tidak pernah putus (bebas dari layar kedip atau charger mati-nyala).
   - Port USB PC/laptop dan charger 5V standar dideteksi secara akurat via `is_laptop_port()` dan `Charger_Type` sehingga tidak pernah memicu siklus reconnect berulang.
@@ -5843,7 +5859,7 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC84)
 
-### 1. 🔍 Analisis Forensik Kerusakan Kerangka Kerja (Soft Reboot / Framework Restart)
+### 1. ð Analisis Forensik Kerusakan Kerangka Kerja (Soft Reboot / Framework Restart)
 - **Verifikasi Bukti Kerusakan di `/data/tombstones/tombstone_15`**:
   - Waktu kejadian: `08:35:30.451` WIB | Proses: `system_server` (PID 2963, thread `binder:2963_16` TID 6751).
   - Status Kernel: Uptime kernel tetap berjalan utuh (~11 jam), membuktikan bahwa perangkat **TIDAK mengalami kernel panic**, melainkan murni **User-Space Framework Restart (Soft Reboot)**.
@@ -5854,7 +5870,7 @@ Released on: 2026-10-18
   - Saat menangani transaksi binder `android.permission.IPermissionChecker$Stub.onTransact`, ART runtime mendeteksi kondisi kehabisan memori Java dan mencoba menginstansiasi exception `java.lang.OutOfMemoryError`.
   - Ketika ART memanggil `Thread::CreateInternalStackTrace` -> `Throwable_nativeFillInStackTrace` untuk merekam jejak panggilan exception, alokasi memori native C++ melalui `operator new` gagal karena native heap/address space terfragmentasi. Kegagalan tersebut melempar `std::bad_alloc` tanpa penangan aktif, memaksa libc++ memanggil `std::__terminate()` -> `abort()`, yang langsung mematikan Zygote dan memicu restart kerangka kerja Android.
 
-### 2. 🚀 Ekspansi Batas Dalvik VM Heap Headroom (Tuned for 6GB–8GB RAM)
+### 2. ð Ekspansi Batas Dalvik VM Heap Headroom (Tuned for 6GBâ8GB RAM)
 - Menggantikan batas bawaan OEM yang terlampau ketat (`heapgrowthlimit=256m` dan `heapsize=512m`) pada `system.prop` universal dan platform MediaTek:
   - `dalvik.vm.heapgrowthlimit=384m` (+50% ruang pertumbuhan heap aman untuk system_server & SystemUI).
   - `dalvik.vm.heapsize=768m` (+50% batas total heap untuk beban berat & multitasking GSI Android 14).
@@ -5863,7 +5879,7 @@ Released on: 2026-10-18
   - `dalvik.vm.heaptargetutilization=0.75` (menjaga rasio utilisasi heap stabil di 75%).
 - **Live Injection via APatch Resetprop**: Properti diterapkan seketika pada lingkungan aktif tanpa memerlukan reboot penuh, serta disinkronkan ke `/data/adb/modules/Lynx/system.prop` agar selalu aktif saat booting awal sebelum Zygote melakukan fork.
 
-### 3. 🛡️ Verifikasi Stabilitas & Integritas Proses Pasca-Restart
+### 3. ð¡ï¸ Verifikasi Stabilitas & Integritas Proses Pasca-Restart
 - PSS `system_server` baru berada dalam kondisi prima: ~72 MB Java Heap, ~83 MB Native Heap (total PSS hanya ~261 MB dari total 8 GB RAM).
 - `com.noir.lynx` (Lynx Companion) terpantau sangat hemat daya dan stabil: hanya ~17 MB Java Heap dan ~34 MB Native Heap (total PSS ~110 MB) berkat cache LRU 1024-slot dan relaksasi ticker otomasi.
 - Idle CPU perangkat mencapai ~352% (4,5 core bebas bekerja/idle), bebas jank, dan responsivitas layar 120Hz kembali halus tanpa micro-stutter.
@@ -5876,14 +5892,14 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC83)
 
-### 1. 🎛️ Rombak Total Overlay Floating "Kustomisasi" (`ProfileEditorDialog` di `ProfileGrid.kt`)
+### 1. ðï¸ Rombak Total Overlay Floating "Kustomisasi" (`ProfileEditorDialog` di `ProfileGrid.kt`)
 - **Floating Modal Custom Sheet M3**: Menggantikan `AlertDialog` bawaan yang sempit dan kaku dengan kontainer kustom `Dialog(properties = DialogProperties(usePlatformDefaultWidth = false))` berlebar 94% layar (`fillMaxWidth(0.94f)`), radius 24 dp, latar belakang `#10131B`, dan bayangan elevasi 24 dp.
 - **Border Vertikal Gradient Reaktif**: Batas dialog kini secara dinamis memancarkan warna aksen profil dasar yang dipilih (Hijau `#00E676` untuk Powersave, Biru `#0099FF` untuk Balance, Jingga `#FF9900` untuk Performance, Merah `#FF3B30` untuk Extreme, dan Sian `#00FFAA` untuk Custom).
 - **Header Squircle & Badge Anti-Glitch**:
-  - Container ikon squircle 42×42 dp dengan ikon mode dan aksen semantik.
+  - Container ikon squircle 42Ã42 dp dengan ikon mode dan aksen semantik.
   - Badge kategori `[ KUSTOMISASI PROFIL ]` (atau `[ PROFIL KUSTOM ]` / `[ PROFIL BARU ]`) ber-letter spacing 0.8 sp.
   - Tipografi judul tegas dengan sanitasi font anti-glitch (`fontFeatureSettings = "liga 0, dlig 0, calt 0"`).
-  - Tombol tutup melayang bundar (32×32 dp) untuk kenyamanan jemari satu tangan.
+  - Tombol tutup melayang bundar (32Ã32 dp) untuk kenyamanan jemari satu tangan.
 - **Kartu Bento Base & Compute Presets**:
   - Segmented control 4 pilihan (`powersave`, `balance`, `performance`, `extreme`) yang langsung menyinkronkan governor CPU & GPU secara terharmonisasi.
   - Dual chip selector untuk tuning CPU Governor & GPU Clock policy independen.
@@ -5892,7 +5908,7 @@ Released on: 2026-10-18
 - **Kartu Catatan Keamanan**: Kotak info sian yang transparan dan informatif untuk profil bawaan Lynx, menegaskan bahwa nilai asli selalu dapat dipulihkan kapan saja.
 - **Symmetrical Action Bar**: Tombol aksi simetris di bagian bawah (Batal 1f & Simpan Kustomisasi 1.5f dengan warna aksen profil aktif dan target sentuh >46 dp).
 
-### 2. ⚡ Redesain Menu Aksi Titik Tiga (Kebab Menu di `ProfileGrid.kt`)
+### 2. â¡ Redesain Menu Aksi Titik Tiga (Kebab Menu di `ProfileGrid.kt`)
 - **Kontainer Dropdown Glass M3**: `DropdownMenu` diperbarui dengan sudut membulat 14 dp, warna latar `#141720`, batas kaca `BorderGlass`, dan elevasi bayangan 10 dp.
 - **Ikon Semantik Berwarna**:
   - `Tune` (Accent Cyan) untuk Kustomisasi.
@@ -5902,7 +5918,7 @@ Released on: 2026-10-18
   - `Delete` (Accent Red) untuk Hapus Profil Kustom.
 - **Pemisah Halus**: Menambahkan `HorizontalDivider` semi-transparan untuk memisahkan menu produktif dari aksi destruktif.
 
-### 3. 🛡️ Penyelarasan Dialog Konfirmasi (`replaceMenu`, `pendingDelete`, `pendingRestore`, dll.)
+### 3. ð¡ï¸ Penyelarasan Dialog Konfirmasi (`replaceMenu`, `pendingDelete`, `pendingRestore`, dll.)
 - Menyelaraskan seluruh dialog konfirmasi yang terkait dengan profil ke standar modal M3 elevated dark bersudut 22 dp dengan header squircle, penjelasan jelas, dan tombol aksi berdampingan yang simetris dan bebas miss-click.
 
 ---
@@ -5913,19 +5929,19 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC82)
 
-### 1. ⚙️ Resolusi Bug Kritis Penguncian Governor CPU `powersave` (500 MHz Clamping)
+### 1. âï¸ Resolusi Bug Kritis Penguncian Governor CPU `powersave` (500 MHz Clamping)
 - **Akar Masalah**: Siklus *Deep Sleep Shield* saat layar mati (`ACTION_SCREEN_OFF`) menerapkan profil sementara `powersave`. Saat layar dinyalakan kembali, jika file `baseline_profile` belum terisi, sistem membaca `active_profile` yang tersisa sebagai `"powersave"`. Akibatnya, `baselineProfile` terkunci permanen ke `"powersave"`, memaksa governor CPU Helio G96 terkunci di `powersave` (Cortex-A55 di 500 MHz dan Cortex-A76 di 774 MHz) alih-alih `schedutil` (2.05 GHz). CPU 500 MHz tidak mampu memproses frame 120Hz (deadline 8.33ms), memicu drop frame hingga 95% saat membuka status bar atau scrolling.
 - **Solusi**: Sanitasi mutlak di `LynxAppAutomationService` dan `LynxAppStateRepository` yang melarang `baselineProfile` jatuh ke `"powersave"` atau `"dormant"` dari transient state (default otomatis ke `"balance"`). Governor CPU dipulihkan secara instan ke `schedutil` saat layar menyala.
 
-### 2. ⚡ Eliminasi Evaluasi Regex Churn & GC Spikes (`LynxText.kt`)
+### 2. â¡ Eliminasi Evaluasi Regex Churn & GC Spikes (`LynxText.kt`)
 - **Akar Masalah**: Setiap kali Jetpack Compose melakukan recomposition (setiap detik karena pembaruan telemetri), `localizedUiText` mengevaluasi 146 regex secara sekuensial untuk setiap string dinamis yang tidak terdaftar di katalog statis. Menghasilkan hingga 14.600 evaluasi regex per frame di Main Thread, membakar 100% CPU (`TID 1772`) dan memicu badai Garbage Collection `art::ConditionVariable::WaitHoldingLocks` yang membekukan input touch SystemUI.
 - **Solusi**: Menerapkan thread-safe **LRU Resolution Cache (1024 entri)** dengan sentinel `NO_MATCH_SENTINEL`. Setiap teks unik kini hanya diuji regex tepat satu kali seumur hidup aplikasi, mengubah pemanggilan berikutnya menjadi pencarian O(1) hash map instant (<5 nanodetik). Beban CPU Main Thread LynxCompanion turun ke tingkat optimal dan GC churn tereliminasi.
 
-### 3. 🔔 Pencegahan Badai Re-Layout Notification Shade SystemUI (`LynxAppAutomationService.kt`)
-- **Akar Masalah**: Ticker telemetri live di status bar sebelumnya memperbarui notifikasi setiap 3 detik dengan format suhu desimal (`%.1f°C`). Fluktuasi suhu sub-derajat (0.1°C) memicu `NotificationManager.notify()` setiap 3 detik, memaksa `SystemUI` me-relayout seluruh hirarki `NotificationShade` (berisi 2.373 views) dan menjalankan query synchronous Binder `Settings.getIntForUser` di UI thread.
-- **Solusi**: Memperlebar interval ticker telemetri ke **10 detik** saat layar aktif, serta membulatkan pembacaan suhu baterai ke derajat integer (`%d°C`). Fluktuasi desimal tidak lagi memicu update notifikasi, mereduksi interupsi I/O ke SystemUI hingga 98%.
+### 3. ð Pencegahan Badai Re-Layout Notification Shade SystemUI (`LynxAppAutomationService.kt`)
+- **Akar Masalah**: Ticker telemetri live di status bar sebelumnya memperbarui notifikasi setiap 3 detik dengan format suhu desimal (`%.1fÂ°C`). Fluktuasi suhu sub-derajat (0.1Â°C) memicu `NotificationManager.notify()` setiap 3 detik, memaksa `SystemUI` me-relayout seluruh hirarki `NotificationShade` (berisi 2.373 views) dan menjalankan query synchronous Binder `Settings.getIntForUser` di UI thread.
+- **Solusi**: Memperlebar interval ticker telemetri ke **10 detik** saat layar aktif, serta membulatkan pembacaan suhu baterai ke derajat integer (`%dÂ°C`). Fluktuasi desimal tidak lagi memicu update notifikasi, mereduksi interupsi I/O ke SystemUI hingga 98%.
 
-### 4. 🧠 Pencegahan Direct Memory Reclaim & Buffer Stutter Kernel (`memory.rs`)
+### 4. ð§  Pencegahan Direct Memory Reclaim & Buffer Stutter Kernel (`memory.rs`)
 - **Akar Masalah**: Pada perangkat 8GB RAM setelah beroperasi lama dengan banyak aplikasi latar belakang, memori fisik menyusut ke <100 MB dan ZRAM swap terisi >900 MB dengan swappiness 100. Nilai `min_free_kbytes` bawaan yang hanya 11 MB dan `watermark_scale_factor` 10 menyebabkan kernel terlambat membangunkan `kswapd`, memicu *Direct Reclaim Latency* di mana UI thread membeku menunggu kompresi memori ZRAM.
 - **Solusi**: Menambahkan penyetelan adaptif pada mesin memori native `lynxd`:
   - `watermark_scale_factor = 50` (buffer 0.5% RAM) agar `kswapd` bangun lebih awal di background sebelum RAM kritis.
@@ -5940,26 +5956,26 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC81)
 
-### 1. 🎛️ Transisi Tab & Redesain Bento Horizontal Profile (`ProfileGrid.kt`)
+### 1. ðï¸ Transisi Tab & Redesain Bento Horizontal Profile (`ProfileGrid.kt`)
 - **Penyelarasan Nama Tab**: Mengubah nama tab dari `Katalog Profil` menjadi **`Profile`** dengan ikon `Icons.Default.Tune` pada `ProfilesCategoryTabRow`, memberikan identitas fungsional yang lugas, presisi, dan modern.
 - **Eliminasi Desain Card-in-Card**: Menghapus pembungkus ganda `LynxCard` yang sebelumnya mengepung katalog profil. Profil kini disajikan langsung sebagai kartu Bento horizontal penuh kelas satu (*first-class bento surfaces*) di bawah header section yang bersih `DAFTAR PROFIL PERFORMA` lengkap dengan badge hitung jumlah profil live.
 - **Kartu Bento Elegan & Squircle Semantik**:
-  - Squircle container 42×42 dp dengan sudut 12 dp yang memancarkan warna semantik profil (Hijau Powersave, Biru Balance, Jingga Performance, Merah Extreme, Sian Custom/Auto).
+  - Squircle container 42Ã42 dp dengan sudut 12 dp yang memancarkan warna semantik profil (Hijau Powersave, Biru Balance, Jingga Performance, Merah Extreme, Sian Custom/Auto).
   - Tipografi anti-glitch (`fontFeatureSettings = "liga 0, dlig 0, calt 0"`), judul profil tegas 14 sp bold, deskripsi fungsional 11.5 sp, serta chip spesifikasi domain (`[AI Dynamic]`, `[Schedutil]`, `[Devfreq Boost]`, `[Bypass Termal]`).
   - Status pill `AKTIF` ber-glow dengan ikon centang di sisi kanan.
-  - Menu aksi kebab 3-titik (36×36 dp) untuk profil kustom (edit, salin, pulihkan bawaan, hapus).
+  - Menu aksi kebab 3-titik (36Ã36 dp) untuk profil kustom (edit, salin, pulihkan bawaan, hapus).
   - Tombol aksi simetris di bagian bawah: `+ Simpan Kondisi Saat Ini sebagai Profil Kustom` (tinggi 48 dp, sudut 14 dp).
 
-### 2. ⚡ Hero Active Status Card Real-Time (`TuningProfilesCategory.kt`)
+### 2. â¡ Hero Active Status Card Real-Time (`TuningProfilesCategory.kt`)
 - **Visual Status Engine Berkelas**: Kartu status profil aktif kini dilengkapi badge status `STATUS ENGINE AKTIF` dengan live pulse dot, squircle icon profil aktif, deskripsi operasional yang nyaman dibaca, serta tag `OVERRIDE AKTIF` jika terdapat penyimpangan domain manual.
 - **Subsystem Telemetry Badges**: Menampilkan telemetri perangkat secara langsung pada kartu hero (CPU Governor, GPU Freq/Boost state, Thermal Policy mode) dengan kontras OLED murni.
 - **Aksi Cepat Reset Override**: Tombol pemulihan override terintegrasi rapi dengan ikon `RestartAlt` untuk mengembalikan kondisi sistem ke profil master hanya dengan satu sentuhan.
 
-### 3. 🛡️ Penataan Ulang Dialog Modal Kustom (M3 Elevated Dark)
+### 3. ð¡ï¸ Penataan Ulang Dialog Modal Kustom (M3 Elevated Dark)
 - **Dialog Editor Profil & Konfirmasi**: Menyelaraskan seluruh dialog modal (`ProfileEditorDialog`, `pendingExtremeProfile`, `pendingDelete`, `pendingRestore`) dengan token tema deep OLED (`BgElevated`, radius 20 dp, batas halus `BorderGlass`).
 - **Input Fields & Tombol Simetris**: Bidang input `OutlinedTextField` dengan label semantik, validasi nama profil aman, dan tata letak tombol aksi simetris 44+ dp touch target.
 
-### 4. 🚀 Resolusi ANR Regex & Optimasi Latency String (`LynxText.kt`)
+### 4. ð Resolusi ANR Regex & Optimasi Latency String (`LynxText.kt`)
 - **Eliminasi ANR Thread UI**: Menganalisis laporan trace `/data/anr/` yang sempat menahan thread utama saat recomposition string, lalu menerapkan LRU Cache (`dynamicResolutionCache`) berkapasitas 256-slot pada `dynamicUiTextResources`.
 - **Latency Resolusi O(1)**: Pencarian string berulang dieksekusi instan tanpa evaluasi ulang regex, menjamin kelancaran 120 FPS tanpa frame drop.
 
@@ -5971,19 +5987,19 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC80)
 
-### 1. 🚀 Otomasi Foreground In-Memory via `UsageStatsManager` (<0.5ms)
+### 1. ð Otomasi Foreground In-Memory via `UsageStatsManager` (<0.5ms)
 - **Eliminasi Polling Berat Shell**: Menghapus pemanggilan berkala `dumpsys window displays` dari `LynxAppAutomationService` yang sebelumnya menyita `mGlobalLock` di `WindowManagerService` 3 kali per detik (10.800x/jam).
 - **Pembacaan In-Memory 0.5ms**: Mengalihkan deteksi aplikasi aktif ke API resmi `UsageStatsManager.queryEvents()` berbasis memori murni dengan izin `GET_USAGE_STATS`, menghasilkan zero-latency tanpa memicu contention pada render thread UI.
 - **Relaksasi Siklus Watcher**: Polling interval dinaikkan dari 350ms menjadi 1000ms, memangkas konsumsi daya latar belakang hingga 90% dan membebaskan CPU run-queue.
 
-### 2. 🛡️ Resolusi Badai SELinux Audit Denials (0 Denial di Kernel)
+### 2. ð¡ï¸ Resolusi Badai SELinux Audit Denials (0 Denial di Kernel)
 - **Aturan Sepolicy Terpadu**: Menambahkan izin `allow system_server domain process { getattr }` pada `sepolicy.rule` untuk menuntaskan bug bawaan GSI/ROM Treble yang menolak inspeksi proses `/proc` oleh `system_server`.
 - **Penghentian Mutex Spinlock Kernel**: Menghentikan banjir penolakan audit yang sebelumnya membuang lebih dari 1,63 juta log ke socket netlink dan membebani thread `logd.auditd`.
 
-### 3. 🔇 Peredaman Log Flood MediaTek Power HAL (`persist.log.tag`)
+### 3. ð Peredaman Log Flood MediaTek Power HAL (`persist.log.tag`)
 - **Peredaman Mode 6 (EXPENSIVE_RENDERING)**: Menambahkan properti `persist.log.tag.mtkpower@impl=S` dan `persist.log.tag.libPowerHal=S` di `platforms/mtk/system.prop` untuk membungkam spam log `unknown type` akibat inkompatibilitas vendor Power HAL MediaTek era Android 11 dengan AOSP Android 14.
 
-### 4. 🦀 Graceful Broken Pipe pada Biner Native `lynxd`
+### 4. ð¦ Graceful Broken Pipe pada Biner Native `lynxd`
 - **Pencegahan SIGABRT Tombstone**: Mengimplementasikan panic hook kustom pada `native/lynxd/src/main.rs` untuk menangani `ErrorKind::BrokenPipe` secara halus (`exit(0)`) ketika pembaca stream CLI menutup pipe lebih awal, mengakhiri pencemaran berkas tombstone di `/data/tombstones/`.
 
 ---
@@ -5994,18 +6010,18 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC79)
 
-### 1. ⚡ Mesin Pemuatan Ikon Terisolasi (`AppIconLoader`) & Eliminasi Binder Choke
+### 1. â¡ Mesin Pemuatan Ikon Terisolasi (`AppIconLoader`) & Eliminasi Binder Choke
 - **Isolasi Thread Binder (`Dispatchers.IO.limitedParallelism(2)`)**: Menghilangkan fenomena micro-stutter akibat thread pool IO tak terbatas yang membanjiri `system_server` Android saat fast-scrolling melewati puluhan item daftar sekaligus.
 - **Cache LRU 500-Slot Memory**: Kapasitas cache diperluas dari 100 menjadi 500 slot untuk menjamin seluruh ikon aplikasi terpasang menetap di RAM tanpa perlu rekalkulasi atau pembacaan ulang via IPC.
 - **Standarisasi Ukuran Kanvas 96x96 px**: Mengurangi konsumsi memori bitmap hingga 75% per ikon (dari 147 KB menjadi 36 KB), secara drastis memangkas beban alokasi memori dan Garbage Collection (GC) churn saat scrolling cepat.
 - **Preload Latar Belakang Cerdas**: Ikon aplikasi yang terdaftar pada aturan profil maupun dialog tambah aplikasi dipra-muat secara bertahap di latar belakang sesaat setelah daftar dimuat, memastikan 100% frame awal render langsung mengambil ikon dari cache instan tanpa kedipan (zero placeholder flicker).
 
-### 2. 🌊 Fling Physics 120Hz & Daur Ulang Komposisi (`rememberFluidFlingBehavior`)
+### 2. ð Fling Physics 120Hz & Daur Ulang Komposisi (`rememberFluidFlingBehavior`)
 - **Dukungan Penuh Layar Refresh Rate Tinggi (90Hz / 120Hz)**: Seluruh `LazyColumn` di dalam aplikasi (Daftar Aturan Aplikasi, Dialog Tambah Aplikasi, Hub Grafis Per-Aplikasi, serta Bottom Sheet Pemilih Frekuensi & Governor CPU) kini dilengkapi dengan `rememberFluidFlingBehavior()` untuk deselerasi kinetik yang alami dan responsif.
 - **Layout Recycling via `contentType`**: Menambahkan deklarasi `contentType` eksplisit pada seluruh item list, memungkinkan Compose me-reuse node komposisi yang kompatibel saat digulir alih-alih merusak dan merekonstruksi layout dari nol.
 - **Kunci Unik Stabil (`key`)**: Memastikan setiap item terikat pada identitas unik paket aplikasi atau nilai frekuensi, mengeliminasi re-layout yang tidak perlu saat status item lain berubah.
 
-### 3. 🛡️ Imutabilitas Data & Stabilisasi Recomposition
+### 3. ð¡ï¸ Imutabilitas Data & Stabilisasi Recomposition
 - **Anotasi `@Immutable` pada Model Data**: Model `AppProfileRule` dan `AppInfo` kini ditandai dengan `@Immutable` dari runtime Compose, mengizinkan compiler Compose melewatkan (skip) recomposition baris item yang tidak mengalami perubahan status saat parent recomposed.
 - **Lambda Callback Stabil**: Membungkus seluruh lambda aksi baris (`onRowClick`, `onToggle`, `onCycleProfile`) dengan `remember(...)`, memutus rantai alokasi objek fungsi baru pada setiap frame scroll.
 
@@ -6017,18 +6033,18 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC78)
 
-### 1. ⚖️ Baris Aksi Simetris Penuh (Eliminasi Tombol Menumpuk Asimetris)
+### 1. âï¸ Baris Aksi Simetris Penuh (Eliminasi Tombol Menumpuk Asimetris)
 - **Eliminasi Stacking Lopsided Kanan**: Menghapus perilaku Material 3 AlertDialog yang menumpuk tombol `Simpan Konfigurasi` dan `Hapus Aturan` secara vertikal di sisi kanan bawah dengan ruang kosong besar di kiri.
 - **Tata Letak Baris 2-Kolom Seimbang**: Mengintegrasikan tombol `Hapus Aturan` (merah, dengan ikon tempat sampah) dan `Simpan Konfigurasi` (cyan, dengan ikon centang) ke dalam satu baris horizontal proporsional selebar dialog (`Row` dengan `spacedBy(10.dp)`), memberikan keseimbangan visual 100% simetris.
 
-### 2. 🎴 Arsitektur Kartu Terpadu (Unified Settings Cards)
+### 2. ð´ Arsitektur Kartu Terpadu (Unified Settings Cards)
 - **Konsistensi Visual Antar-Bagian**: Mengakhiri disparitas desain di mana beberapa bagian berada di dalam kartu sementara bagian lain melayang tanpa kontainer. Keempat pengaturan kini menggunakan kontainer squircle OLED (`12.dp`) dengan border kaca (`BorderGlass`) yang identik:
   1. **Status Otomasi Aplikasi**: Judul, subjudul, dan Switch smooth.
   2. **Profil Performa Kernel**: Judul, subjudul, dan selector segmented 4-profil terintegrasi rapi di dalam kartu yang sama.
   3. **Kunci Refresh Rate Layar**: Judul, subjudul, dan selector segmented refresh rate terintegrasi rapi di dalam kartu yang sama.
   4. **Floating Game HUD (OSD)**: Judul, subjudul, dan Switch smooth.
 
-### 3. 🖼️ Header Terstandar & Tombol Tutup Ergonomis
+### 3. ð¼ï¸ Header Terstandar & Tombol Tutup Ergonomis
 - **Kontainer Ikon Squircle**: Membungkus ikon aplikasi ke dalam kontainer squircle `46.dp` dengan sudut `12.dp` dan border kaca transparan, serasi dengan standar visual Lynx.
 - **Tombol Tutup (X) Ergonomis**: Tombol lingkaran modern di sudut kanan atas memungkinkan pengguna menutup/membatalkan konfigurasi secara instan tanpa harus mengandalkan tombol back sistem.
 
@@ -6040,15 +6056,15 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC77)
 
-### 1. 🛡️ Penyembunyian Otomatis Aplikasi Terdaftar (Configured Apps Exclusion)
+### 1. ð¡ï¸ Penyembunyian Otomatis Aplikasi Terdaftar (Configured Apps Exclusion)
 - **Hanya Menampilkan Aplikasi yang Belum Didaftarkan**: Daftar kandidat pada dialog `Pilih Aplikasi` secara otomatis memfilter dan mengecualikan seluruh aplikasi yang telah memiliki aturan profil di `appProfileRules`. Pengguna tidak akan lagi melihat aplikasi yang telah ditambahkan sehingga dialog tetap bersih, fokus, dan bebas redundansi.
 - **Deteksi Cerdas Input Paket Manual**: Jika pengguna mengetik package name aplikasi yang secara manual sudah terdaftar, tombol aksi di bagian bawah secara otomatis berubah menjadi `Paket Sudah Terdaftar: Edit "<pkg>"` dengan aksen oranye dan ikon edit.
 
-### 2. 🗂️ Penyempurnaan Filter Kategori (Semua, Game, Aplikasi)
+### 2. ðï¸ Penyempurnaan Filter Kategori (Semua, Game, Aplikasi)
 - **Struktur Kategori Baru**: Mengganti filter `Belum Diatur` (yang kini redundan karena seluruh daftar telah difilter) menjadi filter `Aplikasi` (aplikasi non-game), menghasilkan pembagian 3-arah yang seimbang: `Semua` [total kandidat], `Game` [kandidat game], dan `Aplikasi` [kandidat aplikasi biasa].
 - **Counter Dinamis Anti-Glitch**: Menghitung jumlah kandidat secara real-time berdasarkan aplikasi yang belum terdaftar dengan micro-pill badge anti-ligatur HiOS/XOS.
 
-### 3. ✨ Status Kosong & Keseragaman Visual Baris
+### 3. â¨ Status Kosong & Keseragaman Visual Baris
 - **Empty State Informatif**: Menambahkan status visual `Semua Aplikasi Terdaftar` dengan ikon centang hijau jika seluruh aplikasi terpasang di perangkat telah memiliki aturan profil otomasi.
 - **Keseragaman Tombol Aksi Bulat (+)**: Karena seluruh aplikasi di dalam daftar merupakan kandidat baru, setiap baris kini secara konsisten menampilkan tombol aksi lingkaran `(+)` di sebelah kanan tanpa variasi tombol yang membingungkan.
 
@@ -6060,15 +6076,15 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC76)
 
-### 1. 🪟 Migrasi ke Custom Dialog Murni (Bebas Layout Lopsided)
+### 1. ðª Migrasi ke Custom Dialog Murni (Bebas Layout Lopsided)
 - **Eliminasi Tombol Tutup Asimetris**: Menghapus tombol *Tutup* usang yang berada di sudut kanan bawah AlertDialog yang menyisakan ruang kosong besar di kiri bawah, menggantikannya dengan tombol tutup lingkaran modern `(X)` di header.
 - **Proporsi Layar Ideal**: Menggunakan `Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.82f)` dengan padding internal presisi, memberikan ruang gulir aplikasi yang lega dan terbingkai proporsional.
 
-### 2. ⚖️ Keseimbangan Visual Kolom Kanan (Right-Side Symmetrical Balance)
+### 2. âï¸ Keseimbangan Visual Kolom Kanan (Right-Side Symmetrical Balance)
 - **Indikator Aksi Aplikasi Belum Diatur**: Menambahkan tombol lingkaran subtil `(+)` pada baris aplikasi yang belum dikonfigurasi, menciptakan keseimbangan simetris di seluruh baris daftar aplikasi sehingga tidak ada lagi ruang hampa di sebelah kanan.
 - **Pill Status Profil Ringkas Berwarna**: Aplikasi yang telah diatur menampilkan pill status profil yang ringkas dengan titik status berwarna semantik (*Ekstrem*, *Performa*, *Seimbang*, *Hemat*) dan proteksi tipografi anti-ligatur HiOS/XOS.
 
-### 3. 🔤 Penanganan Teks & Ikon Presisi (Anti-Truncation & Uniform Squircle)
+### 3. ð¤ Penanganan Teks & Ikon Presisi (Anti-Truncation & Uniform Squircle)
 - **Penanganan Ellipsis Sempurna**: Menambahkan `maxLines = 1` dan `overflow = TextOverflow.Ellipsis` pada nama aplikasi dan nama package di seluruh dialog (baik `showAddAppDialog` maupun `editingRule`), mencegah pemotongan teks secara mendadak.
 - **Kontainer Ikon Squircle Seragam**: Membungkus setiap ikon aplikasi ke dalam kontainer squircle `40.dp` dengan latar belakang lembut `BgDeepOled` dan border kaca, menjamin keseragaman visual bagi semua format ikon (lingkaran, kotak putih, atau transparan).
 - **Semua Chip Filter Dilengkapi Counter**: Menghitung counter untuk ketiga chip filter (*Semua*, *Game*, *Belum Diatur*) secara dinamis.
@@ -6081,14 +6097,14 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC75)
 
-### 1. 🎨 Perombakan Overlay 'Pilih Aplikasi' (Clean, Simpel, Anti-AI Slop)
+### 1. ð¨ Perombakan Overlay 'Pilih Aplikasi' (Clean, Simpel, Anti-AI Slop)
 - **Kontainer Minimalis OLED**: Menggantikan latar `BgCard` lama dengan kontainer `BgElevated` bersudut `22.dp` dan border kaca transparan `BorderGlass`.
 - **Header Terintegrasi**: Menampilkan ikon aplikasi dalam kotak membulat halus, judul dengan badge total aplikasi, serta tombol tutup `(X)` ergonomis di sudut kanan atas.
 - **Bilah Pencarian Kapsul**: Kolom pencarian gelap terpadu dengan border halus (beraksen saat fokus) dan tombol hapus teks instan.
 - **Filter Kapsul Ramping**: Mengoptimalkan 3 chip filter (*Semua*, *Game*, *Belum Diatur*) dengan teks ringkas tanpa pemotongan teks (*text truncation*) dan highlight aksen lembut.
 - **Daftar Aplikasi Flat Minimalis**: Menghapus kotak-kotak border per-item yang berantakan; setiap baris aplikasi tampil lega dengan ikon 40dp, judul jelas 13.5sp, nama paket 10.5sp, dan pemisah garis tipis elegan.
 
-### 2. ⚡ Penyelarasan Modal Konfigurasi Profil Aplikasi (`editingRule`)
+### 2. â¡ Penyelarasan Modal Konfigurasi Profil Aplikasi (`editingRule`)
 - **Desain & Palet Terpadu**: Menghilangkan warna-warni mencolok (pelangi) yang saling bertabrakan, menyatukan seluruh elemen kontrol ke dalam estetika monokromatis gelap OLED dengan aksen status fungsional.
 - **Segmented Control Profil & Refresh Rate**: Mengubah tombol opsi profil (Ekstrem, Performa, Seimbang, Hemat) dan kunci refresh rate (Bawaan, 60Hz, 90Hz, 120Hz) menjadi pil segmented 38dp yang rapi dan mudah disentuh.
 - **Tombol Sentuh Ergonomis**: Tombol aksi *Simpan Konfigurasi* dan *Hapus Aturan / Batal* didesain proporsional (tinggi 40dp) bebas *miss-touch*.
@@ -6101,12 +6117,12 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC74)
 
-### 1. 🧹 Eliminasi Redundansi Tombol Header (Header Action Streamlining)
-- Menghapus tombol `[ ⟳ Pindai ]` di bagian luar header kartu Aturan Aplikasi yang sebelumnya berdampingan dengan tombol Tambah dan Titik Tiga.
-- Mengembalikan hierarki aksi yang bersih dan teratur: header hanya menampilkan judul dengan badge jumlah aturan, tombol aksi utama **[ + Tambah ]**, dan tombol aksi sekunder **[ ⋮ ]** (*More Options*).
+### 1. ð§¹ Eliminasi Redundansi Tombol Header (Header Action Streamlining)
+- Menghapus tombol `[ â³ Pindai ]` di bagian luar header kartu Aturan Aplikasi yang sebelumnya berdampingan dengan tombol Tambah dan Titik Tiga.
+- Mengembalikan hierarki aksi yang bersih dan teratur: header hanya menampilkan judul dengan badge jumlah aturan, tombol aksi utama **[ + Tambah ]**, dan tombol aksi sekunder **[ â® ]** (*More Options*).
 
-### 2. ⚡ Indikator Status Pemindaian Real-Time pada Menu Titik Tiga
-- Tombol **[ ⋮ ]** kini memiliki status adaptif: saat proses pemindaian game terpasang sedang berjalan di latar belakang, ikon titik tiga bertransisi secara mulus menjadi `CircularProgressIndicator` berputar halus beraksen Cyan.
+### 2. â¡ Indikator Status Pemindaian Real-Time pada Menu Titik Tiga
+- Tombol **[ â® ]** kini memiliki status adaptif: saat proses pemindaian game terpasang sedang berjalan di latar belakang, ikon titik tiga bertransisi secara mulus menjadi `CircularProgressIndicator` berputar halus beraksen Cyan.
 - Pada dropdown menu, item *"Pindai Game Terpasang"* secara otomatis berubah menjadi *"Memindai Game..."* dan berada dalam status disabled sementara untuk mencegah klik berulang (*spam-tap*).
 
 ---
@@ -6117,7 +6133,7 @@ Released on: 2026-10-18
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC73)
 
-### 1. 🛡️ Eliminasi Total Bug 'Terlempar Keluar Halaman' (Zero-Exit Scanning Protocol)
+### 1. ð¡ï¸ Eliminasi Total Bug 'Terlempar Keluar Halaman' (Zero-Exit Scanning Protocol)
 - **Akar Masalah**: Sebelumnya fungsi `autoDetectAndSyncInstalledRules()` memicu `_uiState.update { it.copy(isLoading = true) }`. Hal ini menyebabkan `LynxAppShell` membongkar (*unmount*) seluruh komposisi `MainDashboard` dan menggantinya dengan `LoadingScreen()`. Saat selesai, state navigasi lokal ter-reset ke `null`, melempar pengguna keluar dari sub-halaman Profil ke Hub menu awal.
 - **Solusi Arsitektur**:
   - Mengisolasi pemindaian game ke state independen `isScanningInstalledGames: Boolean` pada `LynxUiState`.
@@ -6125,20 +6141,20 @@ Released on: 2026-10-18
   - Pengguna tetap berada 100% di halaman Otomasi Aplikasi tanpa *screen reload*, *flicker*, ataupun reset navigasi.
   - Menyematkan `selectedTuningCategory` ke dalam ViewModel sebagai *Single Source of Truth* untuk proteksi navigasi permanen (*Navigation Guard*).
 
-### 2. ⚡ Tombol Dedicated 'Pindai Game' di Header Kartu & Animasi Real-Time
-- **Aksesibilitas Cepat (First-Class Action)**: Tombol **[ ⟳ Pindai ]** kini ditempatkan langsung di header kartu bersanding dengan tombol **[ + Tambah ]** dan **[ ⋮ ]**, menghilangkan keharusan membuka menu tersembunyi.
+### 2. â¡ Tombol Dedicated 'Pindai Game' di Header Kartu & Animasi Real-Time
+- **Aksesibilitas Cepat (First-Class Action)**: Tombol **[ â³ Pindai ]** kini ditempatkan langsung di header kartu bersanding dengan tombol **[ + Tambah ]** dan **[ â® ]**, menghilangkan keharusan membuka menu tersembunyi.
 - **Indikator Progres Inline**: Saat pemindaian berlangsung, tombol otomatis menampilkan `CircularProgressIndicator` mini berputar halus dengan teks `"Memindai..."` dan status disabled sementara untuk mencegah *spam-tap*.
 - **Umpan Balik Cerdas**: Selesai pemindaian, notifikasi Toast HUD langsung menginformasikan jumlah game baru yang berhasil didaftarkan secara akurat.
 
-### 3. 🗑️ Modal Konfirmasi 'Hapus Semua Aturan' Mewah Bergaya Cyberpunk OLED
+### 3. ðï¸ Modal Konfirmasi 'Hapus Semua Aturan' Mewah Bergaya Cyberpunk OLED
 - **Perombakan Dialog Menyeluruh**: Menggantikan dialog teks biasa dengan modal keamanan tingkat tinggi:
   - **Badge Bahaya**: Lingkaran merah transparan (`AccentRed`) dengan ikon `DeleteOutline`.
   - **Kotak Ringkasan Aturan**: Menampilkan badge jumlah total aturan yang akan dihapus (`X Aplikasi`) dengan teks kontras tinggi.
   - **Penjelasan Dampak Bersih**: Menjelaskan secara transparan bahwa reset mencakup profil performa, target refresh rate, dan floating HUD, disertai catatan bahwa game terpasang dapat dipindai ulang kapan saja.
   - **Tombol Sentuh Proporsional**: Tombol konfirmasi merah `Hapus Semua` dan tombol `Batal` ditata ergonomis (tinggi 40dp) bebas *miss-touch*.
 
-### 4. 🎮 Empty State Interaktif & Konsisten
-- Menghadirkan tampilan kartu kosong yang memukau saat belum ada aturan (atau setelah dibersihkan), lengkap dengan tombol utama `[ ⟳ Pindai Game Terpasang ]` beraksen Cyan bercahaya dan tombol sekunder `[ + Tambah Manual ]`.
+### 4. ð® Empty State Interaktif & Konsisten
+- Menghadirkan tampilan kartu kosong yang memukau saat belum ada aturan (atau setelah dibersihkan), lengkap dengan tombol utama `[ â³ Pindai Game Terpasang ]` beraksen Cyan bercahaya dan tombol sekunder `[ + Tambah Manual ]`.
 
 ---
 
@@ -6148,13 +6164,13 @@ Released on: 2026-10-17
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC72)
 
-### 1. 📌 Two-Zone Architecture: Pinned Service Header & In-Place Scrollable App Rules
+### 1. ð Two-Zone Architecture: Pinned Service Header & In-Place Scrollable App Rules
 - **Zona Atas Tetap (Pinned Top Service Section)**: Kartu modular "Layanan Otomasi Profil" dan slider cooldown kini terkunci di posisi atas (*pinned*). Saat pengguna men-scroll puluhan aturan game/aplikasi, tombol master switch dan setelan cooldown tetap terlihat dan dapat dioperasikan seketika tanpa perlu men-scroll balik ke atas.
 - **Zona Bawah Fleksibel (In-Place Scrollable LazyColumn)**: Kontainer daftar aturan aplikasi memanfaatkan alokasi layar fleksibel (`Modifier.weight(1f)`), di mana header kartu (pencarian, chip filter kategori, tombol Tambah, dan menu overflow) berstatus tetap di dalam kartu, sementara daftar aturan aplikasi di-render menggunakan `LazyColumn` internal tervirtualisasi yang dapat di-scroll di tempat secara mulus (60/120 FPS).
 - **Modular Section Boundary**: Struktur zona atas dibatasi secara modular dengan batasan tinggi adaptif, memastikan ruang pandang daftar aplikasi selalu dominan (60%+ layar) dan siap menerima section konfigurasi baru di masa depan secara bersih.
 
-### 2. 🔤 Standar Tipografi Ergonomis (Anti-Teks Terlalu Kecil)
-- **Eliminasi Teks Mikroskopis**: Menghilangkan seluruh ukuran teks yang terlalu kecil (7sp–8.5sp) agar mematuhi standar kenyamanan visual dan aksesibilitas:
+### 2. ð¤ Standar Tipografi Ergonomis (Anti-Teks Terlalu Kecil)
+- **Eliminasi Teks Mikroskopis**: Menghilangkan seluruh ukuran teks yang terlalu kecil (7spâ8.5sp) agar mematuhi standar kenyamanan visual dan aksesibilitas:
   - **Judul Aplikasi**: Ditingkatkan dari 12sp ke **14sp** (Bold, kontras tinggi).
   - **Nama Paket Aplikasi & Subtitle**: Ditingkatkan dari 8.5sp ke **11.5sp** (TextSecondary jelas).
   - **Stealth Dot Profile Badge**: Ditingkatkan dari 8sp ke **10.5sp** (SemiBold dengan status dot 6dp).
@@ -6163,10 +6179,10 @@ Released on: 2026-10-17
   - **Label Slider Cooldown & Tombol**: Ditingkatkan dari 10sp ke **12sp** (Bold).
   - **Kolom Input & Placeholder Pencarian**: Ditingkatkan ke **12.5sp**.
 
-### 3. 🎯 Standar Target Sentuh Ergonomis Bebas Miss-Touch (>=44dp Standard)
+### 3. ð¯ Standar Target Sentuh Ergonomis Bebas Miss-Touch (>=44dp Standard)
 - **Slider Cooldown Nothing OS 38dp**: Ketinggian slider ditingkatkan dari 30dp ke **38dp**, memberikan area sentuh jempol yang mantap dan responsif untuk setiap opsi (`5s`, `30s`, `1m`, `3m`, `Tetap`).
 - **Tombol Aksi Utama [ + Tambah ] 38dp**: Ditingkatkan dari 28dp ke **38dp** dengan padding horizontal 12dp (touch bounds >= 44dp).
-- **Tombol Menu Overflow [ ⋮ ] 38dp**: Ditingkatkan dari 28dp ke **38dp x 38dp** dengan ikon MoreVert 18dp yang mudah diketuk.
+- **Tombol Menu Overflow [ â® ] 38dp**: Ditingkatkan dari 28dp ke **38dp x 38dp** dengan ikon MoreVert 18dp yang mudah diketuk.
 - **Kolom Pencarian & Filter Chips**: Pencarian dinaikkan ke ketinggian **38dp**, dan chips kategori dinaikkan ke **30dp** dengan sudut melengkung 8dp.
 - **Baris Aplikasi Lebih Nyaman**: Padding vertikal baris dinaikkan ke 9dp, dan saklar master switch disesuaikan ke skala 0.82f yang seimbang dan presisi.
 
@@ -6174,24 +6190,24 @@ Released on: 2026-10-17
 
 # Lynx Universal [Minimalist Stealth OLED Architecture, Nothing OS Segmented Slider & Header Overflow Menu] 7.0.0-RC71
 Released on: 2026-10-17
-> **Lynx Universal v7.0.0-RC71** (Lynx Kernel Manager v3.1.24): **Perombakan Estetika Menyeluruh Mengusung Filosofi 'Minimalist Stealth OLED & Anti AI-Slop': Eliminasi Eksplosi Warna Pelangi Menjadi Monokromatik Mewah dengan Stealth Dot Profile Pills, Penyeragaman Saklar Master Lynx Cyan, Segmented Control Slider Bergaya Nothing OS (30dp), Serta Integrasi Header Toolbar dengan Menu Overflow (⋮) dan Kolom Pencarian Full-Width**.
+> **Lynx Universal v7.0.0-RC71** (Lynx Kernel Manager v3.1.24): **Perombakan Estetika Menyeluruh Mengusung Filosofi 'Minimalist Stealth OLED & Anti AI-Slop': Eliminasi Eksplosi Warna Pelangi Menjadi Monokromatik Mewah dengan Stealth Dot Profile Pills, Penyeragaman Saklar Master Lynx Cyan, Segmented Control Slider Bergaya Nothing OS (30dp), Serta Integrasi Header Toolbar dengan Menu Overflow (â®) dan Kolom Pencarian Full-Width**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC71)
 
-### 1. 🖤 Minimalist Stealth OLED Architecture (Anti AI-Slop & Monokromatik Mewah)
+### 1. ð¤ Minimalist Stealth OLED Architecture (Anti AI-Slop & Monokromatik Mewah)
 - **Eliminasi Eksplosi Warna Pelangi**: Menghilangkan tampilan "AI slop" penuh warna neon acak yang membuat mata cepat lelah dan terkesan murahan.
-- **Stealth Dot Monokrom Profile Pills**: Mengganti pill profil dengan latar belakang berwarna kontras tinggi menjadi kapsul monokrom stealth gelap (`BgDeepOled` & `BorderGlass`) yang disempurnakan dengan *micro status dot* 5dp (`●`) beraksen profil dan tipografi netral yang elegan.
+- **Stealth Dot Monokrom Profile Pills**: Mengganti pill profil dengan latar belakang berwarna kontras tinggi menjadi kapsul monokrom stealth gelap (`BgDeepOled` & `BorderGlass`) yang disempurnakan dengan *micro status dot* 5dp (`â`) beraksen profil dan tipografi netral yang elegan.
 - **Penyeragaman Saklar Master (Unified Lynx Cyan)**: Seluruh switch toggle pada baris aplikasi kini menggunakan aksen tunggal Lynx Cyan (`AccentCyan`), menghapus variasi warna switch dinamis (merah/oranye/hijau) yang sebelumnya mengacaukan ritme visual.
 - **Subdued Neutral Game Badge**: Merestrukturisasi badge `[GAME]` menjadi kontainer netral gelap transparan (`BgDeepOled.copy(0.7f)`) dengan teks abu-abu sekunder, memposisikan identitas game sebagai penanda fungsional tanpa mendominasi visual judul aplikasi.
 
-### 2. 🎚️ Nothing OS Style Segmented Control Slider (30dp)
+### 2. ðï¸ Nothing OS Style Segmented Control Slider (30dp)
 - **Desain Segmented Slider Padat & Mewah**: Mengganti tombol selector durasi cooldown terpisah dengan satu kontainer slider tersegmentasi bergaya Nothing OS setinggi 30dp yang mulus dan terbagi rata secara presisi: `5s`, `30s`, `1m`, `3m`, dan `Tetap`.
 - **Indikator Aktif Elegan & Keterangan Dinamis**: Opsi terpilih ditandai dengan latar belakang pill semi-transparan `AccentCyan.copy(0.22f)` dengan garis tepi `AccentCyan`, disertai penjelasan dinamis cerdas di bagian bawah tanpa teks promosi "REKOMENDASI" yang berlebihan.
 
-### 3. ⋯ Unifikasi Header Toolbar & Menu Overflow (⋮)
+### 3. â¯ Unifikasi Header Toolbar & Menu Overflow (â®)
 - **Eliminasi Tombol Berdesakan di Samping Search**: Memindahkan tombol sekunder dan destruktif dari samping kolom pencarian ke baris judul kartu teratas:
-  - Tombol aksi primer `[ + Tambah ]` dan menu titik tiga vertikal `[ ⋮ ]` kini terpasang rapi di sebelah kanan judul "Konfigurasi Otomasi Aplikasi".
-  - Menu titik tiga `⋮` (DropdownMenu) menampung aksi `↻ Pindai Game Terpasang` serta aksi `🗑 Hapus Semua Aturan` lengkap dengan dialog konfirmasi berlapis.
+  - Tombol aksi primer `[ + Tambah ]` dan menu titik tiga vertikal `[ â® ]` kini terpasang rapi di sebelah kanan judul "Konfigurasi Otomasi Aplikasi".
+  - Menu titik tiga `â®` (DropdownMenu) menampung aksi `â» Pindai Game Terpasang` serta aksi `ð Hapus Semua Aturan` lengkap dengan dialog konfirmasi berlapis.
 - **Pencarian Full-Width & Chip Kategori Monokrom Minimalis**: Kolom pencarian kini membentang penuh (*full-width*) dengan ketinggian 34dp untuk kenyamanan pengetikan, dipadukan dengan chip kategori ramping setinggi 25dp (`Semua`, `Game`, `Aktif`) yang serasi.
 
 ---
@@ -6202,40 +6218,40 @@ Released on: 2026-10-17
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC70)
 
-### 1. ⏱️ Proportional Equal-Width Cooldown Selector (Anti-Truncation)
+### 1. â±ï¸ Proportional Equal-Width Cooldown Selector (Anti-Truncation)
 - **Eliminasi Teks Terpotong ('Persis...')**: Mengganti deretan tombol durasi penahanan yang sebelumnya melebihi lebar layar menjadi grid 5 tombol dengan bobot simetris (`weight(1f)` dan tinggi seragam 32dp): `5 dtk`, `30 dtk`, `1 mnt`, `3 mnt`, dan `Tetap`.
-- **Informasi Rekomendasi Dinamis & Elegan**: Menghilangkan teks "REKOMENDASI" yang sebelumnya membuat tombol 30 detik membesar secara anomali, dan menggantikannya dengan teks penjelasan dinamis yang rapi di bawah selector (`✓ Rekomendasi: 30 detik menahan profil saat keluar sementara`).
+- **Informasi Rekomendasi Dinamis & Elegan**: Menghilangkan teks "REKOMENDASI" yang sebelumnya membuat tombol 30 detik membesar secara anomali, dan menggantikannya dengan teks penjelasan dinamis yang rapi di bawah selector (`â Rekomendasi: 30 detik menahan profil saat keluar sementara`).
 
-### 2. 📏 Unifikasi Geometri Toolbar Pencarian & Aksi Cepat
-- **Konsistensi Tinggi dan Radius Presisi**: Menyelaraskan seluruh elemen toolbar (`Cari game atau paket...`, tombol `[ ↻ Pindai ]`, dan tombol kotak `[ 🗑 ]`) ke ketinggian mutlak **34dp** dan sudut melengkung **8dp**, menghilangkan ketidaksejajaran vertikal dan celah visual yang tidak rapi.
-- **Filter Chips Proporsional**: Mengatur ketinggian chips kategori (`Semua`, `🎮 Game`, `⚡ Aktif`) ke 26dp dengan padding horizontal seimbang (8dp) dan sudut 6dp sehingga tampak seperti kapsul modern yang padat.
+### 2. ð Unifikasi Geometri Toolbar Pencarian & Aksi Cepat
+- **Konsistensi Tinggi dan Radius Presisi**: Menyelaraskan seluruh elemen toolbar (`Cari game atau paket...`, tombol `[ â» Pindai ]`, dan tombol kotak `[ ð ]`) ke ketinggian mutlak **34dp** dan sudut melengkung **8dp**, menghilangkan ketidaksejajaran vertikal dan celah visual yang tidak rapi.
+- **Filter Chips Proporsional**: Mengatur ketinggian chips kategori (`Semua`, `ð® Game`, `â¡ Aktif`) ke 26dp dengan padding horizontal seimbang (8dp) dan sudut 6dp sehingga tampak seperti kapsul modern yang padat.
 
-### 3. 🎯 Centered 2-Line App Rows Architecture (Ukuran, Lebar, & Spasi Sempurna)
+### 3. ð¯ Centered 2-Line App Rows Architecture (Ukuran, Lebar, & Spasi Sempurna)
 - **Restrukturisasi Baris Tunggal Terpadu**: Mengubah arsitektur `AppRuleEmbeddedRow` dari 3 baris bertingkat yang menyisakan ruang kosong di bawah switch menjadi baris tunggal horizontal 2-baris yang rapi:
   - **Baris 1**: Judul Aplikasi tebal (12sp) berdampingan langsung dengan badge `[GAME]` (jika berlaku).
-  - **Baris 2**: Badge target profil interaktif (`Performa` / `Ekstrem` / `Seimbang`), target refresh rate (`120 Hz`), floating HUD (`OSD`), separator titik (`•`), dan nama paket aplikasi sekunder (8.5sp).
+  - **Baris 2**: Badge target profil interaktif (`Performa` / `Ekstrem` / `Seimbang`), target refresh rate (`120 Hz`), floating HUD (`OSD`), separator titik (`â¢`), dan nama paket aplikasi sekunder (8.5sp).
 - **Penyelarasan Vertikal Saklar Master**: Saklar toggle kini berada tepat di garis tengah vertikal (*vertical center*) dari keseluruhan baris aplikasi, menghasilkan visual yang seimbang, padat, dan bebas dari ruang kosong.
 
 ---
 
 # Lynx Universal [Two-Tier Adaptive App Layout, In-Memory Quick Search & Multi-Criteria Filter Chips] 7.0.0-RC69
 Released on: 2026-10-17
-> **Lynx Universal v7.0.0-RC69** (Lynx Kernel Manager v3.1.22): **Penyempurnaan Total Tata Letak Aturan Otomasi Aplikasi dengan Arsitektur Dua Tingkat (Two-Tier Adaptive Layout) untuk Mengakomodasi Nama Aplikasi Panjang Tanpa Tumpang Tindih, Eliminasi Redundansi Tombol Edit/Hapus pada Baris Daftar, Integrasi Pencarian Cepat In-Memory (Quick Search), Serta Filter Chips Multi-Kriteria ('Semua', '🎮 Game', '⚡ Aktif') dan Status Pencarian Kosong**.
+> **Lynx Universal v7.0.0-RC69** (Lynx Kernel Manager v3.1.22): **Penyempurnaan Total Tata Letak Aturan Otomasi Aplikasi dengan Arsitektur Dua Tingkat (Two-Tier Adaptive Layout) untuk Mengakomodasi Nama Aplikasi Panjang Tanpa Tumpang Tindih, Eliminasi Redundansi Tombol Edit/Hapus pada Baris Daftar, Integrasi Pencarian Cepat In-Memory (Quick Search), Serta Filter Chips Multi-Kriteria ('Semua', 'ð® Game', 'â¡ Aktif') dan Status Pencarian Kosong**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC69)
 
-### 1. 📐 Two-Tier Adaptive App Row Layout (Zero Truncation & Zero Misstouch)
+### 1. ð Two-Tier Adaptive App Row Layout (Zero Truncation & Zero Misstouch)
 - **Struktur Dua Tingkat yang Ergonomis**: Membagi setiap baris aturan aplikasi (`AppRuleEmbeddedRow`) menjadi dua tingkat terstruktur:
   - **Tier 1 (Identitas & Kontrol Utama)**: Menempatkan ikon aplikasi (34dp), judul aplikasi dengan alokasi horizontal maksimal (~75% lebar layar) dan penanganan `TextOverflow.Ellipsis`, badge status game `[GAME]`, nama paket dalam teks sekunder yang rapi, serta saklar master aktif/nonaktif di sisi kanan.
   - **Tier 2 (Strip Telemetri & Konfigurasi Ultra-Kompak)**: Diletakkan sejajar di bawah teks judul aplikasi (indentasi 43dp) yang merangkum badge konfigurasi murni: Target Profile Cycle Pill interaktif 1-sentuh (`Performa`), target refresh rate (`120 Hz`), serta floating HUD (`OSD`) tanpa panah dekoratif, menjaga antarmuka tetap bersih, padat, dan ringkas.
 - **Eliminasi Redundansi Tombol**: Menghapus tombol pensil Edit dan tempat sampah Hapus dari baris daftar aplikasi untuk menghilangkan risiko salah sentuh (*accidental deletion*). Seluruh baris kini dapat diketuk langsung untuk membuka dialog pengeditan komprehensif yang telah dilengkapi tombol "Hapus Aturan".
 
-### 2. 🔍 In-Memory Quick Search & Multi-Criteria Filter Chips
+### 2. ð In-Memory Quick Search & Multi-Criteria Filter Chips
 - **Pencarian Cepat Responsif**: Menambahkan kolom pencarian ramping (36dp) bergaya OLED Cyberpunk dengan ikon pembersih cepat (`Close`) untuk memfilter game atau nama paket secara instan tanpa jeda.
 - **Filter Chips Interaktif**: Menyediakan chip filter multi-kriteria berbasis status riil:
   - `Semua (X)`: Menampilkan seluruh aturan yang tersimpan.
-  - `🎮 Game (Y)`: Memfilter hanya aplikasi bertipe game.
-  - `⚡ Aktif (Z)`: Memfilter hanya aturan yang saklar layanannya sedang aktif.
+  - `ð® Game (Y)`: Memfilter hanya aplikasi bertipe game.
+  - `â¡ Aktif (Z)`: Memfilter hanya aturan yang saklar layanannya sedang aktif.
 - **Empty Filter State**: Menampilkan antarmuka status pencarian kosong yang informatif dengan tombol "Reset Filter" jika tidak ada aplikasi yang cocok dengan kriteria pencarian atau filter aktif.
 
 ---
@@ -6246,16 +6262,16 @@ Released on: 2026-10-17
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC68)
 
-### 1. 🍱 Unified Bento Card Layout (Zero Visual Fragmentation)
-- **Desain Terpadu Bebas Pecahan**: Mengintegrasikan seluruh kontrol otomasi aplikasi—mulai dari Master Automation Switch, pemilihan buffer cooldown (0s, 3s, 5s), tombol aksi header (`[ Hapus ]`, `[ ↻ Deteksi ]`, `[ + Tambah ]`), hingga daftar baris aplikasi terdaftar (`AppRuleEmbeddedRow`) dan status kosong (*embedded empty state*)—langsung di dalam **satu kartu Bento terpadu**.
+### 1. ð± Unified Bento Card Layout (Zero Visual Fragmentation)
+- **Desain Terpadu Bebas Pecahan**: Mengintegrasikan seluruh kontrol otomasi aplikasiâmulai dari Master Automation Switch, pemilihan buffer cooldown (0s, 3s, 5s), tombol aksi header (`[ Hapus ]`, `[ â» Deteksi ]`, `[ + Tambah ]`), hingga daftar baris aplikasi terdaftar (`AppRuleEmbeddedRow`) dan status kosong (*embedded empty state*)âlangsung di dalam **satu kartu Bento terpadu**.
 - **Pembersihan Kartu Terpisah**: Menghilangkan kartu-kartu anak yang terpisah-pisah, menciptakan tampilan yang jauh lebih kompak, simpel, elegan, dan teratur sesuai prinsip estetika mobile-first.
 
-### 2. 🧠 Smart Template Auto-Detection (Anti-Dummy Rules Injection)
+### 2. ð§  Smart Template Auto-Detection (Anti-Dummy Rules Injection)
 - **Template Sebagai Referensi Statis**: Berkas `core/applist_perf.txt` dan daftar game populer kini murni berfungsi sebagai template referensi pencocokan, bukan lagi didorong mentah-mentah ke konfigurasi aktif jika aplikasi tidak terpasang di perangkat.
 - **Deteksi Game Terpasang Nyata**: Fitur deteksi otomatis (`autoDetectAndSyncInstalledRules`) memindai package manager perangkat secara real-time dan hanya menambahkan aplikasi atau game yang **benar-benar terpasang fisik** dengan bendera game (`isGame`) atau kecocokan template.
 - **Aksi Cepat Hapus Semua**: Menyediakan tombol `[ Hapus ]` dengan dialog konfirmasi keamanan untuk membersihkan seluruh aturan profil aplikasi secara menyeluruh dan mengembalikan modul ke kondisi bersih.
 
-### 3. ✨ Tipografi Sempurna & Resolusi Ligatur Font
+### 3. â¨ Tipografi Sempurna & Resolusi Ligatur Font
 - **Eliminasi Glitch Ligatur OpenType**: Menerapkan konfigurasi `fontFeatureSettings = "liga 0, dlig 0, calt 0"` pada seluruh badge, dialog edit aplikasi di `MainDashboard.kt`, dan banner status aktif `TuningProfilesCategory.kt`, menjamin kata "Performa" dan variannya tampil presisi tanpa artefak visual sambung huruf pada font sistem Android.
 
 ---
@@ -6266,17 +6282,17 @@ Released on: 2026-10-17
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC67)
 
-### 1. 🎛️ Segmented Tab Architecture (Zero-Clutter Layout)
+### 1. ðï¸ Segmented Tab Architecture (Zero-Clutter Layout)
 - **Dua Domain Terisolasi**: Memisahkan halaman profil menjadi dua sub-tab bersih:
   - **Tab 0 (`Katalog Profil`)**: Menampilkan Hero Status Aktif real-time (lengkap dengan indikator override domain dan tombol reset cepat) serta 2x2 Bento Quick-Switch Cards dengan tinggi seragam dan ringkasan 1-baris yang tajam.
   - **Tab 1 (`Otomasi Aplikasi`)**: Menampilkan Master Automation Card (Switch layanan Smart-AI, chip durasi penahanan mode/cooldown buffer, tombol `+ Tambah Game`), serta daftar virtualized aplikasi/game terdaftar.
 - **Header Actions & ModalBottomSheet**: Memindahkan seluruh konfigurasi gaya notifikasi (Jewel Dynamic Island, Jewel Bottom Capsule, System Toast, Status Bar, Disabled) ke dalam `ModalBottomSheet` Material 3 yang elegan dan responsif, diakses langsung melalui ikon notifikasi di sudut kanan atas header.
 
-### 2. ⚡ Interaksi Cepat & Touch-First Ergonomics
-- **Interactive Target Profile Pill**: Setiap kartu aplikasi pada Tab Otomasi kini memiliki pill target profil interaktif. Pengguna cukup mengetuk pill tersebut untuk berpindah profil (`Powersave` ➔ `Seimbang` ➔ `Performa` ➔ `Ekstrem`) seketika dalam satu sentuhan tanpa perlu membuka dialog pengeditan yang rumit.
+### 2. â¡ Interaksi Cepat & Touch-First Ergonomics
+- **Interactive Target Profile Pill**: Setiap kartu aplikasi pada Tab Otomasi kini memiliki pill target profil interaktif. Pengguna cukup mengetuk pill tersebut untuk berpindah profil (`Powersave` â `Seimbang` â `Performa` â `Ekstrem`) seketika dalam satu sentuhan tanpa perlu membuka dialog pengeditan yang rumit.
 - **Tipografi Bebas Ligatur**: Menambahkan `fontFeatureSettings = "liga 0, dlig 0, calt 0"` pada seluruh badge mode performa untuk memastikan teks seperti "Performa" tampil bersih dan terbaca sempurna di seluruh densitas layar.
 
-### 3. 🚀 Pemuatan Instan & Performa Bebas Lag (120 FPS)
+### 3. ð Pemuatan Instan & Performa Bebas Lag (120 FPS)
 - **Asynchronous App Icon Decoding**: Membaca dan men-decode ikon aplikasi via `Dispatchers.IO` dengan memory caching bawaan, sepenuhnya melenyapkan UI thread blocking dan micro-stutter saat membuka atau menggulir daftar 100+ game.
 - **Virtualisasi Penuh LazyListScope**: Seluruh komponen dirender langsung di dalam parent `LazyColumn`, menjaga frame time di bawah 16ms untuk pengalaman pengguna 120 FPS yang mulus.
 
@@ -6294,7 +6310,7 @@ Released on: 2026-10-17
 
 ### 2. Modul Kernel Dedicated GPU Undervolt (`lynx_gpu_uv.kpm`)
 - **Tegangan Lebih Efisien**: Mengurangi offset daya regulator `vgpu` sebesar **`-25.0 mV`** (dari 850 mV ke 825 mV).
-- **Meredam Panas Silikon**: Menurunkan temperatur operasional GPU sebesar 4°C–6°C sehingga clock 950 MHz dapat dipertahankan terus-menerus tanpa memicu thermal throttling atau thermal trip darurat.
+- **Meredam Panas Silikon**: Menurunkan temperatur operasional GPU sebesar 4Â°Câ6Â°C sehingga clock 950 MHz dapat dipertahankan terus-menerus tanpa memicu thermal throttling atau thermal trip darurat.
 
 ---
 
@@ -6319,17 +6335,17 @@ Released on: 2026-10-17
 
 # Lynx Universal [Multi-Domain Kernel Thermal Unthrottle & Hyper-Aware Disconnect Safety] 7.0.0-RC64
 Released on: 2026-10-17
-> **Lynx Universal v7.0.0-RC64** (Lynx Kernel Manager v3.1.17): **Penyempurnaan Arsitektur KernelPatch Module (KPM v2.0) dengan Batas Suhu Multi-Domain yang Presisi (tbat 45°C, tpcb 58°C, tdvchg 68°C, tta 65°C), Pengaktifan Bersyarat Eksklusif untuk Mode Hyper Charging (`store_BN_TestMode`), Serta Pemulihan Total Otomatis Saat Kabel Pengisi Daya Dilepas (`dv2_stop_algo`) Guna Mencegah Arus Bocor dan Menjaga Integritas Komponen Motherboard**.
+> **Lynx Universal v7.0.0-RC64** (Lynx Kernel Manager v3.1.17): **Penyempurnaan Arsitektur KernelPatch Module (KPM v2.0) dengan Batas Suhu Multi-Domain yang Presisi (tbat 45Â°C, tpcb 58Â°C, tdvchg 68Â°C, tta 65Â°C), Pengaktifan Bersyarat Eksklusif untuk Mode Hyper Charging (`store_BN_TestMode`), Serta Pemulihan Total Otomatis Saat Kabel Pengisi Daya Dilepas (`dv2_stop_algo`) Guna Mencegah Arus Bocor dan Menjaga Integritas Komponen Motherboard**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC64)
 
 ### 1. Batas Termal Multi-Domain Dinamis (KPM v2.0)
-- **Domain-Specific Thermal Ceilings**: Menggantikan batas statis 52°C tunggal dengan ambang batas adaptif sesuai karakteristik fisik masing-masing komponen:
-  - `tbat` (Sel Baterai Li-Po): Batas darurat dipertahankan pada **45°C** ketat demi mencegah degradasi elektrokimia dan bahaya lithium plating.
-  - `tpcb` (Motherboard PCB): Batas aman ditingkatkan ke **58°C** (suhu operasional aman PCB hingga 60°C).
-  - `tdvchg_master` (RT9759 IC Die): Batas dinaikkan ke **68°C** (ambang batas OTP fisik chip adalah 85°C).
-  - `tta` (Travel Adapter / Ujung Kabel): Batas dinaikkan ke **65°C** (sesuai spesifikasi derating adaptor Transsion pada 70°C, meniadakan false alarm emergency trip).
-  - `tusb` (Konektor USB-C): Batas aman diatur pada **52°C**.
+- **Domain-Specific Thermal Ceilings**: Menggantikan batas statis 52Â°C tunggal dengan ambang batas adaptif sesuai karakteristik fisik masing-masing komponen:
+  - `tbat` (Sel Baterai Li-Po): Batas darurat dipertahankan pada **45Â°C** ketat demi mencegah degradasi elektrokimia dan bahaya lithium plating.
+  - `tpcb` (Motherboard PCB): Batas aman ditingkatkan ke **58Â°C** (suhu operasional aman PCB hingga 60Â°C).
+  - `tdvchg_master` (RT9759 IC Die): Batas dinaikkan ke **68Â°C** (ambang batas OTP fisik chip adalah 85Â°C).
+  - `tta` (Travel Adapter / Ujung Kabel): Batas dinaikkan ke **65Â°C** (sesuai spesifikasi derating adaptor Transsion pada 70Â°C, meniadakan false alarm emergency trip).
+  - `tusb` (Konektor USB-C): Batas aman diatur pada **52Â°C**.
 
 ### 2. Gating Bersyarat Mode Hyper & Pemulihan Pasif Saat Cabut Kabel
 - **Aktivasi Khusus Mode Hyper**: KPM mengaitkan (*hook*) fungsi `store_BN_TestMode` pada kernel; modul hanya memanipulasi suhu saat `BN_TestMode=1` (Hyper mode). Saat pengguna memilih mode Standar, Sejuk, atau Hemat, sistem kembali ke kurva termal OEM tanpa kompromi.
@@ -6358,7 +6374,7 @@ Released on: 2026-10-17
 
 ### 4. Resolusi Total Celah Charger Mati-Nyala & Perbaikan Skalasi Arus ADC
 - **Penghapusan Loop Soft-Reconnect pada Qualcomm**: Menetralkan pemicu `trigger_charger_soft_reconnect` pada arsitektur Qualcomm / USB-PD. Sebelumnya, deteksi stall 5V memutus rail daya (`input_suspend=1`) setiap 4 detik, menyebabkan charger mati-nyala berulang. Soft-reconnect kini hanya aktif maksimal satu kali per sesi khusus untuk MediaTek Pump Express.
-- **Koreksi Presisi Heuristik Arus ADC**: Memperbaiki pembagian nilai sensor mikroampere ($\mu\text{A}$) ke milliampere ($\text{mA}$) pada rentang 50,000–500,000 $\mu\text{A}$ (sebelumnya keliru dibagi 100 sehingga arus 485 mA terbaca sebagai +4859 mA dan 23.4W). Telemetri kini presisi ke satu milliampere (+885 mA / 4.1W).
+- **Koreksi Presisi Heuristik Arus ADC**: Memperbaiki pembagian nilai sensor mikroampere ($\mu\text{A}$) ke milliampere ($\text{mA}$) pada rentang 50,000â500,000 $\mu\text{A}$ (sebelumnya keliru dibagi 100 sehingga arus 485 mA terbaca sebagai +4859 mA dan 23.4W). Telemetri kini presisi ke satu milliampere (+885 mA / 4.1W).
 - **Pengaman Batas Arus Qualcomm Single-Cell**: Membatasi arus puncak mode ekstrem Qualcomm single-cell ke batas aman hardware (maks 4.5A) untuk melindungi baterai yang mengalami degradasi/pembengkakan (high internal resistance) dari overcurrent/overheat PMIC.
 
 ---
@@ -6378,8 +6394,8 @@ Released on: 2026-10-15
 
 ### 2. Resolusi Total Celah Mode Standar Lebih Cepat Dibanding Mode Hyper
 - **Akar Masalah Interupsi Pulsa**: Pada versi lawas, evaluasi `invariants_intact` memeriksa `enable_sc == "1"`. Karena saat baru dicolok voltase adaptor masih 5V (`enable_sc="0"`), kondisi invariant selalu bernilai `false`, menyebabkan `apply_hyper_mode()` dijalankan ulang setiap 1 detik. Penulisan sysfs berkala ini memotong dan mereset kereta pulsa kernel Pump Express (`pe_work_func`), menjebak adaptor di 5V / 1.5A (7.5W). Sebaliknya, pada mode Standar, skrip tidak berjalan setiap detik sehingga kernel dapat menyelesaikan negosiasi pulsa tanpa gangguan dan melesat ke 33W.
-- **Stabilisasi Timing Handshake Negosiasi**: Invariant kini memverifikasi kesesuaian status `enable_sc` dengan voltase aktual (`adpv_clean >= 6500`). Selama fase negosiasi awal di 5V, register kernel dibiarkan hening tanpa interupsi, memberikan ruang waktu 3–4 detik bagi driver hardware untuk menyelesaikan handshake dan melesat ke voltase maksimal.
-- **Relaksasi Batas Invariant Tapering**: Mengubah syarat `sc_limit >= 8000` menjadi `sc_limit >= 1000` sehingga fase tapering 80–90% (3,200 mA) dan 90–94% (2,200 mA) tidak memicu perulangan re-injeksi berkala.
+- **Stabilisasi Timing Handshake Negosiasi**: Invariant kini memverifikasi kesesuaian status `enable_sc` dengan voltase aktual (`adpv_clean >= 6500`). Selama fase negosiasi awal di 5V, register kernel dibiarkan hening tanpa interupsi, memberikan ruang waktu 3â4 detik bagi driver hardware untuk menyelesaikan handshake dan melesat ke voltase maksimal.
+- **Relaksasi Batas Invariant Tapering**: Mengubah syarat `sc_limit >= 8000` menjadi `sc_limit >= 1000` sehingga fase tapering 80â90% (3,200 mA) dan 90â94% (2,200 mA) tidak memicu perulangan re-injeksi berkala.
 
 ### 3. Eliminasi Eksekusi Subproses Redundan pada Mode Standar
 - Menghapus eksekusi subproses `dumpsys battery reset` yang sebelumnya berjalan setiap siklus 1 detik saat mode standar terpilih. Pemanggilan hanya dieksekusi secara selektif saat transisi keluar dari status hardware bypass.
@@ -6412,35 +6428,35 @@ Released on: 2026-10-15
   - Seluruh lockfile RAM dibersihkan dan OS wakelock dilepas via `dumpsys battery reset` sehingga konsumsi daya idle baterai terlindungi dari kebocoran (*zero leakage*).
 
 ### 4. Skalabilitas Multi-Vendor Bebas Hardcode (Qualcomm vs MediaTek vs 2S Dual-Cell)
-- **Lapisan Abstraksi HAL**: Mendukung pemetaan dinamis kelas `power_supply` Qualcomm berbasis SPMI (satuan mikroampere µA, `rerun_aicl`, `system_temp_level`) dan MediaTek I2C (satuan milliampere mA, direct pump).
-- **Deteksi Baterai Seri Dual-Cell (2S)**: Arsitektur 65W–240W dideteksi melalui $V_{bat} \ge 7.0\text{V}$ untuk menyesuaikan batas arus PMIC hingga 20,000 mA tanpa keliru membatasi daya.
+- **Lapisan Abstraksi HAL**: Mendukung pemetaan dinamis kelas `power_supply` Qualcomm berbasis SPMI (satuan mikroampere ÂµA, `rerun_aicl`, `system_temp_level`) dan MediaTek I2C (satuan milliampere mA, direct pump).
+- **Deteksi Baterai Seri Dual-Cell (2S)**: Arsitektur 65Wâ240W dideteksi melalui $V_{bat} \ge 7.0\text{V}$ untuk menyesuaikan batas arus PMIC hingga 20,000 mA tanpa keliru membatasi daya.
 
 ---
 
 # Lynx Universal [Unconstrained 0-80% Hyper Curve & Sustained Direct Pump] 7.0.0-RC60
 Released on: 2026-10-15
-> **Lynx Universal v7.0.0-RC60** (Lynx Kernel Manager v3.1.21): **Implementasi Kurva Pengisian Hyper Mode Bebas Hambatan (0–80% Geber Penuh Watt Maksimal ~3900–4500 mA, 80–90% Kecepatan Tinggi Bertahan di ~3200 mA dengan Direct Charge Pump Tetap Aktif), Netralisasi Throttle Termal Kernel OEM (`mtktsAP` & `cooling_device56 abcct`), Perbaikan Resolusi Konflik Pill Mode (`⚡ HYPER` Single Source of Truth), serta Verifikasi Telemetri Sensor ADC Presisi**.
+> **Lynx Universal v7.0.0-RC60** (Lynx Kernel Manager v3.1.21): **Implementasi Kurva Pengisian Hyper Mode Bebas Hambatan (0â80% Geber Penuh Watt Maksimal ~3900â4500 mA, 80â90% Kecepatan Tinggi Bertahan di ~3200 mA dengan Direct Charge Pump Tetap Aktif), Netralisasi Throttle Termal Kernel OEM (`mtktsAP` & `cooling_device56 abcct`), Perbaikan Resolusi Konflik Pill Mode (`â¡ HYPER` Single Source of Truth), serta Verifikasi Telemetri Sensor ADC Presisi**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC60)
 
-### 1. Kurva Pengisian Daya Hyper Mode 0–80% Full Max & 80–90% Sustained Speed (`charging.rs`)
-- **Fase Constant Current (CC) Penuh 0–80% SoC**: Menggeber arus pengisian daya maksimal tanpa pembatasan dini (`hyper`, target 12,000 mA / hingga batas hardware PMIC ~3900–4500 mA pada 18W–33W).
-- **Fase Kecepatan Tinggi Bertahan 80–90% SoC (`tapering_80`)**: Menjaga arus pengisian pada kecepatan ~80% dari batas maksimal (**3,200 mA**), secara tegas **TIDAK** anjlok ke separuh (1500–1600 mA).
-- **Direct Charge Pump Tetap Aktif di 80–90%**: Memperbaiki ambang `is_trickle = effective_ma < 1500`. Pompa muatan ganda (`enable_sc=1`, `pe20=1`, `pe40=1`) tetap dipertahankan aktif pada rentang 80–90% sehingga pengisian cepat 9V/10V tetap bekerja.
-- **Transisi Halus Pasca-90%**: Penurunan bertahap yang aman pada rentang 90–94% (2,200 mA) dan 95–99% (1,000 mA), serta AutoCut/Bypass hardware penuh pada 100% SoC (0 mA).
+### 1. Kurva Pengisian Daya Hyper Mode 0â80% Full Max & 80â90% Sustained Speed (`charging.rs`)
+- **Fase Constant Current (CC) Penuh 0â80% SoC**: Menggeber arus pengisian daya maksimal tanpa pembatasan dini (`hyper`, target 12,000 mA / hingga batas hardware PMIC ~3900â4500 mA pada 18Wâ33W).
+- **Fase Kecepatan Tinggi Bertahan 80â90% SoC (`tapering_80`)**: Menjaga arus pengisian pada kecepatan ~80% dari batas maksimal (**3,200 mA**), secara tegas **TIDAK** anjlok ke separuh (1500â1600 mA).
+- **Direct Charge Pump Tetap Aktif di 80â90%**: Memperbaiki ambang `is_trickle = effective_ma < 1500`. Pompa muatan ganda (`enable_sc=1`, `pe20=1`, `pe40=1`) tetap dipertahankan aktif pada rentang 80â90% sehingga pengisian cepat 9V/10V tetap bekerja.
+- **Transisi Halus Pasca-90%**: Penurunan bertahap yang aman pada rentang 90â94% (2,200 mA) dan 95â99% (1,000 mA), serta AutoCut/Bypass hardware penuh pada 100% SoC (0 mA).
 
 ### 2. Netralisasi Throttling Termal Kernel MediaTek (`mtktsAP` & `abcct`)
-- **Penonaktifan Trip Point OEM Pengganggu**: Menetralisir `thermal_zone1` (`mtktsAP`) dan mendinginkan derater cooling device 56 (`abcct`) yang sebelumnya mengunci target arus baterai ke 600–750 mA saat suhu menyentuh 41–42°C.
+- **Penonaktifan Trip Point OEM Pengganggu**: Menetralisir `thermal_zone1` (`mtktsAP`) dan mendinginkan derater cooling device 56 (`abcct`) yang sebelumnya mengunci target arus baterai ke 600â750 mA saat suhu menyentuh 41â42Â°C.
 - **Penyelarasan Ambang Termal Toleransi Tinggi**: Mengangkat kurva termal PCB dan DV2 in-memory ke level aman toleransi tinggi (`[55,4500,58,3200,2500]` pada `pcb_thermal_debug` dan `[101,55,58,60,4500,3200,2500]` pada `dv2_debug`) di mesin native `lynxd` dan skrip fallback `Charging-Controller.sh`.
 - **Restorasi Otomatis**: Semua trip point dan mode termal kernel dipulihkan ke setelan default OEM saat pengisian selesai atau kabel dilepas.
 
 ### 3. Perbaikan Resolusi Konflik Pill Mode UI (`ChargingHeroDisplayCard.kt`)
 - **Sanitasi Status Internal**: Memastikan sub-status internal (`tapering_80`, `night_gentle`, dll.) tidak menimpa mode pengisian utama yang dipilih pengguna.
-- **Single Source of Truth**: Menetapkan prioritas mode `hyper` saat `chargingConfig.chargingMode == "hyper"` atau `extremeChargingEnabled == true`, meniadakan masalah pill yang sebelumnya keliru menampilkan `⚡ STANDARD`.
+- **Single Source of Truth**: Menetapkan prioritas mode `hyper` saat `chargingConfig.chargingMode == "hyper"` atau `extremeChargingEnabled == true`, meniadakan masalah pill yang sebelumnya keliru menampilkan `â¡ STANDARD`.
 
 ### 4. Perbaikan Skala Register Arus Bus Adaptor (`LynxBatteryTelemetryRepository.kt`)
 - **Akurasi Sensor ADC Hardware Murni**: Memperbaiki pemetaan node tegangan bus ke `/sys/devices/platform/charger/ADC_Charger_Voltage` dan arus bus ke `/sys/devices/platform/charger/input_current`.
-- **Heuristik Skala Multi-Satuan**: Mendukung deteksi presisi untuk register berformat 10 µA (seperti `209264` -> `2092 mA`), microampere (uA), dan milliampere (mA).
+- **Heuristik Skala Multi-Satuan**: Mendukung deteksi presisi untuk register berformat 10 ÂµA (seperti `209264` -> `2092 mA`), microampere (uA), dan milliampere (mA).
 - **Proteksi Overflow 32-Bit Berbasis Panjang String**: Menggunakan proteksi `${#raw_val} >= 10` untuk mencegah integer wrap-around 32-bit tanpa terkena limitasi `strtol` pada shell Android.
 
 ---
@@ -6453,8 +6469,8 @@ Released on: 2026-10-15
 
 ### 1. Gesture-Driven Horizontal Pager & Ultra-Compact Dot Indicator (`ChargingHeroDisplayCard.kt`)
 - **Kendali Geser Manual Murni (No Auto-Flicker)**: Mengeliminasi siklus timer otomatis yang melelahkan mata. Transisi antara perspektif *Input Adaptor* dan *Sel Baterai* kini 100% berada di bawah kendali pengguna melalui gestur geser horizontal (*horizontal swipe*) yang mulus dan tenang.
-- **Indikator Titik Kompak (Space-Saving Dot Indicator)**: Menampilkan indikator titik minimalis (`● ○` / `○ ●`, tinggi 3.5 dp) di bawah ubin Bento Grid yang hanya aktif saat charging terhubung dengan data adaptor valid. Menghemat ruang vertikal dan menjaga estetika antarmuka tetap bersih.
-- **Header Pill Subtitle Real-Time**: Subtitle pada banner protokol (`Input adaptor • 34.0 W` vs `Daya baterai • 17.0 W`) tersinkronisasi secara dinamis mengikuti halaman pager yang aktif.
+- **Indikator Titik Kompak (Space-Saving Dot Indicator)**: Menampilkan indikator titik minimalis (`â â` / `â â`, tinggi 3.5 dp) di bawah ubin Bento Grid yang hanya aktif saat charging terhubung dengan data adaptor valid. Menghemat ruang vertikal dan menjaga estetika antarmuka tetap bersih.
+- **Header Pill Subtitle Real-Time**: Subtitle pada banner protokol (`Input adaptor â¢ 34.0 W` vs `Daya baterai â¢ 17.0 W`) tersinkronisasi secara dinamis mengikuti halaman pager yang aktif.
 
 ### 2. Standardisasi Angka Putih Netral Berstandar Instrumen EV (`ChargingHeroDisplayCard.kt`)
 - **Meniadakan Bias Warna Kuning/Emas**: Seluruh angka pembacaan daya, tegangan, dan arus distandardisasi menggunakan warna putih bersih (`TextPrimary` / `#FFFFFF`) dengan tipografi tabular monospace.
@@ -6483,24 +6499,24 @@ Released on: 2026-10-15
     - Ubin Daya: `Daya Baterai` (misal **17.0 W**)
     - Ubin Tegangan: `Tegangan Sel` (misal **4.34 V**)
     - Ubin Arus: `Arus Baterai` (misal **+3816 mA**)
-  - Ubin Suhu: Tetap konstan memantau temperatur fisik hardware baterai (`tempFloat °C`).
+  - Ubin Suhu: Tetap konstan memantau temperatur fisik hardware baterai (`tempFloat Â°C`).
 - **Dukungan Interaksi Instan (Tap-to-Toggle)**: Pengguna dapat mengetuk ubin mana pun untuk langsung beralih mode tampilan secara seketika tanpa harus menunggu siklus animasi otomatis.
-- **Header Pill Subtitle Dinamis**: Mengalihkan deskripsi protokol antara `Input adaptor • 34.0 W` dan `Daya baterai • 17.0 W` sesuai status tampilan aktif.
+- **Header Pill Subtitle Dinamis**: Mengalihkan deskripsi protokol antara `Input adaptor â¢ 34.0 W` dan `Daya baterai â¢ 17.0 W` sesuai status tampilan aktif.
 - **Presisi Geometri Bento Grid 2x2 Simetris**: Memastikan keempat kotak telemetri (Daya, Suhu, Tegangan, Arus) beroperasi dalam struktur grid kontainer 2x2 yang terpadu dengan bobot `Modifier.weight(1f)` dan `fillMaxWidth()`, meniadakan penyusutan lebar ubin (narrow box wrapping) saat animasi maupun saat tidak mengisi daya sehingga tampilan 100% konsisten, simetris, dan rapi.
 
 ---
 
 # Lynx Universal [Native 3-Stage Calibrated Charging Thermal Engine] 7.0.0-RC57
 Released on: 2026-10-15
-> **Lynx Universal v7.0.0-RC57** (Lynx Kernel Manager v3.1.18): **Integrasi Native 3-Stage Calibrated Charging Thermal Curve (<48°C: 33W Penuh, 48°C–50°C: 18W Sweet Spot, >50°C: 10W Proteksi Darurat OEM), Eliminasi Mutlak Ketergantungan KPM Thermal via Direct Sysfs Engine (`pcb_thermal_debug` & `dv2_debug`), dan Penyelarasan Suhu Otentik Baterai**.
+> **Lynx Universal v7.0.0-RC57** (Lynx Kernel Manager v3.1.18): **Integrasi Native 3-Stage Calibrated Charging Thermal Curve (<48Â°C: 33W Penuh, 48Â°Câ50Â°C: 18W Sweet Spot, >50Â°C: 10W Proteksi Darurat OEM), Eliminasi Mutlak Ketergantungan KPM Thermal via Direct Sysfs Engine (`pcb_thermal_debug` & `dv2_debug`), dan Penyelarasan Suhu Otentik Baterai**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC57)
 
 ### 1. 3-Stage Calibrated Charging Thermal Engine (`charging.rs` & `Charging-Controller.sh`)
-- **Implementasi Kurva Cerdas Tiga Tingkat**: Menggantikan skema unconstrained biner 95°C/100°C dengan kurva bergradasi halus yang terkalibrasi presisi pada hardware:
-  - **Tingkat 1 (< 48°C)**: Mengalirkan daya puncak penuh **33 Watt** (hingga 6.000 mA pump current). Memperpanjang durasi fast charging hingga baterai terisi ~65%–70% tanpa terpotong dini di 45°C.
-  - **Tingkat 2 (48°C – 50°C)**: Menahan arus secara elegan di **18 Watt** (~4.000 mA). Mencegah daya anjlok drastis ke 10W, sekaligus menstabilkan temperatur PCB agar tidak terus merangkak naik.
-  - **Tingkat 3 (> 50°C)**: Mengaktifkan proteksi darurat OEM **10 Watt** (2.500 mA / 1.500 mA) demi perlindungan absolut sel baterai dan sirkuit motherboard.
+- **Implementasi Kurva Cerdas Tiga Tingkat**: Menggantikan skema unconstrained biner 95Â°C/100Â°C dengan kurva bergradasi halus yang terkalibrasi presisi pada hardware:
+  - **Tingkat 1 (< 48Â°C)**: Mengalirkan daya puncak penuh **33 Watt** (hingga 6.000 mA pump current). Memperpanjang durasi fast charging hingga baterai terisi ~65%â70% tanpa terpotong dini di 45Â°C.
+  - **Tingkat 2 (48Â°C â 50Â°C)**: Menahan arus secara elegan di **18 Watt** (~4.000 mA). Mencegah daya anjlok drastis ke 10W, sekaligus menstabilkan temperatur PCB agar tidak terus merangkak naik.
+  - **Tingkat 3 (> 50Â°C)**: Mengaktifkan proteksi darurat OEM **10 Watt** (2.500 mA / 1.500 mA) demi perlindungan absolut sel baterai dan sirkuit motherboard.
 - **Konfigurasi Node Kernel Transsion**:
   - `pcb_thermal_debug` $\rightarrow$ `[48,4000,50,2500,1500]`
   - `dv2_debug` (Perintah 101) $\rightarrow$ `[101,48,50,52,4000,2500,1500]`
@@ -6510,7 +6526,7 @@ Released on: 2026-10-15
 - **Kompatibilitas Universal Seluruh Root**: Karena kernel Transsion MediaTek mengekspos gerbang sysfs yang sepenuhnya dapat ditulis (`-rw-rw-rw-`), seluruh logika kontrol termal pengisian daya kini dijalankan secara murni oleh daemon `lynxd` dan skrip kontrol. Pengguna Magisk, KernelSU, maupun APatch dapat menikmati fitur ini tanpa perlu memuat modul KPM khusus.
 
 ### 3. Penyelarasan Pembacaan Suhu Otentik (`Battery_Temperature`)
-- **Eliminasi Hard Spoofing Statis 28°C**: Mengganti pemalsuan temperatur statis dengan pembacaan sensor otentik yang diselaraskan dengan tabel ambang batas bertingkat, menjamin transisi otomatis dari 33W ke 18W dan sebaliknya berlangsung mulus secara real-time.
+- **Eliminasi Hard Spoofing Statis 28Â°C**: Mengganti pemalsuan temperatur statis dengan pembacaan sensor otentik yang diselaraskan dengan tabel ambang batas bertingkat, menjamin transisi otomatis dari 33W ke 18W dan sebaliknya berlangsung mulus secara real-time.
 
 ---
 
@@ -6530,20 +6546,20 @@ Released on: 2026-10-15
 ### 3. Validasi Komparatif Live Gameplay (Genshin Impact di Helio G96)
 - **Kenaikan Framerate**: Dari rata-rata **27.69 FPS (Balanced)** melompat ke **36.18 FPS (Extreme)** (+30.6%).
 - **Pengurangan Stutter Parah (Jank)**: Frame jank berkurang dari **26.26%** menjadi **5.48%** (pemotongan 79% stutter).
-- **Frekuensi Terkunci**: Big Cores 6–7 terkunci di **2.050 MHz** dan GPU Mali-G57 terkunci di **950 MHz (Indeks 0 Zero-Throttle)**.
+- **Frekuensi Terkunci**: Big Cores 6â7 terkunci di **2.050 MHz** dan GPU Mali-G57 terkunci di **950 MHz (Indeks 0 Zero-Throttle)**.
 
 ---
 
 # Lynx Universal [Zero-Throttle GPU & MediaTek CCI Performance Synchronization] 7.0.0-RC55
 Released on: 2026-10-15
-> **Lynx Universal v7.0.0-RC55** (Lynx Kernel Manager v3.1.16): **Sinkronisasi Menyeluruh Profil Eksekusi Daemon (`ProfileExecutor`) dengan Subkomponen Termal & Cpuset, Pembongkaran Pembatas Termal GPU MediaTek (`gpufreq_limit_table` unthrottle ID 3–7 pada Extreme Mode), Integrasi MediaTek CoreLink Interconnect (CCI Sports Mode), dan DVFS Aggressive Frame Tracking**.
+> **Lynx Universal v7.0.0-RC55** (Lynx Kernel Manager v3.1.16): **Sinkronisasi Menyeluruh Profil Eksekusi Daemon (`ProfileExecutor`) dengan Subkomponen Termal & Cpuset, Pembongkaran Pembatas Termal GPU MediaTek (`gpufreq_limit_table` unthrottle ID 3â7 pada Extreme Mode), Integrasi MediaTek CoreLink Interconnect (CCI Sports Mode), dan DVFS Aggressive Frame Tracking**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC55)
 
 ### 1. Sinkronisasi Otomatis ProfileExecutor dengan Subkomponen Termal & Cpuset
 - **Eliminasi Celah Transisi Profil**: Sebelumnya pengubahan profil melalui WebUI atau CLI hanya mengatur parameter umum tanpa menyinkronkan subsistem termal kernel dan cpuset. Pada versi ini, setiap kali profil `extreme` dipilih, sistem secara otomatis mengeksekusi `ThermalController::set_mode("extreme")` dan `CpusetController::apply_preset("gaming")`.
 - **Dukungan Profil Berjenjang**:
-  - `extreme`: Thermal bypass penuh + GPU unthrottle mutlak + isolasi Big Cores 6–7 untuk `top-app`.
+  - `extreme`: Thermal bypass penuh + GPU unthrottle mutlak + isolasi Big Cores 6â7 untuk `top-app`.
   - `performance`: Thermal gaming mode + unthrottle terukur + cpuset gaming.
   - `powersave`: Mode konservatif termal + cpuset battery.
   - `balanced`: Pemulihan governor seimbang + cpuset seimbang.
@@ -6561,13 +6577,13 @@ Released on: 2026-10-15
 
 # Lynx Universal [Adaptive Undervolt & Overclock Engine KPM] 7.0.0-RC54
 Released on: 2026-10-15
-> **Lynx Universal v7.0.0-RC54** (Lynx Kernel Manager v3.1.15): **Implementasi KernelPatch Module (KPM) Lynx Adaptive Undervolt (UV) & Overclock (OC) Engine: Pemetaan 9 Power Rails Hardware PMIC (MT6358 vproc11, vproc12, vgpu, vsram, vcore), Ring-0 Hooking pada regulator_set_voltage & ged_dvfs_vcore untuk Pemotongan Panas Kuadratik (P = C·V²·f), Eliminasi Latensi Transisi OPP via dev_pm_opp_set_rate, dan Batas Pengaman Hardware Floor 700mV/550mV**.
+> **Lynx Universal v7.0.0-RC54** (Lynx Kernel Manager v3.1.15): **Implementasi KernelPatch Module (KPM) Lynx Adaptive Undervolt (UV) & Overclock (OC) Engine: Pemetaan 9 Power Rails Hardware PMIC (MT6358 vproc11, vproc12, vgpu, vsram, vcore), Ring-0 Hooking pada regulator_set_voltage & ged_dvfs_vcore untuk Pemotongan Panas Kuadratik (P = CÂ·VÂ²Â·f), Eliminasi Latensi Transisi OPP via dev_pm_opp_set_rate, dan Batas Pengaman Hardware Floor 700mV/550mV**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC54)
 
 ### 1. Lynx Adaptive Undervolt & Overclock Engine KPM (`lynx_oc_uv.c`)
 - **Pemetaan Power Rails Hardware PMIC**: Memetakan seluruh jalur daya fisik MT6358: `vproc11` (Little Cores), `vproc12` (Big Cores), `vgpu` (Mali-G57), `vsram_proc11`, `vsram_proc12`, `vsram_gpu`, dan `vcore`.
-- **Dynamic Voltage Interception (`regulator_set_voltage`)**: Mencegat penulisan voltase CPU/GPU dan menerapkan offset undervolt negatif yang aman (`-12.5 mV`, `-25.0 mV`, atau `-37.5 mV`), menurunkan suhu chipset 4°C–8°C secara instan tanpa mengorbankan frekuensi.
+- **Dynamic Voltage Interception (`regulator_set_voltage`)**: Mencegat penulisan voltase CPU/GPU dan menerapkan offset undervolt negatif yang aman (`-12.5 mV`, `-25.0 mV`, atau `-37.5 mV`), menurunkan suhu chipset 4Â°Câ8Â°C secara instan tanpa mengorbankan frekuensi.
 - **GPU Undervolt Engine (`ged_dvfs_vcore`)**: Mengoptimalkan kurva daya dinamis pada seluruh 49 level frekuensi GPU Mali-G57 (300 MHz s/d 950 MHz).
 - **OPP Latency Elimination (`dev_pm_opp_set_rate`)**: Mencegah penurunan frekuensi (*downclocking*) agresif saat beban gaming aktif, menjaga framerate tetap konsisten.
 - **Hardware Safety Floors**: Dilengkapi batas bawah voltase mutlak (CPU minimal `700 mV`, GPU minimal `550 mV`) untuk menjamin 100% bebas *freezing* atau *kernel panic*.
@@ -6580,15 +6596,15 @@ Released on: 2026-10-15
 
 # Lynx Universal [TPCB Thermal Unthrottle KernelPatch Module] 7.0.0-RC53
 Released on: 2026-10-15
-> **Lynx Universal v7.0.0-RC53** (Lynx Kernel Manager v3.1.14): **Implementasi KernelPatch Module (KPM) Lynx TPCB Thermal Unthrottle: Ring-0 Kernel Inline Hooking untuk Membongkar Pembatasan Suhu Motherboard (TPCB 45°C) pada Pengisian Daya Cepat MediaTek / Transsion (Helio G96 / MTK DV2 Algorithm), Integrasi Toolchain LLVM Clang aarch64, Guardrail Keselamatan Darurat 52°C, dan Pemuatan Otomatis via APatch**.
+> **Lynx Universal v7.0.0-RC53** (Lynx Kernel Manager v3.1.14): **Implementasi KernelPatch Module (KPM) Lynx TPCB Thermal Unthrottle: Ring-0 Kernel Inline Hooking untuk Membongkar Pembatasan Suhu Motherboard (TPCB 45Â°C) pada Pengisian Daya Cepat MediaTek / Transsion (Helio G96 / MTK DV2 Algorithm), Integrasi Toolchain LLVM Clang aarch64, Guardrail Keselamatan Darurat 52Â°C, dan Pemuatan Otomatis via APatch**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC53)
 
 ### 1. Lynx TPCB Thermal Unthrottle KPM (`lynx_thermal.c`)
 - **Penyelesaian Simbol Runtime (`kallsyms_lookup_name_by_suffix`)**: Menemukan fungsi evaluasi termal kernel `__dv2_check_thermal_level` dan `dv2_check_thermal_level` secara dinamis di RAM kernel tanpa memerlukan full kernel source code OEM.
-- **Ring-0 Inline Hooking (`hook_wrap3`)**: Memasang inline hook pada fungsi `__dv2_check_thermal_level` untuk mencegat penurunan status termal ke Level 7 (1.500 mA input) saat PCB mencapai 45°C.
-- **Override Arus Penuh ke Level 0**: Mengembalikan nilai status termal `args->ret = 0` (Level 0 / Normal Unthrottled) selama suhu PCB berada dalam batas operasional aman (< 52°C), memungkinkan arus pengisian 3.3A–4.0A mengalir bebas ke Direct Pump RT9759 (2:1).
-- **Hard Safety Guardrail (`HARD_MAX_SAFE_PCB_TEMP 52°C`)**: Jika suhu motherboard fisik menyentuh 52°C, modul secara otomatis membatalkan override dan mengembalikan kendali ke proteksi pabrikan untuk menjaga keselamatan fisik sirkuit.
+- **Ring-0 Inline Hooking (`hook_wrap3`)**: Memasang inline hook pada fungsi `__dv2_check_thermal_level` untuk mencegat penurunan status termal ke Level 7 (1.500 mA input) saat PCB mencapai 45Â°C.
+- **Override Arus Penuh ke Level 0**: Mengembalikan nilai status termal `args->ret = 0` (Level 0 / Normal Unthrottled) selama suhu PCB berada dalam batas operasional aman (< 52Â°C), memungkinkan arus pengisian 3.3Aâ4.0A mengalir bebas ke Direct Pump RT9759 (2:1).
+- **Hard Safety Guardrail (`HARD_MAX_SAFE_PCB_TEMP 52Â°C`)**: Jika suhu motherboard fisik menyentuh 52Â°C, modul secara otomatis membatalkan override dan mengembalikan kendali ke proteksi pabrikan untuk menjaga keselamatan fisik sirkuit.
 
 ### 2. Toolchain Kompilasi Mandiri (`build_kpm.ps1`)
 - Menyediakan skrip kompilasi otomatis berbasis Android NDK Clang (`aarch64-linux-android`) yang menghasilkan biner relocatable ELF standalone: `native/kpm/lynx_thermal/build/lynx_thermal.kpm` (~5.5 KB).
@@ -6644,7 +6660,7 @@ Released on: 2026-10-15
   - Jika perangkat keras fisik terverifikasi sebagai **Xiaomi (Snapdragon/Qualcomm)**, namun props dimanipulasi: sistem **dilarang keras** mengeksekusi perintah khusus Transsion (`BN_TestMode`, `odm:tran_battery/Charging_CallState`), melindungi perangkat dari error kernel.
 
 ### 2. Integrasi Telemetri & Tampilan Antarmuka (Lynx Companion v3.1.12)
-- **Indikator Perlindungan Anti-Spoof pada Hero Card**: Jika modul spoofer aktif, kartu pengisian daya secara elegan menampilkan badge `[🛡️ Anti-Spoof]` di samping daya watt.
+- **Indikator Perlindungan Anti-Spoof pada Hero Card**: Jika modul spoofer aktif, kartu pengisian daya secara elegan menampilkan badge `[ð¡ï¸ Anti-Spoof]` di samping daya watt.
 - **Seksi Verifikasi Hardware Ground Truth pada Modal Detail**: Menambahkan seksi *"VERIFIKASI GROUND TRUTH HARDWARE"* pada `BatteryDetailBottomSheet`, menampilkan platform fisik kernel riil, status deteksi SoC Spoofer, serta integritas brand props.
 - **Penyelarasan Mutlak Status Protokol & IC**: Protokol pengisian daya dan identitas IC driver dijamin selalu akurat mencerminkan komponen fisik yang terpasang di motherboard tanpa risiko tertukar akibat spoofing identitas perangkat.
 
@@ -6739,7 +6755,7 @@ Released on: 2026-10-14
 
 ### 2. Konsolidasi Root Shell Pipeline (Single Batch Invocation)
 - **Pangkas Forking `su` Berulang**: Mengonsolidasikan 5 instruksi shell terpisah pada `setProfile` (`mkdir`, file write `active_profile`, `setprop lynx.mode`, dan penulisan state) menjadi satu batch shell script atomik (<35 ms total).
-- **Hapus Blocking Cascade**: Menghilangkan blocking synchronous `.join()` (`cpuProfileJob?.join()` dan `gpuProfileJob?.join()`) yang sebelumnya menahan alur pergantian profil hingga 1.5–3 detik. Seluruh sinkronisasi sekunder dijalankan secara asinkron di latar belakang (`Dispatchers.IO`).
+- **Hapus Blocking Cascade**: Menghilangkan blocking synchronous `.join()` (`cpuProfileJob?.join()` dan `gpuProfileJob?.join()`) yang sebelumnya menahan alur pergantian profil hingga 1.5â3 detik. Seluruh sinkronisasi sekunder dijalankan secara asinkron di latar belakang (`Dispatchers.IO`).
 
 ### 3. Two-Phase State Reconciliation & Automatic Rollback
 - **Keamanan Hardware Berlapis**: Memanfaatkan mesin native `lynxd` yang berkecepatan 20.56 ms sebagai *Single Source of Truth* untuk penulisan 29 sysfs nodes.
@@ -6750,28 +6766,28 @@ Released on: 2026-10-14
 
 # Lynx Universal [Ultra-Compact Toast HUD Feedback & In-Header Morpher Architecture] 7.0.0-RC43
 Released on: 2026-10-14
-> **Lynx Universal v7.0.0-RC43** (Lynx Kernel Manager v3.1.5): **Integrasi Sistem Feedback Pergantian Mode Kernel Menjadi Toast HUD Ultra-Compact (26–28 dp) dengan 3 Model Pilihan (Jewel Dynamic Island, In-Header Seamless Morpher, dan Jewel Bottom Capsule), Penghapusan Snackbar Lebar yang Mengganggu, serta Penempatan Kartu Konfigurasi Interaktif di Sub-Halaman Profil Performa Kernel**.
+> **Lynx Universal v7.0.0-RC43** (Lynx Kernel Manager v3.1.5): **Integrasi Sistem Feedback Pergantian Mode Kernel Menjadi Toast HUD Ultra-Compact (26â28 dp) dengan 3 Model Pilihan (Jewel Dynamic Island, In-Header Seamless Morpher, dan Jewel Bottom Capsule), Penghapusan Snackbar Lebar yang Mengganggu, serta Penempatan Kartu Konfigurasi Interaktif di Sub-Halaman Profil Performa Kernel**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC43)
 
-### 1. Sistem Toast HUD Ultra-Compact (26–28 dp Single-Line)
+### 1. Sistem Toast HUD Ultra-Compact (26â28 dp Single-Line)
 - **Eliminasi Total Snackbar Kaku**: Menghapus penggunaan Material 3 Snackbar lama yang lebar membentang layar dengan tombol "OK", menggantikannya dengan kapsul melayang (*pill HUD*) ultra-kompak yang adaptif (*hug-content width*).
 - **Estetika Obsidian Glassmorphism**: Latar belakang `#0A0E15` (94% opacity + blur) dengan border hairline 0.85 dp berpendar lembut (*ambient glow*) sesuai warna profil aktif:
-  - 🌿 *Hemat*: Pendaran Hijau Neon (`#00E676`)
-  - ⚖️ *Seimbang*: Pendaran Biru Cyber (`#00A3FF`)
-  - 🚀 *Performa*: Pendaran Oranye Amber (`#FF9100`)
-  - 🔥 *Extreme*: Pendaran Merah Crimson (`#FF3D00`)
+  - ð¿ *Hemat*: Pendaran Hijau Neon (`#00E676`)
+  - âï¸ *Seimbang*: Pendaran Biru Cyber (`#00A3FF`)
+  - ð *Performa*: Pendaran Oranye Amber (`#FF9100`)
+  - ð¥ *Extreme*: Pendaran Merah Crimson (`#FF3D00`)
 - **Komposisi Jewel Minimalis**: Menggabungkan dot pendaran permata 5 dp + mikro ikon mode + nama mode bold + chip status `AKTIF`.
 - **Zero Friction**: Auto-dismiss dalam 1.8 detik dan mendukung gestur tap-to-dismiss instan.
 
 ### 2. 3 Model Pilihan Feedback & Default Jewel Dynamic Island
 - **Model 1: Jewel Dynamic Island (Default)**: Melayang di bagian atas layar tepat di bawah status bar (28 dp). Sangat ergonomis karena searah dengan jari dan pandangan pengguna saat menekan tombol mode di Top Header.
-- **Model 2: In-Header Seamless Morpher**: Subteks header `• Codename: Deity` bermutasi mulus menjadi `• Mode [Nama] Aktif` (0 dp overlap, 100% bebas tumpang tindih).
+- **Model 2: In-Header Seamless Morpher**: Subteks header `â¢ Codename: Deity` bermutasi mulus menjadi `â¢ Mode [Nama] Aktif` (0 dp overlap, 100% bebas tumpang tindih).
 - **Model 3: Jewel Bottom Capsule**: Kapsul melayang di atas dock bawah (26 dp).
 - **Dual-Morph Synchronization**: Saat Jewel Dynamic Island aktif, subteks header juga ikut bertransisi serentak menghasilkan feedback harmonis.
 
 ### 3. Kartu Konfigurasi Interaktif di Sub-Halaman Profil Performa Kernel (Opsi 1)
-- **Penempatan Fungsional & Koheren**: Ditempatkan di sub-halaman *Profil Performa Kernel* (diakses via tab Tuning atau tombol `[ Kustom → ]` di header).
+- **Penempatan Fungsional & Koheren**: Ditempatkan di sub-halaman *Profil Performa Kernel* (diakses via tab Tuning atau tombol `[ Kustom â ]` di header).
 - **Pilihan Segmented Interaktif**: Menyediakan 3 kartu radio interaktif dengan indikator bawaan (*DEFAULT badge*).
 - **Tombol Uji Langsung (Live Test)**: Memungkinkan pengguna menguji animasi Toast HUD terpilih secara instan di layar tanpa mengubah profil aktif.
 - **Switch Sinkronisasi Header**: Kontrol penuh atas fitur dual-morphing header.
@@ -6788,7 +6804,7 @@ Released on: 2026-10-14
 - **Penggabungan Dua Komponen Kunci**: Menyatukan Top Header dan pemilih Mode Performa Kernel (`QuickProfileSwitcherCard`) ke dalam satu kartu bento box all-in-one yang rapi dan proporsional.
 - **Efisiensi Ruang Layar Signifikan**: Menghemat ruang vertikal hingga ~110 dp pada dashboard, sehingga kartu telemetri baterai, SoC clock, dan memori dapat langsung terlihat di area *first-fold* tanpa perlu scroll jauh.
 - **Tata Letak Baris Ganda Simetris**:
-  - *Baris 1*: Ikon resmi Lynx, judul `"Lynx Kernel"`, dan status `"Codename: Deity"` dengan dot indikator hijau aktif, berdampingan dengan aksi cepat palet tema dinamis (expandable via `AnimatedVisibility`) dan tombol `[ Kustom → ]`.
+  - *Baris 1*: Ikon resmi Lynx, judul `"Lynx Kernel"`, dan status `"Codename: Deity"` dengan dot indikator hijau aktif, berdampingan dengan aksi cepat palet tema dinamis (expandable via `AnimatedVisibility`) dan tombol `[ Kustom â ]`.
   - *Divider Halus*: Garis pembatas semi-transparan (`White` 5% alpha) pemisah zona identitas dan zona kontrol frekuensi.
   - *Baris 2*: 4-Way Mode Selector (`Hemat`, `Seimbang`, `Performa`, `Extreme`) dengan feedback glow interaktif, border aktif, dan subteks profil yang presisi.
 
@@ -6811,7 +6827,7 @@ Released on: 2026-10-14
 
 ### 1. Eliminasi Redundansi Status Daya & Baterai
 - **Penghapusan Badge Pojok Kanan Atas Total**: Menghilangkan seluruh badge pill di pojok kanan atas kartu Status Daya (`BATERAI` / `CHARGING` / `BYPASS`) untuk tampilan yang lebih bersih, tenang, dan bebas dari pengulangan kata yang tidak perlu.
-- **Pembersihan Dial Lingkaran saat Discharging**: Saat perangkat berjalan menggunakan daya baterai mandiri, mode pill di dalam dial (`⚡ STANDBY`) otomatis disembunyikan sehingga dial hanya memfokuskan tampilan persentase baterai yang elegan. Mode pill hanya ditampilkan saat kabel pengisi daya terhubung aktif (`⚡ HYPER`, `⚡ STANDARD`, `⚡ COOL`, `⚡ BYPASS`).
+- **Pembersihan Dial Lingkaran saat Discharging**: Saat perangkat berjalan menggunakan daya baterai mandiri, mode pill di dalam dial (`â¡ STANDBY`) otomatis disembunyikan sehingga dial hanya memfokuskan tampilan persentase baterai yang elegan. Mode pill hanya ditampilkan saat kabel pengisi daya terhubung aktif (`â¡ HYPER`, `â¡ STANDARD`, `â¡ COOL`, `â¡ BYPASS`).
 - **Penyelarasan Banner Protokol Daya**: Menyelaraskan teks banner saat unplugged menjadi `"Discharging"` dengan subteks `"Menggunakan daya baterai"`, menghilangkan duplikasi frase "Baterai Internal" yang bertumpuk.
 
 ### 2. Simetri Telemetri & Clock Hardware (GPU Load Mirroring CPU Engine)
@@ -6819,8 +6835,8 @@ Released on: 2026-10-14
 - **Pelabelan Domain Presisi**: Mengganti label `"GPU Engine"` dan `"CPU Engine"` menjadi **`"GPU (Grafis)"`** dan **`"CPU (Prosesor)"`** untuk menghindari kebingungan asosiasi dengan 3D game engine.
 - **Simetri Tampilan Beban Dinamis Real-Time**:
   - Mengintegrasikan pemetaan beban GPU (`gpuLoadPercent` / `gpuBusy`) ke dalam kartu telemetri bento box secara simetris dengan CPU.
-  - Saat aktif: Menampilkan beban persentase real-time beserta arsitektur hardware (contoh: `Load 13% • Mali` / `Load 32% • 8 Cores`).
-  - Saat siaga: Menampilkan status manajemen frekuensi dinamis yang bersih (contoh: `Dynamic DVFS • Mali` / `Dynamic EAS • 8 Cores`) dengan perlindungan `TextOverflow.Ellipsis`.
+  - Saat aktif: Menampilkan beban persentase real-time beserta arsitektur hardware (contoh: `Load 13% â¢ Mali` / `Load 32% â¢ 8 Cores`).
+  - Saat siaga: Menampilkan status manajemen frekuensi dinamis yang bersih (contoh: `Dynamic DVFS â¢ Mali` / `Dynamic EAS â¢ 8 Cores`) dengan perlindungan `TextOverflow.Ellipsis`.
 
 ### 3. Konsistensi Penamaan Profil Performa Kernel ("Seimbang")
 - **Penyelarasan Bahasa Baku**: Menggantikan istilah campur aduk `"Balance"` menjadi **`"Seimbang"`** di seluruh aplikasi (`QuickProfileSwitcherCard`, header badge status bar `StatusBadge`, `MainDashboard`, `TuningProfilesCategory`, dan `strings.xml`).
@@ -6854,8 +6870,8 @@ Released on: 2026-10-14
 ### 3. Penyingkatan Seluruh Deskripsi Daya Banner (Bebas Truncation)
 - Menyingkat seluruh string deskripsi banner daya agar tidak lagi terpotong (*no text truncation / ellipsis*) pada semua rasio layar:
   - Baterai Internal: `"Menyuplai motherboard perangkat secara mandiri"` -> `"Daya mandiri aktif"`
-  - Bypass Charging: `"Daya dialihkan langsung ke motherboard • 0 mA ke sel baterai"` -> `"Daya ke motherboard (0 mA)"`
-  - Pengisian Daya: `"Daya masuk • X.X W"` / `"Daya terhubung"`
+  - Bypass Charging: `"Daya dialihkan langsung ke motherboard â¢ 0 mA ke sel baterai"` -> `"Daya ke motherboard (0 mA)"`
+  - Pengisian Daya: `"Daya masuk â¢ X.X W"` / `"Daya terhubung"`
 - Mengintegrasikan `TextOverflow.Ellipsis` dan `softWrap` pelindung untuk stabilitas tampilan sempurna.
 
 ### 4. Tombol Pembersih RAM Ultra-Kompak & Eliminasi Redundansi Persentase
@@ -6864,7 +6880,7 @@ Released on: 2026-10-14
 - **Feedback Interaktif Real-Time**: Saat tombol ditekan, indikator putar `CircularProgressIndicator` (12.dp) berputar halus hingga proses pembebasan memori selesai seketika.
 
 ### 5. Penyelarasan Badge Header Mode Performa Kernel ("Kustom")
-- **Penyesuaian Konteks Mode (Domain Relevance)**: Menggantikan label `"Katalog"` yang kurang relevan untuk pemilihan mode performa kernel menjadi **`"Kustom"`** (`[ Kustom → ]`), selaras dengan 4 preset bawaan vs profil kustom pengguna.
+- **Penyesuaian Konteks Mode (Domain Relevance)**: Menggantikan label `"Katalog"` yang kurang relevan untuk pemilihan mode performa kernel menjadi **`"Kustom"`** (`[ Kustom â ]`), selaras dengan 4 preset bawaan vs profil kustom pengguna.
 - **Harmoni Warna Visual**: Menyelaraskan border dan teks badge dengan aksen oranye kartu (`AccentOrange` 45% alpha) agar selaras dengan ikon speedometer dan tema Mode Performa Kernel.
 - **Navigasi Langsung**: Tombol mengarahkan pengguna secara presisi ke sub-halaman editor profil kustom dan otomasi per-aplikasi di Tuning Engine.
 
@@ -6916,7 +6932,7 @@ Released on: 2026-10-13
 
 ### 3. Quick Profile Switcher Card Compact Header Action & Polish
 - **Penghapusan Dot Indicator**: Menghilangkan titik lingkaran (*dot indicator*) pada mode yang aktif/terpilih, memberikan tampilan tombol mode yang simetris, bersih, dan elegan.
-- **Compact Header Action "Katalog"**: Memindahkan tombol "Katalog & Kustom" yang sebelumnya memakan ruang baris penuh (tinggi 44dp) ke slot header `LynxCard` (`action`) dengan chip ringkas `[ Katalog → ]`.
+- **Compact Header Action "Katalog"**: Memindahkan tombol "Katalog & Kustom" yang sebelumnya memakan ruang baris penuh (tinggi 44dp) ke slot header `LynxCard` (`action`) dengan chip ringkas `[ Katalog â ]`.
 - **Penghematan Ruang Vertikal**: Mengurangi tinggi kartu secara signifikan dan menghapus status baris redundan sehingga tata letak Dashboard jauh lebih ringkas, hemat ruang, dan responsif.
 
 ---
@@ -6935,7 +6951,7 @@ Released on: 2026-10-13
   - `Powersave Mode`: Ikon Daun / Eco Leaf (`ic_mode_powersave.xml`) dengan aksen warna hijau (`#34C759`).
   - `Auto (AI) Mode`: Ikon Chipset AI / Memory Core (`ic_mode_auto.xml`) dengan aksen warna ungu (`#AF52DE`).
 - **Telemetri Suhu & Persentase Baterai Real-Time**:
-  - Notifikasi memperbarui suhu (°C) dan daya baterai (%) secara periodik (setiap 3 detik saat layar aktif) menggunakan OS sticky intent tanpa shell fork (0.05ms, 0% CPU overhead).
+  - Notifikasi memperbarui suhu (Â°C) dan daya baterai (%) secara periodik (setiap 3 detik saat layar aktif) menggunakan OS sticky intent tanpa shell fork (0.05ms, 0% CPU overhead).
   - Ticker telemetri otomatis tidur lelap saat layar mati (*Deep Sleep Shield*) guna menjamin CPU C-States optimal.
 - **Pembaruan Seketika (0ms IPC)**:
   - Setiap pergantian mode dari Dashboard, Quick Settings Tile, Floating HUD, maupun deteksi game langsung memicu pembaruan notifikasi secara instan via singleton in-process hook.
@@ -7001,8 +7017,8 @@ Released on: 2026-10-13
 ### 3. Notifikasi Status Bar Tunggal yang Bersih & Hening
 - Notifikasi status bar dikonfigurasi dengan prioritas rendah (`IMPORTANCE_LOW`): tanpa suara, tanpa getar, dan tanpa banner pop-up heads-up yang menutupi game.
 - Format teks dibuat minimalis, elegan, dan informatif:
-  - Saat Game Aktif: `Lynx • [EXTREME]` | Teks: `Honkai: Star Rail • 120Hz`
-  - Saat Standby/Harian: `Lynx • [BALANCE]` | Teks: `Mode Standby Aktif`
+  - Saat Game Aktif: `Lynx â¢ [EXTREME]` | Teks: `Honkai: Star Rail â¢ 120Hz`
+  - Saat Standby/Harian: `Lynx â¢ [BALANCE]` | Teks: `Mode Standby Aktif`
 - Notifikasi tersemat secara hening (*ongoing silent*) dan memperbarui diri di tempat yang sama (*in-place update*) tanpa menumpuk entri notifikasi baru.
 
 # Lynx Universal [Per-App Custom Target Profile Engine & Zero-Fork Precise Foreground Activity Detection] 7.0.0-RC34
@@ -7074,13 +7090,13 @@ Released on: 2026-10-13
   - Membuka seluruh izin node pengisian daya kembali ke `0666` sehingga algoritma termal OEM dapat mengontrol arus secara dinamis tanpa hambatan kuncian.
 - **Mode Hyper & Custom**:
   - Hyper mode membuka potensi penuh pengisian daya tanpa batasan kaku.
-  - Custom mode menerapkan batasan mA presisi dari slider pengguna (500–25.000 mA) langsung ke register kernel.
+  - Custom mode menerapkan batasan mA presisi dari slider pengguna (500â25.000 mA) langsung ke register kernel.
 
 ### 2. Cutoff Pengisian Cerdas & Bypass Histeresis Bebas-Flapping
 - **Eliminasi Syarat Kaku 50mA**:
   - Mengganti evaluasi histeresis lama yang bergantung pada pembacaan arus `<= 50mA` dengan evaluasi status kait (*latch state*) berbasis persentase baterai vs ambang batas slider.
   - Menghilangkan flapping bolak-balik antara bypass dan normal saat arus pengisian masih mengalami sisa trickle flow.
-  - Telemetri `status_json()` secara konsisten melaporkan `smart_limit_latched: true` dan `bypass_active: true`, menampilkan status `⚡ BYPASS (Cutoff Active)` secara stabil pada UI Hero Card.
+  - Telemetri `status_json()` secara konsisten melaporkan `smart_limit_latched: true` dan `bypass_active: true`, menampilkan status `â¡ BYPASS (Cutoff Active)` secara stabil pada UI Hero Card.
 - **Pembersihan Otomatis Saat Ganti Mode**:
   - Mengubah mode pengisian daya (Cool/Standard/Hyper/Custom) secara otomatis mereset status bypass dan menghapus flag kuncian bypass yang kadaluarsa.
 
@@ -7144,7 +7160,7 @@ Released on: 2026-10-12
   - `dialogs/GovernorPickerBottomSheet.kt` (~178 baris): Lembar pemilihan algoritma scaling governor dengan tag deskriptif dan indikator seleksi aktif.
   - `dialogs/SchedutilPresetsCard.kt` (~185 baris): Kartu preset latensi responsivitas jam Schedutil (Responsif, Seimbang, Hemat Daya, OEM) dengan detektor status aktif *real-time*.
   - `dialogs/QuickTunablesBottomSheet.kt` (~330 baris): Lembar orkestrasi tunable governor, pengurutan kronologis, switch boolean, dialog konfirmasi reset OEM, dan delegasi ke kartu preset.
-  - `CpuClusterItemCard.kt` (~250 baris): Kartu kebijakan kluster individual dengan header peran/inti, tombol ganda min/max frekuensi, tombol kunci sentuh 48×48 px, serta tombol aksi governor dan tunables.
+  - `CpuClusterItemCard.kt` (~250 baris): Kartu kebijakan kluster individual dengan header peran/inti, tombol ganda min/max frekuensi, tombol kunci sentuh 48Ã48 px, serta tombol aksi governor dan tunables.
   - `CpuClusterTunerCard.kt` (~128 baris): Orkestrator utama yang mengelola status lembar modal dan merender daftar kartu kluster CPU.
 
 ### 2. Standarisasi i18n Multi-Bahasa Menyeluruh (`strings.xml`)
@@ -7160,7 +7176,7 @@ Released on: 2026-10-12
 
 # Lynx Universal [Autonomous ADB Keep-Alive Self-Healing & Real-Time Socket Verification] 7.0.0-RC26
 Released on: 2026-10-12
-> **Lynx Universal v7.0.0-RC26** menghadirkan penyempurnaan menyeluruh pada fitur ADB Wireless Keep-Alive & Port Lock di daemon `lynxd` dan aplikasi Lynx Kernel Manager (v3.0.91): **Pemulihan Otomatis 100% Mandiri (*Autonomous Self-Healing* Saat Deep Sleep atau Restart Tanpa Perlu Sakelar Manual), Proteksi Framework Android 11+ (`settings put global adb_wifi_enabled 1`), Siklus Pemantauan Super Hemat Daya (Watchdog 2500ms Non-Wakelock, <0.001% CPU Duty Cycle, Sub-0.02ms In-Process Read), Akurasi Status Socket Real-Time di Antarmuka (`● LOCKED` Hijau Hanya Jika Socket Benar-Benar Listening vs `⚡ MEMULIHKAN` Oranye Saat Proses Re-binding), Serta Quick Connection Guide Row yang Bersih dan Elegan**.
+> **Lynx Universal v7.0.0-RC26** menghadirkan penyempurnaan menyeluruh pada fitur ADB Wireless Keep-Alive & Port Lock di daemon `lynxd` dan aplikasi Lynx Kernel Manager (v3.0.91): **Pemulihan Otomatis 100% Mandiri (*Autonomous Self-Healing* Saat Deep Sleep atau Restart Tanpa Perlu Sakelar Manual), Proteksi Framework Android 11+ (`settings put global adb_wifi_enabled 1`), Siklus Pemantauan Super Hemat Daya (Watchdog 2500ms Non-Wakelock, <0.001% CPU Duty Cycle, Sub-0.02ms In-Process Read), Akurasi Status Socket Real-Time di Antarmuka (`â LOCKED` Hijau Hanya Jika Socket Benar-Benar Listening vs `â¡ MEMULIHKAN` Oranye Saat Proses Re-binding), Serta Quick Connection Guide Row yang Bersih dan Elegan**.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC26)
 
@@ -7172,7 +7188,7 @@ Released on: 2026-10-12
 ### 2. Autonomous Self-Healing & Real-Time Badge di Aplikasi (`LynxCompanion`)
 - Memperkenalkan properti `isAdbListening` pada `LynxUiState` yang memvalidasi pembukaan port fisik di `/proc/net/tcp` secara presisi.
 - Memicu pemulihan otomatis seketika saat aplikasi dibuka (`init`) dan saat kembali ke latar depan (`onAppResume`) jika port terdeteksi tertutup saat status keep-alive aktif.
-- Memperbarui badge status: menampilkan `● LOCKED : <PORT>` (Hijau) jika socket aktif mendengarkan, `⚡ MEMULIHKAN : <PORT>` (Oranye) saat proses re-binding, dan `○ STANDBY` jika dinonaktifkan.
+- Memperbarui badge status: menampilkan `â LOCKED : <PORT>` (Hijau) jika socket aktif mendengarkan, `â¡ MEMULIHKAN : <PORT>` (Oranye) saat proses re-binding, dan `â STANDBY` jika dinonaktifkan.
 - Menambahkan kartu ringkas `adb connect <IP>:<PORT>` untuk memudahkan pengembang menyambungkan terminal tanpa perlu memeriksa IP perangkat secara manual.
 - Perbaikan susulan: label tombol `Kunci Port` yang sempat hilang pada build awal RC26 telah dikembalikan.
 
@@ -7300,12 +7316,12 @@ Released on: 2026-10-11
 
 ### 1. Bukti Faktual Integritas Hardware Layar Sentuh (`Evdev Kernel Audit`)
 - **Verifikasi Digitizer Kapasitif Fisik 100% Sehat**:
-  - Berdasarkan audit real-time event kernel `/dev/input/event3` (`mtk-tpd`), panel layar sentuh perangkat berfungsi sempurna tanpa cacat fisik: koordinat absolut analog kontinu (`0x257 ➔ 0x254 ➔ 0x24e`), tekanan stabil (`ABS_MT_PRESSURE = 1000`), elips sentuhan presisi (`ABS_MT_TOUCH_MAJOR = 7..12`), serta laju pelaporan stabil (~8–12 ms).
+  - Berdasarkan audit real-time event kernel `/dev/input/event3` (`mtk-tpd`), panel layar sentuh perangkat berfungsi sempurna tanpa cacat fisik: koordinat absolut analog kontinu (`0x257 â 0x254 â 0x24e`), tekanan stabil (`ABS_MT_PRESSURE = 1000`), elips sentuhan presisi (`ABS_MT_TOUCH_MAJOR = 7..12`), serta laju pelaporan stabil (~8â12 ms).
   - Masalah terkonfirmasi 100% merupakan software gesture collision di antarmuka, bukan kerusakan digitizer layar.
 
 ### 2. Eliminasi Tombol Pemicu Recomposisi pada Jalur Sentuh Jempol (`LynxComponents.kt`)
 - **Pembersihan Kartu Kesehatan Baterai dari Tombol Full-Width**:
-  - Menghapus tombol selebar layar `[ Segarkan Statistik Baterai & Sleep ]` yang sebelumnya melintang tepat di koordinat pendaratan alami jempol pengguna (`X: 650–710, Y: 1340–1475`).
+  - Menghapus tombol selebar layar `[ Segarkan Statistik Baterai & Sleep ]` yang sebelumnya melintang tepat di koordinat pendaratan alami jempol pengguna (`X: 650â710, Y: 1340â1475`).
   - Sebelumnya, sapuan cepat jempol (<100 ms) di area tersebut memicu deteksi tap/klik pada tombol, memanggil `refreshBatteryHealth()`, dan menghasilkan mutasi state mendadak yang membatalkan animasi scroll dan menghentakkan tampilan kembali.
   - Tombol segarkan kini dipindahkan secara elegan ke header kartu berupa badge pill minimalis (`Surface` + `Row` compact).
 
@@ -7343,18 +7359,18 @@ Released on: 2026-10-11
 
 # Lynx Universal [Zero-Hardcode Battery Information & Unified Cycle Runtime Breakdown] 7.0.0-RC17
 Released on: 2026-10-11
-> **Lynx Universal v7.0.0-RC17** menghadirkan perombakan total pada halaman **Informasi Baterai** di aplikasi Lynx Kernel Manager (v3.0.82): **100% Data Sensor & Kernel Asli Tanpa Hardcode/Sintetis, Penggabungan Total Waktu & Proporsi Siklus Berjalan (Awal Dilepas ➔ Sekarang: Layar Aktif, Deep Sleep, dan Siaga Bangun), Riwayat Penurunan Per-Persen Asli (`Discharge Step History`), serta Penyederhanaan Tata Letak Menjadi 3 Kartu Presisi**. Mengeliminasi seluruh angka estimasi statis, grafik sintetis, maupun daftar aplikasi fallback tiruan, sehingga seluruh metrik yang ditampilkan murni mencerminkan data aktual dari `dumpsys batterystats --charged` dan node `/sys/class/power_supply/battery/`.
+> **Lynx Universal v7.0.0-RC17** menghadirkan perombakan total pada halaman **Informasi Baterai** di aplikasi Lynx Kernel Manager (v3.0.82): **100% Data Sensor & Kernel Asli Tanpa Hardcode/Sintetis, Penggabungan Total Waktu & Proporsi Siklus Berjalan (Awal Dilepas â Sekarang: Layar Aktif, Deep Sleep, dan Siaga Bangun), Riwayat Penurunan Per-Persen Asli (`Discharge Step History`), serta Penyederhanaan Tata Letak Menjadi 3 Kartu Presisi**. Mengeliminasi seluruh angka estimasi statis, grafik sintetis, maupun daftar aplikasi fallback tiruan, sehingga seluruh metrik yang ditampilkan murni mencerminkan data aktual dari `dumpsys batterystats --charged` dan node `/sys/class/power_supply/battery/`.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC17)
 
 ### 1. Eliminasi Total Nilai Hardcode & Data Sintetis (`LynxRepository.kt` & `LynxModels.kt`)
 - **Zero-Hardcode Policy**:
-  - Menghapus seluruh nilai default atau fallback statis pada statistik baterai (seperti laju terkuras statis `~10.8% / jam`, siklus fallback `868`, suhu offset buatan `+3.2°C` / `+1.1°C`, kurva riwayat sintetis `getOrGenerateDrainHistory`, serta daftar aplikasi fallback).
+  - Menghapus seluruh nilai default atau fallback statis pada statistik baterai (seperti laju terkuras statis `~10.8% / jam`, siklus fallback `868`, suhu offset buatan `+3.2Â°C` / `+1.1Â°C`, kurva riwayat sintetis `getOrGenerateDrainHistory`, serta daftar aplikasi fallback).
   - Seluruh metrik kini dibaca langsung dari `dumpsys batterystats --charged`, `dumpsys battery`, dan node sysfs perangkat (`/sys/devices/platform/odm/odm:tran_battery/BATTERY_QMAX`, `charge_full`, `charge_counter`, `cycle_count`, `voltage_now`, `current_now`, `current_avg`, `temp`).
 
-### 2. Penggabungan Total Waktu & Proporsi Siklus Berjalan (`Awal ➔ Sekarang`)
+### 2. Penggabungan Total Waktu & Proporsi Siklus Berjalan (`Awal â Sekarang`)
 - **Rincian Siklus Terpadu 100% Akurat**:
-  - Menampilkan rentang level sejak charger dilepas hingga saat ini (misal `100% ➔ 91% (-9%)`), jam pelepasan charger (`Start clock time`), total mAh terkuras (`Discharge: mAh`), serta **Total Waktu Berjalan** gabungan (`Time on battery`).
+  - Menampilkan rentang level sejak charger dilepas hingga saat ini (misal `100% â 91% (-9%)`), jam pelepasan charger (`Start clock time`), total mAh terkuras (`Discharge: mAh`), serta **Total Waktu Berjalan** gabungan (`Time on battery`).
   - **Stacked Bar 3-Segmen Proporsional (100% Total Waktu)**:
     1. **Layar Aktif (Screen-On / SOT)**: Durasi presisi, persentase terhadap total waktu, serta mAh & persentase baterai yang terkuras saat layar menyala.
     2. **Tidur Lelap (Deep Sleep)**: Dihitung presisi dari `Waktu Layar Mati - Waktu Partial Wakelock`, lengkap dengan persentase terhadap total waktu dan rasio efisiensi idle.
@@ -7371,7 +7387,7 @@ Released on: 2026-10-11
 
 # Lynx Universal [ADB Wireless Keep-Alive & Custom Port Lock Engine] 7.0.0-RC16
 Released on: 2026-10-11
-> **Lynx Universal v7.0.0-RC16** menghadirkan subsistem baru **ADB Wireless Keep-Alive & Persistent Custom Port Lock Engine** (Lynx Kernel Manager v3.0.81): **Penguncian Port TCP ADB Permanen, Proteksi Anti-Reset Saat Layar Mati (Screen-Off Sleep Guard), Konfigurasi Port Kustom Manual (1024–65535), serta Daemon Watchdog Auto-Heal**. Mengatasi masalah klasik Android yang secara sepihak mematikan daemon `adbd` atau mereset port TCP saat layar ponsel mati/terkunci maupun setelah reboot.
+> **Lynx Universal v7.0.0-RC16** menghadirkan subsistem baru **ADB Wireless Keep-Alive & Persistent Custom Port Lock Engine** (Lynx Kernel Manager v3.0.81): **Penguncian Port TCP ADB Permanen, Proteksi Anti-Reset Saat Layar Mati (Screen-Off Sleep Guard), Konfigurasi Port Kustom Manual (1024â65535), serta Daemon Watchdog Auto-Heal**. Mengatasi masalah klasik Android yang secara sepihak mematikan daemon `adbd` atau mereset port TCP saat layar ponsel mati/terkunci maupun setelah reboot.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC16)
 
@@ -7390,7 +7406,7 @@ Released on: 2026-10-11
 ### 2. Konfigurasi Port Kustom Manual di Aplikasi Lynx & WebUI
 - **Kartu Kontrol "ADB Wireless Keep-Alive & Port Lock"**:
   - Tersedia di menu **Network & Audio** pada aplikasi Lynx Kernel Manager serta di **WebUI Dashboard**.
-  - Dilengkapi indikator status *real-time* (`● LOCKED : <PORT>` vs `○ STANDBY`), toggle aktivasi Keep-Alive, tombol preset cepat (`5555`, `5556`, `8888`), serta kolom input manual untuk port kustom pilihan pengguna (`1024` hingga `65535`).
+  - Dilengkapi indikator status *real-time* (`â LOCKED : <PORT>` vs `â STANDBY`), toggle aktivasi Keep-Alive, tombol preset cepat (`5555`, `5556`, `8888`), serta kolom input manual untuk port kustom pilihan pengguna (`1024` hingga `65535`).
 
 ---
 
@@ -7411,11 +7427,11 @@ Released on: 2026-10-11
   - Restorasi termal saat disconnect kini tidak lagi menimpa setelan kustom pengguna secara sepihak dengan nilai baku.
   - Sistem memeriksa `thermal.full_bypass` dan `thermal.custom_temp_limit_c` langsung dari konfigurasi tersimpan pengguna.
   - Jika pengguna mengaktifkan full bypass, mode gaming/bypass langsung dipulihkan.
-  - Jika pengguna mengatur batas suhu spesifik (misal 48°C atau 50°C), kalibrasi trip point SoC langsung dikembalikan presisi ke batas yang dipilih pengguna tersebut via `ThermalController::set_limit(custom_limit)`.
+  - Jika pengguna mengatur batas suhu spesifik (misal 48Â°C atau 50Â°C), kalibrasi trip point SoC langsung dikembalikan presisi ke batas yang dipilih pengguna tersebut via `ThermalController::set_limit(custom_limit)`.
 
 ### 2. Mode Balance Ultra-Adem (<400mA Konsumsi Arus) & Multitasking Secepat Kilat
 - **Eliminasi Penguncian Frekuensi Minimum CPU**:
-  - Menghapus logika lama pada `applyThermalStableEngine()` yang sebelumnya memaksa `scaling_min_freq` ke 70% OPP table (1.6GHz–1.7GHz). Frekuensi dasar CPU kini dipulihkan ke OPP perangkat terendah (500MHz pada cluster Little / 774MHz pada cluster Big).
+  - Menghapus logika lama pada `applyThermalStableEngine()` yang sebelumnya memaksa `scaling_min_freq` ke 70% OPP table (1.6GHzâ1.7GHz). Frekuensi dasar CPU kini dipulihkan ke OPP perangkat terendah (500MHz pada cluster Little / 774MHz pada cluster Big).
   - Pada profil `balanced.rs`, menetapkan `min_percent: 0` dan `uclamp_min_percent: 0`, memberikan kebebasan bagi kernel untuk memasuki status *deep sleep* dan voltase terendah (600mV) saat idle atau membaca konten.
   - Memperbaiki `modifier.rs` agar tidak menaikkan batas minimum profil balanced secara artifisial saat adaptive cooling atau battery saver aktif.
 - **Responsivitas Kilat Multitasking (Sub-Millisecond Ramp-up)**:
@@ -7435,24 +7451,24 @@ Released on: 2026-10-11
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC14)
 
 ### 1. Granularitas 1% Batas Pengisian Cerdas (1% Fine Step Precision)
-- **Rentang Luas & Fleksibel (50% - 100%)**: Menggantikan slider lama yang kaku (70%–100% per kelipatan 5%) dengan rentang penuh 50% hingga 100% berpeningkatan granular per 1% (49 steps presisi).
-- **Format Label Dinamis**: Menampilkan label deskriptif `100% (Penuh & AutoCut)` saat mencapai 100%, dan `${target}% (Bypass Langsung)` pada nilai 50%–99%.
-- **Paritas Penuh Dashboard WebUI**: Menyediakan kontrol slider batas pengisian cerdas (50%–100%, step 1%), toggle Night Sleep Guard, dan Smart Tapering pada antarmuka WebUI (`webroot/index.html` dan `webroot/app.js`) dengan sinkronisasi instan via `lynxd charging apply`.
+- **Rentang Luas & Fleksibel (50% - 100%)**: Menggantikan slider lama yang kaku (70%â100% per kelipatan 5%) dengan rentang penuh 50% hingga 100% berpeningkatan granular per 1% (49 steps presisi).
+- **Format Label Dinamis**: Menampilkan label deskriptif `100% (Penuh & AutoCut)` saat mencapai 100%, dan `${target}% (Bypass Langsung)` pada nilai 50%â99%.
+- **Paritas Penuh Dashboard WebUI**: Menyediakan kontrol slider batas pengisian cerdas (50%â100%, step 1%), toggle Night Sleep Guard, dan Smart Tapering pada antarmuka WebUI (`webroot/index.html` dan `webroot/app.js`) dengan sinkronisasi instan via `lynxd charging apply`.
 
 ### 2. Penanganan Cerdas Baterai Melebihi Batas (Instant Over-SOC Bypass Latch)
 - **Mitigasi Kondisi Over-SOC Real-Time**: Ketika pengguna menetapkan batas (misal 90%) sementara kondisi baterai saat ini sudah berada di atas batas tersebut (misal 92%), sistem native `lynxd` dan UI seketika mengaktifkan hardware bypass. Arus pengisian sel baterai diputus total menjadi 0 mA (`sc_ibat_limit=0`, `constant_charge_current_max=0`, `chg1_current=0`), dan daya dialihkan 100% langsung ke motherboard ponsel.
 - **Istirahat Sel Baterai**: Baterai tidak akan terus dipaksa mengisi ke level lebih tinggi, mencegah stres elektroda dan pembengkakan baterai.
 - **Buffer Histeresis 2%**: Mode bypass dipertahankan terkunci (*latched*) hingga level baterai turun di bawah `smart_limit - 2` (misal 88%), mencegah siklus putus-sambung berulang (*flapping*) akibat fluktuasi beban.
-- **Indikator Status Pill UI Transparan**: Menampilkan status real-time: `Batas Cerdas [Target]% Tercapai (Baterai [Level]%) • Arus Diputus (Bypass Aktif)` dengan ikon perisai (*Shield*) dan aksen warna cyan.
+- **Indikator Status Pill UI Transparan**: Menampilkan status real-time: `Batas Cerdas [Target]% Tercapai (Baterai [Level]%) â¢ Arus Diputus (Bypass Aktif)` dengan ikon perisai (*Shield*) dan aksen warna cyan.
 
 ### 3. Arbitrase Deterministik 8-Tingkat & Eliminasi Race Condition
 - **Struktur Prioritas Hirarkis Tanpa Tabrakan**: Mengorganisasikan eksekusi pengisian daya ke dalam hierarki deterministik 8-tingkat:
   - **Tier 0**: Disconnected / Discharging Guard (zero cable check).
-  - **Tier 1**: Emergency Physical Thermal Guard (sel >= 49.0°C membatasi arus ke 750 mA).
+  - **Tier 1**: Emergency Physical Thermal Guard (sel >= 49.0Â°C membatasi arus ke 750 mA).
   - **Tier 2**: Manual User Bypass Toggle (prioritas manual tertinggi).
   - **Tier 3**: AutoCut 100% Full (bypass saat baterai terisi penuh).
-  - **Tier 4**: Batas Pengisian Cerdas 50%–99% (bypass instan saat SOC >= target).
-  - **Tier 5**: Pengisian Sejuk Malam Hari (23:00–06:00 arus dibatasi 1.5A agar suhu sel baterai <30°C).
+  - **Tier 4**: Batas Pengisian Cerdas 50%â99% (bypass instan saat SOC >= target).
+  - **Tier 5**: Pengisian Sejuk Malam Hari (23:00â06:00 arus dibatasi 1.5A agar suhu sel baterai <30Â°C).
   - **Tier 6**: Smart Tapering (>90% arus diturunkan ke 1.5A / 750mA menjelang target).
   - **Tier 7**: Extreme Fast Charging (6000 mA unthrottled jika mode extreme aktif).
   - **Tier 8**: Normal Regulated Charging (arus normal sesuai pengaturan).
@@ -7468,7 +7484,7 @@ Released on: 2026-10-11
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC13)
 
 ### 1. Pencegahan Drop Arus Masuk Fast Charging (Sustained High-Current Charging)
-- **Koreksi Driver `clabcct` & `clabcct_lcmoff` (MediaTek Charging Thermal Derater)**: Memperbaiki format parameter kernel derater dengan menyertakan token boolean `policy_enable` (`"1"`). Sebelumnya, parameter pertama langsung diawali `70000` sehingga driver menginterpretasikan `70000` sebagai flag enable dan `1000` sebagai ambang suhu target 1.0°C. Hal ini menyebabkan driver memotong arus pengisian daya ke batas minimum seketika layar mati (`lcmoff`).
+- **Koreksi Driver `clabcct` & `clabcct_lcmoff` (MediaTek Charging Thermal Derater)**: Memperbaiki format parameter kernel derater dengan menyertakan token boolean `policy_enable` (`"1"`). Sebelumnya, parameter pertama langsung diawali `70000` sehingga driver menginterpretasikan `70000` sebagai flag enable dan `1000` sebagai ambang suhu target 1.0Â°C. Hal ini menyebabkan driver memotong arus pengisian daya ke batas minimum seketika layar mati (`lcmoff`).
 - **Koreksi Logika Parameter Inversi `pca_dv2_algo/dv2_debug` (Transsion Direct Charge Pump)**: Mengoreksi pemetaan parameter temperatur baterai hangat (`tbat_warm_cur`, `tbat_very_warm_cur`, `tbat_hot_cur`) yang sebelumnya keliru diisi `0, 0, 0` pada mode extreme charging (memutus arus pompa pengisian menjadi 0 mA saat baterai menghangat). Nilai kini dikalibrasi presisi: extreme charging mempertahankan `6000, 6000, 6000` mA agar daya cepat tetap stabil tanpa drop, dan bypass charging mengunci `0, 0, 0` agar arus murni mengalir ke sistem.
 - **Koreksi Skala Satuan Arus `pcb_thermal_debug`**: Parameter ke-5 (`Tmin_curr`) pada driver PCB thermal kini menggunakan satuan mikroampere yang benar (`1000000` = 1A) alih-alih `6000` yang sebelumnya dibaca driver sebagai 6 mA.
 - **Kalibrasi Satuan Telemetri Charging (`status_json`)**: Mengeliminasi bug unsigned underflow pada `adapter_current_ma` serta menyesuaikan ambang batas konversi mikroampere `c_clean`, memastikan arus negatif discharging seperti `-27400 uA` terbaca presisi sebagai `-27 mA` bukan `-27400 mA`.
@@ -7479,8 +7495,8 @@ Released on: 2026-10-11
 - **Integrasi Android Broadcast `ACTION_POWER_DISCONNECTED`**: Mendaftarkan receiver `ACTION_POWER_DISCONNECTED` pada `LynxPowerReceiver` dan manifes Android sehingga aplikasi segera memanggil `lynxd charging disconnect` saat kabel daya dilepas.
 
 ### 3. Restorasi Penuh Kebijakan Termal & Eliminasi Kebocoran Arus Discharging (Zero Battery Drain)
-- **Eliminasi Kebocoran Arus Masif Saat Discharging**: Mengatasi celah kritis di mana mode extreme charging sebelumnya menaikkan semua thermal trip points ke 95°C (`95000`) dan membekukan daemon thermal OEM (`thermalloadalgod`, `joyose`, `mi_thermald`) via `SIGSTOP`. Ketika kabel dicabut, ketiadaan proses restorasi sebelumnya meninggalkan trip points di 95°C dan daemon tetap beku, menyebabkan CPU/GPU berjalan tanpa thermal scaling saat baterai digunakan normal sehingga memicu panas dan baterai cepat habis.
-- **Restorasi Otomatis Trip Points & Cooling Devices**: Saat kabel dilepas, fungsi `handle_disconnect()` seketika merestorasi seluruh `trip_point_*_temp` ke ambang batas aman normal (48°C / 70°C), mengaktifkan kembali thermal mode (`mode = enabled`), mengembalikan `cur_state` cooling devices, dan mengirimkan sinyal `SIGCONT` untuk mencairkan kembali daemon thermal OEM.
+- **Eliminasi Kebocoran Arus Masif Saat Discharging**: Mengatasi celah kritis di mana mode extreme charging sebelumnya menaikkan semua thermal trip points ke 95Â°C (`95000`) dan membekukan daemon thermal OEM (`thermalloadalgod`, `joyose`, `mi_thermald`) via `SIGSTOP`. Ketika kabel dicabut, ketiadaan proses restorasi sebelumnya meninggalkan trip points di 95Â°C dan daemon tetap beku, menyebabkan CPU/GPU berjalan tanpa thermal scaling saat baterai digunakan normal sehingga memicu panas dan baterai cepat habis.
+- **Restorasi Otomatis Trip Points & Cooling Devices**: Saat kabel dilepas, fungsi `handle_disconnect()` seketika merestorasi seluruh `trip_point_*_temp` ke ambang batas aman normal (48Â°C / 70Â°C), mengaktifkan kembali thermal mode (`mode = enabled`), mengembalikan `cur_state` cooling devices, dan mengirimkan sinyal `SIGCONT` untuk mencairkan kembali daemon thermal OEM.
 - **Pemulihan Driver Hardware & Profil Termal Aktif**: Mengembalikan setelan `clabcct`, `dv2_debug`, dan `pcb_thermal_debug` ke profil discharging normal serta menyinkronkan kembali governor thermal sesuai profil pengguna aktif (`conservative`, `stable`, atau `gaming`).
 
 ---
@@ -7493,7 +7509,7 @@ Released on: 2026-10-11
 
 ### 1. Virtualisasi Penuh Subhalaman GPU (`LazyColumn` Migration)
 - **Eliminasi Bottleneck Layout Unvirtualized**: Mengalihkan kontainer subhalaman Pusat Tuning dari `Column(Modifier.verticalScroll)` ke arsitektur modular `LazyColumn(state = subscreenLazyState, flingBehavior = subscreenFling)` dengan item bertingkat ber-kunci unik (`tuningGpuCategoryItems`).
-- **Pencegahan Event Starvation & Micro-Stutter**: Sebelumnya, geseran cepat pada kontainer statis memaksa re-layout seluruh 7 kartu masif (~5000px tinggi konten) pada setiap pergerakan subpixel, menahan UI thread selama 35–50ms dan memicu antrean *MotionEvent backlog*. Dengan virtualisasi LazyList, waktu tata letak per frame dipangkas ke <2ms, memungkinkan respons instan pada laju penyegaran 120Hz.
+- **Pencegahan Event Starvation & Micro-Stutter**: Sebelumnya, geseran cepat pada kontainer statis memaksa re-layout seluruh 7 kartu masif (~5000px tinggi konten) pada setiap pergerakan subpixel, menahan UI thread selama 35â50ms dan memicu antrean *MotionEvent backlog*. Dengan virtualisasi LazyList, waktu tata letak per frame dipangkas ke <2ms, memungkinkan respons instan pada laju penyegaran 120Hz.
 - **Dukungan Gestur Geser Dua Arah Kontinu**: Pengguna kini dapat menggeser layar ke bawah lalu ke atas secara cepat dan berulang dalam satu sentuhan (*single continuous stroke*) dengan kehalusan 100% tanpa ada frame drop atau sensasi terkunci (*stuck*).
 
 ### 2. Penyempurnaan Boundary Gating Fling Kinetik
@@ -7521,7 +7537,7 @@ Released on: 2026-10-11
 
 # Lynx Universal [Real-Time Per-Core Telemetry & Kernel CPU Stat Calibration] 7.0.0-RC10
 Released on: 2026-10-11
-> **Lynx Universal v7.0.0-RC10** menghadirkan pembaruan esensial pada subsistem telemetri kernel dan pemantauan perangkat keras (Lynx Kernel Manager v3.0.75): **Perbaikan Akurasi Beban Inti CPU 100% Real-Time & Kalibrasi `/proc/stat` Per-Core**. Mengeliminasi total anomali di mana kartu status inti fisik CPU (C0–C7) sebelumnya stuck di angka 0% saat sistem berada di bawah beban komputasi tinggi. Kini seluruh progress bar dan metrik beban individual terintegrasi penuh secara presisi dengan tick delta kernel Linux.
+> **Lynx Universal v7.0.0-RC10** menghadirkan pembaruan esensial pada subsistem telemetri kernel dan pemantauan perangkat keras (Lynx Kernel Manager v3.0.75): **Perbaikan Akurasi Beban Inti CPU 100% Real-Time & Kalibrasi `/proc/stat` Per-Core**. Mengeliminasi total anomali di mana kartu status inti fisik CPU (C0âC7) sebelumnya stuck di angka 0% saat sistem berada di bawah beban komputasi tinggi. Kini seluruh progress bar dan metrik beban individual terintegrasi penuh secara presisi dengan tick delta kernel Linux.
 
 ## Rangkuman Pembaruan Arsitektur Inti (7.0.0-RC10)
 
@@ -7540,7 +7556,7 @@ Released on: 2026-10-11
 
 ### 1. Eliminasi Total Fallback Slider & Task Priority Boost
 - **Dual-Sync EAS Schedtune & Uclamp**: Mengatasi inkonsistensi kernel pada platform MediaTek dan Qualcomm di mana penyesuaian Task Priority Boost kini menyinkronkan kedua node (`uclampMin` dan `topAppSchedtuneBoost`) secara simultan, mencegah pembacaan status usang saat refresh berkala.
-- **Perbaikan Resolusi Skala 0–100%**: Memperbaiki validasi ambang batas `resolveBoostPct` pada kartu Penjadwal Kernel dari rentang kaku `1..100` menjadi `0..100`, memastikan nilai 0% (Hemat Daya) terkunci stabil tanpa memantul kembali ke nilai sebelumnya.
+- **Perbaikan Resolusi Skala 0â100%**: Memperbaiki validasi ambang batas `resolveBoostPct` pada kartu Penjadwal Kernel dari rentang kaku `1..100` menjadi `0..100`, memastikan nilai 0% (Hemat Daya) terkunci stabil tanpa memantul kembali ke nilai sebelumnya.
 - **Interaksi Dragging Intent Lock**: Komponen `Slider` kini mengunci state lokal selama interaksi geser (`isDragging = true`) dan mempertahankan pelindung jeda 3500ms setelah interaksi selesai (`onValueChangeFinished`), menjamin nilai baru tidak ditimpa oleh polling telemetri.
 
 ### 2. Eliminasi Switch Rubberbanding & Polling Shield
@@ -7562,7 +7578,7 @@ Released on: 2026-10-11
 - **Unifikasi Subscreen Fling Behavior**: Menghubungkan parameter `flingBehavior = fluidFling` ke seluruh kontainer `verticalScroll` di subhalaman Pusat Tuning (CPU, GPU & Display, Termal, Baterai, Memori, Jaringan, dan Sistem), menjamin konsistensi luncuran di seluruh kedalaman aplikasi.
 
 ### 2. Stabilisasi Layout & Eliminasi Recoil Jump
-- **Stabilisasi Kunci Item Unconditional**: Mengunci item dinamis `wattage` dan `thermal_zones` secara permanen dengan filter suhu aman (15°C–110°C) di dalam `LazyColumn`, mencegah *layout shift* yang sebelumnya memicu pemantulan balik (*recoil jump*) saat telemetri di-update tiap detik.
+- **Stabilisasi Kunci Item Unconditional**: Mengunci item dinamis `wattage` dan `thermal_zones` secara permanen dengan filter suhu aman (15Â°Câ110Â°C) di dalam `LazyColumn`, mencegah *layout shift* yang sebelumnya memicu pemantulan balik (*recoil jump*) saat telemetri di-update tiap detik.
 - **Pembersihan Material 3 Tonal Elevation**: Menghapus kalkulasi `surfaceTint` shader pada komponen `SubsystemCategoryCard` untuk mengeliminasi beban rendering berulang di UI thread.
 - **Peningkatan Bottom Clearance**: Menambah tinggi spacer bawah menjadi 130.dp untuk memberikan ruang bernapas optimal di balik *floating capsule dock*.
 
@@ -7605,8 +7621,8 @@ Released on: 2026-10-11
 
 ### 3. Unlock Penuh 33W+ 2:1 Direct Charge Pump (`pca_dv2_algo`)
 - **Pencegahan Throttling PCB/NTC**: Menginjeksi parameter kalibrasi pull-up `/proc/driver/thermal/tzbts_param` sehingga sensor suhu PCB stabil di Level 4 tanpa penalti pengurangan arus.
-- **Thermal Table Override**: Mengunci batas termal driver `/sys/devices/platform/pca_dv2_algo/dv2_debug` (`[101,85,88,90,0,0,0]` dan `[102,85,88,90,0,0,0]`) agar arus pompa 2:1 tidak dicekik hingga suhu 85–90°C.
-- **Verifikasi Perangkat Riil**: Arus pengisian melonjak dari 1.636 mA (~6.8W) ke 3.754 – 4.150 mA (29.7W – 33W+ daya masukan adapter).
+- **Thermal Table Override**: Mengunci batas termal driver `/sys/devices/platform/pca_dv2_algo/dv2_debug` (`[101,85,88,90,0,0,0]` dan `[102,85,88,90,0,0,0]`) agar arus pompa 2:1 tidak dicekik hingga suhu 85â90Â°C.
+- **Verifikasi Perangkat Riil**: Arus pengisian melonjak dari 1.636 mA (~6.8W) ke 3.754 â 4.150 mA (29.7W â 33W+ daya masukan adapter).
 
 ### 4. Perbaikan Hardware AutoCut 0 mA & Batas Pengisian Cerdas (Bypass)
 - **Zero Current Hardware Interlock**: Memperbaiki `apply_bypass_charging()` di `lynxd` agar mengunci `/sys/devices/platform/charger/input_current` ke `0` (sebelumnya keliru diatur ke 6000mA), mematikan switched capacitor pump (`enable_sc=0`), dan mengunci MediaTek ABCCT thermal derater ke 0 mA (`clabcct` & `clabcct_lcmoff` = `"30000 1000 200000 5 0 0 0 0"`).
@@ -7630,7 +7646,7 @@ Released on: 2026-10-10
 - **Tmpfs RAM Snapshot**: Background daemon `lynxd` menulis snapshot telemetri terpadu secara atomik ke RAM tmpfs (`/dev/lynxd_telemetry.json`, `0644`) pada setiap siklus adaptif 1 detik.
 - **Zero Shell Fork**: WebUI dan Android Companion App kini membaca langsung berkas snapshot memori dari RAM tanpa meluncurkan subprocess `su -c` atau script shell berulang kali.
 - **SELinux Enforcing Friendly**: Aturan `sepolicy.rule` diperbarui untuk memberikan izin baca node RAM tmpfs bagi domain `untrusted_app` secara aman tanpa menurunkan keamanan kernel.
-- **Microsecond Fallback Cascade**: Protokol 4-tingkat: Tier 0 (Direct File Read in-process <0.05ms) → Tier 1 (`cat` RAM snapshot <1ms) → Tier 2 (`lynxd telemetry` command <2ms) → Tier 3 (Standalone direct sysfs fallback).
+- **Microsecond Fallback Cascade**: Protokol 4-tingkat: Tier 0 (Direct File Read in-process <0.05ms) â Tier 1 (`cat` RAM snapshot <1ms) â Tier 2 (`lynxd telemetry` command <2ms) â Tier 3 (Standalone direct sysfs fallback).
 
 ### 2. Konsolidasi Tunggal WebUI Dashboard Polling
 - **Single-Endpoint Dispatch**: Menghilangkan 4 eksekusi subprocess shell paralel per 1.5 detik (`pollGpuInfo`, `pollThermalZones`, `cat sysfs`).
@@ -7650,7 +7666,7 @@ Released on: 2026-10-10
 ### 5. Pembersihan Total Redundansi & Optimalisasi Bobot Modul (5.16 MB)
 - **Eliminasi 7.3 MB Binary Redundan**: Membersihkan direktori `system/bin/feravolt/` (`busybox64`, `busybox86`, `busybox7`) dan binary usang (`dex2oat_opt32`, `dex2oat_opt64`, `gmsc`). Seluruh fungsi pemeliharaan dan busybox mengandalkan native core atau toolchain resmi Magisk/KernelSU.
 - **Pembersihan 38 Skrip Shell Usang (`core/lib/`)**: Menghapus seluruh skrip usang yang logikanya telah 100% dimigrasikan ke Rust (`verify_profile.sh`, `deep_inspector.sh`, `gpu_manager.sh`, `swap.sh`, `cluster_manager.sh`, `telemetry.sh`, `zram.sh`, `game_pacing.sh`, `hw_probe.sh`, dll.).
-- **Perampingan Skrip Monolitik Menjadi Facade Murni**: `core/apply_profile.sh` (89 KB → 1 KB), `core/Charging-Controller.sh` (45 KB → 750 B), `Smart-AI.sh`, `lynx_watcher.sh`, serta seluruh platform profile scripts (`platforms/mtk/`, `platforms/qcom/`, `platforms/generic/`) dipangkas menjadi facade delegator murni ke `lynxd`.
+- **Perampingan Skrip Monolitik Menjadi Facade Murni**: `core/apply_profile.sh` (89 KB â 1 KB), `core/Charging-Controller.sh` (45 KB â 750 B), `Smart-AI.sh`, `lynx_watcher.sh`, serta seluruh platform profile scripts (`platforms/mtk/`, `platforms/qcom/`, `platforms/generic/`) dipangkas menjadi facade delegator murni ke `lynxd`.
 - **Optimasi Ukuran ZIP Rilis**: Ukuran zip flashable Magisk/KernelSU turun drastis dari >30 MB menjadi **5.16 MB** lengkap dengan binary Rust dan aplikasi Android release R8/ProGuard.
 
 ---
@@ -7717,10 +7733,10 @@ Released on: 2026-10-10
 ### 1. Native Thermal Controller Subsystem (`lynxd thermal`)
 - **Zero-Hardcode Zone Inspection**: Memindai seluruh `/sys/class/thermal/thermal_zone*` dan `cooling_device*` secara dinamis dalam format JSON ultra-cepat.
 - **Hardware Safety Throttling**: 4 profil terpadu (`conservative`, `stable`, `gaming`, `extreme`) dengan kalibrasi trip points presisi, perlindungan sensor baterai (JEITA strictly preserved), dan pembekuan daemon throttling agresif (`mi_thermald`, `thermal-engine`, `joyose`) via sinyal atomik `SIGSTOP`/`SIGCONT`.
-- **Live Limit Regulator**: Memungkinkan pengaturan batas suhu custom SoC on-the-fly (`lynxd thermal set-limit <°C>`) tanpa menyentuh zona baterai.
+- **Live Limit Regulator**: Memungkinkan pengaturan batas suhu custom SoC on-the-fly (`lynxd thermal set-limit <Â°C>`) tanpa menyentuh zona baterai.
 
 ### 2. Autonomous Game & Render Pacing Optimizer (`lynxd game`)
-- **Hardware Scheduling & EAS Boost**: Mengatur `cpu.uclamp.min` (skala 0–100 atau 0–1024), schedutil sub-millisecond rate limits (`500µs`/`20000µs`), dan MGLRU.
+- **Hardware Scheduling & EAS Boost**: Mengatur `cpu.uclamp.min` (skala 0â100 atau 0â1024), schedutil sub-millisecond rate limits (`500Âµs`/`20000Âµs`), dan MGLRU.
 - **Kernel Game Library Injection**: Injeksi string library engine game (`UnityMain`, `libUE4.so`, `libil2cpp.so`) langsung ke `/proc/sys/kernel/sched_lib_name` dengan force mask 255.
 - **Display & Audio MMAP**: Mengunci refresh rate layar tertinggi (`peak_refresh_rate`), mengaktifkan touch sampling game mode, serta mengonfigurasi jalur audio AAudio MMAP Exclusive untuk latensi suara minimal.
 - **Per-PID Thread Affinity Tuner**: Mengoptimalkan thread render/worker/audio secara modular berdasarkan identitas `comm` dan arsitektur CPU (Little vs Big/Prime cores).
@@ -7753,7 +7769,7 @@ Released on: 2026-10-10
 
 ### 2. Autonomous Background Daemon & Hysteresis Engine
 - **Event-Driven Foreground Watcher**: Menggantikan polling berat dengan deteksi instan (handover latency `74 ms`, jauh melampaui target < 100 ms).
-- **Hysteresis Cooldown Buffer**: Menahan status `performance` selama 3–5 detik saat keluar game, mencegah profile flapping atau micro-stutter saat multitasking chat.
+- **Hysteresis Cooldown Buffer**: Menahan status `performance` selama 3â5 detik saat keluar game, mencegah profile flapping atau micro-stutter saat multitasking chat.
 - **Deep Sleep Shield**: Daemon memutus polling saat layar mati (`Screen OFF`), memastikan CPU masuk ke *Deep Sleep C-States* (reduksi interupsi $< 5\text{ wakeups/jam}$).
 
 ### 3. Adaptive Thermal Governor & Dynamic Modifier
@@ -7779,12 +7795,12 @@ Released on: 2026-10-10
 ## Fitur Baru & Peningkatan (3.0.71)
 
 ### 1. Eliminasi Bug Status 'Baterai Penuh' Saat Kabel Dicabut
-- **Deteksi Presisi Status Colok/Cabut (`isPlugged`)**: Memperbaiki logika deteksi daya di mana sebelumnya status `Baterai Penuh • Daya Beralih ke Sistem` terus tertahan meskipun kabel charger telah dicabut.
-- **Pill Status Khusus Terputus**: Saat kabel tidak tersambung, antarmuka kini menampilkan indikator bersih bertema netral: `🔌 Terputus dari Pengisi Daya • Menggunakan Baterai`.
+- **Deteksi Presisi Status Colok/Cabut (`isPlugged`)**: Memperbaiki logika deteksi daya di mana sebelumnya status `Baterai Penuh â¢ Daya Beralih ke Sistem` terus tertahan meskipun kabel charger telah dicabut.
+- **Pill Status Khusus Terputus**: Saat kabel tidak tersambung, antarmuka kini menampilkan indikator bersih bertema netral: `ð Terputus dari Pengisi Daya â¢ Menggunakan Baterai`.
 - **Pembersihan State Kernel (`Charging-Controller.sh`)**: Daemon pengisian daya kini seketika membersihkan file state (`/dev/lynx_charging_state`, `/dev/lynx_charging_guard`, `/dev/lynx_extreme_charging`) saat kabel dilepas atau status baterai beralih ke *Discharging*.
 
 ### 2. Metrik Daya Konsumsi Baterai Riil Saat Unplugged
-- **Eradikasi Nilai Sisa Adaptor (Stale Sysfs)**: Mengeliminasi pembacaan residu sysfs adaptor (`4.1 V • 6000 mA`) saat kabel dicabut.
+- **Eradikasi Nilai Sisa Adaptor (Stale Sysfs)**: Mengeliminasi pembacaan residu sysfs adaptor (`4.1 V â¢ 6000 mA`) saat kabel dicabut.
 - **Kartu Konsumsi Baterai**: Saat tidak terhubung ke listrik, kolom adaptor menampilkan status `Terputus (Kabel tidak terhubung)`, dan kolom baterai beralih menampilkan laju pengurasan baterai riil (*Discharge Wattage* & *Discharge Current*).
 - **Status Suplai Efisiensi**: Menampilkan status bersih `Daya Baterai (Discharging)` tanpa progress bar palsu saat kabel dilepas.
 
@@ -7796,13 +7812,13 @@ Released on: 2026-10-10
 
 # Lynx [Codename: Deity] 3.0.70
 Released on: 2026-10-10
-> **Versi ini** menghadirkan **Evolusi Cerdas Pengisian Baterai: Transformasi Mode Tidur Menjadi 'Pengisian Sejuk Malam Hari' (Gentle 1.5A Slow Charging 23:00-06:00 dengan Suhu Super Dingin <30°C), Slider 'Batas Pengisian Cerdas' (70%-100%) dengan Integrasi Jendela Hysteresis 3% Anti-Microcycling/Anti-Chattering (Mencegah Loop Colok-Cabut Berulang & Mencegah Baterai Drop), Serta Indikator Status Mode Dinamis Ungu di Tab Kontrol**.
+> **Versi ini** menghadirkan **Evolusi Cerdas Pengisian Baterai: Transformasi Mode Tidur Menjadi 'Pengisian Sejuk Malam Hari' (Gentle 1.5A Slow Charging 23:00-06:00 dengan Suhu Super Dingin <30Â°C), Slider 'Batas Pengisian Cerdas' (70%-100%) dengan Integrasi Jendela Hysteresis 3% Anti-Microcycling/Anti-Chattering (Mencegah Loop Colok-Cabut Berulang & Mencegah Baterai Drop), Serta Indikator Status Mode Dinamis Ungu di Tab Kontrol**.
 
 ## Fitur Baru & Peningkatan (3.0.70)
 
 ### 1. Pengisian Sejuk Malam Hari (Overnight Gentle Charge 23:00 - 06:00)
-- **Arus Lambat & Santai 1.5A**: Menggantikan saklar malam hari yang sebelumnya redundan dengan mode pengisian lambat adaptif. Saat ponsel dicas saat tidur di malam hari (23:00 - 06:00), arus otomatis dibatasi ke tingkat santai 1500mA (~6W - 7.5W), menjaga sel baterai tetap dingin di bawah 30°C tanpa stres termal akibat arus tinggi.
-- **Pill Status Khusus Mode Malam**: Menampilkan indikator status mode real-time bertema ungu `🌙 Pengisian Sejuk Malam Hari (1.5A • Mode Dingin)` saat mode tidur aktif.
+- **Arus Lambat & Santai 1.5A**: Menggantikan saklar malam hari yang sebelumnya redundan dengan mode pengisian lambat adaptif. Saat ponsel dicas saat tidur di malam hari (23:00 - 06:00), arus otomatis dibatasi ke tingkat santai 1500mA (~6W - 7.5W), menjaga sel baterai tetap dingin di bawah 30Â°C tanpa stres termal akibat arus tinggi.
+- **Pill Status Khusus Mode Malam**: Menampilkan indikator status mode real-time bertema ungu `ð Pengisian Sejuk Malam Hari (1.5A â¢ Mode Dingin)` saat mode tidur aktif.
 - **Integrasi Cerdas dengan Bypass**: Begitu baterai menyentuh persentase target pengguna (misal 80% atau 100%), sistem langsung beralih ke *True Hardware Bypass* tanpa menguras daya baterai.
 
 ### 2. Batas Pengisian Cerdas dengan Proteksi Hysteresis Buffer 3%
@@ -7832,13 +7848,13 @@ Released on: 2026-10-09
 
 # Lynx [Codename: Deity] 3.0.68
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Perombakan Menyeluruh Antarmuka Pengisian Daya (Charging UI Overhaul): Penyederhanaan Tata Letak yang Bersih, Intuitif, dan Bebas Redundansi, Eradikasi Istilah Teknis Membingungkan, Presisi 4-Pill Pemilihan Arus Mobile-First (Standar 2.0A, Cepat 4.5A, Maksimal 6.0A, Kustom), Serta Pemisahan Tegas Domain Kontrol Pengisian (Tab 0) dan Diagnostik Kesehatan & Riwayat Baterai (Tab 1)** — memberikan pengalaman pengguna yang estetis, mudah dipahami pengguna awam tanpa mengorbankan kedalaman fitur dan perlindungan hardware.
+> **Versi ini** menghadirkan **Perombakan Menyeluruh Antarmuka Pengisian Daya (Charging UI Overhaul): Penyederhanaan Tata Letak yang Bersih, Intuitif, dan Bebas Redundansi, Eradikasi Istilah Teknis Membingungkan, Presisi 4-Pill Pemilihan Arus Mobile-First (Standar 2.0A, Cepat 4.5A, Maksimal 6.0A, Kustom), Serta Pemisahan Tegas Domain Kontrol Pengisian (Tab 0) dan Diagnostik Kesehatan & Riwayat Baterai (Tab 1)** â memberikan pengalaman pengguna yang estetis, mudah dipahami pengguna awam tanpa mengorbankan kedalaman fitur dan perlindungan hardware.
 
 ## Fitur Baru & Peningkatan (3.0.68)
 
 ### 1. Desain Bersih & Human-Friendly pada Kontrol Pengisian (Tab 0)
 - **Eliminasi Jargon Teknis**: Mengganti teks panjang dan bertele-tele (seperti register, IC pump, hysteresis buffer) dengan penjelasan bahasa Indonesia yang ramah, ringkas, dan komunikatif.
-- **Pill Status Aktif Bersih**: Indikator status mode yang langsung dapat dipahami: `🛡️ Baterai Penuh • Daya Beralih ke Sistem`, `🛡️ Daya Langsung Aktif • Baterai Dilewati`, `❄️ Pendinginan Aktif (Baterai >90%)`, `⚡ Pengisian Cepat Aktif`, dan `⚖️ Pengisian Standar`.
+- **Pill Status Aktif Bersih**: Indikator status mode yang langsung dapat dipahami: `ð¡ï¸ Baterai Penuh â¢ Daya Beralih ke Sistem`, `ð¡ï¸ Daya Langsung Aktif â¢ Baterai Dilewati`, `âï¸ Pendinginan Aktif (Baterai >90%)`, `â¡ Pengisian Cepat Aktif`, dan `âï¸ Pengisian Standar`.
 - **4 Pilihan Batas Arus Mobile-First**: Menghapus opsi gimmick yang tidak realistis (10A/15A), digantikan dengan 4 tombol bersih bertarget sentuh $\ge 48\times 48\text{ px}$: `Standar (2.0A)`, `Cepat (4.5A)`, `Maksimal (6.0A)`, dan `Kustom...`.
 - **Navigasi Cepat Terpadu**: Menyematkan tombol akses cepat ke `Informasi Baterai` dan `Detail Sensor` di bagian bawah Tab 0.
 
@@ -7862,7 +7878,7 @@ Released on: 2026-10-09
 
 # Lynx [Codename: Deity] 3.0.67
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Otomasi Cerdas Anti-Overcharge & Dynamic True Hardware Bypass Latch pada Kapasitas Baterai 100% Penuh (Auto-Cut Arus Sel ke 0 mA, Penguncian Jalur Tegangan Vsys Langsung ke Motherboard dari Adaptor, Serta Proteksi Pelepasan Extreme Charging Watchdog saat Baterai Penuh)** — menjamin ponsel tetap dingin, baterai terlindungi dari degradasi overcharge semalaman (*overnight sleep insulation guard*), dan perangkat tetap beroperasi dengan daya penuh langsung dari adaptor tanpa siklus mikro (*zero-cycle preservation*).
+> **Versi ini** menghadirkan **Otomasi Cerdas Anti-Overcharge & Dynamic True Hardware Bypass Latch pada Kapasitas Baterai 100% Penuh (Auto-Cut Arus Sel ke 0 mA, Penguncian Jalur Tegangan Vsys Langsung ke Motherboard dari Adaptor, Serta Proteksi Pelepasan Extreme Charging Watchdog saat Baterai Penuh)** â menjamin ponsel tetap dingin, baterai terlindungi dari degradasi overcharge semalaman (*overnight sleep insulation guard*), dan perangkat tetap beroperasi dengan daya penuh langsung dari adaptor tanpa siklus mikro (*zero-cycle preservation*).
 
 ## Fitur Baru & Peningkatan (3.0.67)
 
@@ -7878,7 +7894,7 @@ Released on: 2026-10-09
 
 # Lynx [Codename: Deity] 3.0.66
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Eradikasi Total Kuncian Degradasi Protokol MediaTek Pump Express 4.0 / Transsion Super Charge (Pemberantasan Tulis Statis `Pump_Express = 2` pada Seluruh Daemon & Polling Loop 2.5s), Atomic Single-Script Differential Pulse & Measurement pada Cable Quality Benchmark, Serta Verifikasi Pengisian Ekstrem 2% ➔ 90% dalam ~50 Menit dengan Otomasi Smart Tapering Aktif** — memastikan throughput pengisian daya perangkat berdaya tinggi (33W/45W/68W) berjalan pada kecepatan fisik maksimal tanpa hambatan derating dan antarmuka benchmarking bekerja mulus tanpa race-condition.
+> **Versi ini** menghadirkan **Eradikasi Total Kuncian Degradasi Protokol MediaTek Pump Express 4.0 / Transsion Super Charge (Pemberantasan Tulis Statis `Pump_Express = 2` pada Seluruh Daemon & Polling Loop 2.5s), Atomic Single-Script Differential Pulse & Measurement pada Cable Quality Benchmark, Serta Verifikasi Pengisian Ekstrem 2% â 90% dalam ~50 Menit dengan Otomasi Smart Tapering Aktif** â memastikan throughput pengisian daya perangkat berdaya tinggi (33W/45W/68W) berjalan pada kecepatan fisik maksimal tanpa hambatan derating dan antarmuka benchmarking bekerja mulus tanpa race-condition.
 
 ## Fitur Baru & Peningkatan (3.0.66)
 
@@ -7894,18 +7910,18 @@ Released on: 2026-10-09
 - **High-Contrast Disabled State**: Menerapkan `disabledContainerColor` dan `disabledContentColor` berstandar tinggi pada tombol pengujian kabel di Tab Informasi & Statistik, menjaga teks "Menguji Loop Impedansi..." dan animasi circular spinner tetap tajam dan terbaca jelas selama proses pengujian.
 
 ### 4. Validasi Performa Lapangan Nyata
-- **Pengujian Pengecasan 2% ➔ 90%**: Teruji langsung pada Infinix Note 11S Helio G96, baterai naik dari kondisi sekarat 2% ke 90% dalam waktu ~50 menit (laju rata-rata 1% per 40-45 detik pada fase CC).
+- **Pengujian Pengecasan 2% â 90%**: Teruji langsung pada Infinix Note 11S Helio G96, baterai naik dari kondisi sekarat 2% ke 90% dalam waktu ~50 menit (laju rata-rata 1% per 40-45 detik pada fase CC).
 - **Aktivasi Presisi Smart Tapering**: Memverifikasi penurunan arus otomatis (`smart_tapering_active: true`) saat baterai menyentuh level 90% (4.40V - 4.47V) demi keamanan termal dan keawetan sel Li-ion.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.65
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Penyempurnaan Total Subsistem Baterai & Charging dengan Fitur Timeline Drain Baterai Interaktif 100% ➔ 0% (Smooth Cubic Bezier Curve, Dual-Color SOT vs Screen-Off/Deep Sleep Timeline Strip, Interactive Touch Scrubber, & Proyeksi Garis Putus-putus ke 20% dan 0% Habis), 30-Detik Automated Cable & Adapter Quality Benchmark (Loop Impedance Tester Mengukur Respons Diferensial ΔV/ΔI dalam mΩ, 5-Star Rating Visual, Penurunan Tegangan ΔV, & Rekomendasi Output Watt Maksimal Aman), iOS / Pixel-style Battery Health Assessment Hub (Badge Status Verbal "Sangat Prima" / "Normal" / "Perhatian", Estimasi Siklus Pemakaian Optimal 2-3 Tahun, Serta 1-Click Tombol Kalibrasi Indikator Baterai & Fuel Gauge), Top 5 Konsumsi Daya Aplikasi (Perhitungan mAh & Persentase Kontribusi, Progress Bar Relatif, dan Pintasan Cepat 1-Ketuk Menuju Detail Pengaturan Aplikasi Sistem), Night Sleep Guard (Preservasi Baterai Otomatis Mengaktifkan Hardware Bypass pada Pukul 23:00 - 06:00 Saat Mencapai Ambang Batas 80% Demi Mencegah Stres Trickle Charge Semalaman), Serta Kalibrasi Arsitektur Sel Baterai Dual-Cell 2S Multiplier (Opsi 1x Sel Tunggal vs 2x Sel Ganda Serial untuk Seri Xiaomi 120W, Realme SuperDart, dan Oppo SuperVOOC 2S)** — memperkuat Lynx sebagai modul root terdepan dengan analitik baterai tercanggih, visualisasi kurva presisi, pengujian integritas kabel hardware, dan proteksi sel lithium menyeluruh tanpa redundansi.
+> **Versi ini** menghadirkan **Penyempurnaan Total Subsistem Baterai & Charging dengan Fitur Timeline Drain Baterai Interaktif 100% â 0% (Smooth Cubic Bezier Curve, Dual-Color SOT vs Screen-Off/Deep Sleep Timeline Strip, Interactive Touch Scrubber, & Proyeksi Garis Putus-putus ke 20% dan 0% Habis), 30-Detik Automated Cable & Adapter Quality Benchmark (Loop Impedance Tester Mengukur Respons Diferensial ÎV/ÎI dalam mÎ©, 5-Star Rating Visual, Penurunan Tegangan ÎV, & Rekomendasi Output Watt Maksimal Aman), iOS / Pixel-style Battery Health Assessment Hub (Badge Status Verbal "Sangat Prima" / "Normal" / "Perhatian", Estimasi Siklus Pemakaian Optimal 2-3 Tahun, Serta 1-Click Tombol Kalibrasi Indikator Baterai & Fuel Gauge), Top 5 Konsumsi Daya Aplikasi (Perhitungan mAh & Persentase Kontribusi, Progress Bar Relatif, dan Pintasan Cepat 1-Ketuk Menuju Detail Pengaturan Aplikasi Sistem), Night Sleep Guard (Preservasi Baterai Otomatis Mengaktifkan Hardware Bypass pada Pukul 23:00 - 06:00 Saat Mencapai Ambang Batas 80% Demi Mencegah Stres Trickle Charge Semalaman), Serta Kalibrasi Arsitektur Sel Baterai Dual-Cell 2S Multiplier (Opsi 1x Sel Tunggal vs 2x Sel Ganda Serial untuk Seri Xiaomi 120W, Realme SuperDart, dan Oppo SuperVOOC 2S)** â memperkuat Lynx sebagai modul root terdepan dengan analitik baterai tercanggih, visualisasi kurva presisi, pengujian integritas kabel hardware, dan proteksi sel lithium menyeluruh tanpa redundansi.
 
 ## Fitur Baru & Peningkatan (3.0.65)
 
-### 1. Timeline Drain Baterai Interaktif (100% ➔ 0%)
+### 1. Timeline Drain Baterai Interaktif (100% â 0%)
 - **Kurva Bezier Halus (Smooth Cubic Splines)**: Visualisasi penurunan daya baterai dari 100% hingga level saat ini dengan gradien vertikal di bawah kurva yang estetik dan informatif.
 - **Dual-Color SOT vs Screen-Off Strip**: Pita horizontal di bagian bawah chart membedakan rentang waktu Layar Menyala (SOT hijau terang) dan Layar Mati (Standby / Deep Sleep abu-abu) secara real-time.
 - **Interactive Touch Scrubber**: Pengguna dapat menyentuh atau menggeser jari di sepanjang kurva untuk memeriksa persentase baterai, status layar (SOT / Standby), dan suhu sensor pada setiap titik waktu riwayat.
@@ -7939,7 +7955,7 @@ Released on: 2026-10-09
 
 # Lynx [Codename: Deity] 3.0.64
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Tab Informasi & Statistik Baterai Lengkap (Dual-Tab Subscreen Navigation: "Kontrol & Tuning" dan "Informasi & Statistik"), 4 Bento Cards Informasi Mendalam (Status Daya & Sesi Pengisian, Penggunaan & Ketahanan Daya / SOT, Spesifikasi Hardware & Degradasi Sel Baterai, serta Diagnostik Jalur Listrik & Suhu Multi-Titik), Pelacakan Sesi Pengisian Real-time (Durasi Menit:Detik, Akumulasi Energi Masuk +mAh dan +Wh, Daya Puncak & Rata-rata, Arus Puncak, Delta Level % Start ➔ Now, Ringkasan Sesi Terakhir Pasca-Cabut), Telemetri Waktu Penggunaan (Waktu Sejak Charger Dicabut, SOT Nyata vs Estimasi, Screen-Off Siaga, Rasio Deep Sleep Kernel %, Laju Pengurasan %/jam Aktif & Idle), Metrik Degradasi Hardware (Kapasitas Desain Pabrik vs Full Charge Capacity FCC, State of Health SoH % & Wear Level % dengan Visual Progress Bar, Siklus Pengisian Fisik, Resistansi Internal Sel ESR mΩ, dan Identifikasi Chip Fuel Gauge), Serta Matriks Suhu 4 Titik Kritis (BMS Inti, IC Charger, Port USB, Board AP)** — menyajikan visibilitas dan transparansi data kesehatan serta efisiensi daya perangkat secara menyeluruh, akurat, dan intuitif dengan standar desain Mobile-First Cyberpunk yang konsisten.
+> **Versi ini** menghadirkan **Tab Informasi & Statistik Baterai Lengkap (Dual-Tab Subscreen Navigation: "Kontrol & Tuning" dan "Informasi & Statistik"), 4 Bento Cards Informasi Mendalam (Status Daya & Sesi Pengisian, Penggunaan & Ketahanan Daya / SOT, Spesifikasi Hardware & Degradasi Sel Baterai, serta Diagnostik Jalur Listrik & Suhu Multi-Titik), Pelacakan Sesi Pengisian Real-time (Durasi Menit:Detik, Akumulasi Energi Masuk +mAh dan +Wh, Daya Puncak & Rata-rata, Arus Puncak, Delta Level % Start â Now, Ringkasan Sesi Terakhir Pasca-Cabut), Telemetri Waktu Penggunaan (Waktu Sejak Charger Dicabut, SOT Nyata vs Estimasi, Screen-Off Siaga, Rasio Deep Sleep Kernel %, Laju Pengurasan %/jam Aktif & Idle), Metrik Degradasi Hardware (Kapasitas Desain Pabrik vs Full Charge Capacity FCC, State of Health SoH % & Wear Level % dengan Visual Progress Bar, Siklus Pengisian Fisik, Resistansi Internal Sel ESR mÎ©, dan Identifikasi Chip Fuel Gauge), Serta Matriks Suhu 4 Titik Kritis (BMS Inti, IC Charger, Port USB, Board AP)** â menyajikan visibilitas dan transparansi data kesehatan serta efisiensi daya perangkat secara menyeluruh, akurat, dan intuitif dengan standar desain Mobile-First Cyberpunk yang konsisten.
 
 ## Fitur Baru & Peningkatan (3.0.64)
 
@@ -7948,7 +7964,7 @@ Released on: 2026-10-09
 - **Transisi Antar-Tab Instan**: Navigasi responsif berbasis target sentuh minimal 48dp dengan indikator tab aktif beraksen cyan dan blue.
 
 ### 2. Bento Card 1: Status Daya & Sesi Pengisian Real-Time
-- **Pelacak Sesi Pengisian Berkesinambungan**: Menghitung durasi aktif pengecasan (format menit & detik), delta peningkatan kapasitas (`Start% ➔ Now% (+Delta%)`), serta estimasi waktu hingga baterai penuh (ETA).
+- **Pelacak Sesi Pengisian Berkesinambungan**: Menghitung durasi aktif pengecasan (format menit & detik), delta peningkatan kapasitas (`Start% â Now% (+Delta%)`), serta estimasi waktu hingga baterai penuh (ETA).
 - **Kalkulasi Akumulasi Energi Masuk (+mAh & +Wh)**: Mengintegrasikan aliran arus dan tegangan secara live setiap detik untuk menghitung total energi riil yang tersimpan ke dalam sel baterai.
 - **Catatan Puncak & Rata-rata Daya**: Merekam daya tertinggi (Peak Watt), daya rata-rata (Average Watt), dan arus puncak (Peak mA) selama siklus pengecasan berlangsung.
 - **Riwayat Sesi Terakhir**: Mengunci dan menyimpan ringkasan statistik sesi pengisian terakhir saat kabel charger dicabut sebagai referensi evaluasi pengguna.
@@ -7960,20 +7976,20 @@ Released on: 2026-10-09
 - **Laju Pengurasan Daya (% / jam)**: Menampilkan perkiraan laju pemakaian daya aktif (~10.8%/jam) vs konsumsi daya idle (~0.8%/jam).
 
 ### 4. Bento Card 3: Spesifikasi Hardware & Degradasi Sel Baterai
-- **State of Health (SoH %) & Wear Level (%)**: Menghitung degradasi kimia sel baterai secara akurat berdasarkan perbandingan Full Charge Capacity (FCC) dan Kapasitas Desain Pabrik (`FCC / Design × 100%`) dilengkapi visual progress bar indikator kesehatan.
-- **Metrik Fisik Lengkap**: Siklus pengisian hardware nyata (`cycle_count`), kimia sel (`Li-ion`), resistansi internal sel (ESR dalam `mΩ`), resistansi kabel fisik (`mΩ`), serta rentang tegangan operasi sel baterai.
+- **State of Health (SoH %) & Wear Level (%)**: Menghitung degradasi kimia sel baterai secara akurat berdasarkan perbandingan Full Charge Capacity (FCC) dan Kapasitas Desain Pabrik (`FCC / Design Ã 100%`) dilengkapi visual progress bar indikator kesehatan.
+- **Metrik Fisik Lengkap**: Siklus pengisian hardware nyata (`cycle_count`), kimia sel (`Li-ion`), resistansi internal sel (ESR dalam `mÎ©`), resistansi kabel fisik (`mÎ©`), serta rentang tegangan operasi sel baterai.
 - **Identifikasi Chip Hardware**: Mendeteksi otomatis chip pengontrol fuel gauge (`MediaTek MT6358`, `Qualcomm SMB1390`, `Qualcomm PMIC BMS`, atau `Richtek RT9759`).
 
 ### 5. Bento Card 4: Diagnostik Jalur Listrik & Suhu Multi-Titik
 - **Protokol Negosiasi & Tegangan VBUS**: Membaca jenis protokol aktif dan tegangan rel adapter masukan VBUS (`5.0V`, `9.0V`, dll.).
-- **Matriks Suhu 4 Titik Kritis**: Memantau suhu pada 4 sensor esensial secara serentak: Sensor BMS Inti, Sensor IC Charger, Sensor Port USB/Type-C, dan Sensor Board AP/CPU dengan penyaringan nilai valid (`in 15°C..105°C`).
+- **Matriks Suhu 4 Titik Kritis**: Memantau suhu pada 4 sensor esensial secara serentak: Sensor BMS Inti, Sensor IC Charger, Sensor Port USB/Type-C, dan Sensor Board AP/CPU dengan penyaringan nilai valid (`in 15Â°C..105Â°C`).
 - **Akses Cepat Telemetri Lanjutan**: Tautan 1-ketuk langsung membuka bottom sheet registrasi Raw ADC dan seluruh sensor thermal zone kernel.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.63
 Released on: 2026-10-09
-> **Versi ini** menghadirkan **Perombakan & Redesain Total Subsistem Baterai & Charging Menjadi Arsitektur 3 Bento Cards Terpadu (Universal 3-Bento Cards Architecture), 1-Click Master Switch "Super Fast Charging" dengan Universal Hardware Unlock (MediaTek Pump Express 4.0 / RT9759 Charge Pump, Qualcomm SMB / Parallel Charging, Xiaomi HyperCharge, SuperVOOC, Samsung SFC, & Google Tensor), Dual Wattmeter Real-time (Adapter Input vs Battery Net Power) & Efisiensi Konversi IC Pump (%), 60s Bezier Sparkline Waveform Arus Baterai Real-time, Quick Current Pills (2.0A s/d 15.0A, Max HW) & Dialog Arus Kustom Bebas Batasan Tanpa Slider, Proteksi Cerdas Hardware Direct Bypass Motherboard (Net 0mA) dengan Slider Auto-Bypass Berbuffer Histeresis 95%, Smart Tapering 90%+, Silent Emergency Guard (≥49°C BMS), Dual-Sensor Suhu Baterai (BMS Fisik vs Spoofed 28°C), Safeguard Proteksi Host PC/Laptop (1.5A Limit), Serta Modal Bottom Sheet Telemetri Tingkat Lanjut (Raw ADC Registers & Matriks Sensor Thermal Zone Lengkap)** — menyatukan seluruh kontrol pengisian daya yang sebelumnya terfragmentasi menjadi satu antarmuka yang bersih, intuitif, cepat, dan berdaya guna tinggi tanpa redundansi; memastikan pengisian daya super cepat dapat langsung aktif hanya dengan satu sentuhan dan tetap tangguh terhadap reboot zygote, siklus layar mati-hidup, maupun event hotplug charger; serta menjaga integritas motherboard laptop saat tersambung melalui deteksi port otomatis.
+> **Versi ini** menghadirkan **Perombakan & Redesain Total Subsistem Baterai & Charging Menjadi Arsitektur 3 Bento Cards Terpadu (Universal 3-Bento Cards Architecture), 1-Click Master Switch "Super Fast Charging" dengan Universal Hardware Unlock (MediaTek Pump Express 4.0 / RT9759 Charge Pump, Qualcomm SMB / Parallel Charging, Xiaomi HyperCharge, SuperVOOC, Samsung SFC, & Google Tensor), Dual Wattmeter Real-time (Adapter Input vs Battery Net Power) & Efisiensi Konversi IC Pump (%), 60s Bezier Sparkline Waveform Arus Baterai Real-time, Quick Current Pills (2.0A s/d 15.0A, Max HW) & Dialog Arus Kustom Bebas Batasan Tanpa Slider, Proteksi Cerdas Hardware Direct Bypass Motherboard (Net 0mA) dengan Slider Auto-Bypass Berbuffer Histeresis 95%, Smart Tapering 90%+, Silent Emergency Guard (â¥49Â°C BMS), Dual-Sensor Suhu Baterai (BMS Fisik vs Spoofed 28Â°C), Safeguard Proteksi Host PC/Laptop (1.5A Limit), Serta Modal Bottom Sheet Telemetri Tingkat Lanjut (Raw ADC Registers & Matriks Sensor Thermal Zone Lengkap)** â menyatukan seluruh kontrol pengisian daya yang sebelumnya terfragmentasi menjadi satu antarmuka yang bersih, intuitif, cepat, dan berdaya guna tinggi tanpa redundansi; memastikan pengisian daya super cepat dapat langsung aktif hanya dengan satu sentuhan dan tetap tangguh terhadap reboot zygote, siklus layar mati-hidup, maupun event hotplug charger; serta menjaga integritas motherboard laptop saat tersambung melalui deteksi port otomatis.
 
 ## Fitur Baru & Peningkatan (3.0.63)
 
@@ -7983,10 +7999,10 @@ Released on: 2026-10-09
 - **Safeguard Otomatis Port Laptop/PC Host**: Mendeteksi port koneksi host (`SDP`, `CDP`, `pc_port`) secara otomatis dan mengunci batas arus maksimal pada 1.5A guna mencegah arus berlebih (overcurrent) yang dapat merusak motherboard laptop pengguna.
 
 ### 2. Dual Wattmeter, Efisiensi IC Pump & 60s Bezier Sparkline Waveform
-- **Dual Real-time Wattmeter**: Menampilkan perbandingan daya masukan adaptor (`V × I`) dan daya netto yang masuk ke sel baterai secara berdampingan dengan pembaharuan real-time bebas kedipan.
-- **Indikator Efisiensi Konversi IC Pump (%)**: Menghitung rasio efisiensi konversi daya antara adapter dan baterai secara dinamis (`Net Watt / Adapter Watt × 100%`).
+- **Dual Real-time Wattmeter**: Menampilkan perbandingan daya masukan adaptor (`V Ã I`) dan daya netto yang masuk ke sel baterai secara berdampingan dengan pembaharuan real-time bebas kedipan.
+- **Indikator Efisiensi Konversi IC Pump (%)**: Menghitung rasio efisiensi konversi daya antara adapter dan baterai secara dinamis (`Net Watt / Adapter Watt Ã 100%`).
 - **Waveform Arus Real-time 60-Detik (`ChargingSparklineWaveform`)**: Menampilkan grafik riwayat fluktuasi arus pengisian daya menggunakan interpolasi kurva kubik Bezier halus dengan aksen gradien cyan-emerald.
-- **Deteksi Resistansi Kabel Fisik**: Menampilkan resistansi kabel charger dalam satuan milliohm (`mΩ`) langsung dari register hardware fuel gauge (`FG_meter_resistance`) disertai evaluasi kualitas fisik kabel (Sangat Bagus, Bagus, Standar, Kurang Bagus).
+- **Deteksi Resistansi Kabel Fisik**: Menampilkan resistansi kabel charger dalam satuan milliohm (`mÎ©`) langsung dari register hardware fuel gauge (`FG_meter_resistance`) disertai evaluasi kualitas fisik kabel (Sangat Bagus, Bagus, Standar, Kurang Bagus).
 
 ### 3. Pilihan Cepat Batas Arus & Dialog Arus Kustom Bebas Batasan
 - **Quick-Pills Batas Arus**: Pilihan preset cepat 1-ketuk: `2.0A`, `4.5A`, `6.0A`, `10.0A`, `15.0A`, dan `Max HW Unconstrained`.
@@ -7996,10 +8012,10 @@ Released on: 2026-10-09
 - **Bypass Motherboard (Direct Power)**: Mengalirkan daya adaptor langsung ke motherboard (`Vsys`) dan menghentikan pengisian baterai (net arus ~0mA) saat gaming intensif agar sel baterai tetap dingin.
 - **Ambang Batas Auto-Bypass & Histeresis Buffer 95%**: Slider batas pengisian (70% - 100%). Pada 70%, sistem otomatis mengunci bypass. Jika baterai turun ke 66%, pengisian aktif kembali. Pada 100%, sistem mengunci bypass semalaman agar aman ditinggal tidur.
 - **Smart Tapering (Pendinginan Baterai 90%+)**: Menurunkan arus secara bertahap di atas 90% (90-95%: 1500mA, 95-99%: 750mA) demi mendinginkan sel sebelum mencapai kapasitas penuh.
-- **Silent Emergency Guard**: Pemantauan pasif sensor suhu fisik nyata BMS (`mtktsbattery`). Jika suhu menyentuh atau melampaui 49.0°C, arus darurat langsung diturunkan ke 1.5A untuk mencegah degradasi sel baterai.
+- **Silent Emergency Guard**: Pemantauan pasif sensor suhu fisik nyata BMS (`mtktsbattery`). Jika suhu menyentuh atau melampaui 49.0Â°C, arus darurat langsung diturunkan ke 1.5A untuk mencegah degradasi sel baterai.
 
 ### 5. Dual-Sensor Suhu Baterai & Modal Bottom Sheet Telemetri ADC
-- **Dual-Temperature Display**: Menampilkan perbandingan langsung antara suhu baterai spoofed (28.0°C bypass) dan suhu fisik nyata dari sensor BMS hardware (`mtktsbattery`).
+- **Dual-Temperature Display**: Menampilkan perbandingan langsung antara suhu baterai spoofed (28.0Â°C bypass) dan suhu fisik nyata dari sensor BMS hardware (`mtktsbattery`).
 - **Telemetri Fisik Lengkap**: Informasi real-time kapasitas baterai, status kesehatan, siklus pengisian fisik nyata (cycle count), dan tegangan sel.
 - **Modal Bottom Sheet ("Hardware Telemetri & Raw ADC")**: Menampilkan tabel seluruh register ADC charger fisik (`Pump_Express_VCharger`, `sc_ibat_limit`, `pdc_max_watt`, `BN_TestMode`, dll.) serta matriks lengkap seluruh sensor `thermal_zone` perangkat secara langsung dari kernel sysfs.
 
@@ -8007,7 +8023,7 @@ Released on: 2026-10-09
 
 # Lynx [Codename: Deity] 3.0.62
 Released on: 2026-10-08
-> **Versi ini** menghadirkan **Penyelarasan & Perbaikan Parameter Extreme Charging MediaTek & Richtek RT9759 Direct Charge Pump (6A+ / 33W Unlock), Koreksi Parameter Arus MediaTek (Eliminasi Nilai Overflow 24576 mA Menjadi 6000 mA / 6A & Batas Watt 33W Sesuai Spesifikasi Fisik Hardware), Integrasi Bypass Proteksi Termal PCB Transsion (`pcb_thermal_debug`), Serta Kalibrasi Telemetri Arus Adapter & Baterai Bebas Distorsi Pada Aplikasi Native Android (`LynxCompanion`)** — memperbaiki kendala arus pengisian daya yang sebelumnya tertahan di ~2A akibat nilai arus melebihi kapasitas register driver kernel MediaTek yang memicu fallback ke batas aman OEM; membuka penuh rel daya Pump Express 4.0 dan IC Charge Pump 2:1 hingga 6000 mA; serta menyempurnakan pembacaan telemetri arus adapter dan daya watt secara presisi di antarmuka aplikasi native.
+> **Versi ini** menghadirkan **Penyelarasan & Perbaikan Parameter Extreme Charging MediaTek & Richtek RT9759 Direct Charge Pump (6A+ / 33W Unlock), Koreksi Parameter Arus MediaTek (Eliminasi Nilai Overflow 24576 mA Menjadi 6000 mA / 6A & Batas Watt 33W Sesuai Spesifikasi Fisik Hardware), Integrasi Bypass Proteksi Termal PCB Transsion (`pcb_thermal_debug`), Serta Kalibrasi Telemetri Arus Adapter & Baterai Bebas Distorsi Pada Aplikasi Native Android (`LynxCompanion`)** â memperbaiki kendala arus pengisian daya yang sebelumnya tertahan di ~2A akibat nilai arus melebihi kapasitas register driver kernel MediaTek yang memicu fallback ke batas aman OEM; membuka penuh rel daya Pump Express 4.0 dan IC Charge Pump 2:1 hingga 6000 mA; serta menyempurnakan pembacaan telemetri arus adapter dan daya watt secara presisi di antarmuka aplikasi native.
 
 ## Fitur Baru & Peningkatan (3.0.62)
 
@@ -8018,13 +8034,13 @@ Released on: 2026-10-08
 
 ### 2. Kalibrasi Telemetri Arus & Wattmeter di LynxCompanion
 - **Fallback Pembacaan Arus Multi-Node**: Menambahkan fallback pembacaan node arus charger perangkat keras (`/sys/devices/platform/charger/input_current` dan `chg1_current`) pada `readBatteryDetails()` di repository Android native.
-- **Normalisasi Heuristik Satuan Arus (mA vs µA)**: Memperbaiki deteksi rentang nilai telemetri arus agar nilai mA (100–9000 mA) dan µA (>100000 µA) tidak lagi mengalami perkalian atau pembagian keliru, memastikan tampilan wattmeter dan arus netto baterai akurat 100%.
+- **Normalisasi Heuristik Satuan Arus (mA vs ÂµA)**: Memperbaiki deteksi rentang nilai telemetri arus agar nilai mA (100â9000 mA) dan ÂµA (>100000 ÂµA) tidak lagi mengalami perkalian atau pembagian keliru, memastikan tampilan wattmeter dan arus netto baterai akurat 100%.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.61
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Propagasi Menyeluruh Master CPU Preset ke Seluruh Subsistem CPU Performance (Comprehensive Preset Subsystem Propagation), Penguncian Gembok Frekuensi Otomatis Pada Mode Ekstrem (Cluster Lock Automation), Penyelarasan Otomatis Core Parking (Unpark Semua vs Dinamis vs Parkir Big), Profil Terpadu CPU Idle C-States & Task Shield CPU Sets, Konfigurasi Penjadwal & Histeresis Adaptif, Serta Penambahan Indikator Status Modifikasi Reaktif Pada Header Tab Performance** — memastikan bahwa setiap kali pengguna memilih salah satu dari 4 Master CPU Preset (Battery, Balanced, Performance, Ekstrem), seluruh parameter subsistem CPU secara otomatis mengikuti profil terpilih; Mode Ekstrem mengunci frekuensi puncak kluster 100% dan mengaktifkan gembok kluster secara otomatis, membuka seluruh inti prosesor (Unpark Semua), mengaktifkan Zero Latency pada CPU Idle C-States, menerapkan isolasi gaming pada Task Shield CPU Sets, menyetel histeresis penjadwal agresif 50/30, serta menyalakan bypass kebijakan daya perangkat keras (MTK PPM & Qualcomm Touchboost); sementara mode Battery, Balanced, dan Performance membuka gembok kluster untuk memungkinkan downclocking dinamis dan menyelaraskan konfigurasi subsistem terkait; serta menambahkan pill indikator status reaktif (Standar Profil / Terkustomisasi) pada header PILIH MODE PERFORMA (3+1) di Tab 0 agar status modifikasi manual langsung terlihat tanpa harus berpindah ke Tab 1.
+> **Versi ini** menghadirkan **Propagasi Menyeluruh Master CPU Preset ke Seluruh Subsistem CPU Performance (Comprehensive Preset Subsystem Propagation), Penguncian Gembok Frekuensi Otomatis Pada Mode Ekstrem (Cluster Lock Automation), Penyelarasan Otomatis Core Parking (Unpark Semua vs Dinamis vs Parkir Big), Profil Terpadu CPU Idle C-States & Task Shield CPU Sets, Konfigurasi Penjadwal & Histeresis Adaptif, Serta Penambahan Indikator Status Modifikasi Reaktif Pada Header Tab Performance** â memastikan bahwa setiap kali pengguna memilih salah satu dari 4 Master CPU Preset (Battery, Balanced, Performance, Ekstrem), seluruh parameter subsistem CPU secara otomatis mengikuti profil terpilih; Mode Ekstrem mengunci frekuensi puncak kluster 100% dan mengaktifkan gembok kluster secara otomatis, membuka seluruh inti prosesor (Unpark Semua), mengaktifkan Zero Latency pada CPU Idle C-States, menerapkan isolasi gaming pada Task Shield CPU Sets, menyetel histeresis penjadwal agresif 50/30, serta menyalakan bypass kebijakan daya perangkat keras (MTK PPM & Qualcomm Touchboost); sementara mode Battery, Balanced, dan Performance membuka gembok kluster untuk memungkinkan downclocking dinamis dan menyelaraskan konfigurasi subsistem terkait; serta menambahkan pill indikator status reaktif (Standar Profil / Terkustomisasi) pada header PILIH MODE PERFORMA (3+1) di Tab 0 agar status modifikasi manual langsung terlihat tanpa harus berpindah ke Tab 1.
 
 ## Fitur Baru & Peningkatan (3.0.61)
 
@@ -8049,7 +8065,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.60
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Konsolidasi Master CPU Preset Terpadu Format 3+1 (Battery, Balanced, Performance + Ekstrem dengan Konfirmasi Keamanan), Eliminasi Kartu Ekstrem Terpisah Demi Efisiensi Ruang Layar (Space-Saving Clean Hierarchy), Redesain Tab Sistem Menggantikan Tombol Preset Duplikat Menjadi Kartu Status Profil Sistem dengan Deteksi Modifikasi Manual (Terkustomisasi / Modified State), Serta Tombol Pemulihan Cepat (Reset ke Standar Profil)** — menyelaraskan seluruh parameter CPU (kluster OPP clock, governor, penjadwal EAS, afinitas inti CPU Sets, dan efisiensi C-States/Core Parking) di bawah satu kendali master pada Tab 0 (Performance); menggabungkan Mode Ekstrem langsung ke dalam deretan pemilih mode utama dengan format 3+1 yang ringkas dan efisien tanpa memakan ruang vertikal; menyematkan dialog konfirmasi bahaya termal dan peringatan pendingin eksternal (cooler) saat Mode Ekstrem diketuk; mengeliminasi tombol preset redundan di Tab 1 (System) dan menggantikannya dengan Kartu Status Profil Sistem yang menampilkan profil aktif, badge status sinkronisasi, dan aksi 1-klik untuk mereset setelan granular kembali ke baseline profil master; serta mempertahankan standar visual konsisten dengan margin horizontal 16dp dan radius sudut 22dp.
+> **Versi ini** menghadirkan **Konsolidasi Master CPU Preset Terpadu Format 3+1 (Battery, Balanced, Performance + Ekstrem dengan Konfirmasi Keamanan), Eliminasi Kartu Ekstrem Terpisah Demi Efisiensi Ruang Layar (Space-Saving Clean Hierarchy), Redesain Tab Sistem Menggantikan Tombol Preset Duplikat Menjadi Kartu Status Profil Sistem dengan Deteksi Modifikasi Manual (Terkustomisasi / Modified State), Serta Tombol Pemulihan Cepat (Reset ke Standar Profil)** â menyelaraskan seluruh parameter CPU (kluster OPP clock, governor, penjadwal EAS, afinitas inti CPU Sets, dan efisiensi C-States/Core Parking) di bawah satu kendali master pada Tab 0 (Performance); menggabungkan Mode Ekstrem langsung ke dalam deretan pemilih mode utama dengan format 3+1 yang ringkas dan efisien tanpa memakan ruang vertikal; menyematkan dialog konfirmasi bahaya termal dan peringatan pendingin eksternal (cooler) saat Mode Ekstrem diketuk; mengeliminasi tombol preset redundan di Tab 1 (System) dan menggantikannya dengan Kartu Status Profil Sistem yang menampilkan profil aktif, badge status sinkronisasi, dan aksi 1-klik untuk mereset setelan granular kembali ke baseline profil master; serta mempertahankan standar visual konsisten dengan margin horizontal 16dp dan radius sudut 22dp.
 
 ## Fitur Baru & Peningkatan (3.0.60)
 
@@ -8070,7 +8086,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.59
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Penyelarasan Margin Horizontal & Radius Sudut Kartu Atas Sub Halaman CPU (Grid Margin Harmonization), Eliminasi Tampilan Mepet & Menempel Pada Tepi Layar Untuk Hero Dashboard & Smart Recommendation Banner, Standardisasi Radius Kartu Menjadi 22dp Sesuai LynxCard Design System, Serta Penataan Jarak Vertikal Antar-Elemen Yang Lega & Konsisten** — menyelesaikan ketidakkonsistenan visual pada Tab 0 (Performance) dan Tab 2 (Monitor) di mana kartu status utama (Hero Dashboard Card) dan banner rekomendasi pintar sebelumnya membentang penuh tanpa padding horizontal (0dp margin) sehingga terlihat menempel rapat ke pinggir layar ponsel dan tampak tidak serasi dengan kartu di bawahnya yang memiliki indentasi 16dp; menambahkan padding horizontal standar 16dp dan padding vertikal 6dp/4dp; menyelaraskan radius sudut kartu utama menjadi 22dp dan radius banner menjadi 16dp; serta memperluas bantalan internal kartu menjadi 18dp agar informasi telemetri dan status termal bernapas dengan lega dan estetis.
+> **Versi ini** menghadirkan **Penyelarasan Margin Horizontal & Radius Sudut Kartu Atas Sub Halaman CPU (Grid Margin Harmonization), Eliminasi Tampilan Mepet & Menempel Pada Tepi Layar Untuk Hero Dashboard & Smart Recommendation Banner, Standardisasi Radius Kartu Menjadi 22dp Sesuai LynxCard Design System, Serta Penataan Jarak Vertikal Antar-Elemen Yang Lega & Konsisten** â menyelesaikan ketidakkonsistenan visual pada Tab 0 (Performance) dan Tab 2 (Monitor) di mana kartu status utama (Hero Dashboard Card) dan banner rekomendasi pintar sebelumnya membentang penuh tanpa padding horizontal (0dp margin) sehingga terlihat menempel rapat ke pinggir layar ponsel dan tampak tidak serasi dengan kartu di bawahnya yang memiliki indentasi 16dp; menambahkan padding horizontal standar 16dp dan padding vertikal 6dp/4dp; menyelaraskan radius sudut kartu utama menjadi 22dp dan radius banner menjadi 16dp; serta memperluas bantalan internal kartu menjadi 18dp agar informasi telemetri dan status termal bernapas dengan lega dan estetis.
 
 ## Fitur Baru & Peningkatan (3.0.59)
 
@@ -8087,7 +8103,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.58
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Pemisahan Tombol Pengaturan Lanjutan Menjadi Komponen Mandiri di Luar Kartu Induk (Standalone Gateway Trigger), Penegasan Batas Ruang Lingkup Kartu Utama CPU & System, Penyelarasan Kausalitas Visual Tingkat Kontrol (Spatial Causality Alignment), Serta Penyempurnaan Tampilan Tombol Accordion Mandiri dengan Kontainer Ikon Tematik** — menyelesaikan kerancuan visual di mana tombol pemicu pengaturan lanjutan sebelumnya berada di dalam kartu induk tetapi memunculkan kartu di luar kartu induk; memindahkan tombol "Pengaturan Lanjutan" (Tab Performance) dan "Pengaturan Sistem Lanjutan" (Tab System) keluar dari kartu induk masing-masing sehingga kartu utama fokus murni pada fungsinya (Profil & Kluster pada Tab 0, Preset Optimasi pada Tab 1); mendesain tombol pemicu sebagai kartu aksi mandiri berlebar penuh dengan kontainer ikon beraksen halus dan panah ekspansi yang memperjelas hierarki Level 1 menuju Level 2.
+> **Versi ini** menghadirkan **Pemisahan Tombol Pengaturan Lanjutan Menjadi Komponen Mandiri di Luar Kartu Induk (Standalone Gateway Trigger), Penegasan Batas Ruang Lingkup Kartu Utama CPU & System, Penyelarasan Kausalitas Visual Tingkat Kontrol (Spatial Causality Alignment), Serta Penyempurnaan Tampilan Tombol Accordion Mandiri dengan Kontainer Ikon Tematik** â menyelesaikan kerancuan visual di mana tombol pemicu pengaturan lanjutan sebelumnya berada di dalam kartu induk tetapi memunculkan kartu di luar kartu induk; memindahkan tombol "Pengaturan Lanjutan" (Tab Performance) dan "Pengaturan Sistem Lanjutan" (Tab System) keluar dari kartu induk masing-masing sehingga kartu utama fokus murni pada fungsinya (Profil & Kluster pada Tab 0, Preset Optimasi pada Tab 1); mendesain tombol pemicu sebagai kartu aksi mandiri berlebar penuh dengan kontainer ikon beraksen halus dan panah ekspansi yang memperjelas hierarki Level 1 menuju Level 2.
 
 ## Fitur Baru & Peningkatan (3.0.58)
 
@@ -8104,7 +8120,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.57
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Perbaikan Tata Letak Menu Pengaturan Lanjutan (Full-Width Sibling Layout), Eliminasi Total Padding Bertumpuk Pada Menu Lanjutan CPU Tab Performance & Tab System, Pembebasan Margin Horizontal Untuk Opsi Platform Hardware Engine, Mode Ekstrem, Dan Verifikasi Pengembang, Serta Penyempurnaan Hirarki Visual Sibling Card Tanpa Frame Bersarang** — mengatasi masalah tampilan yang menyempit dan sesak saat menu Pengaturan Lanjutan dibuka; memindahkan blok ekspansi `AnimatedVisibility` keluar dari container kartu induk sehingga menjadi kartu saudara sejajar (sibling cards) berukuran penuh; membebaskan lebih dari 136dp margin horizontal yang sebelumnya terbuang akibat pembungkusan kartu di dalam kartu; memastikan opsi MediaTek PPM, Snapdragon QTI HAL, Mode Ekstrem, Verifikasi Pengembang, Core Efficiency, Task Shield, dan Penjadwal Kernel memiliki ruang baca teks yang luas dan rapi.
+> **Versi ini** menghadirkan **Perbaikan Tata Letak Menu Pengaturan Lanjutan (Full-Width Sibling Layout), Eliminasi Total Padding Bertumpuk Pada Menu Lanjutan CPU Tab Performance & Tab System, Pembebasan Margin Horizontal Untuk Opsi Platform Hardware Engine, Mode Ekstrem, Dan Verifikasi Pengembang, Serta Penyempurnaan Hirarki Visual Sibling Card Tanpa Frame Bersarang** â mengatasi masalah tampilan yang menyempit dan sesak saat menu Pengaturan Lanjutan dibuka; memindahkan blok ekspansi `AnimatedVisibility` keluar dari container kartu induk sehingga menjadi kartu saudara sejajar (sibling cards) berukuran penuh; membebaskan lebih dari 136dp margin horizontal yang sebelumnya terbuang akibat pembungkusan kartu di dalam kartu; memastikan opsi MediaTek PPM, Snapdragon QTI HAL, Mode Ekstrem, Verifikasi Pengembang, Core Efficiency, Task Shield, dan Penjadwal Kernel memiliki ruang baca teks yang luas dan rapi.
 
 ## Fitur Baru & Peningkatan (3.0.57)
 
@@ -8120,7 +8136,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.56
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Penyempurnaan Menyeluruh UX Sub Halaman CPU Menuju Pengalaman OEM Premium (Lynx Performance Center), Eliminasi Total Multi-Nested Card Frames Menjadi Hirarki Permukaan Datar Elegan, Standardisasi Mode 1-Klik Global (Battery | Balanced | Gaming), Transparansi Teknis Ganda (Bahasa Manusia Disertai Label Sekunder Kernel), Smart Health Indicator Kualitatif & Status Termal Permanen (Healthy / Warm / Throttled), Redesain Baris Kluster Kompak dengan Transisi Motion Halus, Penyederhanaan Tab Monitor dengan Ringkasan Rata-Rata MHz & Matriks Inti Expandable, Serta Developer Verification Drawer Tersembunyi di Menu Lanjutan** — mengeliminasi kesan kartu di dalam kartu yang bertumpuk; merestrukturisasi tata letak menjadi `Surface Utama -> Section -> Compact Expandable Row`; menyematkan baris kluster kompak 56dp yang mengembang secara mulus melalui `animateContentSize()`; menyajikan pemilih frekuensi diskrit Dual-Pill OPP dan pemilih respon CPU ramah pengguna; menggantikan angka kesehatan sistem arbitrer dengan indikator status kualitatif yang pasti; mengintegrasikan status suhu dan proteksi throttling secara permanen pada kartu hero; merampingkan tampilan tab Monitor dengan menyajikan rata-rata frekuensi kluster Little dan Big sebelum membuka detail 8-core per-silikon; serta menyembunyikan lembar verifikasi sysfs pengembang di dalam panel pengaturan lanjutan demi menjaga kerapian dan keamanan antarmuka bagi pengguna umum.
+> **Versi ini** menghadirkan **Penyempurnaan Menyeluruh UX Sub Halaman CPU Menuju Pengalaman OEM Premium (Lynx Performance Center), Eliminasi Total Multi-Nested Card Frames Menjadi Hirarki Permukaan Datar Elegan, Standardisasi Mode 1-Klik Global (Battery | Balanced | Gaming), Transparansi Teknis Ganda (Bahasa Manusia Disertai Label Sekunder Kernel), Smart Health Indicator Kualitatif & Status Termal Permanen (Healthy / Warm / Throttled), Redesain Baris Kluster Kompak dengan Transisi Motion Halus, Penyederhanaan Tab Monitor dengan Ringkasan Rata-Rata MHz & Matriks Inti Expandable, Serta Developer Verification Drawer Tersembunyi di Menu Lanjutan** â mengeliminasi kesan kartu di dalam kartu yang bertumpuk; merestrukturisasi tata letak menjadi `Surface Utama -> Section -> Compact Expandable Row`; menyematkan baris kluster kompak 56dp yang mengembang secara mulus melalui `animateContentSize()`; menyajikan pemilih frekuensi diskrit Dual-Pill OPP dan pemilih respon CPU ramah pengguna; menggantikan angka kesehatan sistem arbitrer dengan indikator status kualitatif yang pasti; mengintegrasikan status suhu dan proteksi throttling secara permanen pada kartu hero; merampingkan tampilan tab Monitor dengan menyajikan rata-rata frekuensi kluster Little dan Big sebelum membuka detail 8-core per-silikon; serta menyembunyikan lembar verifikasi sysfs pengembang di dalam panel pengaturan lanjutan demi menjaga kerapian dan keamanan antarmuka bagi pengguna umum.
 
 ## Fitur Baru & Peningkatan (3.0.56)
 
@@ -8151,7 +8167,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.55
 Released on: 2026-10-06
-> **Versi ini** menghadirkan **Transformasi Menyeluruh Sub Halaman CPU Menjadi Pengalaman Consumer-Premium Berfilosofi "One Glance, One Action, Deep Control When Needed", Struktur 3 Tab Ergonomis (Performance | System | Monitor), 3 Level Keterbukaan Informasi (Progressive Disclosure), Dashboard Hero dengan Meter Skor Kesehatan Sistem (CPU Health Score), Smart Recommendation yang Cerdas & Dismissible, Panel Kontrol Terpadu dengan Pemilih Frekuensi Diskrit Dual-Pill OPP Tanpa Continuous Slider, Mode Ekstrem Terlindungi Dialog Konfirmasi Termal, serta Adopsi Bahasa Manusia (Core Efficiency, Task Shield, Task Priority Boost) Disertai Tooltip Hardware Asli** — merekonstruksi arsitektur subhalaman CPU dari daftar bertumpuk raksasa (~1.950 baris kode) menjadi sistem modular ramping; memisahkan domain tanggung jawab ke dalam 3 tab intuitif (`Performance`, `System`, dan `Monitor`); menyajikan status utama (peak clock, suhu CPU, utilisasi total, dan persentase skor kesehatan sistem gabungan) di permukaan; menyediakan baris 1-klik mode ramah pengguna (`Battery`, `Balanced`, `Gaming`) dengan menyembunyikan mode `Extreme` di balik panel ekspansi lanjutan guna mencegah risiko panas berlebih; memusatkan kontrol frekuensi kluster ke format Dual-Pill Modal Bottom Sheet yang presisi; mengonversi istilah teknis kernel ke bahasa manusia komunikatif dengan tooltip teknis sysfs untuk pengguna mahir; serta menyajikan telemetri real-time, matriks 8-core silicon dengan proteksi Master Core 0, dan pemantau proses Scene-style pada tab Monitor.
+> **Versi ini** menghadirkan **Transformasi Menyeluruh Sub Halaman CPU Menjadi Pengalaman Consumer-Premium Berfilosofi "One Glance, One Action, Deep Control When Needed", Struktur 3 Tab Ergonomis (Performance | System | Monitor), 3 Level Keterbukaan Informasi (Progressive Disclosure), Dashboard Hero dengan Meter Skor Kesehatan Sistem (CPU Health Score), Smart Recommendation yang Cerdas & Dismissible, Panel Kontrol Terpadu dengan Pemilih Frekuensi Diskrit Dual-Pill OPP Tanpa Continuous Slider, Mode Ekstrem Terlindungi Dialog Konfirmasi Termal, serta Adopsi Bahasa Manusia (Core Efficiency, Task Shield, Task Priority Boost) Disertai Tooltip Hardware Asli** â merekonstruksi arsitektur subhalaman CPU dari daftar bertumpuk raksasa (~1.950 baris kode) menjadi sistem modular ramping; memisahkan domain tanggung jawab ke dalam 3 tab intuitif (`Performance`, `System`, dan `Monitor`); menyajikan status utama (peak clock, suhu CPU, utilisasi total, dan persentase skor kesehatan sistem gabungan) di permukaan; menyediakan baris 1-klik mode ramah pengguna (`Battery`, `Balanced`, `Gaming`) dengan menyembunyikan mode `Extreme` di balik panel ekspansi lanjutan guna mencegah risiko panas berlebih; memusatkan kontrol frekuensi kluster ke format Dual-Pill Modal Bottom Sheet yang presisi; mengonversi istilah teknis kernel ke bahasa manusia komunikatif dengan tooltip teknis sysfs untuk pengguna mahir; serta menyajikan telemetri real-time, matriks 8-core silicon dengan proteksi Master Core 0, dan pemantau proses Scene-style pada tab Monitor.
 
 ## Fitur Baru & Peningkatan (3.0.55)
 
@@ -8167,7 +8183,7 @@ Released on: 2026-10-06
 - **Bilah Skor Kesehatan Sistem**: Algoritma kalkulasi dinamis yang menggabungkan beban kerja, suhu termal, status throttling, dan ketersediaan core online untuk memberikan persentase kesehatan sistem (misal: 88% Optimal).
 
 ### 3. Smart Recommendation Cerdas & Non-Intrusif
-- **Saran Kontekstual Bersyarat**: Banner rekomendasi yang hanya muncul saat mendeteksi ambang batas kritis (suhu > 44°C atau beban tinggi berkepanjangan pada mode hemat daya), lengkap dengan tombol 1-klik untuk menerapkan solusi dan tombol tutup (dismissible) yang tidak mengganggu alur pengguna.
+- **Saran Kontekstual Bersyarat**: Banner rekomendasi yang hanya muncul saat mendeteksi ambang batas kritis (suhu > 44Â°C atau beban tinggi berkepanjangan pada mode hemat daya), lengkap dengan tombol 1-klik untuk menerapkan solusi dan tombol tutup (dismissible) yang tidak mengganggu alur pengguna.
 
 ### 4. Konsolidasi Kartu & Pemilih Frekuensi Diskrit Dual-Pill
 - **Pengaturan Lanjutan yang Terorganisasi**: Menyatukan puluhan kartu terpisah ke dalam `CpuUnifiedPerformanceCard` yang bersih. Kontrol frekuensi kluster disematkan di balik ekspansi "Pengaturan Lanjutan >" menggunakan format tombol Dual-Pill Min/Max MHz Picker via Modal Bottom Sheet, tanpa menggunakan continuous slider.
@@ -8181,7 +8197,7 @@ Released on: 2026-10-06
 
 # Lynx [Codename: Deity] 3.0.54
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Pembersihan Menyeluruh Kontrol Redundan pada Subhalaman GPU & Display, Perampingan Arsitektur GpuMasterTunerCard Menjadi Master Clock & OPP Telemetry Controller, Pemusatan Tunggal Seluruh Tweak Kernel Sysfs ke Adaptive Hardware HAL Card (Single Source of Truth), Konversi Chip Kecepatan Refresh Tab 2 Menjadi Spesifikasi Diagnostik Read-Only, Ekspansi Dynamic Probing pada Generic Devfreq HAL, serta Penerapan Domain Boundary Contract 8-Tingkat** — merekonstruksi komponen tuning GPU dan tampilan; mengeliminasi seluruh toggle statis legacy di dalam `GpuMasterTunerCard` (segmented boost engine, power policy, serta accordion kustomisasi lanjutan yang menduplikasi governor, bypass thermal, bus memory always-on, idle timer, FPSGO frame pacing, dan DVFS margin); memusatkan 100% kontrol hardware ke `AdaptiveGpuHardwareCard` yang memiliki verifikasi izin non-destruktif (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan verifikasi baca-ulang transaksional dengan rollback otomatis; mengubah chip refresh rate di Tab 2 (Info) menjadi lencana spesifikasi panel fisik murni tanpa fungsi tombol interaktif; menambahkan probe `polling_interval` pada `GenericDevfreqAdapter`; serta mengukuhkan batas domain arsitektural pada dokumen panduan pengembang guna menjamin tidak ada lagi tweak tumpang-tindih di masa mendatang.
+> **Versi ini** menghadirkan **Pembersihan Menyeluruh Kontrol Redundan pada Subhalaman GPU & Display, Perampingan Arsitektur GpuMasterTunerCard Menjadi Master Clock & OPP Telemetry Controller, Pemusatan Tunggal Seluruh Tweak Kernel Sysfs ke Adaptive Hardware HAL Card (Single Source of Truth), Konversi Chip Kecepatan Refresh Tab 2 Menjadi Spesifikasi Diagnostik Read-Only, Ekspansi Dynamic Probing pada Generic Devfreq HAL, serta Penerapan Domain Boundary Contract 8-Tingkat** â merekonstruksi komponen tuning GPU dan tampilan; mengeliminasi seluruh toggle statis legacy di dalam `GpuMasterTunerCard` (segmented boost engine, power policy, serta accordion kustomisasi lanjutan yang menduplikasi governor, bypass thermal, bus memory always-on, idle timer, FPSGO frame pacing, dan DVFS margin); memusatkan 100% kontrol hardware ke `AdaptiveGpuHardwareCard` yang memiliki verifikasi izin non-destruktif (`VERIFIED_WORKING` vs `READ_ONLY_LOCKED`) dan verifikasi baca-ulang transaksional dengan rollback otomatis; mengubah chip refresh rate di Tab 2 (Info) menjadi lencana spesifikasi panel fisik murni tanpa fungsi tombol interaktif; menambahkan probe `polling_interval` pada `GenericDevfreqAdapter`; serta mengukuhkan batas domain arsitektural pada dokumen panduan pengembang guna menjamin tidak ada lagi tweak tumpang-tindih di masa mendatang.
 
 ## Fitur Baru & Peningkatan (3.0.54)
 
@@ -8207,7 +8223,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.53
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Telemetri Real-Time Refresh Rate Layar Berbasis DisplayManager Listener (Event-Driven Panel Rate Callback), Penghapusan Lencana Statis Redundan pada Kartu Kecepatan Refresh, Desain Tipografi Digital Minimalis Tanpa Wadah Badge, serta Penyelarasan Deskripsi Mode Auto Dinamis** — merekonstruksi komponen `DisplayRefreshRateTouchCard` pada subhalaman GPU & Display; menghilangkan lencana statis `Auto (120 Hz)` yang redundan dengan chip pemilih frekuensi; mengimplementasikan pemantauan refresh rate layar aktif secara instan (0ms latency event callback) melalui `DisplayManager.DisplayListener` terdaftar tanpa polling berkala dan tanpa konsumsi baterai latar belakang; menampilkan metrik frekuensi aktual dalam format tipografi digital bersih (`REAL-TIME` berhuruf kapital tegas dengan angka frekuensi tebal dinamis); serta memperjelas deskripsi mode Auto dinamis saat panel beralih clock antara kondisi statis dan interaksi sentuhan.
+> **Versi ini** menghadirkan **Telemetri Real-Time Refresh Rate Layar Berbasis DisplayManager Listener (Event-Driven Panel Rate Callback), Penghapusan Lencana Statis Redundan pada Kartu Kecepatan Refresh, Desain Tipografi Digital Minimalis Tanpa Wadah Badge, serta Penyelarasan Deskripsi Mode Auto Dinamis** â merekonstruksi komponen `DisplayRefreshRateTouchCard` pada subhalaman GPU & Display; menghilangkan lencana statis `Auto (120 Hz)` yang redundan dengan chip pemilih frekuensi; mengimplementasikan pemantauan refresh rate layar aktif secara instan (0ms latency event callback) melalui `DisplayManager.DisplayListener` terdaftar tanpa polling berkala dan tanpa konsumsi baterai latar belakang; menampilkan metrik frekuensi aktual dalam format tipografi digital bersih (`REAL-TIME` berhuruf kapital tegas dengan angka frekuensi tebal dinamis); serta memperjelas deskripsi mode Auto dinamis saat panel beralih clock antara kondisi statis dan interaksi sentuhan.
 
 ## Fitur Baru & Peningkatan (3.0.53)
 
@@ -8228,7 +8244,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.52
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Universal Hardware Abstraction Framework (HAL Multi-SoC) Dinamis untuk Penyetelan GPU & Diagnostik Layar, Pemindaian Node Fisik Kernel Berbasis Izin Non-Destruktif (Non-Destructive Permission Probing), Verifikasi Penulisan Transaksional dengan Rollback Otomatis (Transactional Write Verification & Rollback), Penilaian Tingkat Kepercayaan Hardware (Hardware Confidence Scoring), Dekomposisi 4-Tier Frekuensi Layar hingga 240Hz, serta Antarmuka Responsif Adaptif Berbasis Komponen M3** — merevolusi subhalaman GPU & Display dari sistem berbasis vendor statis menjadi kerangka kerja abstraksi hardware universal lintas chipset (Qualcomm Adreno KGSL, MediaTek GED/FPSGO, ARM Mali Kbase, Samsung AMD RDNA, dan Universal Devfreq); menerapkan prinsip keamanan ketat di mana node fisik dipindai hak aksesnya secara non-destruktif tanpa `chmod 644` buta; mengimplementasikan siklus verifikasi transaksional yang secara otomatis membatalkan (*rollback*) perubahan dan mengunci sakelar ke status *Read-Only* jika kernel menolak nilai baru; menyajikan lencana status verifikasi hardware (`Verified HAL`, `VERIFIED_WORKING`, `READ_ONLY_LOCKED`); mendukung kecepatan refresh layar ultra-tinggi hingga 240Hz dengan baris pemilih scrollable yang mempertahankan target sentuh ergonomis minimal 48dp; serta menyelaraskan pilihan frekuensi khusus pada dialog aturan rendering grafis per-aplikasi secara dinamis.
+> **Versi ini** menghadirkan **Universal Hardware Abstraction Framework (HAL Multi-SoC) Dinamis untuk Penyetelan GPU & Diagnostik Layar, Pemindaian Node Fisik Kernel Berbasis Izin Non-Destruktif (Non-Destructive Permission Probing), Verifikasi Penulisan Transaksional dengan Rollback Otomatis (Transactional Write Verification & Rollback), Penilaian Tingkat Kepercayaan Hardware (Hardware Confidence Scoring), Dekomposisi 4-Tier Frekuensi Layar hingga 240Hz, serta Antarmuka Responsif Adaptif Berbasis Komponen M3** â merevolusi subhalaman GPU & Display dari sistem berbasis vendor statis menjadi kerangka kerja abstraksi hardware universal lintas chipset (Qualcomm Adreno KGSL, MediaTek GED/FPSGO, ARM Mali Kbase, Samsung AMD RDNA, dan Universal Devfreq); menerapkan prinsip keamanan ketat di mana node fisik dipindai hak aksesnya secara non-destruktif tanpa `chmod 644` buta; mengimplementasikan siklus verifikasi transaksional yang secara otomatis membatalkan (*rollback*) perubahan dan mengunci sakelar ke status *Read-Only* jika kernel menolak nilai baru; menyajikan lencana status verifikasi hardware (`Verified HAL`, `VERIFIED_WORKING`, `READ_ONLY_LOCKED`); mendukung kecepatan refresh layar ultra-tinggi hingga 240Hz dengan baris pemilih scrollable yang mempertahankan target sentuh ergonomis minimal 48dp; serta menyelaraskan pilihan frekuensi khusus pada dialog aturan rendering grafis per-aplikasi secara dinamis.
 
 ## Fitur Baru & Peningkatan (3.0.52)
 
@@ -8253,7 +8269,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.51
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Penguncian Imutabel Izin Hardware (Read-Only chmod 444 Locks) untuk Pengendali Pengisian Daya Ekstrem (Extreme Fast Charging), Bypass Menyeluruh Throttling Layar Nyala (Screen-On Throttling) dan Limitasi Termal Multi-OEM, Elevasi Plafon Ambang Suhu Termal Universal ke 95°C, Pembekuan Perangkat Pendingin (Cooling Devices Freeze), serta Pemulihan Hak Akses Bersih (Reversible Unlatch Architecture)** — mengeliminasi pembatasan pengisian daya yang dipicu oleh kernel saat layar ponsel aktif (*Screen-On*) maupun saat temperatur motherboard/AP mendekati ambang batas konservatif pabrikan; menerapkan kunci proteksi `chmod 444` secara permanen pada node krusial seperti `BN_TestMode`, `BatteryNotify`, `sw_jeita`, `input_current`, `chg1_current`, dan `chg2_current` sehingga driver kernel tidak dapat lagi menurunkan arus pengisian secara sepihak; menaikkan kurva trip point PCB termal Transsion/Infinix dari 44°C ke 85°C–90°C dengan plafon 6000mA; melumpuhkan pembatasan pengisian daya multi-OEM (Xiaomi HyperOS Joyose freeze, Samsung One UI SIOP uncap, OnePlus/OPPO/Realme SuperVOOC Cool & Call mode bypass, Google Pixel Tensor charge stop uncap); menonaktifkan regulasi termal baterai/charger serta menaikkan trip point termal universal ke 95°C di seluruh zona sensor; serta mengimplementasikan mekanisme unlatch reversibel saat pengguna kembali ke mode pengisian teratur atau mode hardware bypass.
+> **Versi ini** menghadirkan **Penguncian Imutabel Izin Hardware (Read-Only chmod 444 Locks) untuk Pengendali Pengisian Daya Ekstrem (Extreme Fast Charging), Bypass Menyeluruh Throttling Layar Nyala (Screen-On Throttling) dan Limitasi Termal Multi-OEM, Elevasi Plafon Ambang Suhu Termal Universal ke 95Â°C, Pembekuan Perangkat Pendingin (Cooling Devices Freeze), serta Pemulihan Hak Akses Bersih (Reversible Unlatch Architecture)** â mengeliminasi pembatasan pengisian daya yang dipicu oleh kernel saat layar ponsel aktif (*Screen-On*) maupun saat temperatur motherboard/AP mendekati ambang batas konservatif pabrikan; menerapkan kunci proteksi `chmod 444` secara permanen pada node krusial seperti `BN_TestMode`, `BatteryNotify`, `sw_jeita`, `input_current`, `chg1_current`, dan `chg2_current` sehingga driver kernel tidak dapat lagi menurunkan arus pengisian secara sepihak; menaikkan kurva trip point PCB termal Transsion/Infinix dari 44Â°C ke 85Â°Câ90Â°C dengan plafon 6000mA; melumpuhkan pembatasan pengisian daya multi-OEM (Xiaomi HyperOS Joyose freeze, Samsung One UI SIOP uncap, OnePlus/OPPO/Realme SuperVOOC Cool & Call mode bypass, Google Pixel Tensor charge stop uncap); menonaktifkan regulasi termal baterai/charger serta menaikkan trip point termal universal ke 95Â°C di seluruh zona sensor; serta mengimplementasikan mekanisme unlatch reversibel saat pengguna kembali ke mode pengisian teratur atau mode hardware bypass.
 
 ## Fitur Baru & Peningkatan (3.0.51)
 
@@ -8262,7 +8278,7 @@ Released on: 2026-10-05
 - **Transsion Screen-On Throttling Bypass**: Memaksa mode pengujian pabrik (`BN_TestMode=1`) terkunci permanen, menonaktifkan logika pembatasan arus charging ke 1500mA saat layar menyala (`fb_on=1`).
 
 ### 2. Bypass Limitasi Termal Multi-OEM & Elevasi Ambang PCB
-- **Transsion PCB Thermal Debug Overhaul**: Menggeser kurva trip point proteksi termal Level 7 dari 44°C menjadi 85°C dengan batas arus 6000mA via `/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug`.
+- **Transsion PCB Thermal Debug Overhaul**: Menggeser kurva trip point proteksi termal Level 7 dari 44Â°C menjadi 85Â°C dengan batas arus 6000mA via `/sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug`.
 - **Xiaomi / Redmi / POCO (HyperOS / MIUI)**: Membekukan layanan `com.xiaomi.joyose` dan membuka limit `thermal_input_current_limit` serta `boost_current` ke 6000mA secara imutabel.
 - **Samsung One UI**: Mengunci batas SIOP (`siop_level=100`) dengan `chmod 444`, mengeliminasi *screen-on derating* pada perangkat seri Galaxy S/A/Z.
 - **OnePlus / OPPO / Realme (ColorOS / OxygenOS)**: Mengunci `cool_mode=0` dan `call_mode=0` dengan `chmod 444` serta memvalidasi sinyal protokol SuperVOOC murni.
@@ -8270,7 +8286,7 @@ Released on: 2026-10-05
 
 ### 3. Elevasi Ambang Batas Sensor Termal Universal (Universal Thermal Zones)
 - **Deaktivasi Mode Sensor Baterai/Charger**: Memindai seluruh `/sys/class/thermal/thermal_zone*` terkait baterai, charger, PMIC, AP, dan skin, lalu menonaktifkan modenya (`mode=disabled`) serta mengunci izinnya.
-- **Elevasi Trip Points ke 95°C**: Menaikkan parameter `trip_point_*_temp` pada zona sensor terkait ke 95000 (95°C) dengan proteksi `chmod 444`, menjamin subsistem termal kernel tidak pernah memicu status *throttling*.
+- **Elevasi Trip Points ke 95Â°C**: Menaikkan parameter `trip_point_*_temp` pada zona sensor terkait ke 95000 (95Â°C) dengan proteksi `chmod 444`, menjamin subsistem termal kernel tidak pernah memicu status *throttling*.
 - **Pembekuan Cooling Devices**: Memaksa seluruh cooling device bertipe *bcct*, *chg*, *current*, *battery*, dan *cdev* ke status 0 (`cur_state=0`) dengan kunci `chmod 444`.
 - **Framework Thermal Severity Nullification**: Mengabaikan status peringatan termal sistem Android framework via `cmd thermalservice override-status 0`.
 
@@ -8281,7 +8297,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.50
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Normalisasi Akurasi Frekuensi Maksimum Silikon GPU MediaTek GED, Penambahan Pra-Kompilasi Shader Ahead-Of-Time (AOT Pre-Warm) Anti Micro-Stutter, Kontrol Terpadu Kebijakan Manajemen Daya GPU (GPU Power Policy), Akselerasi Latensi Respon Sentuh via SurfaceFlinger VSync Early Offset, serta Pemilih Refresh Rate Interaktif pada Tab Diagnostik Layar** — memulihkan keakuratan pembacaan plafon frekuensi tertinggi GPU pada chipset MediaTek (Helio & Dimensity) dengan memprioritaskan parameter `gpu_cust_upbound_freq` dan tabel OPP kernel alih-alih ambang boost awal; menambahkan kapabilitas pra-kompilasi shader Ahead-Of-Time (AOT) untuk mengeliminasi lonjakan latensi kompilasi shader pada menit-menit pertama menjalankan game 3D; mengintegrasikan sakelar profil daya GPU yang menyelaraskan kebijakan daya ARM Mali Kbase, MediaTek GED, dan Qualcomm Adreno dalam dua mode tegas (Efisiensi Daya vs Responsif Gaming); mengimplementasikan tweak latensi sentuh ultra-rendah melalui pemajuan fase dispatch buffer SurfaceFlinger (`debug.sf.early_phase_offset_ns`); serta mengaktifkan interaktivitas penuh pada pill indikator refresh rate di Tab Info untuk penguncian instan kecepatan penyegaran layar (60Hz, 90Hz, 120Hz).
+> **Versi ini** menghadirkan **Normalisasi Akurasi Frekuensi Maksimum Silikon GPU MediaTek GED, Penambahan Pra-Kompilasi Shader Ahead-Of-Time (AOT Pre-Warm) Anti Micro-Stutter, Kontrol Terpadu Kebijakan Manajemen Daya GPU (GPU Power Policy), Akselerasi Latensi Respon Sentuh via SurfaceFlinger VSync Early Offset, serta Pemilih Refresh Rate Interaktif pada Tab Diagnostik Layar** â memulihkan keakuratan pembacaan plafon frekuensi tertinggi GPU pada chipset MediaTek (Helio & Dimensity) dengan memprioritaskan parameter `gpu_cust_upbound_freq` dan tabel OPP kernel alih-alih ambang boost awal; menambahkan kapabilitas pra-kompilasi shader Ahead-Of-Time (AOT) untuk mengeliminasi lonjakan latensi kompilasi shader pada menit-menit pertama menjalankan game 3D; mengintegrasikan sakelar profil daya GPU yang menyelaraskan kebijakan daya ARM Mali Kbase, MediaTek GED, dan Qualcomm Adreno dalam dua mode tegas (Efisiensi Daya vs Responsif Gaming); mengimplementasikan tweak latensi sentuh ultra-rendah melalui pemajuan fase dispatch buffer SurfaceFlinger (`debug.sf.early_phase_offset_ns`); serta mengaktifkan interaktivitas penuh pada pill indikator refresh rate di Tab Info untuk penguncian instan kecepatan penyegaran layar (60Hz, 90Hz, 120Hz).
 
 ## Fitur Baru & Peningkatan (3.0.50)
 
@@ -8308,7 +8324,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.49
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Perbaikan Menyeluruh Telemetri RAM Fisik & Alokasi ZRAM Swap, Penguatan Arsitektur Dual-Tier Telemetry Engine dengan Cascading Fallback Tanpa Jeda, Rekonstruksi Script Telemetri Shell POSIX Murni, Pendeteksian Dinamis Kolom Proses CPU & Render Grafis, serta Mitigasi Komprehensif Zero-Value State pada Dashboard Utama** — mengatasi kegagalan pembacaan data RAM fisik dan ZRAM swap yang disebabkan oleh sintaks escape shell pada skrip telemetri root; menambahkan ekstraksi data ZRAM dan swap meminfo serta sysfs `disksize` secara presisi ke dalam struktur JSON telemetri modul; mengimplementasikan arsitektur fallback bertingkat (dual-tier cascading fallback) pada `LynxRepository.readTelemetry()` dan `readClusters()` sehingga sistem secara otomatis beralih ke pembacaan langsung sysfs dan meminfo tanpa menampilkan nilai nol apabila skrip eksternal modul mengalami gangguan; memodernisasi pemindaian baris `top` dan `ps` dengan deteksi header kolom dinamis serta toleransi flag `-m` pada pemantau proses CPU dan thread render grafis; memperluas pemantauan status pengisian daya (charging), arus, dan temperatur baterai untuk arsitektur multi-vendor; serta memastikan seluruh indikator hardware beroperasi secara akurat dan konsisten pada build debug maupun release.
+> **Versi ini** menghadirkan **Perbaikan Menyeluruh Telemetri RAM Fisik & Alokasi ZRAM Swap, Penguatan Arsitektur Dual-Tier Telemetry Engine dengan Cascading Fallback Tanpa Jeda, Rekonstruksi Script Telemetri Shell POSIX Murni, Pendeteksian Dinamis Kolom Proses CPU & Render Grafis, serta Mitigasi Komprehensif Zero-Value State pada Dashboard Utama** â mengatasi kegagalan pembacaan data RAM fisik dan ZRAM swap yang disebabkan oleh sintaks escape shell pada skrip telemetri root; menambahkan ekstraksi data ZRAM dan swap meminfo serta sysfs `disksize` secara presisi ke dalam struktur JSON telemetri modul; mengimplementasikan arsitektur fallback bertingkat (dual-tier cascading fallback) pada `LynxRepository.readTelemetry()` dan `readClusters()` sehingga sistem secara otomatis beralih ke pembacaan langsung sysfs dan meminfo tanpa menampilkan nilai nol apabila skrip eksternal modul mengalami gangguan; memodernisasi pemindaian baris `top` dan `ps` dengan deteksi header kolom dinamis serta toleransi flag `-m` pada pemantau proses CPU dan thread render grafis; memperluas pemantauan status pengisian daya (charging), arus, dan temperatur baterai untuk arsitektur multi-vendor; serta memastikan seluruh indikator hardware beroperasi secara akurat dan konsisten pada build debug maupun release.
 
 ## Fitur Baru & Peningkatan (3.0.49)
 
@@ -8333,7 +8349,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.48
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Pemisahan Identitas Eksplisit Varian Build Debug & Release, Desain Ikon Adaptif Vektor Mandiri (Cyber Cyan Deity vs Amber Debug Tag), Resolusi Konflik Label Quick Settings Tile, serta Fasilitasi Instalasi Berdampingan Bersih (Side-by-Side Coexistence)** — mengakhiri kebingungan duplikasi aplikasi pada launcher dengan memberikan identitas nama visual terpisah (*Lynx* untuk Release dan *Lynx (Debug)* untuk Debug); mengimplementasikan sistem ikon adaptif modern berbasis vektor Android (API 26+) menggantikan ikon dialog bawaan; menyematkan lencana sudut debug visual dan skema warna oranye pada build pengembang; mengisolasi string nama Quick Settings Tile (*Lynx Profile*, *Lynx HBM*, *Lynx HUD* vs varian Debug); serta menjamin stabilitas instalasi bersamaan antara build produksi dan uji coba tanpa tabrakan resource atau konflik cache.
+> **Versi ini** menghadirkan **Pemisahan Identitas Eksplisit Varian Build Debug & Release, Desain Ikon Adaptif Vektor Mandiri (Cyber Cyan Deity vs Amber Debug Tag), Resolusi Konflik Label Quick Settings Tile, serta Fasilitasi Instalasi Berdampingan Bersih (Side-by-Side Coexistence)** â mengakhiri kebingungan duplikasi aplikasi pada launcher dengan memberikan identitas nama visual terpisah (*Lynx* untuk Release dan *Lynx (Debug)* untuk Debug); mengimplementasikan sistem ikon adaptif modern berbasis vektor Android (API 26+) menggantikan ikon dialog bawaan; menyematkan lencana sudut debug visual dan skema warna oranye pada build pengembang; mengisolasi string nama Quick Settings Tile (*Lynx Profile*, *Lynx HBM*, *Lynx HUD* vs varian Debug); serta menjamin stabilitas instalasi bersamaan antara build produksi dan uji coba tanpa tabrakan resource atau konflik cache.
 
 ## Fitur Baru & Peningkatan (3.0.48)
 
@@ -8356,7 +8372,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.47
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Ekspansi Universal Tweak GPU Multi-SoC Lintas Vendor (Qualcomm Adreno, MediaTek Helio/Dimensity/Immortalis, Samsung Exynos, Google Tensor, & Unisoc), Preset Cepat Harmonik 1-Klik (One-Click GPU Profiles), Kartu Akselerasi Hardware Adaptif Mandiri (SoC-Adaptive Acceleration Card), Bypass Buffer Backpressure SurfaceFlinger, serta Sinkronisasi Engine Shell Kernel Terpadu** — memperluas arsitektur tuning grafis dengan membedakan penanganan sysfs secara presisi antara Qualcomm KGSL (PwrLevels, Trustzone target load, DDR bus always-on, rail force), MediaTek GED & FPSGO (Ultra Rescue, DVFS margin, frame pacing), serta ARM Mali Kbase (shader core unmasking, power policy); menyajikan kartu preset cepat 1-klik (*Hemat Daya*, *Seimbang*, *Esports*, *Ekstrem*) dengan aplikasi terpadu ke seluruh lapisan hardware dan pipeline grafis; menambahkan opsi mitigasi latensi sentuh via bypass backpressure SurfaceFlinger; serta memperbarui skrip performa dan keseimbangan Qualcomm dan MediaTek dengan kontrol low-latency terintegrasi.
+> **Versi ini** menghadirkan **Ekspansi Universal Tweak GPU Multi-SoC Lintas Vendor (Qualcomm Adreno, MediaTek Helio/Dimensity/Immortalis, Samsung Exynos, Google Tensor, & Unisoc), Preset Cepat Harmonik 1-Klik (One-Click GPU Profiles), Kartu Akselerasi Hardware Adaptif Mandiri (SoC-Adaptive Acceleration Card), Bypass Buffer Backpressure SurfaceFlinger, serta Sinkronisasi Engine Shell Kernel Terpadu** â memperluas arsitektur tuning grafis dengan membedakan penanganan sysfs secara presisi antara Qualcomm KGSL (PwrLevels, Trustzone target load, DDR bus always-on, rail force), MediaTek GED & FPSGO (Ultra Rescue, DVFS margin, frame pacing), serta ARM Mali Kbase (shader core unmasking, power policy); menyajikan kartu preset cepat 1-klik (*Hemat Daya*, *Seimbang*, *Esports*, *Ekstrem*) dengan aplikasi terpadu ke seluruh lapisan hardware dan pipeline grafis; menambahkan opsi mitigasi latensi sentuh via bypass backpressure SurfaceFlinger; serta memperbarui skrip performa dan keseimbangan Qualcomm dan MediaTek dengan kontrol low-latency terintegrasi.
 
 ## Fitur Baru & Peningkatan (3.0.47)
 
@@ -8386,7 +8402,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.46
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Perombakan Menyeluruh Diagnostik GPU & Display Info, Eliminasi Total Pemotongan Teks (Zero-Truncation Policy), Integrasi Deteksi Ganda Hardware Vulkan API (PackageManager & Shell Driver Probing), Normalisasi Pelabelan Node Sysfs Kernel, serta Pembersihan Residu Format AI** — merombak tata letak subhalaman Info GPU & Display menjadi antarmuka diagnosa engineering yang presisi dan profesional; meniadakan seluruh pembatasan baris dan pemotongan teks elipsis (`...`) pada spesifikasi, judul, dan path file driver; menyempurnakan deteksi Vulkan melalui inspeksi fitur sistem Android native sehingga versi API dan driver teridentifikasi akurat; memperbaiki parser loop pengecekan sysfs sehingga seluruh node kernel tampil dengan nama deskriptif utuh berbahasa Indonesia; menempatkan tombol segarkan secara ergonomis di header kartu identitas silikon; serta menyingkirkan pengulangan subtitle redundan demi keterbacaan optimal.
+> **Versi ini** menghadirkan **Perombakan Menyeluruh Diagnostik GPU & Display Info, Eliminasi Total Pemotongan Teks (Zero-Truncation Policy), Integrasi Deteksi Ganda Hardware Vulkan API (PackageManager & Shell Driver Probing), Normalisasi Pelabelan Node Sysfs Kernel, serta Pembersihan Residu Format AI** â merombak tata letak subhalaman Info GPU & Display menjadi antarmuka diagnosa engineering yang presisi dan profesional; meniadakan seluruh pembatasan baris dan pemotongan teks elipsis (`...`) pada spesifikasi, judul, dan path file driver; menyempurnakan deteksi Vulkan melalui inspeksi fitur sistem Android native sehingga versi API dan driver teridentifikasi akurat; memperbaiki parser loop pengecekan sysfs sehingga seluruh node kernel tampil dengan nama deskriptif utuh berbahasa Indonesia; menempatkan tombol segarkan secara ergonomis di header kartu identitas silikon; serta menyingkirkan pengulangan subtitle redundan demi keterbacaan optimal.
 
 ## Fitur Baru & Peningkatan (3.0.46)
 
@@ -8413,7 +8429,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.45
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Sticky Header Tab Row Subhalaman GPU & Display, Validasi Ketat Dukungan Hardware/OS terhadap Pipeline Rendering Grafis (HWUI Backends & ANGLE), Integrasi Icon Aplikasi Riil (Native PackageManager App Icons) dengan Caching Memori Berkecepatan Tinggi, Deteksi Multi-Tingkat Anti-Spoofing Berbasis Kernel Ground Truth, serta Ekspansi Telemetri GPU & Display Mendalam** — menempatkan tab navigasi (`Tuning`, `Lab`, `Info`) secara permanen di bagian atas layar agar tidak tergulung saat konten di-scroll; memverifikasi secara langsung ketersediaan Vulkan, Graphite (Android 14+), dan ANGLE pada level sistem operasi dan menonaktifkan opsi yang tidak didukung secara elegan; memuat icon aplikasi asli dari sistem Android untuk setiap judul game pada manajemen rendering dengan dukungan `LruCache` berkapasitas 150 item; mendeteksi manipulasi identitas SoC dan GPU oleh modul luar/spoofer melalui pengecekan kebenaran mutlak kernel Linux (DTB, node driver karakter, dan sysfs internal) disertai alert peringatan dan matriks perbandingan; serta memperkaya telemetri display dengan DPI, faktor densitas, format ruang warna aktif, dan status SurfaceFlinger Hardware Composer.
+> **Versi ini** menghadirkan **Sticky Header Tab Row Subhalaman GPU & Display, Validasi Ketat Dukungan Hardware/OS terhadap Pipeline Rendering Grafis (HWUI Backends & ANGLE), Integrasi Icon Aplikasi Riil (Native PackageManager App Icons) dengan Caching Memori Berkecepatan Tinggi, Deteksi Multi-Tingkat Anti-Spoofing Berbasis Kernel Ground Truth, serta Ekspansi Telemetri GPU & Display Mendalam** â menempatkan tab navigasi (`Tuning`, `Lab`, `Info`) secara permanen di bagian atas layar agar tidak tergulung saat konten di-scroll; memverifikasi secara langsung ketersediaan Vulkan, Graphite (Android 14+), dan ANGLE pada level sistem operasi dan menonaktifkan opsi yang tidak didukung secara elegan; memuat icon aplikasi asli dari sistem Android untuk setiap judul game pada manajemen rendering dengan dukungan `LruCache` berkapasitas 150 item; mendeteksi manipulasi identitas SoC dan GPU oleh modul luar/spoofer melalui pengecekan kebenaran mutlak kernel Linux (DTB, node driver karakter, dan sysfs internal) disertai alert peringatan dan matriks perbandingan; serta memperkaya telemetri display dengan DPI, faktor densitas, format ruang warna aktif, dan status SurfaceFlinger Hardware Composer.
 
 ## Fitur Baru & Peningkatan (3.0.45)
 
@@ -8443,7 +8459,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.44
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Pembersihan Total Residu Emotikon & Pseudo-Font pada Seluruh Modul Core, WebUI, CLI Interaktif, Installer, dan Daemons (Strict Universal Zero-Emoji Professional Standard), Transisi ke Indikator Bracket Standar POSIX Linux, Standardisasi Notifikasi Sistem Bersih, serta Konsistensi Desain Antarmuka Tanpa Distorsi Visual** — menuntaskan pembersihan sisa emotikon dan karakter pseudo-font matematika pada seluruh repositori (`hw_probe.sh`, `flasher.sh`, `dns.sh`, `dex2oat.sh`, `zram.sh`, `swap.sh`, `lynx` CLI menu interaktif, `Lxcore`, `package_module.sh`, `customize.sh`, `service.sh`, `action.sh`, `tests/mock_sandbox/run_test.sh`, `webroot/app.js`, `webroot/index.html`, dan `module.prop`); menggantikan seluruh dekorasi visual berlebihan dengan indikator bracket standar profesional (`[*]`, `[+]`, `[!]`, `[OK]`, `[ERROR]`); serta menjamin seluruh komponen antarmuka, konsol CLI, dan log telemetri tampil bersih, rapi, estetik, dan berstandar teknis tinggi.
+> **Versi ini** menghadirkan **Pembersihan Total Residu Emotikon & Pseudo-Font pada Seluruh Modul Core, WebUI, CLI Interaktif, Installer, dan Daemons (Strict Universal Zero-Emoji Professional Standard), Transisi ke Indikator Bracket Standar POSIX Linux, Standardisasi Notifikasi Sistem Bersih, serta Konsistensi Desain Antarmuka Tanpa Distorsi Visual** â menuntaskan pembersihan sisa emotikon dan karakter pseudo-font matematika pada seluruh repositori (`hw_probe.sh`, `flasher.sh`, `dns.sh`, `dex2oat.sh`, `zram.sh`, `swap.sh`, `lynx` CLI menu interaktif, `Lxcore`, `package_module.sh`, `customize.sh`, `service.sh`, `action.sh`, `tests/mock_sandbox/run_test.sh`, `webroot/app.js`, `webroot/index.html`, dan `module.prop`); menggantikan seluruh dekorasi visual berlebihan dengan indikator bracket standar profesional (`[*]`, `[+]`, `[!]`, `[OK]`, `[ERROR]`); serta menjamin seluruh komponen antarmuka, konsol CLI, dan log telemetri tampil bersih, rapi, estetik, dan berstandar teknis tinggi.
 
 ## Fitur Baru & Peningkatan (3.0.44)
 
@@ -8466,7 +8482,7 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.43
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Pembersihan Total Estetika Antarmuka & Eliminasi Menyeluruh Dekorasi Emotikon (Strict Zero-Emoji Professional Clean Architecture), Standardisasi Ikon Vektor Material Design pada Seluruh Panel Kontrol, Penataan Bahasa Sistem Ringkas & Lugas Tanpa Clutter, serta Konsistensi Komponen Interaktif Seluruh Subhalaman** — membasmi tuntas seluruh penggunaan emotikon visual yang berlebihan dan tidak teratur pada chip pemilih (Auto refresh rate, Game Driver, ANGLE Vulkan, HWUI backends), tombol kontrol profil CPU/GPU, banner notifikasi latar belakang, Floating HUD OSD, dan dialog sistem; mentransisikan seluruh representasi visual ke ikon vektor Material Design yang presisi dan elegan; serta menyelaraskan hierarki tipografi dan redaksi teks agar berstandar perangkat lunak tuning kernel tingkat profesional tanpa distorsi visual.
+> **Versi ini** menghadirkan **Pembersihan Total Estetika Antarmuka & Eliminasi Menyeluruh Dekorasi Emotikon (Strict Zero-Emoji Professional Clean Architecture), Standardisasi Ikon Vektor Material Design pada Seluruh Panel Kontrol, Penataan Bahasa Sistem Ringkas & Lugas Tanpa Clutter, serta Konsistensi Komponen Interaktif Seluruh Subhalaman** â membasmi tuntas seluruh penggunaan emotikon visual yang berlebihan dan tidak teratur pada chip pemilih (Auto refresh rate, Game Driver, ANGLE Vulkan, HWUI backends), tombol kontrol profil CPU/GPU, banner notifikasi latar belakang, Floating HUD OSD, dan dialog sistem; mentransisikan seluruh representasi visual ke ikon vektor Material Design yang presisi dan elegan; serta menyelaraskan hierarki tipografi dan redaksi teks agar berstandar perangkat lunak tuning kernel tingkat profesional tanpa distorsi visual.
 
 ## Fitur Baru & Peningkatan (3.0.43)
 
@@ -8487,51 +8503,51 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.42
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Matriks Universal Pengisian Daya Cepat & Bypass Termal Lintas SoC & OEM (Universal Multi-SoC & Multi-OEM Dynamic Fast Charging & Hardware Throttle Bypass), Penembus Batas Derating Layar Nyala Multi-Vendor (Samsung One UI SIOP, OnePlus/OPPO SuperVOOC Cool Mode, Xiaomi HyperOS Joyose/Current Boost, Google Tensor, ASUS ROG, & Motorola), Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time, serta Penguncian Hak Akses Sysfs Berlapis (chmod 444 Anti-Rollback Guard)** — memperluas kendali pengisian daya cerdas dan bypass pengisian dari yang sebelumnya berorientasi spesifik ke Transsion/MediaTek menjadi arsitektur universal yang secara cerdas mendeteksi dan membuka batas daya pada Qualcomm Snapdragon (SMB1390/1355 direct pump & PM8150), Samsung Exynos/Snapdragon (`siop_level 100`, direct charger mode), OnePlus/Oppo/Realme (`cool_mode 0`, `call_mode 0`, SuperVOOC user type), Xiaomi/HyperOS (`thermal_input_current_limit 6000000`, boost current, Joyose suspend), Google Tensor (Pixel `charge_stop_level`, trickle dry run), ASUS ROG, dan Motorola; menyelaraskan telemetri aplikasi dan daemon shell untuk mengidentifikasi jenis IC konverter dan protokol pengisian aktif (SuperVOOC, AFC, Super Fast Charging 25W/45W, HyperCharge, Pump Express, QC, PD PPS); serta memastikan pengisian cepat tetap melaju dengan daya maksimal baik saat layar hidup maupun mati tanpa hambatan regulasi termal OEM.
+> **Versi ini** menghadirkan **Matriks Universal Pengisian Daya Cepat & Bypass Termal Lintas SoC & OEM (Universal Multi-SoC & Multi-OEM Dynamic Fast Charging & Hardware Throttle Bypass), Penembus Batas Derating Layar Nyala Multi-Vendor (Samsung One UI SIOP, OnePlus/OPPO SuperVOOC Cool Mode, Xiaomi HyperOS Joyose/Current Boost, Google Tensor, ASUS ROG, & Motorola), Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time, serta Penguncian Hak Akses Sysfs Berlapis (chmod 444 Anti-Rollback Guard)** â memperluas kendali pengisian daya cerdas dan bypass pengisian dari yang sebelumnya berorientasi spesifik ke Transsion/MediaTek menjadi arsitektur universal yang secara cerdas mendeteksi dan membuka batas daya pada Qualcomm Snapdragon (SMB1390/1355 direct pump & PM8150), Samsung Exynos/Snapdragon (`siop_level 100`, direct charger mode), OnePlus/Oppo/Realme (`cool_mode 0`, `call_mode 0`, SuperVOOC user type), Xiaomi/HyperOS (`thermal_input_current_limit 6000000`, boost current, Joyose suspend), Google Tensor (Pixel `charge_stop_level`, trickle dry run), ASUS ROG, dan Motorola; menyelaraskan telemetri aplikasi dan daemon shell untuk mengidentifikasi jenis IC konverter dan protokol pengisian aktif (SuperVOOC, AFC, Super Fast Charging 25W/45W, HyperCharge, Pump Express, QC, PD PPS); serta memastikan pengisian cepat tetap melaju dengan daya maksimal baik saat layar hidup maupun mati tanpa hambatan regulasi termal OEM.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.42)
+## ð Fitur Baru & Peningkatan (3.0.42)
 
-### 1. ⚡ Matriks Pengisian Cepat Universal Lintas SoC & OEM (All-Device Dynamic Fast Charge)
+### 1. â¡ Matriks Pengisian Cepat Universal Lintas SoC & OEM (All-Device Dynamic Fast Charge)
 - **Universal Linux Power Rails**: Membuka batas arus pengisian daya kernel universal (`constant_charge_current_max` hingga 6000mA / 6A, `input_current_limit`, `current_max`) dengan penguncian read-only `chmod 444` untuk mencegah kernel dan HAL mereset nilai batas.
 - **Qualcomm Snapdragon Rails**: Mengaktifkan `fastcharge_mode`, mematikan pembatasan arus (`restricted_charging = 0`), menaikkan `restrict_cur` ke 6000000, serta mengaktifkan `direct_charging` pada PMIC Qualcomm (SMB1390 / SMB1355).
 - **MediaTek Dimensity & Helio Rails**: Membuka Pump Express 4.0 & 2.0, menyetel batas watt maksimum (`pdc_max_watt = 120`), menaikkan step limit IC RT9759 (`input_current`, `chg1_current`, `chg2_current = 24576`), dan menonaktifkan JEITA thermal clamp (`sw_jeita = 0`).
 
-### 2. 🛡️ Penembus Batas Throttling Layar Nyala Multi-Vendor (Multi-OEM Screen-On Bypass)
+### 2. ð¡ï¸ Penembus Batas Throttling Layar Nyala Multi-Vendor (Multi-OEM Screen-On Bypass)
 - **Samsung One UI (Exynos & Snapdragon)**: Memaksa `siop_level = 100` dengan penguncian `chmod 444`, menonaktifkan `store_mode` dan `batt_slate_mode`, serta mengaktifkan `direct_charger_mode` dan `afc_result` sehingga Samsung tidak memangkas arus saat layar menyala.
 - **OnePlus, OPPO & Realme (ColorOS / OxygenOS)**: Mengunci `cool_mode = 0` dan `call_mode = 0` dengan `chmod 444`, serta mengaktifkan `vooc_charging` dan `fast_charge_user_type = 1` agar SuperVOOC / Warp Charge tetap mengisi dengan kecepatan penuh saat layar aktif.
 - **Xiaomi & HyperOS (MIUI)**: Mengatur `thermal_input_current_limit = 6000000`, mengaktifkan `boost_current = 1`, mematikan `step_charging_enabled`, serta menangguhkan daemon pembatas termal Joyose (`killall -STOP com.xiaomi.joyose`) selama mode ekstrem aktif.
 - **Google Tensor (Pixel)**: Mengatur `charge_stop_level = 100` dan menonaktifkan `bd_trickle_dry_run`.
 - **ASUS ROG & Motorola**: Menyetel `smart_charging = 0` dan `charging_limit_mode = 0` (ASUS ROG), serta mengaktifkan `mmi_charging_enable = 1` dan `factory_mode = 1` (Motorola).
 
-### 3. 🔍 Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time
+### 3. ð Telemetri Dinamis Deteksi IC PMIC & Protokol Fast Charge Real-Time
 - **Identifikasi PMIC Otomatis**: Mendeteksi secara langsung hardware IC pengisi daya aktif: RT9759 (Direct Charge Pump 2:1), Qualcomm SMB1390/1355 Dual-Pump, Samsung S2MU/Maxim Direct Charger, Xiaomi HyperCharge Dual-Pump (LN8000/SC8551), OnePlus SuperVOOC Pump, atau Google Tensor PMIC (MAX77759).
 - **Deteksi Protokol Pengisian Akurat**: Menampilkan protokol aktif secara presisi (Transsion Super Charge 33W/45W/68W RFC, OnePlus SuperVOOC / Warp Fast Charge, Xiaomi HyperCharge 67W-120W, Samsung Super Fast Charging 25W/45W, Qualcomm QC3.0/QC4+/QC5, USB Power Delivery / PPS, atau High Current 5V).
 - **Sinkronisasi Shell Controller**: Menyinkronkan fungsi `dump_telemetry_json` di `core/Charging-Controller.sh` dan `readBatteryDetails()` di Lynx Companion Kotlin repository agar menghasilkan struktur data yang identik dan konsisten.
 
-### 4. 🔄 Penyelarasan Subsistem Profil Otomatis (DRY Modular Alignment)
+### 4. ð Penyelarasan Subsistem Profil Otomatis (DRY Modular Alignment)
 - **Modular Shell Invocation**: `core/apply_profile.sh` kini secara modular mendelegasikan konfigurasi pengisian daya langsung ke `Charging-Controller.sh apply`, menjamin aturan bypass dan pengisian cepat selalu sinkron di seluruh profil performa tanpa duplikasi kode.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.41
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Live Monitor Telemetri GPU Presisi 1 Detik (1000ms Real-Time Drift-Compensated Polling), Normalisasi Beban Komputasi Proses Grafis Multi-Core (Zero CPU Overflow), Efisiensi Pembacaan Top Process Latar Belakang (2.5s Adaptive Cache), serta Pemantapan Tata Letak Antarmuka GPU & Display Bersih & Responsif (Strict Touch-First Obsidian Dark Architecture)** — menyelaraskan siklus pembaruan grafik gelombang Bezier GPU, ring-buffer beban 30 detik, dan telemetri clock hardware tepat setiap 1 detik tanpa fluktuasi waktu; membagi persentase CPU proses render grafis dengan jumlah core aktif sehingga tidak lagi menampilkan nilai di atas 100%; mengeliminasi beban CPU saat polling dengan isolasi cache 2.5 detik untuk scan proses berat; serta memastikan tata letak subhalaman GPU & Display tertata rapi, bersih, bebas tumpang tindih elemen, dan sepenuhnya mematuhi standar desain mobile-first.
+> **Versi ini** menghadirkan **Live Monitor Telemetri GPU Presisi 1 Detik (1000ms Real-Time Drift-Compensated Polling), Normalisasi Beban Komputasi Proses Grafis Multi-Core (Zero CPU Overflow), Efisiensi Pembacaan Top Process Latar Belakang (2.5s Adaptive Cache), serta Pemantapan Tata Letak Antarmuka GPU & Display Bersih & Responsif (Strict Touch-First Obsidian Dark Architecture)** â menyelaraskan siklus pembaruan grafik gelombang Bezier GPU, ring-buffer beban 30 detik, dan telemetri clock hardware tepat setiap 1 detik tanpa fluktuasi waktu; membagi persentase CPU proses render grafis dengan jumlah core aktif sehingga tidak lagi menampilkan nilai di atas 100%; mengeliminasi beban CPU saat polling dengan isolasi cache 2.5 detik untuk scan proses berat; serta memastikan tata letak subhalaman GPU & Display tertata rapi, bersih, bebas tumpang tindih elemen, dan sepenuhnya mematuhi standar desain mobile-first.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.41)
+## ð Fitur Baru & Peningkatan (3.0.41)
 
-### 1. ⏱️ Polling Live Monitor GPU Real-Time 1 Detik (1000ms Drift-Compensated Interval)
+### 1. â±ï¸ Polling Live Monitor GPU Real-Time 1 Detik (1000ms Drift-Compensated Interval)
 - **Sinkronisasi Setiap Detik**: Memperbarui telemetri GPU (`readGpuInfo`) tepat setiap 1 detik (1000ms) di loop `startTelemetryPolling`, menggantikan siklus 2 detik sebelumnya.
 - **Drift-Compensated Delay**: Menghitung waktu eksekusi aktual (`1000ms - elapsed`) dengan batas pengaman 150ms agar ritme pembacaan tetap presisi tanpa lonjakan lag.
 - **Waveform Canvas 30 Detik Lebih Responsif**: Grafik kurva Bezier dan ring-buffer beban GPU kini menerima titik sampel baru secara mulus setiap 1 detik dengan titik pulsa bercahaya (*glowing pulse dot*) yang bergerak dinamis.
 
-### 2. 🎯 Normalisasi Beban CPU Proses Grafis (Multi-Core Aware)
+### 2. ð¯ Normalisasi Beban CPU Proses Grafis (Multi-Core Aware)
 - **Koreksi Persentase CPU**: Menormalkan metrik utilisasi dari perintah `top` dengan membagi nilai mentah terhadap jumlah prosesor logis perangkat (`rawCpu / numCores`), mencegah angka anomali di atas 100% pada CPU multi-core.
-- **Badge Beban Bersih**: Menampilkan kontribusi beban SurfaceFlinger, Game, dan proses grafis dalam rentang terstandarisasi 0%–100%.
+- **Badge Beban Bersih**: Menampilkan kontribusi beban SurfaceFlinger, Game, dan proses grafis dalam rentang terstandarisasi 0%â100%.
 
-### 3. ⚡ Optimasi Scan Latar Belakang (2.5-Second In-Memory Cache)
+### 3. â¡ Optimasi Scan Latar Belakang (2.5-Second In-Memory Cache)
 - **Sub-10ms Polling Execution**: Menambahkan proteksi in-memory cache selama 2500ms pada `readTopGraphicsProcesses()`, sehingga pembacaan sysfs frekuensi/suhu GPU setiap 1 detik berjalan instan (<10ms) tanpa membebani CPU dengan pemanggilan shell berat berulang-kali.
 
-### 4. 🎨 Pemantapan Tata Letak & Estetika Antarmuka (Clean & Touch-First)
+### 4. ð¨ Pemantapan Tata Letak & Estetika Antarmuka (Clean & Touch-First)
 - **Hierarki Kartu Visual Terstruktur**: Menata 5 kartu kontrol utama secara berjenjang (Master Tuner, Engine Pipeline, Per-App Hub, Refresh Rate, Color Management) dengan margin dan padding yang proporsional.
 - **Kepatuhan Touch-First**: Seluruh chip, tombol aksi, dan slider memiliki target sentuh minimal 48dp tanpa elemen bertabrakan di seluruh rasio layar.
 
@@ -8539,21 +8555,21 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.40
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Fast Charging Ekstrem Tanpa Batas Termal Layar Nyala & Layar Mati (Unrestricted Screen-On Fast Charging & Full Hardware Thermal Bypass), Penembus Batas Termal PCB Transsion/MediaTek (Uncapped 85°C / 6000mA via pcb_thermal_debug), Pembuka Register Maksimum IC RT9759 (24576 Raw Step Limit / 33W Pump Express 4.0), Penguncian Hak Akses Sysfs Anti-Reset (chmod 444 Hardware Lock), serta Sistem Persistensi Cerdas Hibrida (LynxPowerReceiver ACTION_POWER_CONNECTED, Boot Restorer & Watchdog Latar Belakang 60 Detik)** — memecahkan pembatasan pengisian daya bawaan OEM Transsion dan MediaTek yang sebelumnya memangkas arus pengisian ke 1500mA saat temperatur PCB mencapai 44°C atau saat layar menyala; membuka rel arus hingga 6000mA dan arus register IC pompa RT9759 ke 24576; mematikan intervensi thermal zone AP/PCB (`thermal_zone1/mode disabled`); menonaktifkan seluruh cooling device (`abcct`, `bcct`, `cdev2`) dengan penguncian read-only; serta menjamin persistensi pengisian cepat tanpa interupsi saat kabel dicolok ulang atau saat ponsel ditinggal berjam-jam tanpa perlu intervensi manual pengguna.
+> **Versi ini** menghadirkan **Fast Charging Ekstrem Tanpa Batas Termal Layar Nyala & Layar Mati (Unrestricted Screen-On Fast Charging & Full Hardware Thermal Bypass), Penembus Batas Termal PCB Transsion/MediaTek (Uncapped 85Â°C / 6000mA via pcb_thermal_debug), Pembuka Register Maksimum IC RT9759 (24576 Raw Step Limit / 33W Pump Express 4.0), Penguncian Hak Akses Sysfs Anti-Reset (chmod 444 Hardware Lock), serta Sistem Persistensi Cerdas Hibrida (LynxPowerReceiver ACTION_POWER_CONNECTED, Boot Restorer & Watchdog Latar Belakang 60 Detik)** â memecahkan pembatasan pengisian daya bawaan OEM Transsion dan MediaTek yang sebelumnya memangkas arus pengisian ke 1500mA saat temperatur PCB mencapai 44Â°C atau saat layar menyala; membuka rel arus hingga 6000mA dan arus register IC pompa RT9759 ke 24576; mematikan intervensi thermal zone AP/PCB (`thermal_zone1/mode disabled`); menonaktifkan seluruh cooling device (`abcct`, `bcct`, `cdev2`) dengan penguncian read-only; serta menjamin persistensi pengisian cepat tanpa interupsi saat kabel dicolok ulang atau saat ponsel ditinggal berjam-jam tanpa perlu intervensi manual pengguna.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.40)
+## ð Fitur Baru & Peningkatan (3.0.40)
 
-### 1. 🔥 Unrestricted Screen-On Fast Charging (Penghancur Batas Throttling Layar Nyala)
+### 1. ð¥ Unrestricted Screen-On Fast Charging (Penghancur Batas Throttling Layar Nyala)
 - **Bypass Throttling Layar Nyala OEM**: Menghilangkan penurunan kecepatan pengisian saat layar aktif (`BN_TestMode = 1`, `BatteryNotify = 0`, `tran_charger_full = 0`), menjaga baterai tetap mengisi dengan arus penuh saat bermain game atau memutar media.
-- **Transsion ODM PCB Thermal Clamp Override (85°C / 6000mA)**: Mengganti batas PCB bawaan 45°C/1500mA menjadi `[85,6000,90,5000,4500]` pada node `pcb_thermal_debug`, mencegah algoritma PCA (`dv2_algo_task`) masuk ke status darurat termal level 7.
+- **Transsion ODM PCB Thermal Clamp Override (85Â°C / 6000mA)**: Mengganti batas PCB bawaan 45Â°C/1500mA menjadi `[85,6000,90,5000,4500]` pada node `pcb_thermal_debug`, mencegah algoritma PCA (`dv2_algo_task`) masuk ke status darurat termal level 7.
 - **Uncap Register IC RT9759 (24576 Steps)**: Membuka batas arus register keras pompa pengisian MediaTek RT9759 (`input_current`, `chg1_current`, `chg2_current`) hingga batas hardware maksimum 24576.
 
-### 2. 🛡️ Penonaktifan Thermal Throttling & Penguncian Hak Akses Sysfs (Read-Only Lock)
+### 2. ð¡ï¸ Penonaktifan Thermal Throttling & Penguncian Hak Akses Sysfs (Read-Only Lock)
 - **Disable AP/PCB Thermal Zone**: Mematikan mode pemantauan termal pada `/sys/class/thermal/thermal_zone1/mode` dan menguncinya dengan `chmod 444` agar sistem tidak dapat mengaktifkannya kembali.
 - **Zero-Out & Read-Only Cooling Devices**: Mereset seluruh state cooling devices baterai dan charger (`abcct`, `bcct`, `cdev2`) ke `0` dan menguncinya dengan `chmod 444`.
 - **Framework Thermal Status Override**: Memaksa status framework Android ke kondisi dingin (`cmd thermalservice override-status 0`).
 
-### 3. ⚡ Sistem Persistensi Cerdas Hibrida (Watchdog & Power Listener)
+### 3. â¡ Sistem Persistensi Cerdas Hibrida (Watchdog & Power Listener)
 - **LynxPowerReceiver (ACTION_POWER_CONNECTED)**: Menangkap broadcast saat kabel pengisi daya dicolokkan ke perangkat, seketika menegaskan ulang bypass pengisian cepat tanpa jeda.
 - **Pemulihan Boot Otomatis (LynxBootReceiver)**: Mengembalikan konfigurasi pengisian cepat yang tersimpan seketika saat ponsel menyala (cold boot).
 - **Background Watchdog 60 Detik**: Mengawasi status pengisian di `LynxAppAutomationService` setiap 60 detik selama kabel terhubung untuk memastikan kernel tidak mereset status bypass secara diam-diam.
@@ -8563,49 +8579,49 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.39
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Master GPU Hero Card dengan Real-Time Bezier Waveform Canvas (Grafik Beban GPU 30 Detik, Peak Marker & Indikator Pulse) dan Top 5 Proses Render Grafis Aktif (SurfaceFlinger / RenderThread), GPU Governor Berlabel Semantik Manusiawi (Smart Descriptive Chips & Kartu Edukatif Karakteristik Teknis), 5-Engine UI Rendering Pipeline (Default Sistem, SkiaGL, SkiaVK, Skia Graphite Android 14+, dan Translasi ANGLE Khronos Vulkan dengan Badge Kompatibilitas), serta Manajemen Rendering Per-Aplikasi (Game Driver Hub)** — mengubah subhalaman *GPU & Display* menjadi pusat kendali rendering terlengkap setara konsol dan workstation tuning grafis modern; menggantikan tampilan utilisasi GPU lama dengan kanvas grafik gelombang Bezier bergradien dinamis dan pemantau proses grafis aktif berikon visual; menerjemahkan angka biner dan mode mentah MediaTek Mali GED (`0`, `1`, `2`) serta governor Qualcomm menjadi deskripsi teknis yang mudah dipahami; memperluas pipeline compositing HWUI ke 5 backend termasuk Skia Graphite modern dan translasi ANGLE; serta menyediakan kartu khusus manajemen game driver per aplikasi dengan dialog pencarian aplikasi terpasang, pemilihan driver (Default / Game Driver / Prerelease), switch translasi ANGLE Vulkan, dan penguncian refresh rate layar per judul game.
+> **Versi ini** menghadirkan **Master GPU Hero Card dengan Real-Time Bezier Waveform Canvas (Grafik Beban GPU 30 Detik, Peak Marker & Indikator Pulse) dan Top 5 Proses Render Grafis Aktif (SurfaceFlinger / RenderThread), GPU Governor Berlabel Semantik Manusiawi (Smart Descriptive Chips & Kartu Edukatif Karakteristik Teknis), 5-Engine UI Rendering Pipeline (Default Sistem, SkiaGL, SkiaVK, Skia Graphite Android 14+, dan Translasi ANGLE Khronos Vulkan dengan Badge Kompatibilitas), serta Manajemen Rendering Per-Aplikasi (Game Driver Hub)** â mengubah subhalaman *GPU & Display* menjadi pusat kendali rendering terlengkap setara konsol dan workstation tuning grafis modern; menggantikan tampilan utilisasi GPU lama dengan kanvas grafik gelombang Bezier bergradien dinamis dan pemantau proses grafis aktif berikon visual; menerjemahkan angka biner dan mode mentah MediaTek Mali GED (`0`, `1`, `2`) serta governor Qualcomm menjadi deskripsi teknis yang mudah dipahami; memperluas pipeline compositing HWUI ke 5 backend termasuk Skia Graphite modern dan translasi ANGLE; serta menyediakan kartu khusus manajemen game driver per aplikasi dengan dialog pencarian aplikasi terpasang, pemilihan driver (Default / Game Driver / Prerelease), switch translasi ANGLE Vulkan, dan penguncian refresh rate layar per judul game.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.39)
+## ð Fitur Baru & Peningkatan (3.0.39)
 
-### 1. 📈 Master GPU Hero Card (Real-Time Bezier Waveform & Top Render Processes)
+### 1. ð Master GPU Hero Card (Real-Time Bezier Waveform & Top Render Processes)
 - **30-Second Bezier Waveform Canvas**: Menampilkan grafik fluktuasi beban komputasi GPU secara real-time dengan kurva Bezier mulus, grid halus (25%, 50%, 75%), gradien vertikal amber bercahaya, titik puncak (*peak marker*), dan indikator *glowing pulse dot* pada sampel data terbaru.
 - **Top 5 Proses Render Grafis Aktif**: Mendeteksi dan menampilkan daftar 5 aplikasi/proses yang sedang aktif membebani SurfaceFlinger dan GPU (seperti game, SystemUI, Chromium renderers) lengkap dengan ikon tipe proses, nama paket, dan badge persentase beban komputasi.
 
-### 2. 🧠 Governor GPU Semantik & Kartu Edukatif Karakteristik Teknis
-- **Label Manusiawi Cerdas**: Menggantikan angka mentah MediaTek Mali GED (`0`, `1`, `2`) dengan chip deskriptif (`0 • Dinamis (Bawaan GED)`, `1 • Performa (Low-Latency)`, `2 • Agresif (Kustom)`) serta label informatif untuk Qualcomm Adreno (`msm-adreno-tz (TrustZone AI)`, `performance (Maksimal)`, dsb.).
+### 2. ð§  Governor GPU Semantik & Kartu Edukatif Karakteristik Teknis
+- **Label Manusiawi Cerdas**: Menggantikan angka mentah MediaTek Mali GED (`0`, `1`, `2`) dengan chip deskriptif (`0 â¢ Dinamis (Bawaan GED)`, `1 â¢ Performa (Low-Latency)`, `2 â¢ Agresif (Kustom)`) serta label informatif untuk Qualcomm Adreno (`msm-adreno-tz (TrustZone AI)`, `performance (Maksimal)`, dsb.).
 - **Kartu Edukatif Real-Time**: Menyematkan kartu penjelasan teknis di bawah pilihan governor untuk mengedukasi pengguna mengenai karakteristik algoritma scaling daya dan respon clock dari profil yang dipilih.
 
-### 3. ⚡ 5-Engine UI Rendering Pipeline (HWUI & Compositing Backend)
+### 3. â¡ 5-Engine UI Rendering Pipeline (HWUI & Compositing Backend)
 - **Ekspansi 5 Pipeline Render**: Menyediakan selektor backend compositing antarmuka dan canvas dengan 5 opsi lengkap: *Default Sistem [Stabil]*, *SkiaGL [OpenGL ES]*, *SkiaVK [Vulkan]*, *Skia Graphite [Android 14+]*, dan *ANGLE [Khronos Vulkan]*.
 - **Badge Kompatibilitas & Edukasi**: Indikator status cerdas yang memberitahukan ketersediaan library dan batas minimum versi Android (misal Android 14+ untuk Skia Graphite) tanpa memicu crash sistem.
 
-### 4. 🎮 Manajemen Rendering Per-Aplikasi (Game Driver Hub)
+### 4. ð® Manajemen Rendering Per-Aplikasi (Game Driver Hub)
 - **Konfigurasi Khusus per Judul Game**: Mengoptimalkan rendering setiap game secara individual memanfaatkan framework Android AOSP `GAME_DRIVER_OPT_IN_APPS`, `GAME_DRIVER_PRERELEASE_OPT_IN_APPS`, dan `ANGLE_ENABLED_FOR_PACKAGES`.
 - **App Picker Modal Cepat**: Dialog pemilihan aplikasi terpasang dengan filter pencarian real-time untuk memilih game target dengan mudah.
-- **Dialog Pengaturan Lengkap**: Kontrol menyeluruh per game mencakup pemilihan Tipe Driver (Default, Game Driver, Prerelease), sakelar Translasi ANGLE (OpenGL → Vulkan), dan penguncian Refresh Rate Layar (Bawaan, 60Hz, 90Hz, 120Hz).
+- **Dialog Pengaturan Lengkap**: Kontrol menyeluruh per game mencakup pemilihan Tipe Driver (Default, Game Driver, Prerelease), sakelar Translasi ANGLE (OpenGL â Vulkan), dan penguncian Refresh Rate Layar (Bawaan, 60Hz, 90Hz, 120Hz).
 - **Manajemen Mandiri**: Tombol edit dan hapus aturan per aplikasi untuk fleksibilitas total pengguna.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.38
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Pembersih Shader & Pipeline Cache Grafis Universal (Shader Cache Manager), Live Telemetri Suhu Silikon GPU & Indikator Thermal Throttling, Tunable Driver Kernel Lanjutan SoC (Adreno Idle Timer & MediaTek Mali GED DVFS Margin), serta Integrasi Floating Game HUD Overlay (In-Game OSD)** — menyempurnakan subhalaman *GPU & Display* menjadi ekosistem tuning grafis profesional setara Scene dan Franco Kernel Manager (FKM); membasmi tuntas masalah *shader compilation micro-stutter* pada game 3D melalui pemindaian dan pembersihan aman berkas `.shaders_cache` OpenGL & Vulkan tanpa menyentuh data login atau save game pemain; menampilkan live telemetri temperatur silikon GPU (°C) secara langsung di header tuner dengan peringatan visual saat thermal throttling terjadi; memberikan kontrol presisi terhadap parameter kernel low-latency seperti *Adreno Idle Timer* (20ms–100ms) dan *Mali GED DVFS Margin* (+0% s/d +30%); serta menyematkan kartu kendali *Floating Game HUD Overlay* di tab Lab agar gamer dapat memantau FPS, Frame Time, beban GPU, dan suhu secara real-time di atas game fullscreen dengan beragam gaya tampilan (RTSS Slim Pillar, Top Ribbon, Dual-Block, dsb.).
+> **Versi ini** menghadirkan **Pembersih Shader & Pipeline Cache Grafis Universal (Shader Cache Manager), Live Telemetri Suhu Silikon GPU & Indikator Thermal Throttling, Tunable Driver Kernel Lanjutan SoC (Adreno Idle Timer & MediaTek Mali GED DVFS Margin), serta Integrasi Floating Game HUD Overlay (In-Game OSD)** â menyempurnakan subhalaman *GPU & Display* menjadi ekosistem tuning grafis profesional setara Scene dan Franco Kernel Manager (FKM); membasmi tuntas masalah *shader compilation micro-stutter* pada game 3D melalui pemindaian dan pembersihan aman berkas `.shaders_cache` OpenGL & Vulkan tanpa menyentuh data login atau save game pemain; menampilkan live telemetri temperatur silikon GPU (Â°C) secara langsung di header tuner dengan peringatan visual saat thermal throttling terjadi; memberikan kontrol presisi terhadap parameter kernel low-latency seperti *Adreno Idle Timer* (20msâ100ms) dan *Mali GED DVFS Margin* (+0% s/d +30%); serta menyematkan kartu kendali *Floating Game HUD Overlay* di tab Lab agar gamer dapat memantau FPS, Frame Time, beban GPU, dan suhu secara real-time di atas game fullscreen dengan beragam gaya tampilan (RTSS Slim Pillar, Top Ribbon, Dual-Block, dsb.).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.38)
+## ð Fitur Baru & Peningkatan (3.0.38)
 
-### 1. 🧹 Pembersih Shader & Pipeline Cache Grafis (Shader Cache Manager)
+### 1. ð§¹ Pembersih Shader & Pipeline Cache Grafis (Shader Cache Manager)
 - **Pemindaian Kapasitas Cache Real-Time**: Menghitung secara otomatis ukuran total dan jumlah berkas shader cache (`com.android.opengl.shaders_cache` dan `com.android.skia.shaders_cache`) yang terakumulasi di seluruh sistem dan game 3D.
 - **Pembersihan Sekali Ketuk (One-Tap Purge)**: Tombol pembersih dengan dialog konfirmasi aman yang menghapus cache shader usang atau korup tanpa merusak save game atau kredensial akun pengguna, memastikan GPU mengompilasi shader baru yang bersih dan bebas stuttering.
 
-### 2. 🌡️ Live Telemetri Suhu GPU & Indikator Thermal Throttling
+### 2. ð¡ï¸ Live Telemetri Suhu GPU & Indikator Thermal Throttling
 - **Direct Silicon Temp Probe**: Membaca sensor termal silikon GPU secara presisi lintas arsitektur SoC (Qualcomm Adreno `/sys/class/kgsl/kgsl-3d0/temp`, MediaTek Mali thermal zones `gpu`/`mali`/`mtktsAP`, Samsung Exynos `/sys/kernel/gpu/gpu_temp`).
-- **Indikator Throttling Cerdas**: Menampilkan badge temperatur berkode warna (Hijau <50°C, Oranye 50–64°C, Merah >=65°C) serta banner peringatan visual jika frekuensi GPU dipangkas akibat regulasi termal kernel.
+- **Indikator Throttling Cerdas**: Menampilkan badge temperatur berkode warna (Hijau <50Â°C, Oranye 50â64Â°C, Merah >=65Â°C) serta banner peringatan visual jika frekuensi GPU dipangkas akibat regulasi termal kernel.
 
-### 3. ⏱️ Parameter Lanjutan Driver Kernel SoC (Kernel Tunables)
+### 3. â±ï¸ Parameter Lanjutan Driver Kernel SoC (Kernel Tunables)
 - **Adreno Idle Timer (Qualcomm Snapdragon)**: Opsi setelan batas waktu idle GPU (20ms, 40ms, 64ms Bawaan, 80ms, 100ms) via `/sys/class/kgsl/kgsl-3d0/idle_timer` untuk mencegah penurunan clock yang memicu micro-stutter pada jeda frame gameplay.
 - **Mali GED DVFS Margin (MediaTek Dimensity / Helio)**: Opsi sensitivitas scaling frekuensi (+0%, +10%, +20%, +30%) via `/sys/kernel/ged/hal/dvfs_margin_value` agar GPU lebih responsif melompat ke OPP clock tertinggi saat beban komputasi grafis melonjak.
 
-### 4. 🎛️ Integrasi Floating Game HUD Overlay (In-Game OSD)
+### 4. ðï¸ Integrasi Floating Game HUD Overlay (In-Game OSD)
 - **Kartu Kendali HUD di Tab Lab**: Sakelar master terintegrasi untuk mengaktifkan overlay performa mengambang langsung saat bermain game.
 - **Pilihan Gaya Tampilan (OSD Layouts)**: Mendukung seleksi instan gaya tampilan (RTSS Slim Pillar, Top Nano-Ribbon, Dual-Block Esport, Quad-Tiles, Steam Deck Banner).
 - **Deteksi Izin Overlay Otomatis**: Memeriksa izin `System Alert Window` (`Settings.canDrawOverlays`) dan memandu pengguna ke setelan sistem jika izin belum aktif.
@@ -8614,20 +8630,20 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.37
 Released on: 2026-10-05
-> **Versi ini** menghadirkan **Master Toggle & Sistem Proteksi Sentuh Kalibrasi Warna Layar (Color Engine Touch Protection), Eliminasi Risiko Blank Screen dengan Sanitasi Ketat Format Angka Internasional (Locale.US Enforced), Reset Mandiri Aman ke Standar Bawaan OEM (D65 White Point / Matrix Identity 1015 / Saturation 1.0x), serta Penyempurnaan Desain Antarmuka Material 3 Obsidian yang Bersih, Terstruktur, dan Bebas Distorsi Sentuhan** — melengkapi kartu *Manajemen Warna Layar (Color Engine)* dengan master switch terintegrasi di header dan banner status visual; saat kalibrasi dinonaktifkan, seluruh slider (temperatur Kelvin, saturasi, kontras, gain RGB) dan preset terkunci rapat dan tersembunyi dengan transisi halus (`AnimatedVisibility`), menjamin tidak ada sentuhan atau geseran tidak sengaja saat pengguna menggulir layar; saat dimatikan, sistem secara otomatis merestorasi matriks layar SurfaceFlinger dan kanal warna Android ke standar pabrik OEM.
+> **Versi ini** menghadirkan **Master Toggle & Sistem Proteksi Sentuh Kalibrasi Warna Layar (Color Engine Touch Protection), Eliminasi Risiko Blank Screen dengan Sanitasi Ketat Format Angka Internasional (Locale.US Enforced), Reset Mandiri Aman ke Standar Bawaan OEM (D65 White Point / Matrix Identity 1015 / Saturation 1.0x), serta Penyempurnaan Desain Antarmuka Material 3 Obsidian yang Bersih, Terstruktur, dan Bebas Distorsi Sentuhan** â melengkapi kartu *Manajemen Warna Layar (Color Engine)* dengan master switch terintegrasi di header dan banner status visual; saat kalibrasi dinonaktifkan, seluruh slider (temperatur Kelvin, saturasi, kontras, gain RGB) dan preset terkunci rapat dan tersembunyi dengan transisi halus (`AnimatedVisibility`), menjamin tidak ada sentuhan atau geseran tidak sengaja saat pengguna menggulir layar; saat dimatikan, sistem secara otomatis merestorasi matriks layar SurfaceFlinger dan kanal warna Android ke standar pabrik OEM.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.37)
+## ð Fitur Baru & Peningkatan (3.0.37)
 
-### 1. 🛡️ Master Toggle & Proteksi Anti-Sentuh Kalibrasi Warna Layar
+### 1. ð¡ï¸ Master Toggle & Proteksi Anti-Sentuh Kalibrasi Warna Layar
 - **Master Switch Terintegrasi**: Sakelar kendali utama ditempatkan di header kartu dan status banner interaktif untuk mengaktifkan atau menonaktifkan seluruh engine kalibrasi warna secara instan.
-- **Kunci Total Saat Nonaktif (Touch-Proof)**: Saat sakelar dalam posisi nonaktif (`OFF`), seluruh slider (Temperatur Kelvin 4000K–9000K, Saturasi 0.5x–1.8x, Kontras 0.7x–1.3x, dan Gain RGB Individual) serta chip preset dikunci dan disembunyikan secara rapi dengan animasi `AnimatedVisibility`. Pengguna bebas melakukan *scroll* tanpa risiko menyentuh slider secara tidak sengaja.
+- **Kunci Total Saat Nonaktif (Touch-Proof)**: Saat sakelar dalam posisi nonaktif (`OFF`), seluruh slider (Temperatur Kelvin 4000Kâ9000K, Saturasi 0.5xâ1.8x, Kontras 0.7xâ1.3x, dan Gain RGB Individual) serta chip preset dikunci dan disembunyikan secara rapi dengan animasi `AnimatedVisibility`. Pengguna bebas melakukan *scroll* tanpa risiko menyentuh slider secara tidak sengaja.
 - **Banner Status & Indikator OEM**: Menampilkan kartu status informatif dengan ikon gembok dan tag `STANDAR OEM` saat nonaktif, atau ikon tuning dan tag profil aktif (misal `AKURAT`, `GAMING`) saat aktif.
 
-### 2. ⚡ Restorasi Otomatis & Aman ke Standar Pabrik OEM (Safe Fallback)
+### 2. â¡ Restorasi Otomatis & Aman ke Standar Pabrik OEM (Safe Fallback)
 - **Zero-Latency Reset on Disable**: Mematikan sakelar kalibrasi secara otomatis mengeksekusi reset aman pada seluruh lapisan grafis: SurfaceFlinger Color Matrix 1015 dikembalikan ke identitas (`1015 i32 0`), saturasi dikembalikan ke `1.0`, dan `display_color_adjustment` dikembalikan ke `'1.0 1.0 1.0'`.
 - **Pencegahan Risiko Layar Gelap (Black Screen Prevention)**: Menjamin tidak ada lagi nilai nol atau format angka dengan koma yang dapat menyebabkan layar blank pada ROM ber-locale non-Inggris (Indonesia, Eropa, dsb.).
 
-### 3. 🎨 Perbaikan Desain & Struktur Antarmuka yang Bersih (Ultra-Clean UI)
+### 3. ð¨ Perbaikan Desain & Struktur Antarmuka yang Bersih (Ultra-Clean UI)
 - **Hierarki Informasi yang Rapi**: Mengelompokkan preset, slider utama, dan penyesuaian gain lanjutan ke dalam container bertingkat yang terstruktur dan mudah dipahami tanpa kebingungan.
 - **Touch-First Compliance (>= 48dp)**: Seluruh tombol preset, switch, dan area interaktif dirancang dengan target sentuh minimal 48dp sesuai pedoman kenyamanan jemari dan mobile-first.
 - **Persistensi State Cerdas**: Status aktif/nonaktif kalibrasi warna dan profil pilihan tersimpan secara aman di preferensi aplikasi sehingga tetap konsisten setelah aplikasi ditutup atau perangkat direboot.
@@ -8636,66 +8652,66 @@ Released on: 2026-10-05
 
 # Lynx [Codename: Deity] 3.0.36
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Arsitektur 3-Tab Terpadu "GPU & Display" (Tuning, Performance Lab, Info Hardware), Performance Lab Engine dengan Perekaman Frame-Pacing & Korelasi Drop Timestamp Real-Time (Avg FPS, 1% Low, 0.1% Low, Stabilitas %, Frame Time Variance), Deteksi Kapabilitas Hardware Universal (GPU Vendor, Model, Driver, GLES, Vulkan API, Panel Modes, HDR, Wide Color, Sysfs Explorer), Diagnostik Display Pipeline (HWC vs GPU Client Composition, Missed Frames, Active SkiaVK/GL), Mesin Kalibrasi Warna Modern SurfaceFlinger Matrix 1015 (Kelvin White Point 4000K-9000K, Saturasi, Kontras, RGB Individual, Presets D65/Gaming/Cinema/Membaca, Deteksi Konflik Night Light / Extra Dim), serta Perluasan Aturan Per-App Profil (GPU Clock Min/Max, Boost Level, Adaptive Authority, Color Profile)** — meningkatkan subhalaman *GPU & Display* menjadi pusat kendali grafis terlengkap tanpa perlu aplikasi pihak ketiga; dilengkapi validasi ketat *No-Gimmick* (verifikasi read-back hak akses node nyata), ekspor histori sesi ke CSV (`/sdcard/Download/Lynx/`), dan desain antarmuka Material 3 Obsidian yang bersih, terstruktur, dan mobile-first.
+> **Versi ini** menghadirkan **Arsitektur 3-Tab Terpadu "GPU & Display" (Tuning, Performance Lab, Info Hardware), Performance Lab Engine dengan Perekaman Frame-Pacing & Korelasi Drop Timestamp Real-Time (Avg FPS, 1% Low, 0.1% Low, Stabilitas %, Frame Time Variance), Deteksi Kapabilitas Hardware Universal (GPU Vendor, Model, Driver, GLES, Vulkan API, Panel Modes, HDR, Wide Color, Sysfs Explorer), Diagnostik Display Pipeline (HWC vs GPU Client Composition, Missed Frames, Active SkiaVK/GL), Mesin Kalibrasi Warna Modern SurfaceFlinger Matrix 1015 (Kelvin White Point 4000K-9000K, Saturasi, Kontras, RGB Individual, Presets D65/Gaming/Cinema/Membaca, Deteksi Konflik Night Light / Extra Dim), serta Perluasan Aturan Per-App Profil (GPU Clock Min/Max, Boost Level, Adaptive Authority, Color Profile)** â meningkatkan subhalaman *GPU & Display* menjadi pusat kendali grafis terlengkap tanpa perlu aplikasi pihak ketiga; dilengkapi validasi ketat *No-Gimmick* (verifikasi read-back hak akses node nyata), ekspor histori sesi ke CSV (`/sdcard/Download/Lynx/`), dan desain antarmuka Material 3 Obsidian yang bersih, terstruktur, dan mobile-first.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.36)
+## ð Fitur Baru & Peningkatan (3.0.36)
 
-### 1. 🎛️ Arsitektur 3-Tab Terpadu: [ 🎮 Tuning ], [ 📊 Lab ], dan [ ℹ️ Info ]
+### 1. ðï¸ Arsitektur 3-Tab Terpadu: [ ð® Tuning ], [ ð Lab ], dan [ â¹ï¸ Info ]
 - **Segmented Top Navigation**: Navigasi segmented touch-first di bagian atas subhalaman GPU & Display yang membagi fitur ke dalam 3 pilar: *Tuning* (pengaturan clock, driver, refresh rate, kalibrasi warna), *Lab* (perekam performa & analisis frame pacing), dan *Info* (pemindai kapabilitas hardware dan penjelajah node kernel).
 - **Desain Ultra-Clean & Anti-Clutter**: Memastikan antarmuka tetap rapi, responsif, dan tidak membebani pengguna dengan pengelompokan yang jelas dan terstruktur.
 
-### 2. 📊 Performance Lab — Real Frame Stability & Drop Correlator
+### 2. ð Performance Lab â Real Frame Stability & Drop Correlator
 - **Perekaman Frame-Pacing SurfaceFlinger**: Mengukur latensi penyerahan buffer frame per layer langsung via SurfaceFlinger BLAST tanpa membebani sistem render.
 - **Metrik Frame Komprehensif**: Menghitung secara presisi *Rata-rata FPS*, *1% Low FPS*, *0.1% Low FPS*, *Variansi Frame Time (Deviasi Standar)*, *Skor Kestabilan %*, *Persentil p50/p95/p99*, dan *Total Frame Jank*.
 - **Korelasi Drop Akar Masalah**: Mengorelasikan timestamp setiap kejadian frame drop terhadap fluktuasi clock GPU (downclock oleh governor), thermal throttling, GPU core queue stall, atau CPU thread stall.
 - **Rekomendasi Cerdas**: Memberikan saran optimasi kontekstual berdasarkan akar masalah yang terdeteksi.
 - **Histori Sesi & Ekspor CSV**: Menyimpan hingga 20 sesi pengujian dan memungkinkan ekspor data frame lengkap ke format `.csv` di folder `/sdcard/Download/Lynx/`.
 
-### 3. ℹ️ Hardware Capability Scanner & Sysfs Node Explorer
+### 3. â¹ï¸ Hardware Capability Scanner & Sysfs Node Explorer
 - **Deteksi Driver & API Fisik**: Memindai vendor GPU nyata (Adreno, Mali, Xclipse), versi driver kernel, versi OpenGL ES, serta mendekode versi Vulkan API via `cmd gpu vkjson`.
 - **Kapabilitas Panel Display**: Mendeteksi resolusi dan seluruh refresh rate yang didukung panel (`dumpsys display`), tipe HDR (HDR10, HDR10+, Dolby Vision), Wide Color Gamut (Display P3), serta dukungan hardware DC Dimming, HBM Sunlight Booster, dan KCAL.
 - **Display Pipeline & Komposisi**: Memantau rasio komposisi *Hardware Composer (HWC Direct)* vs *Client GPU Fallback*, jumlah missed frames, serta backend aktif Skia (SkiaVK Vulkan vs SkiaGL).
 - **Universal Sysfs Node Explorer**: Menampilkan daftar node kernel nyata yang terdeteksi pada perangkat beserta badge status akses (`WRITABLE`, `READ-ONLY`, `UNAVAILABLE`) dan fitur salin path dalam satu ketukan.
 
-### 4. 🎨 Universal Color Management Engine (SurfaceFlinger Matrix 1015)
+### 4. ð¨ Universal Color Management Engine (SurfaceFlinger Matrix 1015)
 - **Koreksi White Point D65 & Temperatur Kelvin**: Penyesuaian temperatur warna (4000K hingga 9000K) berbasis aproksimasi Tanner Helland dengan normalisasi D65.
 - **Kontrol Saturasi & Kontras**: Menyetel matriks saturasi Rec.709 (0.5x hingga 1.8x) dan kontras dinamis tanpa efek banding visual.
 - **Preset Instan & Gain RGB Individual**: Opsi preset cepat (*Akurat D65*, *Gaming Vivid*, *Cinema Warm*, *Membaca/Eye Care*) dan slider gain individu untuk Red, Green, Blue.
 - **Deteksi Konflik Night Light / Extra Dim**: Notifikasi otomatis jika fitur Night Light atau Extra Dim Android sedang aktif di sistem agar kalibrasi warna tidak terdistorsi.
 - **KCAL & HBM Seamless Fallback**: Tetap mempertahankan dukungan saklar KCAL kernel dan HBM Sunlight Booster jika perangkat memilikinya.
 
-### 5. 📦 Perluasan Aturan Profil Aplikasi (App Profile Rules)
+### 5. ð¦ Perluasan Aturan Profil Aplikasi (App Profile Rules)
 - **Parameter GPU & Display pada Per-App Rule**: Menambahkan konfigurasi frekuensi minimum/maksimum GPU, boost level, preferensi adaptive authority, dan profil warna pada basis data per-aplikasi (`AppProfileRule`).
 
 ---
 
 # Lynx [Codename: Deity] 3.0.35
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Reka Ulang Arsitektur Universal Subhalaman "GPU & Display": Dual-Pill Dropdown Frequency Picker & Kunci Clock Mandiri, Mode Auto Refresh Rate Dinamis (0Hz Ultra-Low Idle & Instant Boost Touch), Eliminasi Duplikasi Boost, Driver Grafis Produksi Game (AOSP `updatable_driver_all_apps`), HWUI Modern SkiaVK (Vulkan Backend) & SkiaGL, SurfaceFlinger Low-Latency Latch Unsignaled, Shield Anti-Throttling Vendor OEM (Xiaomi Joyose / Samsung GOS / BBK GPA / Transsion Darwin), serta Kalibrasi Warna Layar Universal Android (`display_color_adjustment`) Bebas Pesan Error Raksasa** — merestrukturisasi total subhalaman *GPU & Display* pada aplikasi Lynx Companion (`LynxKernelManager`) menjadi 4 Kartu Master berorientasi touch-first dan clean minimalist: (1) *Master GPU Tuner & Telemetri*, (2) *Driver Grafis & HWUI Engine*, (3) *Display Refresh Rate & Touch*, dan (4) *Kalibrasi Warna Layar (Universal RGB)*; membasmi tuntas slider frekuensi horizontal yang kaku menjadi selektor Dual-Pill (Min MHz & Max MHz) dengan Bottom Sheet 49-step OPP table dan tombol kunci mandiri, mengintegrasikan mode Auto Refresh Rate cerdas dengan `min_refresh_rate = 0.0` untuk efisiensi baterai maksimal, serta mendukung penuh cross-SoC kernel (Qualcomm Snapdragon Adreno, MediaTek Mali/Immortalis GED, Samsung Exynos/AMD RDNA Xclipse, Google Tensor, Generic Linux GKI).
+> **Versi ini** menghadirkan **Reka Ulang Arsitektur Universal Subhalaman "GPU & Display": Dual-Pill Dropdown Frequency Picker & Kunci Clock Mandiri, Mode Auto Refresh Rate Dinamis (0Hz Ultra-Low Idle & Instant Boost Touch), Eliminasi Duplikasi Boost, Driver Grafis Produksi Game (AOSP `updatable_driver_all_apps`), HWUI Modern SkiaVK (Vulkan Backend) & SkiaGL, SurfaceFlinger Low-Latency Latch Unsignaled, Shield Anti-Throttling Vendor OEM (Xiaomi Joyose / Samsung GOS / BBK GPA / Transsion Darwin), serta Kalibrasi Warna Layar Universal Android (`display_color_adjustment`) Bebas Pesan Error Raksasa** â merestrukturisasi total subhalaman *GPU & Display* pada aplikasi Lynx Companion (`LynxKernelManager`) menjadi 4 Kartu Master berorientasi touch-first dan clean minimalist: (1) *Master GPU Tuner & Telemetri*, (2) *Driver Grafis & HWUI Engine*, (3) *Display Refresh Rate & Touch*, dan (4) *Kalibrasi Warna Layar (Universal RGB)*; membasmi tuntas slider frekuensi horizontal yang kaku menjadi selektor Dual-Pill (Min MHz & Max MHz) dengan Bottom Sheet 49-step OPP table dan tombol kunci mandiri, mengintegrasikan mode Auto Refresh Rate cerdas dengan `min_refresh_rate = 0.0` untuk efisiensi baterai maksimal, serta mendukung penuh cross-SoC kernel (Qualcomm Snapdragon Adreno, MediaTek Mali/Immortalis GED, Samsung Exynos/AMD RDNA Xclipse, Google Tensor, Generic Linux GKI).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.35)
+## ð Fitur Baru & Peningkatan (3.0.35)
 
-### 1. 🎛️ Dual-Pill Dropdown Frequency Picker & Clock Lock Mandiri
+### 1. ðï¸ Dual-Pill Dropdown Frequency Picker & Clock Lock Mandiri
 - **Paritas Sempurna dengan CPU Clock**: Menggantikan slider horizontal GPU dengan selektor Dual-Pill interaktif (*Frekuensi Min* dan *Frekuensi Max*) dengan tinggi sentuh 48dp bebas miss-click.
 - **Modal Bottom Sheet OPP Steps**: Mengetuk pill frekuensi membuka bottom sheet interaktif yang menampilkan seluruh tangga frekuensi yang didukung hardware kernel (300 MHz hingga 950 MHz+).
 - **Tombol Kunci Clock Mandiri (`Lock`)**: Tombol aksi sentuh 48dp untuk mengunci frekuensi GPU minimum dan maksimum secara seragam demi performa gaming stabil tanpa fluktuasi clock.
 
-### 2. 📱 Mode Auto Refresh Rate Cerdas (0.0Hz Idle & Instant Touch Spike)
-- **Selektor Chip 4-Arah**: Menambahkan mode `[ 🤖 Auto Dinamis ]` di samping opsi refresh rate tetap `60Hz`, `90Hz`, dan `120Hz/144Hz`.
+### 2. ð± Mode Auto Refresh Rate Cerdas (0.0Hz Idle & Instant Touch Spike)
+- **Selektor Chip 4-Arah**: Menambahkan mode `[ ð¤ Auto Dinamis ]` di samping opsi refresh rate tetap `60Hz`, `90Hz`, dan `120Hz/144Hz`.
 - **Zero-Waste Power Efficiency**: Mengatur `min_refresh_rate = 0.0` pada mode Auto sehingga panel layar turun ke refresh rate terendah saat tampilan statis (menghemat konsumsi daya baterai hingga 40%), dan seketika melompat ke 120Hz saat disentuh.
 
-### 3. 🧹 Eliminasi Duplikasi Boost & Penataan Ulang Arsitektur
+### 3. ð§¹ Eliminasi Duplikasi Boost & Penataan Ulang Arsitektur
 - **Zero Redundancy**: Menghapus duplikasi selektor GPU Boost yang sebelumnya bertumpuk dua kali (Mati, Level 1, Level 2 vs Off, Medium, High).
 - **Pembersihan Kartu Misplaced**: Memindahkan selektor arsitektur SoC global keluar dari subhalaman GPU agar fokus kartu murni pada akselerasi grafis hardware.
-- **Segmented Boost 3-Arah**: Menghadirkan kontrol segmented boost ringkas: `🍃 Hemat (0)`, `⚡ Level 1 (Normal)`, dan `🔥 Level 2 (Hardcore)`.
+- **Segmented Boost 3-Arah**: Menghadirkan kontrol segmented boost ringkas: `ð Hemat (0)`, `â¡ Level 1 (Normal)`, dan `ð¥ Level 2 (Hardcore)`.
 
-### 4. 🎮 Driver Grafis Game & HWUI Engine Modern (Lintas SoC & Brand)
+### 4. ð® Driver Grafis Game & HWUI Engine Modern (Lintas SoC & Brand)
 - **AOSP Production Game Driver**: Opsi `updatable_driver_all_apps` untuk memaksa sistem memuat driver grafis produksi independen untuk semua aplikasi.
 - **HWUI Rendering Engine (Vulkan / SkiaVK)**: Saklar backend antarmuka sistem Android (`skiavk` Vulkan, `skiagl` OpenGL ES, `auto`) untuk memangkas beban CPU overhead rendering hingga 30%.
 - **SurfaceFlinger Low-Latency Latch**: Mengaktifkan `debug.sf.latch_unsignaled = 1` untuk memangkas antrean render buffer dan memotong input lag sentuhan hingga 1 frame (~8.3ms pada 120Hz).
 - **Shield Anti-Throttling OEM**: Mendeteksi dan melumpuhkan daemon pembatas FPS bawaan OEM (Xiaomi Joyose, Samsung GOS, Transsion Darwin, BBK GPA).
 
-### 5. 🎨 Kalibrasi Warna Layar Universal Android (`display_color_adjustment`)
+### 5. ð¨ Kalibrasi Warna Layar Universal Android (`display_color_adjustment`)
 - **Dukungan Universal AOSP**: Memanfaatkan node resmi Android `display_color_adjustment` untuk kalibrasi channel Red, Green, Blue di seluruh custom ROM modern (AOSP, LineageOS, EvolutionX, PixelOS, HyperOS, OneUI).
 - **Desain Smart-Compact**: Menghilangkan badge pesan error oranye raksasa saat driver KCAL/HBM lawas tidak ada di kernel modern, digantikan oleh antarmuka slider RGB yang bersih dan responsif beserta tombol reset 1.0.
 
@@ -8703,20 +8719,20 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.34
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Penyempurnaan Arsitektur & Reorganisasi Hierarki UI CPU: Promosi Posisi Kartu Core Parking & CPU Idle ke Posisi 2, Transformasi Segmented Selector 3-Arah Touch-First, Penyelarasan Zero-Redundancy antara Kernel Hotplug (`online=0/1`) dan C-States (`cpuidle`), serta Perampingan Accordion Lanjutan** — merestrukturisasi subhalaman *CPU & Governor* pada aplikasi Lynx Companion (`LynxKernelManager`) agar alur navigasi parameter CPU lebih logis, berorientasi mobile-first, dan bebas dari ambiguitas; kini kartu *Core Parking & CPU Idle (C-States)* ditempatkan tepat di bawah *Cluster Frequency & Governor Tuning* (sebelum *CPU Sets & Task Shield*), fitur kebijakan Core Parking ditarik keluar dari accordion tersembunyi dan menu dropdown menjadi selektor segmented 3-arah (`Dinamis (OEM)`, `Unpark Semua`, `Parkir Big Cores`) dengan kartu penjelasan kontekstual langsung, serta accordion kustomisasi lanjutan dikhususkan murni untuk parameter C-States tingkat mendalam (Level 0 WFI hingga Level 3 Deep Sleep) dan ARMPLL Power Down.
+> **Versi ini** menghadirkan **Penyempurnaan Arsitektur & Reorganisasi Hierarki UI CPU: Promosi Posisi Kartu Core Parking & CPU Idle ke Posisi 2, Transformasi Segmented Selector 3-Arah Touch-First, Penyelarasan Zero-Redundancy antara Kernel Hotplug (`online=0/1`) dan C-States (`cpuidle`), serta Perampingan Accordion Lanjutan** â merestrukturisasi subhalaman *CPU & Governor* pada aplikasi Lynx Companion (`LynxKernelManager`) agar alur navigasi parameter CPU lebih logis, berorientasi mobile-first, dan bebas dari ambiguitas; kini kartu *Core Parking & CPU Idle (C-States)* ditempatkan tepat di bawah *Cluster Frequency & Governor Tuning* (sebelum *CPU Sets & Task Shield*), fitur kebijakan Core Parking ditarik keluar dari accordion tersembunyi dan menu dropdown menjadi selektor segmented 3-arah (`Dinamis (OEM)`, `Unpark Semua`, `Parkir Big Cores`) dengan kartu penjelasan kontekstual langsung, serta accordion kustomisasi lanjutan dikhususkan murni untuk parameter C-States tingkat mendalam (Level 0 WFI hingga Level 3 Deep Sleep) dan ARMPLL Power Down.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.34)
+## ð Fitur Baru & Peningkatan (3.0.34)
 
-### 1. 📐 Reorganisasi Hierarki Kartu CPU (`CpuSubScreen`)
+### 1. ð Reorganisasi Hierarki Kartu CPU (`CpuSubScreen`)
 - **Promosi ke Posisi 2**: Memindahkan kartu `CpuIdleCoreParkingCard` ke posisi kedua tepat di bawah `CpuClusterTunerCard` dan mendahului `CpuSetsTaskShieldCard`.
 - **Alur Logika Berurutan**: Menyusun hierarki konfigurasi prosesor yang runtut: *Kecepatan/Frekuensi Inti* $\to$ *Ketersediaan Inti & Latensi Tidur (Core Parking & Idle)* $\to$ *Penugasan Tugas (CPU Sets / Affinity)* $\to$ *Algoritma Penjadwalan (CFS/EAS/HMP/BORE)*.
 
-### 2. 🎛️ Transformasi Selektor Segmented 3-Arah Core Parking
+### 2. ðï¸ Transformasi Selektor Segmented 3-Arah Core Parking
 - **Eliminasi Dropdown Tersembunyi**: Menghapus menu dropdown dan accordion bersarang untuk pengaturan Core Parking yang sebelumnya memerlukan klik ekstra dan sulit dijangkau.
-- **Selektor Segmented Touch-First**: Menyajikan kontrol langsung 3-opsi (`Dinamis`, `Unpark Semua`, `Parkir Big`) dengan tinggi sentuh minimum 44–48dp dan indikator visual status aktif berbasis warna aksen (Biru, Cyan, Oranye).
+- **Selektor Segmented Touch-First**: Menyajikan kontrol langsung 3-opsi (`Dinamis`, `Unpark Semua`, `Parkir Big`) dengan tinggi sentuh minimum 44â48dp dan indikator visual status aktif berbasis warna aksen (Biru, Cyan, Oranye).
 - **Penjelasan Kontekstual Real-Time**: Menyertakan kartu ringkasan dinamis yang menerangkan secara gamblang implikasi kernel dari masing-masing mode yang dipilih (misal: penulisan sysfs `/sys/devices/system/cpu/cpu*/online`).
 
-### 3. 🔬 Perampingan Accordion Kustomisasi Lanjutan C-States
+### 3. ð¬ Perampingan Accordion Kustomisasi Lanjutan C-States
 - **Pemisahan Konseptual yang Tegas**: Memisahkan secara tegas antara *Core Parking / Hotplug* (isolasi fisik core dari scheduler) dan *C-States* (siklus tidur idle CPU saat core tetap online).
 - **Fokus Murni C-States**: Mengubah nama accordion menjadi *Kustomisasi Lanjutan: C-States (/sys/cpuidle)* yang khusus menampung saklar granular Level 0 (WFI Wajib Aktif), Level 1 (cpuoff), Level 2 (clusteroff), Level 3 (deep), serta saklar hardware *ARMPLL Power Down Mode*.
 
@@ -8724,19 +8740,19 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.33
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Deep Hardware Diagnostic & Transsion Motherboard Thermal Override: Pembongkaran Kernel DV2/PE5.0 Throttling, Bypass Kuncian Suhu PCB 45°C (`pcb_thermal_debug` [65,3500,70,3000,2500]), Penjinakan Adaptive Battery Current Throttling (`abcct`), dan Analisis Fisika Saturasi Sel Baterai (CV Phase)** — membongkar tuntas investigasi hardware tingkat kernel pada perangkat MediaTek Dimensity / Transsion (Infinix X698) mengapa pengisian daya sempat drop di bawah 25W (menjadi ~10W–14W); telemetri kernel membuktikan bahwa algoritma DV2 memotong arus input adaptor dari 3000mA ke 1500mA akibat suhu sensor motherboard (`tpcb`) menyentuh 45°C (Level 7) dan layar menyala (`game_limit_ita` 1500mA), serta kondisi tegangan baterai yang telah menyentuh fase jenuh Constant Voltage (>4.47V / >70%); versi ini menyuntikkan override langsung ke register driver pabrik ODM Transsion untuk menaikkan plafon suhu PCB ke 65°C, menonaktifkan derating cooling device `abcct`, serta mengoptimalkan aliran daya pada kondisi layar aktif dan mati.
+> **Versi ini** menghadirkan **Deep Hardware Diagnostic & Transsion Motherboard Thermal Override: Pembongkaran Kernel DV2/PE5.0 Throttling, Bypass Kuncian Suhu PCB 45Â°C (`pcb_thermal_debug` [65,3500,70,3000,2500]), Penjinakan Adaptive Battery Current Throttling (`abcct`), dan Analisis Fisika Saturasi Sel Baterai (CV Phase)** â membongkar tuntas investigasi hardware tingkat kernel pada perangkat MediaTek Dimensity / Transsion (Infinix X698) mengapa pengisian daya sempat drop di bawah 25W (menjadi ~10Wâ14W); telemetri kernel membuktikan bahwa algoritma DV2 memotong arus input adaptor dari 3000mA ke 1500mA akibat suhu sensor motherboard (`tpcb`) menyentuh 45Â°C (Level 7) dan layar menyala (`game_limit_ita` 1500mA), serta kondisi tegangan baterai yang telah menyentuh fase jenuh Constant Voltage (>4.47V / >70%); versi ini menyuntikkan override langsung ke register driver pabrik ODM Transsion untuk menaikkan plafon suhu PCB ke 65Â°C, menonaktifkan derating cooling device `abcct`, serta mengoptimalkan aliran daya pada kondisi layar aktif dan mati.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.33)
+## ð Fitur Baru & Peningkatan (3.0.33)
 
-### 1. 🌡️ Transsion ODM PCB Thermal Clamp Override (`pcb_thermal_debug`)
-- **Pembongkaran Bottleneck 45°C Kernel**: Melalui inspeksi dmesg real-time, ditemukan bahwa kernel MediaTek PE5.0 mengeksekusi `__dv2_check_tpcb_level tpcb(46,7)` yang secara otomatis memotong arus adaptor `ita` dari 3000mA menjadi 1500mA setiap kali motherboard ponsel menyentuh 45°C.
-- **Penyuntikan Ambang Batas Pabrik (65°C / 3500mA)**: Mengintegrasikan bypass register ODM Transsion via `echo "[65,3500,70,3000,2500]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug` (`Tpcb_store_ok = 1`), menaikkan toleransi panas PCB ke 65°C dan menaikkan arus dealing dari 1500mA ke 3500mA sehingga watt pengisian tidak drop drastis saat komponen menghangat.
+### 1. ð¡ï¸ Transsion ODM PCB Thermal Clamp Override (`pcb_thermal_debug`)
+- **Pembongkaran Bottleneck 45Â°C Kernel**: Melalui inspeksi dmesg real-time, ditemukan bahwa kernel MediaTek PE5.0 mengeksekusi `__dv2_check_tpcb_level tpcb(46,7)` yang secara otomatis memotong arus adaptor `ita` dari 3000mA menjadi 1500mA setiap kali motherboard ponsel menyentuh 45Â°C.
+- **Penyuntikan Ambang Batas Pabrik (65Â°C / 3500mA)**: Mengintegrasikan bypass register ODM Transsion via `echo "[65,3500,70,3000,2500]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug` (`Tpcb_store_ok = 1`), menaikkan toleransi panas PCB ke 65Â°C dan menaikkan arus dealing dari 1500mA ke 3500mA sehingga watt pengisian tidak drop drastis saat komponen menghangat.
 
-### 2. ⚡ Penjinakan Cooling Device `abcct` & Perbaikan Izin Sysfs
+### 2. â¡ Penjinakan Cooling Device `abcct` & Perbaikan Izin Sysfs
 - **Reset Adaptive Battery Charging Current Throttling**: Memastikan pendingin kernel `cooling_device56 [abcct]` dinonaktifkan (`cur_state = 0`) tanpa mengunci file dengan `chmod 444` yang sebelumnya memicu *Permission Denied* pada siklus daemon berulang.
 - **Konsistensi Manajemen Termal Asinkron**: Seluruh loop otomasi pengisian daya kini dapat menyegarkan dan menjaga state pendingin charging pada level 0 secara terus menerus.
 
-### 3. 🔬 Analisis & Optimalisasi Perilaku Pengisian Daya (Screen-On vs Screen-Off & CV Phase)
+### 3. ð¬ Analisis & Optimalisasi Perilaku Pengisian Daya (Screen-On vs Screen-Off & CV Phase)
 - **Bypass Layar Menyala & Mode Game**: Mengidentifikasi limitasi baku firmware Transsion `game_limit_ita: 1500mA` saat layar aktif (`lcd_on > 0`), serta mengoptimalkan mode screen-off agar adaptor dapat memompa arus maksimal 3000mA (6000mA pada sel baterai).
 - **Pemahaman Fisika Elektrokimia Baterai**: Memberikan panduan transparan berbasis data kernel bahwa saat kapasitas baterai di atas 70% (tegangan sel >4.47V), PMIC hardware wajib menurunkan arus pengisian daya (fase Constant Voltage / CV) demi keselamatan fisik sel baterai.
 
@@ -8744,31 +8760,31 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.32
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Persistent Background SuperCharge Protection: Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU 46°C), Independensi Subsistem Pengisian Lintas Profil (`apply_profile.sh` Balance Shield), dan Proteksi Kuncian Anti-Drop Saat Keluar Aplikasi Lynx (`/dev/lynx_extreme_charging`)** — menuntaskan investigasi mendalam di mana daya pengisian 30W sempat drop setelah beberapa saat akibat skrip daemon yang secara keliru membaca `thermal_zone0` (CPU/SoC yang wajar menyentuh 46°C saat pengisian cepat) dan langsung memicu Emergency Thermal Guard 1500mA, serta membasmi fenomena drop drastis saat aplikasi Lynx ditutup atau kehilangan fokus yang disebabkan oleh pemicuan `cmd thermalservice reset` dan `unfreeze_oem_throttlers` saat sistem beralih ke profil *Balance*; kini subsistem pengisian daya beroperasi secara mandiri dan persisten di semua profil sistem, sensor termal dipetakan secara akurat ke sel baterai fisik (`mtktsbattery`), dan penanganan termal dikunci rapat di latar belakang.
+> **Versi ini** menghadirkan **Persistent Background SuperCharge Protection: Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU 46Â°C), Independensi Subsistem Pengisian Lintas Profil (`apply_profile.sh` Balance Shield), dan Proteksi Kuncian Anti-Drop Saat Keluar Aplikasi Lynx (`/dev/lynx_extreme_charging`)** â menuntaskan investigasi mendalam di mana daya pengisian 30W sempat drop setelah beberapa saat akibat skrip daemon yang secara keliru membaca `thermal_zone0` (CPU/SoC yang wajar menyentuh 46Â°C saat pengisian cepat) dan langsung memicu Emergency Thermal Guard 1500mA, serta membasmi fenomena drop drastis saat aplikasi Lynx ditutup atau kehilangan fokus yang disebabkan oleh pemicuan `cmd thermalservice reset` dan `unfreeze_oem_throttlers` saat sistem beralih ke profil *Balance*; kini subsistem pengisian daya beroperasi secara mandiri dan persisten di semua profil sistem, sensor termal dipetakan secara akurat ke sel baterai fisik (`mtktsbattery`), dan penanganan termal dikunci rapat di latar belakang.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.32)
+## ð Fitur Baru & Peningkatan (3.0.32)
 
-### 1. 🛡️ Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU)
+### 1. ð¡ï¸ Pemisahan Sensor Termal Baterai Fisik Nyata (Anti-False Cutoff CPU)
 - **Deteksi Sensor Baterai Akurat**: Mengganti pembacaan hardcoded `thermal_zone0` (SoC CPU) dengan pemindaian dinamis tipe sensor `*battery*`, `mtktsbattery`, dan `bms` pada `/sys/class/thermal/thermal_zone*` serta fallback ke thermistor internal baterai.
-- **Plafon Keamanan Baterai Riil (49°C)**: Emergency Thermal Guard pada mode Extreme Charging kini hanya akan aktif jika suhu sel baterai fisik yang sesungguhnya menyentuh $\ge 49.0^\circ\text{C}$ (bukan suhu CPU yang wajar panas), menjamin aliran daya 30W–33W stabil terus menerus tanpa terpotong prematur.
+- **Plafon Keamanan Baterai Riil (49Â°C)**: Emergency Thermal Guard pada mode Extreme Charging kini hanya akan aktif jika suhu sel baterai fisik yang sesungguhnya menyentuh $\ge 49.0^\circ\text{C}$ (bukan suhu CPU yang wajar panas), menjamin aliran daya 30Wâ33W stabil terus menerus tanpa terpotong prematur.
 
-### 2. ⚡ Independensi Pengisian Lintas Profil (Anti-Drop Saat Tutup Aplikasi)
-- **Persistensi Pengisian di Semua Profil**: Memindahkan dan mendekopel seluruh blok pengisian daya pada `apply_profile.sh` sehingga setelan Extreme Charging (6000mA, Direct Pump, `BN_TestMode`, spoofing 28°C) tetap aktif sepenuhnya di latar belakang bahkan saat pengguna berada di Home Screen, berpindah aplikasi, atau sistem berjalan di profil *Balance*.
+### 2. â¡ Independensi Pengisian Lintas Profil (Anti-Drop Saat Tutup Aplikasi)
+- **Persistensi Pengisian di Semua Profil**: Memindahkan dan mendekopel seluruh blok pengisian daya pada `apply_profile.sh` sehingga setelan Extreme Charging (6000mA, Direct Pump, `BN_TestMode`, spoofing 28Â°C) tetap aktif sepenuhnya di latar belakang bahkan saat pengguna berada di Home Screen, berpindah aplikasi, atau sistem berjalan di profil *Balance*.
 - **Marker Atomik `/dev/lynx_extreme_charging`**: Melindungi sistem dari eksekusi `cmd thermalservice reset` dan `unfreeze_oem_throttlers` ketika mode Extreme Charging aktif, menjaga pendingin termal tetap terkunci pada `cur_state = 0` (`chmod 444`) dan daya pengisian tidak drop saat Lynx ditutup.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.31
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Direct 33W Charge Pump Engagement Engine: Eliminasi Kuncian Protokol PE 2.0 (18W Downgrade Fix) & Proteksi Read-Only Locking pada Arus Pengisian Sel Baterai (`constant_charge_current_max` 6000mA)** — membasmi pembatasan tidak disengaja di mana penulisan nilai `Pump_Express = 2` pada sysfs kernel MediaTek memaksa hardware melakukan downgrade ke protokol Pump Express 2.0 (plafon 18W: 9V / 2A), membuka prioritas penuh bagi negosiasi Pump Express 4.0 & Transsion Super Charge 33W (`enable_sc = 1`, `pe40 = 1`, `sc_ibat_limit = 8000`), serta menerapkan proteksi `chmod 444` pada `constant_charge_current_max` dan `charge_control_limit` agar Android BatteryService/Healthd tidak dapat mereset batas arus baterai kembali ke default 2000 mA.
+> **Versi ini** menghadirkan **Direct 33W Charge Pump Engagement Engine: Eliminasi Kuncian Protokol PE 2.0 (18W Downgrade Fix) & Proteksi Read-Only Locking pada Arus Pengisian Sel Baterai (`constant_charge_current_max` 6000mA)** â membasmi pembatasan tidak disengaja di mana penulisan nilai `Pump_Express = 2` pada sysfs kernel MediaTek memaksa hardware melakukan downgrade ke protokol Pump Express 2.0 (plafon 18W: 9V / 2A), membuka prioritas penuh bagi negosiasi Pump Express 4.0 & Transsion Super Charge 33W (`enable_sc = 1`, `pe40 = 1`, `sc_ibat_limit = 8000`), serta menerapkan proteksi `chmod 444` pada `constant_charge_current_max` dan `charge_control_limit` agar Android BatteryService/Healthd tidak dapat mereset batas arus baterai kembali ke default 2000 mA.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.31)
+## ð Fitur Baru & Peningkatan (3.0.31)
 
-### 1. ⚡ Eliminasi Kuncian Protokol PE 2.0 (Unlocking 33W Direct Pump)
-- **Hapus Pembatasan `Pump_Express = 2`**: Menghapus penulisan statis `Pump_Express = 2` yang sebelumnya memerintahkan driver charger MTK untuk beroperasi pada Pump Express 2.0 (18W maks: 8.4V–9V @ 2.1A).
+### 1. â¡ Eliminasi Kuncian Protokol PE 2.0 (Unlocking 33W Direct Pump)
+- **Hapus Pembatasan `Pump_Express = 2`**: Menghapus penulisan statis `Pump_Express = 2` yang sebelumnya memerintahkan driver charger MTK untuk beroperasi pada Pump Express 2.0 (18W maks: 8.4Vâ9V @ 2.1A).
 - **Prioritas Penuh PE 4.0 & Super Charge**: Membuka jalur negosiasi 33W murni via `pe40 = 1`, `enable_sc = 1`, dan `pdc_max_watt = 68` sehingga adaptor dapat menaikkan tegangan ke 10V/11V dan mengaktifkan IC RT9759 Direct Charge Pump 2:1.
 
-### 2. 🔒 Proteksi Read-Only (`chmod 444`) pada Arus Pengisian Baterai
+### 2. ð Proteksi Read-Only (`chmod 444`) pada Arus Pengisian Baterai
 - **Anti-Reset 2000mA oleh Android BatteryService**: Menerapkan `chmod 444` pada `/sys/class/power_supply/battery/constant_charge_current_max` setelah disetel ke 6000000 uA (6000 mA). Ini mencegah Android OS mereset batas arus kembali ke 2000 mA.
 - **Reset Charge Control Limit**: Mengunci `charge_control_limit_max` dan `charge_control_limit` ke 0 agar tidak terjadi pelambatan arus oleh subsistem manajemen daya OS.
 
@@ -8776,58 +8792,58 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.30
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Continuous Unthrottled Screen-On SuperCharge Engine: Bypass Penuh Limitasi Layar Menyala Transsion/MediaTek (BN_TestMode & tpcb Derating Override), Proteksi Read-Only Locking pada Cooling Devices (`chmod 444`), dan Eliminasi Throttling Prematur Suhu CPU saat Ponsel Aktif Digunakan** — meruntuhkan batasan agresif kernel OEM Transsion yang sebelumnya memangkas arus adaptor menjadi 1500 mA setiap kali layar aktif atau ponsel sedang digunakan, mengintegrasikan mode uji pabrik `BN_TestMode = 1` untuk menonaktifkan derating layar/game secara permanen, mengunci seluruh pendingin termal `cur_state = 0` dengan izin read-only agar daemon sistem tidak dapat menaikkan level throttling, serta membebaskan mode Extreme Charging dari batasan soft cutoff termal sehingga pengisian daya 33W (5–6A pada sel baterai) tetap mengalir kencang dan konsisten tanpa interupsi.
+> **Versi ini** menghadirkan **Continuous Unthrottled Screen-On SuperCharge Engine: Bypass Penuh Limitasi Layar Menyala Transsion/MediaTek (BN_TestMode & tpcb Derating Override), Proteksi Read-Only Locking pada Cooling Devices (`chmod 444`), dan Eliminasi Throttling Prematur Suhu CPU saat Ponsel Aktif Digunakan** â meruntuhkan batasan agresif kernel OEM Transsion yang sebelumnya memangkas arus adaptor menjadi 1500 mA setiap kali layar aktif atau ponsel sedang digunakan, mengintegrasikan mode uji pabrik `BN_TestMode = 1` untuk menonaktifkan derating layar/game secara permanen, mengunci seluruh pendingin termal `cur_state = 0` dengan izin read-only agar daemon sistem tidak dapat menaikkan level throttling, serta membebaskan mode Extreme Charging dari batasan soft cutoff termal sehingga pengisian daya 33W (5â6A pada sel baterai) tetap mengalir kencang dan konsisten tanpa interupsi.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.30)
+## ð Fitur Baru & Peningkatan (3.0.30)
 
-### 1. ⚡ Continuous Screen-On SuperCharge Engine (Bypass Limit Layar Menyala)
+### 1. â¡ Continuous Screen-On SuperCharge Engine (Bypass Limit Layar Menyala)
 - **Aktivasi Transsion `BN_TestMode`**: Mengaktifkan node pengujian pabrik `/sys/devices/platform/charger/BN_TestMode = 1` dan mereset `BatteryNotify` serta `tran_charger_full` untuk menonaktifkan pembatasan `tpcb / lcd_on` (1500mA clamp) saat framebuffer layar aktif.
-- **Pengisian Cepat Tanpa Drop Saat Gaming/Dipakai**: Pengguna kini dapat menggunakan ponsel secara intensif, bermain game, atau menyalakan layar tanpa khawatir kecepatan pengisian drop ke 1.2A–1.5A. Daya 33W penuh dan arus 5–6A tetap dipompa stabil ke sel baterai.
+- **Pengisian Cepat Tanpa Drop Saat Gaming/Dipakai**: Pengguna kini dapat menggunakan ponsel secara intensif, bermain game, atau menyalakan layar tanpa khawatir kecepatan pengisian drop ke 1.2Aâ1.5A. Daya 33W penuh dan arus 5â6A tetap dipompa stabil ke sel baterai.
 
-### 2. 🔒 Proteksi Kunci Izin Read-Only (`chmod 444`) pada Cooling Devices & Suhu Baterai
+### 2. ð Proteksi Kunci Izin Read-Only (`chmod 444`) pada Cooling Devices & Suhu Baterai
 - **Anti-Overriding Daemon Sistem**: Setelah mereset seluruh cooling device charging (`bcct`, `chg`, `battery`, `current`) ke `cur_state = 0`, permission dikunci menjadi `chmod 444` sehingga thermal daemon latar belakang tidak dapat menaikkan state throttling saat layar menyala.
-- **Proteksi Suhu Spoofing 28°C**: Node `Battery_Temperature` kini dikunci dengan `chmod 444` setelah disetel ke 28°C untuk mencegah kernel mengembalikan nilai suhu tinggi yang memicu DV2_TBAT lockout.
+- **Proteksi Suhu Spoofing 28Â°C**: Node `Battery_Temperature` kini dikunci dengan `chmod 444` setelah disetel ke 28Â°C untuk mencegah kernel mengembalikan nilai suhu tinggi yang memicu DV2_TBAT lockout.
 
-### 3. 🎯 Eliminasi Throttling Prematur dari Sensor CPU
-- **Pemisahan Sensor Baterai vs SoC**: Memperbaiki logika daemon loop di mana sebelumnya temperatur thermal zone 0 (SoC/CPU yang normal mencapai 50°C saat layar menyala) secara keliru memicu soft thermal throttling 1200mA pada pengisian daya baterai.
-- **Hak Istimewa Extreme Mode**: Mode Extreme Charging kini dikecualikan dari soft cutoff dan hanya dibatasi oleh Emergency Thermal Guard nyata pada sel baterai (>48.5°C) demi menjamin kecepatan pengisian yang tidak terputus.
+### 3. ð¯ Eliminasi Throttling Prematur dari Sensor CPU
+- **Pemisahan Sensor Baterai vs SoC**: Memperbaiki logika daemon loop di mana sebelumnya temperatur thermal zone 0 (SoC/CPU yang normal mencapai 50Â°C saat layar menyala) secara keliru memicu soft thermal throttling 1200mA pada pengisian daya baterai.
+- **Hak Istimewa Extreme Mode**: Mode Extreme Charging kini dikecualikan dari soft cutoff dan hanya dibatasi oleh Emergency Thermal Guard nyata pada sel baterai (>48.5Â°C) demi menjamin kecepatan pengisian yang tidak terputus.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.29
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Perbaikan Kritis Subsistem Pengisian Daya & Optimalisasi 33W Transsion Super Charge: Eliminasi Bug Integer Overflow (Zeroing Input Current Bug Fix), Penguraian Konseptual & Edukasi UI Bypass vs Extreme Charging, dan Dynamic Thermal Cooling Device Unlocking** — membasmi cacat fatal pada skrip pengontrol di mana penulisan nilai `4294967295` memicu overflow pada sysfs kernel MediaTek dan me-reset arus input `input_current` menjadi 0 mA, menggantikannya dengan nilai valid 6000 mA (register step 24576) untuk memompa daya penuh 33W (hingga 5–6A pada sel baterai via RT9759 2:1 Switched Capacitor Charge Pump); memperjelas pemisahan tegas antara fungsi *Bypass Charging* (daya langsung ke motherboard, net 0mA baterai untuk gaming dingin) dan *Extreme Fast Charging* (pompa arus maksimum ke sel baterai) pada antarmuka pengguna; serta menggantikan penanganan termal statis hardcoded dengan loop dinamis pada seluruh `cooling_device*` terkait charging.
+> **Versi ini** menghadirkan **Perbaikan Kritis Subsistem Pengisian Daya & Optimalisasi 33W Transsion Super Charge: Eliminasi Bug Integer Overflow (Zeroing Input Current Bug Fix), Penguraian Konseptual & Edukasi UI Bypass vs Extreme Charging, dan Dynamic Thermal Cooling Device Unlocking** â membasmi cacat fatal pada skrip pengontrol di mana penulisan nilai `4294967295` memicu overflow pada sysfs kernel MediaTek dan me-reset arus input `input_current` menjadi 0 mA, menggantikannya dengan nilai valid 6000 mA (register step 24576) untuk memompa daya penuh 33W (hingga 5â6A pada sel baterai via RT9759 2:1 Switched Capacitor Charge Pump); memperjelas pemisahan tegas antara fungsi *Bypass Charging* (daya langsung ke motherboard, net 0mA baterai untuk gaming dingin) dan *Extreme Fast Charging* (pompa arus maksimum ke sel baterai) pada antarmuka pengguna; serta menggantikan penanganan termal statis hardcoded dengan loop dinamis pada seluruh `cooling_device*` terkait charging.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.29)
+## ð Fitur Baru & Peningkatan (3.0.29)
 
-### 1. ⚡ Perbaikan Kritis Subsistem Pengisian Daya (Zeroing Input Current Bug Fix)
+### 1. â¡ Perbaikan Kritis Subsistem Pengisian Daya (Zeroing Input Current Bug Fix)
 - **Eliminasi Integer Overflow Sysfs**: Memperbaiki bug di mana penulisan `4294967295` ke `/sys/devices/platform/charger/input_current`, `chg1_current`, dan `chg2_current` ditolak oleh parser kernel driver dan me-reset arus pengisian menjadi `0`, secara artifisial mencekik kecepatan pengisian ke mode darurat minimal.
 - **Koreksi Parameter Arus MediaTek**: Mengalokasikan nilai valid `6000` (diterjemahkan kernel ke step internal `24576` = 6000 mA / 6A) pada `input_current`, `chg1_current`, dan `chg2_current`, serta menetapkan `sc_ibat_limit = 8000` mA.
 - **Sinkronisasi Seluruh Engine**: Memperbarui implementasi pada `LynxRepository.kt`, `Charging-Controller.sh`, dan `core/apply_profile.sh` secara serentak.
 
-### 2. 🛡️ Penguraian Konseptual & Edukasi UI: Bypass vs Extreme Charging
+### 2. ð¡ï¸ Penguraian Konseptual & Edukasi UI: Bypass vs Extreme Charging
 - **Pemisahan Tegas Mental Model**:
   - **Bypass Charging (Direct Motherboard)**: Diperjelas fungsinya sebagai penyuplai motherboard secara langsung dan **menghentikan pengisian baterai (Net 0mA)** agar baterai dingin saat gaming. Diberi peringatan tegas untuk tidak diaktifkan jika berniat mengisi daya.
   - **Extreme Fast Charging (33W Super Charge / 6A)**: Diperjelas sebagai mode yang memompa daya baterai hingga 6000mA (6A) melalui chip RT9759 2:1 charge pump.
 - **Transparansi Transsion Screen-On Throttling**: Menambahkan catatan edukatif bahwa algoritma OEM Transsion membatasi adaptor ke ~1.5A saat layar menyala demi suhu panel AMOLED, dan pengisian 33W penuh beroperasi optimal saat layar mati (Screen-Off).
 
-### 3. ❄️ Dynamic Thermal Cooling Device Unlocking
+### 3. âï¸ Dynamic Thermal Cooling Device Unlocking
 - **Eliminasi Hardcode Cooling Device**: Menggantikan referensi kaku `cooling_device56` dengan pemindaian dinamis di seluruh `/sys/class/thermal/cooling_device*` yang mendeteksi tipe `bcct`, `chg`, `battery`, dan `current`, menjamin pelepasan limitasi termal bekerja stabil di setiap siklus reboot dan varian perangkat.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.28
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Perbaikan Tata Letak Header Kartu & Eliminasi Badge Collision: Restorasi Judul Bersih Satu Baris pada Platform Hardware Engine, Integrasi Subtitle Komprehensif pada LynxCard, dan Perbaikan Bug Alokasi Bobot Baris (Spacer Weight Bug Fix)** — menyelesaikan masalah tampilan di mana badge `MediaTek PPM Driver` pada sisi kanan kartu memicu tabrakan ruang horizontal dan memecah teks judul "Platform Hardware Engine" menjadi 3 baris canggung, memindahkan identitas driver chipset menjadi subtitle semantik elegan di bawah judul, serta merombak sistem perataan baris pada `LynxCard` sehingga teks judul dapat memanfaatkan lebar penuh layar tanpa terpotong secara artifisial oleh alokasi bobot spacer.
+> **Versi ini** menghadirkan **Perbaikan Tata Letak Header Kartu & Eliminasi Badge Collision: Restorasi Judul Bersih Satu Baris pada Platform Hardware Engine, Integrasi Subtitle Komprehensif pada LynxCard, dan Perbaikan Bug Alokasi Bobot Baris (Spacer Weight Bug Fix)** â menyelesaikan masalah tampilan di mana badge `MediaTek PPM Driver` pada sisi kanan kartu memicu tabrakan ruang horizontal dan memecah teks judul "Platform Hardware Engine" menjadi 3 baris canggung, memindahkan identitas driver chipset menjadi subtitle semantik elegan di bawah judul, serta merombak sistem perataan baris pada `LynxCard` sehingga teks judul dapat memanfaatkan lebar penuh layar tanpa terpotong secara artifisial oleh alokasi bobot spacer.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.28)
+## ð Fitur Baru & Peningkatan (3.0.28)
 
-### 1. 🎨 Restorasi Tata Letak Bersih Platform Hardware Engine
+### 1. ð¨ Restorasi Tata Letak Bersih Platform Hardware Engine
 - **Eliminasi Badge Collision**: Menghapus badge pill bulky di sisi kanan header `PlatformHardwareEngineCard` yang sebelumnya memicu perebutan lebar horizontal dengan judul section.
 - **Hierarki Subtitle Semantik**: Mengintegrasikan informasi driver chipset (`MediaTek PPM Driver` pada platform MTK atau `Snapdragon QTI HAL` pada platform Qualcomm) sebagai subtitle di bawah judul utama dengan ukuran dan warna teks yang harmonis.
 - **Judul Stabil 1-Baris**: Teks "Platform Hardware Engine" kini tampil kokoh, rapi, dan konsisten dalam 1 baris di seluruh rasio layar tanpa wrapping.
 
-### 2. 📐 Perbaikan Arsitektur Tata Letak Header `LynxCard`
+### 2. ð Perbaikan Arsitektur Tata Letak Header `LynxCard`
 - **Dukungan Parameter Subtitle**: Menambahkan parameter `subtitle: String? = null` pada komponen dasar `LynxCard` untuk standarisasi kartu antarmuka dengan hierarki informasi dua baris.
 - **Eliminasi Bug Spacer Weight**: Menghapus `Spacer(Modifier.weight(1f))` yang sebelumnya membatasi ruang judul hingga 50% lebar kartu saat terdapat elemen `action`, kini digantikan dengan perataan `Modifier.weight(1f)` pada kolom judul dan `Spacer(Modifier.width(8.dp))` untuk spasi aksi yang presisi.
 - **Proteksi Overflow & Ellipsis**: Menambahkan batasan `maxLines = 1` dengan `TextOverflow.Ellipsis` pada judul kartu untuk menjamin integritas visual pada berbagai ukuran layar dan skala font aksesibilitas.
@@ -8836,33 +8852,33 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.27
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Pembaruan UX Menyeluruh: Dual-Action Glanceable Switch & Rak Edukasi Interaktif Bottom Sheet (LynxSwitchInfoSheet), Eliminasi Inverted State Trap (Purge Schedstats Overhead), dan Refinement Keterbacaan Subtitle Anti-Truncation** — merevolusi antarmuka toggle kernel dengan pola interaksi ganda di mana switch dapat di-toggle instan tanpa friksi sementara baris teks membuka laci edukasi mendalam (`LynxSwitchInfoSheet`) yang memaparkan cara kerja kernel, perbandingan status ON vs OFF, serta rekomendasi skenario (Gaming, Balanced, Baterai); membalik logika membingungkan sakelar "Nonaktifkan Schedstats" menjadi model mental positif "Purge Schedstats Overhead" (ON = Optimasi Aktif); serta memperluas subtitle tweak tile hingga 2 baris penuh bebas elipsis terpotong.
+> **Versi ini** menghadirkan **Pembaruan UX Menyeluruh: Dual-Action Glanceable Switch & Rak Edukasi Interaktif Bottom Sheet (LynxSwitchInfoSheet), Eliminasi Inverted State Trap (Purge Schedstats Overhead), dan Refinement Keterbacaan Subtitle Anti-Truncation** â merevolusi antarmuka toggle kernel dengan pola interaksi ganda di mana switch dapat di-toggle instan tanpa friksi sementara baris teks membuka laci edukasi mendalam (`LynxSwitchInfoSheet`) yang memaparkan cara kerja kernel, perbandingan status ON vs OFF, serta rekomendasi skenario (Gaming, Balanced, Baterai); membalik logika membingungkan sakelar "Nonaktifkan Schedstats" menjadi model mental positif "Purge Schedstats Overhead" (ON = Optimasi Aktif); serta memperluas subtitle tweak tile hingga 2 baris penuh bebas elipsis terpotong.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.27)
+## ð Fitur Baru & Peningkatan (3.0.27)
 
-### 1. 📖 Rak Edukasi Interaktif Bottom Sheet (`LynxSwitchInfoSheet`)
+### 1. ð Rak Edukasi Interaktif Bottom Sheet (`LynxSwitchInfoSheet`)
 - **Dual-Action Glanceable Pattern**: Pengguna dapat langsung menyalakan/mematikan toggle dari daftar utama secara instan, atau mengetuk baris teks/ikon info untuk membuka lembar panduan teknis mendalam.
 - **Sinkronisasi Status Live Real-Time**: Rak edukasi dilengkapi toggle switch interaktif di bagian atas lembar sehingga pengguna dapat langsung mengubah status sakelar sembari membaca penjelasan teknis tanpa perlu menutup lembar terlebih dahulu.
 - **Komparasi Status Visual & Terstruktur**:
   - *Status Aktif (ON)*: Penjelasan efek positif, mekanisme kerja pada siklus CPU/cache, serta peningkatan latensi atau efisiensi.
   - *Status Non-Aktif (OFF)*: Penjelasan perilaku standar kernel Linux dan dampaknya terhadap beban sistem.
 - **Matriks Rekomendasi 3-Skenario**:
-  - 🎮 **Gaming / Kompetitif**: Panduan pengaturan untuk frame pacing stabil dan zero-stutter.
-  - ⚖️ **Penggunaan Seimbang (Harian)**: Keseimbangan responsivitas dan konsumsi baterai.
-  - 🔋 **Hemat Daya (Baterai)**: Opsi optimal untuk memperpanjang daya tahan perangkat.
+  - ð® **Gaming / Kompetitif**: Panduan pengaturan untuk frame pacing stabil dan zero-stutter.
+  - âï¸ **Penggunaan Seimbang (Harian)**: Keseimbangan responsivitas dan konsumsi baterai.
+  - ð **Hemat Daya (Baterai)**: Opsi optimal untuk memperpanjang daya tahan perangkat.
 
-### 2. 🧠 Eliminasi "Inverted State Trap": Purge Schedstats Overhead
+### 2. ð§  Eliminasi "Inverted State Trap": Purge Schedstats Overhead
 - **Model Mental Positif**: Mengganti sakelar membingungkan *"Schedstats Profiling: Nonaktifkan pengumpulan statistik..."* menjadi **"Purge Schedstats Overhead"**.
 - **Logika Bersih**: Toggle dalam posisi **ON (Aktif)** berarti optimasi sedang berjalan (beban overhead kernel dipangkas, `sched_schedstats = 0`), mengeliminasi kebingungan pengguna terhadap status negatif/terbalik.
 - **Copywriting Glanceable 1-Baris**: Subjudul diringkas menjadi ringkas dan padat: *"Pangkas beban siklus CPU dengan mematikan statistik scheduler internal"*.
 
-### 3. 🛡️ Integrasi Edukasi Komprehensif pada Seluruh Sakelar Kritis
+### 3. ð¡ï¸ Integrasi Edukasi Komprehensif pada Seluruh Sakelar Kritis
 - **EAS Schedtune**: Panduan lengkap untuk `Top-App Prefer Idle` (penempatan thread game ke core kosong).
 - **Scheduler Hardware Hints**: Panduan mendalam untuk `Big Task Rotation` (efek rotasi vs cache L1/L2 hits) dan `Sync Wakeup Acceleration` (akselerasi komunikasi antar-thread).
 - **CFS Core Scheduling**: Edukasi interaktif untuk `Child Process Runs First` (prioritas fork thread baru untuk startup game instan).
 - **Platform Hardware Engine (MediaTek PPM & Qualcomm QTI)**: Edukasi mendalam untuk `Bypass Power Throttling OEM` (PPM Policy 3), `Hardware System Boost` (PPM Policy 9), `Sinkronisasi Thermal Policy PPM` (PPM Policy 4), dan `Qualcomm Touchboost Driver`.
 
-### 4. 📐 Keterbacaan Maksimal & Subtitle Anti-Truncation
+### 4. ð Keterbacaan Maksimal & Subtitle Anti-Truncation
 - **Ekspansi Subtitle `LynxTweakTile` & `LynxDualTweakTile`**: Menetapkan `maxLines = 2` dan `lineHeight = 13.sp` pada subteks ubin tweak sehingga kalimat penjelasan tidak terpotong elipsis (`...`) di layar ponsel dengan resolusi atau skala teks padat.
 - **Copywriting Refinements**:
   - `Sched Tunable Scaling`: *"Kunci periode latensi tetap saat core tidur/bangun demi stabilitas frame rate"*.
@@ -8872,17 +8888,17 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.26
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Sub-Halaman CPU Master Level Komprehensif & Driver Hardware Engine: Live Runqueue & Pressure Telemetry, Platform Hardware Engine (MediaTek PPM & Snapdragon QTI Boost), serta Deep Kernel Latency & Overhead Purge** — mentransformasikan monitoring CPU dengan chip telemetri langsung beban antrean kernel (`RQ Avg`), deteksi tugas komputasi berat (`H-Task`), dan status saturasi kapasitas energi EAS (`EAS Limit / Opt`), menyematkan kartu khusus `PlatformHardwareEngineCard` untuk kendali langsung driver MediaTek PPM (bypass power throttling baterai lemah, system boost, sinkronisasi thermal) dan Qualcomm Snapdragon QTI Input Boost/Touchboost, serta membuka akses penuh ke tuning latensi kernel ekstrem (`schedstats profiling overhead purge`, `sched_tunable_scaling` pengunci konsistensi frame FPS, dan bandwidth `sched_rt_runtime_us`).
+> **Versi ini** menghadirkan **Sub-Halaman CPU Master Level Komprehensif & Driver Hardware Engine: Live Runqueue & Pressure Telemetry, Platform Hardware Engine (MediaTek PPM & Snapdragon QTI Boost), serta Deep Kernel Latency & Overhead Purge** â mentransformasikan monitoring CPU dengan chip telemetri langsung beban antrean kernel (`RQ Avg`), deteksi tugas komputasi berat (`H-Task`), dan status saturasi kapasitas energi EAS (`EAS Limit / Opt`), menyematkan kartu khusus `PlatformHardwareEngineCard` untuk kendali langsung driver MediaTek PPM (bypass power throttling baterai lemah, system boost, sinkronisasi thermal) dan Qualcomm Snapdragon QTI Input Boost/Touchboost, serta membuka akses penuh ke tuning latensi kernel ekstrem (`schedstats profiling overhead purge`, `sched_tunable_scaling` pengunci konsistensi frame FPS, dan bandwidth `sched_rt_runtime_us`).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.26)
+## ð Fitur Baru & Peningkatan (3.0.26)
 
-### 1. 📊 Live Runqueue & Pressure Telemetry (Master CPU Telemetry)
+### 1. ð Live Runqueue & Pressure Telemetry (Master CPU Telemetry)
 - **Monitoring Kedalaman Antrean CPU (`RQ Avg`)**: Membaca `/sys/devices/system/cpu/rq-stats/run_queue_avg` secara realtime untuk memantau rata-rata antrean thread runnable di seluruh cluster CPU.
 - **Deteksi Heavy Tasks (`H-Task`)**: Membaca penghitung tugas berat (`/sys/devices/system/cpu/rq-stats/htasks` atau `big_task`) untuk membedakan thread game berat dari background noise.
 - **Status Saturasi Energi EAS (`EAS Limit / Opt`)**: Membaca flag over-utilization EAS (`/sys/devices/system/cpu/rq-stats/over_util`) untuk mendeteksi secara instan saat sistem beralih dari kalkulasi efisiensi daya ke performa throughput maksimum.
 - **Visual Micro-Chips**: Menampilkan indikator status di Master Telemetry Card dengan warna semantik adaptif (Hijau/Cyan untuk optimal, Oranye saat jenuh beban).
 
-### 2. ⚡ Platform Hardware Engine (MediaTek PPM & Qualcomm QTI Boost)
+### 2. â¡ Platform Hardware Engine (MediaTek PPM & Qualcomm QTI Boost)
 - **MediaTek PPM Driver Controls**:
   - `Bypass Power Throttling OEM (PPM Policy 3)`: Mencegah kernel memangkas frekuensi CPU secara drastis saat persentase baterai berada di bawah 20%.
   - `Hardware System Boost (PPM Policy 9)`: Mengaktifkan akselerasi komputasi berat langsung pada driver manajemen daya MediaTek.
@@ -8892,7 +8908,7 @@ Released on: 2026-10-04
   - `Input Boost Dynamics Status`: Pemantauan frekuensi boost MHz dan durasi ms saat input event aktif.
 - **Kartu Khusus Berbasis Deteksi Driver**: Menampilkan `PlatformHardwareEngineCard` secara otomatis hanya jika hardware driver vendor terdeteksi di kernel perangkat.
 
-### 3. 🎯 Deep Kernel Latency & Overhead Purge
+### 3. ð¯ Deep Kernel Latency & Overhead Purge
 - **Schedstats Profiling Overhead Purge (`sched_schedstats`)**: Sakelar untuk menonaktifkan pengumpulan statistik profil scheduler di kernel, memangkas siklus CPU yang terbuang sia-sia dan mengurangi micro-stuttering.
 - **Sched Tunable Scaling (`sched_tunable_scaling`)**: Kontrol metode penskalaan periode scheduler (Mode 0: None / Tetap, Mode 1: Logarithmic, Mode 2: Linear). Mode 0 mengunci latensi konstan saat core CPU bangun/tidur demi kestabilan frame pacing gaming kompetitif.
 - **Real-Time (RT) Runtime Bandwidth (`sched_rt_runtime_us`)**: Penyesuaian alokasi batas bandwidth waktu CPU per detik untuk thread prioritas tinggi (seperti audio low-latency dan input touch driver) dengan panduan keamanan terintegrasi.
@@ -8901,11 +8917,11 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.25
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Perbaikan Kritis Penjadwal Inti (Core Scheduler Architecture Bug Fix): Persistensi Tombol Mode Hybrid pada Transisi EAS dan HMP** — memperbaiki galat logika di mana kemampuan hardware (*kernel capability*) tertukar dengan status aktif runtime (*active state*), memastikan tombol `[ Hybrid ]` tetap persisten dan dapat dipilih kapan saja meskipun pengguna beralih ke mode `EAS` (`1`) atau `HMP` (`0`), serta mengamankan deteksi driver multi-mode MediaTek (`/sys/devices/system/cpu/eas/enable`) sehingga transisi arsitektur berjalan mulus tanpa menghilangkan opsi penjadwalan dari antarmuka pengguna.
+> **Versi ini** menghadirkan **Perbaikan Kritis Penjadwal Inti (Core Scheduler Architecture Bug Fix): Persistensi Tombol Mode Hybrid pada Transisi EAS dan HMP** â memperbaiki galat logika di mana kemampuan hardware (*kernel capability*) tertukar dengan status aktif runtime (*active state*), memastikan tombol `[ Hybrid ]` tetap persisten dan dapat dipilih kapan saja meskipun pengguna beralih ke mode `EAS` (`1`) atau `HMP` (`0`), serta mengamankan deteksi driver multi-mode MediaTek (`/sys/devices/system/cpu/eas/enable`) sehingga transisi arsitektur berjalan mulus tanpa menghilangkan opsi penjadwalan dari antarmuka pengguna.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.25)
+## ð Fitur Baru & Peningkatan (3.0.25)
 
-### 1. 🛠️ Perbaikan Kritis: Tombol Mode Hybrid Persisten & Anti-Hilang
+### 1. ð ï¸ Perbaikan Kritis: Tombol Mode Hybrid Persisten & Anti-Hilang
 - **Pemisahan Kapabilitas Hardware vs Status Runtime**: Memperbaiki logika deteksi pada repository di mana flag `eas_hybrid` dan `isHybridSupported` sebelumnya hanya bernilai true jika mode yang sedang aktif adalah Hybrid.
 - **Ketersediaan Opsi 3-Arah Sepenuhnya**: Menghubungkan kapabilitas arsitektur dengan keberadaan driver multi-mode (`hasMtkEas` dan node `/sys/devices/system/cpu/eas/enable`), sehingga opsi `[ EAS ]`, `[ HMP ]`, dan `[ Hybrid ]` selalu tampil lengkap dan dapat dialihkan kapan saja tanpa batas.
 - **Transisi Kernel Tanpa Hambatan**: Memvalidasi penulisan nilai `0` (HMP), `1` (EAS), dan `2` (Hybrid) secara aman pada sysfs kernel MediaTek dengan feedback status yang akurat.
@@ -8914,29 +8930,29 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.24
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Penerapan Disiplin Ketat Palet Warna Antarmuka (Strict Color Discipline): Hak Istimewa Ungu Eksklusif untuk Kustom DIY, Soft Tinted Glass pada Matriks Core CPU Sets, Accordion Monokromatik Netral saat Idle, dan Restorasi Tombol Reset OEM ke Abu-abu Tenang** — menyelaraskan arsitektur engine `Hybrid` ke aksen biru terpadu `AccentBlue` agar warna ungu `AccentPurple` (`#A855F7`) murni eksklusif untuk setelan kustom racikan manual pengguna, merombak 24 kotak selektor core manual CPU Sets menjadi kaca transparan lembut (*Soft Tinted Glass*) berlatar 15% dengan border halus, menenangkan seluruh subheader kategori lanjutan (*SCHEDTUNE, CFS, HMP*) dan header accordion menu lipat ke abu-abu perak tenang `TextSecondary`, serta menetralkan tombol `[ 🔄 Reset OEM ]` dari oranye alarm menjadi abu-abu siaga elegan.
+> **Versi ini** menghadirkan **Penerapan Disiplin Ketat Palet Warna Antarmuka (Strict Color Discipline): Hak Istimewa Ungu Eksklusif untuk Kustom DIY, Soft Tinted Glass pada Matriks Core CPU Sets, Accordion Monokromatik Netral saat Idle, dan Restorasi Tombol Reset OEM ke Abu-abu Tenang** â menyelaraskan arsitektur engine `Hybrid` ke aksen biru terpadu `AccentBlue` agar warna ungu `AccentPurple` (`#A855F7`) murni eksklusif untuk setelan kustom racikan manual pengguna, merombak 24 kotak selektor core manual CPU Sets menjadi kaca transparan lembut (*Soft Tinted Glass*) berlatar 15% dengan border halus, menenangkan seluruh subheader kategori lanjutan (*SCHEDTUNE, CFS, HMP*) dan header accordion menu lipat ke abu-abu perak tenang `TextSecondary`, serta menetralkan tombol `[ ð Reset OEM ]` dari oranye alarm menjadi abu-abu siaga elegan.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.24)
+## ð Fitur Baru & Peningkatan (3.0.24)
 
-### 1. 🟣 Hak Istimewa Ungu Eksklusif untuk Status Kustom DIY (`AccentPurple`)
+### 1. ð£ Hak Istimewa Ungu Eksklusif untuk Status Kustom DIY (`AccentPurple`)
 - **Pemisahan Semantik Tombol Arsitektur Engine**: Mengubah warna tombol pemilih arsitektur engine `[ Hybrid ]` dari `AccentPurple` menjadi `AccentBlue` (`#00A3FF`).
 - **Eliminasi Bias Kustom Palsu**: Mencegah kesan seolah sistem sedang dalam mode kustom saat perangkat berjalan di arsitektur default pabrik.
 - **Identitas Visual DIY yang Kuat**: Warna ungu (`#A855F7`) kini 100% eksklusif hanya menyala saat pengguna melakukan modifikasi manual pada parameter tweak, memberikan kepastian visual mutlak.
 
-### 2. 🎛️ Matriks Kotak Core CPU Sets Manual: *Soft Tinted Glass* (15% Transparan)
+### 2. ðï¸ Matriks Kotak Core CPU Sets Manual: *Soft Tinted Glass* (15% Transparan)
 - **Eliminasi Neon Silau**: Merombak tampilan 24 tombol core (`[0]` s/d `[7]`) pada *Kustomisasi Manual per-Grup* (Top-App, Foreground, Background).
 - **Latar Kaca Lembut**: Menggunakan latar transparan `copy(alpha = 0.15f)` dengan border `copy(alpha = 0.5f)` dan teks nomor core berwarna senada dengan grup proses.
 - **Status Non-Aktif Netral**: Kotak core yang tidak aktif menggunakan latar belakang `BgSurfaceLowest` dan border halus `BorderSubtle`, menghasilkan keterbacaan tinggi yang sangat ramah di mata.
 
-### 3. 📂 Accordion Menu Lipat Monokromatik Netral saat Idle (`TextSecondary`)
+### 3. ð Accordion Menu Lipat Monokromatik Netral saat Idle (`TextSecondary`)
 - **Struktur Pendukung Tenang**: Mengubah judul menu lipat *Kustomisasi Manual per-Grup* dan *Kustomisasi Manual (Hotplug & C-States)* saat posisi tertutup (*collapsed*) menjadi `TextSecondary` (`#94A3B8`).
 - **Feedback Visual Ekspansi**: Judul dan ikon baru menyala lembut dengan `AccentCyan` hanya saat menu dibuka (*expanded*), menjaga layar tetap rapi dan tidak mencuri fokus utama.
 
-### 4. 🔄 Restorasi Tombol Reset OEM Header ke Abu-abu Tenang
+### 4. ð Restorasi Tombol Reset OEM Header ke Abu-abu Tenang
 - **Eliminasi False Alarm Oranye**: Mengubah warna ikon tombol `ResetHeaderButton` dari oranye peringatan `#FFA726` menjadi abu-abu perak tenang `TextSecondary`.
 - **Hierarki Aksi Sekunder**: Tombol reset kini terbaca sebagai aksi siaga/pemulihan yang elegan, bukan lampu peringatan error atau kerusakan hardware.
 
-### 5. 🏷️ Subheader Kategori Advanced Penjadwal Monokromatik
+### 5. ð·ï¸ Subheader Kategori Advanced Penjadwal Monokromatik
 - **Fokus pada Nilai Tweak Aktif**: Mengubah warna teks subheader `SCHEDTUNE & TASK CAPACITY BOOST`, `SCHEDULER HARDWARE HINTS`, `CFS GRANULARITAS & LATENSI`, dan `HMP TASK BALANCING & QUEUE SPILL` dari neon tebal (`AccentCyan`, `AccentBlue`, `AccentOrange`) ke `TextSecondary` dengan letter spacing rapi.
 - Menjadikan slider, pill nilai, dan sakelar interaktif sebagai satu-satunya titik fokus utama di layar.
 
@@ -8944,34 +8960,34 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.23
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Harmonisasi Palet Warna Semantik Subhalaman CPU: Standardisasi Preset Hijau Ramah Daya, Dual-Tone Spectrum 8-Bar, Harmonisasi Tile Antrean HMP, & Pembersihan Token Desain M3** — menstandarkan seluruh preset hemat daya (*Hemat Daya* pada CPU Sets dan *Deep Sleep* pada CPU Idle) ke aksen hijau resmi `AccentGreen` (`#10B981`) untuk konsistensi semantik intuitif universal, menghadirkan spektrum 8-bar dual-tone dinamis pada kartu telemetri master CPU yang membedakan core efisiensi (Little Core: `AccentBlue`) dan performa (Big Core: `AccentOrange`), menyelaraskan aksen warna tile penjadwalan antrean HMP, serta membersihkan sisa kode heksadesimal mentah pada pill kartu kluster ke token desain resmi Obsidian M3 (`BgSurfaceLowest`).
+> **Versi ini** menghadirkan **Harmonisasi Palet Warna Semantik Subhalaman CPU: Standardisasi Preset Hijau Ramah Daya, Dual-Tone Spectrum 8-Bar, Harmonisasi Tile Antrean HMP, & Pembersihan Token Desain M3** â menstandarkan seluruh preset hemat daya (*Hemat Daya* pada CPU Sets dan *Deep Sleep* pada CPU Idle) ke aksen hijau resmi `AccentGreen` (`#10B981`) untuk konsistensi semantik intuitif universal, menghadirkan spektrum 8-bar dual-tone dinamis pada kartu telemetri master CPU yang membedakan core efisiensi (Little Core: `AccentBlue`) dan performa (Big Core: `AccentOrange`), menyelaraskan aksen warna tile penjadwalan antrean HMP, serta membersihkan sisa kode heksadesimal mentah pada pill kartu kluster ke token desain resmi Obsidian M3 (`BgSurfaceLowest`).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.23)
+## ð Fitur Baru & Peningkatan (3.0.23)
 
-### 1. 🟢 Standardisasi Palet Semantik Preset Hemat Daya (`AccentGreen`)
+### 1. ð¢ Standardisasi Palet Semantik Preset Hemat Daya (`AccentGreen`)
 - **Konsistensi Semantik Universal**: Mengeliminasi kontradiksi warna oranye pada profil efisiensi daya. Kini seluruh kartu CPU menerapkan aturan semantik baku:
-  - 🟢 `AccentGreen` (`#10B981`): Profil Baterai, Hemat Daya, dan Deep Sleep (Siklus C-States).
-  - 🔵 `AccentBlue` (`#00A3FF`): Profil Standar AOSP, Seimbang, dan Little Cores.
-  - 🟠 `AccentOrange` (`#FF9F2E`): Profil Responsif, Big Cores, dan Antrean HMP.
-  - 🔴 `AccentRed` (`#FF3B5C`): Profil Extreme, Throttling, dan Peringatan Kritis.
-  - 🟣 `AccentPurple` (`#A855F7`): Profil Kustom / Manual tuning.
+  - ð¢ `AccentGreen` (`#10B981`): Profil Baterai, Hemat Daya, dan Deep Sleep (Siklus C-States).
+  - ðµ `AccentBlue` (`#00A3FF`): Profil Standar AOSP, Seimbang, dan Little Cores.
+  - ð  `AccentOrange` (`#FF9F2E`): Profil Responsif, Big Cores, dan Antrean HMP.
+  - ð´ `AccentRed` (`#FF3B5C`): Profil Extreme, Throttling, dan Peringatan Kritis.
+  - ð£ `AccentPurple` (`#A855F7`): Profil Kustom / Manual tuning.
 - **Pembaruan CPU Sets Task Shield**: Mengubah warna lencana dan tombol segmen 1-klik *Hemat Daya* dari `AccentOrange` menjadi `AccentGreen`.
 - **Pembaruan CPU Idle & Core Parking**: Mengubah warna lencana dan tombol segmen 1-klik *Deep Sleep* dari `AccentOrange` menjadi `AccentGreen`.
 
-### 2. 📊 Spektrum Dual-Tone 8-Bar Dinamis pada Hero Card CPU
+### 2. ð Spektrum Dual-Tone 8-Bar Dinamis pada Hero Card CPU
 - **Diferensiasi Arsitektur Silicon**: Batang spektrum live beban CPU 8-bar pada hero card atas kini secara dinamis membaca tipe kluster core:
   - Little Cores (Core 0..5): Menampilkan aksen biru elegan `AccentBlue`.
   - Big Cores (Core 6..7): Menampilkan aksen oranye mencolok `AccentOrange`.
 - **Harmoni Visual Matriks**: Menghasilkan kesinambungan visual yang sempurna antara hero card telemetri atas dengan *Matriks Status Per-Core Silicon* di bawahnya.
 
-### 3. 🟠 Harmonisasi Aksen Tile Penjadwal HMP Task Placement
+### 3. ð  Harmonisasi Aksen Tile Penjadwal HMP Task Placement
 - **Aksen Oranye pada Antrean Big Core**: Menambahkan properti `accentColor = AccentOrange` pada ketiga tile parameter penjadwal HMP:
   - `Init Task Load (Fork Initial)`
   - `Sched Spill Nr Run`
   - `Sched Spill Load Threshold`
 - Menghadirkan visual cue tegas yang membedakan parameter distribusi beban core besar (HMP) dengan penjadwal adil CFS.
 
-### 4. 🎨 Pembersihan Sisa Token Desain Mentah pada Kartu Kluster CPU
+### 4. ð¨ Pembersihan Sisa Token Desain Mentah pada Kartu Kluster CPU
 - **Eliminasi Hex Statis Pill Kluster**: Mengganti `Color(0xFF10121A)` pada latar belakang pill *Frekuensi Min*, *Frekuensi Max*, dan *Governor Selector* dengan token resmi `BgSurfaceLowest`.
 - **Harmonisasi Tombol Kunci Frekuensi**: Memperbarui warna tombol kunci frekuensi kluster aktif dari kode lime mentah `#00E676` ke token terpadu `AccentGreen` dan `AccentGreen.copy(alpha = 0.16f)`.
 
@@ -8979,22 +8995,22 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.22
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Audit Komprehensif Subhalaman CPU: Integrasi Lembar Preset Penjadwal, Kepatuhan Target Sentuh 44px, Standardisasi LynxSwitch, & Harmonisasi Token Desain M3** — mengintegrasikan lembar bawah panduan terpadu `LynxSchedulerPresetSheet` melalui header profil responsif yang interaktif, menstandarkan tombol sakelar `Child Process Runs First` dengan komponen terpadu `LynxSwitch`, mengoptimalkan seluruh tombol pemilih arsitektur engine dan preset kartu CPU agar memenuhi standar target sentuh minimal 44×44 px (bebas *miss-click*), serta merombak seluruh kode warna statis pada kartu telemetri utama, matriks status per-core silicon, dan dialog konfirmasi ke sistem token desain resmi Obsidian Material 3.
+> **Versi ini** menghadirkan **Audit Komprehensif Subhalaman CPU: Integrasi Lembar Preset Penjadwal, Kepatuhan Target Sentuh 44px, Standardisasi LynxSwitch, & Harmonisasi Token Desain M3** â mengintegrasikan lembar bawah panduan terpadu `LynxSchedulerPresetSheet` melalui header profil responsif yang interaktif, menstandarkan tombol sakelar `Child Process Runs First` dengan komponen terpadu `LynxSwitch`, mengoptimalkan seluruh tombol pemilih arsitektur engine dan preset kartu CPU agar memenuhi standar target sentuh minimal 44Ã44 px (bebas *miss-click*), serta merombak seluruh kode warna statis pada kartu telemetri utama, matriks status per-core silicon, dan dialog konfirmasi ke sistem token desain resmi Obsidian Material 3.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.22)
+## ð Fitur Baru & Peningkatan (3.0.22)
 
-### 1. 📖 Integrasi Lembar Panduan Preset Penjadwal Kernel (`LynxSchedulerPresetSheet`)
+### 1. ð Integrasi Lembar Panduan Preset Penjadwal Kernel (`LynxSchedulerPresetSheet`)
 - **Header Profil Responsif Interaktif**: Menghubungkan header badge profil penjadwal (*Preset Cepat* / *Kustom*) agar dapat diketuk untuk membuka lembar bawah interaktif `LynxSchedulerPresetSheet`.
 - **Edukasi & Pemilihan 1-Klik**: Lembar ini menyajikan perbandingan mendalam antara 4 profil teruji (*Extreme*, *Responsif / Gaming*, *Seimbang*, dan *Efisiensi Daya*) beserta rincian spesifikasi teknisnya (latensi CFS, ramp-up limit, uclamp, dan RT throttling), serta menutup lembar secara mulus saat salah satu profil dipilih.
 
-### 2. 🎯 Kepatuhan Standar Aksesibilitas & Touch Target 44×44 px (Rule 1)
+### 2. ð¯ Kepatuhan Standar Aksesibilitas & Touch Target 44Ã44 px (Rule 1)
 - **Selektor Arsitektur Engine (EAS / HMP / Hybrid)**: Menambahkan batas ukuran minimal `.defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)` dengan penyelarasan konten terpusat pada tombol segmen arsitektur engine penjadwal, mengeliminasi tombol tipis sub-26dp yang rentan salah sentuh.
 - **Tombol Makro Preset Penjadwal, CPU Sets, & CPU Idle**: Menstandarkan seluruh tombol segmen 1-klik pada ketiga kartu inti CPU (`CpuSetsTaskShieldCard`, `CpuIdleCoreParkingCard`, dan `KernelSchedulerCard`) dengan tinggi minimal 44dp sesuai pedoman antarmuka *touch-first*.
 
-### 3. 🔄 Standardisasi Komponen Sakelar Terpadu (`LynxSwitch`)
+### 3. ð Standardisasi Komponen Sakelar Terpadu (`LynxSwitch`)
 - **Harmonisasi `Child Process Runs First`**: Menggantikan implementasi baris dan sakelar manual yang menggunakan skala khusus (`Modifier.scale(0.8f)`) pada bagian CFS dengan komponen modular `LynxSwitch`. Kini seluruh sakelar di dalam kartu penjadwal memiliki konsistensi ukuran, tipografi, dan gaya interaksi yang seragam.
 
-### 4. 🎨 Harmonisasi Token Desain Obsidian Material 3 (Rule 4)
+### 4. ð¨ Harmonisasi Token Desain Obsidian Material 3 (Rule 4)
 - **Matriks Status Per-Core Silicon**: Mengganti seluruh kode warna heksadesimal mentah dengan token desain resmi: `BgSurfaceLowest`, `BgElevated`, `BorderSubtle`, `TextPrimary`, `TextSecondary`, `TextTertiary`, `AccentOrange`, `AccentBlue`, dan `AccentRed`.
 - **Hero Card Telemetri & Grafik Sparkline**: Menyelaraskan kartu master hero atas dan kurva gelombang beban real-time ke token Obsidian M3.
 - **Dialog Interaktif Aman**: Memperbarui skema warna pada dialog hotplug core, dialog proteksi master core (C0), dan dialog konfirmasi reset OEM per-bagian agar menyatu sempurna dengan tema gelap mendalam (True OLED).
@@ -9003,27 +9019,27 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.21
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Eliminasi Menyeluruh Redundansi Teks, Parameter Usang, dan Harmonisasi Komponen Antar-Kartu Subhalaman CPU** — menstandarkan label frekuensi kluster (`Frekuensi Min` & `Frekuensi Max`), membersihkan duplikasi jumlah core pada subjudul *CPU Idle*, menyelaraskan header bagian preset isolasi *CPU Sets*, memperjelas teks ambang batas beban *Kernel Scheduler Spill*, menstandarkan seluruh sakelar persistensi boot dengan komponen terpadu `LynxSwitch`, serta membersihkan *dead callbacks* dan memperbarui pemisah usang ke `HorizontalDivider`.
+> **Versi ini** menghadirkan **Eliminasi Menyeluruh Redundansi Teks, Parameter Usang, dan Harmonisasi Komponen Antar-Kartu Subhalaman CPU** â menstandarkan label frekuensi kluster (`Frekuensi Min` & `Frekuensi Max`), membersihkan duplikasi jumlah core pada subjudul *CPU Idle*, menyelaraskan header bagian preset isolasi *CPU Sets*, memperjelas teks ambang batas beban *Kernel Scheduler Spill*, menstandarkan seluruh sakelar persistensi boot dengan komponen terpadu `LynxSwitch`, serta membersihkan *dead callbacks* dan memperbarui pemisah usang ke `HorizontalDivider`.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.21)
+## ð Fitur Baru & Peningkatan (3.0.21)
 
-### 1. 🏷️ Harmonisasi Label & Terminologi Kluster CPU
+### 1. ð·ï¸ Harmonisasi Label & Terminologi Kluster CPU
 - **Standardisasi Pill Frekuensi**: Memperbarui label pill kartu kluster dari *Batas Bawah* dan *Batas Puncak* menjadi **Frekuensi Min** dan **Frekuensi Max**, menyelaraskan dengan judul lembar pemilih frekuensi (*Pilih Frekuensi Minimum / Maksimum*) serta terminologi tuning kernel standar.
-- **Konsistensi Subjudul CPU Idle (C-States)**: Menghapus teks duplikat `${onlineCores}/$totalCores Cores Aktif` dari subjudul kartu karena rasio tersebut sudah ditampilkan secara detail pada telemetri kartu; menggantinya dengan informasi arsitektur bersih: `Driver: ${cpuIdle.driver} • Kernel C-States`.
+- **Konsistensi Subjudul CPU Idle (C-States)**: Menghapus teks duplikat `${onlineCores}/$totalCores Cores Aktif` dari subjudul kartu karena rasio tersebut sudah ditampilkan secara detail pada telemetri kartu; menggantinya dengan informasi arsitektur bersih: `Driver: ${cpuIdle.driver} â¢ Kernel C-States`.
 
-### 2. 🎨 Penyelarasan Layout & Estetika Visual Antar-Kartu
-- **Header Bagian Preset CPU Sets (Task Shield)**: Menambahkan label header bagian `PROFIL ISOLASI CORE` • `Preset Cepat 1-Klik` di atas tombol segmen preset isolasi core, menyelaraskan hierarki desain dengan kartu *Core Parking & CPU Idle*.
+### 2. ð¨ Penyelarasan Layout & Estetika Visual Antar-Kartu
+- **Header Bagian Preset CPU Sets (Task Shield)**: Menambahkan label header bagian `PROFIL ISOLASI CORE` â¢ `Preset Cepat 1-Klik` di atas tombol segmen preset isolasi core, menyelaraskan hierarki desain dengan kartu *Core Parking & CPU Idle*.
 - **Standardisasi Sakelar Boot (`LynxSwitch`)**: Mengganti implementasi baris dan switch manual pada kartu *Penjadwal Kernel* dengan komponen terpadu `LynxSwitch`.
 - **Harmonisasi Frasa Persistensi Boot**: Menyeragamkan seluruh subjudul sakelar persistensi boot di seluruh kartu CPU menjadi format standar:
   - CPU Sets: `"Terapkan otomatis isolasi CPU Sets saat boot"`
   - CPU Idle & Core Parking: `"Terapkan otomatis setelan CPU Idle & Core Parking saat boot"`
   - Penjadwal Kernel: `"Terapkan otomatis konfigurasi penjadwal saat boot"`
 
-### 3. 🧹 Pembersihan Teks Tweak Penjadwal Kernel & Eliminasi Redundansi
+### 3. ð§¹ Pembersihan Teks Tweak Penjadwal Kernel & Eliminasi Redundansi
 - **Penyempurnaan Deskripsi `sched_spill_load`**: Mengubah subjudul dari *"Ambang batas beban core untuk spillover"* menjadi *"Beban CPU pemicu pengalihan tugas ke core senggang"*, serta memperjelas deskripsinya agar bebas dari pengulangan kata spillover.
 - **Eliminasi Komentar Duplikat**: Menghapus baris komentar duplikat pada blok preset makro penjadwal kernel.
 
-### 4. ⚡ Pembersihan Parameter & Callbacks Usang (Dead Code Elimination)
+### 4. â¡ Pembersihan Parameter & Callbacks Usang (Dead Code Elimination)
 - **Eliminasi `onSchedCstateAwareChange`**: Menghapus parameter dan callback yang tidak digunakan dari `CpuIdleCoreParkingCard` dan call site-nya karena fitur C-State aware telah dipusatkan pada kartu *Penjadwal Kernel*.
 - **Pembersihan Flag `isClusterModified`**: Menghapus variabel bendera modifikasi kluster yang tidak lagi digunakan pasca-relokasi tombol reset ke lembar tunables.
 - **Modernisasi Komponen Jetpack Compose**: Memperbarui pemisah garis `Divider` yang *deprecated* menjadi `HorizontalDivider` pada seluruh komponen pendukung.
@@ -9032,14 +9048,14 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.20
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Relokasi Tombol Reset Dynamic CPU Khusus ke Lembar Governor Tunables** — menghapus tombol reset pada header kartu utama *Dynamic CPU Clusters & Governors* demi menjaga kebersihan antarmuka utama, serta menyediakan tombol *Reset ke Default OEM* secara terfokus langsung di dalam lembar bawah *Governor Tunables* lengkap dengan dialog konfirmasi aman sebelum mengembalikan parameter kernel ke standar pabrikan.
+> **Versi ini** menghadirkan **Relokasi Tombol Reset Dynamic CPU Khusus ke Lembar Governor Tunables** â menghapus tombol reset pada header kartu utama *Dynamic CPU Clusters & Governors* demi menjaga kebersihan antarmuka utama, serta menyediakan tombol *Reset ke Default OEM* secara terfokus langsung di dalam lembar bawah *Governor Tunables* lengkap dengan dialog konfirmasi aman sebelum mengembalikan parameter kernel ke standar pabrikan.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.20)
+## ð Fitur Baru & Peningkatan (3.0.20)
 
-### 1. 🧹 Pembersihan Header Kartu Dynamic CPU Clusters
+### 1. ð§¹ Pembersihan Header Kartu Dynamic CPU Clusters
 - **Eliminasi Tombol Reset di Header Kartu**: Menghilangkan tombol *ResetHeaderButton* dari sudut kanan atas kartu *Dynamic CPU Clusters & Governors*, menjaga tata letak layar CPU tetap bersih, minimalis, dan tidak memicu ketidaksengajaan reset frekuensi/governor kluster.
 
-### 2. 🎛️ Tombol Reset Khusus pada Lembar Governor Tunables
+### 2. ðï¸ Tombol Reset Khusus pada Lembar Governor Tunables
 - **Penempatan Terfokus di Header Tunables**: Menyediakan tombol Reset OEM (`ResetHeaderButton`) secara elegan berdampingan dengan badge jumlah parameter pada header lembar bawah *Governor Tunables*.
 - **Dialog Konfirmasi Aman (Reset to OEM Guard)**: Menampilkan konfirmasi interaktif sebelum mereset (*"Reset Tunables Policy X?"*), memastikan pengguna mengonfirmasi intensi pengembalian seluruh parameter tunable kernel governor ke profil pabrikan bawaan OEM.
 
@@ -9047,44 +9063,44 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.19
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Eliminasi Redundansi Teks & Sinkronisasi Rekomendasi CPU Governor Tunables** — menata ulang seluruh metadata lembar bawah Governor Tunables dengan menghapus pengulangan kata pada judul parameter, membersihkan duplikasi kalimat pada deskripsi dan petunjuk (seperti pada *HiSpeed Target Frequency*, *Interval Sampling*, dan *Min Sample Time*), menghilangkan instruksi redundan pada sakelar boolean (*I/O Wait Boost*), serta menyinkronkan 100% angka rekomendasi dan saran cepat dialog edit dengan tabel profil terkalibrasi kluster (*Little Cores* vs *Big Cores*).
+> **Versi ini** menghadirkan **Eliminasi Redundansi Teks & Sinkronisasi Rekomendasi CPU Governor Tunables** â menata ulang seluruh metadata lembar bawah Governor Tunables dengan menghapus pengulangan kata pada judul parameter, membersihkan duplikasi kalimat pada deskripsi dan petunjuk (seperti pada *HiSpeed Target Frequency*, *Interval Sampling*, dan *Min Sample Time*), menghilangkan instruksi redundan pada sakelar boolean (*I/O Wait Boost*), serta menyinkronkan 100% angka rekomendasi dan saran cepat dialog edit dengan tabel profil terkalibrasi kluster (*Little Cores* vs *Big Cores*).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.19)
+## ð Fitur Baru & Peningkatan (3.0.19)
 
-### 1. 🎯 Sinkronisasi Penuh Rekomendasi Kluster (Asymmetric Tunable Alignment)
+### 1. ð¯ Sinkronisasi Penuh Rekomendasi Kluster (Asymmetric Tunable Alignment)
 - **Kalibrasi Petunjuk Berbasis Identitas Kluster**: Memperbaiki kontradiksi angka rekomendasi pada `up_rate_limit_us` dan `down_rate_limit_us`. Kini lembar tunables menampilkan petunjuk spesifik sesuai tipe kluster yang sedang dibuka:
-  - *Little Cores (Policy 0)*: Rekomendasi Ramp-Up `0 µs` (Responsif), `1 ms` (Seimbang), `10 ms` (Hemat Daya) dan Ramp-Down `10 ms` (Responsif), `20 ms` (Seimbang), `1 ms` (Hemat Daya), `30 ms` (OEM).
-  - *Big Cores (Policy > 0)*: Rekomendasi Ramp-Up `0 µs` (Instan / Seimbang), `20 ms` (Hemat Daya) dan Ramp-Down `5 ms` (Responsif), `10 ms` (Seimbang), `0.5 ms` (Hemat Daya), `30 ms` (OEM).
-- **Saran Cepat Dialog Edit Adaptif**: Menyajikan chip pilihan cepat (*Quick Suggestion Chips*) pada dialog edit nilai yang disesuaikan dengan kluster aktif (misalnya `0 µs (Instan / Seimbang)` dan `20 ms (Hemat Daya)` pada Big Cores), mengeliminasi angka arbitrary statis yang tidak sinkron.
+  - *Little Cores (Policy 0)*: Rekomendasi Ramp-Up `0 Âµs` (Responsif), `1 ms` (Seimbang), `10 ms` (Hemat Daya) dan Ramp-Down `10 ms` (Responsif), `20 ms` (Seimbang), `1 ms` (Hemat Daya), `30 ms` (OEM).
+  - *Big Cores (Policy > 0)*: Rekomendasi Ramp-Up `0 Âµs` (Instan / Seimbang), `20 ms` (Hemat Daya) dan Ramp-Down `5 ms` (Responsif), `10 ms` (Seimbang), `0.5 ms` (Hemat Daya), `30 ms` (OEM).
+- **Saran Cepat Dialog Edit Adaptif**: Menyajikan chip pilihan cepat (*Quick Suggestion Chips*) pada dialog edit nilai yang disesuaikan dengan kluster aktif (misalnya `0 Âµs (Instan / Seimbang)` dan `20 ms (Hemat Daya)` pada Big Cores), mengeliminasi angka arbitrary statis yang tidak sinkron.
 
-### 2. 🧹 Pembersihan Redundansi Judul & Deskripsi Parameter
+### 2. ð§¹ Pembersihan Redundansi Judul & Deskripsi Parameter
 - **Pembersihan Judul Bersih & Profesional**: Menghilangkan tanda kurung pengulangan pada judul parameter seperti `(Respon Naik Clock)`, `(Durasi Tahan Clock)`, `(Prioritas Storage)`, serta menyederhanakan `Load Threshold Eskalasi` menjadi `Ambang Beban Naik (Up Threshold)` dan `Ambang Beban Turun (Down Threshold)`.
 - **Eliminasi Kalimat Berulang pada Petunjuk**:
   - *HiSpeed Target Frequency*: Menggantikan kalimat duplikat dengan panduan praktis penyesuaian berbasis kurva frekuensi kluster (`Satuan kHz. Otomatis dikalibrasi mengikuti titik tengah kurva frekuensi kluster`).
-  - *Interval Sampling (Sampling Rate)*: Menghapus pengulangan deskripsi dan memberikan contoh mikrodetik nyata (`10000 µs = 10 ms (responsif) • 20000 µs = 20 ms (standar)`).
-  - *Waktu Minimum Sampel (Min Sample Time)*: Memberikan panduan format mikrodetik (`50000 µs = 50 ms`).
+  - *Interval Sampling (Sampling Rate)*: Menghapus pengulangan deskripsi dan memberikan contoh mikrodetik nyata (`10000 Âµs = 10 ms (responsif) â¢ 20000 Âµs = 20 ms (standar)`).
+  - *Waktu Minimum Sampel (Min Sample Time)*: Memberikan panduan format mikrodetik (`50000 Âµs = 50 ms`).
 - **Penyederhanaan Petunjuk Sakelar Boolean**: Menghapus teks redundan `1 = Aktif / 0 = Nonaktif` pada *I/O Wait Boost*, menyelaraskan informasi dengan sakelar visual on/off yang telah tersedia.
 
-### 3. 🏷️ Kejelasan Format Preset Subtitle Lembar Bawah
-- **Penjelasan Notasi Ramp-Up / Ramp-Down**: Memperjelas subjudul kartu preset dengan menyertakan keterangan tipe kluster dan arti pemisah garis miring (`Profil latensi terkalibrasi kluster (Little Cores / Big Cores • Ramp-Up / Ramp-Down)`), sehingga pengguna memahami makna instan dari kartu seperti `0 µs / 10 ms`.
+### 3. ð·ï¸ Kejelasan Format Preset Subtitle Lembar Bawah
+- **Penjelasan Notasi Ramp-Up / Ramp-Down**: Memperjelas subjudul kartu preset dengan menyertakan keterangan tipe kluster dan arti pemisah garis miring (`Profil latensi terkalibrasi kluster (Little Cores / Big Cores â¢ Ramp-Up / Ramp-Down)`), sehingga pengguna memahami makna instan dari kartu seperti `0 Âµs / 10 ms`.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.18
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Penyempurnaan Total Normalisasi Penggunaan CPU, Eliminasi Redundansi Schedutil, & Laci Penjadwal Adaptif Hardware** — menuntaskan kalkulasi matematis persentase beban CPU per-proses (normalisasi skala 100% SoC dari Irix mode toybox `top`) dan per-core (eliminasi beban sintetis sehingga rata-rata C0..C7 selaras dengan total load), menghapus seluruh kontrol duplikat schedutil dan C-state pada kartu penjadwal, serta merombak laci *Pengaturan Lanjutan & Hardware Hints* menjadi sepenuhnya cerdas dan dinamis hanya merender node sysfs yang benar-benar didukung oleh kernel/OEM perangkat aktif.
+> **Versi ini** menghadirkan **Penyempurnaan Total Normalisasi Penggunaan CPU, Eliminasi Redundansi Schedutil, & Laci Penjadwal Adaptif Hardware** â menuntaskan kalkulasi matematis persentase beban CPU per-proses (normalisasi skala 100% SoC dari Irix mode toybox `top`) dan per-core (eliminasi beban sintetis sehingga rata-rata C0..C7 selaras dengan total load), menghapus seluruh kontrol duplikat schedutil dan C-state pada kartu penjadwal, serta merombak laci *Pengaturan Lanjutan & Hardware Hints* menjadi sepenuhnya cerdas dan dinamis hanya merender node sysfs yang benar-benar didukung oleh kernel/OEM perangkat aktif.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.18)
+## ð Fitur Baru & Peningkatan (3.0.18)
 
-### 1. 📊 Normalisasi Presisi Persentase CPU Proses & Inti (100% Mathematical Parity)
+### 1. ð Normalisasi Presisi Persentase CPU Proses & Inti (100% Mathematical Parity)
 - **Normalisasi Irix Mode Toybox `top`**: Membagi beban CPU setiap proses secara dinamis berdasarkan jumlah total core perangkat (`rawCpu / totalCores.toFloat()`). Menghilangkan ketidaksesuaian di mana proses latar belakang melebihi total beban SoC, menghasilkan konsistensi visual dan matematis antara daftar proses dan *Total CPU Load*.
 - **Pembersihan Beban Inti Sintetis (True `/proc/stat` Delta)**: Menghapus kalkulasi beban buatan pada pembacaan frekuensi idle core. Beban per-core (C0..C7) kini 100% murni merefleksikan delta jiffies kernel Linux, sehingga rata-rata beban seluruh core tepat mencerminkan angka telemetri utama.
 
-### 2. 🧹 Eliminasi Redundansi Kontrol Schedutil & C-State Aware
+### 2. ð§¹ Eliminasi Redundansi Kontrol Schedutil & C-State Aware
 - **Penghapusan Ubin Duplikat Schedutil**: Menghapus ubin *Rate Limit Respons Clock (Schedutil)* dari kartu Penjadwal Kernel, menghindari kebingungan konfigurasi karena pengaturan *up/down rate limit* telah dikontrol secara asimetris per-kluster pada lembar *CPU Governor Tunables*.
 - **Sentralisasi C-State Aware Scheduler**: Menghapus sakelar duplikat dari kartu *Core Parking*, memusatkan pengaturan preferensi tidur inti secara elegan di dalam kelompok *Hardware Hints* kartu penjadwal.
 
-### 3. 🧠 Laci Penjadwal Lanjutan Adaptif Hardware (Strict Dynamic Node Probing)
+### 3. ð§  Laci Penjadwal Lanjutan Adaptif Hardware (Strict Dynamic Node Probing)
 - **Penghitungan Dinamis Fitur Tersedia**: Menghitung secara nyata jumlah fitur lanjutan yang terekspos oleh kernel (`$availableAdvancedCount Fitur Tersedia`). Menampilkan indikator informatif ketika kernel OEM mengunci antarmuka sysfs penjadwal.
 - **Validasi Izin Tulis Nyata (Anti-False Support)**: Memverifikasi eksekusi penulisan aktual pada `/proc/sys/kernel/sched_energy_aware` dan `/sys/devices/system/cpu/eas/enable` guna memastikan pengalihan arsitektur EAS/HMP didukung tanpa crash izin kernel (`EACCES`).
 - **Penyaringan Selektif Berbasis Hardware**:
@@ -9093,28 +9109,28 @@ Released on: 2026-10-04
   - *Hardware Hints*: Menyaring *Big Task Rotation*, *Sync Wakeup*, *C-State Aware*, dan *Stune Task Threshold* secara mandiri.
   - *HMP Balancing & Spill*: Menyembunyikan seluruh ubin migrasi HMP jika kernel tidak mengekspos antarmuka `sched_upmigrate` dan `sched_downmigrate`.
 
-### 4. 🔄 Reset to OEM Terpadu & Pembersihan Cache Preferensi
+### 4. ð Reset to OEM Terpadu & Pembersihan Cache Preferensi
 - **Pembersihan Bersih Shared Preferences**: Menghapus tuntas rekaman cache `lynx_scheduler_prefs` saat pengguna mengeksekusi Reset ke Default, mengembalikan nilai trip, boost, dan preset ke standar bawaan kernel pabrikan.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.17
 Released on: 2026-10-04
-> **Versi ini** menuntaskan **Audit & Polish Komprehensif CPU Tuning & Sheet Interaction** — mengoptimalkan lembar bawah pemilih frekuensi (*Frequency Picker*) dan governor (*Governor Picker*) agar langsung terbuka penuh tanpa terpotong (*skipPartiallyExpanded*), memperbaiki logika seleksi frekuensi presisi (eliminasi centang ganda), memperbesar seluruh target sentuh minimal 48dp (mematuhi Rule 1), membersihkan emoji/AI slop pada subkategori CPU & Scheduler, menyematkan aksi Reset to OEM pada kluster CPU, serta meningkatkan ketahanan telemetri CPU Core Spectrum dan dynamic Big-core detection.
+> **Versi ini** menuntaskan **Audit & Polish Komprehensif CPU Tuning & Sheet Interaction** â mengoptimalkan lembar bawah pemilih frekuensi (*Frequency Picker*) dan governor (*Governor Picker*) agar langsung terbuka penuh tanpa terpotong (*skipPartiallyExpanded*), memperbaiki logika seleksi frekuensi presisi (eliminasi centang ganda), memperbesar seluruh target sentuh minimal 48dp (mematuhi Rule 1), membersihkan emoji/AI slop pada subkategori CPU & Scheduler, menyematkan aksi Reset to OEM pada kluster CPU, serta meningkatkan ketahanan telemetri CPU Core Spectrum dan dynamic Big-core detection.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.17)
+## ð Fitur Baru & Peningkatan (3.0.17)
 
-### 1. 📱 Lembar Bawah Pemilih Frekuensi & Governor Lebih Mulus (Fluid Modal Bottom Sheets)
+### 1. ð± Lembar Bawah Pemilih Frekuensi & Governor Lebih Mulus (Fluid Modal Bottom Sheets)
 - **Ekspansi Penuh Seketika (`skipPartiallyExpanded = true`)**: Mengatasi masalah bawaan Material 3 di mana lembar pemilih frekuensi dan governor kerap terpotong di ketinggian 50% layar saat pertama kali dibuka.
 - **Eliminasi Nested Scroll Terjepit**: Menghapus batas `heightIn(max = 380.dp)` dan menyatukan seluruh daftar item ke dalam single-level fluid vertical scroll.
 - **Seleksi Presisi 1-Item (Anti-Duplicate Checkmarks)**: Menggantikan heuristik selisih frekuensi mentah (`Math.abs < 5000`) dengan pencocokan MHz exact (`f == curFreq || (curFreq > 0 && f / 1000 == curFreq / 1000)`), sehingga tidak ada lagi centang ganda pada langkah frekuensi yang berdekatan.
 - **Standar Touch Target 48dp (Mobile-First Rule 1)**: Memastikan setiap baris frekuensi dan governor memiliki `minHeight = 48.dp`, bebas dari kesalahan sentuh (*miss-click*).
 
-### 2. 🎛️ Peningkatan Interaksi Kluster CPU (Cluster Tuner Card)
+### 2. ðï¸ Peningkatan Interaksi Kluster CPU (Cluster Tuner Card)
 - **Target Sentuh Optimal**: Tombol frekuensi Min/Max, tombol gembok frekuensi (`size(48.dp)`), pill governor, dan tombol aksi Tunables kini memenuhi standar aksesibilitas sentuh 48dp.
 - **Aksi Reset to OEM Terpadu**: Mengintegrasikan tombol `ResetHeaderButton` langsung pada header kartu kluster yang telah dimodifikasi, lengkap dengan dialog konfirmasi sebelum mengembalikan frekuensi dan governor ke setelan awal pabrik.
 
-### 3. 🧹 Pembersihan Slop & Penguatan Telemetri CPU (Clean Telemetry & Robustness)
+### 3. ð§¹ Pembersihan Slop & Penguatan Telemetri CPU (Clean Telemetry & Robustness)
 - **Eliminasi Emoji Slop**: Menghilangkan seluruh emoji kaku pada mode penjadwal kernel (EAS, HMP, Hybrid), live status rate limits, Uclamp, HMP, dan Sched init task load demi estetika profesional dan bersih.
 - **Ketahanan Spectrum 8-Bar**: Mencegah potensi crash/null-pointer pada visualisasi 8-core CPU Spectrum dengan penanganan null yang aman (`core?.isOnline ?: false`).
 - **Kalkulasi Dinamis Big Cores**: Menghitung jumlah Big Cores secara dinamis dari kluster CPU pada kartu *CPU Idle & Core Parking*, menggantikan asumsi hardcoded.
@@ -9123,72 +9139,72 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.16
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Pemisahan Asimetris Per-Kluster Tunables CPU (Asymmetric Multi-Cluster Schedutil Calibration)** — mendesinkronisasi tuning frekuensi kernel di seluruh skrip platform dan Companion backend, sehingga kluster efisiensi (Little Cores) dan kluster komputasi tinggi (Big/Prime Cores) menerima profil latensi yang disesuaikan secara presisi dengan karakteristik fisiknya tanpa saling menyamakan (*flat-broadcast*), serta menyempurnakan deteksi real-time dan tampilan lembar tunables per-kluster.
+> **Versi ini** menghadirkan **Pemisahan Asimetris Per-Kluster Tunables CPU (Asymmetric Multi-Cluster Schedutil Calibration)** â mendesinkronisasi tuning frekuensi kernel di seluruh skrip platform dan Companion backend, sehingga kluster efisiensi (Little Cores) dan kluster komputasi tinggi (Big/Prime Cores) menerima profil latensi yang disesuaikan secara presisi dengan karakteristik fisiknya tanpa saling menyamakan (*flat-broadcast*), serta menyempurnakan deteksi real-time dan tampilan lembar tunables per-kluster.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.16)
+## ð Fitur Baru & Peningkatan (3.0.16)
 
-### 1. ⚡ Desinkronisasi Menyeluruh Parameter Schedutil Antar-Kluster (Asymmetric Per-Cluster Tuning)
+### 1. â¡ Desinkronisasi Menyeluruh Parameter Schedutil Antar-Kluster (Asymmetric Per-Cluster Tuning)
 - **Eliminasi Flat-Broadcast Loop**: Menggantikan perulangan statis datar pada seluruh skrip shell (`platforms/mtk/`, `platforms/qcom/`, `platforms/generic/`, dan `core/apply_profile.sh`) dengan percabangan berbasis identitas kluster (`pol_id == 0` vs `pol_id > 0`).
 - **Kalibrasi Kluster Efisiensi (Little Cores - `policy0`)**:
-  - *Seimbang*: `up: 1 ms (1000 µs)`, `down: 20 ms (20000 µs)` — Mencegah lonjakan frekuensi singkat (*micro-thrashing*) dan mempertahankan clock stabil untuk konsumsi daya minimal.
-  - *Responsif / Gaming*: `up: 0 µs`, `down: 10 ms (10000 µs)` — Respons seketika dengan durasi tahan yang optimal.
-  - *Hemat Daya*: `up: 10 ms (10000 µs)`, `down: 1 ms (1000 µs)` — Memperlambat peningkatan frekuensi dan segera menurunkan clock saat beban mereda.
+  - *Seimbang*: `up: 1 ms (1000 Âµs)`, `down: 20 ms (20000 Âµs)` â Mencegah lonjakan frekuensi singkat (*micro-thrashing*) dan mempertahankan clock stabil untuk konsumsi daya minimal.
+  - *Responsif / Gaming*: `up: 0 Âµs`, `down: 10 ms (10000 Âµs)` â Respons seketika dengan durasi tahan yang optimal.
+  - *Hemat Daya*: `up: 10 ms (10000 Âµs)`, `down: 1 ms (1000 Âµs)` â Memperlambat peningkatan frekuensi dan segera menurunkan clock saat beban mereda.
 - **Kalibrasi Kluster Performa (Big / Prime Cores - `policy > 0`)**:
-  - *Seimbang*: `up: 0 µs`, `down: 10 ms (10000 µs)` — Lompatan instan saat beban aplikasi berat membutuhkan daya komputasi tinggi.
-  - *Responsif / Gaming*: `up: 0 µs`, `down: 5 ms (5000 µs)` (Extreme: `down: 2 ms`) — Latensi nol untuk komputasi grafis dan *framerate* puncak.
-  - *Hemat Daya*: `up: 20 ms (20000 µs)`, `down: 0.5 ms (500 µs)` — Membatasi keterlibatan kluster besar pada skenario siaga.
+  - *Seimbang*: `up: 0 Âµs`, `down: 10 ms (10000 Âµs)` â Lompatan instan saat beban aplikasi berat membutuhkan daya komputasi tinggi.
+  - *Responsif / Gaming*: `up: 0 Âµs`, `down: 5 ms (5000 Âµs)` (Extreme: `down: 2 ms`) â Latensi nol untuk komputasi grafis dan *framerate* puncak.
+  - *Hemat Daya*: `up: 20 ms (20000 Âµs)`, `down: 0.5 ms (500 Âµs)` â Membatasi keterlibatan kluster besar pada skenario siaga.
 
-### 2. 🛠️ Penyelarasan Backend Companion App (`LynxRepository.kt`)
+### 2. ð ï¸ Penyelarasan Backend Companion App (`LynxRepository.kt`)
 - **Adaptasi Dinamis `applyGovernorPreset`**: Mendukung penyetelan mandiri per-kebijakan (`policyId`) dengan nilai yang disesuaikan otomatis terhadap tipe kluster (`isLittle` vs `isBig`). Penyetelan global secara otomatis membagi parameter asimetris ke masing-masing direktori sysfs.
 - **Asymmetric Schedutil Preset Engine**: Mengintegrasikan batas latensi asimetris pada preset makro penjadwal (*Extreme*, *Gaming*, *Battery*, dan *Balanced*).
 - **Skala Proporsional Slider Penjadwal**: Penyetelan slider global *up/down rate limit* kini menerapkan penskalaan proporsional antara kluster Little dan kluster Big alih-alih menyamakan nilai mentah secara seragam.
 
-### 3. 🎨 Penyempurnaan Lembar Tunables & Deteksi Real-Time (`LynxComponents.kt`)
-- **Catatan Waktu Spesifik Kluster**: Kartu preset pada ModalBottomSheet kini secara transparan menampilkan nilai latensi yang sesuai dengan kluster yang sedang dibuka (contoh: Seimbang pada Policy 0 menampilkan `1 ms / 20 ms`, sedangkan pada Policy 6 menampilkan `0 µs / 10 ms`).
+### 3. ð¨ Penyempurnaan Lembar Tunables & Deteksi Real-Time (`LynxComponents.kt`)
+- **Catatan Waktu Spesifik Kluster**: Kartu preset pada ModalBottomSheet kini secara transparan menampilkan nilai latensi yang sesuai dengan kluster yang sedang dibuka (contoh: Seimbang pada Policy 0 menampilkan `1 ms / 20 ms`, sedangkan pada Policy 6 menampilkan `0 Âµs / 10 ms`).
 - **Deteksi Status Cerdas (Cluster-Aware Real-Time Detection)**: Algoritma deteksi sysfs otomatis mengenali status preset aktif (*Seimbang Aktif*, *Responsif Aktif*, *Hemat Aktif*, *OEM Aktif*) berdasarkan batas toleransi terkalibrasi untuk masing-masing kluster silikon.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.15
 Released on: 2026-10-04
-> **Versi ini** menuntaskan **Modernisasi & Redesain Menyeluruh Governor Tunables (Anti-Slop)** — merombak antarmuka lembar setelan *Dynamic CPU Clusters & Governors* menjadi sangat bersih, informatif, dan profesional. Menghapus seluruh emoji dekoratif kaku dan menggantinya dengan *Material Vector Icons*, mengintegrasikan 4 Preset Responsivitas Clock berbasis deteksi *hardware sysfs* *real-time* per-kluster, memperbaiki masalah *layout clipping* pada ModalBottomSheet, serta menyempurnakan dialog pengeditan parameter dengan *Live Conversion Preview* mikrodetik ke milidetik dan tombol pill rekomendasi yang rapi.
+> **Versi ini** menuntaskan **Modernisasi & Redesain Menyeluruh Governor Tunables (Anti-Slop)** â merombak antarmuka lembar setelan *Dynamic CPU Clusters & Governors* menjadi sangat bersih, informatif, dan profesional. Menghapus seluruh emoji dekoratif kaku dan menggantinya dengan *Material Vector Icons*, mengintegrasikan 4 Preset Responsivitas Clock berbasis deteksi *hardware sysfs* *real-time* per-kluster, memperbaiki masalah *layout clipping* pada ModalBottomSheet, serta menyempurnakan dialog pengeditan parameter dengan *Live Conversion Preview* mikrodetik ke milidetik dan tombol pill rekomendasi yang rapi.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.15)
+## ð Fitur Baru & Peningkatan (3.0.15)
 
-### 1. 🧹 Redesain Menyeluruh ModalBottomSheet Governor Tunables
-- **Material Vector Icons Penuh**: Menghapus seluruh emoji kaku (`🚀`, `⚖️`, `🍃`, `🔧`) dan menggantinya dengan ikon vektor modern (`Bolt`, `Balance`, `Eco`, `Restore`, `Tune`) yang adaptif terhadap tema aktif dan warna aksen kluster CPU.
+### 1. ð§¹ Redesain Menyeluruh ModalBottomSheet Governor Tunables
+- **Material Vector Icons Penuh**: Menghapus seluruh emoji kaku (`ð`, `âï¸`, `ð`, `ð§`) dan menggantinya dengan ikon vektor modern (`Bolt`, `Balance`, `Eco`, `Restore`, `Tune`) yang adaptif terhadap tema aktif dan warna aksen kluster CPU.
 - **Penyatuan Scroll Surface Tunggal**: Menghilangkan pembatasan ketinggian kaku (`heightIn(max = 420.dp)`) dan mengaktifkan `skipPartiallyExpanded = true` sehingga lembar bawah terbuka secara alami, mulus, dan bebas dari pemotongan elemen (*clipping*).
 - **Eliminasi Kotak Bertumpuk (Anti-Slop)**: Menghapus container abu-abu ganda (`Surface(color = BgElevated)`) yang memadati ruang visual; rekomendasi teknis kini terintegrasi secara mulus dan bersih di bawah deskripsi parameter.
 - **Isolasi Tuning Per-Kebijakan (Per-Policy Tuning)**: Penyetelan parameter dan preset kini secara presisi menyasar `policyId` target (contoh: Little Cluster `policy0` vs Big Cluster `policy6`) tanpa saling menimpa (*cluster-isolated*).
 
-### 2. ⚡ 4 Preset Responsivitas Clock & Deteksi Real-Time
+### 2. â¡ 4 Preset Responsivitas Clock & Deteksi Real-Time
 - **Preset Terkalibrasi Perangkat Keras**:
-  - **Responsif**: `up_rate_limit_us: 0 µs`, `down_rate_limit_us: 5 ms (5000 µs)` — Akselerasi instan tanpa jeda saat beban melonjak.
-  - **Seimbang**: `up_rate_limit_us: 1 ms (1000 µs)`, `down_rate_limit_us: 10 ms (10000 µs)` — Transisi mulus antara performa dan penghematan daya.
-  - **Hemat**: `up_rate_limit_us: 4 ms (4000 µs)`, `down_rate_limit_us: 20 ms (20000 µs)` — Memperlambat akselerasi frekuensi untuk efisiensi termal.
-  - **OEM (Bawaan Pabrik)**: `up_rate_limit_us: 0 µs`, `down_rate_limit_us: 30 ms (30000 µs)` — Kalibrasi bawaan vendor (MediaTek Dimensity/Helio) untuk stabilitas total.
+  - **Responsif**: `up_rate_limit_us: 0 Âµs`, `down_rate_limit_us: 5 ms (5000 Âµs)` â Akselerasi instan tanpa jeda saat beban melonjak.
+  - **Seimbang**: `up_rate_limit_us: 1 ms (1000 Âµs)`, `down_rate_limit_us: 10 ms (10000 Âµs)` â Transisi mulus antara performa dan penghematan daya.
+  - **Hemat**: `up_rate_limit_us: 4 ms (4000 Âµs)`, `down_rate_limit_us: 20 ms (20000 Âµs)` â Memperlambat akselerasi frekuensi untuk efisiensi termal.
+  - **OEM (Bawaan Pabrik)**: `up_rate_limit_us: 0 Âµs`, `down_rate_limit_us: 30 ms (30000 Âµs)` â Kalibrasi bawaan vendor (MediaTek Dimensity/Helio) untuk stabilitas total.
 - **Deteksi Status Preset Otomatis**: Badge di sudut kanan atas kartu preset secara cerdas mendeteksi kesesuaian nilai sysfs nyata dan menampilkan status: *Responsif Aktif*, *Seimbang Aktif*, *Hemat Daya Aktif*, *Bawaan OEM Aktif*, atau *Setelan Kustom*.
 
-### 3. ⏱️ Live Conversion Preview & Dialog Pengeditan Parameter Presisi
-- **Konversi Unit Real-Time**: Dialog pengeditan parameter kini menampilkan pratinjau konversi dinamis dari mikrodetik (µs) ke milidetik (ms) secara instan (contoh: `30000` otomatis menampilkan `"Setara dengan 30 ms (30000 µs)"`), menghilangkan kebingungan konversi angka besar.
+### 3. â±ï¸ Live Conversion Preview & Dialog Pengeditan Parameter Presisi
+- **Konversi Unit Real-Time**: Dialog pengeditan parameter kini menampilkan pratinjau konversi dinamis dari mikrodetik (Âµs) ke milidetik (ms) secara instan (contoh: `30000` otomatis menampilkan `"Setara dengan 30 ms (30000 Âµs)"`), menghilangkan kebingungan konversi angka besar.
 - **Pill Rekomendasi Terpadu**: Tombol cepat rekomendasi diformat ringkas dan terhindar dari pemotongan teks (`5 ms (Cepat)`, `10 ms (Seimbang)`, `20 ms (Stabil)`, `30 ms (OEM)`).
-- **Format Display Ringkas**: Nilai parameter pada kartu ditampilkan dalam format waktu yang mudah dibaca (`30 ms`, `0 µs (Instan)`).
+- **Format Display Ringkas**: Nilai parameter pada kartu ditampilkan dalam format waktu yang mudah dibaca (`30 ms`, `0 Âµs (Instan)`).
 
 ---
 
 # Lynx [Codename: Deity] 3.0.14
 Released on: 2026-10-04
-> **Versi ini** menuntaskan **Eliminasi Redundansi Preset Core Parking & CPU Idle** — menghapus baris tombol preset duplikat di dalam mode lanjutan (Advance), memisahkan dengan tegas peran *Preset Respon Terpadu (Makro 1-Klik)* di bagian awal dengan *Kustomisasi Manual (Hotplug & C-States)* di laci akordion, serta merancang ulang pemilih kebijakan hotplug menjadi Tile Pengaturan Teknis ber-dropdown yang elegan, informatif, dan bebas dari ambiguitas antarmuka.
+> **Versi ini** menuntaskan **Eliminasi Redundansi Preset Core Parking & CPU Idle** â menghapus baris tombol preset duplikat di dalam mode lanjutan (Advance), memisahkan dengan tegas peran *Preset Respon Terpadu (Makro 1-Klik)* di bagian awal dengan *Kustomisasi Manual (Hotplug & C-States)* di laci akordion, serta merancang ulang pemilih kebijakan hotplug menjadi Tile Pengaturan Teknis ber-dropdown yang elegan, informatif, dan bebas dari ambiguitas antarmuka.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.14)
+## ð Fitur Baru & Peningkatan (3.0.14)
 
-### 1. 🧹 Eliminasi Redundansi Preset Ganda pada Core Parking
+### 1. ð§¹ Eliminasi Redundansi Preset Ganda pada Core Parking
 - **Penghapusan Baris Tombol Duplikat**: Menghapus deretan 3 tombol pill horizontal di mode lanjutan yang sebelumnya meniru tombol preset makro di awal (`Unpark Semua`, `Dinamis`, `Park Big Core`).
 - **Hierarki Kontrol yang Tegas**:
   - **Bagian Awal (Atas)**: Berfungsi eksklusif sebagai *Preset Respon Terpadu (Makro 1-Klik)* (`Zero Latency`, `Seimbang`, `Deep Sleep`) untuk konfigurasi instan menyeluruh.
   - **Bagian Lanjutan (Akordion)**: Berfungsi untuk penyesuaian granular manual independen tanpa adanya tombol preset yang saling tumpang tindih.
 
-### 2. ⚙️ Redesain Tile Pengaturan Kebijakan Hotplug Inti
+### 2. âï¸ Redesain Tile Pengaturan Kebijakan Hotplug Inti
 - **Tile Teknis Ber-Dropdown**: Mengganti tombol preset redundan di dalam akordion dengan sebuah Tile Pengaturan Hotplug modern yang menampilkan status kebijakan aktif secara mendalam (ikon, judul, dan deskripsi teknis peran inti).
 - **Pemilih Dropdown Intuitif**: Menu dropdown untuk mengubah mode alokasi inti (*Dinamis OEM*, *Unpark Semua Inti*, *Parkir Big Cores*) dengan panduan teknis yang jelas di setiap opsinya.
 - **Penyelarasan Judul Akordion**: Memperbarui judul laci menjadi `Kustomisasi Manual (Hotplug & C-States)` agar secara akurat merefleksikan seluruh parameter di dalamnya.
@@ -9197,39 +9213,39 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.13
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **Penyempurnaan Visual & Pembersihan Indikator Presisi** — menghapus ikon centang dekoratif pada preset terpilih yang terkesan repetitif (anti-slop), memperhalus indikator seleksi aktif murni berbasis saturasi warna dan kontras border, serta merestrukturisasi pemilih mode *Core Parking Policy* dengan ikon vektor Material.
+> **Versi ini** menghadirkan **Penyempurnaan Visual & Pembersihan Indikator Presisi** â menghapus ikon centang dekoratif pada preset terpilih yang terkesan repetitif (anti-slop), memperhalus indikator seleksi aktif murni berbasis saturasi warna dan kontras border, serta merestrukturisasi pemilih mode *Core Parking Policy* dengan ikon vektor Material.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.13)
+## ð Fitur Baru & Peningkatan (3.0.13)
 
-### 1. 🧹 Eliminasi Ikon Centang Repetitif (Clean Selection Indicator)
-- **Desain Seleksi Minimalis**: Menghapus ikon centang (`✓` / `Check`) pada seluruh tombol preset di kartu *CPU Sets & Task Shield* dan *Core Parking & CPU Idle*.
+### 1. ð§¹ Eliminasi Ikon Centang Repetitif (Clean Selection Indicator)
+- **Desain Seleksi Minimalis**: Menghapus ikon centang (`â` / `Check`) pada seluruh tombol preset di kartu *CPU Sets & Task Shield* dan *Core Parking & CPU Idle*.
 - **Pembeda Visual Murni**: Status aktif kini ditandai secara elegan melalui aksen warna border proporsional, latar elevasi berpendar halus, serta warna ikon dan teks yang selaras tanpa elemen grafis tambahan yang memadati tombol.
 
-### 2. ⚡ Modernisasi Pemilih Kebijakan Hotplug Inti (Core Parking Policy)
-- **Vektor Material Penuh**: Mengganti emoji pada opsi *Core Parking Policy* (`🚀 Unpark Semua`, `⚖️ Dinamis (OEM)`, `🔋 Park Big Core`) dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime`.
+### 2. â¡ Modernisasi Pemilih Kebijakan Hotplug Inti (Core Parking Policy)
+- **Vektor Material Penuh**: Mengganti emoji pada opsi *Core Parking Policy* (`ð Unpark Semua`, `âï¸ Dinamis (OEM)`, `ð Park Big Core`) dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime`.
 - **Tipografi Bersih**: Menghapus seluruh emoji dekoratif dari catatan status dinamis CPU Idle.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.12
 Released on: 2026-10-04
-> **Versi ini** menyempurnakan **Estetika & Konsistensi Visual Subhalaman CPU** — menggantikan ikon emoji bawaan OS yang kaku pada kartu *CPU Sets & Task Shield*, *Core Parking & CPU Idle*, dan *Penjadwal Kernel & Multicore* dengan **Material Vector Icons** modern yang adaptif terhadap aksen tema cyber dark, memberikan tampilan antarmuka yang jauh lebih elegan, tajam, dan profesional.
+> **Versi ini** menyempurnakan **Estetika & Konsistensi Visual Subhalaman CPU** â menggantikan ikon emoji bawaan OS yang kaku pada kartu *CPU Sets & Task Shield*, *Core Parking & CPU Idle*, dan *Penjadwal Kernel & Multicore* dengan **Material Vector Icons** modern yang adaptif terhadap aksen tema cyber dark, memberikan tampilan antarmuka yang jauh lebih elegan, tajam, dan profesional.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.12)
+## ð Fitur Baru & Peningkatan (3.0.12)
 
-### 1. 🎨 Transisi Penuh dari Emoji Kaku ke Material Vector Icons
+### 1. ð¨ Transisi Penuh dari Emoji Kaku ke Material Vector Icons
 - **CPU Sets & Task Shield**:
-  - Mengganti teks emoji kaku `⚔️ Game Shield`, `⚖️ Standar`, `🔋 Hemat Daya` dengan ikon vektor Material berpresisi tinggi: `SportsEsports` (Gamepad), `Tune` (Equalizer/Sliders), dan `BatteryChargingFull`.
+  - Mengganti teks emoji kaku `âï¸ Game Shield`, `âï¸ Standar`, `ð Hemat Daya` dengan ikon vektor Material berpresisi tinggi: `SportsEsports` (Gamepad), `Tune` (Equalizer/Sliders), dan `BatteryChargingFull`.
   - Badge mode sudut kanan atas kini menggunakan ikon vektor `Tune` yang selaras dengan aksen status aktif.
   - Menghapus emoji dekoratif dari catatan status alokasi agar tipografi lebih bersih dan fokus pada informasi teknis.
 - **Core Parking & CPU Idle (C-States)**:
-  - Mengganti emoji kaku `⚡ Zero Latency`, `⚖️ Seimbang`, `🔋 Deep Sleep` dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime` (Bulan Sabit modern).
+  - Mengganti emoji kaku `â¡ Zero Latency`, `âï¸ Seimbang`, `ð Deep Sleep` dengan ikon vektor `Bolt`, `Tune`, dan `Bedtime` (Bulan Sabit modern).
   - Badge status kini dilengkapi indikator vektor `Tune` yang terpadu.
 - **Penjadwal Kernel & Multicore**:
   - Mengganti ikon preset respon jadwal dari emoji ke vektor: `Bolt` (Responsif), `Tune` (Seimbang), `BatteryChargingFull` (Efisiensi), dan `LocalFireDepartment` (Ekstrem).
   - Penyelarasan segmen *Arsitektur Engine* dengan ikon vektor `Bolt` (EAS), `AccountBalance` (HMP), dan `Build` (Hybrid).
 
-### 2. 💎 Dynamic Theme Tinting & Visual State Feedback
+### 2. ð Dynamic Theme Tinting & Visual State Feedback
 - **Adaptasi Warna Dinamis**: Ikon vektor kini secara dinamis mewarisi warna aksen status saat aktif (Cyan, Kuning, Merah, Hijau) dan beralih ke warna sekunder redup saat nonaktif, mencegah tabrakan warna pelangi kartun khas Noto Color Emoji Android.
 - **Indikator Seleksi Presisi**: Menyertakan tanda centang (`Check`) vektor yang rapi pada tombol preset yang sedang aktif untuk kepastian visual instan bagi pengguna.
 
@@ -9237,54 +9253,54 @@ Released on: 2026-10-04
 
 # Lynx [Codename: Deity] 3.0.11
 Released on: 2026-10-04
-> **Versi ini** menghadirkan **CPU & Governor Subscreen Modernization & Anti-Slop Overhaul** — membersihkan total tampilan subhalaman CPU dari jargon fiktif, mengintegrasikan grafik waveform beban real-time ke dalam Hero Master Card, merampingkan matriks 8-core silikon hardware, serta menyederhanakan Penjadwal Kernel & Multicore dari 25+ baris menjadi sistem preset makro cepat dengan laci akordion parameter lanjutan yang rapi dan elegan.
+> **Versi ini** menghadirkan **CPU & Governor Subscreen Modernization & Anti-Slop Overhaul** â membersihkan total tampilan subhalaman CPU dari jargon fiktif, mengintegrasikan grafik waveform beban real-time ke dalam Hero Master Card, merampingkan matriks 8-core silikon hardware, serta menyederhanakan Penjadwal Kernel & Multicore dari 25+ baris menjadi sistem preset makro cepat dengan laci akordion parameter lanjutan yang rapi dan elegan.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.11)
+## ð Fitur Baru & Peningkatan (3.0.11)
 
-### 1. 🧹 Eliminasi AI Slop & Penyelarasan Terminologi Kernel Nyata
+### 1. ð§¹ Eliminasi AI Slop & Penyelarasan Terminologi Kernel Nyata
 - **Penghapusan Jargon Fiktif**: Mengganti seluruh penyebutan fiktif "Arctic Engine" / "Arctic" dengan terminologi arsitektur kernel Linux resmi: `EAS + CFS Hybrid Scheduling` dan `EAS Hybrid (Multi-Domain)`.
 - **Keterbacaan & Akurasi Teknis**: Memastikan seluruh label mencerminkan mekanisme penjadwalan kernel yang sebenarnya (Energy-Aware Scheduling, Completely Fair Scheduler, dan Heterogeneous Multi-Processing).
 
-### 2. 💎 Desain Bersih & Elegan Matriks Silikon CPU (Scene Hero Card)
+### 2. ð Desain Bersih & Elegan Matriks Silikon CPU (Scene Hero Card)
 - **Integrasi Grafik Beban Waveform Real-Time**: Menggabungkan grafik kurva Bezier beban CPU langsung ke dalam Master Hero Card di bagian atas, mengeliminasi kartu terpisah "Grafik Beban CPU" dan menghemat ~140dp ruang vertikal tanpa mengurangi data telemetri.
 - **Matriks 8-Inti Minimalis & Modern**:
   - Menghapus teks repetitif rentang frekuensi `500~2000MHz` dan equalizer 5-batang vertikal yang memadati antarmuka.
   - Menggantinya dengan sel silikon minimalis (`C0`..`C7`) berlatar kontras halus, menampilkan frekuensi MHz aktif secara tegas, *slim progress bar* proporsional, serta persentase beban inti.
 
-### 3. ⚡ Perampingan Total Penjadwal Kernel & Multicore Arsitektur
+### 3. â¡ Perampingan Total Penjadwal Kernel & Multicore Arsitektur
 - **Struktur Hierarki 3-Level yang Intuitif**:
   - **Identitas & Status**: Menampilkan nama penjadwal kernel aktif secara ringkas dengan indikator dot LED `Aktif`.
   - **Pemilih Arsitektur Engine**: Tab segmen bersih untuk beralih mode arsitektur (`EAS`, `HMP`, `Hybrid`).
-  - **4 Preset Respon Makro Cepat**: Tombol *quick pill* interaktif (`⚡ Responsif`, `⚖️ Seimbang`, `🔋 Efisiensi`, `🔥 Ekstrem`) dengan highlight warna status instan dan persistensi SharedPreferences.
+  - **4 Preset Respon Makro Cepat**: Tombol *quick pill* interaktif (`â¡ Responsif`, `âï¸ Seimbang`, `ð Efisiensi`, `ð¥ Ekstrem`) dengan highlight warna status instan dan persistensi SharedPreferences.
   - **2 Tile Tweak Esensial**: Akses langsung ke pengaturan kritis `Rate Limit Respons Clock (Schedutil)` dan `Rentang Utilisasi Uclamp (EAS)` tanpa harus menggulir jauh.
   - **Laci Akordion Kolapsibel (`Pengaturan Lanjutan & Hardware Hints`)**: Menyembunyikan 12 parameter mikro lanjutan (CFS Latency, Granularity, Migration Cost, Task Capacity Boost Top-App/FG/BG, Task Rotation, Sync Hint, C-State Aware, Stune Threshold, dan Spillover HMP) ke dalam satu laci ekspansi yang rapi.
 - **Penyusutan Drastis Beban Gulir (Anti-Scroll Fatigue)**: Mengurangi panjang halaman subkategori CPU dari sebelumnya 7 kali usapan layar penuh menjadi hanya 3 usapan layar yang nyaman, bersih, dan bebas distraksi.
 
-### 4. 🛡️ Kartu Voltage Control (Undervolting) Ringkas
+### 4. ð¡ï¸ Kartu Voltage Control (Undervolting) Ringkas
 - **Kondisional Surface Minimalis**: Mengubah kartu peringatan undervolting yang sebelumnya memakan ruang besar menjadi baris Surface 1-baris yang bersih dan proporsional saat kernel perangkat tidak mendukung antarmuka sysfs undervolting tradisional (khas SoC modern).
 
 ---
 
 # Lynx [Codename: Deity] 3.0.10
 Released on: 2026-10-03
-> **Versi ini** menghadirkan **Live Charging Telemetry & Direct Pump Unlock Suite** — menyelesaikan kendala telemetri pengisian daya yang tertahan melalui ticker real-time 1 detik, mengatasi bottleneck antrean root shell, serta membuka penguncian arus pengisian cepat MediaTek Pump Express / Direct Charge Pump (`enable_sc = 1`), disertai penyederhanaan antarmuka CPU Sets dan Core Parking.
+> **Versi ini** menghadirkan **Live Charging Telemetry & Direct Pump Unlock Suite** â menyelesaikan kendala telemetri pengisian daya yang tertahan melalui ticker real-time 1 detik, mengatasi bottleneck antrean root shell, serta membuka penguncian arus pengisian cepat MediaTek Pump Express / Direct Charge Pump (`enable_sc = 1`), disertai penyederhanaan antarmuka CPU Sets dan Core Parking.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.10)
+## ð Fitur Baru & Peningkatan (3.0.10)
 
-### 1. ⚡ Live Charging Telemetry & Root Shell Optimization
+### 1. â¡ Live Charging Telemetry & Root Shell Optimization
 - **Dedicated 1-Second Subscreen Polling Loop**: Menambahkan *lifecycle-aware continuous ticker* pada layar Baterai & Charging (`TuningChargingCategory`), memastikan wattmeter input adaptor, tegangan, arus baterai, dan estimasi waktu selesai diperbarui secara *live* setiap detik tanpa jeda.
 - **Root Shell Throughput Unblocking**: Membatasi eksekusi pembacaan proses CPU latar belakang (`top -b -n 1 -m 8`) menjadi setiap 3 detik (dari sebelumnya 1 detik), mengeliminasi *mutex lock congestion* pada shell root sehingga query telemetri sensor baterai sysfs dieksekusi secara instan (<20ms).
 - **Robust Line-Filtering & Adapter Current Fallback**: Memperbarui parser pembacaan telemetri di `LynxRepository.kt` agar kebal terhadap baris kosong sistem dan menyertakan kalkulasi matematis arus adaptor dinamis `(W * 1,000,000) / V` saat node `Pump_Express_ICharger` dibaca dalam format desimal.
 
-### 2. 🔌 MediaTek / Transsion Direct Charge Pump & Current Throttle Fix
-- **Perbaikan Kritis `enable_sc` (Direct Charge Pump Unlock)**: Mengoreksi logika penulisan `/sys/devices/platform/charger/enable_sc` menjadi `1` pada seluruh profil dan skrip apply profile. Menuliskan nilai `0` sebelumnya secara keliru mematikan chip pengisian cepat (RT9759 Direct Pump) dan protokol PE4.0 Super Charge sehingga arus tertahan pada 0–500 mA.
-- **Thermal Cooling Device Reset (`cooling_device56`)**: Menambahkan pengamanan izin `chmod 666` dan peresetan status trip `abcct` ke 0 saat mode spoofing suhu baterai (28°C) aktif, mencegah sistem OEM menurunkan batas arus pengisian daya (*thermal clamping*).
-- **Hasil Verifikasi Fisik (Empiris)**: Teruji langsung pada perangkat fisik Infinix X698 (Dimensity 920). Daya input adaptor stabil pada **20.3 W** (8.4 V • 2410 mA) dan arus baterai bersih **+2407 mA** dengan protokol Transsion Super Charge aktif.
+### 2. ð MediaTek / Transsion Direct Charge Pump & Current Throttle Fix
+- **Perbaikan Kritis `enable_sc` (Direct Charge Pump Unlock)**: Mengoreksi logika penulisan `/sys/devices/platform/charger/enable_sc` menjadi `1` pada seluruh profil dan skrip apply profile. Menuliskan nilai `0` sebelumnya secara keliru mematikan chip pengisian cepat (RT9759 Direct Pump) dan protokol PE4.0 Super Charge sehingga arus tertahan pada 0â500 mA.
+- **Thermal Cooling Device Reset (`cooling_device56`)**: Menambahkan pengamanan izin `chmod 666` dan peresetan status trip `abcct` ke 0 saat mode spoofing suhu baterai (28Â°C) aktif, mencegah sistem OEM menurunkan batas arus pengisian daya (*thermal clamping*).
+- **Hasil Verifikasi Fisik (Empiris)**: Teruji langsung pada perangkat fisik Infinix X698 (Dimensity 920). Daya input adaptor stabil pada **20.3 W** (8.4 V â¢ 2410 mA) dan arus baterai bersih **+2407 mA** dengan protokol Transsion Super Charge aktif.
 
-### 3. 🎯 UI Affordance & Clean Interface Refinement (CPU Sets & Core Parking)
+### 3. ð¯ UI Affordance & Clean Interface Refinement (CPU Sets & Core Parking)
 - **Pembeda Tegas Tombol vs Visual Read-Only**:
-  - **Tombol Preset Interaktif**: Dilengkapi indikator centang seleksi `✓` dan kontras outline dinamis pada preset aktif (`Game Shield`, `Standar`, `Hemat Daya`, `Zero Latency`, `Seimbang`, `Deep Sleep`), memberikan afrodansi sentuh yang jelas.
-  - **Integrated SoC Silicon Strip (Peta Alokasi Inti)**: Mengubah visual core C0–C7 dari 8 kotak tombol terpisah menjadi **1 pita balok prosesor terpadu (Hardware SoC Silicon Strip)** dengan sekat divider 1px, lampu indikator LED bulat (`●`), dan badge overline `[ MONITOR ]` `READ-ONLY`. Otak pengguna seketika mengenali ini sebagai diagram perangkat keras, bukan tombol klik.
+  - **Tombol Preset Interaktif**: Dilengkapi indikator centang seleksi `â` dan kontras outline dinamis pada preset aktif (`Game Shield`, `Standar`, `Hemat Daya`, `Zero Latency`, `Seimbang`, `Deep Sleep`), memberikan afrodansi sentuh yang jelas.
+  - **Integrated SoC Silicon Strip (Peta Alokasi Inti)**: Mengubah visual core C0âC7 dari 8 kotak tombol terpisah menjadi **1 pita balok prosesor terpadu (Hardware SoC Silicon Strip)** dengan sekat divider 1px, lampu indikator LED bulat (`â`), dan badge overline `[ MONITOR ]` `READ-ONLY`. Otak pengguna seketika mengenali ini sebagai diagram perangkat keras, bukan tombol klik.
   - **Unified Telemetry Readout Panel (Core Parking)**: Mengonversi kartu status terpisah menjadi satu panel telemetri terpadu 2-kolom dengan badge `[ TELEMETRI ]` dan dot status LED, mengeliminasi kebingungan pengguna yang sebelumnya mengira kartu tersebut adalah tombol toggle tile.
 - **Penyederhanaan Dynamic Clusters & CPU Sets**: Menghapus tombol reset redundan dan menyelaraskan seluruh tampilan CPU dalam hierarki yang konsisten.
 
@@ -9292,18 +9308,18 @@ Released on: 2026-10-03
 
 # Lynx [Codename: Deity] 3.0.9
 Released on: 2026-09-28
-> **Versi ini** menghadirkan **Zero-Delay App Transition & Universal Extreme Mode Performance Suite** — menghilangkan jeda saat berpindah atau menutup aplikasi, meluncurkan Floating Game HUD seketika (0ms), serta memperluas optimasi Extreme Mode secara universal untuk SoC Qualcomm Snapdragon dan MediaTek (EAS Bypass, Multi-SoC IRQ Affinity, Adreno Force-No-Nap, dan Linux CFS Low-Latency Scheduling).
+> **Versi ini** menghadirkan **Zero-Delay App Transition & Universal Extreme Mode Performance Suite** â menghilangkan jeda saat berpindah atau menutup aplikasi, meluncurkan Floating Game HUD seketika (0ms), serta memperluas optimasi Extreme Mode secara universal untuk SoC Qualcomm Snapdragon dan MediaTek (EAS Bypass, Multi-SoC IRQ Affinity, Adreno Force-No-Nap, dan Linux CFS Low-Latency Scheduling).
 
-## 🚀 Fitur Baru & Peningkatan (3.0.9)
+## ð Fitur Baru & Peningkatan (3.0.9)
 
-### 1. ⚡ Zero-Delay App Transition Engine
+### 1. â¡ Zero-Delay App Transition Engine
 - **Inversi Peluncuran Floating Game HUD (0ms Immediate Feedback)**: Floating HUD kini diinisiasi seketika pada frame pertama saat game terdeteksi, tanpa terhalang antrean eksekusi skrip kernel yang kini diproses secara asinkron di latar belakang (`Dispatchers.IO`).
 - **Zero-Fork Fast Path `write_node()`**: Merekayasa ulang fungsi modifikasi kernel sysfs dengan mekanisme pengecekan langsung tanpa membuat subprocess `chmod` berulang (menurunkan waktu eksekusi skrip profil dari ~4.8 detik menjadi <600 milidetik).
 - **Fast Foreground Query (sub-15ms)**: Pemantauan aplikasi aktif memprioritaskan ekstraksi jendela fokus cepat (`mCurrentFocus`) sebelum beralih ke inspeksi hierarki aktivitas penuh.
 - **Smart Launcher Dismissal**: Mendeteksi penutupan game kembali ke Home Launcher dan memangkas waktu cooldown penutupan HUD dari 3.5 detik menjadi 1.5 detik secara responsif.
 - **Merged Telemetry Query**: Pengambilan status profil aktif kini digabungkan ke dalam satu query telemetri multi-sensor sub-20ms di HUD, memangkas separuh frekuensi root IPC.
 
-### 2. 🛡️ Universal Multi-SoC Extreme Mode Enhancements (Snapdragon & MediaTek)
+### 2. ð¡ï¸ Universal Multi-SoC Extreme Mode Enhancements (Snapdragon & MediaTek)
 - **Universal Energy-Aware Scheduling (EAS) Bypass**: Memaksa `sched_energy_aware = 0` dan `sched_sync_hint_enable = 1` di mode Extreme agar task scheduler kernel tidak membatasi performa CPU demi efisiensi daya.
 - **Universal Sched Clamping (`uclamp_util_min = 1024`)**: Mengunci utilitas minimum cpuset `top-app` ke 100% kapasitas pada seluruh arsitektur kernel yang mendukung uclamp.
 - **Multi-SoC GPU & Display IRQ SMP Affinity**: Otomatis mengidentifikasi interrupt handler grafis baik Qualcomm (`kgsl`, `adreno`, `msm_drm`, `mdss`) maupun MediaTek (`mali`, `ged`, `disp`, `drm`) dan mengisolasinya ke CPU core sekunder (`0x3F`), membebaskan Big Cores 100% untuk komputasi render thread game engine.
@@ -9311,7 +9327,7 @@ Released on: 2026-09-28
 - **CPU Online Core Retention**: Memastikan seluruh 8 core CPU tetap aktif (`online = 1`) dan mencegah sleep core yang tidak diinginkan dengan `core_ctl/min_cpus = 4`.
 - **CFS Low-Latency Tunables**: Mengonfigurasi `sched_upmigrate = 60`, `sched_downmigrate = 40`, `sched_latency_ns = 3000000`, `vfs_cache_pressure = 40`, dan `swappiness = 50`.
 
-### 3. 🔍 Granular Hardware Profile Verification & Zero-Fallback Interlock Suite
+### 3. ð Granular Hardware Profile Verification & Zero-Fallback Interlock Suite
 - **Granular Verification Suite (`verify_profile.sh`)**: Mesin audit unit-level independen yang memvalidasi setiap parameter kernel/hardware secara individual (CPU Governor, Min/Max Freq, Schedutil tunables, CCI Interconnect, PPM, Mali GED, FPSGO, CFS Latency, Refresh Rate, Thermal zones, Throttler processes, dan Network/Audio stack).
 - **Zero-Fallback Dynamic Hardware Interlocks**:
   - Re-assertion interlock otomatis untuk MediaTek CCI interconnect mode (`cpufreq_cci_mode = 1`) pasca Android Thermal HAL callback.
@@ -9321,7 +9337,7 @@ Released on: 2026-09-28
   - Pemulihan refresh rate adaptif (`60.0Hz` base / `120.0Hz` peak) yang bersih saat keluar dari mode gaming ke mode Balance/Auto.
 - **100% Health Score across All Profiles**: Terverifikasi secara empiris di perangkat fisik (Infinix X698 - Dimensity 920) dengan 0 Fallbacks dan 0 Errors untuk seluruh mode (`extreme`, `performance`, `balance`, `powersave`, `auto`).
 
-### 4. 🎮 Intelligent Game Render Pacing & Frame Time Stabilization Suite
+### 4. ð® Intelligent Game Render Pacing & Frame Time Stabilization Suite
 - **Resolusi Clamping Frekuensi GPU (300 MHz -> 950 MHz)**: Memperbaiki kendala pada driver GPU-DVFS MediaTek di mana penulisan voltase debug `gpufreq_fixed_freq_volt` membekukan PLL hardware ke indeks terendah (300 MHz). Dengan mengaktifkan `dvfs_enable = 1` dan mereset node debug ke `0 0`, GPU Mali kini bebas melakukan boost hingga puncak maksimal **950 MHz** (peningkatan clock 3.16x lipat).
 - **Arsitektur Penguncian Hardware EAS MediaTek**: Mengidentifikasi bahwa penggunaan governor generik `performance` menyebabkan DVFSRC MediaTek melepaskan kait hardware dan menurunkan clock Big Core ke 774 MHz. Lynx kini menerapkan `schedutil` dengan konfigurasi frekuensi simetris (`min = max = 2.05 GHz`), `up_rate_limit_us = 0`, `down_rate_limit_us = 0`, dan `pl = 1`, mengunci Big Core secara permanen di frekuensi puncak 2.05 GHz.
 - **Universal Game Thread Pacing Engine (`core/lib/game_pacing.sh`)**:
@@ -9341,22 +9357,22 @@ Released on: 2026-09-28
   - Frame presentation time pada skenario pertempuran 3D intensif turun dari **31.30 ms** menjadi **24.93 ms** dengan variasi latensi mendekati nol (<0.01 ms).
   - Health Audit Score mencapai **100%** (48 PASS, 2 CLAMPED, 0 FALLBACK, 0 ERROR) pada mode Extreme dan Balance.
 
-### 5. 🎮 Non-Intrusive Edge Drawer (Infinix Game Space / ROG Game Bar Style HUD)
+### 5. ð® Non-Intrusive Edge Drawer (Infinix Game Space / ROG Game Bar Style HUD)
 - **Arsitektur Dual-State Ergonomis**:
   - **State 1 (Collapsed Handle)**: Strip vertikal tipis bercahaya cyan docked di tepi layar/bezel saat bermain game sehingga layar tetap bersih 100% tanpa menghalangi pandangan maupun kontrol sentuh game. Handle mendukung penyesuaian posisi vertikal (drag) dan gesture geser ke dalam (swipe inward) atau ketukan (single tap) untuk membuka.
   - **State 2 (Expanded Game Bar)**: Drawer frosted-glass cyberpunk modern menampilkan matriks telemetri lengkap (Live FPS, AVG, 1% Low, Frametime Sparkline, CPU & GPU load/clock/temp, RAM/ZRAM, dan konsumsi daya Watt baterai).
 - **Auto-Collapse Inactivity Timer**: Drawer otomatis menutup kembali ke tepi layar secara halus setelah 5 detik tanpa sentuhan, mencegah gangguan fokus saat gameplay kembali intensif.
 - **Quick Gaming Tools & Profile Switcher**:
   - **1-Tap Profile Switcher**: Beralih langsung antara profil `[BAL]`, `[PERF]`, `[EXT]`, dan `[PWR]` tanpa perlu keluar dari game.
-  - **⚡ Boost RAM**: Eksekusi pembersihan cache sistem dan pembebasan memori (drop caches) instan.
-  - **🔒 Lock Refresh Rate**: Penguncian cepat display refresh rate (60 Hz / 90 Hz / 120 Hz).
-  - **📌 Pin Mini FPS**: Opsi menampilkan floating mini FPS pill terpisah yang tetap terlihat saat drawer tertutup.
-  - **⏱️ 60s Live Benchmark**: Memicu perekaman pacing hardware 60 detik langsung dari drawer.
+  - **â¡ Boost RAM**: Eksekusi pembersihan cache sistem dan pembebasan memori (drop caches) instan.
+  - **ð Lock Refresh Rate**: Penguncian cepat display refresh rate (60 Hz / 90 Hz / 120 Hz).
+  - **ð Pin Mini FPS**: Opsi menampilkan floating mini FPS pill terpisah yang tetap terlihat saat drawer tertutup.
+  - **â±ï¸ 60s Live Benchmark**: Memicu perekaman pacing hardware 60 detik langsung dari drawer.
 - **Interchangeable Interaction Modes**: Pengguna dapat dengan mudah beralih antara mode **Edge Drawer (Game Bar)** dan **6 Gaya Classic Floating Window** langsung dari HUD maupun via kartu konfigurasi di aplikasi Lynx Companion.
 
-### 6. ⚡ True Bypass Charging & Extreme Fast Charging Suite (Universal Multi-SoC)
+### 6. â¡ True Bypass Charging & Extreme Fast Charging Suite (Universal Multi-SoC)
 - **Resolusi Akar Masalah Penurunan Baterai Saat Mengisi Daya di Mode Extreme**:
-  - Mengidentifikasi bahwa daemon pengontrol suhu pengisian bawaan kernel MediaTek (`sw_jeita` di `/sys/devices/platform/charger/sw_jeita`) aktif secara default (`1`). Saat temperatur baterai menyentuh 43–45°C dalam gaming beban tinggi di mode Extreme, JEITA memotong arus pengisian (`chg1_current`) menjadi 0 mA. Akibatnya, sistem terpaksa menarik daya dari baterai (`current_now = -768mA` s/d `-1500mA`) meskipun terhubung ke pengisi daya.
+  - Mengidentifikasi bahwa daemon pengontrol suhu pengisian bawaan kernel MediaTek (`sw_jeita` di `/sys/devices/platform/charger/sw_jeita`) aktif secara default (`1`). Saat temperatur baterai menyentuh 43â45Â°C dalam gaming beban tinggi di mode Extreme, JEITA memotong arus pengisian (`chg1_current`) menjadi 0 mA. Akibatnya, sistem terpaksa menarik daya dari baterai (`current_now = -768mA` s/d `-1500mA`) meskipun terhubung ke pengisi daya.
   - Memperbaiki bug pada skrip thermal di mana penulisan `min_state = max_state` pada thermal cooling devices secara tidak sengaja memicu throttling maksimum pada `abcct`/`bcct` (battery charging current throttle).
   - Merevisi logika bypass terdahulu yang mematikan arus dengan `input_suspend = 1` (yang memutus daya USB dan memaksa konsumsi baterai penuh).
 - **Arsitektur True Bypass Charging (Direct Motherboard Vsys Power Path)**:
@@ -9371,8 +9387,8 @@ Released on: 2026-09-28
   - **Terverifikasi pada Pengujian Nyata**: Arus pengisian pada perangkat fisik Infinix X698 berhasil dibalikkan dari kondisi terkuras (`-768mA`) menjadi pengisian daya cepat aktif (`+636mA` hingga `+846mA`), dan persentase baterai berhasil bertambah stabil saat gaming berat.
 - **Antarmuka & Kontrol Lynx Companion**:
   - Penambahan toggle **Bypass Charging (Direct Motherboard)** dan **Extreme Fast Charging (High Current)** pada Tab Baterai & Daya.
-  - **Live Charging Telemetry Strip**: 4 metrik telemetri hardware real-time (Arus Baterai live mA, Daya Masuk live Watts, Tegangan Adapter live Volts, dan Suhu Baterai °C) serta deteksi chip protokol hardware otomatis (seperti `Pump Express (8.8V)`).
-  - **Resolusi Clamping Batas Arus (1500mA -> 4500mA Default)**: Menaikkan batas bawaan dari 1500mA ke 4500mA dengan rentang slider fleksibel 1000–6000mA, mengaktifkan fast charging penuh secara otomatis saat limit >= 3000mA.
+  - **Live Charging Telemetry Strip**: 4 metrik telemetri hardware real-time (Arus Baterai live mA, Daya Masuk live Watts, Tegangan Adapter live Volts, dan Suhu Baterai Â°C) serta deteksi chip protokol hardware otomatis (seperti `Pump Express (8.8V)`).
+  - **Resolusi Clamping Batas Arus (1500mA -> 4500mA Default)**: Menaikkan batas bawaan dari 1500mA ke 4500mA dengan rentang slider fleksibel 1000â6000mA, mengaktifkan fast charging penuh secara otomatis saat limit >= 3000mA.
   - **Zero-Collision Touch & Optimistic State UI**: Mengeliminasi tabrakan klik ganda pada `LynxSwitch` di Jetpack Compose Material 3 (`onCheckedChange = null` pada inner Switch) dan mengaplikasikan *optimistic UI state update* untuk respon instan (0ms).
   - Dynamic Status Banner visual: Cyan untuk Bypass Mode, Oranye-Merah untuk Extreme Fast Charge, Cyan untuk Fast Charging Otomatis, dan Oranye untuk Pengisian Teratur.
   - Eksekusi langsung ke sysfs kernel secara real-time via `LynxRepository.applyChargingMode` baik dalam Standalone Root Mode maupun Module Root Mode.
@@ -9383,9 +9399,9 @@ Released on: 2026-09-28
 Released on: 2026-09-28
 > **Versi ini** memperbarui durasi **Live Benchmark OSD di Floating Game HUD** menjadi **1 Menit (60 detik)** penuh, memungkinkan analisis kestabilan frametime jangka panjang, deteksi thermal throttling progresif, serta perataan pacing yang lebih representatif saat gameplay intensif.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.8)
+## ð Fitur Baru & Peningkatan (3.0.8)
 
-### 1. ⏱️ 1-Minute Live Benchmark pada Floating Game HUD
+### 1. â±ï¸ 1-Minute Live Benchmark pada Floating Game HUD
 - **Standar Durasi 1 Menit (60 Detik)**: Tombol benchmark instan di Expanded Game HUD kini disetel ke durasi 60 detik (sebelumnya 10 detik).
 - **Pemantauan Pacing Jangka Panjang**: Pengujian 60 detik menangkap siklus gameplay realistis (rotasi peta, pertempuran, burst efek partikel) serta efek kenaikan suhu terhadap kestabilan frame delivery.
 - **Hitung Mundur Real-Time**: Tampilan tombol HUD menampilkan indikator live `Merekam Pacing... (60s)` hingga `(0s)`.
@@ -9397,9 +9413,9 @@ Released on: 2026-09-28
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Live Hardware Benchmark Studio & Frame Pacing Profiler**, pembaruan ergonomi Floating Game HUD (Frame Time langsung di Mini Pill), penguncian hardware fixed OPP GPU, bypass limit table Mali, dan isolasi SMP Affinity IRQ CPU.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.7)
+## ð Fitur Baru & Peningkatan (3.0.7)
 
-### 1. ⚡ Live Hardware Benchmark & Frame Pacing Studio
+### 1. â¡ Live Hardware Benchmark & Frame Pacing Studio
 - **Presisi Hardware Presentation Latency**: Menggunakan ekstraksi timestamp hardware SurfaceFlinger (`dumpsys SurfaceFlinger --latency`) untuk mengukur waktu sesungguhnya saat frame ditampilkan ke panel layar.
 - **Metrik Diagnostik Komprehensif**:
   - Average FPS & Median Frametime (ms)
@@ -9411,72 +9427,72 @@ Released on: 2026-09-28
 - **Interactive Canvas Frametime Chart**: Visualisasi kurva latensi per frame secara real-time dengan garis panduan 16.6ms (60 FPS) dan 33.3ms (30 FPS).
 - **Akses Fleksibel**: Dapat dijalankan dari Dashboard (Tab 0), Tools (Tab 3), serta tombol Quick Benchmark (10s) langsung di Floating Game HUD tanpa meninggalkan game.
 
-### 2. 🎮 Ergonomi HUD OSD — Frame Time pada Mini Pill
+### 2. ð® Ergonomi HUD OSD â Frame Time pada Mini Pill
 - Menggantikan label 120Hz pada Mini Pill HUD dengan nilai **Live Frame Time (ms)** (misal `23.8ms`) yang berdampingan langsung dengan FPS, memberikan informasi instan tentang konsistensi rendering.
 - Nilai Refresh Rate panel (Hz) tetap ditampilkan dengan rapi pada grid telemetri di mode Expanded HUD.
 
-### 3. 🔥 Peak GPU & IRQ Performance Clamping
+### 3. ð¥ Peak GPU & IRQ Performance Clamping
 - **Hardware Fixed OPP Lock**: Menulis frekuensi puncak KHz ke `/proc/gpufreq/gpufreq_opp_freq` untuk mengunci register OPP GPU Mali di frekuensi tertinggi.
 - **Bypass Limit Table GPU**: Menonaktifkan seluruh pembatas thermal, battery OC, battery low, dan governor policy pada `/proc/gpufreq/gpufreq_limit_table`.
 - **Mali DVFS Disable**: Mematikan DVFS kbase driver di mode Extreme (`/proc/mali/dvfs_enable = 0`) agar GPU tidak pernah mengalami micro-downclock.
-- **Mali GPU IRQ Affinity Isolation**: Mengalihkan interrupt handler Mali ke CPU 0–5 (`0x3F`), mengisolasi Big Cores (Cortex-A78) 100% untuk komputasi render thread game engine.
+- **Mali GPU IRQ Affinity Isolation**: Mengalihkan interrupt handler Mali ke CPU 0â5 (`0x3F`), mengisolasi Big Cores (Cortex-A78) 100% untuk komputasi render thread game engine.
 - **VFS Cache Pressure Tuning (`vm.vfs_cache_pressure = 40`)**: Mencegah pembuangan cache direktori dan file tekstur di RAM selama transisi scene dan rotasi 3D.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.6
 Released on: 2026-09-28
-> **Versi ini** menghadirkan **Frametime & Sustained FPS Optimization Suite** untuk Extreme dan Performance mode — meminimalisir frame delivery jitter, menghilangkan micro-stuttering pada 3D open-world gaming, serta mengoptimalkan SurfaceFlinger buffer latching, MediaTek FPSGO Ultra Rescue, dan Linux CFS low-latency scheduling.
+> **Versi ini** menghadirkan **Frametime & Sustained FPS Optimization Suite** untuk Extreme dan Performance mode â meminimalisir frame delivery jitter, menghilangkan micro-stuttering pada 3D open-world gaming, serta mengoptimalkan SurfaceFlinger buffer latching, MediaTek FPSGO Ultra Rescue, dan Linux CFS low-latency scheduling.
 
-## 🚀 Fitur Baru & Peningkatan (3.0.6)
+## ð Fitur Baru & Peningkatan (3.0.6)
 
-### 1. ⏱️ SurfaceFlinger & Frame Pacing Pipeline Optimization
-- **`debug.sf.latch_unsignaled = 1`**: Mengizinkan SurfaceFlinger melakukan latch render buffer seketika setelah GPU selesai me-rasterize tanpa harus menunggu sinyal fence siklus VSYNC berikutnya, memangkas display input lag 1–2 frame dan menghilangkan frame drop artificial.
+### 1. â±ï¸ SurfaceFlinger & Frame Pacing Pipeline Optimization
+- **`debug.sf.latch_unsignaled = 1`**: Mengizinkan SurfaceFlinger melakukan latch render buffer seketika setelah GPU selesai me-rasterize tanpa harus menunggu sinyal fence siklus VSYNC berikutnya, memangkas display input lag 1â2 frame dan menghilangkan frame drop artificial.
 - **`debug.sf.enable_gl_backpressure = 0` & `disable_backpressure = 1`**: Menghilangkan backpressure pipeline GPU yang sering kali memblokir RenderThread game saat rendering frame kompleks.
 - **SkiaGL Threaded Backend & Phase Offsets**: Mengaktifkan `debug.renderengine.backend skiaglthreaded` bersama offset fase mikrodetik (`early_phase_offset_ns 500000`, `early_gl_phase_offset_ns 3000000`) untuk penyerahan frame sub-millisecond.
 
-### 2. ⚡ MediaTek FPSGO Ultra Rescue & GED Anti-Stutter Tuning
+### 2. â¡ MediaTek FPSGO Ultra Rescue & GED Anti-Stutter Tuning
 - **GPU Idle Elimination (`gpu_idle = 0`)**: Mematikan state idle mikro pada Mali GPU di mode Extreme agar shader core tidak mengalami siklus tidur-bangun antar draw call yang memicu spike frametime.
 - **FPSGO Ultra Rescue (`ultra_rescue = 1`)**: Mengaktifkan MediaTek Ultra Rescue untuk mendeteksi frame time overrun secara sub-millisecond dan menginjeksi CPU boost seketika sebelum frame drop terjadi.
 - **Light Loading Policy Bypass (`light_loading_policy = 0`)**: Mencegah penurunan clock otomatis saat transisi adegan/menu di dalam game.
 - **Hardware MDP Composition Offloading (`ged_force_mdp_enable = 1`)**: Mengalihkan komposisi overlay ke MediaTek Display Processor, menghemat ALU execution unit GPU Mali untuk 3D rendering murni.
 - **GED Top-App PID Prioritization (`gx_top_app_pid`)**: Menginjeksi PID game aktif secara dinamis ke driver GED untuk prioritas antrean command stream GPU tertinggi.
 
-### 3. 🧠 Linux CFS Scheduler Low-Latency Preemption
+### 3. ð§  Linux CFS Scheduler Low-Latency Preemption
 - **Scheduling Latency Epoch 4ms (`sched_latency_ns = 4000000`, `sched_min_granularity_ns = 500000`)**: Memperketat jendela penjadwalan CPU dari default 10ms menjadi 4ms, memastikan thread game diprioritaskan tanpa tertunda oleh background worker.
-- **Instant Core Migration (`sched_migration_cost_ns = 50000`)**: Menurunkan ambang migrasi dari 200µs ke 50µs agar thread rendering game segera berpindah ke cluster Big (A76) seketika ada beban rendering.
+- **Instant Core Migration (`sched_migration_cost_ns = 50000`)**: Menurunkan ambang migrasi dari 200Âµs ke 50Âµs agar thread rendering game segera berpindah ke cluster Big (A76) seketika ada beban rendering.
 - **Thread Spawning Acceleration (`sched_child_runs_first = 1`)**: Thread worker yang di-spawn oleh game engine (seperti Unity Job System `Job.Worker` atau Unreal Engine worker) langsung dieksekusi seketika.
 - **C-State Aware Packing Disable (`sched_cstate_aware = 0`)**: Mematikan pemadatan tugas ke core hemat daya pada Extreme mode.
 
-### 4. 🎯 Dynamic Game Process & Thread Renicing
+### 4. ð¯ Dynamic Game Process & Thread Renicing
 - Pada saat game aktif terdeteksi oleh watcher/daemon, seluruh thread proses game (`UnityMain`, `UnityGfxDeviceW`, `Job.Worker`, `RenderThread`) secara otomatis di-renice ke tingkat prioritas tertinggi Linux (`nice -20`), diberikan I/O Real-Time (`ionice -c 1 -n 0`), dan dialokasikan ke `top-app` cpuset.
 
-### 5. 🗄️ Storage I/O Read-Ahead 2048 KB (Zero Stutter World Streaming)
+### 5. ðï¸ Storage I/O Read-Ahead 2048 KB (Zero Stutter World Streaming)
 - Meningkatkan buffer UFS/MMC `read_ahead_kb` ke 2048 KB dan `nr_requests` ke 512 untuk mengeliminasi hitching saat streaming tekstur dan model 3D di game open-world.
 
 ---
 
 # Lynx [Codename: Deity] 3.0.5
 
-## 🐛 Critical Bug Fixes (3.0.5)
+## ð Critical Bug Fixes (3.0.5)
 
-### 1. ⚡ Fix GPU Extreme Mode — OPP Index vs KHz Mismatch
+### 1. â¡ Fix GPU Extreme Mode â OPP Index vs KHz Mismatch
 - **Root Cause**: Node `custom_upbound_gpu_freq` dan `gpufreq_opp_freq` di MTK GED HAL menggunakan **OPP Index** (0 = frekuensi tertinggi, 48 = terendah), bukan nilai KHz. Script lama menulis nilai `950000` (KHz) ke node index ini, sehingga GED menginterpretasinya sebagai "index 950000" yang tidak valid dan mem-fallback ke index 48 (= 300 MHz minimum).
 - **Fix**: Tulis `0` (index 0 = OPP tertinggi) ke `custom_upbound_gpu_freq` dan `gpufreq_opp_freq`. Nilai KHz tetap digunakan di node `gpu_cust_upbound_freq` dan `gpu_cust_boost_freq` dari `/sys/module/ged/`.
 - **Tambahan**: Aktifkan `gpufreq_fixed_freq_volt` dengan nilai puncak OPP untuk memastikan GPU terkunci di 950 MHz pada mode Extreme.
 
-### 2. 🔒 Fix CPU Extreme Mode — MTK PPM Index vs KHz Mismatch
+### 2. ð Fix CPU Extreme Mode â MTK PPM Index vs KHz Mismatch
 - **Root Cause**: Node `hard_userlimit_min_cpu_freq` dan `hard_userlimit_max_cpu_freq` di PPM (MediaTek Power Policy Manager) juga menggunakan **OPP Index** bukan KHz. Script lama mengirim nilai KHz mentah yang salah diinterpretasikan oleh PPM.
 - **Fix**: Tulis `<cluster_id> 0` (index 0 = frekuensi puncak) untuk extreme, dan index proporsional untuk performance.
 
-### 3. 🚀 Fix CPU Extreme — Governor Switch ke `performance`
+### 3. ð Fix CPU Extreme â Governor Switch ke `performance`
 - **Root Cause**: `mtkpower@1.0-service` (MTK Power HAL daemon) terus me-reset `scaling_min_freq` ke nilai defaultnya, menimpa nilai yang ditulis oleh `apply_profile.sh`.
 - **Fix**: Mode Extreme kini menggunakan CPU governor **`performance`** (bukan `schedutil`), yang secara otomatis memaksa CPU berjalan di `scaling_max_freq` tanpa bergantung pada `scaling_min_freq`. Ini secara efektif mem-bypass interferensi mtkpower HAL.
 
-### ✅ Hasil Terverifikasi (Infinix X698, Dimensity 920)
-- CPU policy0 (A55): governor `performance`, freq **2000 MHz** ✅
-- CPU policy6 (A76): governor `performance`, freq **2050 MHz** (saat load) ✅
-- GPU: fixed_freq **950 MHz** enabled via `gpufreq_fixed_freq_volt` ✅
+### â Hasil Terverifikasi (Infinix X698, Dimensity 920)
+- CPU policy0 (A55): governor `performance`, freq **2000 MHz** â
+- CPU policy6 (A76): governor `performance`, freq **2050 MHz** (saat load) â
+- GPU: fixed_freq **950 MHz** enabled via `gpufreq_fixed_freq_volt` â
 
 ---
 
@@ -9484,12 +9500,12 @@ Released on: 2026-09-28
 Released on: 2026-09-28
 > **Versi ini** menghadirkan **Audit & Hardening Total Seluruh Profil Hardware (18 Vektor Subsistem)** untuk Extreme, Performance, Balance, dan Powersave, menjamin **Zero Missing Tweaks & 100% Parity** antara Standalone Root Mode dan Magisk/KernelSU Module Mode, resolusi Unity FPS Uncap read permission collision, serta sinkronisasi per-app profile targeting secara komprehensif.
 
-## ✨ Fitur Baru & Peningkatan (3.0.4)
+## â¨ Fitur Baru & Peningkatan (3.0.4)
 
-### 1. ⚡ Master Hardware Profile Applicator (`apply_profile.sh` — 18 Subsystem Vectors)
+### 1. â¡ Master Hardware Profile Applicator (`apply_profile.sh` â 18 Subsystem Vectors)
 - **Audit Menyeluruh 18 Vektor Subsistem**: Melakukan audit dan harmonisasi komprehensif pada seluruh profil hardware (`extreme`, `performance`, `balance`, `powersave`, `auto`):
   - **CPU Core & Governors**: Kunci frekuensi min/max presisi, governor selection (`performance`, `schedutil`), dan pemulihan dynamic range.
-  - **Schedutil Rate Limits**: `up_rate_limit_us` 0µs untuk lompatan frekuensi seketika pada mode gaming/extreme, dan ramp-down terukur pada mode seimbang/hemat daya.
+  - **Schedutil Rate Limits**: `up_rate_limit_us` 0Âµs untuk lompatan frekuensi seketika pada mode gaming/extreme, dan ramp-down terukur pada mode seimbang/hemat daya.
   - **MediaTek Deep Tuning**: Aktivasi `Performance(Sports) mode` pada `/proc/cpufreq/cpufreq_power_mode`, penguncian PPM userlimit table (`hard_userlimit_min_cpu_freq`), dan CCI boost.
   - **GPU Acceleration**: Boost DVFS margin 99% pada Mali GED (`/proc/ged/hal/custom_margin`) dan devfreq boost max pada Qualcomm Adreno (`/sys/class/kgsl/kgsl-3d0`).
   - **UCLAMP & CPUSET**: Task clamping top-app min 100% untuk prioritas frame rendering maksimal pada CPU cluster Big/Prime.
@@ -9498,15 +9514,15 @@ Released on: 2026-09-28
   - **Display, Wi-Fi & Audio**: TouchBoost touch response, low-latency Wi-Fi gaming packet stack, dan AAudio MMAP FastMixer low-latency.
   - **Process Priority & Lib Injection**: Renice `-20` pada `surfaceflinger` dan HWComposer, serta injeksi `sched_lib_name` untuk library game populer (Unity, Unreal Engine).
 
-### 2. 🛡️ Unity FPS Uncap Read Collision Resolution
+### 2. ð¡ï¸ Unity FPS Uncap Read Collision Resolution
 - **Pre-Flight Permission Recovery**: Memperbaiki isu di mana teknik bypass limit FPS Unity (`chmod 000` pada `cpuinfo_max_freq` dan `cpu_capacity`) menyebabkan pembacaan frekuensi kosong pada pergantian profil berikutnya.
 - **Dynamic Fallback Parsing**: Menambahkan pemulihan izin otomatis (`chmod 444`) sebelum pembacaan sysfs dan mekanisme fallback cerdas ke `scaling_available_frequencies`.
 
-### 3. 🎯 Full Parity: Standalone Root Mode & Module Mode
+### 3. ð¯ Full Parity: Standalone Root Mode & Module Mode
 - **Zero Gap Between Modes**: Sinkronisasi penuh antara implementasi Kotlin di `LynxRepository.kt` dan skrip shell root `/data/adb/lynx/apply_profile.sh`.
 - Pengguna Standalone Root Mode kini menikmati seluruh 18 tweak subsistem yang setara 100% dengan pengguna modul terpasang di Magisk/KernelSU.
 
-### 4. 📱 Dynamic Per-App Profile Targeting pada Watcher Daemon
+### 4. ð± Dynamic Per-App Profile Targeting pada Watcher Daemon
 - Watcher daemon mandiri (`lynx_watcher.sh` & `Smart-AI.sh`) kini mengekstrak target profil dinamis langsung dari `app_rules.tsv` dan memanggil `apply_profile.sh` dengan parameter profil spesifik per aplikasi yang sedang aktif di latar depan.
 
 ---
@@ -9515,23 +9531,23 @@ Released on: 2026-09-28
 Released on: 2026-09-27
 > **Versi ini** menghadirkan arsitektur **Dual-Engine Per-App Automation** dengan daemon latar belakang root mandiri (*Unkillable Standalone Root Watcher*) yang beroperasi penuh di latar belakang tanpa bergantung pada antarmuka aplikasi, kebal pembunuhan proses Android, serta pemulihan otomatis pasca-reboot.
 
-## ✨ Fitur Baru & Peningkatan (3.0.3)
+## â¨ Fitur Baru & Peningkatan (3.0.3)
 
-### 1. 🛡️ Unkillable Standalone Root Watcher Daemon (`lynx_watcher.sh`)
+### 1. ð¡ï¸ Unkillable Standalone Root Watcher Daemon (`lynx_watcher.sh`)
 - **Proses Root Mandiri (UID 0)**: Watcher berjalan terpisah dari proses Android zygote/JVM di bawah `init` (PPID 1), menjadikannya kebal terhadap pembersihan Recent Apps, pembatasan baterai OEM (XOS/MIUI/ColorOS), maupun `am force-stop`.
-- **Eksekusi 0ms Instan**: Memantau aplikasi aktif dengan latensi sub-30ms via `dumpsys activity activities` (`topResumedActivity`) dan menerapkan profil hardware (CPU Schedutil 0µs ramp-up, GPU GED/Adreno boost, Display 120Hz, dan Floating HUD) secara seketika saat aplikasi dibuka.
+- **Eksekusi 0ms Instan**: Memantau aplikasi aktif dengan latensi sub-30ms via `dumpsys activity activities` (`topResumedActivity`) dan menerapkan profil hardware (CPU Schedutil 0Âµs ramp-up, GPU GED/Adreno boost, Display 120Hz, dan Floating HUD) secara seketika saat aplikasi dibuka.
 - **Hysteresis Cooldown Buffer (4 Detik)**: Mempertahankan mode performa selama 4 detik saat berpindah aplikasi singkat (membuka notifikasi, floating chat, atau menu recent) sebelum secara halus mengembalikan frekuensi dan governor ke mode seimbang.
 - **Deep Sleep Shield**: Otomatis menghentikan loop polling saat layar mati (`mHoldingDisplaySuspendBlocker=false`), mengembalikan profil hemat daya, dan mengizinkan CPU masuk ke C-States penuh tanpa menguras baterai standby.
 
-### 2. ⚡ Dual-Engine Architecture & Task-Swipe Immunity
+### 2. â¡ Dual-Engine Architecture & Task-Swipe Immunity
 - **Perlindungan Task Removal**: Penambahan `android:stopWithTask="false"` pada manifest dan override `onTaskRemoved()` pada `LynxAppAutomationService` untuk memastikan kelangsungan hidup daemon saat pengguna menyapu aplikasi dari daftar tugas terkini.
 - **Deteksi Status Persisten**: Logika pengecekan switch UI kini memverifikasi langsung keberadaan proses daemon root aktif melalui `isAppAutomationRunning()`, sehingga switch selalu akurat dalam posisi aktif meskipun aplikasi baru saja dibuka kembali.
 
-### 3. 🔄 Cold-Boot Auto-Recovery (`LynxBootReceiver`)
+### 3. ð Cold-Boot Auto-Recovery (`LynxBootReceiver`)
 - **Penanganan Boot Android**: Menambahkan `LynxBootReceiver` yang mendengarkan sinyal `BOOT_COMPLETED`, `LOCKED_BOOT_COMPLETED`, dan `QUICKBOOT_POWERON`.
 - Jika otomasi aktif sebelum restart, sistem secara otomatis membangkitkan Root Watcher Daemon dan layanan notifikasi saat perangkat dinyalakan kembali tanpa perlu membuka aplikasi Lynx secara manual.
 
-### 4. 🚀 Format Pemetaan Kecepatan Tinggi (`app_rules.tsv`)
+### 4. ð Format Pemetaan Kecepatan Tinggi (`app_rules.tsv`)
 - Mengompilasi aturan per-aplikasi ke format pemetaan TSV terindeks pipa (`packageName|targetProfile|targetRefreshRate|autoFloatingHud|appName`) secara otomatis di `/data/adb/lynx/app_rules.tsv` untuk evaluasi shell berkecepatan sub-milidetik tanpa overhead parsing JSON.
 
 ---
@@ -9540,27 +9556,27 @@ Released on: 2026-09-27
 Released on: 2026-09-27
 > **Versi ini** menghadirkan pembaruan besar pada manajemen Penjadwal Kernel & Gubernur (CFS/EAS), Otomasi Profil Per-Aplikasi & Game Picker UI cerdas, sinkronisasi penuh WebUI KernelSU/APatch, serta panduan arsitektur penyediaan driver hardware kustom.
 
-## ✨ Fitur Baru & Peningkatan (3.0.2)
+## â¨ Fitur Baru & Peningkatan (3.0.2)
 
-### 1. 🎮 Otomasi Profil Per-Aplikasi & Visual Game Picker UI
-- **Visual App/Game Picker Dialog**: Pemilih aplikasi dan game visual terpadu dengan pencarian instan, filter kategori cerdas (Semua, 🎮 Game, ⚡ Belum Dikonfigurasi), serta deteksi otomatis tag kategori game.
+### 1. ð® Otomasi Profil Per-Aplikasi & Visual Game Picker UI
+- **Visual App/Game Picker Dialog**: Pemilih aplikasi dan game visual terpadu dengan pencarian instan, filter kategori cerdas (Semua, ð® Game, â¡ Belum Dikonfigurasi), serta deteksi otomatis tag kategori game.
 - **Konfigurasi Profil Per-Aplikasi**: Pengguna dapat mengunci profil performa khusus (Extreme, Performa, Balance, Hemat), memaksakan refresh rate panel (60Hz, 90Hz, 120Hz), serta mengaktifkan overlay Floating Game HUD secara otomatis saat aplikasi dibuka.
 - **Sinkronisasi Multi-Level**: Sinkronisasi instan dua arah ke `/data/adb/lynx/applist_perf.txt` dan `app_rules.json` (serta `$MODULE_DIR/core/` saat modul terpasang), memicu respon 0ms boost pada daemon AI Core.
 
-### 2. ⚡ Penjadwal Kernel & Gubernur Deep Tunables (CFS / EAS / BORE)
+### 2. â¡ Penjadwal Kernel & Gubernur Deep Tunables (CFS / EAS / BORE)
 - **Deteksi Jujur BORE Engine**: Memeriksa keberadaan node `/proc/sys/kernel/sched_bore` secara dinamis dan menampilkan badge status jujur (`CFS / EAS` dengan `BORE: UNSUPPORTED` pada kernel stock).
 - **3 Preset Penjadwal Cepat**:
-  - `⚡ Gaming`: Menyetel `sched_latency_ns` ke 4ms, `up_rate_limit_us` ke 0µs (lompatan instan tanpa jeda), dan `down_rate_limit_us` ke 5ms.
-  - `⚖️ Balanced`: Pemulihan nilai seimbang AOSP (`sched_latency_ns` 10ms, `up_rate_limit_us` 500µs, `down_rate_limit_us` 20ms).
-  - `🔋 Battery Saver`: Penjadwalan hemat daya (`sched_latency_ns` 20ms, `up_rate_limit_us` 4000µs).
+  - `â¡ Gaming`: Menyetel `sched_latency_ns` ke 4ms, `up_rate_limit_us` ke 0Âµs (lompatan instan tanpa jeda), dan `down_rate_limit_us` ke 5ms.
+  - `âï¸ Balanced`: Pemulihan nilai seimbang AOSP (`sched_latency_ns` 10ms, `up_rate_limit_us` 500Âµs, `down_rate_limit_us` 20ms).
+  - `ð Battery Saver`: Penjadwalan hemat daya (`sched_latency_ns` 20ms, `up_rate_limit_us` 4000Âµs).
 - **Slider Parameter Presisi**: Kontrol langsung untuk CFS Latency, Min Granularity, Wakeup Granularity, Task Migration Cost, Migration Queue Limit (`nr_migrate`), dan tombol Child Process Runs First.
 
-### 3. 🌐 Sinkronisasi Penuh WebUI KernelSU / APatch (`webroot/`)
-- **Tuner Virtual Memory (VM) Terpadu**: Diperluas dengan 3 tombol preset cepat (`⚡ Gaming`, `⚖️ Balanced`, `🔋 Battery`) dan 7 slider sysfs lengkap (`dirty_ratio`, `dirty_background_ratio`, `vfs_cache_pressure`, `swappiness`, `dirty_expire_centisecs`, `dirty_writeback_centisecs`, `stat_interval`).
+### 3. ð Sinkronisasi Penuh WebUI KernelSU / APatch (`webroot/`)
+- **Tuner Virtual Memory (VM) Terpadu**: Diperluas dengan 3 tombol preset cepat (`â¡ Gaming`, `âï¸ Balanced`, `ð Battery`) dan 7 slider sysfs lengkap (`dirty_ratio`, `dirty_background_ratio`, `vfs_cache_pressure`, `swappiness`, `dirty_expire_centisecs`, `dirty_writeback_centisecs`, `stat_interval`).
 - **Dynamic TCP Congestion Picker**: Membaca algoritma TCP aktif dan tersedia langsung dari kernel (`/proc/sys/net/ipv4/tcp_available_congestion_control`) dan me-render tombol dinamis.
 - **Wake Guard & Aggressive Doze**: Menampilkan status nyata driver Boeffla Wakelock Blocker serta switch Aggressive Doze (`dumpsys deviceidle force-idle`) untuk memangkas konsumsi baterai standby.
 
-### 4. 📖 Panduan Penyediaan Driver Hardware Kustom
+### 4. ð Panduan Penyediaan Driver Hardware Kustom
 - Penambahan dokumen teknis resmi [`docs/14_CUSTOM_KERNEL_DRIVER_DEVELOPMENT_GUIDE.md`](./docs/14_CUSTOM_KERNEL_DRIVER_DEVELOPMENT_GUIDE.md) yang menjelaskan arsitektur kernel Ring 0 vs Ring 3, penyediaan patch driver Sound Control ALSA codec, driver VDD voltage table untuk undervolt/overvolt, penambahan frekuensi overclocking pada DTS OPP table MediaTek/Qualcomm, serta alur kompilasi dan pengemasan AnyKernel3 1-klik.
 
 ---
@@ -9569,7 +9585,7 @@ Released on: 2026-09-27
 Released on: 2026-09-26
 > **Versi ini** membawa ekspansi masif Deep Hardware Scanner dengan lebih dari 450 node tuneable hardware terdeteksi secara dinamis.
 
-## ✨ Fitur Baru & Peningkatan (3.0.1)
+## â¨ Fitur Baru & Peningkatan (3.0.1)
 
 ### 1. Deep Hardware Scanner Diperluas (450+ Hardware Nodes)
 - **Tambahan subsistem yang sebelumnya tidak terpindai:**
@@ -9591,7 +9607,7 @@ Released on: 2026-09-26
 - **Metadata Baru**: 20+ entri metadata friendly ditambahkan untuk GED HAL, FPSGO, Core Control, PPM, HPS, EAS, ASLR.
 
 ### 2. Sinkronisasi Shell Script & Kotlin
-- `core/lib/deep_inspector.sh` dan `buildStandaloneDeepScanScript()` di `LynxRepository.kt` kini **100% sinkron** — jalur hardware, filter, normalisasi nilai, dan kategorisasi identik persis antara shell module dan aplikasi native.
+- `core/lib/deep_inspector.sh` dan `buildStandaloneDeepScanScript()` di `LynxRepository.kt` kini **100% sinkron** â jalur hardware, filter, normalisasi nilai, dan kategorisasi identik persis antara shell module dan aplikasi native.
 
 ---
 
@@ -9602,14 +9618,14 @@ Released on: 2026-09-25
 
 ---
 
-## ✨ Fitur Baru & Peningkatan (3.0.0)
+## â¨ Fitur Baru & Peningkatan (3.0.0)
 
 ### 1. Spektrum 5 Mode & AI Adaptif (Smart-AI Core v5.5)
 - **5 Profil Performa Utama**:
   - `auto`: Deteksi game adaptif secara otomatis (*Zero Latency 0ms entry, 3s cooldown buffer, deep sleep suspend blocker*).
   - `balance`: Profil harian hemat daya berbasis EAS, frekuensi seimbang, dan *power-efficient workqueues*.
   - `performance`: Kunci frekuensi menengah-atas, elevasi prioritas *SurfaceFlinger/HW Composer*, dan pembatasan throttling moderat.
-  - `extreme`: Frekuensi CPU & GPU maksimum, *unrestricted full thermal bypass* (trip points 150°C), dan pengisian daya bebas batas (khusus dengan *phone cooler* eksternal).
+  - `extreme`: Frekuensi CPU & GPU maksimum, *unrestricted full thermal bypass* (trip points 150Â°C), dan pengisian daya bebas batas (khusus dengan *phone cooler* eksternal).
   - `powersave`: Penghemat baterai ekstrem dengan batas frekuensi efisien dan penonaktifan boost agresif.
 - **Safe First-Boot (Dormant Mode)**: Modul menginisialisasi dalam status standby aman tanpa modifikasi jam ekstrem sebelum dikonfigurasi melalui WebUI atau Aplikasi Companion.
 
@@ -9630,7 +9646,7 @@ Released on: 2026-09-25
   - Penyesuaian flags scheduler kernel berlatensi rendah (`NO_GENTLE_FAIR_SLEEPERS`, `START_DEBIT`, `LB_BIAS`, dll.).
   - Injeksi otomatis 23 pustaka mesin game utama (*Unity, Unreal Engine, Genshin Impact, Asphalt, Flutter*) ke `/proc/sys/kernel/sched_lib_name`.
 - **`core/lib/network.sh`**:
-  - Penemuan otomatis algoritma TCP Congestion Control terbaik (`bbrv3` ➔ `bbr` ➔ `westwood` ➔ `cubic`).
+  - Penemuan otomatis algoritma TCP Congestion Control terbaik (`bbrv3` â `bbr` â `westwood` â `cubic`).
   - Implementasi *Fair Queueing Controlled Delay* (`fq_codel`) untuk eliminasi *bufferbloat*.
   - Pemblokiran *Wi-Fi Power Save* saat bermain game untuk mencegah lonjakan latensi (ping spikes).
 - **`core/lib/state.sh` & `config.json`**:

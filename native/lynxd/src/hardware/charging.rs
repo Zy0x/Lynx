@@ -1412,22 +1412,19 @@ impl ChargingRegulator {
             Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
             Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
             Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
-            Self::write_node("/sys/class/power_supply/usb/allow_hvdcp3", "1");
-            Self::write_node("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
-            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node_lock("/sys/class/power_supply/usb/allow_hvdcp3", "1");
+            Self::write_node_lock("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
+            Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
             Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
             Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
-            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-            Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
-            Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
-            Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
+            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         }
 
         if is_hyper || qcom_unclamp_active {
@@ -1471,7 +1468,7 @@ impl ChargingRegulator {
             let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
             let cur_in_lim = Self::read_i64(&format!("{}/input_current_limit", BATT_DIR)).unwrap_or(0);
             let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
-            let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
+            let _cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
 
             let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
@@ -1482,8 +1479,6 @@ impl ChargingRegulator {
             let fcc_needs_reapply = if fcc_cooldown_expired {
                 if is_hyper || qcom_unclamp_active {
                     cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
-                } else if cur_now_ma >= 1500 || cur_fcc >= 2_000_000 {
-                    false
                 } else {
                     cur_fcc > 0 && cur_fcc < (target_ua - 400_000)
                 }
@@ -1496,8 +1491,6 @@ impl ChargingRegulator {
                     cur_usb > 0 && cur_usb < (target_usb_ua - 200_000)
                 } else if is_high_voltage || is_pd_active {
                     false
-                } else if cur_now_ma >= 1500 || cur_usb >= 2_000_000 {
-                    false
                 } else {
                     cur_usb > 0 && cur_usb < (target_usb_ua - 400_000)
                 }
@@ -1509,8 +1502,6 @@ impl ChargingRegulator {
                 if is_hyper || qcom_unclamp_active {
                     cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 200_000)
                 } else if is_high_voltage || is_pd_active {
-                    false
-                } else if cur_now_ma >= 1500 || cur_in_lim >= 2_000_000 {
                     false
                 } else {
                     cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000)
@@ -2700,9 +2691,13 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
             Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &input_limit_ua_str);
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
             Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
             Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
@@ -2823,11 +2818,13 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
-            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
             Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
             Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
@@ -4200,15 +4197,30 @@ impl ChargingRegulator {
         // Stage 1: Cold-Plug Immediate Arming
         let is_qcom = Self::is_qualcomm_soc();
         if is_qcom {
-            Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
-            Self::write_node(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
-            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
-            Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
-            Self::write_node(&format!("{}/pd_allowed", USB_DIR), "1");
-            Self::write_node(&format!("{}/boost_current", USB_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+            Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
+            Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
             Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            for apsd in &[
+                format!("{}/rerun_apsd", USB_DIR),
+                format!("{}/rerun_apsd", BATT_DIR),
+            ] {
+                if Path::new(apsd).exists() {
+                    Self::set_perm(apsd, 0o666);
+                    Self::write_node(apsd, "1");
+                }
+            }
         } else {
             Self::ensure_mtk_power_path_enabled();
             Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
@@ -4532,7 +4544,16 @@ impl ChargingRegulator {
                         Self::write_node(node, &ceiling_ua);
                     }
                 }
+                Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+                Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+                Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                 for rerun in &[
+                    format!("{}/rerun_apsd", USB_DIR),
+                    format!("{}/rerun_apsd", BATT_DIR),
                     format!("{}/rerun_aicl", USB_DIR),
                     format!("{}/rerun_aicl", BATT_DIR),
                     format!("{}/rerun_aicl", MAIN_DIR),
@@ -4566,7 +4587,16 @@ impl ChargingRegulator {
                             Self::write_node(node, &ceiling_ua);
                         }
                     }
+                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+                    Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                     for rerun in &[
+                        format!("{}/rerun_apsd", USB_DIR),
+                        format!("{}/rerun_apsd", BATT_DIR),
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),
                         format!("{}/rerun_aicl", MAIN_DIR),
@@ -4687,17 +4717,30 @@ impl ChargingRegulator {
                     }
                     let direct_val = if has_cp { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
                     Self::write_node(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
-                    Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-                    Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-                    Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-                    Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+                    Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
+                    Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
                     Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
                     Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
                     Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
+                    for apsd in &[
+                        format!("{}/rerun_apsd", USB_DIR),
+                        format!("{}/rerun_apsd", BATT_DIR),
+                    ] {
+                        if Path::new(apsd).exists() {
+                            Self::set_perm(apsd, 0o666);
+                            Self::write_node(apsd, "1");
+                        }
+                    }
                     Self::neutralise_battery_cooling_devices();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());
