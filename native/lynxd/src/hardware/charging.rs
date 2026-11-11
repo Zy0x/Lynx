@@ -3681,10 +3681,11 @@ impl ChargingRegulator {
         let _ = fs::remove_file(SPOOFED_BATT_TEMP_PATH);
         let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
 
-        // On MediaTek, reset Battery_Temperature to 0 (kernel auto-read mode)
+        // On MediaTek, reset Battery_Temperature to 65535 (0xffff = kernel auto-read mode)
         if Path::new(BATT_TEMP_NODE).exists() {
             Self::set_perm(BATT_TEMP_NODE, 0o666);
-            let _ = fs::write(BATT_TEMP_NODE, "0");
+            let _ = fs::write(BATT_TEMP_NODE, "65535");
+            Self::set_perm(BATT_TEMP_NODE, 0o666);
         }
     }
 
@@ -3699,18 +3700,15 @@ impl ChargingRegulator {
         if !Path::new(BATT_TEMP_NODE).exists() {
             return;
         }
-        let real_dc = Self::read_real_battery_temp_dc();
-        let target_c = (real_dc / 10).clamp(15, 50);
-
-        // Check existing value in Battery_Temperature to avoid redundant writes
+        // On MediaTek, 65535 (0xffff) instructs the kernel to use authentic continuous hardware ADC auto-read
         if let Some(curr_c) = Self::read_i64(BATT_TEMP_NODE) {
-            if curr_c == target_c {
+            if curr_c == 65535 {
                 return;
             }
         }
 
         Self::set_perm(BATT_TEMP_NODE, 0o666);
-        let _ = fs::write(BATT_TEMP_NODE, target_c.to_string());
+        let _ = fs::write(BATT_TEMP_NODE, "65535");
         Self::set_perm(BATT_TEMP_NODE, 0o666);
     }
 

@@ -1,3 +1,11 @@
+# Lynx Universal [MediaTek Battery Telemetry Restore & Transsion Charging Precision] 7.0.0-RC381
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.4
+
+- **Perbaikan Pemulihan Pembacaan Otomatis Suhu Baterai Hardware MTK (`lynxd`)**:
+  - Mengoreksi penulisan node `/sys/devices/platform/battery/Battery_Temperature` pada driver MediaTek AUXADC/PMIC MT6358: mengganti nilai "0" (yang memicu override statis 0°C di `gm.fixed_bat_tmp`) dengan magic value standar kernel "65535" (`0xffff`) untuk mengembalikan pembacaan suhu analog termistor NTC perangkat secara berkelanjutan (`fg_bat_temp_int_internal`).
+  - Memastikan telemetri pengisian daya Transsion (Richtek RT9471 Switching Charger & RT9759 Dual Direct Charge Pump) sinkron sempurna dengan pembacaan arus mikroampere, voltase real-time, status charging, dan persentase kapasitas fuel-gauge baterai.
+
 # Lynx Universal [Anti-Fallback Session Override HUD & Sinkronisasi Lintas-Proses `:hud`] 7.0.0-RC380
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.4
