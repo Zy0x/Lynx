@@ -1,3 +1,11 @@
+# Lynx Universal [Unified Standalone Daemon Delegation & Zero-Bounce App Launch] 7.0.0-RC379
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.3
+
+- **Delegasi Tunggal ke Daemon `lynxd` di Mode Root Standalone**:
+  - Memperbaiki `LynxAppAutomationService.isNativeDaemonHandlingProfiles` agar mendeteksi langsung proses `lynxd daemon` yang aktif (dengan *cache* 4 detik guna menghindari fork `pgrep` berulang) tanpa mensyaratkan pemasangan modul di `/data/adb/modules/Lynx/`.
+  - Menghilangkan balapan ganda (*race*) dan osilasi profil `performance -> balance -> performance` beserta siaran ganda *Dynamic Island* saat meluncurkan aplikasi beraturan (seperti Shopee pada layar *splash*) di perangkat mode *Standalone Root*.
+
 # Lynx Universal [Per-App Baseline Preservation, Dynamic Island Transition Sync & Anti-Lock Fix] 7.0.0-RC378
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.2

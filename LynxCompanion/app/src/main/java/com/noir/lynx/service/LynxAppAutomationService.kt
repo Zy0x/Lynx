@@ -480,8 +480,23 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    @Volatile
+    private var lastDaemonCheckMs: Long = 0L
+
+    @Volatile
+    private var lastDaemonAlive: Boolean = false
+
     private suspend fun isNativeDaemonHandlingProfiles(): Boolean {
-        return LynxRepository.isModuleInstalled() && Shell.cmd("pgrep -f 'lynxd daemon'").exec().isSuccess
+        val now = System.currentTimeMillis()
+        if (now - lastDaemonCheckMs in 0..3999L) {
+            return lastDaemonAlive
+        }
+        val alive = withContext(Dispatchers.IO) {
+            Shell.cmd("pgrep -f 'lynxd daemon'").exec().isSuccess
+        }
+        lastDaemonAlive = alive
+        lastDaemonCheckMs = now
+        return alive
     }
 
     private suspend fun handleForegroundPackage(pkg: String, pid: Int?) {
