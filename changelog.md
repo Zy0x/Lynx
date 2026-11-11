@@ -1,3 +1,12 @@
+# Lynx Universal [Universal Real-Time Decimal Fuel-Gauge & Dynamic Charging Blueprint] 7.0.0-RC382
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.4
+
+- **Cetak Biru Mesin Desimal Baterai Real-Time Universal (`docs/17_UNIVERSAL_REALTIME_DECIMAL_CHARGING_ENGINE.md`)**:
+  - Menyusun dokumen cetak biru komprehensif untuk implementasi persentase pengisian daya desimal presisi tinggi ($XX.YY\%$) berbasis fisika nyata (Dual-Anchor Hybrid Integrator) lintas chipset (Qualcomm Snapdragon, MediaTek, Exynos, Google Tensor, Unisoc, dan Generic Linux).
+  - Melampirkan hasil audit empiris pengosongan baterai 30 menit (Infinix Note 11s / MT6781) yang membuktikan linearitas Coulomb counter ($100\% \to 90\%$ tanpa freeze).
+  - Merancang arsitektur penemuan dinamis multi-vendor pada `lynxd`, HUD JSON frame stream, dan komponen kartu animasi Jetpack Compose `ChargingHeroDisplayCard`.
+
 # Lynx Universal [MediaTek Battery Telemetry Restore & Transsion Charging Precision] 7.0.0-RC381
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.4
