@@ -1,3 +1,14 @@
+# Lynx Universal [Per-App Baseline Preservation, Dynamic Island Transition Sync & Anti-Lock Fix] 7.0.0-RC378
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.2
+
+- **Isolasi Penuh `baseline_profile` dari Transisi Per-Aplikasi / Game (`lynxd`)**:
+  - Menghapus penulisan paksa `/data/adb/lynx/baseline_profile` di `ProfileExecutor::execute` dan di sinkronisasi `active_profile` `DaemonRunner::run` yang sebelumnya ikut menimpa profil dasar pengguna (misalnya `balance`) menjadi `performance` saat membuka aplikasi/game berprofil khusus (seperti Shopee).
+  - Menambahkan opsi `--transient` (`--no-baseline`) dan `--silent` pada `lynxd profile apply` (`ConfigStore::sync_baseline_marker`) sehingga transisi otomatis per-aplikasi maupun HUD hanya memperbarui `active_profile` sementara tanpa merusak `baseline_profile` dan tanpa memicu siaran ganda *Dynamic Island*.
+- **Perbaikan Cache Baseline & Notifikasi Dynamic Island (`LynxCompanion`)**:
+  - Memperbaiki `LynxAppAutomationService.notifyProfileChanged(profile, isManual)` agar tidak lagi menimpa `cachedBaseline` dan `LynxRepository.cachedBaselineProfile` saat `isManual = false` (perubahan dari *watcher*, *automation*, maupun siaran `PROFILE_CHANGED`), serta meneruskan `--transient --silent` pada jalur otomatis `LynxAppStateRepository.setProfile`.
+  - Mencegah *Dynamic Island* memunculkan notifikasi palsu `performance` saat keluar dari aplikasi target dan memastikan profil kembali normal ke `baseline_profile` pengguna secara otomatis.
+
 # Lynx Universal [Zero-Fork Daemon Snapshot, Universal Dynamic Touch/GPU/CPU Scaling & SchedulerGuardian Sync] 7.0.0-RC377
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.1

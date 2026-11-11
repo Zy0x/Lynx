@@ -332,7 +332,7 @@ internal object LynxAppStateRepository {
             // FAST PATH: Transient automation / per-app game boost (<15ms).
             // Completely bypasses slow eMMC disk writes, JSON serialization, and state fsyncs!
             val lynxdPath = getLynxdBinaryPath() ?: LYNXD_PATH
-            val fastCmd = "echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; setprop lynx.mode '$profile' 2>/dev/null; rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile' 2>/dev/null"
+            val fastCmd = "echo '$profile' > /data/adb/lynx/active_profile 2>/dev/null; setprop lynx.mode '$profile' 2>/dev/null; rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile' --transient --silent 2>/dev/null"
             Shell.cmd(fastCmd).exec()
             LynxRepository.lastActiveProfile = effectiveProfile
             com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(
@@ -356,7 +356,7 @@ internal object LynxAppStateRepository {
             when (profile) {
                 "auto" -> "pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 &"
                 "dormant" -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile revert"
-                else -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile'"
+                else -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile'${if (isGameSessionOverride) " --transient" else ""}"
             }
         } else ""
 

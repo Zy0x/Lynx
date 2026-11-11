@@ -359,10 +359,21 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
         for (k, v, _) in updates {
             if k == "active_profile" {
                 Self::sync_profile_markers(v, true);
+            } else if k == "baseline_profile" {
+                Self::sync_baseline_marker(v);
             }
         }
 
         Ok(())
+    }
+
+    /// Persists an explicit manual baseline profile selection without modifying runtime overrides.
+    pub fn sync_baseline_marker(profile: &str) {
+        let clean_p = profile.trim().trim_matches('"');
+        if clean_p.is_empty() || clean_p.eq_ignore_ascii_case("auto") || clean_p.eq_ignore_ascii_case("dormant") {
+            return;
+        }
+        Self::write_marker_if_changed(Path::new("/data/adb/lynx/baseline_profile"), clean_p);
     }
 
     /// Synchronizes active profile state files only when their content differs from `profile`,

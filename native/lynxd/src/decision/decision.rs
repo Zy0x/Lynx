@@ -487,4 +487,52 @@ mod tests {
             _ => panic!("Expected immediate restoration of performance baseline upon screen wake"),
         }
     }
+
+    #[test]
+    fn test_per_app_performance_rule_preserves_balance_baseline_on_exit() {
+        let mut engine = DecisionEngine::new("balance", 3);
+        let telemetry = make_test_telemetry();
+
+        let shopee_app = ForegroundApp {
+            package: "com.shopee.id".to_string(),
+            category: AppCategory::Game,
+            confidence: Confidence::High,
+            target_profile: Some("performance".to_string()),
+        };
+        let chrome_app = ForegroundApp {
+            package: "com.android.chrome".to_string(),
+            category: AppCategory::Normal,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+
+        // Enter Shopee -> transitions to performance while keeping baseline_profile = balance
+        let enter_action = engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 100);
+        assert!(matches!(
+            enter_action,
+            DecisionAction::ApplyProfile {
+                target_profile: "performance",
+                ..
+            }
+        ));
+        engine.notify_applied("performance");
+        assert_eq!(engine.baseline_profile(), "balance");
+        assert_eq!(engine.current_profile(), "performance");
+
+        // Exit Shopee -> cooldown then clean revert back to balance (never stuck in performance)
+        let cooldown_action = engine.evaluate(Some(&chrome_app), ScreenState::On, &telemetry, 101);
+        assert!(matches!(cooldown_action, DecisionAction::HoldInCooldown { .. }));
+
+        let exit_action = engine.evaluate(Some(&chrome_app), ScreenState::On, &telemetry, 105);
+        assert!(matches!(
+            exit_action,
+            DecisionAction::ApplyProfile {
+                target_profile: "balance",
+                ..
+            }
+        ));
+        engine.notify_applied("balance");
+        assert_eq!(engine.baseline_profile(), "balance");
+        assert_eq!(engine.current_profile(), "balance");
+    }
 }

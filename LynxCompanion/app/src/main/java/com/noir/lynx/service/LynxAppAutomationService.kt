@@ -190,8 +190,10 @@ class LynxAppAutomationService : Service() {
         }
 
         fun notifyProfileChanged(profile: String, isManual: Boolean = true) {
-            cachedBaseline = profile
-            LynxRepository.cachedBaselineProfile = profile
+            if (isManual && profile.isNotBlank() && !profile.equals("dormant", ignoreCase = true)) {
+                cachedBaseline = profile
+                LynxRepository.cachedBaselineProfile = profile
+            }
             currentInstance?.onProfileChangedLive(profile, isManual)
         }
 

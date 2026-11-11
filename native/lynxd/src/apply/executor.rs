@@ -242,7 +242,6 @@ impl ProfileExecutor {
 
         let _ = fs::create_dir_all("/data/adb/lynx");
         crate::state::ConfigStore::sync_profile_markers(&plan.profile_name, true);
-        let _ = fs::write("/data/adb/lynx/baseline_profile", &plan.profile_name);
 
         // ── Phase 7 & 8: Post-Commit Persistence & Verification ──
         let prof_name_p8 = plan.profile_name.clone();

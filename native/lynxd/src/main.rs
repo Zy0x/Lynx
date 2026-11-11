@@ -347,7 +347,7 @@ fn handle_profile_validate() {
     }
 }
 
-fn handle_profile_apply(name: &str, dry_run: bool) {
+fn handle_profile_apply(name: &str, dry_run: bool, transient: bool, silent: bool) {
     let profile = match get_profile_by_name(name) {
         Some(p) => p,
         None => {
@@ -370,8 +370,13 @@ fn handle_profile_apply(name: &str, dry_run: bool) {
         Ok(report) => {
             if !dry_run {
                 println!("{}", report.display());
-                let handle = DaemonRunner::notify_profile_transition(&plan.profile_name, "");
-                let _ = handle.join();
+                if !transient {
+                    ConfigStore::sync_baseline_marker(&plan.profile_name);
+                }
+                if !silent {
+                    let handle = DaemonRunner::notify_profile_transition(&plan.profile_name, "");
+                    let _ = handle.join();
+                }
             }
         }
         Err(e) => {
@@ -1214,7 +1219,9 @@ fn main() {
                         std::process::exit(1);
                     }
                     let dry_run = args.iter().any(|a| a == "--dry-run");
-                    handle_profile_apply(&args[3], dry_run);
+                    let transient = args.iter().any(|a| a == "--transient" || a == "--no-baseline");
+                    let silent = args.iter().any(|a| a == "--silent");
+                    handle_profile_apply(&args[3], dry_run, transient, silent);
                 }
                 "verify" => {
                     let json = args.iter().any(|a| a == "--json");

@@ -142,11 +142,7 @@ impl DaemonRunner {
                             let plan = ExecutionPlan::build(&target_prof);
                             let _ = ProfileExecutor::execute(&plan, false);
                         }
-                        // When external active profile changes outside a game, align baseline immediately to prevent false reversion
-                        if decision_engine.last_target_app().is_none() && active_str != "dormant" {
-                            decision_engine.update_baseline_profile(active_str);
-                            let _ = std::fs::write("/data/adb/lynx/baseline_profile", active_str);
-                        }
+                        // External active_profile sync intentionally preserves user baseline_profile
                     }
                 }
             }
