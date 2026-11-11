@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::hardware::capability::{GpuDriver, HardwareCapability};
+use crate::hardware::device_tier::DeviceTier;
 use crate::hardware::storage::StoragePolicy;
 use crate::hardware::detector::Vendor;
 use crate::hardware::{MtkHardware, QcomHardware};
@@ -73,6 +74,8 @@ impl HardwareTranslator {
         let is_perf_or_ext = matches!(profile.name, "extreme" | "performance");
         let is_extreme = profile.name == "extreme";
         let is_powersave = profile.name == "powersave";
+        let tier = DeviceTier::detect(cap);
+        let vm_targets = tier.vm_profile_targets(profile.name);
         let anti_heat_enabled = ConfigStore::get("cpu.anti_heat_mode")
             .map(|s| s != "false" && s != "0")
             .unwrap_or(true);
@@ -83,17 +86,8 @@ impl HardwareTranslator {
                 || pol.role.contains("Efisiensi")
                 || (cap.cpu.policies.len() > 1 && pol.index == 0);
 
-            // A. Dynamic Governor Resolution & Mode Gaming Anti-Panas
-            let (target_gov, min_pct, max_pct) = if profile.name == "performance" && is_little && anti_heat_enabled {
-                // Mode Gaming Dingin / Anti-Panas (Thermal Shield):
-                // Little cores run on schedutil/walt with 80% Fmax ceiling to prevent thermal runaway
-                let picked_gov = ["schedutil", "walt", "sugov_ext", "interactive"]
-                    .iter()
-                    .find(|&&g| pol.available_governors.iter().any(|ag| ag == g))
-                    .copied()
-                    .unwrap_or("schedutil");
-                (picked_gov, 60, 80)
-            } else if is_extreme {
+            // A. Dynamic Governor Resolution & Tiered Thermal-Safe Bounds
+            let (target_gov, min_pct, max_pct) = if is_extreme {
                 // Mode Extreme: Unrestricted maximum power on all cores!
                 let picked_gov = if pol.available_governors.iter().any(|g| g == "performance") {
                     "performance"
@@ -139,7 +133,17 @@ impl HardwareTranslator {
                     }
                     picked
                 };
-                (picked_gov, profile.cpu.min_percent, profile.cpu.max_percent)
+                let (t_min, t_max) = if profile.name == "performance" && !anti_heat_enabled {
+                    (if is_little { 0 } else { profile.cpu.min_percent }, profile.cpu.max_percent)
+                } else {
+                    tier.cpu_bounds(
+                        profile.name,
+                        is_little,
+                        profile.cpu.min_percent,
+                        profile.cpu.max_percent,
+                    )
+                };
+                (picked_gov, t_min, t_max)
             };
 
             // B. Min & Max Frequency Percentage Snapping into Real OPP Table
@@ -190,7 +194,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "CPU",
-                    format!("Policy {} ceiling clock ({}%)", pol.index, profile.cpu.max_percent),
+                    format!("Policy {} ceiling clock ({}%)", pol.index, max_pct),
                     pol.path.join("scaling_max_freq"),
                     target_max_hz.to_string(),
                     false,
@@ -198,7 +202,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "CPU",
-                    format!("Policy {} floor clock ({}%)", pol.index, profile.cpu.min_percent),
+                    format!("Policy {} floor clock ({}%)", pol.index, min_pct),
                     pol.path.join("scaling_min_freq"),
                     target_min_hz.to_string(),
                     false,
@@ -207,7 +211,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "CPU",
-                    format!("Policy {} floor clock ({}%)", pol.index, profile.cpu.min_percent),
+                    format!("Policy {} floor clock ({}%)", pol.index, min_pct),
                     pol.path.join("scaling_min_freq"),
                     target_min_hz.to_string(),
                     false,
@@ -215,7 +219,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "CPU",
-                    format!("Policy {} ceiling clock ({}%)", pol.index, profile.cpu.max_percent),
+                    format!("Policy {} ceiling clock ({}%)", pol.index, max_pct),
                     pol.path.join("scaling_max_freq"),
                     target_max_hz.to_string(),
                     false,
@@ -237,7 +241,7 @@ impl HardwareTranslator {
             // C. Governor Sub-Directory Rate Limits (schedutil / walt / sugov_ext)
             let (up_rate, down_rate) = match profile.name {
                 "extreme" => ("0", "20000"),
-                "performance" => ("0", "10000"),
+                "performance" => ("0", "15000"),
                 "powersave" => ("4000", "1000"),
                 _ => ("500", "15000"),
             };
@@ -357,14 +361,21 @@ impl HardwareTranslator {
                     // When UI touch or rendering activity occurs, GED boosts to target_boost_opp (50% OPP),
                     // guaranteeing fast frame rasterization under vsync deadlines on ANY display Hz (60, 90, 120, 144Hz)
                     // without pinning high clock or causing battery drain.
-                    let _balance_boost_opp = {
-                        let mid_idx = cap.gpu.opp_table.len() / 2;
-                        cap.gpu.opp_table.get(mid_idx).unwrap_or(lowest_opp)
+                    let gpu_mid_opp = {
+                        let floor_pct = tier.gpu_high_floor_percent();
+                        let target_mhz = (peak_mhz * floor_pct) / 100;
+                        cap.gpu
+                            .opp_table
+                            .iter()
+                            .filter(|o| o.freq_mhz <= target_mhz.max(lowest_opp.freq_mhz))
+                            .max_by_key(|o| o.freq_mhz)
+                            .or_else(|| cap.gpu.opp_table.get(cap.gpu.opp_table.len() / 2))
+                            .unwrap_or(lowest_opp)
                     };
 
                     let (target_min_opp, target_boost_opp, target_max_opp) = match profile.name {
                         "extreme" => (highest_opp, highest_opp, highest_opp),
-                        "performance" => (opp_95, opp_95, highest_opp),
+                        "performance" => (gpu_mid_opp, opp_95, highest_opp),
                         "powersave" => {
                             let cap_idx = cap.gpu.opp_table.len() / 3;
                             let ceil_opp = cap.gpu.opp_table.get(cap_idx).unwrap_or(highest_opp);
@@ -559,7 +570,11 @@ impl HardwareTranslator {
                 );
 
                 // ── B. Qualcomm WALT Scheduler (Safe Migration Ordering) ────
-                let sched_boost_val = if is_perf_or_ext { "1" } else { "0" };
+                let sched_boost_val = if is_extreme || (profile.name == "performance" && !tier.is_low_end_ram) {
+                    "1"
+                } else {
+                    "0"
+                };
                 Self::push_op(
                     &mut ops,
                     "Qualcomm",
@@ -571,7 +586,13 @@ impl HardwareTranslator {
 
                 let (qcom_up, qcom_down) = match profile.name {
                     "extreme" => ("50 70", "35 55"),
-                    "performance" => ("60 75", "45 60"),
+                    "performance" => {
+                        if tier.is_low_end_ram {
+                            ("65 80", "45 65")
+                        } else {
+                            ("60 75", "45 60")
+                        }
+                    }
                     "powersave" => ("90 95", "75 85"),
                     _ => ("70 85", "55 70"), // Balanced: rapid migration to Big cores for media decode and scrolling
                 };
@@ -625,7 +646,8 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "Qualcomm", "Qualcomm CPU7 Prime core_ctl busy_down_thres", format!("{}/busy_down_thres", QcomHardware::CORE_CTL_DIR_CPU7), c7_down, false);
 
                 // ── D. Qualcomm GPU Bandwidth & Memlat DDR Scaling ──────────
-                if is_perf_or_ext {
+                // Pinning DDR/GPUBW permanently to "performance" overheats 14nm low-end SoCs; reserve lock for Extreme.
+                if is_extreme || (profile.name == "performance" && !tier.is_low_end_ram && !tier.is_emmc_primary) {
                     Self::push_op(&mut ops, "GPUBW", "Qualcomm GPU bus bandwidth governor", QcomHardware::QCOM_GPUBW_GOV, "performance", false);
                     Self::push_op(&mut ops, "MEMLAT", "Qualcomm LPDDR bus bandwidth boost", format!("{}/governor", QcomHardware::QCOM_LLCC_DDR_BW), "performance", false);
                 } else if is_powersave {
@@ -642,13 +664,17 @@ impl HardwareTranslator {
                         .unwrap_or(0);
 
                     let max_idx = cap.gpu.num_pwrlevels.saturating_sub(1);
-                    let target_throttling = if is_perf_or_ext { "0" } else { "1" };
+                    let target_throttling = if is_extreme || (profile.name == "performance" && !tier.is_low_end_ram) {
+                        "0"
+                    } else {
+                        "1"
+                    };
                     // Power level 0 allows full hardware peak clock (e.g. 647 MHz on Adreno 512, 670 MHz on Adreno 650).
                     // Clamping to "1" artificially blocks level 0 and restricts the GPU to 588 MHz or below!
                     let target_thermal_pwr = "0";
                     let target_idle_timer = match profile.name {
                         "extreme" => "250",
-                        "performance" => "120",
+                        "performance" => if tier.is_low_end_ram { "90" } else { "120" },
                         "powersave" => "40",
                         _ => "80",
                     };
@@ -689,19 +715,20 @@ impl HardwareTranslator {
                         let target_floor_pwr = match profile.gpu.mode {
                             GpuMode::Maximum => 0, // Locked at peak
                             GpuMode::High => {
-                                // Dynamic >= 95% OPP floor for Adreno GPU (never drops to low power levels, respects OC):
+                                // Fluid GPU floor scaled by device tier: avoids baking 14nm/low-end silicon at 95% peak while keeping instant boost headroom
                                 let mut freqs_desc = cap.gpu.available_freqs_mhz.clone();
                                 freqs_desc.sort_unstable_by(|a, b| b.cmp(a));
                                 freqs_desc.dedup();
                                 let peak_mhz = freqs_desc.first().copied().unwrap_or(cap.gpu.max_freq_mhz);
-                                let target_95_pct = (peak_mhz * 95) / 100;
-                                freqs_desc.iter().rposition(|&f| f >= target_95_pct).unwrap_or(0)
+                                let floor_pct = tier.gpu_high_floor_percent();
+                                let target_floor_mhz = (peak_mhz * floor_pct) / 100;
+                                freqs_desc.iter().rposition(|&f| f >= target_floor_mhz).unwrap_or(max_idx / 2)
                             }
                             GpuMode::Balanced | GpuMode::PowerEfficient => max_idx, // Downclock fully to idle floor
                         };
                         let target_default_pwr = match profile.gpu.mode {
                             GpuMode::Maximum => 0,
-                            GpuMode::High => (max_idx / 2).max(0),
+                            GpuMode::High => if tier.is_low_end_ram { (max_idx * 2 / 3).max(0) } else { (max_idx / 2).max(0) },
                             GpuMode::PowerEfficient => max_idx,
                             GpuMode::Balanced => (max_idx * 2 / 3).max(0),
                         };
@@ -838,7 +865,13 @@ impl HardwareTranslator {
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL realtime worker wake nice", QcomHardware::KGSL_WAKE_NICE, "-20", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL enable LLC slice", QcomHardware::KGSL_GPU_LLC_SLICE, "1", false);
                     } else if is_perf_or_ext {
-                        // High Performance: Keep SPTP active for thermal bounds but reduce wake latency
+                        // High Performance: Keep SPTP power collapse and dynamic rails active so 14nm GPUs stay cool
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL bus split restore", QcomHardware::KGSL_BUS_SPLIT, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force bus auto restore", QcomHardware::KGSL_FORCE_BUS_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force clk auto restore", QcomHardware::KGSL_FORCE_CLK_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL force power rail auto restore", QcomHardware::KGSL_FORCE_RAIL_ON, "0", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL restore SPTP PC", QcomHardware::KGSL_SPTP_PC, "1", false);
+                        Self::push_op(&mut ops, "GPU", "Adreno KGSL restore save restore", QcomHardware::KGSL_SKIPSAVERESTORE, "0", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL performance wake nice", QcomHardware::KGSL_WAKE_NICE, "-10", false);
                         Self::push_op(&mut ops, "GPU", "Adreno KGSL enable LLC slice", QcomHardware::KGSL_GPU_LLC_SLICE, "1", false);
                     } else if !is_perf_or_ext {
@@ -890,12 +923,17 @@ impl HardwareTranslator {
         }
 
         // ── 3. Scheduler, EAS & UClamp Translation ──────────────────────────
+        let eff_uclamp_pct = if profile.name == "performance" {
+            tier.performance_uclamp_min_percent(profile.scheduler.uclamp_min_percent)
+        } else {
+            profile.scheduler.uclamp_min_percent
+        };
         if let Some(ref uclamp_min) = cap.scheduler.uclamp_min_node {
-            let target_uclamp_val = ((profile.scheduler.uclamp_min_percent as u32 * 1024) / 100).to_string();
+            let target_uclamp_val = ((eff_uclamp_pct as u32 * 1024) / 100).to_string();
             Self::push_op(
                 &mut ops,
                 "Scheduler",
-                format!("EAS sched_util_clamp_min ({}%)", profile.scheduler.uclamp_min_percent),
+                format!("EAS sched_util_clamp_min ({}%)", eff_uclamp_pct),
                 uclamp_min.clone(),
                 target_uclamp_val,
                 false,
@@ -904,22 +942,24 @@ impl HardwareTranslator {
 
         if let Some(ref top_uclamp) = cap.scheduler.top_app_uclamp_min {
             let scaled = if cap.scheduler.uclamp_max_scale > 100 {
-                (profile.scheduler.uclamp_min_percent as u32 * 1024) / 100
+                (eff_uclamp_pct as u32 * 1024) / 100
             } else {
-                profile.scheduler.uclamp_min_percent as u32
+                eff_uclamp_pct as u32
             };
             Self::push_op(
                 &mut ops,
                 "Scheduler",
-                format!("Top-App cpuset uclamp.min ({}%)", profile.scheduler.uclamp_min_percent),
+                format!("Top-App cpuset uclamp.min ({}%)", eff_uclamp_pct),
                 top_uclamp.clone(),
                 scaled.to_string(),
                 false,
             );
         }
 
-        let (sched_lat, sched_min_gran, sched_wakeup_gran, mig_cost, timer_mig, child_runs_first, cstate_aware) = if is_perf_or_ext {
+        let (sched_lat, sched_min_gran, sched_wakeup_gran, mig_cost, timer_mig, child_runs_first, cstate_aware) = if is_extreme {
             ("10000000", "3000000", "2000000", "500000", "0", "1", "0")
+        } else if is_perf_or_ext {
+            ("10000000", "3000000", "2000000", "500000", "1", "0", "1")
         } else if is_powersave {
             ("24000000", "6000000", "4000000", "500000", "1", "0", "1")
         } else {
@@ -1003,57 +1043,20 @@ impl HardwareTranslator {
             );
         }
 
-        // Dynamic RAM-proportional VM parameters (Anti-ZRAM Thrashing on 3GB-4GB RAM devices)
-        let ram_mb = cap.memory.total_ram_mb;
-        let (swappiness, vfs_pressure) = if is_extreme {
-            ("30", "50")
-        } else if is_perf_or_ext {
-            if ram_mb <= 4500 {
-                ("60", "100")
-            } else if ram_mb <= 6500 {
-                ("60", "80")
-            } else {
-                ("50", "50")
-            }
-        } else if is_powersave {
-            ("60", "100")
-        } else if ram_mb <= 4500 {
-            // Balance on <= 4GB RAM: prevent kswapd0 from thrashing anonymous app heaps into ZRAM;
-            // reclaim stale VFS/dentry/inode file caches first so WhatsApp/UI stay resident in RAM.
-            ("60", "120")
-        } else {
-            ("50", "80")
-        };
+        // Unified Hardware-Tiered VM parameters (eMMC + <=4.5GB ZRAM Shield vs UFS High-End)
+        Self::push_op(&mut ops, "Memory", "VM swappiness (hardware-tiered)", "/proc/sys/vm/swappiness", vm_targets.swappiness.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure (media-aware)", "/proc/sys/vm/vfs_cache_pressure", vm_targets.vfs_cache_pressure.to_string(), false);
 
-        Self::push_op(&mut ops, "Memory", "VM swappiness (RAM-proportional)", "/proc/sys/vm/swappiness", swappiness, false);
-        Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure", "/proc/sys/vm/vfs_cache_pressure", vfs_pressure, false);
-
-        // Prevent massive 45MB+ dirty writeback waves from choking half-duplex eMMC 5.1 & blk_crypto_wq
-        let is_primary_emmc = StoragePolicy::is_primary_system_emmc();
-        let (dirty_bg, dirty_fg) = if is_primary_emmc {
-            if is_perf_or_ext { ("5", "15") } else { ("5", "12") }
-        } else {
-            if is_perf_or_ext { ("10", "20") } else { ("8", "16") }
-        };
-        Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio (smooth writeback)", "/proc/sys/vm/dirty_background_ratio", dirty_bg, false);
-        Self::push_op(&mut ops, "Memory", "VM dirty_ratio ceiling", "/proc/sys/vm/dirty_ratio", dirty_fg, false);
-        Self::push_op(&mut ops, "Memory", "Kernel page_writeback dirty_background_ratio sync", "/sys/module/page_writeback/parameters/dirty_background_ratio", dirty_bg, false);
-        Self::push_op(&mut ops, "Memory", "Kernel page_writeback vm_dirty_ratio sync", "/sys/module/page_writeback/parameters/vm_dirty_ratio", dirty_fg, false);
-        // VM Watermark Scale Factor & Extra Free Buffer
-        // In high-performance and extreme gaming: scale factor 150-200 wakes kswapd asynchronously
-        // well before allocations breach min watermark, preventing direct allocstalls when notifications arrive.
-        // Restored safely to Android standard (100) and stock extra free buffer on Balanced / Powersave.
-        let (wsf, extra_free) = if is_extreme {
-            ("200", "65536")
-        } else if is_perf_or_ext {
-            ("150", "65536")
-        } else if is_powersave {
-            ("60", "0")
-        } else {
-            ("100", "20480")
-        };
-        Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-allocstall buffer)", "/proc/sys/vm/watermark_scale_factor", wsf, false);
-        Self::push_op(&mut ops, "Memory", "VM extra_free_kbytes buffer", "/proc/sys/vm/extra_free_kbytes", extra_free, false);
+        let dirty_bg = vm_targets.dirty_background_ratio.to_string();
+        let dirty_fg = vm_targets.dirty_ratio.to_string();
+        Self::push_op(&mut ops, "Memory", "VM dirty_background_ratio (smooth writeback)", "/proc/sys/vm/dirty_background_ratio", &dirty_bg, false);
+        Self::push_op(&mut ops, "Memory", "VM dirty_ratio ceiling", "/proc/sys/vm/dirty_ratio", &dirty_fg, false);
+        Self::push_op(&mut ops, "Memory", "Kernel page_writeback dirty_background_ratio sync", "/sys/module/page_writeback/parameters/dirty_background_ratio", &dirty_bg, false);
+        Self::push_op(&mut ops, "Memory", "Kernel page_writeback vm_dirty_ratio sync", "/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_fg, false);
+        Self::push_op(&mut ops, "Memory", "VM dirty_writeback_centisecs (smooth flush cadence)", "/proc/sys/vm/dirty_writeback_centisecs", vm_targets.dirty_writeback_cs.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM dirty_expire_centisecs", "/proc/sys/vm/dirty_expire_centisecs", vm_targets.dirty_expire_cs.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-allocstall buffer)", "/proc/sys/vm/watermark_scale_factor", vm_targets.watermark_scale_factor.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM extra_free_kbytes buffer", "/proc/sys/vm/extra_free_kbytes", vm_targets.extra_free_kbytes.to_string(), false);
 
         // Universal ZRAM Latency Eliminator (page-cluster = 0 reads 1 page instead of 8, cutting swap latency)
         Self::push_op(&mut ops, "Memory", "ZRAM single-page read latency fix (page-cluster 0)", "/proc/sys/vm/page-cluster", "0", false);
@@ -1065,13 +1068,14 @@ impl HardwareTranslator {
         // ── 5. EAS Schedtune, CFS CPU Shares & Media-Aware Storage Policy ───
 
         // A. EAS Schedtune (/dev/stune) for 4.9 / 4.14 / 4.19 Kernels (e.g., SDM660)
+        let (s_boost, s_min, fg_boost) = tier.stune_targets(profile.name);
         let stune_top = Path::new("/dev/stune/top-app");
         if stune_top.is_dir() {
-            let (s_boost, s_min, s_idle, s_high_cap) = match profile.name {
-                "extreme" => ("50", "30", "1", "1"),
-                "performance" => ("35", "25", "1", "1"),
-                "powersave" => ("0", "0", "0", "0"),
-                _ => ("20", "12", "1", "0"), // Balance: 20% EAS margin for snappy UI & app launch
+            let (s_idle, s_high_cap) = match profile.name {
+                "extreme" => ("1", "1"),
+                "performance" => ("1", if tier.is_low_end_ram { "0" } else { "1" }),
+                "powersave" => ("0", "0"),
+                _ => ("1", "0"),
             };
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app boost", stune_top.join("schedtune.boost"), s_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune top-app util min", stune_top.join("schedtune.util.min"), s_min, false);
@@ -1081,12 +1085,7 @@ impl HardwareTranslator {
 
         let stune_fg = Path::new("/dev/stune/foreground");
         if stune_fg.is_dir() {
-            let (fg_boost, fg_idle) = match profile.name {
-                "extreme" => ("30", "1"),
-                "performance" => ("25", "1"),
-                "powersave" => ("0", "0"),
-                _ => ("15", "1"), // Balance: 15% foreground boost protects MediaCodec & video decoders from UI fling starvation
-            };
+            let fg_idle = if is_powersave { "0" } else { "1" };
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground boost", stune_fg.join("schedtune.boost"), fg_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground prefer_idle", stune_fg.join("schedtune.prefer_idle"), fg_idle, false);
         }
@@ -1138,9 +1137,9 @@ impl HardwareTranslator {
                     false,
                 );
 
-                // Dynamic Adaptive Scheduler Selection:
-                // Evaluates device-appropriate candidate list against actual dev.available_schedulers.
-                let candidate_schedulers: &[&str] = match dev.device_type {
+                // Dynamic Adaptive Scheduler Selection using effective physical media type (incl. dm-* slaves):
+                let effective_type = StoragePolicy::effective_device_type(dev);
+                let candidate_schedulers: &[&str] = match effective_type {
                     crate::hardware::capability::BlockDeviceType::Emmc => {
                         &["bfq", "mq-deadline", "deadline", "cfq", "noop", "none"]
                     }
@@ -1164,7 +1163,7 @@ impl HardwareTranslator {
                     Self::push_op(
                         &mut ops,
                         "Storage",
-                        format!("Block {} ({}): {} scheduler", dev.name, dev.device_type.as_str(), chosen_sched),
+                        format!("Block {} ({}): {} scheduler", dev.name, effective_type.as_str(), chosen_sched),
                         q_dir.join("scheduler"),
                         chosen_sched,
                         false,
@@ -1174,7 +1173,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "Storage",
-                    format!("Block {} ({}): rq_affinity", dev.name, dev.device_type.as_str()),
+                    format!("Block {} ({}): rq_affinity", dev.name, effective_type.as_str()),
                     q_dir.join("rq_affinity"),
                     params.rq_affinity.to_string(),
                     false,
@@ -1182,7 +1181,7 @@ impl HardwareTranslator {
                 Self::push_op(
                     &mut ops,
                     "Storage",
-                    format!("Block {} ({}): disable add_random entropy", dev.name, dev.device_type.as_str()),
+                    format!("Block {} ({}): disable add_random entropy", dev.name, effective_type.as_str()),
                     q_dir.join("add_random"),
                     "0",
                     false,
@@ -1192,18 +1191,18 @@ impl HardwareTranslator {
                     Self::push_op(
                         &mut ops,
                         "Storage",
-                        format!("Block {} ({}): nr_requests queue depth", dev.name, dev.device_type.as_str()),
+                        format!("Block {} ({}): nr_requests queue depth", dev.name, effective_type.as_str()),
                         q_dir.join("nr_requests"),
                         nr.to_string(),
                         false,
                     );
                 }
 
-                if is_extreme {
+                if is_perf_or_ext {
                     Self::push_op(
                         &mut ops,
                         "Storage",
-                        format!("Block {} ({}): disable iostats overhead", dev.name, dev.device_type.as_str()),
+                        format!("Block {} ({}): disable iostats overhead", dev.name, effective_type.as_str()),
                         q_dir.join("iostats"),
                         "0",
                         false,
@@ -1299,7 +1298,7 @@ impl HardwareTranslator {
         let f2fs_dir = Path::new("/sys/fs/f2fs");
         if f2fs_dir.is_dir() {
             let ipu_target = if is_perf_or_ext { "3" } else { "0" };
-            let cp_interval_target = if is_perf_or_ext { "300" } else { "60" };
+            let cp_interval_target = vm_targets.f2fs_cp_interval_secs.to_string();
             if let Ok(entries) = fs::read_dir(f2fs_dir) {
                 for entry in entries.flatten() {
                     let p = entry.path();
@@ -1322,7 +1321,7 @@ impl HardwareTranslator {
                                 "Storage",
                                 format!("F2FS {} checkpoint interval", entry.file_name().to_string_lossy()),
                                 cp_node,
-                                cp_interval_target,
+                                &cp_interval_target,
                                 false,
                             );
                         }

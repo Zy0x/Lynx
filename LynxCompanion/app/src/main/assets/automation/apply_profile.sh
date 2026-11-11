@@ -95,17 +95,25 @@ case "$PROFILE" in
                     write_node "$max_freq" "$gdir/hispeed_freq"
                 done
                 if [ -n "$max_freq" ] && [ -n "$min_freq" ]; then
-                    floor=$(( max_freq * 85 / 100 ))
-                    snapped_floor=""
-                    for f in $(tr -s ' ' '
+                    # Never trap Little cores at high 85% floor; scale dynamically from min_freq
+                    # and keep Big/Prime cluster on a modest ~20% responsive floor in performance.
+                    local pol_id="${p##*policy}"
+                    if [ "$pol_id" = "0" ]; then
+                        write_node "$min_freq" "$p/scaling_min_freq"
+                    else
+                        floor=$(( min_freq + (max_freq - min_freq) * 20 / 100 ))
+                        snapped_floor=""
+                        for f in $(tr -s ' ' '
 ' < "$p/scaling_available_frequencies" 2>/dev/null | sort -n); do
-                        if [ "$f" -le "$floor" ]; then
-                            snapped_floor="$f"
-                        fi
-                    done
-                    [ -z "$snapped_floor" ] && snapped_floor="$floor"
-                    [ "$snapped_floor" -lt "$min_freq" ] && snapped_floor="$min_freq"
-                    write_node "$snapped_floor" "$p/scaling_min_freq"
+                            if [ "$f" -ge "$floor" ]; then
+                                snapped_floor="$f"
+                                break
+                            fi
+                        done
+                        [ -z "$snapped_floor" ] && snapped_floor="$min_freq"
+                        [ "$snapped_floor" -lt "$min_freq" ] && snapped_floor="$min_freq"
+                        write_node "$snapped_floor" "$p/scaling_min_freq"
+                    fi
                 fi
             fi
         done
@@ -410,21 +418,29 @@ case "$PROFILE" in
         write_node "1" "/dev/cpuset/top-app/cpu.uclamp.latency_sensitive"
         write_node "1" "/dev/cpuset/foreground/boost/cpu.uclamp.latency_sensitive"
 
-        write_node "0-5" "/dev/cpuset/foreground/cpus"
+        local max_cpu=7
+        [ -e /sys/devices/system/cpu/present ] && max_cpu=$(cat /sys/devices/system/cpu/present 2>/dev/null | awk -F- '{print $NF}')
+        write_node "0-$max_cpu" "/dev/cpuset/foreground/cpus"
+        write_node "0-$max_cpu" "/dev/cpuset/foreground_window/cpus"
         write_node "0-1" "/dev/cpuset/background/cpus"
         write_node "0-2" "/dev/cpuset/system-background/cpus"
-        write_node "0-7" "/dev/cpuset/top-app/cpus"
+        write_node "0-$max_cpu" "/dev/cpuset/top-app/cpus"
         write_node "0-1" "/dev/cpuset/restricted/cpus"
         write_node "1" "/dev/stune/schedtune.sched_boost_enabled"
         write_node "5" "/dev/stune/schedtune.boost"
         write_node "0" "/dev/stune/schedtune.prefer_idle"
-        write_node "5" "/dev/stune/foreground/schedtune.boost"
+        write_node "10" "/dev/stune/foreground/schedtune.boost"
         write_node "$stune_boost" "/dev/stune/top-app/schedtune.boost"
 
-        # CFS Low-Latency Scheduler & VM Optimization
-        sync
-        write_node "3" "/proc/sys/vm/drop_caches"
+        # CFS Low-Latency Scheduler & Hardware-Tiered VM Optimization (No eMMC drop_caches=3 stall)
         write_node "1" "/proc/sys/vm/compact_memory"
+        local is_emmc_primary=0
+        for blk in /sys/block/mmcblk*; do
+            [ -f "$blk/device/ext_csd" ] && is_emmc_primary=1
+            [ "$(cat "$blk/device/type" 2>/dev/null)" = "MMC" ] && is_emmc_primary=1
+        done
+        local total_ram_mb=0
+        total_ram_mb=$(awk '/^MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null)
         if [ "$PROFILE" = "extreme" ]; then
             write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -436,25 +452,49 @@ case "$PROFILE" in
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "10" "/proc/sys/vm/stat_interval"
-            write_node "40" "/proc/sys/vm/vfs_cache_pressure"
-            write_node "50" "/proc/sys/vm/swappiness"
-            write_node "25" "/proc/sys/vm/dirty_ratio"
-            write_node "200" "/proc/sys/vm/watermark_scale_factor"
+            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "45" "/proc/sys/vm/swappiness"
+            if [ "$is_emmc_primary" = "1" ]; then
+                write_node "10" "/proc/sys/vm/dirty_ratio"
+                write_node "5" "/proc/sys/vm/dirty_background_ratio"
+                write_node "60" "/proc/sys/vm/watermark_scale_factor"
+            else
+                write_node "25" "/proc/sys/vm/dirty_ratio"
+                write_node "10" "/proc/sys/vm/dirty_background_ratio"
+                write_node "200" "/proc/sys/vm/watermark_scale_factor"
+            fi
         else
             write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
             write_node "2000000" "/proc/sys/kernel/sched_wakeup_granularity_ns"
             write_node "500000" "/proc/sys/kernel/sched_migration_cost_ns"
-            write_node "85" "/proc/sys/kernel/sched_upmigrate"
-            write_node "65" "/proc/sys/kernel/sched_downmigrate"
+            write_node "65 80" "/proc/sys/kernel/sched_upmigrate"
+            write_node "45 65" "/proc/sys/kernel/sched_downmigrate"
             write_node "0" "/proc/sys/kernel/sched_schedstats"
-            write_node "1" "/proc/sys/kernel/sched_child_runs_first"
-            write_node "0" "/proc/sys/kernel/sched_cstate_aware"
+            write_node "0" "/proc/sys/kernel/sched_child_runs_first"
+            write_node "1" "/proc/sys/kernel/sched_cstate_aware"
             write_node "1" "/proc/sys/vm/stat_interval"
-            write_node "70" "/proc/sys/vm/vfs_cache_pressure"
-            write_node "70" "/proc/sys/vm/swappiness"
-            write_node "20" "/proc/sys/vm/dirty_ratio"
-            write_node "150" "/proc/sys/vm/watermark_scale_factor"
+            write_node "60" "/proc/sys/vm/swappiness"
+            if [ "$is_emmc_primary" = "1" ]; then
+                write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+                write_node "10" "/proc/sys/vm/dirty_ratio"
+                write_node "5" "/proc/sys/vm/dirty_background_ratio"
+                write_node "400" "/proc/sys/vm/dirty_expire_centisecs"
+                write_node "150" "/proc/sys/vm/dirty_writeback_centisecs"
+            else
+                write_node "60" "/proc/sys/vm/vfs_cache_pressure"
+                write_node "20" "/proc/sys/vm/dirty_ratio"
+                write_node "10" "/proc/sys/vm/dirty_background_ratio"
+                write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
+                write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
+            fi
+            if [ "${total_ram_mb:-0}" -le 4500 ]; then
+                write_node "40" "/proc/sys/vm/watermark_scale_factor"
+                write_node "24576" "/proc/sys/vm/extra_free_kbytes"
+            else
+                write_node "120" "/proc/sys/vm/watermark_scale_factor"
+                write_node "49152" "/proc/sys/vm/extra_free_kbytes"
+            fi
         fi
 
         write_node "0" "/proc/sys/vm/watermark_boost_factor"
@@ -464,9 +504,6 @@ case "$PROFILE" in
             write_node "y" "/sys/kernel/mm/lru_gen/enabled"
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
         fi
-        write_node "10" "/proc/sys/vm/dirty_background_ratio"
-        write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
-        write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
         write_node "100" "/proc/sys/vm/extfrag_threshold"
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
@@ -583,13 +620,17 @@ case "$PROFILE" in
 
             case "$st_type" in
                 "emmc")
-                    # eMMC 5.1: Half-Duplex serial bus. Bound read-ahead to 128KB to prevent I/O starvation
+                    # eMMC 5.1: Half-Duplex serial bus. Keep read-ahead=128KB, nr_requests=64, rq_affinity=1
                     local emmc_ra=128
-                    [ "$PROFILE" = "powersave" ] && emmc_ra=64
+                    local emmc_nr=64
+                    local emmc_wbt=50000
+                    [ "$PROFILE" = "powersave" ] && emmc_ra=64 && emmc_nr=32 && emmc_wbt=100000
+                    [ "$PROFILE" = "performance" ] && emmc_wbt=30000
+                    [ "$PROFILE" = "extreme" ] && emmc_wbt=35000
+                    write_node "1" "$q/rq_affinity"
                     write_node "$emmc_ra" "$q/read_ahead_kb"
-                    write_node "64" "$q/nr_requests"
-                    [ "$PROFILE" = "extreme" ] && write_node "128" "$q/nr_requests"
-                    write_node "75000" "$q/wbt_lat_usec"
+                    write_node "$emmc_nr" "$q/nr_requests"
+                    write_node "$emmc_wbt" "$q/wbt_lat_usec"
 
                     # Select best available scheduler for eMMC dynamically
                     local avail_sched
@@ -603,8 +644,8 @@ case "$PROFILE" in
                     # Tune BFQ / Deadline if exposed
                     write_node "0" "$q/iosched/slice_idle"
                     write_node "1" "$q/iosched/low_latency"
-                    write_node "120" "$q/iosched/timeout_sync"
-                    write_node "80" "$q/iosched/read_expire"
+                    write_node "100" "$q/iosched/timeout_sync"
+                    write_node "50" "$q/iosched/read_expire"
                     write_node "2" "$q/iosched/writes_starved"
                     ;;
                 "sd")

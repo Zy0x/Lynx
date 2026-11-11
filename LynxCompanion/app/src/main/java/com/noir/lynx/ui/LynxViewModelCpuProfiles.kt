@@ -41,6 +41,7 @@ fun LynxViewModel.applyComprehensiveCpuProfile(
     context: Context? = null,
     asMasterProfile: Boolean = false,
     recordDomainOverride: Boolean = !asMasterProfile,
+    skipRootApply: Boolean = false,
 ) {
     val rawLower = profile.lowercase().trim()
     val normalized = mapModuleProfileToCpuProfile(rawLower)
@@ -202,7 +203,11 @@ fun LynxViewModel.applyComprehensiveCpuProfile(
 
             ensureActive()
             if (asMasterProfile) clearProfileOverridesForMasterSelection()
-            val ok = LynxRepository.applyCpuBatchProfile(params, context)
+            val ok = if (skipRootApply && LynxRepository.isModuleInstalled()) {
+                true // Already applied natively by lynxd profile apply with eMMC & low-end bounds
+            } else {
+                LynxRepository.applyCpuBatchProfile(params, context)
+            }
             if (ok) {
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(successMessage = successMsg) }

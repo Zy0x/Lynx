@@ -146,13 +146,18 @@ impl StoragePolicy {
         Some(1024)
     }
 
-    /// Calculate profile-specific tuning parameters based on verified physical media type.
-    pub fn profile_targets(dev: &BlockDeviceCapability, profile_name: &str) -> Option<StorageTuneParams> {
-        let effective_type = if dev.device_type == BlockDeviceType::Virtual && dev.name.starts_with("dm-") {
+    /// Resolves the physical device type of a block device, traversing device-mapper slaves.
+    pub fn effective_device_type(dev: &BlockDeviceCapability) -> BlockDeviceType {
+        if dev.device_type == BlockDeviceType::Virtual && dev.name.starts_with("dm-") {
             Self::resolve_dm_slave_type(&dev.queue_path)
         } else {
             dev.device_type
-        };
+        }
+    }
+
+    /// Calculate profile-specific tuning parameters based on verified physical media type.
+    pub fn profile_targets(dev: &BlockDeviceCapability, profile_name: &str) -> Option<StorageTuneParams> {
+        let effective_type = Self::effective_device_type(dev);
 
         match effective_type {
             BlockDeviceType::Ufs => {
@@ -177,13 +182,13 @@ impl StoragePolicy {
             }
             BlockDeviceType::Emmc => {
                 // eMMC 5.1: Half-Duplex serial bus with Android File-Based Encryption (FBE).
-                // Bound read-ahead strictly to 128KB (balance/extreme) and 64KB (powersave)
-                // to eliminate queue saturation, blk_crypto_wq choke, and SQLite keystore lockups.
+                // Keep queue depth capped at 64 (anti-bufferbloat), rq_affinity=1 (avoid A73/A53 IPI bounce),
+                // and tight WBT latency (30ms) so dirty writebacks never starve foreground 4K reads.
                 let (ra, nr, exp, starv, slice_idle, low_lat, to_sync, wbt) = match profile_name {
-                    "extreme" => (128, 128, 64, 4, 0, 1, 120, 75000),
-                    "performance" => (128, 128, 80, 4, 0, 1, 120, 75000),
-                    "powersave" => (64, 64, 250, 2, 0, 0, 80, 100000),
-                    _ => (128, 64, 125, 4, 0, 1, 120, 75000), // Balance
+                    "extreme" => (128, 64, 50, 2, 0, 1, 100, 35000),
+                    "performance" => (128, 64, 50, 2, 0, 1, 100, 30000),
+                    "powersave" => (64, 32, 200, 2, 0, 0, 80, 100000),
+                    _ => (128, 64, 100, 3, 0, 1, 120, 50000), // Balance
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
@@ -191,7 +196,7 @@ impl StoragePolicy {
                     nr_requests: Some(nr),
                     read_expire_ms: Some(exp),
                     writes_starved: Some(starv),
-                    rq_affinity: 2,
+                    rq_affinity: 1,
                     bfq_slice_idle_us: Some(slice_idle),
                     bfq_low_latency: Some(low_lat),
                     bfq_timeout_sync_ms: Some(to_sync),
@@ -230,11 +235,25 @@ impl StoragePolicy {
             Some(p) => p,
             None => return BlockDeviceType::Virtual,
         };
+        if let Some(phys_devs) = Self::physical_devices(dm_block.to_path_buf(), &mut HashSet::new()) {
+            for phys in phys_devs {
+                let phys_type = Self::classify(&phys);
+                if phys_type != BlockDeviceType::Virtual
+                    && phys_type != BlockDeviceType::Loop
+                    && phys_type != BlockDeviceType::Unknown
+                {
+                    return phys_type;
+                }
+            }
+        }
         let slaves_dir = dm_block.join("slaves");
         if let Ok(entries) = fs::read_dir(slaves_dir) {
             for entry in entries.flatten() {
                 let slave_path = entry.path();
-                let slave_type = Self::classify(&slave_path);
+                let slave_phys = Self::physical_devices(slave_path.clone(), &mut HashSet::new())
+                    .and_then(|mut list| list.pop())
+                    .unwrap_or(slave_path);
+                let slave_type = Self::classify(&slave_phys);
                 if slave_type != BlockDeviceType::Virtual
                     && slave_type != BlockDeviceType::Loop
                     && slave_type != BlockDeviceType::Unknown
@@ -379,5 +398,41 @@ impl StoragePolicy {
         let has_emmc = storage.devices.iter().any(|d| d.device_type == BlockDeviceType::Emmc);
         let has_ufs = storage.devices.iter().any(|d| d.device_type == BlockDeviceType::Ufs);
         has_emmc && !has_ufs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mock_block(name: &str, device_type: BlockDeviceType) -> BlockDeviceCapability {
+        BlockDeviceCapability {
+            name: name.to_string(),
+            queue_path: PathBuf::from(format!("/sys/block/{}/queue", name)),
+            device_type,
+            available_schedulers: vec![],
+            current_scheduler: String::new(),
+        }
+    }
+
+    #[test]
+    fn performance_differentiates_emmc_from_ufs() {
+        let emmc = mock_block("mmcblk0", BlockDeviceType::Emmc);
+        let ufs = mock_block("sda", BlockDeviceType::Ufs);
+
+        let emmc_p = StoragePolicy::profile_targets(&emmc, "performance").unwrap();
+        let ufs_p = StoragePolicy::profile_targets(&ufs, "performance").unwrap();
+
+        assert_eq!(emmc_p.read_ahead_kb, 128);
+        assert_eq!(emmc_p.nr_requests, Some(64));
+        assert_eq!(emmc_p.scheduler, "bfq");
+        assert_eq!(emmc_p.rq_affinity, 1);
+        assert_eq!(emmc_p.wbt_lat_usec, Some(30000));
+
+        assert_eq!(ufs_p.read_ahead_kb, 1024);
+        assert_eq!(ufs_p.nr_requests, Some(256));
+        assert_eq!(ufs_p.scheduler, "none");
+        assert_eq!(ufs_p.rq_affinity, 2);
+        assert_eq!(ufs_p.wbt_lat_usec, None);
     }
 }

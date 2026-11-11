@@ -1,6 +1,7 @@
 pub mod capability;
 pub mod charging;
 pub mod detector;
+pub mod device_tier;
 pub mod mtk;
 pub mod qcom;
 pub mod storage;
@@ -13,6 +14,7 @@ pub use capability::{
 };
 pub use charging::ChargingRegulator;
 pub use detector::{ScoreBoard, Vendor};
+pub use device_tier::{DeviceTier, VmProfileTargets};
 pub use mtk::MtkHardware;
 pub use qcom::QcomHardware;
 pub use translator::{HardwareTranslator, PlannedOperation};

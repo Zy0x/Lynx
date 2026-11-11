@@ -36,12 +36,21 @@ class LynxBootReceiver : BroadcastReceiver() {
                     Log.i("LynxBootReceiver", "Restoring baseline profile on boot/update: $baseline")
                     LynxRepository.setProfile(baseline, "boot")
 
-                    // Low-RAM Anti-Lag Relief: if MemFree < 150 MB, trim cached background bloat & clean pagecache
+                    // Low-RAM Anti-Lag Relief: check MemAvailable (not MemFree) and never flush pagecache on eMMC
                     Shell.cmd("""
-                        mem_free=${'$'}(awk '/^MemFree:/ {print ${'$'}2}' /proc/meminfo 2>/dev/null)
-                        if [ -n "${'$'}mem_free" ] && [ "${'$'}mem_free" -lt 150000 ] 2>/dev/null; then
-                            sync
-                            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+                        mem_avail=${'$'}(awk '/^MemAvailable:/ {print ${'$'}2}' /proc/meminfo 2>/dev/null)
+                        if [ -n "${'$'}mem_avail" ] && [ "${'$'}mem_avail" -lt 150000 ] 2>/dev/null; then
+                            is_emmc=0
+                            for blk in /sys/block/mmcblk*; do
+                                [ -f "${'$'}blk/device/ext_csd" ] && is_emmc=1
+                                [ "${'$'}(cat ${'$'}blk/device/type 2>/dev/null)" = "MMC" ] && is_emmc=1
+                            done
+                            if [ "${'$'}is_emmc" = "1" ]; then
+                                echo 2 > /proc/sys/vm/drop_caches 2>/dev/null
+                            else
+                                echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+                            fi
+                            echo 1 > /proc/sys/vm/compact_memory 2>/dev/null
                             if [ -f /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact 2>/dev/null; fi
                         fi
                     """.trimIndent()).exec()

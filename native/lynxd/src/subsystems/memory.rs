@@ -34,23 +34,20 @@ impl MemoryController {
         // Dynamic Hardware-Aware Storage & RAM Proportional Dirty Ratios:
         // On eMMC (Half-Duplex), large dirty accumulation triggers massive writeback bursts that starve reads.
         // We enforce frequent, small asynchronous writebacks (5% bg / 10% ratio) and keep dentry/inode caches in RAM (vfs=50).
-        let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
-        let (dirty_bg, dirty_ratio, dirty_expire, dirty_writeback) = if is_emmc {
-            ("5", "10", "200", "100")
-        } else if mem.total_ram_mb <= 4500 {
-            ("5", "15", "500", "200")
-        } else if mem.total_ram_mb <= 6500 {
-            ("8", "20", "500", "200")
-        } else {
-            ("10", "20", "500", "200")
-        };
+        let tier = crate::hardware::DeviceTier::detect_live();
+        let vm = tier.vm_profile_targets("balance");
+        let is_emmc = tier.is_emmc_primary;
+        let dirty_bg = vm.dirty_background_ratio.to_string();
+        let dirty_ratio = vm.dirty_ratio.to_string();
+        let dirty_expire = vm.dirty_expire_cs.to_string();
+        let dirty_writeback = vm.dirty_writeback_cs.to_string();
 
-        Self::write_opt("/proc/sys/vm/dirty_background_ratio", dirty_bg);
-        Self::write_opt("/proc/sys/vm/dirty_ratio", dirty_ratio);
-        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", dirty_bg);
-        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", dirty_ratio);
-        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", dirty_expire);
-        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", dirty_writeback);
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dirty_bg);
+        Self::write_opt("/proc/sys/vm/dirty_ratio", &dirty_ratio);
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dirty_bg);
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_ratio);
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", &dirty_expire);
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", &dirty_writeback);
         Self::write_opt("/proc/sys/vm/extfrag_threshold", "100");
         Self::write_opt("/proc/sys/vm/oom_kill_allocating_task", "0");
         Self::write_opt("/proc/sys/vm/oom_dump_tasks", "0");
@@ -61,16 +58,15 @@ impl MemoryController {
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };
         Self::write_opt("/proc/sys/vm/max_map_count", max_maps);
 
-        // Anti-stutter direct reclaim prevention:
-        // Wake kswapd early in the background before RAM becomes depleted.
-        let (watermark, min_free_kb) = if mem.total_ram_mb <= 4500 {
-            ("30", "16384")
+        let min_free_kb = if mem.total_ram_mb <= 4500 {
+            "16384"
         } else if mem.total_ram_mb <= 6500 {
-            ("40", "24576")
+            "24576"
         } else {
-            ("50", "32768")
+            "32768"
         };
-        Self::write_opt("/proc/sys/vm/watermark_scale_factor", watermark);
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/min_free_kbytes", min_free_kb);
 
         // â”€â”€ Multitasking & ActivityManager / LMKD Tiering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -250,9 +246,14 @@ impl MemoryController {
         let is_gaming = protected_pkg.map_or(false, |p| !p.trim().is_empty());
 
         if !is_gaming {
-            // General companion/maintenance mode: full sync and drop caches
-            let _ = Command::new("sync").status();
-            let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct);
+            // Avoid full pagecache eviction (drop_caches=3) on eMMC/FBE to prevent cold-read stalls
+            let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
+            if is_emmc {
+                let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "2", WriteMode::Direct);
+            } else {
+                let _ = Command::new("sync").status();
+                let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct);
+            }
         } else {
             // Gaming Mode (HUD shortcut during active gameplay like Genshin Impact / MLBB):
             // 1. Strictly DO NOT execute blocking sync to prevent flash storage bus contention with game asset streaming.
@@ -361,35 +362,39 @@ impl MemoryController {
 
     /// Applies predefined VM tuning profiles.
     pub fn apply_vm_preset(preset: &str) -> Result<String, String> {
+        let tier = crate::hardware::DeviceTier::detect_live();
         match preset.to_lowercase().as_str() {
             "gaming" | "game" => {
-                let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
-                let mountx = crate::subsystems::IoController::detect_mountx();
-                let (dr, dbr, d_wb, vfs) = if mountx.is_detected || !is_emmc {
-                    ("20", "10", "500", "50")
-                } else {
-                    ("10", "5", "100", "120")
-                };
-                Self::write_opt("/proc/sys/vm/dirty_ratio", dr);
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", dbr);
-                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", dr);
-                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", dbr);
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vfs);
-                Self::write_opt("/proc/sys/vm/swappiness", "50");
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", d_wb);
+                let vm = tier.vm_profile_targets("performance");
+                let dr = vm.dirty_ratio.to_string();
+                let dbr = vm.dirty_background_ratio.to_string();
+                Self::write_opt("/proc/sys/vm/dirty_ratio", &dr);
+                Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dbr);
+                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
+                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
+                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+                Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+                Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
+                Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
                 Ok(ui("Preset VM diterapkan: Gaming (buffer dirty adaptif, writeback terukur, pelindung VFS).", "VM preset applied: Gaming (Adaptive dirty buffers, measured writeback, VFS shield).").to_string())
             }
             "balanced" | "balance" => {
-                Self::write_opt("/proc/sys/vm/dirty_ratio", "20");
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", "10");
-                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "20");
-                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "10");
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
-                Self::write_opt("/proc/sys/vm/swappiness", "50");
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "200");
+                let vm = tier.vm_profile_targets("balance");
+                let dr = vm.dirty_ratio.to_string();
+                let dbr = vm.dirty_background_ratio.to_string();
+                Self::write_opt("/proc/sys/vm/dirty_ratio", &dr);
+                Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dbr);
+                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
+                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
+                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+                Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+                Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
+                Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
                 Self::write_opt("/proc/sys/vm/stat_interval", "1");
                 Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
                 Self::write_opt("/proc/sys/vm/compaction_proactiveness", "20");
@@ -470,7 +475,10 @@ impl MemoryController {
                     LAST_RECLAIM.store(now, std::sync::atomic::Ordering::Relaxed);
                     let _ = super::zram::ZramController::compact();
                     let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
-                    let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::ForcePermission);
+                    // Evict only unused dentries/inodes on eMMC/low-end RAM to avoid FBE pagecache cold-read stalls
+                    let tier = crate::hardware::DeviceTier::detect_live();
+                    let cache_level = if tier.is_emmc_primary || tier.is_low_end_ram { "2" } else { "3" };
+                    let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", cache_level, WriteMode::ForcePermission);
                     let evicted = Self::evict_cached_processes();
 
                     Logger::warn(if is_english() {

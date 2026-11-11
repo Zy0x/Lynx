@@ -31,7 +31,7 @@ import kotlinx.coroutines.flow.update
     }
 
 
-    internal fun LynxViewModel.pickDefaultDynamicGovernor(availGovs: List<String>, fallback: String): String {
+    internal fun pickDefaultDynamicGovernor(availGovs: List<String>, fallback: String): String {
         val priority = listOf("walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand")
         for (g in priority) {
             if (availGovs.contains(g)) return g
@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.update
     }
 
 
-    internal fun LynxViewModel.computeClusterTargetsForProfile(
+    internal fun computeClusterTargetsForProfile(
         clusters: List<CpuClusterInfo>,
         normalized: String
     ): Map<Int, CpuProfileClusterTarget> {
@@ -65,8 +65,13 @@ import kotlinx.coroutines.flow.update
                     CpuProfileClusterTarget(minHw, maxTarget, gov, isLocked = false)
                 }
                 "performance" -> {
-                    val rawFloor = (maxHw * 85L) / 100L
-                    val minTarget = c.availFreqs.filter { it <= rawFloor }.maxOrNull() ?: minHw
+                    val floorPct = if (c.id == 0) 0L else 20L
+                    val rawFloor = minHw + ((maxHw - minHw) * floorPct) / 100L
+                    val minTarget = if (floorPct == 0L) {
+                        minHw
+                    } else {
+                        c.availFreqs.filter { it >= rawFloor }.minOrNull() ?: minHw
+                    }
                     val gov = if (dynGov in listOf("walt", "sugov_ext", "schedutil", "energy_step", "interactive", "ondemand")) {
                         dynGov
                     } else if (c.availGovs.contains("performance")) {
@@ -85,6 +90,15 @@ import kotlinx.coroutines.flow.update
             c.id to target
         }
     }
+
+    internal fun LynxViewModel.pickDefaultDynamicGovernor(availGovs: List<String>, fallback: String): String =
+        com.noir.lynx.ui.pickDefaultDynamicGovernor(availGovs, fallback)
+
+    internal fun LynxViewModel.computeClusterTargetsForProfile(
+        clusters: List<CpuClusterInfo>,
+        normalized: String
+    ): Map<Int, CpuProfileClusterTarget> =
+        com.noir.lynx.ui.computeClusterTargetsForProfile(clusters, normalized)
 
 
     fun LynxViewModel.setProfile(profile: String, context: Context? = null) {

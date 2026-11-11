@@ -190,9 +190,7 @@ impl GameController {
         }
         Self::write_opt("/proc/ged/hal/dvfs_margin_value", "50");
 
-        // 8. Dynamic Media-Aware Storage Engine (UFS vs eMMC vs SD Card — Zero-Hardcoding)
-        // High-end UFS gets 2048KB burst prefetch & 512 queue depth for stutter-free asset streaming.
-        // eMMC 5.1 gets 256KB & deadline to prevent FBE crypto queue choke and UI freezes.
+        // 8. Unified Media-Aware Storage Engine (Shared Single Source of Truth with StoragePolicy)
         let storage = HardwareCapability::resolve_storage();
         for dev in &storage.devices {
             if !dev.queue_path.is_dir() {
@@ -205,84 +203,71 @@ impl GameController {
             if SysfsReader::read_trimmed(block.join("ro")).ok().as_deref() == Some("1") {
                 continue;
             }
-            let effective_type = if dev.device_type == crate::hardware::capability::BlockDeviceType::Virtual && dev.name.starts_with("dm-") {
-                crate::hardware::storage::StoragePolicy::resolve_dm_slave_type(&dev.queue_path)
-            } else {
-                dev.device_type
-            };
-
-            let (ra_kb, nr, sched) = match effective_type {
-                crate::hardware::capability::BlockDeviceType::Ufs | crate::hardware::capability::BlockDeviceType::Nvme => {
-                    (2048, "512", "none")
+            let effective_type = crate::hardware::storage::StoragePolicy::effective_device_type(dev);
+            if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
+                Self::write_opt(dev.queue_path.join("read_ahead_kb"), params.read_ahead_kb.to_string());
+                if let Some(nr) = params.nr_requests {
+                    Self::write_opt(dev.queue_path.join("nr_requests"), nr.to_string());
                 }
-                crate::hardware::capability::BlockDeviceType::Emmc => {
-                    (256, "128", "deadline")
+                Self::write_opt(dev.queue_path.join("rq_affinity"), params.rq_affinity.to_string());
+                Self::write_opt(dev.queue_path.join("add_random"), "0");
+                Self::write_opt(dev.queue_path.join("iostats"), "0");
+                Self::write_opt(dev.queue_path.join("nomerges"), "0");
+                if let Some(wbt) = params.wbt_lat_usec {
+                    Self::write_opt(dev.queue_path.join("wbt_lat_usec"), wbt.to_string());
                 }
-                crate::hardware::capability::BlockDeviceType::Sd => {
-                    (512, "128", "deadline")
+                if let Some(exp) = params.read_expire_ms {
+                    Self::write_opt(dev.queue_path.join("iosched/read_expire"), exp.to_string());
                 }
-                _ => (512, "128", "none"),
-            };
+                if let Some(starv) = params.writes_starved {
+                    Self::write_opt(dev.queue_path.join("iosched/writes_starved"), starv.to_string());
+                }
+                if let Some(low_lat) = params.bfq_low_latency {
+                    Self::write_opt(dev.queue_path.join("iosched/low_latency"), low_lat.to_string());
+                }
 
-            Self::write_opt(dev.queue_path.join("read_ahead_kb"), ra_kb.to_string());
-            Self::write_opt(dev.queue_path.join("nr_requests"), nr);
-            Self::write_opt(dev.queue_path.join("nomerges"), "0");
-            Self::write_opt(dev.queue_path.join("rq_affinity"), "2");
-
-            if dev.available_schedulers.iter().any(|s| s == sched) {
-                Self::write_opt(dev.queue_path.join("scheduler"), sched);
-            } else if sched == "deadline" {
-                if let Some(alt) = dev.available_schedulers.iter().find(|s| s.as_str() == "mq-deadline" || s.as_str() == "kyber") {
-                    Self::write_opt(dev.queue_path.join("scheduler"), alt);
+                let sched_candidates: &[&str] = match effective_type {
+                    crate::hardware::capability::BlockDeviceType::Emmc => &["bfq", "mq-deadline", "deadline", "none"],
+                    crate::hardware::capability::BlockDeviceType::Ufs
+                    | crate::hardware::capability::BlockDeviceType::Nvme => &["none", "noop", "mq-deadline", "kyber"],
+                    crate::hardware::capability::BlockDeviceType::Sd => &["mq-deadline", "deadline", "noop", "none"],
+                    _ => &["mq-deadline", "deadline", "none"],
+                };
+                if let Some(chosen) = sched_candidates.iter().find(|&&c| dev.available_schedulers.iter().any(|s| s == c)) {
+                    Self::write_opt(dev.queue_path.join("scheduler"), chosen);
                 }
             }
         }
 
-        // Virtual Memory & VFS Cache Shield (Eliminates Asset Streaming & Direct Reclaim Stalls)
-        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "50");
-        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
-        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "150");
-
-        // MountX + SD Card Download Awareness:
-        // Jika ada MicroSD card aktif via MountX, game write (asset download/update) diarahkan ke SD.
-        // SD card pada SDR104 bus memiliki latency tinggi — flush terlalu sering (tiap 100cs = 1 detik)
-        // menyebabkan bottleneck write besar. Naikkan dirty writeback window ke 500cs (5 detik)
-        // agar kernel bisa accumulate writes lebih besar per flush-cycle, menghemat IO bus SD card.
-        // Ini AMAN: dirty_ratio=10% masih menjadi hard ceiling, hanya interval flush yang diperlonggar.
+        // Virtual Memory & VFS Cache Shield (Hardware-Tiered: Protects 4GB RAM & eMMC FBE from reclaim thrashing)
         let mountx = crate::subsystems::IoController::detect_mountx();
+        let mem = HardwareCapability::resolve_memory();
+        let primary_type = crate::hardware::storage::StoragePolicy::primary_storage(&storage).map(|(_, t)| t);
+        let has_emmc = storage.devices.iter().any(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Emmc);
+        let has_ufs = storage.devices.iter().any(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Ufs);
+        let tier = crate::hardware::DeviceTier::classify(mem.total_ram_mb, primary_type, has_emmc && !has_ufs, mountx.is_detected);
+        let vm = tier.vm_profile_targets("performance");
+
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", vm.dirty_background_ratio.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_ratio", vm.dirty_ratio.to_string());
+
         if mountx.is_detected {
-            // SD card aktif via MountX — relax writeback interval agar download game tidak throttle
-            Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "500");
-            Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1000");
-            // Naikkan sedikit dirty_background_ratio agar lebih banyak data di-buffer sebelum flush
-            Self::write_opt("/proc/sys/vm/dirty_background_ratio", "8");
-            // Tingkatkan nr_requests SD card agar antrian write lebih dalam (lebih efisien per burst)
             if let Some(sd_dev) = storage.devices.iter().find(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Sd) {
                 Self::write_opt(sd_dev.queue_path.join("nr_requests"), "256");
-                // mq-deadline: naikkan writes_starved agar write tidak diblokir read terus-menerus
                 Self::write_opt(sd_dev.queue_path.join("iosched/writes_starved"), "8");
-                // Naikkan read_ahead untuk SD card saat game download (stream besar, bukan random)
                 Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "512");
             }
             let _ = std::fs::write("/dev/lynx_mountx_active", "1\n");
         } else {
-            // Tidak ada MountX/SD: gunakan writeback agresif standar untuk gaming (flush cepat ke eMMC)
-            Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "100");
-            Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
-            Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
             let _ = std::fs::remove_file("/dev/lynx_mountx_active");
         }
-
-        // Dynamic RAM-Proportional extra_free_kbytes (Prevents background memory compaction spikes)
-        let mem = HardwareCapability::resolve_memory();
-        let extra_free_kb = if mem.total_ram_mb >= 7000 {
-            65536
-        } else if mem.total_ram_mb >= 3800 {
-            32768
-        } else {
-            16384
-        };
-        Self::write_opt("/proc/sys/vm/extra_free_kbytes", extra_free_kb.to_string());
 
         // Dynamic Schedutil iowait_boost_enable across all CPU clusters
         for id in 0..16 {
@@ -441,10 +426,12 @@ impl GameController {
             }
         }
 
-        // Restore Virtual Memory & VFS Cache
-        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "100");
-        Self::write_opt("/proc/sys/vm/extra_free_kbytes", "20480");
-        Self::write_opt("/proc/sys/vm/watermark_scale_factor", "100");
+        // Restore Virtual Memory & VFS Cache according to device hardware tier
+        let tier = crate::hardware::DeviceTier::detect_live();
+        let vm = tier.vm_profile_targets("balance");
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "15000");
 
         for id in 0..16 {

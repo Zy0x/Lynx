@@ -254,7 +254,14 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
             restoreCustomCpuPolicy(savedCustomClusters)
         } else {
             val cpuPreset = cpuOverride ?: profile.domainProfiles[ProfileDomain.CPU] ?: base
-            applyComprehensiveCpuProfile(cpuPreset, context, asMasterProfile = false, recordDomainOverride = false)
+            val delegateCpuToLynxd = _uiState.value.isModuleInstalled && cpuOverride == null && id == base
+            applyComprehensiveCpuProfile(
+                cpuPreset,
+                context,
+                asMasterProfile = false,
+                recordDomainOverride = false,
+                skipRootApply = delegateCpuToLynxd,
+            )
             // Non-blocking: cpuProfileJob executes in background without stalling UI transition
         }
         val gpuOverride = if (clearOverrides) null else previousOverrides[ProfileDomain.GPU]
@@ -318,11 +325,11 @@ internal fun LynxViewModel.selectKernelPerformanceProfile(
         val displaySettings = if (ProfileDomain.DISPLAY in overrides) emptyMap() else profile.settings.filterKeys { it.startsWith("display_touch.") }
         if (displaySettings.containsKey("display_touch.refresh_rate_lock")) {
             val lockHz = displaySettings["display_touch.refresh_rate_lock"]?.toIntOrNull() ?: 0
+            val maxSupportedHz = _uiState.value.supportedRefreshRates.maxOrNull() ?: 60
             if (lockHz > 0) {
-                LynxRepository.setDisplayRefreshRate(lockHz, isAuto = false)
+                LynxRepository.setDisplayRefreshRate(lockHz.coerceAtMost(maxSupportedHz), isAuto = false)
             } else {
-                val maxHz = _uiState.value.supportedRefreshRates.maxOrNull() ?: 120
-                LynxRepository.setDisplayRefreshRate(maxHz, isAuto = true)
+                LynxRepository.setDisplayRefreshRate(maxSupportedHz, isAuto = true)
             }
             runtimeAppliedKeys += "display_touch.refresh_rate_lock"
         }

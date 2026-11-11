@@ -113,12 +113,19 @@ impl CpusetController {
         let p = preset.trim().to_lowercase();
         match p.as_str() {
             "gaming" => {
-                Self::write_cpuset_group("top-app", &format!("0-{}", max_core));
-                Self::write_cpuset_group("foreground", &format!("0-{}", little_max));
-                Self::write_cpuset_group("background", &format!("0-{}", bg_max));
+                // Keep foreground and foreground_window able to use Big cores so SystemUI,
+                // IME, and navigation transitions never choke on Little cores while background stays pinned.
+                let fg_mask = format!("0-{}", max_core);
+                Self::write_cpuset_group("top-app", &fg_mask);
+                Self::write_cpuset_group("foreground", &fg_mask);
+                Self::write_cpuset_group("foreground_window", &fg_mask);
+                Self::write_cpuset_group("background", "0-1");
                 Self::write_cpuset_group("system-background", &format!("0-{}", bg_max));
                 Self::write_cpuset_group("restricted", "0-1");
-                format!("Cpuset Gaming preset applied (top-app: 0-{}, foreground: 0-{}, bg: 0-{}).", max_core, little_max, bg_max)
+                format!(
+                    "Cpuset Gaming preset applied (top-app/fg: 0-{}, sys-bg: 0-{}, bg: 0-1).",
+                    max_core, bg_max
+                )
             }
 
             "battery" | "powersave" => {

@@ -397,10 +397,18 @@ impl GpuController {
         } else if active_profile == "powersave" {
             DynamicGpuState::Idle
         } else if active_profile == "performance" {
-            if workload == WorkloadLevel::Heavy {
+            let is_moving = crate::daemon::TouchDetector::is_touch_moving(450);
+            let is_touch = crate::daemon::TouchDetector::is_touch_recent(450);
+            let tier = crate::hardware::DeviceTier::detect_live();
+            if workload == WorkloadLevel::Heavy || gpu.load_pct > 75 {
                 DynamicGpuState::Peak
-            } else {
+            } else if workload == WorkloadLevel::Moderate || is_touch || is_moving || gpu.load_pct > 35 {
                 DynamicGpuState::Fluid
+            } else if tier.is_low_end_ram && temp_c >= 41.0 {
+                // Allow stationary 14nm/low-end UI to rest at Light/Idle below thermal cliff
+                DynamicGpuState::Idle
+            } else {
+                DynamicGpuState::Light
             }
         } else {
             // Balance profile: Ultra-Efficient 4-Tier Multi-Factor Decision

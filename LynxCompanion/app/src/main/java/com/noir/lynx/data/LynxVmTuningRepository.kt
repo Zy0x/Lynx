@@ -234,12 +234,25 @@ internal object LynxVmTuningRepository {
             when (preset.lowercase()) {
                 "gaming" -> {
                     Shell.cmd("""
-                        echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
-                        echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
-                        echo 150 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
-                        echo 1500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
-                        echo 300 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
-                        echo 5 > /proc/sys/vm/stat_interval 2>/dev/null
+                        is_emmc=0
+                        for blk in /sys/block/mmcblk*; do
+                            [ -f "${'$'}blk/device/ext_csd" ] && is_emmc=1
+                            [ "${'$'}(cat ${'$'}blk/device/type 2>/dev/null)" = "MMC" ] && is_emmc=1
+                        done
+                        if [ "${'$'}is_emmc" = "1" ]; then
+                            echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                            echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                            echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                            echo 400 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                            echo 150 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                        else
+                            echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                            echo 10 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                            echo 60 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                            echo 500 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
+                            echo 200 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
+                        fi
+                        echo 1 > /proc/sys/vm/stat_interval 2>/dev/null
                         echo ok
                     """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
                 }

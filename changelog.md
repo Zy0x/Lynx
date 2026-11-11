@@ -1,3 +1,22 @@
+# Lynx Universal [eMMC vs UFS Storage Differentiation, Low-End <=4.5GB Tuning & Zero-Lag Performance Mode] 7.0.0-RC376
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.0
+
+- **Diferensiasi Penyimpanan eMMC vs UFS & Resolusi Blok `dm-*`**:
+  - Menambahkan penelusuran *slave device* pada blok `dm-*` (`StoragePolicy`) agar partisi FBE/dinamis di perangkat eMMC (seperti Redmi Note 7) dikenali secara akurat sebagai eMMC, bukan *fallback* generik atau profil UFS.
+  - Menerapkan profil antrean `performance` khusus eMMC *half-duplex*: `read_ahead_kb = 128`, `nr_requests = 64`, `rq_affinity = 1`, `read_expire = 50`, `writes_starved = 2`, `bfq_timeout_sync = 100`, `wbt_lat_usec = 30000`, `iostats = 0`, dan interval *checkpoint* F2FS `120` detik untuk mencegah I/O *starvation* (dibandingkan profil UFS: `read_ahead_kb = 1024`, `nr_requests = 256`, `scheduler = none`, `rq_affinity = 2`, dan F2FS `300` detik).
+- **Kalibrasi Perangkat Low-End (`<= 4500 MB` RAM) via `DeviceTier` Terpadu**:
+  - Menyelaraskan parameter VM `performance` khusus eMMC & RAM terbatas: `vfs_cache_pressure = 50`, `dirty_background_ratio = 5`, `dirty_ratio = 10`, `dirty_writeback_centisecs = 150`, `dirty_expire_centisecs = 400`, `watermark_scale_factor = 40`, dan `extra_free_kbytes = 24576`.
+  - Menghindari pembersihan *inode/dentry* penuh (`drop_caches = 3`) yang memicu *stall* baca-ulang di eMMC, serta memperbaiki pengecekan kondisi memori pada `LynxBootReceiver` dari `MemFree` ke `MemAvailable`.
+- **Eliminasi Thermal-Cliff & Starvation CPU/GPU/Cpuset di Mode `performance`**:
+  - Menghapus penguncian lantai frekuensi CPU 85% / Little 60%–80% sehingga klaster efisiensi tetap dinamis (`0–100%`), membatasi `uclamp_min` ke `<= 25%` dan `stune` ke `20/15/10` pada perangkat RAM `<= 4500 MB` guna meredam lonjakan panas berulang.
+  - Membuka alokasi `cpuset` `foreground` dan `foreground_window` pada preset `gaming` ke seluruh core (`0-max`) sekaligus mengisolasi proses latar belakang agar antarmuka sistem, navigasi, dan papan ketik tetap responsif.
+  - Menyesuaikan lantai GPU `High` (`Adreno KGSL` / `MTK GED`) menjadi `40%` pada perangkat *low-end*/eMMC (sebelumnya `95%`), mereset *register* daya `extreme` saat beralih ke `performance`, serta mengurangi agresi *boost* bus/WALT pada RAM terbatas.
+- **Sinkronisasi Companion App & Fallback Shell (`apply_profile.sh`)**:
+  - Menghindari eksekusi ganda pengubahan CPU dari Kotlin saat daemon `lynxd` menangani profil standar, menyelaraskan *clamp refresh rate* dengan kapabilitas panel perangkat, dan menyamakan logika *fallback* `apply_profile.sh`.
+
+---
+
 # Lynx Universal [Qualcomm 1500mA Thermal Clamping Immunity & Software 9V HVDCP Re-Arm] 7.0.0-RC375
 Released on: 2026-11-09
 > Lynx Kernel Manager v3.3.99

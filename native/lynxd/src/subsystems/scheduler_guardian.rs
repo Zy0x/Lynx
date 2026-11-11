@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use std::fs;
 use std::path::Path;
 #[cfg(unix)]
@@ -25,12 +26,12 @@ impl SchedulerGuardian {
     pub const PERFMGR_TA_UCLAMP_MIN: &'static str = MtkHardware::PERFMGR_TA_UCLAMP_MIN;
 
     /// Sets node permission safely on Unix.
-    pub fn set_node_mode(path_str: &str, mode: u32) {
+    pub fn set_node_mode(_path_str: &str, _mode: u32) {
         #[cfg(unix)]
         {
-            let p = Path::new(path_str);
+            let p = Path::new(_path_str);
             if p.exists() {
-                let perm = fs::Permissions::from_mode(mode);
+                let perm = fs::Permissions::from_mode(_mode);
                 let _ = fs::set_permissions(p, perm);
             }
         }

@@ -347,16 +347,17 @@ impl ClusterController {
     }
 
     pub fn restore_baseline_floor(cpu: &crate::hardware::capability::CpuCapability, current_profile: &str) {
-        let (target_boost, prefer_high) = match current_profile {
-            "extreme" => ("50", "1"),
-            "performance" => ("35", "1"),
-            "powersave" => ("0", "0"),
-            _ => ("20", "0"), // balanced: 20 boost for buttery smooth UI without battery drain
+        let tier = crate::hardware::DeviceTier::detect_live();
+        let (target_boost, _, fg_boost) = tier.stune_targets(current_profile);
+        let prefer_high = match current_profile {
+            "extreme" => "1",
+            "performance" => if tier.is_low_end_ram { "0" } else { "1" },
+            _ => "0",
         };
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", target_boost, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_idle", "1", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", if current_profile == "powersave" { "0" } else { "15" }, WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", fg_boost, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {
@@ -368,13 +369,12 @@ impl ClusterController {
                     || pol.role.contains("Efisiensi")
                     || (cpu.policies.len() > 1 && pol.index == 0);
 
-                let min_pct = if current_profile == "performance" && is_little {
-                    60
-                } else if current_profile == "extreme" {
-                    prof.cpu.min_percent
-                } else {
-                    prof.cpu.min_percent
-                };
+                let (min_pct, _) = tier.cpu_bounds(
+                    current_profile,
+                    is_little,
+                    prof.cpu.min_percent,
+                    prof.cpu.max_percent,
+                );
                 let raw_min_hz = crate::hardware::HardwareTranslator::snap_frequency(
                     pol.min_freq,
                     pol.max_freq,

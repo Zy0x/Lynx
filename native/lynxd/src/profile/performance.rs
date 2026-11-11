@@ -6,13 +6,11 @@ pub fn get_profile() -> Profile {
         name: "performance",
         description: "High responsiveness for heavy apps and gaming with thermal limits enforced",
         cpu: CpuPolicy {
-            // WALT / schedutil scales aggressively (up_rate_limit_us = 0) but
-            // still yields during thermal throttle. The translator's Anti-Heat Shield
-            // further caps Little cores to 80% Fmax preventing thermal runaway.
-            // 'Performance' governor (lock to max) is reserved for Extreme-only.
+            // WALT / schedutil scales immediately (up_rate_limit_us = 0); HardwareTranslator + DeviceTier
+            // scale dynamic floors per hardware tier (leaving Little cores unconstrained for FBE/UI).
             governor: Governor::Schedutil,
-            min_percent: 35,    // Big cluster floor ~35% OPP (scheduler scales from here)
-            max_percent: 100,   // Full Fmax ceiling on Big/Prime; Anti-Heat caps Little to 80%
+            min_percent: 35,
+            max_percent: 100,
             boost: true,
         },
         gpu: GpuPolicy {
@@ -26,7 +24,7 @@ pub fn get_profile() -> Profile {
         scheduler: SchedulerPolicy {
             prefer_latency: true,
             prefer_power: false,
-            uclamp_min_percent: 50,  // Tasks get at least 50% utilization headroom
+            uclamp_min_percent: 50,
         },
     }
 }

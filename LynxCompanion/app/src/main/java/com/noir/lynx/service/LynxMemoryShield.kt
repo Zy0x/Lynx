@@ -52,8 +52,8 @@ object LynxMemoryShield {
                 fi
 
                 echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-                echo 24300 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
-                echo 16 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                echo 24576 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
+                echo 40 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
 
                 # 2. Dynamic Block Device Queue Tuning (Strict Separation: eMMC vs MicroSD vs UFS)
                 for blk in /sys/block/*; do
@@ -80,10 +80,11 @@ object LynxMemoryShield {
 
                     case "${'$'}b_type" in
                         "emmc")
-                            # eMMC 5.1: Bound read-ahead to 128KB, queue depth to 64
+                            # eMMC 5.1: Bound read-ahead=128KB, nr_requests=64, rq_affinity=1, wbt=30ms
                             echo 128 > "${'$'}blk/queue/read_ahead_kb" 2>/dev/null
                             echo 64 > "${'$'}blk/queue/nr_requests" 2>/dev/null
-                            echo 75000 > "${'$'}blk/queue/wbt_lat_usec" 2>/dev/null
+                            echo 1 > "${'$'}blk/queue/rq_affinity" 2>/dev/null
+                            echo 30000 > "${'$'}blk/queue/wbt_lat_usec" 2>/dev/null
                             ;;
                         "sd")
                             # External MicroSD: Sequential read-ahead 256KB
@@ -120,8 +121,9 @@ object LynxMemoryShield {
             Log.w(TAG, "Low RAM threshold detected (${memAvailKb / 1024} MB available). Triggering proactive cache drop & memory compaction.")
             try {
                 Shell.cmd(
-                    "echo 3 > /proc/sys/vm/drop_caches 2>/dev/null",
-                    "echo 1 > /proc/sys/vm/compact_memory 2>/dev/null"
+                    "is_emmc=0; for blk in /sys/block/mmcblk*; do [ -f \"\${'$'}blk/device/ext_csd\" ] && is_emmc=1; done; if [ \"\${'$'}is_emmc\" = \"1\" ]; then echo 2 > /proc/sys/vm/drop_caches 2>/dev/null; else echo 3 > /proc/sys/vm/drop_caches 2>/dev/null; fi",
+                    "echo 1 > /proc/sys/vm/compact_memory 2>/dev/null",
+                    "[ -f /sys/block/zram0/compact ] && echo 1 > /sys/block/zram0/compact 2>/dev/null"
                 ).submit()
             } catch (e: Exception) {
                 Log.w(TAG, "Error executing proactive memory compaction: ${e.message}")
