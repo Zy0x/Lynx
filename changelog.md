@@ -1,3 +1,14 @@
+# Lynx Universal [Transsion/MediaTek Hyper Charging Fix & Config Single-Line Object Healing] 7.0.0-RC383
+Released on: 2026-11-12
+> Lynx Kernel Manager v3.4.5
+
+- **Perbaikan Krusial Pengaktifan Mode Hyper pada Chipset Non-QC / MediaTek & Transsion (`lynxd` & `LynxCompanion`)**:
+  - **Single-Line JSON Object Mutation Bug Fix (`config_store.rs`)**: Mengatasi bug parser JSON `apply_single_mutation` dan `get_from_str` ketika objek konfigurasi diserialisasi dalam satu baris (inline `{ ... }`), yang sebelumnya memicu kebocoran key ke root level dan kegagalan mutasi `charging.charging_mode` sehingga mode selalu mental kembali ke Standard. Memperbaiki normalisasi otomatis objek inline ke format multi-line terindentasi dan membersihkan (*heal*) kunci yatim secara otomatis.
+  - **Microampere Decimal Format (`charging.rs`)**: Memperbaiki pemformatan sysfs charger MediaTek (`input_current`, `chg1_current`, `chg2_current`) dari heksadesimal ke format desimal mikroampere (`%d`), sehingga nilai 6000mA (6.000.000 uA) diterima secara penuh oleh kernel Helio G96 tanpa tertahan di nilai `-1` / default.
+  - **Transsion 33W Direct Charge Pump Ceiling Discovery**: Mengatur plafon deteksi hardware Transsion (RT9759 Direct Charge Pump) ke 7000 mA saat mendeteksi node `odm:tran_battery` / `rt9759`.
+  - **Soft Reconnect Non-QC Isolation**: Mengisolasi pemulihan soft-reconnect agar pada adaptor standar 5V / non-QC tidak berulang kali memutus jalur pengisian daya, sementara seluruh logika Quick Charge (QC 3.0 HVDCP) pada Qualcomm (Redmi Note 7) tetap dipertahankan 100% tanpa perubahan (*zero regression*).
+  - **Perbaikan Deteksi Plugged Telemetri Baterai (`LynxBatteryTelemetryRepository.kt`)**: Memperbaiki deteksi `is_plugged` pada MediaTek/Transsion dengan menambahkan verifikasi voltase adaptor fisik (`adpv_probe > 4400`), serta menghapus penghapusan destruktif marker `/dev/lynx_extreme_charging` dari loop pembacaan telemetri.
+
 # Lynx Universal [Universal Real-Time Decimal Fuel-Gauge & Dynamic Charging Blueprint] 7.0.0-RC382
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.4

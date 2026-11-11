@@ -223,6 +223,19 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
                     if let Some(pos) = trimmed.find(&sec_pat) {
                         let after = trimmed[pos + sec_pat.len()..].trim_start();
                         if after.starts_with(':') && after.contains('{') {
+                            if after.contains('}') {
+                                // Inline object on same line: e.g. "charging": { "charging_mode": "standard" }
+                                if let Some(fpos) = after.find(&fld_pat) {
+                                    let after_fld = after[fpos + fld_pat.len()..].trim_start();
+                                    if after_fld.starts_with(':') {
+                                        let val_raw = after_fld[1..].trim_start();
+                                        let end = val_raw.find(|c| c == ',' || c == '}').unwrap_or(val_raw.len());
+                                        let val = val_raw[..end].trim().trim_matches('"');
+                                        return Some(val.to_string());
+                                    }
+                                }
+                                continue;
+                            }
                             in_sec = true;
                             brace_depth = 1;
                             continue;
@@ -436,6 +449,29 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
         }
     }
 
+    #[inline]
+    fn is_orphaned_root_line(trimmed_line: &str) -> bool {
+        const LEAKED_FIELD_PREFIXES: &[&str] = &[
+            "\"bypass_enabled\":",
+            "\"charging_mode\":",
+            "\"extreme_charging_enabled\":",
+            "\"limit_current_ma\":",
+            "\"is_unconstrained_max_hw\":",
+            "\"high_current_target_percent\":",
+            "\"temp_cutoff_c\":",
+            "\"thermal_lockout_bypass_enabled\":",
+            "\"emergency_temp_guard_enabled\":",
+            "\"night_sleep_guard_enabled\":",
+            "\"smart_tapering_enabled\":",
+            "\"auto_cut_enabled\":",
+            "\"max_battery_percent\":",
+            "\"custom_limit_current_ma\":",
+            "\"refresh_rate_lock\":",
+            "\"touchboost\":",
+        ];
+        LEAKED_FIELD_PREFIXES.iter().any(|prefix| trimmed_line.starts_with(prefix))
+    }
+
     fn apply_single_mutation(content: &str, key: &str, formatted_val: &str) -> String {
         let mut out = String::with_capacity(content.len() + 64);
 
@@ -451,9 +487,56 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
             for (idx, line) in lines.iter().enumerate() {
                 let trimmed = line.trim();
                 if !in_sec && !sec_handled {
+                    // Automatically filter out orphaned root lines that previously leaked outside sections
+                    if Self::is_orphaned_root_line(trimmed) {
+                        continue;
+                    }
+
                     if let Some(pos) = trimmed.find(&sec_pat) {
                         let after = trimmed[pos + sec_pat.len()..].trim_start();
                         if after.starts_with(':') && after.contains('{') {
+                            if after.contains('}') {
+                                // Inline single-line object: e.g. "charging": { "charging_mode": "standard", "bypass_enabled": false },
+                                let brace_open = line.find('{').unwrap();
+                                let brace_close = line.rfind('}').unwrap();
+                                let indent_len = line.len() - line.trim_start().len();
+                                let indent = &line[..indent_len];
+                                let inner = line[brace_open + 1..brace_close].trim();
+                                let comma_suffix = if line[brace_close + 1..].trim().ends_with(',') { "," } else { "" };
+
+                                let mut fields: Vec<(String, String)> = Vec::new();
+                                let mut updated = false;
+
+                                for part in inner.split(',') {
+                                    let part_trimmed = part.trim();
+                                    if part_trimmed.is_empty() {
+                                        continue;
+                                    }
+                                    if let Some((k_raw, v_raw)) = part_trimmed.split_once(':') {
+                                        let k = k_raw.trim().trim_matches('"');
+                                        let v = v_raw.trim();
+                                        if k == fld {
+                                            fields.push((k.to_string(), formatted_val.to_string()));
+                                            updated = true;
+                                        } else {
+                                            fields.push((k.to_string(), v.to_string()));
+                                        }
+                                    }
+                                }
+                                if !updated {
+                                    fields.push((fld.to_string(), formatted_val.to_string()));
+                                }
+
+                                out.push_str(&format!("{}\"{}\": {{\n", indent, sec));
+                                for (i, (k, v)) in fields.iter().enumerate() {
+                                    let c = if i < fields.len() - 1 { "," } else { "" };
+                                    out.push_str(&format!("{}  \"{}\": {}{}\n", indent, k, v, c));
+                                }
+                                out.push_str(&format!("{}}}{}\n", indent, comma_suffix));
+                                sec_handled = true;
+                                continue;
+                            }
+
                             in_sec = true;
                             out.push_str(line);
                             out.push('\n');
@@ -504,6 +587,10 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
                         sec_lines.push(line.to_string());
                     }
                 } else {
+                    // If section was already handled and not in section, clean up any leaked orphaned root fields
+                    if Self::is_orphaned_root_line(trimmed) {
+                        continue;
+                    }
                     out.push_str(line);
                     out.push('\n');
                 }

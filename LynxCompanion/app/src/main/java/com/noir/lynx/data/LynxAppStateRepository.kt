@@ -147,14 +147,43 @@ internal object LynxAppStateRepository {
                       "release_type": "release",
                       "active_profile": "$baseProf",
                       "target_soc": "$targetSoc",
-                      "memory": { "mglru_enabled": true, "swappiness": 80 },
-                      "charging": { "charging_mode": "standard", "bypass_enabled": false },
-                      "uclamp": { "game_min_ratio": 70, "game_max_ratio": 100, "balance_min_ratio": 20 },
-                      "display_touch": { "touchboost": true, "refresh_rate_lock": 120 },
-                      "network": { "wifi_ping_stabilizer": true, "tcp_congestion": "cubic", "fq_codel_enabled": true },
-                      "audio": { "low_latency_mmap": true, "fast_track_enabled": true },
-                      "oem_neutralizer": { "joyose_neutralize": true, "gos_neutralize": true },
-                      "thermal": { "full_bypass": false, "custom_temp_limit_c": 50 }
+                      "memory": {
+                        "mglru_enabled": true,
+                        "swappiness": 80
+                      },
+                      "charging": {
+                        "charging_mode": "standard",
+                        "bypass_enabled": false,
+                        "extreme_charging_enabled": false,
+                        "limit_current_ma": 2000,
+                        "is_unconstrained_max_hw": false
+                      },
+                      "uclamp": {
+                        "game_min_ratio": 70,
+                        "game_max_ratio": 100,
+                        "balance_min_ratio": 20
+                      },
+                      "display_touch": {
+                        "touchboost": true,
+                        "refresh_rate_lock": 120
+                      },
+                      "network": {
+                        "wifi_ping_stabilizer": true,
+                        "tcp_congestion": "cubic",
+                        "fq_codel_enabled": true
+                      },
+                      "audio": {
+                        "low_latency_mmap": true,
+                        "fast_track_enabled": true
+                      },
+                      "oem_neutralizer": {
+                        "joyose_neutralize": true,
+                        "gos_neutralize": true
+                      },
+                      "thermal": {
+                        "full_bypass": false,
+                        "custom_temp_limit_c": 50
+                      }
                     }
                 """.trimIndent()
                 writeTextToFileSafely(path, defaultJson)

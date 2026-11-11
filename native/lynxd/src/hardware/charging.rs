@@ -63,10 +63,10 @@ const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/sys/devices/platform/charger/BN_TestMode", "0"),
     ("/sys/devices/platform/charger/BatteryNotify", "1"),
     ("/sys/devices/platform/charger/sw_jeita", "1"),
-    ("/sys/devices/platform/charger/input_current", "5b8d80"),
+    ("/sys/devices/platform/charger/input_current", "6000000"),
     ("/sys/devices/platform/charger/sc_ibat_limit", "2000"),
-    ("/sys/devices/platform/charger/chg1_current", "5b8d80"),
-    ("/sys/devices/platform/charger/chg2_current", "5b8d80"),
+    ("/sys/devices/platform/charger/chg1_current", "6000000"),
+    ("/sys/devices/platform/charger/chg2_current", "6000000"),
     ("/sys/class/power_supply/battery/fastcharge_mode", "0"),
     ("/sys/class/power_supply/battery/fast_charge", "0"),
     ("/sys/class/power_supply/battery/boost_current", "0"),
@@ -579,14 +579,10 @@ impl ChargingRegulator {
     }
 
     /// MediaTek kernel `store_input_current`, `store_chg1_current`, and `store_chg2_current`
-    /// parse user writes with `kstrtouint(buf, 16, &reg)` in microamperes (uA), while `show_*`
-    /// prints the stored integer in decimal microamperes (`%d\n`).
-    /// Writing decimal mA (e.g. `"6000"`) is parsed as `0x6000 = 24,576 uA` (24.5 mA),
-    /// severely choking charging! Always format target mA as lowercase hexadecimal uA
-    /// (e.g. `6000 mA -> 6,000,000 uA -> "5b8d80"`).
+    /// parse user writes in microamperes (uA) in decimal (e.g. 6000 mA -> 6,000,000 uA -> "6000000").
     #[inline]
     pub fn format_mtk_charger_hex_ua(ma: u32) -> String {
-        format!("{:x}", (ma as u64) * 1000)
+        ((ma as u64) * 1000).to_string()
     }
 
     /// Safely ensures MediaTek PMIC power path and battery charging are enabled without
@@ -907,10 +903,18 @@ impl ChargingRegulator {
         let volt_mv = if volt_raw > 100_000 { volt_raw / 1000 } else { volt_raw };
         let is_dual_cell = volt_mv >= 7000 && volt_mv <= 12000;
 
+        let has_tran_hw = Path::new("/sys/devices/platform/odm/odm:tran_battery").exists()
+            || Path::new("/sys/devices/platform/tran_battery").exists()
+            || Path::new("/sys/bus/i2c/drivers/rt9759").exists()
+            || Path::new("/sys/devices/platform/charger/BN_TestMode").exists();
+
         let resolved = if max_ma >= 3500 {
             max_ma
         } else if is_dual_cell {
             12000
+        } else if has_tran_hw {
+            // Transsion Direct Charge Pump (RT9759 33W pump) supports 6000-7000mA
+            7000
         } else {
             let silicon_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32;
             silicon_ma.max(3000)
@@ -2897,7 +2901,17 @@ impl ChargingRegulator {
             let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
             let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
-            if adpv_clean < 6500 && cur_now_ma < 1500 {
+
+            let should_reconnect = if Self::is_qualcomm_soc() {
+                // Qualcomm QC: Unconstrained step-up kick (tested & proven on RN7)
+                adpv_clean < 6500 && cur_now_ma < 1500
+            } else {
+                // Non-QC / MediaTek / 5V Standard Chargers: Only kick if genuinely stalled!
+                // Standard 5V charging (4.6V - 5.2V) with healthy current (> 350mA) must NOT be interrupted!
+                adpv_clean > 3500 && cur_now_ma < 350
+            };
+
+            if should_reconnect {
                 Self::trigger_charger_soft_reconnect();
             }
         }
@@ -4001,10 +4015,10 @@ impl ChargingRegulator {
                 // and `en_power_path` reads `"1"` when charging is enabled. Checking `enable_sc == "1"` or
                 // `pwr_path == "0"` caused a 1 Hz infinite re-init loop that aborted `dv2_algo_task` (RT9759 33W pump)!
                 bn_test == "1"
-                    && in_cur >= 2_000_000
+                    && (in_cur >= 2_000_000 || in_cur == 4294967295)
                     && sc_limit >= 1000
-                    && chg1 >= 2_000_000
-                    && chg2 >= 2_000_000
+                    && (chg1 >= 2_000_000 || chg1 == 4294967295)
+                    && (chg2 >= 2_000_000 || chg2 == 4294967295 || chg2 == 0 || !Path::new(&format!("{}/chg2_current", MTK_DIR)).exists())
                     && pe20 == "1"
                     && pe40 == "1"
                     && (cur_cmd.trim() == "1 0" || cur_cmd.trim() == "0 0" || cur_cmd.is_empty())
@@ -4989,26 +5003,21 @@ mod tests {
         assert_eq!(map.get("/sys/devices/platform/charger/tran_charger_full"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/tran_game_mode"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/sw_jeita"), Some(&"1"));
-        assert_eq!(map.get("/sys/devices/platform/charger/input_current"), Some(&"5b8d80"));
+        assert_eq!(map.get("/sys/devices/platform/charger/input_current"), Some(&"6000000"));
         assert_eq!(map.get("/sys/devices/platform/charger/sc_ibat_limit"), Some(&"2000"));
-        assert_eq!(map.get("/sys/devices/platform/charger/chg1_current"), Some(&"5b8d80"));
-        assert_eq!(map.get("/sys/devices/platform/charger/chg2_current"), Some(&"5b8d80"));
+        assert_eq!(map.get("/sys/devices/platform/charger/chg1_current"), Some(&"6000000"));
+        assert_eq!(map.get("/sys/devices/platform/charger/chg2_current"), Some(&"6000000"));
         assert_eq!(map.get("/sys/class/power_supply/battery/boost_current"), Some(&"0"));
         assert_eq!(map.get("/sys/class/power_supply/battery/constant_charge_current_max"), Some(&"4500000"));
     }
 
     #[test]
     fn test_format_mtk_charger_hex_ua() {
-        // 7000 mA -> 7,000,000 uA -> 0x6acfc0
-        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(7000), "6acfc0");
-        assert_eq!(u64::from_str_radix(&ChargingRegulator::format_mtk_charger_hex_ua(7000), 16).unwrap(), 7_000_000);
-        // 6000 mA -> 6,000,000 uA -> 0x5b8d80
-        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(6000), "5b8d80");
-        assert_eq!(u64::from_str_radix(&ChargingRegulator::format_mtk_charger_hex_ua(6000), 16).unwrap(), 6_000_000);
-        // 2500 mA -> 2,500,000 uA -> 0x2625a0
-        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(2500), "2625a0");
-        // 1000 mA -> 1,000,000 uA -> 0xf4240
-        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(1000), "f4240");
+        // Microamperes formatted as decimal uA for MTK kernel drivers
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(7000), "7000000");
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(6000), "6000000");
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(2500), "2500000");
+        assert_eq!(ChargingRegulator::format_mtk_charger_hex_ua(1000), "1000000");
     }
 
     #[test]

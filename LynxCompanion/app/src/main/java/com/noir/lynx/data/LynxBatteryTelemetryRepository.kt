@@ -63,7 +63,11 @@ internal object LynxBatteryTelemetryRepository {
                     is_plugged=0
                     if [ "${'$'}uon" = "1" ]; then
                         is_plugged=1
+                    elif [ "${'$'}adpv_probe" -gt 4400 ]; then
+                        is_plugged=1
                     elif [ "${'$'}adpv_probe" -gt 3500 ] && [ "${'$'}chgtyp" != "0" ] && [ -n "${'$'}chgtyp" ] && [ "${'$'}chgtyp" != "Unknown" ]; then
+                        is_plugged=1
+                    elif [ "${'$'}stat" = "Charging" ] || [ "${'$'}stat" = "Full" ]; then
                         is_plugged=1
                     fi
 
@@ -76,7 +80,6 @@ internal object LynxBatteryTelemetryRepository {
                         ibus=0
                         chgtyp=""
                         cst="state=discharging cap=${'$'}cap"
-                        rm -f /dev/lynx_extreme_charging 2>/dev/null
                     else
                         adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
                         [ -z "${'$'}adpv" ] || [ "${'$'}adpv" -le 0 ] 2>/dev/null && adpv=${'$'}(cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null)
