@@ -241,7 +241,7 @@ impl ProfileExecutor {
         crate::subsystems::SchedulerGuardian::enforce_permission_shield(is_perf_or_ext);
 
         let _ = fs::create_dir_all("/data/adb/lynx");
-        let _ = fs::write("/data/adb/lynx/active_profile", &plan.profile_name);
+        crate::state::ConfigStore::sync_profile_markers(&plan.profile_name, true);
         let _ = fs::write("/data/adb/lynx/baseline_profile", &plan.profile_name);
 
         // ── Phase 7 & 8: Post-Commit Persistence & Verification ──

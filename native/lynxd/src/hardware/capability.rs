@@ -557,15 +557,18 @@ impl HardwareCapability {
 
             #[cfg(target_os = "android")]
             {
-                let diag = format!(
-                    "{{\"vendor\":\"Qualcomm Adreno\",\"cur_freq_mhz\":{},\"min_freq_mhz\":{},\"max_freq_mhz\":{},\"num_pwrlevels\":{},\"avail_freqs\":{:?}}}\n",
-                    cur_freq_mhz, min_freq_mhz, max_freq_mhz, num_pwrlevels, available_freqs_mhz
-                );
-                let diag_path = Path::new("/data/local/tmp/lynxd_gpu_diag.json");
-                if std::fs::write(diag_path, &diag).is_ok() {
-                    use std::os::unix::fs::PermissionsExt;
-                    let _ = std::fs::set_permissions(diag_path, std::fs::Permissions::from_mode(0o666));
-                }
+                static GPU_DIAG_ONCE: std::sync::Once = std::sync::Once::new();
+                GPU_DIAG_ONCE.call_once(|| {
+                    let diag = format!(
+                        "{{\"vendor\":\"Qualcomm Adreno\",\"cur_freq_mhz\":{},\"min_freq_mhz\":{},\"max_freq_mhz\":{},\"num_pwrlevels\":{},\"avail_freqs\":{:?}}}\n",
+                        cur_freq_mhz, min_freq_mhz, max_freq_mhz, num_pwrlevels, available_freqs_mhz
+                    );
+                    let diag_path = Path::new("/data/local/tmp/lynxd_gpu_diag.json");
+                    if std::fs::write(diag_path, &diag).is_ok() {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(diag_path, std::fs::Permissions::from_mode(0o666));
+                    }
+                });
             }
 
             return GpuCapability {
@@ -841,6 +844,52 @@ impl HardwareCapability {
             boost_level: 0,
             num_pwrlevels: 0,
         }
+    }
+
+    /// Low-overhead runtime GPU sampler for high-frequency daemon ticks and touch wake.
+    /// Caches static hardware OPP geometry once while reading live frequency, load, and boost cleanly.
+    pub fn sample_gpu_fast(vendor: Vendor) -> GpuCapability {
+        static GPU_BASE_CAP: std::sync::OnceLock<GpuCapability> = std::sync::OnceLock::new();
+
+        if let Some(base) = GPU_BASE_CAP.get() {
+            let mut sampled = base.clone();
+            match sampled.driver {
+                GpuDriver::QcomKgsl => {
+                    let cur_raw = SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/gpuclk")
+                        .or_else(|_| SysfsReader::read_int::<u64>("/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq"))
+                        .unwrap_or(sampled.cur_freq_mhz);
+                    sampled.cur_freq_mhz = Self::normalize_freq_to_mhz(cur_raw);
+                    sampled.load_pct = Self::read_kgsl_load();
+                    sampled.boost_level = SysfsReader::read_int::<u32>("/sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost")
+                        .or_else(|_| SysfsReader::read_int::<u32>("/sys/class/kgsl/kgsl-3d0/adrenoboost"))
+                        .unwrap_or(sampled.boost_level);
+                }
+                GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
+                    let cur = Self::read_mtk_gpu_cur_mhz();
+                    if cur > 0 {
+                        sampled.cur_freq_mhz = cur;
+                    }
+                    sampled.load_pct = Self::read_mtk_gpu_load();
+                }
+                GpuDriver::GenericDevfreq => {
+                    if let Some(ref devpath) = sampled.devfreq_path {
+                        if let Ok(cur_raw) = SysfsReader::read_int::<u64>(devpath.join("cur_freq")) {
+                            sampled.cur_freq_mhz = Self::normalize_freq_to_mhz(cur_raw);
+                        }
+                        sampled.load_pct = SysfsReader::read_int::<u32>(devpath.join("load"))
+                            .unwrap_or(sampled.load_pct);
+                    }
+                }
+                GpuDriver::Unsupported => {}
+            }
+            return sampled;
+        }
+
+        let resolved = Self::resolve_gpu(vendor);
+        if resolved.is_supported && !resolved.opp_table.is_empty() {
+            let _ = GPU_BASE_CAP.set(resolved.clone());
+        }
+        resolved
     }
 
     pub fn normalize_freq_to_mhz(raw: u64) -> u64 {

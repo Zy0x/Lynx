@@ -1,6 +1,7 @@
 use std::fmt::Write as FmtWrite;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
@@ -8,15 +9,104 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use crate::hardware::capability::HardwareCapability;
+use crate::hardware::capability::{HardwareCapability, PolicyCapability};
+use crate::hardware::DeviceTier;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 static LAST_CPU_TOUCH_BOOST_MS: AtomicU64 = AtomicU64::new(0);
 static IS_CPU_TOUCH_BOOSTED: AtomicBool = AtomicBool::new(false);
 
+#[derive(Clone)]
+struct CachedTouchCluster {
+    min_path: PathBuf,
+    max_path: PathBuf,
+    max_freq: u64,
+    touch_min_str: String,
+    is_big_cluster: bool,
+}
+
+static TOUCH_CLUSTERS_CACHE: OnceLock<Vec<CachedTouchCluster>> = OnceLock::new();
+
 pub struct ClusterController;
 
+/// Selects an OPP frequency from sorted `available_freqs` at fractional quantile `(num / den)`,
+/// falling back to linear interpolation between `min_freq..max_freq`. Zero hardcoded SoC kHz values.
+pub(crate) fn pick_opp_quantile_freq(
+    available_freqs: &[u64],
+    min_freq: u64,
+    max_freq: u64,
+    num: usize,
+    den: usize,
+) -> u64 {
+    if !available_freqs.is_empty() {
+        let idx = ((available_freqs.len().saturating_sub(1)) * num) / den.max(1);
+        return available_freqs[idx];
+    }
+    let span = max_freq.saturating_sub(min_freq);
+    min_freq + (span.saturating_mul(num as u64)) / (den.max(1) as u64)
+}
+
+/// Computes dynamic CPU touch-hold window based on hardware tier & live touch motion continuity.
+pub(crate) fn touch_decay_window_ms(tier: &DeviceTier, actively_moving: bool) -> u64 {
+    if actively_moving {
+        650
+    } else if tier.is_low_end_ram || tier.is_emmc_primary {
+        450
+    } else {
+        600
+    }
+}
+
 impl ClusterController {
+    /// Exposes current touch-boost window state so `SchedulerGuardian` yields cleanly during swipes.
+    pub fn is_touch_boosted() -> bool {
+        IS_CPU_TOUCH_BOOSTED.load(Ordering::Relaxed)
+    }
+
+    fn cached_touch_clusters() -> &'static [CachedTouchCluster] {
+        TOUCH_CLUSTERS_CACHE
+            .get_or_init(|| {
+                let cpu = HardwareCapability::resolve_cpu();
+                let tier = DeviceTier::cached_live();
+                let is_single_cluster = cpu.policies.len() <= 1;
+
+                cpu.policies
+                    .into_iter()
+                    .map(|pol: PolicyCapability| {
+                        let is_big = !is_single_cluster
+                            && (pol.index > 0
+                                || pol.role.contains("Big")
+                                || pol.role.contains("Performa")
+                                || pol.role.contains("Prime"));
+                        let (q_num, q_den) = if !is_big {
+                            if is_single_cluster { (22, 100) } else { (15, 100) }
+                        } else if tier.is_low_end_ram || tier.is_emmc_primary {
+                            (30, 100)
+                        } else {
+                            (45, 100)
+                        };
+                        let touch_min = pick_opp_quantile_freq(
+                            &pol.available_freqs,
+                            pol.min_freq,
+                            pol.max_freq,
+                            q_num,
+                            q_den,
+                        );
+                        let min_path = pol.path.join("scaling_min_freq");
+                        let max_path = pol.path.join("scaling_max_freq");
+                        CachedTouchCluster {
+                            min_path,
+                            max_path,
+                            max_freq: pol.max_freq,
+                            touch_min_str: touch_min.to_string(),
+                            is_big_cluster: is_big || is_single_cluster,
+                        }
+                    })
+                    .collect()
+            })
+            .as_slice()
+    }
+
     fn set_perm(path: &Path, mode: u32) {
         #[cfg(unix)]
         {
@@ -271,7 +361,7 @@ impl ClusterController {
     }
 
     /// Sub-millisecond physical touch boost notification called from touchscreen interrupt thread.
-    /// Elevates EAS schedtune boost and Big cluster floor dynamically during interaction.
+    /// Elevates top-app EAS schedtune boost and discovered performance cluster floors dynamically.
     pub fn on_hardware_touch() {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -287,67 +377,78 @@ impl ClusterController {
 
         IS_CPU_TOUCH_BOOSTED.store(true, Ordering::Relaxed);
 
-        // Immediate sub-1ms boost to top-app and foreground schedtune & big core floor
-        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", "25", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "1", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", "25", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "1", WriteMode::Direct);
+        let tier = DeviceTier::cached_live();
+        let (base_top, _, base_fg) = tier.stune_targets("performance");
+        let base_top_val: u32 = base_top.parse().unwrap_or(20);
+        let touch_boost_val = base_top_val.max(if tier.is_low_end_ram { 25 } else { 30 });
 
-        // Elevate Big Cluster minimum frequency to responsive floor (~1.4GHz) during the swipe
-        for pol_id in &[4, 6, 7] {
-            let min_path = format!("/sys/devices/system/cpu/cpufreq/policy{}/scaling_min_freq", pol_id);
-            if Path::new(&min_path).exists() {
-                let _ = SysfsWriter::write(&min_path, "1401600", WriteMode::Direct);
+        // Exclusive top-app UI priority boost (never promote background foreground workers to Big cores)
+        let _ = SysfsWriter::write(
+            "/dev/stune/top-app/schedtune.boost",
+            touch_boost_val.to_string(),
+            WriteMode::Direct,
+        );
+        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "1", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", base_fg, WriteMode::Direct);
+
+        // Elevate discovered Big/Performance clusters dynamically using hardware OPP quantiles
+        for pol in Self::cached_touch_clusters() {
+            if pol.is_big_cluster {
+                let _ = SysfsWriter::write(&pol.min_path, &pol.touch_min_str, WriteMode::Direct);
             }
         }
     }
 
     /// Autonomous CPU Cluster Dynamic Governor & Ceiling Guardian tick executed on every daemon cycle.
-    /// 1. Continuously un-clamps Big cluster scaling_max_freq if artificially restricted below hardware capability.
-    /// 2. Handles touch boost decay (300ms window) restoring baseline floor and power-efficient state when idle.
+    /// 1. Un-clamps performance cluster scaling_max_freq only if restricted below hardware capability.
+    /// 2. Decays touch boost cleanly via motion-adaptive hysteresis back to tier-appropriate baseline.
     pub fn tick_dynamic_scaler(is_screen_on: bool, current_profile: &str) {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let cpu = HardwareCapability::resolve_cpu();
-
-        // 1. Uncap & guard Big cluster scaling_max_freq
-        for pol in &cpu.policies {
-            if pol.is_locked {
+        // 1. Lightweight Big-cluster max ceiling guard (zero sysfs dir-scan or OPP parsing per tick)
+        let clusters = Self::cached_touch_clusters();
+        let mut neutralized = false;
+        for pol in clusters {
+            if !pol.is_big_cluster {
                 continue;
             }
-            let is_big = pol.role.contains("Big")
-                || pol.role.contains("Performa")
-                || pol.index > 0;
-
-            if is_big {
-                let max_path = pol.path.join("scaling_max_freq");
-                // If in gaming/extreme or scaling_max_freq is artificially clamped below hardware max by vendor quiet-therm:
-                if pol.current_max_freq < pol.max_freq || current_profile == "performance" || current_profile == "extreme" {
-                    crate::subsystems::ThermalController::neutralize_quiet_therm();
-                }
-                if pol.current_max_freq < pol.max_freq {
-                    let _ = SysfsWriter::write(&max_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
+            if let Ok(cur_max) = SysfsReader::read_int::<u64>(&pol.max_path) {
+                if cur_max < pol.max_freq && (current_profile == "performance" || current_profile == "extreme") {
+                    if !neutralized {
+                        crate::subsystems::ThermalController::neutralize_quiet_therm();
+                        neutralized = true;
+                    }
+                    let is_locked = std::fs::metadata(&pol.max_path)
+                        .map(|m| m.permissions().readonly())
+                        .unwrap_or(false);
+                    if !is_locked {
+                        let _ = SysfsWriter::write(&pol.max_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
+                    }
                 }
             }
         }
 
-        // 2. Touch Boost Decay (750ms window to cover fling coasting momentum)
+        // 2. Adaptive Touch Boost Decay (fast cooldown when idle, stretched smoothly while flinging)
         let was_boosted = IS_CPU_TOUCH_BOOSTED.load(Ordering::Relaxed);
         if was_boosted {
             let last_touch = LAST_CPU_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-            if !is_screen_on || now_ms.saturating_sub(last_touch) >= 750 {
-                // Touch window expired or screen off: restore baseline floor & schedtune
+            let tier = DeviceTier::cached_live();
+            let actively_moving = crate::daemon::TouchDetector::is_touch_moving(200)
+                || crate::daemon::TouchDetector::is_rapid_touch(180, 2);
+            let hold_ms = touch_decay_window_ms(&tier, actively_moving);
+            if !is_screen_on || now_ms.saturating_sub(last_touch) >= hold_ms {
                 IS_CPU_TOUCH_BOOSTED.store(false, Ordering::Relaxed);
+                let cpu = HardwareCapability::resolve_cpu();
                 Self::restore_baseline_floor(&cpu, current_profile);
             }
         }
     }
 
     pub fn restore_baseline_floor(cpu: &crate::hardware::capability::CpuCapability, current_profile: &str) {
-        let tier = crate::hardware::DeviceTier::detect_live();
+        let tier = crate::hardware::DeviceTier::cached_live();
         let (target_boost, _, fg_boost) = tier.stune_targets(current_profile);
         let prefer_high = match current_profile {
             "extreme" => "1",
@@ -358,6 +459,7 @@ impl ClusterController {
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_idle", "1", WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", fg_boost, WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "0", WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {

@@ -1,3 +1,17 @@
+# Lynx Universal [Zero-Fork Daemon Snapshot, Universal Dynamic Touch/GPU/CPU Scaling & SchedulerGuardian Sync] 7.0.0-RC377
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.1
+
+- **Eliminasi Fork-Storm `chmod` & Penulisan `/data` eMMC Berulang di Daemon (`lynxd`)**:
+  - Menghapus pemanggilan subproses `Command::new("chmod")` 2x per detik di `DaemonRunner::write_telemetry_snapshot` dan `write_status_snapshot` karena izin berkas sudah diatur langsung melalui syscall native.
+  - Membatasi penulisan `lynxd_gpu_diag.json` melalui `Once` agar hanya ditulis sekali per sesi (sebelumnya tertulis ke eMMC berulang kali di loop 250ms/1s) dan menambah `HardwareCapability::sample_gpu_fast` serta `DeviceTier::cached_live()` agar *hot loop* bebas dari pembacaan `config.json`, `/proc/meminfo`, maupun pemindaian `sysfs` berulang.
+  - Menyimpan snapshot *real-time* di tmpfs RAM `/dev/lynxd_*.json` tanpa jeda, sementara *mirror* `/data/local/tmp/lynxd_telemetry.json` disesuaikan secara dinamis (`3` detik pada penyimpanan eMMC / `2` detik pada UFS saat layar menyala, segera saat profil/aplikasi berubah, dan `0` penulisan periodik ke `/data` saat layar mati) serta memadankan batas kesegaran `LynxTelemetryReader` (`5500 ms`).
+  - Memperkenalkan `ConfigStore::sync_profile_markers` untuk menjaga konsistensi penuh `/data/adb/lynx/active_profile`, `/data/local/tmp/lynxd_profile`, dan `lynx.mode` pada seluruh jalur pergantian profil (CLI, `executor`, `runner`, dan Companion).
+- **Penyelarasan `SchedulerGuardian` & Kalibrasi Universal Touch/CPU/GPU Berbasis Kapabilitas Perangkat**:
+  - Menyatukan target `SchedulerGuardian::tick` dengan `DeviceTier::stune_targets` (mengganti konstanta keras `35/60/35` & paksaan `prefer_high_cap`) serta menghormati jendela sentuhan aktif (`ClusterController::is_touch_boosted`) sehingga tidak lagi terjadi tarik-ulur setiap 1 detik pada perangkat *low-end* / 14nm.
+  - Menghapus ID kluster keras `policy 4/6/7` dan frekuensi tetap `1401600` pada `ClusterController::on_hardware_touch`; kini kluster Big/Performa dideteksi otomatis dari topologi kernel dengan lantai sentuhan adaptif berbasis kuantil tabel OPP (`pick_opp_quantile_freq`), memprioritaskan `top-app` tanpa mendorong *worker* latar belakang `foreground` ke inti besar, dan meluruh adaptif (`450–650 ms`).
+  - Memperbarui `GpuController` (`on_hardware_touch` tanpa I/O disk, dua tahap bangun cepat `Light -> Fluid` saat jari bergerak/fling cepat, normalisasi beban GPU proporsional terhadap `max_freq_mhz`, penemuan sensor termal GPU/SoC & titik trip pasif kernel otomatis tanpa ID zona statis, dan penurunan bertingkat bersih ke `Idle` saat UI diam agar tetap dingin sekaligus responsif tanpa lag).
+
 # Lynx Universal [eMMC vs UFS Storage Differentiation, Low-End <=4.5GB Tuning & Zero-Lag Performance Mode] 7.0.0-RC376
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.0

@@ -23,8 +23,8 @@ fn normalize_profile_str(p: &str) -> &'static str {
 /// Falls back to `last_known` (not "balance") if all detection methods fail temporarily,
 /// preventing glitch from empty/unreadable state files at HUD startup.
 fn detect_active_profile(last_known: &mut String) -> String {
-    // Priority 1: Live ephemeral status snapshot from lynxd daemon (/data/local/tmp/lynxd_status.json or /dev/lynxd_status.json)
-    for path in &["/data/local/tmp/lynxd_status.json", "/dev/lynxd_status.json"] {
+    // Priority 1: Live ephemeral status snapshot from lynxd daemon (RAM tmpfs first, eMMC mirror fallback)
+    for path in &["/dev/lynxd_status.json", "/data/local/tmp/lynxd_status.json"] {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Some(pos) = content.find("\"profile\":\"") {
                 let after = &content[pos + 11..];
@@ -39,8 +39,8 @@ fn detect_active_profile(last_known: &mut String) -> String {
             }
         }
     }
-    // Priority 2: Ephemeral plaintext /data/local/tmp/lynxd_profile or /data/adb/lynx/active_profile
-    for path in &["/data/local/tmp/lynxd_profile", "/data/adb/lynx/active_profile"] {
+    // Priority 2: Plaintext active profile markers (/data/adb/lynx/active_profile & /data/local/tmp/lynxd_profile)
+    for path in &["/data/adb/lynx/active_profile", "/data/local/tmp/lynxd_profile"] {
         if let Ok(content) = std::fs::read_to_string(path) {
             let p = content.trim();
             if !p.is_empty() {

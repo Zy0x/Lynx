@@ -88,9 +88,15 @@ impl DaemonRunner {
         let _ = std::process::Command::new("settings").args(&["put", "global", "disable_window_blurs", "1"]).output();
         let _ = std::process::Command::new("setprop").args(&["persist.sys.sf.disable_blurs", "1"]).output();
 
+        crate::state::ConfigStore::sync_profile_markers(&initial_profile, true);
+
         let monotonic_boot = std::time::Instant::now();
         let mut last_detect_instant = std::time::Instant::now();
         let mut last_cooldown_check = 0u64;
+        let mut last_tmp_telemetry_sync = 0u64;
+        let mut last_tmp_status_sync = 0u64;
+        let mut last_tmp_status_sig = String::new();
+        let mut last_tmp_bat_pct = u32::MAX;
         let mut last_maintenance_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -131,6 +137,7 @@ impl DaemonRunner {
                 if !active_str.is_empty() && active_str != decision_engine.current_profile() {
                     if matches!(active_str, "powersave" | "balance" | "performance" | "extreme" | "dormant") {
                         decision_engine.notify_applied(active_str);
+                        crate::state::ConfigStore::sync_profile_markers(active_str, true);
                         if let Some(target_prof) = get_profile_by_name(active_str) {
                             let plan = ExecutionPlan::build(&target_prof);
                             let _ = ProfileExecutor::execute(&plan, false);
@@ -254,21 +261,8 @@ impl DaemonRunner {
                                     format!("[DAEMON] PROFILE_COMMIT_NS: {} -> '{}' (Selisih latensi peralihan: {:.2} ms [{} ns], Commit: {} node, Total peralihan: {})", commit_ns, target_profile, delta_ms, delta_ns, report.operations_committed, total_transitions)
                                 });
                                 decision_engine.notify_applied(target_profile);
-                                // 1. Synchronize active profile state files immediately (world-readable mode 0666)
-                                let _ = std::fs::write("/data/adb/lynx/active_profile", target_profile);
-                                let _ = std::fs::write("/data/local/tmp/lynxd_profile", target_profile);
-                                #[cfg(unix)]
-                                {
-                                    use std::os::unix::fs::PermissionsExt;
-                                    let _ = std::fs::set_permissions("/data/adb/lynx/active_profile", std::fs::Permissions::from_mode(0o666));
-                                    let _ = std::fs::set_permissions("/data/local/tmp/lynxd_profile", std::fs::Permissions::from_mode(0o666));
-                                }
-                                #[cfg(target_os = "android")]
-                                {
-                                    let _ = std::process::Command::new("/system/bin/setprop")
-                                        .args(&["lynx.mode", target_profile])
-                                        .status();
-                                }
+                                // Synchronize active profile markers & lynx.mode without redundant flash churn
+                                crate::state::ConfigStore::sync_profile_markers(target_profile, true);
                                 if target_profile == "performance" || target_profile == "extreme" {
                                     let game_pid = fg_app.as_ref().and_then(|app| {
                                         crate::subsystems::GameController::find_pid_for_package(&app.package)
@@ -404,23 +398,48 @@ impl DaemonRunner {
                 ModifierLevel::BatterySaver => ("BatterySaver", "-10% CPU floor"),
             };
 
-            // Ephemeral runtime status snapshot for `lynxd status` and WebUI bridge
+            let status_sig = format!("{}|{}|{}|{:?}", active_prof, mod_name, app_desc, current_screen);
+            let status_changed = status_sig != last_tmp_status_sig;
+            let screen_on = current_screen == ScreenState::On;
+            let bat_changed = bat_pct != last_tmp_bat_pct;
+            let tier = crate::hardware::DeviceTier::cached_live();
+            let tele_mirror_interval = if tier.is_emmc_primary { 3u64 } else { 2u64 };
+
+            let mirror_status_tmp = status_changed
+                || (screen_on && (bat_changed || now.saturating_sub(last_tmp_status_sync) >= 30));
+            let mirror_tele_tmp = status_changed
+                || (screen_on && now.saturating_sub(last_tmp_telemetry_sync) >= tele_mirror_interval);
+
+            if status_changed {
+                last_tmp_status_sig = status_sig;
+            }
+            if mirror_status_tmp {
+                last_tmp_status_sync = now;
+                last_tmp_bat_pct = bat_pct;
+            }
+            if mirror_tele_tmp {
+                last_tmp_telemetry_sync = now;
+            }
+
+            // Ephemeral runtime status snapshot: always fast RAM tmpfs (/dev/), eMMC mirror throttled/on-change
             Self::write_status_snapshot(
                 active_prof,
                 current_mod,
                 &app_desc,
                 temp_c,
                 bat_pct,
+                mirror_status_tmp,
             );
 
-            // Unified hardware telemetry snapshot to RAM tmpfs (/dev/) for sub-0.1ms UI & companion app reads
+            // Unified hardware telemetry snapshot to RAM tmpfs (/dev/) every active cycle,
+            // mirroring to /data/local/tmp/ dynamically based on storage controller (3s eMMC / 2s UFS).
             let unified_json = state.to_unified_json(
                 Some(active_prof),
                 Some(mod_name),
                 Some(mod_desc),
                 Some(std::process::id()),
             );
-            Self::write_telemetry_snapshot(&unified_json);
+            Self::write_telemetry_snapshot(&unified_json, mirror_tele_tmp);
 
             // Dynamic Polling Interval per PROJECT.md interface contract:
             // - If ChargingRegulator::is_hardware_plugged() is true: loop interval <= 1 second (regardless of screen state).
@@ -555,27 +574,23 @@ impl DaemonRunner {
         std::path::PathBuf::from("./lynxd_telemetry.json")
     }
 
-    fn write_telemetry_snapshot(content: &str) {
+    fn write_telemetry_snapshot(content: &str, mirror_to_tmp: bool) {
         let path = Self::telemetry_snapshot_path();
         if std::fs::write(&path, content).is_ok() {
-            #[cfg(target_os = "android")]
-            {
-                let _ = std::process::Command::new("chmod")
-                    .args(&["644", "/dev/lynxd_telemetry.json"])
-                    .status();
-            }
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
                 let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644));
             }
         }
-        #[cfg(target_os = "android")]
-        {
-            let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_telemetry.json");
-            if std::fs::write(tmp_path, content).is_ok() {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+        if mirror_to_tmp {
+            #[cfg(target_os = "android")]
+            {
+                let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_telemetry.json");
+                if std::fs::write(tmp_path, content).is_ok() {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+                }
             }
         }
     }
@@ -586,6 +601,7 @@ impl DaemonRunner {
         app_desc: &str,
         temp_c: f32,
         battery_pct: u32,
+        mirror_to_tmp: bool,
     ) {
         let (mod_name, mod_desc) = match modifier {
             ModifierLevel::None => ("None", "Full Base Profile"),
@@ -601,24 +617,20 @@ impl DaemonRunner {
 
         let status_path = Self::status_snapshot_path();
         if std::fs::write(&status_path, &content).is_ok() {
-            #[cfg(target_os = "android")]
-            {
-                let _ = std::process::Command::new("chmod")
-                    .args(&["644", "/dev/lynxd_status.json"])
-                    .status();
-            }
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
                 let _ = std::fs::set_permissions(&status_path, std::fs::Permissions::from_mode(0o644));
             }
         }
-        #[cfg(target_os = "android")]
-        {
-            let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_status.json");
-            if std::fs::write(tmp_path, &content).is_ok() {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+        if mirror_to_tmp {
+            #[cfg(target_os = "android")]
+            {
+                let tmp_path = std::path::Path::new("/data/local/tmp/lynxd_status.json");
+                if std::fs::write(tmp_path, &content).is_ok() {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(tmp_path, std::fs::Permissions::from_mode(0o666));
+                }
             }
         }
     }
@@ -834,6 +846,7 @@ mod tests {
             "com.dts.freefireth (Gaming)",
             41.2,
             78,
+            true,
         );
 
         assert!(path.exists());

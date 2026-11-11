@@ -263,6 +263,12 @@ impl DeviceTier {
         }
     }
 
+    /// Returns cached boot hardware tier (`OnceLock`) for zero-cost sub-second hot paths.
+    pub fn cached_live() -> Self {
+        static CACHED: std::sync::OnceLock<DeviceTier> = std::sync::OnceLock::new();
+        *CACHED.get_or_init(Self::detect_live)
+    }
+
     /// Schedtune targets `(top_app_boost, top_app_util_min, foreground_boost)` for a profile.
     pub fn stune_targets(&self, profile_name: &str) -> (&'static str, &'static str, &'static str) {
         match profile_name {
@@ -318,5 +324,32 @@ mod tests {
         assert_eq!(rn7.cpu_bounds("performance", true, 35, 100), (0, 100));
         assert_eq!(rn7.cpu_bounds("performance", false, 35, 100), (15, 100));
         assert_eq!(rn7.gpu_high_floor_percent(), 40);
+    }
+
+    #[test]
+    fn universal_touch_and_gpu_scaling_helpers_are_soc_agnostic() {
+        use crate::subsystems::cluster::{pick_opp_quantile_freq, touch_decay_window_ms};
+        use crate::subsystems::gpu::normalized_gpu_compute_pct;
+
+        let sample_big_opps = vec![1_113_600, 1_401_600, 1_747_200, 1_958_400, 2_150_400, 2_457_600];
+        let low_end_floor = pick_opp_quantile_freq(&sample_big_opps, 1_113_600, 2_457_600, 30, 100);
+        let flagship_floor = pick_opp_quantile_freq(&sample_big_opps, 1_113_600, 2_457_600, 45, 100);
+        assert_eq!(low_end_floor, 1_401_600);
+        assert!(flagship_floor >= low_end_floor);
+
+        // Fallback linear interpolation when kernel hides scaling_available_frequencies
+        let fallback_floor = pick_opp_quantile_freq(&[], 500_000, 2_500_000, 30, 100);
+        assert_eq!(fallback_floor, 1_100_000);
+
+        let rn7 = DeviceTier::classify(3663, Some(BlockDeviceType::Emmc), false, false);
+        let ufs_flagship = DeviceTier::classify(8192, Some(BlockDeviceType::Ufs), false, false);
+        assert_eq!(touch_decay_window_ms(&rn7, false), 450);
+        assert_eq!(touch_decay_window_ms(&ufs_flagship, false), 600);
+        assert_eq!(touch_decay_window_ms(&rn7, true), 650);
+
+        // Proportional GPU normalization works equally across 450 MHz Mali and 1000 MHz Adreno
+        assert_eq!(normalized_gpu_compute_pct(450, 450, 50), 50);
+        assert_eq!(normalized_gpu_compute_pct(500, 1000, 50), 25);
+        assert_eq!(normalized_gpu_compute_pct(375, 750, 80), 40);
     }
 }

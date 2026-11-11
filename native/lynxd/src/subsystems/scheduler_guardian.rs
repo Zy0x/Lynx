@@ -68,19 +68,52 @@ impl SchedulerGuardian {
 
     /// Periodic guardian check executed in daemon active loop.
     /// Protects against notification priority inversion, heads-up window degradation, and rogue framework resets.
+    /// Derives scheduler protection targets dynamically from the device hardware tier
+    /// so `SchedulerGuardian` stays aligned with `ClusterController` and never fights baseline floors.
+    /// Returns `(target_stune_boost, target_ta_boost, target_fg_boost, enforce_high_cap, threshold)`.
+    pub(crate) fn resolve_tick_policy(
+        active_profile: &str,
+        tier: &crate::hardware::DeviceTier,
+    ) -> Option<(i32, i32, i32, bool, i64)> {
+        if matches!(active_profile, "powersave" | "dormant") {
+            return None;
+        }
+        let (top_str, _, fg_str) = tier.stune_targets(active_profile);
+        let top_boost: i32 = top_str.parse().unwrap_or(20);
+        let fg_boost: i32 = fg_str.parse().unwrap_or(15);
+        let enforce_high_cap = match active_profile {
+            "extreme" => true,
+            "performance" => !tier.is_low_end_ram,
+            _ => false,
+        };
+        let target_ta_boost = match active_profile {
+            "extreme" => 100,
+            "performance" => if tier.is_low_end_ram { 45 } else { 60 },
+            _ => 30,
+        };
+        let threshold = ((top_boost as i64) * 3) / 4;
+        Some((top_boost, target_ta_boost, fg_boost, enforce_high_cap, threshold))
+    }
+
     pub fn tick(active_profile: &str, screen_on: bool) {
         if !screen_on {
             return;
         }
 
-        let (target_stune_boost, target_ta_boost, target_fg_boost, enforce_high_cap, threshold) = match active_profile {
-            "extreme" => (50, 100, 50, true, 40i64),
-            "performance" => (35, 60, 35, true, 25i64),
-            "balance" | "balanced" => (20, 30, 15, false, 14i64),
-            _ => return, // Powersave allows OS defaults
+        let tier = crate::hardware::DeviceTier::cached_live();
+        let Some((target_stune_boost, target_ta_boost, target_fg_boost, enforce_high_cap, threshold)) =
+            Self::resolve_tick_policy(active_profile, &tier)
+        else {
+            return; // Powersave/dormant allows OS defaults
         };
 
         let is_locked_mode = matches!(active_profile, "performance" | "extreme");
+        let touch_active = crate::subsystems::ClusterController::is_touch_boosted();
+        let effective_stune_target = if touch_active {
+            target_stune_boost.max(25)
+        } else {
+            target_stune_boost
+        };
 
         // 1. Check & Protect Schedtune Top-App Boost & High-Cap
         if Path::new(Self::STUNE_TOP_BOOST).exists() {
@@ -92,15 +125,15 @@ impl SchedulerGuardian {
                     }
                     let _ = SysfsWriter::write(
                         Path::new(Self::STUNE_TOP_BOOST),
-                        &target_stune_boost.to_string(),
+                        &effective_stune_target.to_string(),
                         WriteMode::ForcePermission,
                     );
                     if is_locked_mode {
                         Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o644);
                     }
 
-                    // Protect prefer_high_cap for performance/extreme
-                    if enforce_high_cap && Path::new(Self::STUNE_TOP_HIGH_CAP).exists() {
+                    // Protect prefer_high_cap for flagship/extreme or active touch gestures
+                    if (enforce_high_cap || touch_active) && Path::new(Self::STUNE_TOP_HIGH_CAP).exists() {
                         let cur_cap = SysfsReader::read_int::<i64>(Self::STUNE_TOP_HIGH_CAP).unwrap_or(0);
                         if cur_cap == 0 {
                             if is_locked_mode {
@@ -132,11 +165,11 @@ impl SchedulerGuardian {
                     Logger::info(ui(
                         &format!(
                             "[SCHED-GUARDIAN] Terdeteksi penurunan boost top-app ({} -> {}). Mengunci kembali EAS margin!",
-                            cur_val, target_stune_boost
+                            cur_val, effective_stune_target
                         ),
                         &format!(
                             "[SCHED-GUARDIAN] Detected top-app schedtune boost degradation ({} -> {}). Re-asserting EAS margin!",
-                            cur_val, target_stune_boost
+                            cur_val, effective_stune_target
                         ),
                     ));
                 }
@@ -179,5 +212,36 @@ impl SchedulerGuardian {
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hardware::{BlockDeviceType, DeviceTier};
+
+    #[test]
+    fn guardian_policy_aligns_with_device_tier_without_tug_of_war() {
+        let low_end = DeviceTier::classify(3663, Some(BlockDeviceType::Emmc), false, false);
+        let flagship = DeviceTier::classify(8192, Some(BlockDeviceType::Ufs), false, false);
+
+        for tier in [&low_end, &flagship] {
+            for profile in ["balance", "performance", "extreme"] {
+                let (top_boost, _, fg_boost, enforce_high_cap, threshold) =
+                    SchedulerGuardian::resolve_tick_policy(profile, tier)
+                        .expect("non-powersave profile must resolve policy");
+                let (tier_top, _, tier_fg) = tier.stune_targets(profile);
+                assert_eq!(top_boost.to_string(), tier_top);
+                assert_eq!(fg_boost.to_string(), tier_fg);
+                assert!((top_boost as i64) >= threshold);
+
+                if profile == "performance" && tier.is_low_end_ram {
+                    assert!(!enforce_high_cap);
+                }
+            }
+        }
+
+        assert!(SchedulerGuardian::resolve_tick_policy("powersave", &low_end).is_none());
+        assert!(SchedulerGuardian::resolve_tick_policy("dormant", &flagship).is_none());
     }
 }

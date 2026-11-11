@@ -1,21 +1,23 @@
 use std::fmt::Write as FmtWrite;
-use std::path::Path;
-use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::daemon::foreground::rules::{AppCategory, ForegroundApp};
 use crate::hardware::capability::{GpuCapability, GpuDriver, HardwareCapability};
 use crate::hardware::detector::ScoreBoard;
+use crate::hardware::DeviceTier;
 use crate::state::device_state::WorkloadLevel;
 use crate::state::ConfigStore;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DynamicGpuState {
-    Idle = 0,  // Tier 0: Lowest OPP (e.g. 300 MHz) - Stationary / Reading / Deep Sleep
-    Light = 1, // Tier 1: Light OPP (~30% quantile, e.g. ~462-495 MHz) - Single tap, photo preview, light UI
-    Fluid = 2, // Tier 2: Fluid OPP (~55% quantile, e.g. ~588-675 MHz) - 90/120Hz continuous scroll, rapid fling, video
-    Peak = 3,  // Tier 3: Peak OPP (100% quantile, e.g. 850-950+ MHz) - Heavy 3D games, load > 65%, heavy shaders
+    Idle = 0,  // Tier 0: Lowest OPP (idle floor) - Stationary / Reading / Deep Sleep
+    Light = 1, // Tier 1: Light OPP (~25-30% quantile) - Single tap, photo preview, light UI
+    Fluid = 2, // Tier 2: Fluid OPP (~50% quantile) - Continuous scroll, rapid fling, video
+    Peak = 3,  // Tier 3: Peak OPP (100% quantile) - Heavy 3D games, sustained high load
 }
 
 static CURRENT_SCALER_STATE: AtomicU8 = AtomicU8::new(0); // 0 = Idle, 1 = Light, 2 = Fluid, 3 = Peak
@@ -23,7 +25,113 @@ static LAST_TOUCH_BOOST_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_PEAK_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_FLUID_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_LIGHT_MS: AtomicU64 = AtomicU64::new(0);
-static SMOOTHED_EFFECTIVE_MHZ: AtomicU64 = AtomicU64::new(0);
+static SMOOTHED_COMPUTE_PCT: AtomicU64 = AtomicU64::new(0);
+static LAST_LOCK_CHECK_MS: AtomicU64 = AtomicU64::new(0);
+static IS_GPU_LOCKED_CACHED: AtomicBool = AtomicBool::new(false);
+static ACTIVE_PROFILE_IS_EXTREME: AtomicBool = AtomicBool::new(false);
+static ACTIVE_WORKLOAD_IS_HEAVY: AtomicBool = AtomicBool::new(false);
+static SCREEN_IS_ON: AtomicBool = AtomicBool::new(true);
+
+struct SocThermalSensor {
+    temp_path: PathBuf,
+    passive_trip_c: Option<f32>,
+}
+
+/// Discovers the device's physical GPU/SoC thermal zone and its kernel passive trip point once,
+/// completely free of device-specific paths or hardcoded thermal zone IDs.
+fn cached_soc_thermal_sensor() -> Option<&'static SocThermalSensor> {
+    static SENSOR: OnceLock<Option<SocThermalSensor>> = OnceLock::new();
+    SENSOR
+        .get_or_init(|| {
+            let mut best_gpu: Option<(PathBuf, Option<f32>)> = None;
+            let mut best_soc: Option<(PathBuf, Option<f32>)> = None;
+
+            for id in 0..96 {
+                let tz_dir = PathBuf::from(format!("/sys/class/thermal/thermal_zone{}", id));
+                if !tz_dir.is_dir() {
+                    continue;
+                }
+                let Ok(ztype_raw) = SysfsReader::read_trimmed(tz_dir.join("type")) else {
+                    continue;
+                };
+                let ztype = ztype_raw.to_lowercase();
+                let is_gpu_zone = ztype.contains("gpu") || ztype.contains("g3d") || ztype.contains("gpuss");
+                let is_soc_zone = ztype.contains("soc")
+                    || ztype.contains("tsens")
+                    || ztype.contains("mtktscpu")
+                    || ztype.contains("cpuss")
+                    || ztype.contains("cpu-1-")
+                    || ztype.contains("ap_ntc");
+                if !is_gpu_zone && !is_soc_zone {
+                    continue;
+                }
+                let temp_path = tz_dir.join("temp");
+                if !temp_path.exists() {
+                    continue;
+                }
+
+                // Parse lowest plausible passive trip threshold from kernel DT thermal zone
+                let mut passive_trip: Option<f32> = None;
+                for tid in 0..8 {
+                    let tp = tz_dir.join(format!("trip_point_{}_temp", tid));
+                    if let Ok(raw_t) = SysfsReader::read_int::<i64>(&tp) {
+                        let t_c = if raw_t.abs() > 1000 {
+                            raw_t as f32 / 1000.0
+                        } else if raw_t.abs() > 150 {
+                            raw_t as f32 / 10.0
+                        } else {
+                            raw_t as f32
+                        };
+                        if (50.0..=115.0).contains(&t_c) {
+                            let is_passive = SysfsReader::read_trimmed(tz_dir.join(format!("trip_point_{}_type", tid)))
+                                .map(|s| s.to_lowercase().contains("passive"))
+                                .unwrap_or(true);
+                            if is_passive {
+                                passive_trip = Some(match passive_trip {
+                                    Some(prev) => prev.min(t_c),
+                                    None => t_c,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if is_gpu_zone && best_gpu.is_none() {
+                    best_gpu = Some((temp_path, passive_trip));
+                } else if is_soc_zone && best_soc.is_none() {
+                    best_soc = Some((temp_path, passive_trip));
+                }
+            }
+
+            best_gpu.or(best_soc).map(|(temp_path, passive_trip_c)| SocThermalSensor {
+                temp_path,
+                passive_trip_c,
+            })
+        })
+        .as_ref()
+}
+
+fn read_sensor_celsius(path: &Path) -> Option<f32> {
+    let raw = SysfsReader::read_int::<i64>(path).ok()?;
+    let c = if raw.abs() > 1000 {
+        raw as f32 / 1000.0
+    } else if raw.abs() > 150 {
+        raw as f32 / 10.0
+    } else {
+        raw as f32
+    };
+    if (-10.0..=150.0).contains(&c) { Some(c) } else { None }
+}
+
+/// Computes normalized effective compute demand (%) proportional to the GPU's own peak OPP,
+/// scaling cleanly across any mobile GPU clock range (e.g. 400 MHz entry Mali to 1400 MHz flagship).
+pub(crate) fn normalized_gpu_compute_pct(cur_freq_mhz: u64, max_freq_mhz: u64, load_pct: u32) -> u64 {
+    let capped_load = (load_pct as u64).min(100);
+    if max_freq_mhz == 0 {
+        return capped_load;
+    }
+    ((cur_freq_mhz.min(max_freq_mhz) * capped_load) / max_freq_mhz).min(100)
+}
 
 pub struct GpuController;
 
@@ -311,36 +419,60 @@ impl GpuController {
         format!("MediaTek GED GPU boost set to level {}.", lvl)
     }
 
+    fn is_soc_thermally_hot(batt_temp_c: f32, margin_from_passive: f32, batt_fallback_c: f32) -> bool {
+        if batt_temp_c >= batt_fallback_c {
+            return true;
+        }
+        if let Some(sensor) = cached_soc_thermal_sensor() {
+            if let Some(die_c) = read_sensor_celsius(&sensor.temp_path) {
+                let ceiling = sensor
+                    .passive_trip_c
+                    .map(|t| (t - margin_from_passive).max(52.0))
+                    .unwrap_or(if margin_from_passive > 10.0 { 64.0 } else { 72.0 });
+                if die_c >= ceiling {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Immediate sub-1ms hardware touch boost notification triggered by TouchDetector thread.
-    /// Elevates GPU floor to Light (~495 MHz) or Fluid (~675 MHz) with zero delay.
-    /// NEVER boosts to Peak (950 MHz) on touch alone, preserving maximum battery efficiency.
+    /// Performs zero disk reads (`config.json` / sysfs crawls) by reading cached atomic state.
     pub fn on_hardware_touch() {
+        if !SCREEN_IS_ON.load(Ordering::Relaxed) || IS_GPU_LOCKED_CACHED.load(Ordering::Relaxed) {
+            return;
+        }
+
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
-        // Instant Fluid tier (~588-675 MHz) elevation on any touch down to guarantee 120 FPS deadline (<8.3ms)
-        let target_state = DynamicGpuState::Fluid;
+        let tier = DeviceTier::cached_live();
+        let is_extreme = ACTIVE_PROFILE_IS_EXTREME.load(Ordering::Relaxed);
+        let is_heavy = ACTIVE_WORKLOAD_IS_HEAVY.load(Ordering::Relaxed);
+        let is_kinetic = crate::daemon::TouchDetector::is_touch_moving(120)
+            || crate::daemon::TouchDetector::is_rapid_touch(160, 2);
 
+        // On low-end/14nm devices, initial tap wakes instantly to Light OPP (~30% quantile) and
+        // seamlessly promotes to Fluid (~50% quantile) <8ms later if finger motion/fling begins.
+        let target_state = if is_extreme || is_heavy || !tier.is_low_end_ram || is_kinetic {
+            DynamicGpuState::Fluid
+        } else {
+            DynamicGpuState::Light
+        };
+
+        let last = LAST_TOUCH_BOOST_MS.load(Ordering::Relaxed);
         let current = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
         if now_ms.saturating_sub(last) < 40 && current >= (target_state as u8) {
             return;
         }
         LAST_TOUCH_BOOST_MS.store(now_ms, Ordering::Relaxed);
 
-        let is_locked = ConfigStore::get("gpu.is_locked")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
-        if is_locked {
-            return;
-        }
-
-        // Jump floor up to Light or Fluid instantly (0 ms)
         if current < (target_state as u8) {
             let (vendor, _) = ScoreBoard::evaluate();
-            let gpu = HardwareCapability::resolve_gpu(vendor);
+            let gpu = HardwareCapability::sample_gpu_fast(vendor);
             if gpu.is_supported && !gpu.opp_table.is_empty() {
                 let target_u8 = target_state as u8;
                 CURRENT_SCALER_STATE.store(target_u8, Ordering::Relaxed);
@@ -364,23 +496,36 @@ impl GpuController {
         multitasking_active: bool,
         fg_app: Option<&ForegroundApp>,
     ) {
-        let is_locked = ConfigStore::get("gpu.is_locked")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
-        if is_locked {
-            return;
-        }
-
-        let (vendor, _) = ScoreBoard::evaluate();
-        let gpu = HardwareCapability::resolve_gpu(vendor);
-        if !gpu.is_supported || gpu.opp_table.is_empty() {
-            return;
-        }
+        SCREEN_IS_ON.store(is_screen_on, Ordering::Relaxed);
+        ACTIVE_PROFILE_IS_EXTREME.store(active_profile == "extreme", Ordering::Relaxed);
+        ACTIVE_WORKLOAD_IS_HEAVY.store(workload == WorkloadLevel::Heavy, Ordering::Relaxed);
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
+
+        // Refresh lock flag from config store at most once every 3s (zero eMMC read churn on 250ms ticks)
+        let last_lock_check = LAST_LOCK_CHECK_MS.load(Ordering::Relaxed);
+        let is_locked = if now_ms.saturating_sub(last_lock_check) >= 3000 {
+            LAST_LOCK_CHECK_MS.store(now_ms, Ordering::Relaxed);
+            let locked = ConfigStore::get("gpu.is_locked")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false);
+            IS_GPU_LOCKED_CACHED.store(locked, Ordering::Relaxed);
+            locked
+        } else {
+            IS_GPU_LOCKED_CACHED.load(Ordering::Relaxed)
+        };
+        if is_locked {
+            return;
+        }
+
+        let (vendor, _) = ScoreBoard::evaluate();
+        let gpu = HardwareCapability::sample_gpu_fast(vendor);
+        if !gpu.is_supported || gpu.opp_table.is_empty() {
+            return;
+        }
 
         // When screen is OFF, immediately drop to Idle (0 ms latency) for maximum deep sleep savings
         if !is_screen_on {
@@ -391,27 +536,42 @@ impl GpuController {
             return;
         }
 
-        // Step 1: Base State Resolution from Profile, Workload & Touch Dynamics
+        let tier = DeviceTier::cached_live();
+        let normalized_pct = normalized_gpu_compute_pct(gpu.cur_freq_mhz, gpu.max_freq_mhz, gpu.load_pct);
+
+        // Step 1: Base State Resolution from Profile, Workload, Normalized GPU Demand & Touch Dynamics
         let mut target_state = if active_profile == "extreme" {
             DynamicGpuState::Peak
         } else if active_profile == "powersave" {
             DynamicGpuState::Idle
         } else if active_profile == "performance" {
+            let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(160, 2);
             let is_moving = crate::daemon::TouchDetector::is_touch_moving(450);
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(450);
-            let tier = crate::hardware::DeviceTier::detect_live();
-            if workload == WorkloadLevel::Heavy || gpu.load_pct > 75 {
+            let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
+
+            if workload == WorkloadLevel::Heavy || gpu.load_pct > 75 || normalized_pct > 62 {
                 DynamicGpuState::Peak
-            } else if workload == WorkloadLevel::Moderate || is_touch || is_moving || gpu.load_pct > 35 {
+            } else if workload == WorkloadLevel::Moderate
+                || is_moving
+                || is_rapid
+                || gpu.load_pct > 35
+                || normalized_pct > 32
+            {
                 DynamicGpuState::Fluid
-            } else if tier.is_low_end_ram && temp_c >= 41.0 {
-                // Allow stationary 14nm/low-end UI to rest at Light/Idle below thermal cliff
+            } else if is_touch || is_media || gpu.load_pct > 20 || normalized_pct > 18 {
+                DynamicGpuState::Light
+            } else if tier.is_low_end_ram
+                || tier.is_emmc_primary
+                || Self::is_soc_thermally_hot(temp_c, 16.0, 39.5)
+            {
+                // Stationary reading/idle UI drops cleanly to Idle floor (0ms wake on touch)
                 DynamicGpuState::Idle
             } else {
                 DynamicGpuState::Light
             }
         } else {
-            // Balance profile: Ultra-Efficient 4-Tier Multi-Factor Decision
+            // Balance profile: Universal 4-Tier Normalized Percentage Multi-Factor Decision
             let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
             let is_moving = crate::daemon::TouchDetector::is_touch_moving(400);
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(350);
@@ -420,53 +580,53 @@ impl GpuController {
             let is_kinetic_motion = crate::daemon::TouchDetector::is_touch_recent(600)
                 || crate::daemon::TouchDetector::is_touch_moving(600);
 
-            // True normalized compute load (MHz) = (current frequency * load %) / 100
-            let effective_mhz = (gpu.cur_freq_mhz * (gpu.load_pct as u64)) / 100;
-
-            // EWMA anti-flapping filter:
-            // - Instant 0 ms bypass on touch, motion, or rapid gesture
-            // - Smooth 3-frame rolling filter when untouched to filter out isolated 1-frame micro-spikes
             let effective_calc = if is_touch || is_rapid || is_moving {
-                SMOOTHED_EFFECTIVE_MHZ.store(effective_mhz, Ordering::Relaxed);
-                effective_mhz
+                SMOOTHED_COMPUTE_PCT.store(normalized_pct, Ordering::Relaxed);
+                normalized_pct
             } else {
-                let prev = SMOOTHED_EFFECTIVE_MHZ.load(Ordering::Relaxed);
+                let prev = SMOOTHED_COMPUTE_PCT.load(Ordering::Relaxed);
                 let smoothed = if prev == 0 {
-                    effective_mhz
+                    normalized_pct
                 } else {
-                    (prev * 2 + effective_mhz * 3) / 5
+                    (prev * 2 + normalized_pct * 3) / 5
                 };
-                SMOOTHED_EFFECTIVE_MHZ.store(smoothed, Ordering::Relaxed);
+                SMOOTHED_COMPUTE_PCT.store(smoothed, Ordering::Relaxed);
                 smoothed
             };
 
-            // Dynamic sensitivity tuning: when multitasking (Split-Screen / PiP) is active,
-            // lower thresholds so multi-window compositor runs buttery smooth.
             let (thresh_peak, thresh_fluid, thresh_light) = if multitasking_active {
-                (450, 260, 160)
+                (52u64, 30u64, 18u64)
             } else {
-                (550, 320, 200)
+                (62u64, 36u64, 22u64)
             };
 
             if workload == WorkloadLevel::Heavy || effective_calc > thresh_peak || gpu.load_pct > 75 {
-                // Heavy 3D rendering: Engage Peak
                 DynamicGpuState::Peak
-            } else if is_rapid || is_moving || (!is_holding_still && is_touch) || is_kinetic_motion || workload == WorkloadLevel::Moderate || effective_calc > thresh_fluid || gpu.load_pct > 50 {
-                // Active touch motion / scrolling / 120 FPS UI composition: Engage Fluid (e.g. ~588-675 MHz)
-                // Guaranteed sub-5ms render time to beat the 8.33ms 120Hz deadline with ZERO UI lag!
+            } else if is_rapid
+                || is_moving
+                || (!is_holding_still && is_touch)
+                || is_kinetic_motion
+                || workload == WorkloadLevel::Moderate
+                || effective_calc > thresh_fluid
+                || gpu.load_pct > 50
+            {
                 DynamicGpuState::Fluid
-            } else if is_touch || fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false) || effective_calc > thresh_light || gpu.load_pct > 30 {
-                // Single tap / light interaction / active media video playback (Reels/Stories/TikTok/YouTube):
-                // Keep minimum Light tier (~446-478 MHz) so hardware video decoders and UI composition never drop frames!
+            } else if is_touch
+                || fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false)
+                || effective_calc > thresh_light
+                || gpu.load_pct > 30
+            {
                 DynamicGpuState::Light
             } else {
-                // Screen stationary, finger holding still while reading, or idle background: Drop to Idle (300 MHz)
                 DynamicGpuState::Idle
             }
         };
 
-        // Step 2: Proactive Thermal Guard (Caps Peak to Fluid at >= 47.5°C to prevent hard OEM throttle)
-        if temp_c >= 47.5 && active_profile != "extreme" && target_state == DynamicGpuState::Peak {
+        // Step 2: Proactive Thermal Guard using real hardware thermal zone + battery temperature
+        if active_profile != "extreme"
+            && target_state == DynamicGpuState::Peak
+            && Self::is_soc_thermally_hot(temp_c, 8.0, 47.5)
+        {
             target_state = DynamicGpuState::Fluid;
         }
 
@@ -478,9 +638,14 @@ impl GpuController {
             _ => DynamicGpuState::Idle,
         };
 
+        let fluid_hold_ms = if tier.is_low_end_ram || tier.is_emmc_primary {
+            450
+        } else {
+            600
+        };
+
         // Step 3: Multi-Tier Staircase Hysteresis (Instant UP, Gradual Downclocking)
         let resolved_state = if target_state > current_state {
-            // RAMP UP: ZERO LATENCY (0 ms)
             if target_state == DynamicGpuState::Peak {
                 LAST_PEAK_MS.store(now_ms, Ordering::Relaxed);
                 LAST_FLUID_MS.store(now_ms, Ordering::Relaxed);
@@ -493,29 +658,24 @@ impl GpuController {
             }
             target_state
         } else if target_state < current_state {
-            // STEP DOWN: MULTI-TIER ANTI-FLAPPING HYSTERESIS
             match current_state {
                 DynamicGpuState::Peak => {
                     let last_peak = LAST_PEAK_MS.load(Ordering::Relaxed);
                     if now_ms.saturating_sub(last_peak) < 500 {
-                        // Hold at Peak during 500ms cooldown window
                         DynamicGpuState::Peak
                     } else {
-                        // Step down to Fluid first
                         LAST_FLUID_MS.store(now_ms, Ordering::Relaxed);
                         DynamicGpuState::Fluid
                     }
                 }
                 DynamicGpuState::Fluid => {
                     let last_fluid = LAST_FLUID_MS.load(Ordering::Relaxed);
-                    let is_kinetic_motion = crate::daemon::TouchDetector::is_touch_recent(600)
-                        || crate::daemon::TouchDetector::is_touch_moving(600);
+                    let is_kinetic_motion = crate::daemon::TouchDetector::is_touch_recent(fluid_hold_ms)
+                        || crate::daemon::TouchDetector::is_touch_moving(fluid_hold_ms);
                     let is_rapid = crate::daemon::TouchDetector::is_rapid_touch(150, 3);
-                    if now_ms.saturating_sub(last_fluid) < 600 || is_kinetic_motion || is_rapid {
-                        // Hold at Fluid during 600ms scrolling / fling window
+                    if now_ms.saturating_sub(last_fluid) < fluid_hold_ms || is_kinetic_motion || is_rapid {
                         DynamicGpuState::Fluid
                     } else {
-                        // Step down to Light
                         LAST_LIGHT_MS.store(now_ms, Ordering::Relaxed);
                         DynamicGpuState::Light
                     }
@@ -524,17 +684,14 @@ impl GpuController {
                     let last_light = LAST_LIGHT_MS.load(Ordering::Relaxed);
                     let is_touch = crate::daemon::TouchDetector::is_touch_recent(250);
                     if now_ms.saturating_sub(last_light) < 250 || is_touch {
-                        // Hold at Light during 250ms interaction / ripple window
                         DynamicGpuState::Light
                     } else {
-                        // Cleanly decay down to Idle (300 MHz) with zero floor clamping
                         DynamicGpuState::Idle
                     }
                 }
                 DynamicGpuState::Idle => DynamicGpuState::Idle,
             }
         } else {
-            // Maintain current state, refresh active timestamps
             match current_state {
                 DynamicGpuState::Peak => {
                     LAST_PEAK_MS.store(now_ms, Ordering::Relaxed);
@@ -630,18 +787,22 @@ impl GpuController {
 
             // ── 2. QUALCOMM SNAPDRAGON ADRENO (KGSL & DEVFREQ) ───────────────────
             GpuDriver::QcomKgsl => {
-                let unit_mult: u64 = if let Ok(avail_str) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies")
-                    .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")) {
-                    if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000_000) {
-                        1_000_000
-                    } else if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000) {
-                        1_000
+                static KGSL_UNIT_MULT: OnceLock<u64> = OnceLock::new();
+                let unit_mult: u64 = *KGSL_UNIT_MULT.get_or_init(|| {
+                    if let Ok(avail_str) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies")
+                        .or_else(|_| SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"))
+                    {
+                        if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000_000) {
+                            1_000_000
+                        } else if avail_str.split_whitespace().any(|tok| tok.parse::<u64>().unwrap_or(0) > 10_000) {
+                            1_000
+                        } else {
+                            1
+                        }
                     } else {
-                        1
+                        1_000_000
                     }
-                } else {
-                    1_000_000
-                };
+                });
 
                 let num_pwr = gpu.num_pwrlevels.max(1);
                 let lowest_pwr_idx = num_pwr.saturating_sub(1);

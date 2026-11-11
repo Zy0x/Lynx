@@ -23,7 +23,7 @@ internal object LynxTelemetryReader {
                     for (f in candidates) {
                         if (f.exists() && f.canRead()) {
                             val age = System.currentTimeMillis() - f.lastModified()
-                            if (age in 0..4000) {
+                            if (age in 0..5500) {
                                 val text = f.readText().trim()
                                 if (text.startsWith("{")) {
                                     val parsed = LynxTelemetryMapper.parseTelemetryJson(text)

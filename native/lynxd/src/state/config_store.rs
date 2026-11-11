@@ -355,23 +355,50 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
             format!("Failed to rename temp config to {}: {}", path.display(), e)
         })?;
 
-        // 2-Way Profile Sync: update /data/adb/lynx/active_profile and system property lynx.mode
+        // 2-Way Profile Sync: update /data/adb/lynx/active_profile, /data/local/tmp/lynxd_profile, and system property lynx.mode
         for (k, v, _) in updates {
             if k == "active_profile" {
-                let clean_p = v.trim().trim_matches('"');
-                if !clean_p.is_empty() {
-                    let _ = fs::write("/data/adb/lynx/active_profile", clean_p);
-                    #[cfg(target_os = "android")]
-                    {
-                        let _ = std::process::Command::new("/system/bin/setprop")
-                            .args(&["lynx.mode", clean_p])
-                            .status();
-                    }
-                }
+                Self::sync_profile_markers(v, true);
             }
         }
 
         Ok(())
+    }
+
+    /// Synchronizes active profile state files only when their content differs from `profile`,
+    /// eliminating redundant flash/eMMC writes while keeping CLI, daemon, and HUD aligned.
+    pub fn sync_profile_markers(profile: &str, update_prop: bool) {
+        let clean_p = profile.trim().trim_matches('"');
+        if clean_p.is_empty() {
+            return;
+        }
+        Self::write_marker_if_changed(Path::new("/data/adb/lynx/active_profile"), clean_p);
+        Self::write_marker_if_changed(Path::new("/data/local/tmp/lynxd_profile"), clean_p);
+        if update_prop {
+            #[cfg(target_os = "android")]
+            {
+                let _ = std::process::Command::new("/system/bin/setprop")
+                    .args(&["lynx.mode", clean_p])
+                    .status();
+            }
+        }
+    }
+
+    fn write_marker_if_changed(path: &Path, target: &str) {
+        if let Ok(existing) = fs::read_to_string(path) {
+            if existing.trim() == target {
+                return;
+            }
+        }
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if fs::write(path, target).is_ok() {
+            #[cfg(unix)]
+            {
+                let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o666));
+            }
+        }
     }
 
     fn apply_single_mutation(content: &str, key: &str, formatted_val: &str) -> String {
