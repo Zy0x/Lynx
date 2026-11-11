@@ -1,3 +1,15 @@
+# Lynx Universal [USB-PD Fast Charge Recognition, Full 3000mA Uncap & 9V High Voltage Architecture] 7.0.0-RC384
+Released on: 2026-11-12
+> Lynx Kernel Manager v3.4.5
+
+- **Perbaikan Total Deteksi Pengisian Daya USB-PD & Pelepasan Pembatasan Arus 3000mA (15W–27W) (`docs/18_USB_PD_RECOGNITION_AND_9V_HIGH_VOLTAGE_CHARGING.md`)**:
+  - **USB-PD Recognition Bug Fix (`rt9471.c`)**: Memperbaiki kegagalan timeout deteksi BC1.2 pada kabel Type-C to Type-C USB-PD murni (karena ketiadaan short D+/D-) dengan menambahkan fallback otomatis ke `STANDARD_CHARGER` saat `rt9471_is_vbus_gd` terdeteksi valid. Mengembalikan indikator petir SystemUI statusbar dan animasi lockscreen secara instan.
+  - **Anti-Choke CDP/Apple Mapping**: Memetakan `RT9471_PORTSTAT_CDP` dan `RT9471_PORTSTAT_APPLE_*` ke `STANDARD_CHARGER` ketika VBUS valid, mencegah kabel Type-C jatuh ke profil daya rendah CDP (650mA).
+  - **Universal Current Limit Uncap (3000 mA)**: Membuka plafon arus pengisian daya seluruh profil (`ac_charger_input_current`, `charging_host_charger_current`, `non_std_ac_charger_current`, `apple_1_0a_charger_current`, `apple_2_1a_charger_current`, `ta_ac_charger_current`, `usb_unlimited_current`) menjadi **3000 mA (3.0A)** pada level kernel.
+  - **Peningkatan Batas VBUS OVP ke 10.5V**: Menaikkan `max_charger_voltage` dan `max_charger_voltage_setting` dari 6.5V (`V_CHARGER_MAX`) menjadi **10.5V (10500000 uV)** untuk mengizinkan negosiasi tegangan 9V tanpa memicu trip *Overvoltage Protection* (OVP).
+  - **Aktivasi Negosiasi 9V (HVDCP 2.0 & PE+ 2.0)**: Memperluas deteksi Quick Charge 9V dan Pump Express 2.0 pada tipe charger `CHARGING_HOST` dan `NONSTANDARD_CHARGER`, serta memastikan voter termal (`mtk_cooler_bcct_v1.c`) tidak mematikan `enable_hv_charging` saat mode Hyper Charge aktif.
+  - **Live Hardware Validation**: Terverifikasi langsung pada perangkat fisik Infinix Note 11s (MT6781) dengan status `AC powered: true`, `status: 2 (Charging)`, dan `ICHG = 3000mA`.
+
 # Lynx Universal [Transsion/MediaTek Hyper Charging Fix & Config Single-Line Object Healing] 7.0.0-RC383
 Released on: 2026-11-12
 > Lynx Kernel Manager v3.4.5
