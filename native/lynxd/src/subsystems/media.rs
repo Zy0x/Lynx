@@ -232,11 +232,15 @@ impl MediaController {
                 )
             })
             .collect();
+        let declared = catalog::declared_codecs();
+        let has_hw_omx = declared.iter().any(|c| c.name.starts_with("OMX.") && !c.software);
+        let has_hw_c2 = declared.iter().any(|c| c.name.starts_with("c2.") && !c.software);
+        let codec2_hw_missing = has_hw_omx && !has_hw_c2;
         format!(concat!("{{\"ok\":true,\"configured_mode\":{},\"apply_on_boot\":{},\"session_mode\":{},",
-            "\"pending_restart\":{},\"restore_available\":{},\"session_property_verified\":{},\"supported_modes\":[{}],\"properties\":{{{}}},",
+            "\"pending_restart\":{},\"restore_available\":{},\"session_property_verified\":{},\"codec2_hardware_missing\":{},\"supported_modes\":[{}],\"properties\":{{{}}},",
             "\"catalog_source\":\"xml_declarations\",\"declared_codecs\":{},\"active_decoders\":{}}}"),
-            quote(&mode), boot, quote(session.trim()), Path::new(DIR).join("pending").exists(), Self::baseline(false).is_ok(), verified,
-            supported.join(","), props.join(","), catalog::declarations_json(&catalog::declared_codecs()), catalog::active_decoders_json())
+            quote(&mode), boot, quote(session.trim()), Path::new(DIR).join("pending").exists(), Self::baseline(false).is_ok(), verified, codec2_hw_missing,
+            supported.join(","), props.join(","), catalog::declarations_json(&declared), catalog::active_decoders_json())
     }
 
     fn configure(mode: &str, boot: bool, restart: bool) -> Result<(), String> {

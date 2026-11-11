@@ -1,3 +1,22 @@
+# Lynx Universal [High-Resolution 2K/4K Scaling Headroom & Codec Asymmetry Auto-Detection] 7.0.0-RC385
+Released on: 2026-11-12
+> Lynx Kernel Manager v3.4.6
+
+- **Optimasi Media Resolusi Tinggi (1080p, 1440p 2K, 2160p 4K) & Resolusi Glitch Decoding (`lynxd` & `LynxCompanion`)**:
+  - **Penyelesaian Akar Masalah Glitch Decoding Video (`debug.stagefright.ccodec`)**:
+    - Menemukan dan mengatasi konflik pada `LynxMediaSafeguardManager.kt` yang sebelumnya mengeksekusi `setprop debug.stagefright.ccodec 1` setiap kali aplikasi media masuk ke foreground, menimpa pilihan `omx_compat` pengguna.
+    - Menghapus override destruktif tersebut agar preferensi decoder pengguna (termasuk mode `omx_compat`) terlindungi dan dihormati secara mutlak.
+  - **Deteksi Otomatis Asimetri Codec Hardware (`codec2_hardware_missing`)**:
+    - Menambahkan inspeksi cerdas terhadap deklarasi XML codec di `media.rs` dan registry resmi Android di `MediaDecoderRepository.kt`.
+    - Jika perangkat hanya memiliki hardware video decoder di OpenMAX (`OMX.MTK.VIDEO.DECODER.*`) tanpa hardware decoder di Codec2 (hanya `c2.android.*` software), sistem otomatis menandai `codec2_hardware_missing = true`.
+    - `MediaDecoderCard.kt` menampilkan banner *Rekomendasi Cerdas* yang menyarankan "Kompatibilitas OMX" untuk mencegah CPU spike dan video freeze, tanpa merusak perangkat modern lain (seperti Qualcomm Snapdragon atau Google Tensor dengan Codec2 hardware).
+    - Memperbarui `MediaCodecDiagnosticCard.kt` agar mengakui OpenMAX sebagai backend perangkat keras yang sah dan sehat saat mode OMX aktif.
+  - **Media GPU Scaling Headroom (Bebas Drop Frame pada Downscaling 2K/4K)**:
+    - Berdasarkan audit hardware display MT6781, `DISP_RSZ` hanya mendukung scale-up dengan batas tile 1200 px, sehingga video 1440p (2K) dan 2160p (4K) selalu di-downscale oleh Mali-G57 MC2 GPU melalui SurfaceFlinger GLES composition.
+    - Mengintegrasikan akselerasi frekuensi GPU saat aplikasi media aktif: menaikkan floor GPU ke OPP 32 (560 MHz) dan margin DVFS ke 40 via `/sys/kernel/ged/hal/custom_boost_gpu_freq` dan `/sys/module/ged/parameters/boost_amp`.
+    - Menghilangkan latensi ramp-up 50ms GED DVFS saat awal video diputar atau saat seeking, menjamin 60/120 FPS mulus dan stabil tanpa stutter.
+    - Saat aplikasi media ditutup, floor clock GPU dikembalikan secara otomatis ke idle normal (300 MHz) demi efisiensi daya.
+
 # Lynx Universal [USB-PD Fast Charge Recognition, Full 3000mA Uncap & 9V High Voltage Architecture] 7.0.0-RC384
 Released on: 2026-11-12
 > Lynx Kernel Manager v3.4.5

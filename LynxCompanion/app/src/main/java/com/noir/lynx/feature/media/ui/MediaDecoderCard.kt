@@ -45,6 +45,28 @@ fun MediaDecoderCard(controller: MediaDecoderViewModel = viewModel()) {
     LynxCard(title = stringResource(R.string.media_decoder_title), icon = Icons.Default.VideoSettings, accentColor = AccentCyan) {
         Text(stringResource(R.string.media_decoder_description), color = TextSecondary)
         if (!state.status.available) Text(stringResource(R.string.media_native_unavailable), color = AccentOrange)
+        if (state.status.isCodecAsymmetric) {
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                color = AccentCyan.copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Text(
+                        text = "Rekomendasi Cerdas: Asimetri Codec Terdeteksi",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                        color = AccentCyan
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Hardware video decoding pada ROM/perangkat ini hanya tersedia via OpenMAX (OMX), sedangkan Codec2 hanya menyediakan decoder software. Mengaktifkan 'Kompatibilitas OMX' sangat direkomendasikan agar video 1080p/2K/4K bebas glitch dan hemat CPU.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextPrimary
+                    )
+                }
+            }
+        }
         MediaDecoderRepository.modes.forEach { mode ->
             val enabled = state.status.available && mode in state.status.supportedModes && !state.busy
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = state.selectedMode == mode,
@@ -52,7 +74,12 @@ fun MediaDecoderCard(controller: MediaDecoderViewModel = viewModel()) {
                 .padding(vertical = 6.dp)) {
                 RadioButton(selected = state.selectedMode == mode, onClick = null, enabled = enabled)
                 Column(Modifier.weight(1f).padding(start = 4.dp)) {
-                    Text(stringResource(modeTitle(mode)), color = if (enabled) TextPrimary else TextSecondary)
+                    val isRecommended = mode == "omx_compat" && state.status.isCodecAsymmetric
+                    Text(
+                        text = if (isRecommended) stringResource(modeTitle(mode)) + " (Direkomendasikan)" else stringResource(modeTitle(mode)),
+                        color = if (isRecommended) AccentCyan else if (enabled) TextPrimary else TextSecondary,
+                        fontWeight = if (isRecommended) androidx.compose.ui.text.font.FontWeight.Bold else null
+                    )
                     Text(stringResource(modeDescription(mode)), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     if (mode !in state.status.supportedModes) Text(stringResource(R.string.media_mode_unavailable), color = AccentOrange)
                 }

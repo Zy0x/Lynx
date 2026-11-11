@@ -125,21 +125,21 @@ fun MediaCodecDiagnosticCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Codec2 status
-                val isCodec2Healthy = ccodecProp != "0"
+                // Codec backend status
+                val isOmxMode = ccodecProp == "0"
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isCodec2Healthy) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, if (isCodec2Healthy) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f)),
+                    color = if (isOmxMode) AccentCyan.copy(alpha = 0.15f) else AccentGreen.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, if (isOmxMode) AccentCyan.copy(alpha = 0.4f) else AccentGreen.copy(alpha = 0.4f)),
                     modifier = Modifier.weight(1f)
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
-                        Text("Codec2 Backend", fontSize = 10.sp, color = TextSecondary)
+                        Text("Backend Decoder", fontSize = 10.sp, color = TextSecondary)
                         Text(
-                            text = if (isCodec2Healthy) "Codec2 (Sehat)" else "Legacy OMX (Risiko)",
+                            text = if (isOmxMode) "OpenMAX (Hardware)" else "Codec2 (Standar)",
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isCodec2Healthy) AccentGreen else AccentOrange
+                            color = if (isOmxMode) AccentCyan else AccentGreen
                         )
                     }
                 }
@@ -230,14 +230,15 @@ fun MediaCodecDiagnosticCard(
                     isHealing = true
                     healStatus = null
                     coroutineScope.launch(Dispatchers.IO) {
-                        // Reset tampered props
+                        // Reset tampered props while preserving configured ccodec preference
+                        val curCcodec = Shell.cmd("getprop debug.stagefright.ccodec").exec().out.firstOrNull()?.trim() ?: "1"
+                        val targetCcodec = if (curCcodec == "0") "0" else "1"
                         Shell.cmd(
-                            "resetprop -d debug.stagefright.ccodec 2>/dev/null",
                             "resetprop -d debug.stagefright.omx_default_rank 2>/dev/null",
                             "resetprop -d debug.stagefright.omx_default_rank.sw-other 2>/dev/null",
                             "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
-                            "setprop media.stagefright.thumbnail.prefer_hw_codecs false",
-                            "setprop debug.stagefright.ccodec 1",
+                            "setprop media.stagefright.thumbnail.prefer_hw_codecs true",
+                            "setprop debug.stagefright.ccodec $targetCcodec",
                             "setprop debug.egl.swapinterval 1",
                             "pkill -f mediaserver 2>/dev/null",
                             "pkill -f cameraserver 2>/dev/null"

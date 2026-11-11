@@ -87,7 +87,9 @@ object LynxMediaSafeguardManager {
                 Log.i(TAG, "[Shield Engage] $packageName foreground -> applying safe VSync & fluid compositor latch")
 
                 // Enforce safety: swapinterval=1 (prevents ExoPlayer drift) and latch_unsignaled=0
-                // to prevent black frames / black screen flicker during video playback and scrolling feeds
+                // to prevent black frames / black screen flicker during video playback and scrolling feeds.
+                // NOTE: debug.stagefright.ccodec is intentionally NOT overridden here so that user/system
+                // codec backend preferences (e.g. omx_compat for devices lacking C2 hardware decoders) are strictly preserved.
                 Shell.cmd(
                     "setprop debug.egl.swapinterval 1",
                     "setprop debug.sf.latch_unsignaled 0",
@@ -99,13 +101,16 @@ object LynxMediaSafeguardManager {
                     "setprop debug.hwui.target_cpu_time_percent 85",
                     "resetprop -d media.stagefright.thumbnail.prefer_hw_codecs 2>/dev/null",
                     "setprop media.stagefright.thumbnail.prefer_hw_codecs true",
-                    "resetprop -d debug.stagefright.ccodec 2>/dev/null",
-                    "setprop debug.stagefright.ccodec 1",
                     "setprop vendor.perf.gestureflingboost.enable 1",
                     "setprop ro.vendor.perf.scroll_opt 1",
                     "setprop persist.vendor.qti.inputopts.touchboost 1",
                     "setprop vendor.media.vdec.prefer.hw 1",
-                    "echo 0 > /proc/sys/vm/page-cluster 2>/dev/null"
+                    "echo 0 > /proc/sys/vm/page-cluster 2>/dev/null",
+                    // High-resolution media scaling headroom (2K/4K downscaling via SurfaceFlinger GPU composition)
+                    "if [ -w /sys/kernel/ged/hal/custom_boost_gpu_freq ]; then echo 32 > /sys/kernel/ged/hal/custom_boost_gpu_freq; fi",
+                    "if [ -w /sys/kernel/ged/hal/dvfs_margin_value ]; then echo 40 > /sys/kernel/ged/hal/dvfs_margin_value; fi",
+                    "if [ -w /sys/module/ged/parameters/boost_amp ]; then echo 30 > /sys/module/ged/parameters/boost_amp; fi",
+                    "if [ -w /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then echo 300000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq; fi"
                 ).submit()
 
                 _isSafeguardEngaged.value = true
@@ -114,6 +119,14 @@ object LynxMediaSafeguardManager {
         } else {
             if (_isSafeguardEngaged.value) {
                 Log.i(TAG, "[Shield Disengage] Returning to non-media app: $packageName")
+
+                // Restore GPU scaling floor to default idle
+                Shell.cmd(
+                    "if [ -w /sys/kernel/ged/hal/custom_boost_gpu_freq ]; then echo 48 > /sys/kernel/ged/hal/custom_boost_gpu_freq; fi",
+                    "if [ -w /sys/kernel/ged/hal/dvfs_margin_value ]; then echo 0 > /sys/kernel/ged/hal/dvfs_margin_value; fi",
+                    "if [ -w /sys/module/ged/parameters/boost_amp ]; then echo 0 > /sys/module/ged/parameters/boost_amp; fi",
+                    "if [ -w /sys/class/kgsl/kgsl-3d0/devfreq/min_freq ]; then echo 0 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq; fi"
+                ).submit()
 
                 _isSafeguardEngaged.value = false
                 _activeProtectedPackage.value = null

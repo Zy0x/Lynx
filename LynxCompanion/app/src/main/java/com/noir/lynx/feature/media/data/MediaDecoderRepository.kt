@@ -19,7 +19,8 @@ data class MediaDecoderStatus(
     val supportedModes: Set<String> = setOf("system"),
     val activeDecoders: List<String> = emptyList(),
     val registeredDecoders: List<RegisteredDecoder> = emptyList(),
-    val properties: Map<String, String> = emptyMap()
+    val properties: Map<String, String> = emptyMap(),
+    val isCodecAsymmetric: Boolean = false
 )
 
 object MediaDecoderRepository {
@@ -38,10 +39,14 @@ object MediaDecoderRepository {
                 }
             }.distinctBy { it.name to it.mime }
         }.getOrDefault(emptyList())
+        val hasHwOmx = registered.any { it.name.startsWith("OMX.") && (it.kind == "hardware" || it.kind == "vendor") }
+        val hasHwC2 = registered.any { it.name.startsWith("c2.") && (it.kind == "hardware" || it.kind == "vendor") }
+        val defaultAsymmetry = hasHwOmx && !hasHwC2
         val result = Shell.cmd("[ -x '$ENGINE' ] && '$ENGINE' media status").exec()
         val json = runCatching { JSONObject(result.out.joinToString("\n")) }.getOrNull()
+        val isAsymmetric = json?.optBoolean("codec2_hardware_missing") ?: defaultAsymmetry
         if (!result.isSuccess || json?.optBoolean("ok") != true) {
-            return@withContext MediaDecoderStatus(registeredDecoders = registered)
+            return@withContext MediaDecoderStatus(registeredDecoders = registered, isCodecAsymmetric = isAsymmetric)
         }
         val supported = json.optJSONArray("supported_modes")
         val active = json.optJSONArray("active_decoders")
@@ -56,7 +61,8 @@ object MediaDecoderRepository {
             supportedModes = (0 until (supported?.length() ?: 0)).mapNotNull { supported?.optString(it) }.toSet(),
             activeDecoders = (0 until (active?.length() ?: 0)).mapNotNull { active?.optString(it) },
             registeredDecoders = registered,
-            properties = props?.let { values -> values.keys().asSequence().associateWith { values.optString(it) } } ?: emptyMap()
+            properties = props?.let { values -> values.keys().asSequence().associateWith { values.optString(it) } } ?: emptyMap(),
+            isCodecAsymmetric = isAsymmetric
         )
     }
 
