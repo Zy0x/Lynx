@@ -236,6 +236,7 @@ impl ForegroundDetector {
             || lower.contains("inputmethod")
             || lower.contains("keyboard")
             || lower.ends_with(".tts")
+            || lower.ends_with(":hud")
             || lower.ends_with(":provider")
             || lower.ends_with(":push")
             || lower.ends_with(":channel")

@@ -31,6 +31,10 @@ class LynxAppAutomationService : Service() {
     private var baselineRefreshRate: Int? = null
     private var activeCustomPkg: String? = null
     private var activeCustomPid: Int? = null
+    @Volatile
+    private var sessionOverridePkg: String? = null
+    @Volatile
+    private var sessionOverrideProfile: String? = null
     private var autoStartedHud = false
     private var previousHudMode: Int? = null
 
@@ -152,6 +156,15 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    private val hudOverrideReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ACTION_HUD_SESSION_OVERRIDE) return
+            val pkg = intent.getStringExtra("package").orEmpty().trim()
+            val prof = intent.getStringExtra("profile").orEmpty().trim()
+            onHudSessionOverrideInternal(pkg, prof)
+        }
+    }
+
     companion object {
         @Volatile
         var currentInstance: LynxAppAutomationService? = null
@@ -164,6 +177,7 @@ class LynxAppAutomationService : Service() {
         const val ACTION_STOP = "com.noir.lynx.service.STOP_AUTOMATION"
         const val ACTION_RELOAD_RULES = "com.noir.lynx.service.RELOAD_RULES"
         const val ACTION_UPDATE_BASELINE = "com.noir.lynx.service.UPDATE_BASELINE"
+        const val ACTION_HUD_SESSION_OVERRIDE = "com.noir.lynx.service.HUD_SESSION_OVERRIDE"
         private const val NOTIF_ID = 8802
         private const val TAG = "LynxAppAutomation"
 
@@ -203,6 +217,18 @@ class LynxAppAutomationService : Service() {
 
         fun onGameProfileOverridden(pkg: String, newProfile: String) {
             currentInstance?.onGameProfileOverriddenInternal(pkg, newProfile)
+        }
+
+        fun notifyHudSessionOverride(context: Context, pkg: String, newProfile: String) {
+            currentInstance?.onHudSessionOverrideInternal(pkg, newProfile)
+            runCatching {
+                val intent = Intent(ACTION_HUD_SESSION_OVERRIDE).apply {
+                    setPackage(context.packageName)
+                    putExtra("package", pkg)
+                    putExtra("profile", newProfile)
+                }
+                context.sendBroadcast(intent)
+            }
         }
 
         val activeGamePackage: String?
@@ -283,6 +309,14 @@ class LynxAppAutomationService : Service() {
         }
         registerReceiver(powerReceiver, pFilter)
 
+        val hudFilter = IntentFilter(ACTION_HUD_SESSION_OVERRIDE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(hudOverrideReceiver, hudFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(hudOverrideReceiver, hudFilter)
+        }
+
         // Persistent Charging Guardian: Guarantees high-power charging holds even when app is closed / backgrounded
         serviceScope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -311,6 +345,11 @@ class LynxAppAutomationService : Service() {
             ACTION_UPDATE_BASELINE -> {
                 val newBase = intent?.getStringExtra("baseline") ?: "balance"
                 onManualProfileChanged(newBase)
+            }
+            ACTION_HUD_SESSION_OVERRIDE -> {
+                val pkg = intent?.getStringExtra("package").orEmpty().trim()
+                val prof = intent?.getStringExtra("profile").orEmpty().trim()
+                onHudSessionOverrideInternal(pkg, prof)
             }
         }
         return START_STICKY
@@ -395,6 +434,61 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    fun onHudSessionOverrideInternal(pkg: String, newProfile: String) {
+        serviceScope.launch(Dispatchers.IO) {
+            if (pkg.isBlank() || newProfile.isBlank() || newProfile.equals("auto", ignoreCase = true)) {
+                val clearedPkg = sessionOverridePkg
+                sessionOverridePkg = null
+                sessionOverrideProfile = null
+                val currentPkg = activeCustomPkg
+                if (!currentPkg.isNullOrBlank()) {
+                    val existing = rulesCache.firstOrNull { it.packageName.equals(currentPkg, ignoreCase = true) }
+                    val restored = existing?.targetProfile ?: baselineProfile
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        LynxRepository.setProfile(restored, caller = "watcher")
+                        if (clearedPkg != null) {
+                            triggerProfileFeedback(restored, existing?.appName ?: currentPkg)
+                        }
+                    }
+                    val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
+                    val tele = notificationHelper.formatTelemetry(pct, tempC)
+                    val baseName = notificationHelper.getProfileDisplayName(baselineProfile)
+                    val hzStr = existing?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
+                    withContext(Dispatchers.Main) {
+                        notificationHelper.updateNotification(
+                            notificationHelper.formatModeTitle(restored),
+                            "${existing?.appName ?: currentPkg}$hzStr • Kembali ke $baseName$tele",
+                            restored
+                        )
+                    }
+                }
+                return@launch
+            }
+
+            sessionOverridePkg = pkg
+            sessionOverrideProfile = newProfile
+            activeCustomPkg = pkg
+            cooldownJob?.cancel()
+            cooldownJob = null
+
+            val existing = rulesCache.firstOrNull { it.packageName.equals(pkg, ignoreCase = true) }
+            val appLabel = existing?.appName ?: runCatching {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+            }.getOrDefault(pkg)
+            val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
+            val tele = notificationHelper.formatTelemetry(pct, tempC)
+            val baseName = notificationHelper.getProfileDisplayName(baselineProfile)
+            val hzStr = existing?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
+            withContext(Dispatchers.Main) {
+                notificationHelper.updateNotification(
+                    notificationHelper.formatModeTitle(newProfile),
+                    "$appLabel$hzStr • Kembali ke $baseName$tele",
+                    newProfile
+                )
+            }
+        }
+    }
+
     private fun startWatcher() {
         if (isWatcherRunning) return
         isWatcherRunning = true
@@ -441,7 +535,10 @@ class LynxAppAutomationService : Service() {
                     val tele = notificationHelper.formatTelemetry(pct, tempC)
                     if (activeCustomPkg != null) {
                         val rule = rulesCache.firstOrNull { it.packageName.equals(activeCustomPkg, ignoreCase = true) }
-                        val activeProfile = rule?.targetProfile ?: baselineProfile
+                        val overrideProf = if (sessionOverridePkg.equals(activeCustomPkg, ignoreCase = true)) {
+                            sessionOverrideProfile?.takeIf { it.isNotBlank() }
+                        } else null
+                        val activeProfile = overrideProf ?: rule?.targetProfile ?: baselineProfile
                         val appName = rule?.appName ?: activeCustomPkg ?: AppLocale.getString(this@LynxAppAutomationService, R.string.automation_game_active)
                         val hzInfo = rule?.targetRefreshRate?.takeIf { it > 0 }?.let { " • ${it}Hz" } ?: ""
                         val baseName = notificationHelper.getProfileDisplayName(baselineProfile)
@@ -553,6 +650,28 @@ class LynxAppAutomationService : Service() {
             }
         }
 
+        val activeHudOverride = sessionOverrideProfile?.takeIf {
+            it.isNotBlank() && sessionOverridePkg.equals(pkg, ignoreCase = true)
+        }
+        if (activeHudOverride != null) {
+            if (matchingRule != null) {
+                matchingRule = matchingRule.copy(targetProfile = activeHudOverride)
+            } else {
+                val appLabel = try {
+                    val appInfo = packageManager.getApplicationInfo(pkg, 0)
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (_: Exception) { pkg }
+                matchingRule = AppProfileRule(
+                    packageName = pkg,
+                    appName = appLabel,
+                    targetProfile = activeHudOverride,
+                    targetRefreshRate = matchingGfxRule?.targetRefreshRate,
+                    autoFloatingHud = false,
+                    enabled = true
+                )
+            }
+        }
+
         if (matchingRule != null) {
             cooldownJob?.cancel()
             cooldownJob = null
@@ -635,9 +754,14 @@ class LynxAppAutomationService : Service() {
                     baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
                     val baseDisplayName = notificationHelper.getProfileDisplayName(restoreTarget)
                     if (!isNativeDaemonHandlingProfiles()) {
-                        serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                        serviceScope.launch(Dispatchers.IO) {
+                            Shell.cmd("rm -f /dev/lynx_hud_override 2>/dev/null").exec()
+                            LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                        }
                         triggerProfileFeedback(restoreTarget, "Kembali ke $baseDisplayName")
                     }
+                    sessionOverridePkg = null
+                    sessionOverrideProfile = null
                     activeCustomPkg = null
                     activeCustomPid = null
                     val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
@@ -667,9 +791,14 @@ class LynxAppAutomationService : Service() {
                         baselineRefreshRate?.let { hz -> serviceScope.launch(Dispatchers.IO) { LynxRepository.setDisplayRefreshRate(hz) } }
                         val baseDisplayName = notificationHelper.getProfileDisplayName(restoreTarget)
                         if (!isNativeDaemonHandlingProfiles()) {
-                            serviceScope.launch(Dispatchers.IO) { LynxRepository.setProfile(restoreTarget, caller = "watcher") }
+                            serviceScope.launch(Dispatchers.IO) {
+                                Shell.cmd("rm -f /dev/lynx_hud_override 2>/dev/null").exec()
+                                LynxRepository.setProfile(restoreTarget, caller = "watcher")
+                            }
                             triggerProfileFeedback(restoreTarget, "Kembali ke $baseDisplayName")
                         }
+                        sessionOverridePkg = null
+                        sessionOverrideProfile = null
                         activeCustomPkg = null
                         activeCustomPid = null
                         val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
@@ -745,6 +874,9 @@ class LynxAppAutomationService : Service() {
         } catch (_: Exception) {}
         try {
             unregisterReceiver(powerReceiver)
+        } catch (_: Exception) {}
+        try {
+            unregisterReceiver(hudOverrideReceiver)
         } catch (_: Exception) {}
         isRunning = false
         isWatcherRunning = false

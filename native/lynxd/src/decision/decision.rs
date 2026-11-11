@@ -33,6 +33,7 @@ pub struct DecisionEngine {
     current_profile: String,
     baseline_profile: String,
     last_target_app: Option<String>,
+    session_override: Option<(String, &'static str)>,
 }
 
 impl DecisionEngine {
@@ -44,6 +45,7 @@ impl DecisionEngine {
             current_profile: initial_profile.to_string(),
             baseline_profile: initial_profile.to_string(),
             last_target_app: None,
+            session_override: None,
         }
     }
 
@@ -63,6 +65,40 @@ impl DecisionEngine {
 
     pub fn last_target_app(&self) -> Option<&str> {
         self.last_target_app.as_deref()
+    }
+
+    pub fn session_override(&self) -> Option<(&str, &'static str)> {
+        self.session_override
+            .as_ref()
+            .map(|(pkg, prof)| (pkg.as_str(), *prof))
+    }
+
+    pub fn set_session_override(&mut self, package: &str, profile: &str) {
+        let clean_pkg = package.trim().to_lowercase();
+        if clean_pkg.is_empty() {
+            return;
+        }
+        if profile.trim().eq_ignore_ascii_case("auto") {
+            self.session_override = None;
+            return;
+        }
+        if let Some(static_prof) = Self::normalize_static_profile(profile) {
+            self.session_override = Some((clean_pkg, static_prof));
+        }
+    }
+
+    pub fn clear_session_override(&mut self) {
+        self.session_override = None;
+    }
+
+    fn normalize_static_profile(profile: &str) -> Option<&'static str> {
+        match profile.trim().to_lowercase().as_str() {
+            "powersave" | "power_save" | "battery" | "hemat" => Some("powersave"),
+            "balance" | "balanced" | "seimbang" => Some("balance"),
+            "performance" | "perf" | "game" | "kinerja" => Some("performance"),
+            "extreme" | "ekstrem" => Some("extreme"),
+            _ => None,
+        }
     }
 
     pub fn current_modifier(&self) -> ModifierLevel {
@@ -100,6 +136,7 @@ impl DecisionEngine {
             // BUT if the device is plugged into power and baseline_profile is high performance, keep performance active!
             let is_plugged = crate::hardware::ChargingRegulator::is_hardware_plugged();
             if !is_plugged && (self.current_profile == "performance" || self.current_profile == "extreme") {
+                self.session_override = None;
                 let fallback = match self.baseline_profile.as_str() {
                     "powersave" => "powersave",
                     _ => "balance",
@@ -114,7 +151,15 @@ impl DecisionEngine {
         }
 
         // ── 2. Screen ON Evaluation ─────────────────────────────────────────
-        let is_target_app = match fg_app {
+        let fg_pkg_opt = fg_app.map(|a| a.package.as_str());
+        let active_override_prof: Option<&'static str> = match (&self.session_override, fg_pkg_opt) {
+            (Some((ov_pkg, ov_prof)), Some(fg_pkg)) if ov_pkg.eq_ignore_ascii_case(fg_pkg) => {
+                Some(*ov_prof)
+            }
+            _ => None,
+        };
+
+        let is_configured_target = match fg_app {
             Some(app) => {
                 app.category == AppCategory::Game
                     || app.category == AppCategory::Benchmark
@@ -122,20 +167,30 @@ impl DecisionEngine {
             }
             None => false,
         };
+        let is_target_app = is_configured_target || active_override_prof.is_some();
 
         if is_target_app {
             let app_name = fg_app.map(|a| a.package.as_str()).unwrap_or("Game");
             self.last_target_app = fg_app.map(|a| a.package.clone());
-            let requested_profile: &'static str = match fg_app.and_then(|a| a.target_profile.as_deref()) {
-                Some("extreme") => "extreme",
-                Some("powersave") => "powersave",
-                Some("balance") => "balance",
-                Some("performance") => "performance",
-                _ => {
-                    if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark) {
-                        "extreme"
-                    } else {
-                        "performance"
+            // Switching directly into a different configured target app clears any prior app's HUD override.
+            if active_override_prof.is_none() {
+                self.session_override = None;
+            }
+
+            let requested_profile: &'static str = if let Some(ov_prof) = active_override_prof {
+                ov_prof
+            } else {
+                match fg_app.and_then(|a| a.target_profile.as_deref()) {
+                    Some("extreme") => "extreme",
+                    Some("powersave") => "powersave",
+                    Some("balance") => "balance",
+                    Some("performance") => "performance",
+                    _ => {
+                        if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark) {
+                            "extreme"
+                        } else {
+                            "performance"
+                        }
                     }
                 }
             };
@@ -145,15 +200,36 @@ impl DecisionEngine {
 
             // B. If current profile does not match requested_profile, switch!
             if self.current_profile != requested_profile {
-                match self.policy.can_boost_profile(requested_profile, telemetry) {
+                let boost_check = if active_override_prof.is_some() {
+                    // Manual HUD override: respect explicit user command unless critical emergency (<5% or >=60°C)
+                    if telemetry.raw.battery.capacity <= 5 {
+                        Err("Battery level <= 5% (Emergency critical battery protection)")
+                    } else if telemetry.derived.temp_celsius_float >= 60.0 {
+                        Err("Battery temperature >= 60°C (Emergency thermal runaway protection)")
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    self.policy.can_boost_profile(requested_profile, telemetry)
+                };
+
+                match boost_check {
                     Ok(_) => {
                         self.adaptive.reset();
-                        return DecisionAction::ApplyProfile {
-                            target_profile: requested_profile,
-                            reason: format!(
+                        let reason = if active_override_prof.is_some() {
+                            format!(
+                                "HUD session override active ({}) requesting '{}' profile",
+                                app_name, requested_profile
+                            )
+                        } else {
+                            format!(
                                 "Target application active ({}) requesting '{}' profile",
                                 app_name, requested_profile
-                            ),
+                            )
+                        };
+                        return DecisionAction::ApplyProfile {
+                            target_profile: requested_profile,
+                            reason,
                         };
                     }
                     Err(inhibit_reason) => {
@@ -194,6 +270,7 @@ impl DecisionEngine {
             // If we are currently in powersave, but baseline is NOT powersave, revert to baseline
             if self.current_profile == "powersave" && fallback != "powersave" {
                 self.adaptive.reset();
+                self.session_override = None;
                 self.last_target_app = None;
                 return DecisionAction::ApplyProfile {
                     target_profile: fallback,
@@ -202,8 +279,25 @@ impl DecisionEngine {
                 };
             }
 
-            // If current profile is ALREADY the fallback baseline profile, stay there!
+            // If current profile is ALREADY the fallback baseline profile:
             if self.current_profile == fallback {
+                // Keep any active HUD session override alive across the cooldown window (in case of brief popup/notification),
+                // then clear cleanly once exited without emitting redundant profile transitions.
+                if self.session_override.is_some() {
+                    self.cooldown
+                        .on_game_exited(now, fallback, self.last_target_app.clone());
+                    match self.cooldown.evaluate(now) {
+                        CooldownStatus::Holding { .. } => {
+                            return DecisionAction::MaintainCurrent;
+                        }
+                        CooldownStatus::Expired { .. } | CooldownStatus::Inactive => {
+                            self.cooldown.on_game_active();
+                            self.session_override = None;
+                            self.last_target_app = None;
+                            return DecisionAction::MaintainCurrent;
+                        }
+                    }
+                }
                 self.cooldown.on_game_active();
                 self.last_target_app = None;
                 return DecisionAction::MaintainCurrent;
@@ -212,6 +306,7 @@ impl DecisionEngine {
             // If device woke from Screen OFF (parked in balance) without exiting a game, restore baseline immediately
             if self.last_target_app.is_none() {
                 self.adaptive.reset();
+                self.session_override = None;
                 return DecisionAction::ApplyProfile {
                     target_profile: fallback,
                     reason: format!(
@@ -230,6 +325,7 @@ impl DecisionEngine {
                 }
                 CooldownStatus::Expired { fallback_profile } => {
                     self.adaptive.reset();
+                    self.session_override = None;
                     self.last_target_app = None;
                     DecisionAction::ApplyProfile {
                         target_profile: fallback_profile,
@@ -239,6 +335,7 @@ impl DecisionEngine {
                 }
                 CooldownStatus::Inactive => {
                     self.adaptive.reset();
+                    self.session_override = None;
                     self.last_target_app = None;
                     DecisionAction::ApplyProfile {
                         target_profile: fallback,
@@ -534,5 +631,134 @@ mod tests {
         engine.notify_applied("balance");
         assert_eq!(engine.baseline_profile(), "balance");
         assert_eq!(engine.current_profile(), "balance");
+    }
+
+    #[test]
+    fn test_hud_session_override_does_not_fallback_and_reverts_cleanly() {
+        let mut engine = DecisionEngine::new("balance", 3);
+        let telemetry = make_test_telemetry();
+
+        let shopee_app = ForegroundApp {
+            package: "com.shopee.id".to_string(),
+            category: AppCategory::Game,
+            confidence: Confidence::High,
+            target_profile: Some("performance".to_string()),
+        };
+        let launcher_app = ForegroundApp {
+            package: "com.miui.home".to_string(),
+            category: AppCategory::Normal,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+
+        // 1. User opens Shopee -> switches to configured performance rule
+        let a1 = engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 100);
+        assert!(matches!(a1, DecisionAction::ApplyProfile { target_profile: "performance", .. }));
+        engine.notify_applied("performance");
+
+        // 2. While inside Shopee, user intentionally changes HUD profile to balance
+        engine.set_session_override("com.shopee.id", "balance");
+        engine.notify_applied("balance");
+
+        // 3. Subsequent ticks while Shopee stays open MUST remain balance (never fallback to performance!)
+        for ts in 101..=105 {
+            let act = engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, ts);
+            assert_eq!(act, DecisionAction::MaintainCurrent);
+            assert_eq!(engine.current_profile(), "balance");
+            assert_eq!(engine.baseline_profile(), "balance");
+        }
+
+        // 4. Brief excursion (<3s cooldown) preserves override so returning to Shopee keeps balance
+        assert_eq!(
+            engine.evaluate(Some(&launcher_app), ScreenState::On, &telemetry, 106),
+            DecisionAction::MaintainCurrent
+        );
+        assert!(engine.session_override().is_some());
+        assert_eq!(
+            engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 107),
+            DecisionAction::MaintainCurrent
+        );
+
+        // 5. Exiting Shopee past cooldown clears session override without spurious transitions
+        assert_eq!(
+            engine.evaluate(Some(&launcher_app), ScreenState::On, &telemetry, 110),
+            DecisionAction::MaintainCurrent
+        );
+        assert_eq!(
+            engine.evaluate(Some(&launcher_app), ScreenState::On, &telemetry, 114),
+            DecisionAction::MaintainCurrent
+        );
+        assert!(engine.session_override().is_none());
+
+        // 6. Re-opening Shopee later applies Shopee's configured performance rule normally
+        let a_reopen = engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 120);
+        assert!(matches!(a_reopen, DecisionAction::ApplyProfile { target_profile: "performance", .. }));
+    }
+
+    #[test]
+    fn test_hud_session_override_extreme_and_powersave_revert_to_baseline() {
+        let mut engine = DecisionEngine::new("balance", 3);
+        let telemetry = make_test_telemetry();
+
+        let shopee_app = ForegroundApp {
+            package: "com.shopee.id".to_string(),
+            category: AppCategory::Game,
+            confidence: Confidence::High,
+            target_profile: Some("performance".to_string()),
+        };
+        let chrome_app = ForegroundApp {
+            package: "com.android.chrome".to_string(),
+            category: AppCategory::Normal,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+
+        // Case A: Extreme override inside Shopee holds extreme, then reverts to balance on exit
+        engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 100);
+        engine.notify_applied("performance");
+        engine.set_session_override("com.shopee.id", "extreme");
+        engine.notify_applied("extreme");
+
+        assert_eq!(
+            engine.evaluate(Some(&shopee_app), ScreenState::On, &telemetry, 101),
+            DecisionAction::MaintainCurrent
+        );
+
+        let cool = engine.evaluate(Some(&chrome_app), ScreenState::On, &telemetry, 102);
+        assert!(matches!(cool, DecisionAction::HoldInCooldown { .. }));
+
+        let revert = engine.evaluate(Some(&chrome_app), ScreenState::On, &telemetry, 106);
+        assert!(matches!(
+            revert,
+            DecisionAction::ApplyProfile {
+                target_profile: "balance",
+                ..
+            }
+        ));
+        engine.notify_applied("balance");
+        assert!(engine.session_override().is_none());
+
+        // Case B: Powersave override on normal app holds while active and reverts immediately on exit
+        engine.set_session_override("com.android.chrome", "powersave");
+        engine.notify_applied("powersave");
+        assert_eq!(
+            engine.evaluate(Some(&chrome_app), ScreenState::On, &telemetry, 110),
+            DecisionAction::MaintainCurrent
+        );
+        let launcher_app = ForegroundApp {
+            package: "com.miui.home".to_string(),
+            category: AppCategory::Normal,
+            confidence: Confidence::High,
+            target_profile: None,
+        };
+        let exit_ps = engine.evaluate(Some(&launcher_app), ScreenState::On, &telemetry, 111);
+        assert!(matches!(
+            exit_ps,
+            DecisionAction::ApplyProfile {
+                target_profile: "balance",
+                ..
+            }
+        ));
+        assert!(engine.session_override().is_none());
     }
 }

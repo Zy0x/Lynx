@@ -385,12 +385,36 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
         }
         Self::write_marker_if_changed(Path::new("/data/adb/lynx/active_profile"), clean_p);
         Self::write_marker_if_changed(Path::new("/data/local/tmp/lynxd_profile"), clean_p);
+        Self::update_status_snapshot_profile(clean_p);
         if update_prop {
             #[cfg(target_os = "android")]
             {
                 let _ = std::process::Command::new("/system/bin/setprop")
                     .args(&["lynx.mode", clean_p])
                     .status();
+            }
+        }
+    }
+
+    fn update_status_snapshot_profile(profile: &str) {
+        for status_path in &[
+            Path::new("/dev/lynxd_status.json"),
+            Path::new("/data/local/tmp/lynxd_status.json"),
+        ] {
+            if let Ok(content) = fs::read_to_string(status_path) {
+                if let Some(pos) = content.find("\"profile\":\"") {
+                    let prefix_end = pos + 11;
+                    if let Some(rel_end) = content[prefix_end..].find('"') {
+                        let old_prof = &content[prefix_end..prefix_end + rel_end];
+                        if old_prof != profile {
+                            let mut updated = String::with_capacity(content.len() + 16);
+                            updated.push_str(&content[..prefix_end]);
+                            updated.push_str(profile);
+                            updated.push_str(&content[prefix_end + rel_end..]);
+                            let _ = fs::write(status_path, updated);
+                        }
+                    }
+                }
             }
         }
     }

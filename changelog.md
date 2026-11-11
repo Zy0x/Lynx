@@ -1,3 +1,12 @@
+# Lynx Universal [Anti-Fallback Session Override HUD & Sinkronisasi Lintas-Proses `:hud`] 7.0.0-RC380
+Released on: 2026-11-11
+> Lynx Kernel Manager v3.4.4
+
+- **Override Sesi HUD Tanpa *Fallback* (`lynxd` & `LynxCompanion`)**:
+  - Memperbaiki isolasi lintas-proses (`com.noir.lynx:hud` vs `com.noir.lynx`) pada `HudController.profile` dengan resolusi paket aktif berjenjang (*fallback* status daemon & detektor cgroup/UsageStats), sinkronisasi *broadcast* lintas-proses `ACTION_HUD_SESSION_OVERRIDE`, serta mekanisme override sesi RAM `/dev/lynx_hud_override` sebelum mengubah profil aktif.
+  - Menambahkan dukungan `session_override` di `DecisionEngine` (`lynxd`) agar perubahan profil sengaja dari *Floating HUD* (misalnya ke `balance`, `powersave`, atau `extreme` saat aplikasi beraturan `performance` seperti Shopee sedang terbuka) bertahan utuh sepanjang sesi aplikasi tanpa langsung dikembalikan (*fallback*) ke `performance` pada siklus daemon berikutnya.
+  - Memastikan pemilihan profil `Otomatis (Auto)` lewat HUD melepas override sesi dengan bersih, memperbarui marker profil pada snapshot status secara instan, menyaring proses layanan `:hud` dari deteksi `top-app`, serta memulihkan sistem ke `baseline_profile` pengguna secara otomatis ketika aplikasi target ditutup.
+
 # Lynx Universal [Unified Standalone Daemon Delegation & Zero-Bounce App Launch] 7.0.0-RC379
 Released on: 2026-11-11
 > Lynx Kernel Manager v3.4.3

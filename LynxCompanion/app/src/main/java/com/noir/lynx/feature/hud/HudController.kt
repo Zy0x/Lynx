@@ -112,6 +112,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
 
     private val focusState = MutableStateFlow(false)
     val focusActive = focusState.asStateFlow()
+    private val hudForegroundDetector by lazy { com.noir.lynx.service.LynxForegroundDetector(context) }
 
     init {
         gaming.beforeMagicStart = { syncSkipRunner(forceDisabled = true) }
@@ -271,25 +272,84 @@ class HudController(private val context: Context, private val scope: CoroutineSc
     @Volatile
     var currentPackage: String? = null
 
+    private fun isNonTargetHudPackage(pkg: String?): Boolean {
+        if (isSystemOrLauncherPkg(pkg)) return true
+        return hudForegroundDetector.isHomeLauncher(pkg!!)
+    }
+
+    private fun readActiveAppFromDaemonStatus(): String? {
+        val statusPaths = arrayOf("/dev/lynxd_status.json", "/data/local/tmp/lynxd_status.json")
+        for (path in statusPaths) {
+            val content = runCatching {
+                val f = File(path)
+                if (f.canRead()) f.readText() else null
+            }.getOrNull() ?: continue
+            val candidate = parseDaemonStatusApp(content)
+            if (candidate != null && !hudForegroundDetector.isHomeLauncher(candidate)) {
+                return candidate
+            }
+        }
+        return null
+    }
+
+    private fun resolveActiveAppForHud(): String? {
+        val candidates = listOfNotNull(
+            currentPackage,
+            skipContext?.pkg,
+            readActiveAppFromDaemonStatus(),
+            hudForegroundDetector.queryTopResumedPackage()?.packageName,
+            com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
+        )
+        return candidates.firstOrNull { !isNonTargetHudPackage(it) }
+    }
+
     fun profile(profile: String) = perform {
         if (profile !in setOf("powersave", "balance", "performance", "auto", "extreme")) return@perform R.string.hud_failed
+
+        val activePkg = resolveActiveAppForHud()
+        val isTargetGame = !activePkg.isNullOrBlank()
+
+        if (profile == "auto") {
+            // Returning control to Smart-AI per-app/baseline automation clears any active HUD session override
+            Shell.cmd("rm -f /dev/lynx_hud_override 2>/dev/null").exec()
+            com.noir.lynx.service.LynxAppAutomationService.notifyHudSessionOverride(context, "", "")
+            val appliedAuto = LynxRepository.setProfile("auto", caller = "user")
+            val daemonRunning = Shell.cmd("pgrep -f 'lynxd daemon' >/dev/null 2>&1").exec().isSuccess
+            if (daemonRunning) {
+                delay(1150)
+            }
+            LynxRepository.invalidateCurrentProfileCache()
+            val resolved = LynxRepository.normalizeProfileKey(LynxRepository.readCurrentProfileFast())
+            com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(context, resolved, "hud")
+            return@perform if (appliedAuto && resolved in setOf("powersave", "balance", "performance", "extreme")) {
+                R.string.hud_verified
+            } else {
+                R.string.hud_failed
+            }
+        }
 
         // Broadcast profile change immediately across all processes (0ms reactive feedback)
         com.noir.lynx.core.sync.LynxProfileSyncBus.broadcastProfileChange(context, profile, "hud")
 
-        val activePkg = currentPackage ?: skipContext?.pkg ?: com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
-        val isTargetGame = !activePkg.isNullOrBlank() &&
-            activePkg != "com.noir.lynx" &&
-            activePkg != "com.android.systemui" &&
-            !activePkg.contains("launcher")
-
         val applied = if (isTargetGame) {
             val pkg = activePkg!!
-            // 1. Update/persist app rule so neither lynxd daemon nor LynxAppAutomationService reverts it
-            com.noir.lynx.service.LynxAppAutomationService.onGameProfileOverridden(pkg, profile)
-            // 2. Set profile with caller = "hud_game" (preserves baseline profile)
+            val safePayload = buildHudOverridePayload(pkg, profile)
+            // 1. Write RAM session override BEFORE updating active_profile so lynxd never reverts mid-session
+            if (safePayload != null) {
+                Shell.cmd(
+                    "printf '%s' '$safePayload' > /dev/lynx_hud_override 2>/dev/null; " +
+                        "chmod 666 /dev/lynx_hud_override 2>/dev/null"
+                ).exec()
+            }
+            // 2. Notify companion automation service across processes so notifications & standalone fallback stay synced
+            val cleanPkg = safePayload?.substringBefore('|') ?: pkg
+            com.noir.lynx.service.LynxAppAutomationService.notifyHudSessionOverride(context, cleanPkg, profile)
+            // 3. Apply transient profile with caller = "hud_game" (preserves user baseline_profile & app rules)
             LynxRepository.setProfile(profile, caller = "hud_game")
         } else {
+            // Global profile change from launcher/workspace clears any leftover session override
+            Shell.cmd("rm -f /dev/lynx_hud_override 2>/dev/null").exec()
+            com.noir.lynx.service.LynxAppAutomationService.notifyHudSessionOverride(context, "", "")
             LynxRepository.setProfile(profile, caller = "user")
         }
 
@@ -301,7 +361,7 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             if (bundled.exists()) bundled.absolutePath else LynxRepository.getLynxdPath()
         }.getOrDefault("/data/local/tmp/lynxd")
 
-        val expected = if (profile == "auto") "balance" else profile
+        val expected = profile
         // Brief settle delay to allow multi-core frequency scaling and sysfs kernel commits to land
         delay(120)
         val output = Shell.cmd("$binPath profile verify $expected --json").exec()
@@ -504,6 +564,33 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             mutable.value = mutable.value.copy(busy = false, message = message, actionType = actionType)
             delay(4000)
             if (generation == actionGeneration && !mutable.value.busy) mutable.value = HudActionState()
+        }
+    }
+
+    companion object {
+        internal fun isSystemOrLauncherPkg(pkg: String?): Boolean {
+            if (pkg.isNullOrBlank() || pkg == "null") return true
+            val lower = pkg.lowercase(Locale.ROOT)
+            return lower == "com.noir.lynx" ||
+                lower.startsWith("com.noir.lynx:") ||
+                lower == "com.android.systemui" ||
+                lower.contains("launcher") ||
+                lower.contains("home")
+        }
+
+        internal fun parseDaemonStatusApp(jsonContent: String): String? {
+            val rawApp = runCatching { JSONObject(jsonContent).optString("app", "") }.getOrNull().orEmpty()
+            val candidate = rawApp.substringBefore(' ').trim()
+            return candidate.takeIf { it.contains('.') && !isSystemOrLauncherPkg(it) }
+        }
+
+        internal fun buildHudOverridePayload(pkg: String, profile: String): String? {
+            val cleanPkg = pkg.replace("'", "").replace("|", "").replace("\n", "").replace("\r", "").trim()
+            val cleanProf = profile.trim().lowercase(Locale.ROOT)
+            if (cleanPkg.isBlank() || cleanProf !in setOf("powersave", "balance", "performance", "extreme")) {
+                return null
+            }
+            return "$cleanPkg|$cleanProf"
         }
     }
 }

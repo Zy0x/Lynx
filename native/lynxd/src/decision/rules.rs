@@ -31,8 +31,13 @@ impl SwitchingPolicy {
         }
 
         // Standard Performance / Auto Mode:
-        // Guard 1: Battery level safety (prevents sudden battery shutdown at low voltage)
-        if telemetry.raw.battery.capacity <= self.min_battery_percent {
+        // Guard 1: Battery level safety (prevents sudden battery shutdown at low voltage when on battery)
+        let is_plugged = matches!(
+            telemetry.raw.battery.status.as_str(),
+            "Charging" | "Full" | "Not charging"
+        ) || crate::hardware::ChargingRegulator::is_hardware_plugged();
+
+        if !is_plugged && telemetry.raw.battery.capacity <= self.min_battery_percent {
             return Err("Battery level <= 15% (Low battery guard prevents performance boost)");
         }
 

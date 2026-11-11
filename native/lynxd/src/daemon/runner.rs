@@ -97,6 +97,7 @@ impl DaemonRunner {
         let mut last_tmp_status_sync = 0u64;
         let mut last_tmp_status_sig = String::new();
         let mut last_tmp_bat_pct = u32::MAX;
+        let mut last_hud_override: Option<(String, String)> = None;
         let mut last_maintenance_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -128,6 +129,41 @@ impl DaemonRunner {
                         format!("[DAEMON] Profil dasar dinamis diperbarui: '{}' -> '{}'", decision_engine.baseline_profile(), target_baseline)
                     });
                     decision_engine.update_baseline_profile(&target_baseline);
+                }
+            }
+
+            // Sync active in-session HUD override (/dev/lynx_hud_override) before active_profile & evaluate
+            let hud_override_path = std::path::Path::new("/dev/lynx_hud_override");
+            match std::fs::read_to_string(hud_override_path) {
+                Ok(content) => {
+                    if let Some((pkg_raw, prof_raw)) = content.trim().split_once('|') {
+                        let pkg = pkg_raw.trim().to_lowercase();
+                        let prof = prof_raw.trim().to_lowercase();
+                        if prof == "auto" {
+                            decision_engine.clear_session_override();
+                            last_hud_override = None;
+                            let _ = std::fs::remove_file(hud_override_path);
+                        } else if !pkg.is_empty()
+                            && matches!(prof.as_str(), "powersave" | "balance" | "performance" | "extreme")
+                        {
+                            let next_ov = (pkg.clone(), prof.clone());
+                            if last_hud_override.as_ref() != Some(&next_ov) {
+                                Logger::info(if is_english() {
+                                    format!("[DAEMON] HUD session override active: '{}' -> '{}'", pkg, prof)
+                                } else {
+                                    format!("[DAEMON] Override sesi HUD aktif: '{}' -> '{}'", pkg, prof)
+                                });
+                                decision_engine.set_session_override(&pkg, &prof);
+                                last_hud_override = Some(next_ov);
+                            }
+                        }
+                    }
+                }
+                Err(_) => {
+                    if last_hud_override.is_some() {
+                        decision_engine.clear_session_override();
+                        last_hud_override = None;
+                    }
                 }
             }
 
@@ -304,6 +340,15 @@ impl DaemonRunner {
                     Logger::warn(if is_english() { format!("[DAEMON] Boost transition to '{}' inhibited by safety guardrail: {}", target_profile, reason) } else { format!("[DAEMON] Peralihan boost ke '{}' ditahan oleh pengaman keselamatan: {}", target_profile, localized_reason) });
                 }
                 DecisionAction::MaintainCurrent => {}
+            }
+
+            if decision_engine.session_override().is_none() && last_hud_override.is_some() {
+                let _ = std::fs::remove_file("/dev/lynx_hud_override");
+                last_hud_override = None;
+                Logger::info(ui(
+                    "[DAEMON] Sesi override HUD selesai: aturan per-aplikasi kembali aktif.",
+                    "[DAEMON] HUD session override cleared: per-app automation resumed.",
+                ));
             }
 
             let active_prof = decision_engine.current_profile();

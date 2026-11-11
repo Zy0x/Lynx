@@ -90,6 +90,7 @@ class LynxForegroundDetector(private val context: Context) {
 
                 val raw = String(bytes)
                 val token = raw.split('\u0000').firstOrNull()?.trim() ?: ""
+                if (token.startsWith("${context.packageName}:")) continue
                 val pkg = if (token.contains(':')) token.substringBefore(':') else token
                 if (pkg.isBlank() || pkg == "null" || pkg == "system_server" ||
                     pkg.startsWith("/system/") || pkg.startsWith("/vendor/") ||
