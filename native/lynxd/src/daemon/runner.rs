@@ -132,9 +132,12 @@ impl DaemonRunner {
                 }
             }
 
-            // Sync active in-session HUD override (/dev/lynx_hud_override) before active_profile & evaluate
+            // Sync active in-session HUD override (/dev/lynx_hud_override or /data/adb/lynx/hud_override) before active_profile & evaluate
             let hud_override_path = std::path::Path::new("/dev/lynx_hud_override");
-            match std::fs::read_to_string(hud_override_path) {
+            let hud_adb_override_path = std::path::Path::new("/data/adb/lynx/hud_override");
+            let override_content = std::fs::read_to_string(hud_override_path)
+                .or_else(|_| std::fs::read_to_string(hud_adb_override_path));
+            match override_content {
                 Ok(content) => {
                     if let Some((pkg_raw, prof_raw)) = content.trim().split_once('|') {
                         let pkg = pkg_raw.trim().to_lowercase();
@@ -143,6 +146,7 @@ impl DaemonRunner {
                             decision_engine.clear_session_override();
                             last_hud_override = None;
                             let _ = std::fs::remove_file(hud_override_path);
+                            let _ = std::fs::remove_file(hud_adb_override_path);
                         } else if !pkg.is_empty()
                             && matches!(prof.as_str(), "powersave" | "balance" | "performance" | "extreme")
                         {
@@ -344,6 +348,7 @@ impl DaemonRunner {
 
             if decision_engine.session_override().is_none() && last_hud_override.is_some() {
                 let _ = std::fs::remove_file("/dev/lynx_hud_override");
+                let _ = std::fs::remove_file("/data/adb/lynx/hud_override");
                 last_hud_override = None;
                 Logger::info(ui(
                     "[DAEMON] Sesi override HUD selesai: aturan per-aplikasi kembali aktif.",
@@ -415,7 +420,7 @@ impl DaemonRunner {
 
             // Autonomous VMA Shield Watchdog tick (Monitors system_server VMA every ~60 cycles)
             if daemon_state.cycle_count % 60 == 0 {
-                crate::subsystems::MemoryController::check_vma_health();
+                crate::subsystems::MemoryController::check_vma_health(fg_app.as_ref());
             }
 
             // Autonomous Companion App Shield & SystemUI Priority Guardian tick (every ~30 cycles)
@@ -661,7 +666,7 @@ impl DaemonRunner {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&status_path, std::fs::Permissions::from_mode(0o644));
+                let _ = std::fs::set_permissions(&status_path, std::fs::Permissions::from_mode(0o666));
             }
         }
         if mirror_to_tmp {

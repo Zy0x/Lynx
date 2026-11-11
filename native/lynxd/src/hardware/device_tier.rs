@@ -128,19 +128,21 @@ impl DeviceTier {
 
         match profile.as_str() {
             "extreme" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 45 } else { 30 },
+                // Modern ZRAM architecture requires swappiness 80..100 so idle background pages
+                // proactively compress into ZRAM, preserving 1.5GB+ physical RAM headroom for the active game.
+                swappiness: 80,
                 vfs_cache_pressure: 50,
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
                 dirty_expire_cs: expire_cs,
-                watermark_scale_factor: if self.is_low_end_ram { 60 } else { 200 },
+                watermark_scale_factor: if self.is_low_end_ram { 60 } else { 150 },
                 extra_free_kbytes: if self.is_low_end_ram { 32768 } else { 65536 },
                 f2fs_cp_interval_secs: if self.is_emmc_primary { 150 } else { 300 },
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
             "performance" | "gaming" | "game" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 60 } else { 50 },
+                swappiness: 80,
                 // Keep dentry/inode caches hot in RAM on eMMC & <=4.5GB to avoid FBE cold lookups
                 vfs_cache_pressure: if self.is_emmc_primary {
                     50
@@ -181,7 +183,7 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary && !self.is_low_end_ram,
             },
             "powersave" | "battery" => VmProfileTargets {
-                swappiness: 60,
+                swappiness: 100,
                 vfs_cache_pressure: if self.is_emmc_primary { 50 } else { 100 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
@@ -193,7 +195,7 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
             _ => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 60 } else { 50 },
+                swappiness: 80,
                 vfs_cache_pressure: if self.is_emmc_primary {
                     50
                 } else if self.is_low_end_ram {

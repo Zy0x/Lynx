@@ -82,11 +82,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             val top = foregroundDetector.queryTopResumedPackage()?.packageName.orEmpty()
             if (top.isNotBlank() && !isLauncherOrSystemPackage(top)) top else ""
         }
-        if (detected.isBlank()) {
-            controller.currentPackage = null
-            return ""
+        if (detected.isNotBlank()) {
+            controller.currentPackage = detected
         }
-        controller.currentPackage = detected
         return detected
     }
 
@@ -752,7 +750,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     apps = apps,
                     rates = supported,
                     onOpen = { open.value = it },
-                    onProfile = controller::profile,
+                    onProfile = { profile -> controller.profile(profile, sample.packageName.takeIf { it.isNotBlank() }) },
                     onHz = { targetHz ->
                         controller.refresh(targetHz, supported.ifEmpty { listOf(60f, 90f, 120f) }, targetDisplay()) {
                             updateDisplay()

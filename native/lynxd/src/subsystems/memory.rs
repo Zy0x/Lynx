@@ -6,6 +6,7 @@ extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
 }
 
+use crate::daemon::foreground::rules::{AppCategory, ForegroundApp};
 use crate::hardware::capability::HardwareCapability;
 use crate::state::ConfigStore;
 use crate::subsystems::tui::{is_english, ui};
@@ -245,6 +246,7 @@ impl MemoryController {
     pub fn clean_memory_safe(protected_pkg: Option<&str>) -> String {
         let is_gaming = protected_pkg.map_or(false, |p| !p.trim().is_empty());
 
+        let mut compact = false;
         if !is_gaming {
             // Avoid full pagecache eviction (drop_caches=3) on eMMC/FBE to prevent cold-read stalls
             let is_emmc = crate::hardware::storage::StoragePolicy::is_primary_system_emmc();
@@ -254,16 +256,16 @@ impl MemoryController {
                 let _ = Command::new("sync").status();
                 let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "3", WriteMode::Direct);
             }
+            compact = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::Direct).is_ok();
         } else {
             // Gaming Mode (HUD shortcut during active gameplay like Genshin Impact / MLBB):
             // 1. Strictly DO NOT execute blocking sync to prevent flash storage bus contention with game asset streaming.
             // 2. Strictly DO NOT drop file pagecache (drop_caches 3) so game textures, shaders, and .assets bundles stay hot in RAM.
             // 3. Drop only unreferenced dentries/inodes (drop_caches 2) safely.
+            // 4. Strictly DO NOT trigger blocking /proc/sys/vm/compact_memory which stalls CPU rendering pipeline.
             let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "2", WriteMode::Direct);
         }
 
-        let compact =
-            SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::Direct).is_ok();
         let zram_compact = super::zram::ZramController::compact();
         // Evict idle background cached processes natively (zero-binder, zero-fork)
         let evicted = Self::evict_cached_processes_filtered(protected_pkg);
@@ -433,15 +435,16 @@ impl MemoryController {
     /// Autonomous Memory & Swap Watchdog:
     /// 1. Monitors system_server VMA mapping count. If mappings exceed safe limits (>= 40,000 VMAs),
     ///    triggers gentle memory compaction.
-    /// 2. Monitors Swap / ZRAM saturation from /proc/meminfo. If Swap is critically full (free < 12.5% or free < 250MB),
+    /// 2. Monitors Swap / ZRAM saturation from /proc/meminfo. If Swap is critically full (free < 20% or free < 512MB),
     ///    autonomously triggers hardware ZRAM compaction & evicts dead cached processes to shield against
     ///    Android framework Watchdog freeze (SIGABRT / soft reboot).
-    pub fn check_vma_health() {
-        Self::check_swap_pressure();
+    ///    When an active game is in the foreground, strictly shields textures and prevents synchronous compaction stalls.
+    pub fn check_vma_health(fg_app: Option<&ForegroundApp>) {
+        Self::check_swap_pressure(fg_app);
         Self::check_system_server_vma();
     }
 
-    fn check_swap_pressure() {
+    fn check_swap_pressure(fg_app: Option<&ForegroundApp>) {
         if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
             let mut swap_total = 0u64;
             let mut swap_free = 0u64;
@@ -473,13 +476,32 @@ impl MemoryController {
                 let last = LAST_RECLAIM.load(std::sync::atomic::Ordering::Relaxed);
                 if now.saturating_sub(last) >= 60 {
                     LAST_RECLAIM.store(now, std::sync::atomic::Ordering::Relaxed);
+
+                    let is_game = fg_app
+                        .map(|a| a.category == AppCategory::Game || a.category == AppCategory::Benchmark)
+                        .unwrap_or(false);
+                    let protected_pkg = fg_app.map(|a| a.package.as_str());
+
+                    // Hardware ZRAM compaction is always safe (merges fragmented zsmalloc chunks without stalling user processes)
                     let _ = super::zram::ZramController::compact();
-                    let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
-                    // Evict only unused dentries/inodes on eMMC/low-end RAM to avoid FBE pagecache cold-read stalls
-                    let tier = crate::hardware::DeviceTier::detect_live();
-                    let cache_level = if tier.is_emmc_primary || tier.is_low_end_ram { "2" } else { "3" };
-                    let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", cache_level, WriteMode::ForcePermission);
-                    let evicted = Self::evict_cached_processes();
+
+                    if !is_game {
+                        let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
+                        // Evict only unused dentries/inodes on eMMC/low-end RAM to avoid FBE pagecache cold-read stalls
+                        let tier = crate::hardware::DeviceTier::detect_live();
+                        let cache_level = if tier.is_emmc_primary || tier.is_low_end_ram { "2" } else { "3" };
+                        let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", cache_level, WriteMode::ForcePermission);
+                    } else {
+                        // Gaming Mode Active Protection (Anti-Game Freeze):
+                        // 1. Strictly DO NOT drop file pagecache (drop_caches 3) so textures, shaders, and .so binaries stay hot in RAM.
+                        // 2. Strictly DO NOT execute synchronous /proc/sys/vm/compact_memory which stalls CPU rendering pipeline.
+                        // 3. Drop only unreferenced dentries/inodes (level 2) safely to free slab metadata.
+                        let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "2", WriteMode::ForcePermission);
+                    }
+
+                    // Safely evict dead/idle cached background processes (oom_score_adj >= 900)
+                    // Guaranteeing the active game and companion app are 100% shielded
+                    let evicted = Self::evict_cached_processes_filtered(protected_pkg);
 
                     Logger::warn(if is_english() {
                         format!(

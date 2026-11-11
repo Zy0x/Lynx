@@ -134,6 +134,7 @@ fn detect_top_package_fast() -> Option<String> {
                     if token.contains('.') 
                         && !token.starts_with("android.hardware") 
                         && !token.starts_with("vendor.") 
+                        && !token.starts_with("com.noir.lynx") 
                         && !token.ends_with(":isolated_process") 
                         && !token.ends_with(":sandboxed_process")
                         && token != "system_server" 
