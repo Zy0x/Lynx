@@ -2,7 +2,7 @@ use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::apply::{ExecutionPlan, ProfileExecutor};
-use crate::daemon::foreground::ForegroundDetector;
+use crate::daemon::foreground::{AppCategory, ForegroundDetector};
 use crate::daemon::lifecycle::DaemonLifecycle;
 use crate::daemon::screen::{ScreenDetector, ScreenState};
 use crate::daemon::state::DaemonState;
@@ -299,7 +299,8 @@ impl DaemonRunner {
                                 decision_engine.notify_applied(target_profile);
                                 // Synchronize active profile markers & lynx.mode without redundant flash churn
                                 crate::state::ConfigStore::sync_profile_markers(target_profile, true);
-                                if target_profile == "performance" || target_profile == "extreme" {
+                                let is_actual_game = fg_app.as_ref().map(|app| app.category == AppCategory::Game).unwrap_or(false);
+                                if is_actual_game && (target_profile == "performance" || target_profile == "extreme") {
                                     let game_pid = fg_app.as_ref().and_then(|app| {
                                         crate::subsystems::GameController::find_pid_for_package(&app.package)
                                     });

@@ -538,7 +538,7 @@ impl GameController {
                     {
                         let _ = Command::new("renice").args(&["-n", "-20", "-p", &tid]).output();
                         let _ = Command::new("taskset").args(&["-p", &hex_all, &tid]).output();
-                    } else if c.contains("Audio") || c.contains("Sound") || c.contains("FMOD") || c.contains("OkHttp") {
+                    } else if c.contains("Audio") || c.contains("Sound") || c.contains("FMOD") {
                         let _ = Command::new("renice").args(&["-n", "-10", "-p", &tid]).output();
                         let _ = Command::new("taskset").args(&["-p", &hex_little, &tid]).output();
                     } else if c.contains("Worker") || c.contains("Job") {
