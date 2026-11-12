@@ -637,6 +637,74 @@
                     Terapkan Presisi Sentuh &amp; Edge Guard
                 </button>
             </div>
+
+            <!-- MediaTek Picture Quality (MTK PQ) Secondary Fallback -->
+            <div class="card" id="card-mtk-pq" style="display: none;">
+                <div class="card-title">MediaTek Picture Quality (PQ)</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Kendalikan AAL Bypass, DRE Local Contrast, Sharpness TDSHP, dan UltraRes melalui HAL Picture Quality MediaTek.
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Bypass AAL (Matikan Auto-Gamma)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="pq-aal-bypass-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Video Playback DRE</span>
+                    <label class="switch">
+                        <input type="checkbox" id="pq-vp-dre-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Isotropic Sharpness</span>
+                    <label class="switch">
+                        <input type="checkbox" id="pq-iso-shp-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="switch-row">
+                    <span class="switch-label">Ultra Resolution</span>
+                    <label class="switch">
+                        <input type="checkbox" id="pq-ultrares-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="control-group" style="margin-top: 8px;">
+                    <div class="control-label">
+                        <span>MDP DRE Mode (0–2)</span>
+                        <strong id="pq-dre-val">2</strong>
+                    </div>
+                    <input type="range" id="pq-dre-slider" min="0" max="2" step="1" value="2"
+                           oninput="document.getElementById('pq-dre-val').textContent = this.value">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Indeks Ketajaman TDSHP (0–9)</span>
+                        <strong id="pq-shp-val">2</strong>
+                    </div>
+                    <input type="range" id="pq-shp-slider" min="0" max="9" step="1" value="2"
+                           oninput="document.getElementById('pq-shp-val').textContent = this.value">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Kekuatan UltraRes (0–4)</span>
+                        <strong id="pq-ur-str-val">0</strong>
+                    </div>
+                    <input type="range" id="pq-ur-str-slider" min="0" max="4" step="1" value="0"
+                           oninput="document.getElementById('pq-ur-str-val').textContent = this.value">
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button class="btn btn-accent" onclick="applyWebMtkPq()" style="flex: 1; min-height: 48px;">
+                        Terapkan &amp; Muat Ulang PQ
+                    </button>
+                    <button class="btn" onclick="resetWebMtkPq()" style="flex: 0.7; min-height: 48px;">
+                        Default Pabrik
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- ======================================================== -->

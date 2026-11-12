@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.R
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.theme.*
 
@@ -59,6 +61,8 @@ fun DisplayHeroCard(
     val profileTitle = if (isCalibrationEnabled) {
         when (colorProfile) {
             com.noir.lynx.display.ColorMatrixProfile.ACCURATE -> "Profil Akurat (D65)"
+            com.noir.lynx.display.ColorMatrixProfile.IPS_D65_NATURAL -> stringResource(R.string.display_hero_ips_d65)
+            com.noir.lynx.display.ColorMatrixProfile.IPS_VIVID -> stringResource(R.string.display_hero_ips_vivid)
             com.noir.lynx.display.ColorMatrixProfile.GAMING -> "Profil Gaming Vivid"
             com.noir.lynx.display.ColorMatrixProfile.CINEMA -> "Profil Sinema DCI-P3"
             com.noir.lynx.display.ColorMatrixProfile.READING -> "Profil Membaca Hangat"

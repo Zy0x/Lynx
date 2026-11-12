@@ -25,9 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.R
 import com.noir.lynx.data.DisplayCalibrationInfo
 import com.noir.lynx.display.ColorMatrixProfile
 
@@ -210,10 +212,12 @@ fun ColorManagementCard(
                 Spacer(Modifier.height(6.dp))
 
                 val presets = listOf(
-                    Triple("Akurat", ColorMatrixProfile.ACCURATE, Icons.Default.Verified),
-                    Triple("Gaming", ColorMatrixProfile.GAMING, Icons.Default.SportsEsports),
-                    Triple("Cinema", ColorMatrixProfile.CINEMA, Icons.Default.Movie),
-                    Triple("Membaca", ColorMatrixProfile.READING, Icons.AutoMirrored.Filled.MenuBook)
+                    Triple(stringResource(R.string.color_preset_accurate), ColorMatrixProfile.ACCURATE, Icons.Default.Verified),
+                    Triple(stringResource(R.string.color_preset_ips_d65), ColorMatrixProfile.IPS_D65_NATURAL, Icons.Default.AutoAwesome),
+                    Triple(stringResource(R.string.color_preset_ips_vivid), ColorMatrixProfile.IPS_VIVID, Icons.Default.Palette),
+                    Triple(stringResource(R.string.color_preset_gaming), ColorMatrixProfile.GAMING, Icons.Default.SportsEsports),
+                    Triple(stringResource(R.string.color_preset_cinema), ColorMatrixProfile.CINEMA, Icons.Default.Movie),
+                    Triple(stringResource(R.string.color_preset_reading), ColorMatrixProfile.READING, Icons.AutoMirrored.Filled.MenuBook)
                 )
 
                 Row(
@@ -222,8 +226,8 @@ fun ColorManagementCard(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    presets.forEach { (name, profile, icon) ->
-                        val isSelected = colorProfile.name.equals(name, ignoreCase = true)
+                    presets.forEach { (label, profile, icon) ->
+                        val isSelected = colorProfile.name.equals(profile.name, ignoreCase = true)
                         Surface(
                             onClick = {
                                 if (isCalibrationEnabled) {
@@ -249,12 +253,12 @@ fun ColorManagementCard(
                             ) {
                                 Icon(
                                     imageVector = icon,
-                                    contentDescription = localizedUiText(name),
+                                    contentDescription = localizedUiText(label),
                                     tint = if (isSelected) cardAccent else TextSecondary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = name,
+                                    text = label,
                                     color = if (isSelected) cardAccent else TextPrimary,
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium

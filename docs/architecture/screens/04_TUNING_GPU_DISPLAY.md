@@ -29,9 +29,12 @@ Sub-halaman GPU & Display mengontrol subsistem grafis dan panel output visual. H
    - **Auto Dynamic Refresh Rate Toggle**: Mengizinkan OS menurunkan refresh rate saat layar diam.
    - **Multi-OEM TouchBoost Toggle**: Peningkatan polling rate sentuhan (Xiaomi, OnePlus, Realme, Infinix).
 5. **Color Management & Panel Calibration (`ColorManagementCard`)**:
-   - SurfaceFlinger ColorMatrix 1015 (Universal SDR -> D65 White Point).
+   - SurfaceFlinger ColorMatrix 1015 *column-major* via `su 1000` (Preset `D65 Natural IPS`, `IPS Vivid`, `Akurat`, `Gaming`, `Cinema`, `Membaca`).
    - KCAL RGB Hardware Matrix (jika kernel mendukung interface `/sys/devices/platform/kcal_ctrl.0/kcal`).
    - High Brightness Mode (HBM) sunlight booster.
+6. **MediaTek Picture Quality (`MtkPqControlsCard` — MediaTek Only)**:
+   - Tersembunyi secara dinamis pada perangkat non-MediaTek (`ro.vendor.mtk_pq_support`).
+   - Mengontrol `persist.vendor.sys.pq.disp.aal.bypass` (AAL Bypass), `mdp.dre.en` / `mdp.vp.dre.en`, `shp.idx` (`0–9`), `iso.shp.en`, `ultrares.en`, `ultrares.strength` (`0–4`), dan `vendor.debug.pq.{shp,dshp}.en`, disertai reload aman HAL `pq-2-2` dan sinkronisasi `lynxd display pq`.
 
 ---
 

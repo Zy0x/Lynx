@@ -1,3 +1,15 @@
+# Lynx Universal [ColorMatrix Engine 1015 Fix, IPS Calibration Presets & MTK PQ Control] 7.0.0-RC388
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.9
+
+- **Perbaikan Mesin Warna Hardware SurfaceFlinger 1015 (`ColorMatrixEngine.kt`, `ColorManagementCard.kt`)**:
+  - Memperbaiki eksekusi transaksi Binder SurfaceFlinger `1015`, `1022`, dan invalidasi frame `1006` agar berjalan menggunakan konteks sistem `su 1000` (`AID_SYSTEM`) dengan fallback otomatis bagi variasi root lama.
+  - Mengoreksi susunan matriks `buildMatrix()` ke tata letak *column-major* `ui::mat4` dengan komposisi `WhitePoint * Contrast * Rec709Saturation` serta offset titik tengah kontras (`(1 - c) * 0.5`) agar abu-abu netral dan putih tidak mengalami pergeseran tint, sekaligus menormalkan referensi `kelvinToRgbGain(6500)` ke `(1.0, 1.0, 1.0)` dan mencegah perkalian ganda dengan `display_color_adjustment` / `1022`.
+  - Menambahkan preset kalibrasi khusus panel IPS (`D65 Natural IPS` untuk mengoreksi panel IPS bersuhu dingin menuju ~6500K alami, serta `IPS Vivid`).
+- **Kontrol MediaTek Picture Quality & AAL Bypass (`MtkPqControlsCard.kt`, `LynxMtkPqModels.kt`, `LynxMtkPqRepository.kt`, `lynxd`, & `webroot/`)**:
+  - Menambahkan kartu **MediaTek Picture Quality (PQ)** yang dideteksi dan dibuka secara dinamis hanya pada perangkat MediaTek PQ (`ro.vendor.mtk_pq_support`), menyediakan kontrol **Bypass AAL** (`persist.vendor.sys.pq.disp.aal.bypass`), mode kontras lokal **MDP DRE**, **Video Playback DRE**, indeks ketajaman **TDSHP** (`0–9`), **Isotropic Sharpness**, **Dynamic Sharpness**, dan **Ultra Resolution** (`0–4`) beserta preset cepat (*Standar*, *Natural Murni*, *Sinema DRE+*, *Esports Tajam*).
+  - Mengimplementasikan muat ulang layanan HAL PQ yang aman (`pq-2-2`), sinkronisasi `config.json` via `lynxd display pq apply|status|reset`, persistensi boot (`LynxBootReceiver.kt`), serta kartu pendamping di WebUI sekunder.
+
 # Lynx Universal [Touch Precision, Micro-Gain Ceiling Unlock & Edge Back Guard] 7.0.0-RC387
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.8

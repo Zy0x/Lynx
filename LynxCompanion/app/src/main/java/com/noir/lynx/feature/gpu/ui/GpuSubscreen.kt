@@ -279,6 +279,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
+            // MediaTek Picture Quality (MTK PQ: AAL Bypass, DRE, Sharpness & UltraRes)
+            item(key = "gpu_mtk_pq") {
+                MtkPqControlsCard(context = context)
+            }
+
             // Kernel KCAL Hardware Card (If supported by kernel)
             if (uiState.displayCalibration.isKcalSupported) {
                 item(key = "gpu_kcal_hardware") {

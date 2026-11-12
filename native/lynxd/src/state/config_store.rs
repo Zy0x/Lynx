@@ -156,6 +156,17 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "debug_touch_freq_boost": true,
     "touch_irq_big_cores": true
   },
+  "mtk_pq": {
+    "aal_bypass": false,
+    "dre_mode": 2,
+    "vp_dre_enabled": true,
+    "shp_index": 2,
+    "iso_shp_enabled": true,
+    "ultrares_enabled": true,
+    "ultrares_strength": 0,
+    "debug_shp_enabled": true,
+    "debug_dshp_enabled": true
+  },
   "network": {
     "wifi_ping_stabilizer": true,
     "tcp_congestion": "bbr",
