@@ -1,3 +1,18 @@
+# Lynx Universal [Touch Precision, Micro-Gain Ceiling Unlock & Edge Back Guard] 7.0.0-RC387
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.8
+
+- **Integrasi Native Touch Precision, Akselerasi Gerakan Mikro & Pelindung Tepian (`LynxCompanion`, `lynxd`, & `webroot/`)**:
+  - **Kartu Kalibrasi Presisi Sentuh (`TouchPrecisionCalibrationCard.kt`, `TouchPrecisionSections.kt`, `LynxTouchPrecisionRepository.kt`)**:
+    - Menambahkan panel kontrol interaktif pada kategori *Display & Touch* (Tab 1 `OUTPUT & TOUCH`) untuk menyetel langsung seluruh parameter hardware touchscreen **Novatek NT36672C (`Sol-Kernel-Arise-R1.023+`)**, boost kernel MediaTek **`ktch`**, pipeline input Android, serta pelindung tepi **Edge Back Gesture**.
+    - Mengunci konfigurasi tervalidasi pengguna sebagai **Default Tervalidasi** bawaan (`Micro-Gain Lv 4 / 3.0x`, `Bezel Edge Guard 48 px`, `SPI Bus 15.0 MHz`, `Game Mode 0x7D`, `Hop-Fix 0x75`, filter anti-jitter & smoothing `0x00`, overlay `Narrow`, skala tepi Kiri/Kanan `0.18x`, `ML Back Threshold 0.96`, `view.touch_slop 4 dp`, `ro.input.resampling false`, `ktch 280 ms / EAS 80`), sekaligus membuka rentang penyesuaian penuh hingga batas tertinggi hardware (`Micro-Gain Lv 0–12` `1.0x–7.0x`, `Bezel Edge Guard 0–240 px`, `SPI Bus 4.8–24.0 MHz` dengan peringatan eksperimental di atas `15 MHz`, `Back Scale 0.00x–2.00x` kiri/kanan independen, overlay `Narrow..Extra Wide`, `ML Threshold 0.50–0.99`, serta `view.touch_slop 1–16 dp`).
+    - Menyediakan sinkronisasi reload *runtime* `SystemUI EdgeBackGestureHandler` sehingga perubahan `ML Threshold` & lebar tepi langsung aktif seketika, pemantauan telemetri *frame dt / error SPI / edge width* langsung di header kartu, serta persistensi otomatis saat boot (`LynxBootReceiver`).
+  - **Engine Native Rust (`touch_precision.rs`, `display.rs`, `runner.rs`, `config_store.rs`)**:
+    - Menambahkan subsistem `TouchPrecisionController` dan subcommand `lynxd display touch-precision apply|status`.
+    - Memperbaiki perilaku `DisplayController::apply_touch_boost(false)` agar tidak lagi menimpa paksa `view.touch_slop=8` dan `debug.touch.frequency.boost=0` ketika mode game keluar, melainkan menghormati konfigurasi `display_touch.*` tersimpan pengguna.
+  - **Paritas WebUI Sekunder (`webroot/`)**:
+    - Menambahkan kartu pendamping *Touch Precision & Edge Guard* yang tersinkronisasi ke `config.json` & `lynxd`.
+
 # Lynx Universal [Global Schedutil Fallback & Balanced Idle Efficiency Tuning] 7.0.0-RC386
 Released on: 2026-11-12
 > Lynx Kernel Manager v3.4.7

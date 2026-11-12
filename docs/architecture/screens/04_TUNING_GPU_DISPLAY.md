@@ -56,6 +56,11 @@ Sub-halaman GPU & Display mengontrol subsistem grafis dan panel output visual. H
 | **GED Boost Enable** | *N/A (Khusus MediaTek)* | `/sys/module/ged/parameters/ged_boost_enable` |
 | **Display Refresh Rate**| `service call SurfaceFlinger 1035 i32 <mode>` | `service call SurfaceFlinger 1035 i32 <mode>` |
 | **Hardware KCAL RGB** | `/sys/devices/platform/kcal_ctrl.0/kcal` | *Bergantung pada driver panel kustom OEM* |
+| **Novatek Touch Precision** | *Fallback Android Back Edge & Slop* | `/proc/nvt_micro_gain` (`0..12`), `/proc/nvt_edge_guard` (`0..240`), `/proc/nvt_spi_speed` (`4.8M..24M`), `/proc/nvt_game_mode`, `/proc/perfmgr/tchbst/kernel/tb_*` |
+
+- **7. Kalibrasi Presisi Sentuh & Pelindung Tepian (`TouchPrecisionCalibrationCard.kt`, `TouchPrecisionSections.kt`, `LynxTouchPrecisionRepository.kt`)**:
+  - Menyetel default tervalidasi pengguna (`micro_gain=4` `3.0x`, `edge_guard=48 px`, `SPI=15 MHz`, `gestural_narrow_back`, `back_gesture_scale=0.18`, `ML=0.96`, `view.touch_slop=4`, `resampling=false`, `ktch=280ms/80%`) sekaligus membuka batas maksimum hardware (`gain 0..12`, `edge 0..240 px`, `SPI 24 MHz`, `Back scale 0.00..2.00`).
+  - Terintegrasi ke `native/lynxd` (`TouchPrecisionController`) serta `LynxBootReceiver` standalone.
 
 ---
 

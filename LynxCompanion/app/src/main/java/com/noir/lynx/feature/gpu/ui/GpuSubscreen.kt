@@ -249,6 +249,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
+            // Touch Micro-Sensitivity, Novatek SPI, and Edge Back Guard Card
+            item(key = "gpu_touch_precision") {
+                TouchPrecisionCalibrationCard(context = context)
+            }
+
             // ── SECTION 2: KALIBRASI WARNA & VISUAL ──
             item(key = "section_header_color_management") {
                 GpuSectionHeader(

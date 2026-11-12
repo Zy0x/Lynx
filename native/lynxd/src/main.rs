@@ -83,7 +83,7 @@ fn print_usage() {
         println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
         println!("  thermal status|mode|set-limit|restore");
         println!("  game on [pid]|off|optimize-pid|status");
-        println!("  display set-refresh-rate|restore|touch-boost|info");
+        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|info");
         println!("  oem freeze|unfreeze");
         println!("  cpuset info|apply|set");
         println!("  cpuidle info|apply|set-state");
@@ -128,7 +128,7 @@ fn print_usage() {
     println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
     println!("  thermal status|mode|set-limit|restore");
     println!("  game on [pid]|off|optimize-pid|status");
-    println!("  display set-refresh-rate|restore|touch-boost|info");
+    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|info");
     println!("  oem freeze|unfreeze");
     println!("  cpuset info|apply|set");
     println!("  cpuidle info|apply|set-state");
@@ -1006,6 +1006,13 @@ fn handle_display(args: &[String]) {
         "touch-boost" | "touch" => {
             let enable = args.get(3).map(|s| s == "1" || s == "true" || s == "on").unwrap_or(true);
             println!("{}", DisplayController::apply_touch_boost(enable));
+        }
+        "touch-precision" => {
+            let sub = args.get(3).map(|s| s.as_str()).unwrap_or("apply");
+            match sub {
+                "status" => println!("{}", subsystems::TouchPrecisionController::status_json()),
+                _ => println!("{}", subsystems::TouchPrecisionController::apply_full()),
+            }
         }
         other => {
             log_error!("Subcommand display tidak dikenal: '{}'", "Unknown display subcommand: '{}'", other);

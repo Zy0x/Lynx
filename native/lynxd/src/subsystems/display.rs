@@ -508,8 +508,16 @@ impl DisplayController {
         }
 
         // 6. Sub-pixel Touch Slop & Android Input Pipeline Priority
+        let _ = crate::subsystems::TouchPrecisionController::apply_kernel_hardware();
+        let saved_slop = crate::subsystems::TouchPrecisionController::configured_touch_slop().to_string();
+        let saved_resamp = if crate::subsystems::TouchPrecisionController::configured_input_resampling() {
+            "true"
+        } else {
+            "false"
+        };
         if enable {
-            let _ = Self::run_cmd("setprop", &["view.touch_slop", "2"]);
+            let _ = Self::run_cmd("setprop", &["view.touch_slop", &saved_slop]);
+            let _ = Self::run_cmd("setprop", &["ro.input.resampling", saved_resamp]);
             let _ = Self::run_cmd("setprop", &["windowsmgr.max_events_per_second", "300"]);
             let _ = Self::run_cmd("setprop", &["persist.sys.touch.latency", "0"]);
             let _ = Self::run_cmd("setprop", &["debug.touch.frequency.boost", "1"]);
@@ -536,8 +544,14 @@ impl DisplayController {
                 }
             }
         } else {
-            let _ = Self::run_cmd("setprop", &["view.touch_slop", "8"]);
-            let _ = Self::run_cmd("setprop", &["debug.touch.frequency.boost", "0"]);
+            let saved_boost = if crate::subsystems::TouchPrecisionController::configured_freq_boost() {
+                "1"
+            } else {
+                "0"
+            };
+            let _ = Self::run_cmd("setprop", &["view.touch_slop", &saved_slop]);
+            let _ = Self::run_cmd("setprop", &["ro.input.resampling", saved_resamp]);
+            let _ = Self::run_cmd("setprop", &["debug.touch.frequency.boost", saved_boost]);
         }
 
         format!(

@@ -64,6 +64,9 @@ class LynxBootReceiver : BroadcastReceiver() {
                     // Restore display color calibration matrix if enabled by user
                     LynxRepository.applySavedColorProfileIfEnabled()
 
+                    // Restore calibrated Touch Micro-Sensitivity & Edge Back Guard settings
+                    com.noir.lynx.data.LynxTouchPrecisionRepository.applySavedDefaultsOnBoot(context)
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 

@@ -239,6 +239,44 @@ function renderUI(state) {
     const rrBtn = document.getElementById(`rr-${rr}`);
     if (rrBtn) rrBtn.classList.add('active');
 
+    // Touch Precision & Edge Guard controls (secondary fallback sync)
+    const dt = state.display_touch || {};
+    const gainSlider = document.getElementById('nvt-gain-slider');
+    const gainValEl = document.getElementById('nvt-gain-val');
+    if (gainSlider && !gainSlider.matches(':active')) {
+        const g = (dt.nvt_micro_gain !== undefined) ? parseInt(dt.nvt_micro_gain) : 4;
+        gainSlider.value = g;
+        if (gainValEl) gainValEl.textContent = `Lv ${g} (${(1 + g * 0.5).toFixed(1)}x)`;
+    }
+    const edgeSlider = document.getElementById('nvt-edge-slider');
+    const edgeValEl = document.getElementById('nvt-edge-val');
+    if (edgeSlider && !edgeSlider.matches(':active')) {
+        const eg = (dt.nvt_edge_guard_px !== undefined) ? parseInt(dt.nvt_edge_guard_px) : 48;
+        edgeSlider.value = eg;
+        if (edgeValEl) edgeValEl.textContent = `${eg} px`;
+    }
+    const slL = document.getElementById('back-scale-l-slider');
+    const slLVal = document.getElementById('back-scale-l-val');
+    if (slL && !slL.matches(':active')) {
+        const v = (dt.back_gesture_scale_left !== undefined) ? parseFloat(dt.back_gesture_scale_left) : 0.18;
+        slL.value = Math.round(v * 100);
+        if (slLVal) slLVal.textContent = `${v.toFixed(2)}x`;
+    }
+    const slR = document.getElementById('back-scale-r-slider');
+    const slRVal = document.getElementById('back-scale-r-val');
+    if (slR && !slR.matches(':active')) {
+        const v = (dt.back_gesture_scale_right !== undefined) ? parseFloat(dt.back_gesture_scale_right) : 0.18;
+        slR.value = Math.round(v * 100);
+        if (slRVal) slRVal.textContent = `${v.toFixed(2)}x`;
+    }
+    const mlSl = document.getElementById('back-ml-slider');
+    const mlVal = document.getElementById('back-ml-val');
+    if (mlSl && !mlSl.matches(':active')) {
+        const m = (dt.back_gesture_ml_threshold !== undefined) ? parseFloat(dt.back_gesture_ml_threshold) : 0.96;
+        mlSl.value = Math.round(m * 100);
+        if (mlVal) mlVal.textContent = m.toFixed(2);
+    }
+
     // Hardware / SoC Info
     const socEl = document.getElementById('soc-info');
     if (socEl) {
@@ -1512,5 +1550,20 @@ window.addEventListener('DOMContentLoaded', () => {
         if (warn) warn.style.display = 'block';
     }
 });
+
+async function setTouchPrecisionKey(key, value) {
+    await updateStateKey(key, value);
+    await execCmd(`${LYNXD} display touch-precision apply >/dev/null 2>&1`);
+}
+
+async function applyWebTouchPrecision() {
+    logToConsole('Applying Touch Precision & Edge Guard settings...');
+    const res = await execCmd(`${LYNXD} display touch-precision apply`);
+    if (res.errno === 0) {
+        logToConsole(res.stdout || 'Touch precision applied.', 'success');
+    } else {
+        logToConsole(`Failed applying touch precision: ${res.stderr}`, 'error');
+    }
+}
 
 

@@ -59,8 +59,11 @@ impl DaemonRunner {
             format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: {} dtk [{}])", initial_profile, initial_cooldown, dur_label)
         });
 
-        // Initialize low-latency touch boost and high polling rate
+        // Initialize low-latency touch boost, calibrated micro-sensitivity, and edge guard
         crate::subsystems::DisplayController::apply_touch_boost(true);
+        std::thread::spawn(|| {
+            crate::subsystems::TouchPrecisionController::apply_edge_gesture();
+        });
 
         // Apply initial baseline profile immediately to hardware sysfs so CPU ceiling & limits are never stuck at boot values!
         if let Some(base_prof) = get_profile_by_name(&initial_profile) {

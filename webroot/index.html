@@ -575,6 +575,68 @@
                     <div style="font-size: 11px; color: var(--text-muted);">Memuat device storage I/O...</div>
                 </div>
             </div>
+
+            <!-- Touch Precision & Edge Guard Calibration (Secondary Fallback) -->
+            <div class="card" id="card-touch-precision">
+                <div class="card-title">Touch Precision &amp; Edge Guard</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Kalibrasi presisi gerakan mikro IC panel sentuh (level 0–12), deadzone penolakan tepi, skala gesture kembali, dan ambang ML anti-swipe tak sengaja. Gunakan aplikasi Native Android untuk kendali lengkap (SPI clock, Slop, Presets).
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Penguatan Mikro Sentuh (Micro Gain 0–12)</span>
+                        <strong id="nvt-gain-val">Lv 4 (3.0x)</strong>
+                    </div>
+                    <input type="range" id="nvt-gain-slider" min="0" max="12" step="1" value="4"
+                           oninput="document.getElementById('nvt-gain-val').textContent = 'Lv ' + this.value + ' (' + (1 + parseInt(this.value) * 0.5).toFixed(1) + 'x)'"
+                           onchange="setTouchPrecisionKey('display_touch.nvt_micro_gain', parseInt(this.value))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Pelindung Tepi Hardware (Edge Guard 0–240 px)</span>
+                        <strong id="nvt-edge-val">48 px</strong>
+                    </div>
+                    <input type="range" id="nvt-edge-slider" min="0" max="240" step="4" value="48"
+                           oninput="document.getElementById('nvt-edge-val').textContent = this.value + ' px'"
+                           onchange="setTouchPrecisionKey('display_touch.nvt_edge_guard_px', parseInt(this.value))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Skala Gesture Kembali Kiri (0.00x–2.00x)</span>
+                        <strong id="back-scale-l-val">0.18x</strong>
+                    </div>
+                    <input type="range" id="back-scale-l-slider" min="0" max="200" step="2" value="18"
+                           oninput="document.getElementById('back-scale-l-val').textContent = (this.value / 100).toFixed(2) + 'x'"
+                           onchange="setTouchPrecisionKey('display_touch.back_gesture_scale_left', parseFloat((this.value / 100).toFixed(2)))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Skala Gesture Kembali Kanan (0.00x–2.00x)</span>
+                        <strong id="back-scale-r-val">0.18x</strong>
+                    </div>
+                    <input type="range" id="back-scale-r-slider" min="0" max="200" step="2" value="18"
+                           oninput="document.getElementById('back-scale-r-val').textContent = (this.value / 100).toFixed(2) + 'x'"
+                           onchange="setTouchPrecisionKey('display_touch.back_gesture_scale_right', parseFloat((this.value / 100).toFixed(2)))">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Ambang ML Anti-Swipe Tepi (0.50–0.99)</span>
+                        <strong id="back-ml-val">0.96</strong>
+                    </div>
+                    <input type="range" id="back-ml-slider" min="50" max="99" step="1" value="96"
+                           oninput="document.getElementById('back-ml-val').textContent = (this.value / 100).toFixed(2)"
+                           onchange="setTouchPrecisionKey('display_touch.back_gesture_ml_threshold', parseFloat((this.value / 100).toFixed(2)))">
+                </div>
+
+                <button class="btn btn-accent" onclick="applyWebTouchPrecision()" style="margin-top: 8px; min-height: 48px;">
+                    Terapkan Presisi Sentuh &amp; Edge Guard
+                </button>
+            </div>
         </div>
 
         <!-- ======================================================== -->

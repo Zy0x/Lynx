@@ -165,7 +165,26 @@ internal object LynxAppStateRepository {
                       },
                       "display_touch": {
                         "touchboost": true,
-                        "refresh_rate_lock": 120
+                        "refresh_rate_lock": 120,
+                        "nvt_micro_gain": 4,
+                        "nvt_edge_guard_px": 48,
+                        "nvt_spi_speed_hz": 15000000,
+                        "nvt_game_mode": true,
+                        "nvt_hop_fix": true,
+                        "nvt_jitter_level": 0,
+                        "nvt_smooth_level": 0,
+                        "ktch_enabled": true,
+                        "ktch_duration_ms": 280,
+                        "ktch_eas_boost": 80,
+                        "back_gesture_overlay": "narrow",
+                        "back_gesture_scale_left": 0.18,
+                        "back_gesture_scale_right": 0.18,
+                        "back_gesture_ml_enabled": true,
+                        "back_gesture_ml_threshold": 0.96,
+                        "view_touch_slop": 4,
+                        "input_resampling": false,
+                        "debug_touch_freq_boost": true,
+                        "touch_irq_big_cores": true
                       },
                       "network": {
                         "wifi_ping_stabilizer": true,

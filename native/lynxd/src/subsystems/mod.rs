@@ -24,6 +24,7 @@ pub mod scheduler_guardian;
 pub mod swap;
 pub mod system;
 pub mod thermal;
+pub mod touch_precision;
 pub mod tui;
 pub mod zram;
 
@@ -50,4 +51,5 @@ pub use scheduler_guardian::SchedulerGuardian;
 pub use swap::SwapController;
 pub use system::SystemController;
 pub use thermal::ThermalController;
+pub use touch_precision::TouchPrecisionController;
 pub use tui::TuiController;
