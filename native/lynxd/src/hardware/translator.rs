@@ -243,7 +243,7 @@ impl HardwareTranslator {
                 "extreme" => ("0", "20000"),
                 "performance" => ("0", "15000"),
                 "powersave" => ("4000", "1000"),
-                _ => ("500", "15000"),
+                _ => ("500", "10000"),
             };
 
             for gdir in &pol.gov_tunable_dirs {
@@ -521,9 +521,9 @@ impl HardwareTranslator {
                 } else if is_powersave {
                     ("0", "0", "0", "0")
                 } else {
-                    // Balanced: 25% top-app, 15% foreground boost, 256 uclamp min, big task rotation
-                    // Guarantees video decoders and social feed scrolling get scheduled on Cortex-A76 Big cores
-                    ("25", "15", "256", "1")
+                    // Balanced: 10% top-app, 5% foreground boost, 102 uclamp min, big task rotation
+                    // Keeps video/scrolling responsive without excessive idle power draw on MT6781
+                    ("10", "5", "102", "1")
                 };
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app boost", MtkHardware::PERFMGR_TA_BOOST, ta_boost, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);

@@ -310,6 +310,7 @@ impl SystemController {
         Self::write_opt("/dev/cpuctl/system-background/cpu.shares", "256");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "0");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "0");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "0");
 
         // Elevate Big Cluster minimum frequency to 1.4 GHz (1401600 kHz) immediately
         // so that ZRAM decompression and lockscreen unlock happen with ZERO ramp-up latency!
@@ -358,6 +359,7 @@ impl SystemController {
             Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "2048");
             Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "500");
             Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "500");
+            Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "500");
 
             match vendor {
                 crate::hardware::detector::Vendor::Qualcomm => {

@@ -1,3 +1,15 @@
+# Lynx Universal [Global Schedutil Fallback & Balanced Idle Efficiency Tuning] 7.0.0-RC386
+Released on: 2026-11-12
+> Lynx Kernel Manager v3.4.7
+
+- **Dukungan Global `cpufreq/schedutil` & Kalibrasi Idle Profil Balanced (`lynxd`)**:
+  - **Global Schedutil Rate-Limit Fallback (`capability.rs`, `thermal.rs`, `game.rs`, `system.rs`)**:
+    - Menambahkan fallback inspeksi dan penulisan tunable ke `/sys/devices/system/cpu/cpufreq/{schedutil,walt,sugov_ext}` ketika kernel (seperti MediaTek MT6781 Linux 4.14) mengekspos rate-limit governor secara global alih-alih per-`policyN/`.
+    - Memastikan `up_rate_limit_us` dan `down_rate_limit_us` benar-benar diterapkan pada profil normal, mode thermal, `game_on`/`game_off`, serta `wakeup_boost`.
+  - **Kalibrasi Efisiensi Idle Profil Balanced (`balanced.rs`, `translator.rs`, `scheduler_guardian.rs`, `verifier.rs`)**:
+    - Menurunkan floor statis CPU idle profil `balanced` (`min_percent: 25 -> 0`) dan `uclamp_min_percent` (`25 -> 10`) sehingga CPU dapat turun ke OPP idle rendah saat statis tanpa menahan tegangan berlebih.
+    - Menyesuaikan boost MediaTek Perfmgr pada profil `balanced` (`ta_boost: 25 -> 10`, `fg_boost: 15 -> 5`, `uclamp_min: 256 -> 102`), menyelaraskan `SchedulerGuardian` (`target_ta_boost = 10`) serta `ProfileVerifier` (`exp_ta = 10`), dan mengatur `down_rate_limit_us = 10000` (10 ms) pada `balanced` untuk kestabilan 60/90/120 Hz sekaligus hemat daya.
+
 # Lynx Universal [High-Resolution 2K/4K Scaling Headroom & Codec Asymmetry Auto-Detection] 7.0.0-RC385
 Released on: 2026-11-12
 > Lynx Kernel Manager v3.4.6

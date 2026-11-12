@@ -89,7 +89,7 @@ impl SchedulerGuardian {
         let target_ta_boost = match active_profile {
             "extreme" => 100,
             "performance" => if tier.is_low_end_ram { 45 } else { 60 },
-            _ => 30,
+            _ => 10,
         };
         let threshold = ((top_boost as i64) * 3) / 4;
         Some((top_boost, target_ta_boost, fg_boost, enforce_high_cap, threshold))

@@ -60,6 +60,8 @@ impl GameController {
                 "20000",
             );
         }
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "500");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "20000");
 
         // 3. Multi-Gen LRU (MGLRU)
         Self::write_opt("/sys/kernel/mm/lru_gen/enabled", "y");
@@ -340,6 +342,8 @@ impl GameController {
                 "4000",
             );
         }
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "1000");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "10000");
 
         // 3. Clear Sched Lib
         Self::write_opt("/proc/sys/kernel/sched_lib_name", "");
@@ -396,7 +400,7 @@ impl GameController {
         Self::write_opt(MtkHardware::FBT_CPU_GCC_ENABLE, "0");
 
         Self::write_opt(MtkHardware::PPM_POLICY_STATUS, "9 0");
-        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "25");
+        Self::write_opt(MtkHardware::PERFMGR_TA_BOOST, "10");
         Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
 
         // EAS Schedtune Top-App Restore to Balanced Targets & Unlock Shield

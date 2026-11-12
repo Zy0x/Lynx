@@ -296,6 +296,14 @@ impl HardwareCapability {
                     gov_tunable_dirs.push(gpath);
                 }
             }
+            if gov_tunable_dirs.is_empty() {
+                for gname in &["schedutil", "walt", "sugov_ext"] {
+                    let global_gpath = Path::new("/sys/devices/system/cpu/cpufreq").join(gname);
+                    if global_gpath.is_dir() {
+                        gov_tunable_dirs.push(global_gpath);
+                    }
+                }
+            }
 
             let role = if total_policies <= 1 {
                 "Kluster Utama".to_string()

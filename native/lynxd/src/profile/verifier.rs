@@ -225,7 +225,7 @@ impl ProfileVerifier {
                 "extreme" => "100",
                 "performance" => "60",
                 "powersave" => "0",
-                _ => "25",
+                _ => "10",
             };
             Self::audit_exact(
                 &mut items,

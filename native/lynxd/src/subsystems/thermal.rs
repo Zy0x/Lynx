@@ -288,13 +288,15 @@ impl ThermalController {
                     }
                 }
 
-                // Schedutil rate limits
+                // Schedutil rate limits (per-policy and global cpufreq fallback)
                 for id in 0..16 {
                     let p_up = format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/up_rate_limit_us", id);
                     let p_down = format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/down_rate_limit_us", id);
                     Self::write_opt(p_up, "500");
                     Self::write_opt(p_down, "10000");
                 }
+                Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "500");
+                Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "10000");
 
                 // Calibrate non-battery zones to user's configured temperature limit (default 50°C)
                 let custom_limit = ConfigStore::get("thermal.custom_temp_limit_c")
