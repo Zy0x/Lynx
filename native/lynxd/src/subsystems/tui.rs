@@ -189,15 +189,13 @@ impl TuiController {
         Self::show_header();
         let wifi = Self::get_cfg("network.wifi_ping_stabilizer", "true");
         let therm = Self::get_cfg("thermal.full_bypass", "false");
-        let touch = Self::get_cfg("display_touch.touchboost", "true");
         let joyose = Self::get_cfg("oem_neutralizer.joyose_neutralize", "false");
         println!("  {}{}:{}", C_GREEN, ui("KONTROL ENGINE LANJUTAN", "ADVANCED ENGINE CONTROLS"), C_RESET);
         println!("  [1] {}   : {}{}{}", ui("Penstabil Ping Wi-Fi", "Wi-Fi Ping Stabilizer"), C_YELLOW, wifi, C_RESET);
         println!("  [2] {}     : {}{}{}", ui("Bypass Termal Penuh", "Full Thermal Bypass"), C_YELLOW, therm, C_RESET);
-        println!("  [3] {} : {}{}{}", ui("TouchBoost & Kunci 120 Hz", "TouchBoost & 120Hz Lock"), C_YELLOW, touch, C_RESET);
-        println!("  [4] {}    : {}{}{}", ui("Netralkan Joyose/GOS", "Neutralize Joyose/GOS"), C_YELLOW, joyose, C_RESET);
+        println!("  [3] {}    : {}{}{}", ui("Netralkan Joyose/GOS", "Neutralize Joyose/GOS"), C_YELLOW, joyose, C_RESET);
         println!("  [0] {}\n", ui("Kembali", "Back"));
-        print!("  {} [0-4]: ", ui("Pilih toggle", "Choose a toggle"));
+        print!("  {} [0-3]: ", ui("Pilih toggle", "Choose a toggle"));
         match Self::read_line().as_str() {
             "1" => {
                 Self::set_cfg(
@@ -212,12 +210,6 @@ impl TuiController {
                 );
             }
             "3" => {
-                Self::set_cfg(
-                    "display_touch.touchboost",
-                    if touch == "true" { "false" } else { "true" },
-                );
-            }
-            "4" => {
                 Self::set_cfg(
                     "oem_neutralizer.joyose_neutralize",
                     if joyose == "true" { "false" } else { "true" },

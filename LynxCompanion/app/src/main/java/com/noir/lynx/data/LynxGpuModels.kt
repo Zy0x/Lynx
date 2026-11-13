@@ -67,6 +67,7 @@ data class DisplayCapabilityInfo(
     val activePresentationHz: Int = 60                // Actual frame rate currently presented
 )
 
+@Immutable
 data class GpuInfo(
     val minFreqMhz: Int = 0,
     val maxFreqMhz: Int = 0,
@@ -139,14 +140,11 @@ data class GraphicsHwuiInfo(
     val isOemThrottlerDisabled: Boolean = false,
     val isDcDimmingSupported: Boolean = false,
     val dcDimmingEnabled: Boolean = false,
-    val isCabcSupported: Boolean = false,
-    val cabcEnabled: Boolean = false,
     val shaderCacheSizeBytes: Long = 0L,
     val shaderCacheCount: Int = 0,
     val isVulkanSupported: Boolean = false,
     val isGraphiteSupported: Boolean = false,
     val isAngleSupported: Boolean = false,
-    val isEarlyPhaseOffset: Boolean = false,
     // Universal Compositor & Memory Pipeline (Android OS Level)
     val textureCacheMb: Int = 72,                // 48, 72, 96, 128 MB — HWUI VRAM texture cache size
     val asyncShaderPipelineEnabled: Boolean = false, // debug.hwui.use_gpu_pixel_buffers
@@ -161,8 +159,7 @@ data class GraphicsHwuiInfo(
     val isAsyncShaderSupported: Boolean = false,
     val isPureHwVsyncSupported: Boolean = false,
     val isSfLatchSupported: Boolean = false,
-    val isSfDisableBackpressureSupported: Boolean = false,
-    val isSfEarlyPhaseSupported: Boolean = false
+    val isSfDisableBackpressureSupported: Boolean = false
 ) {
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true
@@ -266,6 +263,7 @@ data class KernelCapabilityReport(
 //  HARDWARE THERMAL ZONES & APPS
 // ============================================================
 
+@Immutable
 data class ThermalZoneInfo(
     val id: Int = 0,
     val type: String = "unknown",
@@ -312,23 +310,6 @@ data class BatteryHealthStats(
     val uptimeSec: Long = 0L,
     val idleSleepSec: Long = 0L,
     val deepSleepPct: Float = 0f,
-)
-
-data class DisplayCalibrationInfo(
-    val isKcalSupported: Boolean = false,
-    val kcalUnsupportedReason: String = "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)",
-    val kcalEnabled: Boolean = false,
-    val red: Int = 256,
-    val green: Int = 256,
-    val blue: Int = 256,
-    val saturation: Int = 256,
-    val value: Int = 256,
-    val contrast: Int = 256,
-    val hue: Int = 0,
-    val isUniversalColorSupported: Boolean = true,
-    val universalRed: Float = 1.0f,
-    val universalGreen: Float = 1.0f,
-    val universalBlue: Float = 1.0f,
 )
 
 data class SoundControlInfo(
@@ -413,6 +394,7 @@ data class ModeToastData(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Immutable
 data class LynxUiState(
     val isLoading: Boolean = true,
     val isRootAvailable: Boolean = false,
@@ -458,9 +440,6 @@ data class LynxUiState(
     // GPU & Display Intelligence Framework
     val graphicsCapabilities: com.noir.lynx.hardware.GraphicsCapabilities = com.noir.lynx.hardware.GraphicsCapabilities(),
     val displayPipeline: com.noir.lynx.display.DisplayPipelineInfo = com.noir.lynx.display.DisplayPipelineInfo(),
-    val colorMatrixProfile: com.noir.lynx.display.ColorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE,
-    val isColorCalibrationEnabled: Boolean = false,
-    val colorConflictWarning: String? = null,
     val isLabRecording: Boolean = false,
     val lastLabReport: com.noir.lynx.lab.FrameSessionReport? = null,
     val savedLabSessions: List<com.noir.lynx.lab.FrameSessionReport> = emptyList(),
@@ -519,7 +498,6 @@ data class LynxUiState(
     // FKM Feature Parity Subsystems
     val voltageInfo: VoltageTableInfo = VoltageTableInfo(),
     val batteryHealthStats: BatteryHealthStats = BatteryHealthStats(),
-    val displayCalibration: DisplayCalibrationInfo = DisplayCalibrationInfo(),
     val soundControl: SoundControlInfo = SoundControlInfo(),
     val memoryEntropy: MemoryEntropyInfo = MemoryEntropyInfo(),
     val customScripts: List<CustomScriptItem> = emptyList(),

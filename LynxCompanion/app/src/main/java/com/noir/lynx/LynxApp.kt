@@ -34,12 +34,18 @@ class LynxApp : Application() {
         )
         com.noir.lynx.data.LynxRepository.appContext = this
 
+        // Secondary processes (e.g. :hud overlay) must not spawn duplicate root startup jobs
+        // or compete with the main process / LynxBootReceiver during cold boot or package updates.
+        if (!isMainProcess()) return
+
         // Multi-process state synchronization & self-healing for isolated :hud process
         val isAlive = com.noir.lynx.service.LynxFloatingHudService.isHudProcessAlive(this)
         com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.value = isAlive
 
         // Auto-grant critical overlay and usage stats permissions via root asynchronously on startup
+        // (short yield avoids contending with LynxBootReceiver on BOOT_COMPLETED / MY_PACKAGE_REPLACED)
         CoroutineScope(Dispatchers.IO).launch {
+            kotlinx.coroutines.delay(1500L)
             runCatching {
                 com.noir.lynx.data.LynxRepository.grantOverlayPermission()
                 com.noir.lynx.data.LynxRepository.grantUsageStatsPermission()
@@ -61,5 +67,16 @@ class LynxApp : Application() {
         } else {
             registerReceiver(hudStateReceiver, hudFilter)
         }
+    }
+
+    private fun isMainProcess(): Boolean {
+        val processName = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            getProcessName()
+        } else {
+            runCatching {
+                java.io.File("/proc/self/cmdline").readText().trim('\u0000', ' ', '\n', '\r')
+            }.getOrNull()
+        }
+        return processName.isNullOrBlank() || processName == packageName
     }
 }

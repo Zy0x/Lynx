@@ -137,7 +137,6 @@ internal object LynxDisplayRepository {
     }
 
     suspend fun readGraphicsHwuiInfo(): GraphicsHwuiInfo = LynxGraphicsEngineRepository.readGraphicsHwuiInfo()
-    suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setSurfaceFlingerEarlyPhase(enabled)
     suspend fun setUpdatableGameDriver(mode: String): Boolean = LynxGraphicsEngineRepository.setUpdatableGameDriver(mode)
     suspend fun setHwuiRenderer(backend: String): Boolean = LynxGraphicsEngineRepository.setHwuiRenderer(backend)
     suspend fun readPerAppGraphicsRules(context: Context): List<PerAppGraphicsRule> = LynxGraphicsEngineRepository.readPerAppGraphicsRules(context)
@@ -193,71 +192,6 @@ internal object LynxDisplayRepository {
         }
     }
 
-    suspend fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile): Boolean = withContext(Dispatchers.IO) {
-        val ok = com.noir.lynx.display.ColorMatrixEngine.apply(profile)
-        if (ok) {
-            LynxRepository.appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
-                ?.edit()
-                ?.putBoolean("color_calibration_enabled", true)
-                ?.putString("color_profile_name", profile.name)
-                ?.putFloat("color_red", profile.red)
-                ?.putFloat("color_green", profile.green)
-                ?.putFloat("color_blue", profile.blue)
-                ?.putInt("color_temp_k", profile.temperatureK)
-                ?.putFloat("color_saturation", profile.saturation)
-                ?.putFloat("color_contrast", profile.contrast)
-                ?.apply()
-        }
-        ok
-    }
-
-    suspend fun resetColorProfile(): Boolean = withContext(Dispatchers.IO) {
-        val ok = com.noir.lynx.display.ColorMatrixEngine.reset()
-        LynxRepository.appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
-            ?.edit()
-            ?.putBoolean("color_calibration_enabled", false)
-            ?.putString("color_profile_name", com.noir.lynx.display.ColorMatrixProfile.ACCURATE.name)
-            ?.putFloat("color_red", 1.0f)
-            ?.putFloat("color_green", 1.0f)
-            ?.putFloat("color_blue", 1.0f)
-            ?.putInt("color_temp_k", 6500)
-            ?.putFloat("color_saturation", 1.0f)
-            ?.putFloat("color_contrast", 1.0f)
-            ?.apply()
-        ok
-    }
-
-    fun isColorCalibrationEnabled(): Boolean {
-        return LynxRepository.appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
-            ?.getBoolean("color_calibration_enabled", false) ?: false
-    }
-
-    fun readSavedColorProfile(): com.noir.lynx.display.ColorMatrixProfile {
-        val prefs = LynxRepository.appContext?.getSharedPreferences("lynx_display_prefs", Context.MODE_PRIVATE)
-            ?: return com.noir.lynx.display.ColorMatrixProfile.ACCURATE
-        val name = prefs.getString("color_profile_name", com.noir.lynx.display.ColorMatrixProfile.ACCURATE.name)
-            ?: com.noir.lynx.display.ColorMatrixProfile.ACCURATE.name
-        return com.noir.lynx.display.ColorMatrixProfile(
-            name = name,
-            red = prefs.getFloat("color_red", 1.0f),
-            green = prefs.getFloat("color_green", 1.0f),
-            blue = prefs.getFloat("color_blue", 1.0f),
-            temperatureK = prefs.getInt("color_temp_k", 6500),
-            saturation = prefs.getFloat("color_saturation", 1.0f),
-            contrast = prefs.getFloat("color_contrast", 1.0f)
-        )
-    }
-
-    suspend fun applySavedColorProfileIfEnabled(): Boolean = withContext(Dispatchers.IO) {
-        if (!isColorCalibrationEnabled()) return@withContext false
-        val saved = readSavedColorProfile()
-        com.noir.lynx.display.ColorMatrixEngine.apply(saved)
-    }
-
-    suspend fun checkColorConflict(): String? = withContext(Dispatchers.IO) {
-        com.noir.lynx.display.ColorMatrixEngine.checkConflict()
-    }
-
     suspend fun startLabRecording(pkg: String, scope: kotlinx.coroutines.CoroutineScope) {
         com.noir.lynx.lab.FrameSampler.startRecording(pkg, scope)
     }
@@ -278,103 +212,7 @@ internal object LynxDisplayRepository {
 
 
 
-    suspend fun readDisplayCalibration(): DisplayCalibrationInfo = withContext(Dispatchers.IO) {
-        try {
-            val script = """
-                kcal_dir=""
-                if [ -d /sys/devices/platform/kcal_ctrl.0 ]; then
-                    kcal_dir="/sys/devices/platform/kcal_ctrl.0"
-                elif [ -d /sys/module/msm_fb/parameters ]; then
-                    kcal_dir="/sys/module/msm_fb/parameters"
-                fi
-
-                echo "KCAL:${'$'}kcal_dir"
-            """.trimIndent()
-
-            val res = Shell.cmd(script).exec()
-            val line = res.out.firstOrNull()?.trim() ?: ""
-            val kcalDir = line.substringAfter("KCAL:").trim()
-
-            var kcalSupported = false
-            var kcalEnabled = false
-            var r = 256
-            var g = 256
-            var b = 256
-            var sat = 256
-            var v = 256
-            var cont = 256
-            var hue = 0
-
-            if (kcalDir.isNotEmpty() && Shell.cmd("[ -d '$kcalDir' ] && echo 1").exec().out.firstOrNull() == "1") {
-                kcalSupported = true
-                val en = Shell.cmd("cat $kcalDir/kcal_enable 2>/dev/null").exec().out.firstOrNull()?.trim()
-                kcalEnabled = en == "1"
-
-                val rgb = Shell.cmd("cat $kcalDir/kcal 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
-                val rgbParts = rgb.split(Regex("\\s+"))
-                if (rgbParts.size >= 3) {
-                    r = rgbParts[0].toIntOrNull() ?: 256
-                    g = rgbParts[1].toIntOrNull() ?: 256
-                    b = rgbParts[2].toIntOrNull() ?: 256
-                }
-                sat = Shell.cmd("cat $kcalDir/kcal_sat 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
-                v = Shell.cmd("cat $kcalDir/kcal_val 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
-                cont = Shell.cmd("cat $kcalDir/kcal_cont 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
-                hue = Shell.cmd("cat $kcalDir/kcal_hue 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
-            }
-
-            val univColor = Shell.cmd("settings get system display_color_adjustment 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1.0 1.0 1.0"
-            val uParts = univColor.split(Regex("\\s+"))
-            val uR = uParts.getOrNull(0)?.toFloatOrNull() ?: 1.0f
-            val uG = uParts.getOrNull(1)?.toFloatOrNull() ?: 1.0f
-            val uB = uParts.getOrNull(2)?.toFloatOrNull() ?: 1.0f
-
-            DisplayCalibrationInfo(
-                isKcalSupported = kcalSupported,
-                kcalUnsupportedReason = if (!kcalSupported) "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)" else "",
-                kcalEnabled = kcalEnabled,
-                red = r,
-                green = g,
-                blue = b,
-                saturation = sat,
-                value = v,
-                contrast = cont,
-                hue = hue,
-                isUniversalColorSupported = true,
-                universalRed = uR,
-                universalGreen = uG,
-                universalBlue = uB
-            )
-        } catch (e: Exception) {
-            DisplayCalibrationInfo()
-        }
-    }
-
-    suspend fun setUniversalColorAdjustment(r: Float, g: Float, b: Float): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = String.format(java.util.Locale.US, "settings put system display_color_adjustment '%.2f %.2f %.2f'", r, g, b)
-            Shell.cmd(script).exec().isSuccess
-        } catch (e: Exception) { false }
-    }
-
-    suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val dir = "/sys/devices/platform/kcal_ctrl.0"
-            if (Shell.cmd("[ -d '$dir' ] && echo 1").exec().out.firstOrNull() != "1") return@withContext false
-
-            val cmd = """
-                echo "${if (enabled) 1 else 0}" > $dir/kcal_enable 2>/dev/null
-                echo "$r $g $b" > $dir/kcal 2>/dev/null
-                echo "$sat" > $dir/kcal_sat 2>/dev/null
-                echo "$v" > $dir/kcal_val 2>/dev/null
-                echo "$cont" > $dir/kcal_cont 2>/dev/null
-                echo "$hue" > $dir/kcal_hue 2>/dev/null
-            """.trimIndent()
-            Shell.cmd(cmd).exec().isSuccess
-        } catch (e: Exception) {
-            false
-        }
-    }
+    // Calibration removed per A1 display cleanup; keep Refresh Rate & Lab exports only.
 
     suspend fun readSupportedRefreshRates(): List<Int> = withContext(Dispatchers.IO) {
         try {

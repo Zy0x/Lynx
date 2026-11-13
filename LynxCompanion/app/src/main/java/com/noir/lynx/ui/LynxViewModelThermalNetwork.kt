@@ -361,20 +361,6 @@ fun LynxViewModel.applyAdbCustomPort(portStr: String) {
     }
 }
 
-fun LynxViewModel.setTouchboost(enabled: Boolean) {
-    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.CPU)
-    _uiState.update { current ->
-        current.copy(state = current.state.copy(displayTouch = current.state.displayTouch.copy(touchboost = enabled)))
-    }
-    setKey("display_touch.touchboost", enabled.toString(), "bool")
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyTouchboost(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "TouchBoost diaktifkan" else "TouchBoost dinonaktifkan") }
-        }
-    }
-}
-
 fun LynxViewModel.setAudioMmap(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { current ->

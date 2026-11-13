@@ -83,7 +83,7 @@ fn print_usage() {
         println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
         println!("  thermal status|mode|set-limit|restore");
         println!("  game on [pid]|off|optimize-pid|status");
-        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|panel|info");
+        println!("  display set-refresh-rate|restore|auto|info");
         println!("  oem freeze|unfreeze");
         println!("  cpuset info|apply|set");
         println!("  cpuidle info|apply|set-state");
@@ -128,7 +128,7 @@ fn print_usage() {
     println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
     println!("  thermal status|mode|set-limit|restore");
     println!("  game on [pid]|off|optimize-pid|status");
-    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|panel|info");
+    println!("  display set-refresh-rate|restore|auto|info");
     println!("  oem freeze|unfreeze");
     println!("  cpuset info|apply|set");
     println!("  cpuidle info|apply|set-state");
@@ -1002,34 +1002,6 @@ fn handle_display(args: &[String]) {
         "auto" | "dynamic" => {
             let _ = crate::state::ConfigStore::set("display_touch.refresh_rate_lock", "0", "int");
             println!("{}", DisplayController::restore_refresh_rate());
-        }
-        "touch-boost" | "touch" => {
-            let enable = args.get(3).map(|s| s == "1" || s == "true" || s == "on").unwrap_or(true);
-            println!("{}", DisplayController::apply_touch_boost(enable));
-        }
-        "touch-precision" => {
-            let sub = args.get(3).map(|s| s.as_str()).unwrap_or("apply");
-            match sub {
-                "status" => println!("{}", subsystems::TouchPrecisionController::status_json()),
-                _ => println!("{}", subsystems::TouchPrecisionController::apply_full()),
-            }
-        }
-        "panel" | "cabc" | "esd" => {
-            let sub = args.get(3).map(|s| s.as_str()).unwrap_or("status");
-            match sub {
-                "status" => println!("{}", subsystems::MtkPanelController::status_json()),
-                "apply" => println!("{}", subsystems::MtkPanelController::apply_full()),
-                "reset" => println!("{}", subsystems::MtkPanelController::reset_defaults()),
-                "set-cabc" => {
-                    let val = args.get(4).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
-                    println!("{}", subsystems::MtkPanelController::apply_cabc(val));
-                }
-                "set-esd" => {
-                    let val = args.get(4).and_then(|s| s.parse::<i64>().ok()).unwrap_or(15000);
-                    println!("{}", subsystems::MtkPanelController::apply_esd_period(val));
-                }
-                _ => println!("{}", subsystems::MtkPanelController::status_json()),
-            }
         }
         other => {
             log_error!("Subcommand display tidak dikenal: '{}'", "Unknown display subcommand: '{}'", other);

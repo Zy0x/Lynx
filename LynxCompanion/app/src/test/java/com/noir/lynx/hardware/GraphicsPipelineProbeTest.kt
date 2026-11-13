@@ -89,21 +89,4 @@ class GraphicsPipelineProbeTest {
         assertEquals("com.app.two,com.game.one", pkgsOut)
         assertEquals("native,angle", valsOut)
     }
-
-    @Test
-    fun touchIrqShellBuilderIsUniversalWithoutHardcodedTargets() {
-        val applyPin = TouchIrqShellBuilder.buildApplyAffinitySnippet(pinBigCores = true)
-        assertTrue(applyPin.contains("TARGET_CPUS=\"\$BIG_CPUS\""))
-        assertFalse(applyPin.contains("TARGET_CPUS=\\\""))
-        assertFalse(applyPin.contains("11013000.spi3"))
-        assertFalse(applyPin.contains("6-7"))
-        assertFalse(applyPin.contains("0-7"))
-        assertTrue(applyPin.contains("goodix_fp"))
-        assertTrue(applyPin.contains("taskset -p"))
-
-        val probe = TouchIrqShellBuilder.buildProbeSnippet()
-        assertTrue(probe.contains("detect_cpu_topology"))
-        assertTrue(probe.contains("find_touch_irqs"))
-        assertTrue(probe.contains("ro.input.resampling"))
-    }
 }

@@ -21,16 +21,6 @@ data class GpuSiliconInfo(
     val isMinPwrLevelSupported: Boolean = false,
     val isLlcSliceSupported: Boolean = false,
 
-    // SurfaceFlinger Pipeline & TouchBoost Precision
-    val sfEarlyPhaseOffsetNs: Long = 0L,
-    val sfEarlyGlPhaseOffsetNs: Long = 0L,
-    val touchBoostDurationMs: Int = 500,
-    val isVsyncSwapBypass: Boolean = false,
-    val isEarlyPhaseOffsetActive: Boolean = false,
-    val isTouchBoostDurationSupported: Boolean = false,
-    val isSfEarlyPhaseSupported: Boolean = false,
-    val isVsyncSwapBypassSupported: Boolean = false,
-
     // Studio Lab Telemetry & Stability Benchmark
     val fpsOnePercentLow: Float = 0f,
     val fpsZeroOnePercentLow: Float = 0f,

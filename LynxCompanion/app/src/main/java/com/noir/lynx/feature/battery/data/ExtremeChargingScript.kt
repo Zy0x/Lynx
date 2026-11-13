@@ -22,10 +22,12 @@ object ExtremeChargingScript {
             [ "${'$'}(cat /proc/mtk_battery_cmd/current_cmd 2>/dev/null)" != "1 0" ] && echo "1 0" > /proc/mtk_battery_cmd/current_cmd 2>/dev/null
             [ "${'$'}(cat /proc/mtk_battery_cmd/en_power_path 2>/dev/null)" != "1" ] && echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null
             echo 0 > /proc/lynx/bypass_charging 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
+            echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \
                         /sys/devices/platform/charger/sw_jeita \
-                        /sys/devices/platform/charger/BatteryNotify \
                         /sys/class/power_supply/battery/input_suspend \
                         /sys/class/power_supply/battery/charging_enabled \
                         /sys/class/power_supply/battery/fastcharge_mode \
@@ -37,16 +39,6 @@ object ExtremeChargingScript {
                 esac
                 if [ "${'$'}?" -eq 0 ]; then applied=1; fi
             done
-            # Switched-Capacitor Pump (RT9759 2:1):
-            # Only enable SC pump when adapter voltage >= 6.5V. Enabling at 5V causes
-            # reverse current / UVLO fault that destroys Pump Express negotiation.
-            adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
-            if [ "${'$'}adpv" -gt 100000 ]; then adpv=${'$'}((adpv / 1000)); fi
-            if [ "${'$'}adpv" -ge 6500 ]; then
-                echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-            else
-                echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-            fi
             ${if (isUnconstrainedMaxHw) """
             chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
             echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
@@ -99,7 +91,9 @@ object ExtremeChargingScript {
             echo 5000 > /sys/devices/platform/charger/pd_vbus_low_bound 2>/dev/null
             echo 6000 > /sys/devices/platform/charger/pd_input_current 2>/dev/null
             is_qcom=false
-            if [ -d /sys/class/qcom-battery ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || [ -d /sys/devices/soc0 ]; then
+            if [ -d /sys/devices/platform/charger ] || [ -d /proc/ged ] || [ -d /proc/ppm ] || grep -qiE "mediatek|mtk" /sys/firmware/devicetree/base/compatible /sys/devices/soc0/family 2>/dev/null; then
+                is_qcom=false
+            elif [ -d /sys/class/qcom-battery ] || [ -d /sys/class/power_supply/bms ] || [ -d /sys/class/kgsl ] || grep -qiE "qualcomm|qcom|snapdragon" /sys/firmware/devicetree/base/compatible /sys/devices/soc0/family /sys/devices/soc0/vendor 2>/dev/null; then
                 is_qcom=true
             fi
             if [ "${'$'}is_qcom" = "false" ]; then

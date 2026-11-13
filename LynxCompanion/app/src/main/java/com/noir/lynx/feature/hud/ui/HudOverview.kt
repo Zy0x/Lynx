@@ -381,17 +381,20 @@ private fun HudMemoryCard(
 ) {
     val gaugeSize = (38f * LocalDensity.current.fontScale).dp
 
-    // Infinite sweep animation for RAM Cleaning pulse
-    val infiniteTransition = rememberInfiniteTransition(label = "RamCleanSweep")
-    val sweepAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "RamSweepAngle"
-    )
+    val sweepAngle = if (isCleaning) {
+        val infiniteTransition = rememberInfiniteTransition(label = "RamCleanSweep")
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "RamSweepAngle"
+        ).value
+    } else {
+        0f
+    }
 
     Surface(
         onClick = onClick,

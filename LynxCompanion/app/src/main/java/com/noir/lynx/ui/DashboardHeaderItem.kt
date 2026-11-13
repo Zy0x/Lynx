@@ -113,10 +113,50 @@ internal fun LazyListScope.dashboardHeaderItem(
     onExtremeConfirmRequired: () -> Unit = {},
     onNavigateToProfilesCatalog: () -> Unit = {}
 ) {
-    val state = uiState.state
+    val activeProfile = uiState.state.activeProfile
+    val hasProfileOverrides = uiState.state.profileOverrides.isNotEmpty()
+    val selectedAccent = uiState.selectedAccent
+    val activeModeToast = uiState.activeModeToast
+    val modeFeedbackDualMorph = uiState.modeFeedbackDualMorph
+    val modeFeedbackStyle = uiState.modeFeedbackStyle
+    val isAppAutomationActive = uiState.isAppAutomationActive
+    val kernelProfileCatalog = uiState.kernelProfileCatalog
+
     item(key = "header") {
-        val context = LocalContext.current
-        var showThemePalette by remember { mutableStateOf(false) }
+        DashboardHeaderCard(
+            activeProfile = activeProfile,
+            hasProfileOverrides = hasProfileOverrides,
+            selectedAccent = selectedAccent,
+            activeModeToast = activeModeToast,
+            modeFeedbackDualMorph = modeFeedbackDualMorph,
+            modeFeedbackStyle = modeFeedbackStyle,
+            isAppAutomationActive = isAppAutomationActive,
+            kernelProfileCatalog = kernelProfileCatalog,
+            viewModel = viewModel,
+            currentAccent = currentAccent,
+            onExtremeConfirmRequired = onExtremeConfirmRequired,
+            onNavigateToProfilesCatalog = onNavigateToProfilesCatalog
+        )
+    }
+}
+
+@Composable
+private fun DashboardHeaderCard(
+    activeProfile: String,
+    hasProfileOverrides: Boolean,
+    selectedAccent: String,
+    activeModeToast: com.noir.lynx.data.ModeToastData?,
+    modeFeedbackDualMorph: Boolean,
+    modeFeedbackStyle: String,
+    isAppAutomationActive: Boolean,
+    kernelProfileCatalog: com.noir.lynx.profiles.KernelProfileCatalog,
+    viewModel: LynxViewModel,
+    currentAccent: Color,
+    onExtremeConfirmRequired: () -> Unit,
+    onNavigateToProfilesCatalog: () -> Unit
+) {
+    val context = LocalContext.current
+    var showThemePalette by remember { mutableStateOf(false) }
 
         // ── Clean Compact Unified All-in-One Header Card ────────────
         Surface(
@@ -166,8 +206,8 @@ internal fun LazyListScope.dashboardHeaderItem(
                                 color = TextPrimary,
                                 letterSpacing = 0.sp,
                             )
-                            val activeToast = uiState.activeModeToast
-                            val showMorph = activeToast != null && (uiState.modeFeedbackDualMorph || uiState.modeFeedbackStyle == "header_morph")
+                            val activeToast = activeModeToast
+                            val showMorph = activeToast != null && (modeFeedbackDualMorph || modeFeedbackStyle == "header_morph")
                             AnimatedContent(
                                 targetState = if (showMorph) activeToast else null,
                                 transitionSpec = {
@@ -306,7 +346,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                                         "red" to AccentRed,
                                         "green" to AccentGreen
                                     ).forEach { (name, color) ->
-                                        val isSelected = uiState.selectedAccent == name
+                                        val isSelected = selectedAccent == name
                                         Box(
                                             modifier = Modifier
                                                 .size(26.dp)
@@ -336,11 +376,11 @@ internal fun LazyListScope.dashboardHeaderItem(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // ── SMART AUTOMATION & BASELINE STATUS PILL ──
-                val isAutoRunning = uiState.isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
-                val isAutoProfile = state.activeProfile.equals("auto", ignoreCase = true)
+                val isAutoRunning = isAppAutomationActive || com.noir.lynx.service.LynxAppAutomationService.isRunning
+                val isAutoProfile = activeProfile.equals("auto", ignoreCase = true)
                 val activeGamePkg = com.noir.lynx.service.LynxAppAutomationService.activeGamePackage
                 val activeGameName = com.noir.lynx.service.LynxAppAutomationService.activeGameName
-                val hasOverrides = state.profileOverrides.isNotEmpty() || (activeGamePkg != null)
+                val hasOverrides = hasProfileOverrides || (activeGamePkg != null)
                 val baselineId = com.noir.lynx.service.LynxAppAutomationService.currentBaseline
                 val baselineDisplayName = when (baselineId.lowercase().trim()) {
                     "performance" -> "Performa Tinggi"
@@ -468,7 +508,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     standardProfiles.forEach { item ->
-                        val isPhysicallyActive = state.activeProfile.equals(item.id, ignoreCase = true)
+                        val isPhysicallyActive = activeProfile.equals(item.id, ignoreCase = true)
                         val isSelected = if (isAutoProfile) (item.id == "balance") else isPhysicallyActive
                         val animatedBgColor by animateColorAsState(
                             targetValue = if (isSelected) item.accentColor.copy(alpha = 0.18f) else BgElevated,
@@ -535,7 +575,7 @@ internal fun LazyListScope.dashboardHeaderItem(
                 }
 
                 // Active custom profile badge.
-                val activeProfileObj = uiState.kernelProfileCatalog.profiles.firstOrNull { it.id == state.activeProfile }
+                val activeProfileObj = kernelProfileCatalog.profiles.firstOrNull { it.id == activeProfile }
                 val isCustomActive = activeProfileObj != null && !activeProfileObj.builtIn
                 if (isCustomActive && activeProfileObj != null) {
                     Spacer(Modifier.height(8.dp))
@@ -574,7 +614,6 @@ internal fun LazyListScope.dashboardHeaderItem(
                 }
             }
         }
-    }
 }
 
 private data class HeaderModeItem(

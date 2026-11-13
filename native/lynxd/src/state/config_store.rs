@@ -132,32 +132,7 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "schedutil_down_rate_us": 20000
   },
   "display_touch": {
-    "touchboost": true,
-    "refresh_rate_lock": 120,
-    "surfaceflinger_offset_ns": 2000000,
-    "skia_vulkan_enabled": false,
-    "nvt_micro_gain": 4,
-    "nvt_edge_guard_px": 48,
-    "nvt_spi_speed_hz": 15000000,
-    "nvt_game_mode": true,
-    "nvt_hop_fix": true,
-    "nvt_jitter_level": 0,
-    "nvt_smooth_level": 0,
-    "ktch_enabled": true,
-    "ktch_duration_ms": 280,
-    "ktch_eas_boost": 80,
-    "back_gesture_overlay": "narrow",
-    "back_gesture_scale_left": 0.18,
-    "back_gesture_scale_right": 0.18,
-    "back_gesture_ml_enabled": true,
-    "back_gesture_ml_threshold": 0.96,
-    "input_resampling": false,
-    "touch_irq_big_cores": true
-  },
-  "panel": {
-    "cabc_mode": 0,
-    "esd_period_ms": 15000,
-    "apply_on_boot": true
+    "refresh_rate_lock": 120
   },
   "network": {
     "wifi_ping_stabilizer": true,
@@ -494,6 +469,32 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
         LEAKED_FIELD_PREFIXES.iter().any(|prefix| trimmed_line.starts_with(prefix))
     }
 
+    fn json_brace_delta(line: &str) -> i32 {
+        let mut delta = 0i32;
+        let mut in_str = false;
+        let mut escaped = false;
+        for ch in line.chars() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' && in_str {
+                escaped = true;
+                continue;
+            }
+            if ch == '"' {
+                in_str = !in_str;
+            } else if !in_str {
+                if ch == '{' {
+                    delta += 1;
+                } else if ch == '}' {
+                    delta -= 1;
+                }
+            }
+        }
+        delta
+    }
+
     fn apply_single_mutation(content: &str, key: &str, formatted_val: &str) -> String {
         let mut out = String::with_capacity(content.len() + 64);
 
@@ -504,65 +505,71 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
             let mut sec_handled = false;
             let mut sec_lines: Vec<String> = Vec::new();
             let mut found_in_sec = false;
+            let mut depth = 0i32;
 
             let lines: Vec<&str> = content.lines().collect();
             for (idx, line) in lines.iter().enumerate() {
                 let trimmed = line.trim();
+                let line_depth = depth;
+                depth += Self::json_brace_delta(line);
+
                 if !in_sec && !sec_handled {
-                    // Automatically filter out orphaned root lines that previously leaked outside sections
-                    if Self::is_orphaned_root_line(trimmed) {
+                    // Only filter orphaned root lines at JSON root depth (depth == 1)
+                    if line_depth == 1 && Self::is_orphaned_root_line(trimmed) {
                         continue;
                     }
 
-                    if let Some(pos) = trimmed.find(&sec_pat) {
-                        let after = trimmed[pos + sec_pat.len()..].trim_start();
-                        if after.starts_with(':') && after.contains('{') {
-                            if after.contains('}') {
-                                // Inline single-line object: e.g. "charging": { "charging_mode": "standard", "bypass_enabled": false },
-                                let brace_open = line.find('{').unwrap();
-                                let brace_close = line.rfind('}').unwrap();
-                                let indent_len = line.len() - line.trim_start().len();
-                                let indent = &line[..indent_len];
-                                let inner = line[brace_open + 1..brace_close].trim();
-                                let comma_suffix = if line[brace_close + 1..].trim().ends_with(',') { "," } else { "" };
+                    if line_depth == 1 {
+                        if let Some(pos) = trimmed.find(&sec_pat) {
+                            let after = trimmed[pos + sec_pat.len()..].trim_start();
+                            if after.starts_with(':') && after.contains('{') {
+                                if after.contains('}') {
+                                    // Inline single-line object: e.g. "charging": { "charging_mode": "standard", "bypass_enabled": false },
+                                    let brace_open = line.find('{').unwrap();
+                                    let brace_close = line.rfind('}').unwrap();
+                                    let indent_len = line.len() - line.trim_start().len();
+                                    let indent = &line[..indent_len];
+                                    let inner = line[brace_open + 1..brace_close].trim();
+                                    let comma_suffix = if line[brace_close + 1..].trim().ends_with(',') { "," } else { "" };
 
-                                let mut fields: Vec<(String, String)> = Vec::new();
-                                let mut updated = false;
+                                    let mut fields: Vec<(String, String)> = Vec::new();
+                                    let mut updated = false;
 
-                                for part in inner.split(',') {
-                                    let part_trimmed = part.trim();
-                                    if part_trimmed.is_empty() {
-                                        continue;
-                                    }
-                                    if let Some((k_raw, v_raw)) = part_trimmed.split_once(':') {
-                                        let k = k_raw.trim().trim_matches('"');
-                                        let v = v_raw.trim();
-                                        if k == fld {
-                                            fields.push((k.to_string(), formatted_val.to_string()));
-                                            updated = true;
-                                        } else {
-                                            fields.push((k.to_string(), v.to_string()));
+                                    for part in inner.split(',') {
+                                        let part_trimmed = part.trim();
+                                        if part_trimmed.is_empty() {
+                                            continue;
+                                        }
+                                        if let Some((k_raw, v_raw)) = part_trimmed.split_once(':') {
+                                            let k = k_raw.trim().trim_matches('"');
+                                            let v = v_raw.trim();
+                                            if k == fld {
+                                                fields.push((k.to_string(), formatted_val.to_string()));
+                                                updated = true;
+                                            } else {
+                                                fields.push((k.to_string(), v.to_string()));
+                                            }
                                         }
                                     }
-                                }
-                                if !updated {
-                                    fields.push((fld.to_string(), formatted_val.to_string()));
+                                    if !updated {
+                                        fields.push((fld.to_string(), formatted_val.to_string()));
+                                    }
+
+                                    out.push_str(&format!("{}\"{}\": {{\n", indent, sec));
+                                    for (i, (k, v)) in fields.iter().enumerate() {
+                                        let c = if i < fields.len() - 1 { "," } else { "" };
+                                        out.push_str(&format!("{}  \"{}\": {}{}\n", indent, k, v, c));
+                                    }
+                                    out.push_str(&format!("{}}}{}\n", indent, comma_suffix));
+                                    sec_handled = true;
+                                    continue;
                                 }
 
-                                out.push_str(&format!("{}\"{}\": {{\n", indent, sec));
-                                for (i, (k, v)) in fields.iter().enumerate() {
-                                    let c = if i < fields.len() - 1 { "," } else { "" };
-                                    out.push_str(&format!("{}  \"{}\": {}{}\n", indent, k, v, c));
-                                }
-                                out.push_str(&format!("{}}}{}\n", indent, comma_suffix));
-                                sec_handled = true;
+                                in_sec = true;
+                                out.push_str(line);
+                                out.push('\n');
                                 continue;
                             }
-
-                            in_sec = true;
-                            out.push_str(line);
-                            out.push('\n');
-                            continue;
                         }
                     }
                     if idx == lines.len() - 1 && trimmed == "}" {
@@ -609,8 +616,8 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
                         sec_lines.push(line.to_string());
                     }
                 } else {
-                    // If section was already handled and not in section, clean up any leaked orphaned root fields
-                    if Self::is_orphaned_root_line(trimmed) {
+                    // Only filter orphaned root lines at JSON root depth (depth == 1), never sibling sections!
+                    if line_depth == 1 && Self::is_orphaned_root_line(trimmed) {
                         continue;
                     }
                     out.push_str(line);
@@ -721,5 +728,31 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
         }
 
         cfg
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConfigStore;
+
+    #[test]
+    fn multi_key_charging_mutation_preserves_siblings() {
+        let mut content = ConfigStore::DEFAULT_CONFIG_TEMPLATE.to_string();
+        let updates = [
+            ("charging.charging_mode", "\"hyper\""),
+            ("charging.max_battery_percent", "100"),
+            ("charging.bypass_enabled", "false"),
+            ("charging.extreme_charging_enabled", "true"),
+        ];
+        for (k, v) in updates {
+            content = ConfigStore::apply_single_mutation(&content, k, v);
+        }
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.charging_mode").as_deref(), Some("hyper"));
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.max_battery_percent").as_deref(), Some("100"));
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.bypass_enabled").as_deref(), Some("false"));
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.extreme_charging_enabled").as_deref(), Some("true"));
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.temp_cutoff_c").as_deref(), Some("45"));
+        assert_eq!(ConfigStore::get_from_str(&content, "charging.limit_current_ma").as_deref(), Some("2000"));
+        assert_eq!(ConfigStore::get_from_str(&content, "display_touch.refresh_rate_lock").as_deref(), Some("120"));
     }
 }

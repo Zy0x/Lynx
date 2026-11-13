@@ -180,8 +180,9 @@ object LynxRepository {
 
     @Volatile
     private var isRootVerified: Boolean = false
-    @Volatile
-    private var initialBootCleanupDone: Boolean = false
+    private val initialBootCleanupDone = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun isRootVerifiedFast(): Boolean = isRootVerified
 
     suspend fun isRootAvailable(): Boolean = withContext(Dispatchers.IO) {
         if (isRootVerified) {
@@ -219,27 +220,17 @@ object LynxRepository {
     }
 
     private fun performOneTimeBootCleanup() {
-        if (initialBootCleanupDone) return
-        initialBootCleanupDone = true
+        if (!initialBootCleanupDone.compareAndSet(false, true)) return
         try {
             // Safety Guard: Eliminate any legacy or rogue service.d scripts that cause bootloops,
-            // purge stale locks, and terminate orphan runaway loops that monopolize CPU cores
+            // purge stale locks, and terminate orphan runaway legacy shell loops without harming active lynxd
             Shell.cmd("""
                 rm -f /data/adb/service.d/lynx* 2>/dev/null
                 rm -f /dev/lynx_mode.lock 2>/dev/null
                 pkill -9 -f "Smart-AI.sh" 2>/dev/null
                 pkill -9 -f "AI_performance.sh" 2>/dev/null
                 pkill -9 -f "AI_balance.sh" 2>/dev/null
-                kill -9 12492 13423 2>/dev/null
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
-                if [ -f /data/local/tmp/lynxd_new ]; then
-                    pkill -9 -f "lynxd daemon" 2>/dev/null
-                    rm -f /data/local/tmp/lynxd /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
-                    cp -af /data/local/tmp/lynxd_new /data/local/tmp/lynxd 2>/dev/null
-                    cp -af /data/local/tmp/lynxd_new /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
-                    chmod 755 /data/local/tmp/lynxd /data/adb/modules/Lynx/system/bin/lynxd 2>/dev/null
-                    rm -f /data/local/tmp/lynxd_new
-                fi
                 if [ -f /data/local/tmp/thermal-engine.conf ]; then
                     mkdir -p /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc 2>/dev/null
                     cp -af /data/local/tmp/thermal-engine.conf /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf 2>/dev/null
@@ -259,10 +250,6 @@ object LynxRepository {
                         esac
                     fi
                 done
-                for orphan_pid in ${'$'}(pgrep -P 1 -x sh 2>/dev/null); do
-                    kill -9 ${'$'}orphan_pid 2>/dev/null
-                done
-                pkill -9 -f "/data/adb/modules/Lynx" 2>/dev/null
             """.trimIndent()).submit()
 
             // Preserve and safely disable any legacy Lynx module (v4/v5/v6)
@@ -491,7 +478,7 @@ object LynxRepository {
             Shell.cmd("""
                 if [ -x '$targetPath' ]; then
                     if ! pgrep -f "lynxd daemon run" >/dev/null 2>&1; then
-                        nohup '$targetPath' daemon run >/dev/null 2>&1 &
+                        nohup '$targetPath' daemon run </dev/null >/dev/null 2>&1 &
                     fi
                 fi
             """.trimIndent()).exec().isSuccess
@@ -695,18 +682,11 @@ object LynxRepository {
     suspend fun setDisplayRefreshRate(hz: Int, isAuto: Boolean = false): Boolean = LynxDisplayRepository.setDisplayRefreshRate(hz, isAuto)
     suspend fun readGraphicsCapabilities(): com.noir.lynx.hardware.GraphicsCapabilities = LynxDisplayRepository.readGraphicsCapabilities()
     suspend fun readDisplayPipeline(): com.noir.lynx.display.DisplayPipelineInfo = LynxDisplayRepository.readDisplayPipeline()
-    suspend fun applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile): Boolean = LynxDisplayRepository.applyColorProfile(profile)
-    suspend fun resetColorProfile(): Boolean = LynxDisplayRepository.resetColorProfile()
-    fun isColorCalibrationEnabled(): Boolean = LynxDisplayRepository.isColorCalibrationEnabled()
-    fun readSavedColorProfile(): com.noir.lynx.display.ColorMatrixProfile = LynxDisplayRepository.readSavedColorProfile()
-    suspend fun applySavedColorProfileIfEnabled(): Boolean = LynxDisplayRepository.applySavedColorProfileIfEnabled()
-    suspend fun checkColorConflict(): String? = LynxDisplayRepository.checkColorConflict()
     suspend fun startLabRecording(pkg: String, scope: kotlinx.coroutines.CoroutineScope) = LynxDisplayRepository.startLabRecording(pkg, scope)
     suspend fun stopLabRecording(context: android.content.Context, targetHz: Int): com.noir.lynx.lab.FrameSessionReport = LynxDisplayRepository.stopLabRecording(context, targetHz)
     suspend fun listLabSessions(context: android.content.Context): List<com.noir.lynx.lab.FrameSessionReport> = LynxDisplayRepository.listLabSessions(context)
     suspend fun exportLabSession(context: android.content.Context, report: com.noir.lynx.lab.FrameSessionReport): String? = LynxDisplayRepository.exportLabSession(context, report)
     suspend fun readGraphicsHwuiInfo(): GraphicsHwuiInfo = LynxGraphicsEngineRepository.readGraphicsHwuiInfo()
-    suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setSurfaceFlingerEarlyPhase(enabled)
     suspend fun setUpdatableGameDriver(mode: String): Boolean = LynxGraphicsEngineRepository.setUpdatableGameDriver(mode)
     suspend fun setHwuiRenderer(backend: String): Boolean = LynxGraphicsEngineRepository.setHwuiRenderer(backend)
     suspend fun readPerAppGraphicsRules(context: Context): List<PerAppGraphicsRule> = LynxGraphicsEngineRepository.readPerAppGraphicsRules(context)
@@ -790,8 +770,6 @@ object LynxRepository {
     suspend fun readPrintkSilent(): Boolean = LynxSystemControlRepository.readPrintkSilent()
 
     suspend fun setPrintkSilent(silent: Boolean): Boolean = LynxSystemControlRepository.setPrintkSilent(silent)
-
-    suspend fun applyTouchboost(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTouchboost(enabled)
 
     suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = LynxSystemControlRepository.applyWifiPingStabilizer(enabled)
     suspend fun applyAntiJitterScan(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAntiJitterScan(enabled)
@@ -1072,17 +1050,6 @@ object LynxRepository {
     suspend fun applyVoltageOffset(offsetMv: Int): Boolean = LynxBatteryDiagnosticsRepository.applyVoltageOffset(offsetMv)
 
     suspend fun readBatteryHealth(): BatteryHealthStats = LynxBatteryDiagnosticsRepository.readBatteryHealth()
-
-    // ============================================================
-    //  FKM ADVANCED SUBSYSTEMS: DISPLAY CALIBRATION (KCAL)
-    // ============================================================
-
-    suspend fun readDisplayCalibration(): DisplayCalibrationInfo = LynxDisplayRepository.readDisplayCalibration()
-
-    suspend fun setUniversalColorAdjustment(r: Float, g: Float, b: Float): Boolean = LynxDisplayRepository.setUniversalColorAdjustment(r, g, b)
-
-    suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean =
-        LynxDisplayRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
 
     // ============================================================
     //  FKM ADVANCED SUBSYSTEMS: SOUND CONTROL

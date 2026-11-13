@@ -1,5 +1,6 @@
 package com.noir.lynx.data
 
+import androidx.compose.runtime.Immutable
 import com.noir.lynx.profiles.ProfileDomain
 
 /**
@@ -13,6 +14,7 @@ import com.noir.lynx.profiles.ProfileDomain
 //  MASTER STATE
 // ============================================================
 
+@Immutable
 data class LynxState(
     val moduleVersion: String = "3.0.0",
     val releaseType: String = "beta",
@@ -170,6 +172,7 @@ data class ThermalStatusDetails(
 //  TELEMETRY & CPU CLUSTER MODELS (Kernel Manager)
 // ============================================================
 
+@Immutable
 data class TelemetryData(
     val cpu: List<Long> = emptyList(),
     val gpuFreq: Int = 0,
@@ -189,6 +192,7 @@ data class TelemetryData(
     val thermalZones: List<ThermalZoneInfo> = emptyList(),
 )
 
+@Immutable
 data class CpuClusterInfo(
     val id: Int = 0,
     val role: String = "Little",
@@ -242,6 +246,7 @@ data class CpuMonitorSnapshot(
     val timestampMs: Long = System.currentTimeMillis()
 )
 
+@Immutable
 data class CpuCoreInfo(
     val coreId: Int = 0,
     val isOnline: Boolean = true,

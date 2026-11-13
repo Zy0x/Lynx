@@ -191,11 +191,6 @@ function renderUI(state) {
         adbPortInput.value = (state.adb_keepalive && state.adb_keepalive.port) || 5555;
     }
 
-    const touchToggle = document.getElementById('touchboost-toggle');
-    if (touchToggle && !touchToggle.matches(':focus')) {
-        touchToggle.checked = !!(state.display_touch && state.display_touch.touchboost);
-    }
-
     const audioToggle = document.getElementById('audio-mmap-toggle');
     if (audioToggle && !audioToggle.matches(':focus')) {
         audioToggle.checked = !!(state.audio && state.audio.low_latency_mmap);
@@ -238,44 +233,6 @@ function renderUI(state) {
     document.querySelectorAll('#refresh-rate-container button').forEach(b => b.classList.remove('active'));
     const rrBtn = document.getElementById(`rr-${rr}`);
     if (rrBtn) rrBtn.classList.add('active');
-
-    // Touch Precision & Edge Guard controls (secondary fallback sync)
-    const dt = state.display_touch || {};
-    const gainSlider = document.getElementById('nvt-gain-slider');
-    const gainValEl = document.getElementById('nvt-gain-val');
-    if (gainSlider && !gainSlider.matches(':active')) {
-        const g = (dt.nvt_micro_gain !== undefined) ? parseInt(dt.nvt_micro_gain) : 4;
-        gainSlider.value = g;
-        if (gainValEl) gainValEl.textContent = `Lv ${g} (${(1 + g * 0.5).toFixed(1)}x)`;
-    }
-    const edgeSlider = document.getElementById('nvt-edge-slider');
-    const edgeValEl = document.getElementById('nvt-edge-val');
-    if (edgeSlider && !edgeSlider.matches(':active')) {
-        const eg = (dt.nvt_edge_guard_px !== undefined) ? parseInt(dt.nvt_edge_guard_px) : 48;
-        edgeSlider.value = eg;
-        if (edgeValEl) edgeValEl.textContent = `${eg} px`;
-    }
-    const slL = document.getElementById('back-scale-l-slider');
-    const slLVal = document.getElementById('back-scale-l-val');
-    if (slL && !slL.matches(':active')) {
-        const v = (dt.back_gesture_scale_left !== undefined) ? parseFloat(dt.back_gesture_scale_left) : 0.18;
-        slL.value = Math.round(v * 100);
-        if (slLVal) slLVal.textContent = `${v.toFixed(2)}x`;
-    }
-    const slR = document.getElementById('back-scale-r-slider');
-    const slRVal = document.getElementById('back-scale-r-val');
-    if (slR && !slR.matches(':active')) {
-        const v = (dt.back_gesture_scale_right !== undefined) ? parseFloat(dt.back_gesture_scale_right) : 0.18;
-        slR.value = Math.round(v * 100);
-        if (slRVal) slRVal.textContent = `${v.toFixed(2)}x`;
-    }
-    const mlSl = document.getElementById('back-ml-slider');
-    const mlVal = document.getElementById('back-ml-val');
-    if (mlSl && !mlSl.matches(':active')) {
-        const m = (dt.back_gesture_ml_threshold !== undefined) ? parseFloat(dt.back_gesture_ml_threshold) : 0.96;
-        mlSl.value = Math.round(m * 100);
-        if (mlVal) mlVal.textContent = m.toFixed(2);
-    }
 
     // Hardware / SoC Info
     const socEl = document.getElementById('soc-info');
@@ -1537,7 +1494,6 @@ window.addEventListener('DOMContentLoaded', () => {
     pollThermalZones();
     loadIoDevices();
     pollWebWakelocks();
-    loadWebPanelTuning();
     loadTcpCongestion();
     loadWebVmTunables();
     loadWebBoefflaAndDoze();
@@ -1551,74 +1507,3 @@ window.addEventListener('DOMContentLoaded', () => {
         if (warn) warn.style.display = 'block';
     }
 });
-
-async function setTouchPrecisionKey(key, value) {
-    await updateStateKey(key, value);
-    await execCmd(`${LYNXD} display touch-precision apply >/dev/null 2>&1`);
-}
-
-async function applyWebTouchPrecision() {
-    logToConsole('Applying Touch Precision & Edge Guard settings...');
-    const res = await execCmd(`${LYNXD} display touch-precision apply`);
-    if (res.errno === 0) {
-        logToConsole(res.stdout || 'Touch precision applied.', 'success');
-    } else {
-        logToConsole(`Failed applying touch precision: ${res.stderr}`, 'error');
-    }
-}
-
-async function loadWebPanelTuning() {
-    const card = document.getElementById('card-panel-tuning');
-    if (!card) return;
-    const res = await runShell(`${LYNX_BIN} display panel status 2>/dev/null`);
-    if (res.errno !== 0 || !res.stdout) return;
-    try {
-        const data = JSON.parse(res.stdout);
-        const anySup = Boolean(data.cabc_supported || data.esd_supported);
-        card.style.display = anySup ? 'block' : 'none';
-        if (!anySup) return;
-
-        const rowCabc = document.getElementById('row-panel-cabc');
-        if (rowCabc) rowCabc.style.display = data.cabc_supported ? 'block' : 'none';
-        const cabcVal = Math.max(0, Math.min(3, Number(data.cfg_cabc ?? data.active_cabc ?? 0)));
-        const cabcSlider = document.getElementById('panel-cabc-slider');
-        const cabcLabel = document.getElementById('panel-cabc-val');
-        if (cabcSlider) cabcSlider.value = cabcVal;
-        if (cabcLabel) cabcLabel.textContent = String(cabcVal);
-
-        const rowEsd = document.getElementById('row-panel-esd');
-        if (rowEsd) rowEsd.style.display = data.esd_supported ? 'block' : 'none';
-        const rawEsdMs = Number(data.active_esd_ms >= 0 ? data.active_esd_ms : (data.cfg_esd_ms ?? 15000));
-        const esdSec = rawEsdMs <= 0 ? 0 : Math.max(2, Math.min(60, Math.round(rawEsdMs / 1000)));
-        const esdSlider = document.getElementById('panel-esd-slider');
-        const esdLabel = document.getElementById('panel-esd-val');
-        if (esdSlider) esdSlider.value = esdSec;
-        if (esdLabel) esdLabel.textContent = String(esdSec);
-    } catch (_) {}
-}
-
-async function applyWebPanelTuning() {
-    const cabcSlider = document.getElementById('panel-cabc-slider');
-    const esdSlider = document.getElementById('panel-esd-slider');
-    const cabc = cabcSlider ? Math.max(0, Math.min(3, parseInt(cabcSlider.value, 10) || 0)) : 0;
-    const rawSec = esdSlider ? (parseInt(esdSlider.value, 10) || 0) : 15;
-    const esdMs = rawSec <= 0 ? 0 : Math.max(2, Math.min(60, rawSec)) * 1000;
-    const cmd = `${LYNX_BIN} display panel set-cabc ${cabc} >/dev/null && ${LYNX_BIN} display panel set-esd ${esdMs}`;
-    const res = await runShell(cmd);
-    if (res.errno === 0) {
-        showToast('Panel CABC & Watchdog ESD berhasil diterapkan!', true);
-        loadWebPanelTuning();
-    } else {
-        showToast('Gagal menerapkan Panel CABC & Watchdog ESD.', false);
-    }
-}
-
-async function resetWebPanelTuning() {
-    const res = await runShell(`${LYNX_BIN} display panel reset`);
-    if (res.errno === 0) {
-        showToast('Panel tuning dipulihkan ke default Arise (CABC 0, ESD 15 dtk).', true);
-        loadWebPanelTuning();
-    } else {
-        showToast('Gagal memulihkan default Panel tuning.', false);
-    }
-}

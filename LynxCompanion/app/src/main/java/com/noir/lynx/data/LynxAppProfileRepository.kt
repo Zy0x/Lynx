@@ -15,9 +15,7 @@ internal object LynxAppProfileRepository {
         try {
             val r = Shell.cmd(
                 "appops set com.noir.lynx SYSTEM_ALERT_WINDOW allow 2>/dev/null",
-                "appops set com.noir.lynx.debug SYSTEM_ALERT_WINDOW allow 2>/dev/null",
-                "pm grant com.noir.lynx android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null",
-                "pm grant com.noir.lynx.debug android.permission.SYSTEM_ALERT_WINDOW 2>/dev/null"
+                "appops set com.noir.lynx.debug SYSTEM_ALERT_WINDOW allow 2>/dev/null"
             ).exec()
             r.isSuccess
         } catch (e: Exception) { false }
@@ -27,9 +25,7 @@ internal object LynxAppProfileRepository {
         try {
             val r = Shell.cmd(
                 "appops set com.noir.lynx GET_USAGE_STATS allow 2>/dev/null",
-                "appops set com.noir.lynx.debug GET_USAGE_STATS allow 2>/dev/null",
-                "pm grant com.noir.lynx android.permission.PACKAGE_USAGE_STATS 2>/dev/null",
-                "pm grant com.noir.lynx.debug android.permission.PACKAGE_USAGE_STATS 2>/dev/null"
+                "appops set com.noir.lynx.debug GET_USAGE_STATS allow 2>/dev/null"
             ).exec()
             r.isSuccess
         } catch (e: Exception) { false }
@@ -72,7 +68,7 @@ internal object LynxAppProfileRepository {
             val lynxdPath = LynxRepository.getLynxdPath()
             Shell.cmd(
                 "pkill -f lynx_watcher.sh 2>/dev/null; " +
-                "if [ -x '$lynxdPath' ]; then pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 &; fi"
+                "if [ -x '$lynxdPath' ]; then pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run </dev/null >/dev/null 2>&1 &; fi"
             ).exec()
 
             val intent = Intent(context, LynxAppAutomationService::class.java).apply {

@@ -138,7 +138,7 @@ internal fun JewelToastPill(
         shape = pillShape,
         color = ToastBgObsidian,
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.45f)),
-        shadowElevation = 10.dp,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .animateContentSize(animationSpec = spring(dampingRatio = 0.8f, stiffness = 420f))
             .defaultMinSize(minHeight = if (isCompactMini) 32.dp else 36.dp)
@@ -188,7 +188,6 @@ internal fun JewelToastPill(
                             modifier = Modifier
                                 .size(6.dp)
                                 .background(currentAccent, CircleShape)
-                                .shadow(elevation = 5.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
                         )
 
                         // Micro Icon
@@ -253,7 +252,6 @@ internal fun JewelToastPill(
                         modifier = Modifier
                             .size(5.dp)
                             .background(currentAccent, CircleShape)
-                            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = currentAccent, spotColor = currentAccent)
                     )
 
                     // Micro Mode / Action Icon

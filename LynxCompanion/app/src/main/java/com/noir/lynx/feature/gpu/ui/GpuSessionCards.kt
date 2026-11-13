@@ -48,8 +48,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
-import com.noir.lynx.display.ColorMatrixEngine
-import com.noir.lynx.display.ColorMatrixProfile
 import com.noir.lynx.display.DisplayPipelineInfo
 import com.noir.lynx.hardware.DisplayModeInfo
 import com.noir.lynx.hardware.GpuBackend
@@ -76,17 +74,21 @@ fun LabRecordCard(
     val cardAccent = AccentRed
     val context = LocalContext.current
 
-    // Pulsing animation when recording
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
+    // Pulsing animation strictly gated to active recording to prevent idle VSync wakeups
+    val pulseAlpha = if (isRecording) {
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        infiniteTransition.animateFloat(
+            initialValue = 0.4f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(800, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseAlpha"
+        ).value
+    } else {
+        1.0f
+    }
 
     LynxCard(
         title = "Performance Lab — Frame Recorder",

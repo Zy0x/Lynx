@@ -82,36 +82,6 @@ object LynxGpuSiliconRepository {
         success
     }
 
-    suspend fun setSurfaceFlingerPhaseOffset(earlyNs: Long, earlyGlNs: Long): Boolean = withContext(Dispatchers.IO) {
-        val success = QualcommAdrenoSiliconExt.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs)
-        if (success) {
-            _siliconState.update {
-                it.copy(
-                    sfEarlyPhaseOffsetNs = earlyNs,
-                    sfEarlyGlPhaseOffsetNs = earlyGlNs,
-                    isEarlyPhaseOffsetActive = earlyNs > 0L || earlyGlNs > 0L
-                )
-            }
-        }
-        success
-    }
-
-    suspend fun setTouchBoostDuration(durationMs: Int): Boolean = withContext(Dispatchers.IO) {
-        val success = QualcommAdrenoSiliconExt.setTouchBoostDuration(durationMs)
-        if (success) {
-            _siliconState.update { it.copy(touchBoostDurationMs = durationMs) }
-        }
-        success
-    }
-
-    suspend fun setVsyncSwapBypass(bypass: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val success = QualcommAdrenoSiliconExt.setVsyncSwapBypass(bypass)
-        if (success) {
-            _siliconState.update { it.copy(isVsyncSwapBypass = bypass) }
-        }
-        success
-    }
-
     fun updatePercentileFps(p99Fps: Float, p999Fps: Float) {
         _siliconState.update {
             it.copy(

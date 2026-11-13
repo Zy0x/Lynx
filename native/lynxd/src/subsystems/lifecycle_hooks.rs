@@ -196,19 +196,7 @@ impl LifecycleHooks {
 
         // 6. Universal & Platform-Specific Subsystem Optimization
         let _ = SystemController::apply();
-        let _ = crate::subsystems::MtkPanelController::apply_boot();
         Self::log_msg("[+] Core and platform subsystems optimized natively via lynxd");
-
-        let _ = Command::new("settings")
-            .args(["put", "secure", "long_press_timeout", "280"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-        let _ = Command::new("settings")
-            .args(["put", "secure", "multi_press_timeout", "80"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
 
         // 7. Apply Charging, ADB Keep-Alive & Storage Maintenance
         ChargingRegulator::apply_from_config();

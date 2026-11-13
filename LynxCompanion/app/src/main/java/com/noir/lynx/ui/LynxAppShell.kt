@@ -250,14 +250,6 @@ fun LoadingScreen() {
 
 @Composable
 fun ErrorScreen(uiState: LynxUiState, onRetry: () -> Unit = {}) {
-    // Auto-detect root permission as soon as user returns or grants root
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(2000L)
-            onRetry()
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()

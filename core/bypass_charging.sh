@@ -204,9 +204,9 @@ disable_bypass() {
         fi
     done
 
-    # Restore Transsion & MTK Thermal Throttling
+    # Clear spurious BatteryNotify OV flag on bypass release (0=normal, 1=fault injection)
     if [ -f "/sys/devices/platform/charger/BatteryNotify" ]; then
-        echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+        echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
     fi
     chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
     echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null

@@ -302,6 +302,6 @@ fun MainDashboard(
         )
 
         // ── 3. Model 1: Floating Dynamic Capsule Dock (True Overlay) ────────
-        LynxBottomNavigationDock(uiState, currentAccent) { index -> viewModel.switchTab(index) }
+        LynxBottomNavigationDock(uiState.currentTab, currentAccent) { index -> viewModel.switchTab(index) }
     }
 }

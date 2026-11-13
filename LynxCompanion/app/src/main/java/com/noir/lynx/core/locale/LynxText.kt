@@ -259,7 +259,7 @@ private val recommendationUiTextResources = mapOf(
 private data class MatchResolution(val resourceId: Int, val rawArguments: List<String>)
 
 private val NO_MATCH_SENTINEL = MatchResolution(-1, emptyList())
-private val dynamicResolutionCache = object : android.util.LruCache<String, MatchResolution>(1024) {}
+private val dynamicResolutionCache = java.util.concurrent.ConcurrentHashMap<String, MatchResolution>()
 
 /** Localize static accessibility labels with the same catalog used by visible text. */
 @Composable
@@ -268,7 +268,7 @@ fun localizedUiText(source: String): String {
     legacyUiTextResources[source]?.let { return stringResource(it) }
     recommendationUiTextResources[source]?.let { return stringResource(it) }
 
-    val cached = synchronized(dynamicResolutionCache) { dynamicResolutionCache.get(source) }
+    val cached = dynamicResolutionCache[source]
     if (cached != null) {
         if (cached === NO_MATCH_SENTINEL) return source
         val localizedArguments = cached.rawArguments.map { argument ->
@@ -281,18 +281,16 @@ fun localizedUiText(source: String): String {
         val match = entry.pattern.matchEntire(source) ?: continue
         val rawArgs = match.groupValues.drop(1)
         val resolution = MatchResolution(entry.resource, rawArgs)
-        synchronized(dynamicResolutionCache) {
-            dynamicResolutionCache.put(source, resolution)
-        }
+        if (dynamicResolutionCache.size > 1024) dynamicResolutionCache.clear()
+        dynamicResolutionCache.putIfAbsent(source, resolution)
         val localizedArguments = rawArgs.map { argument ->
             legacyUiTextResources[argument]?.let { stringResource(it) } ?: argument
         }
         return stringResource(entry.resource, *localizedArguments.toTypedArray())
     }
 
-    synchronized(dynamicResolutionCache) {
-        dynamicResolutionCache.put(source, NO_MATCH_SENTINEL)
-    }
+    if (dynamicResolutionCache.size > 1024) dynamicResolutionCache.clear()
+    dynamicResolutionCache.putIfAbsent(source, NO_MATCH_SENTINEL)
     return source
 }
 

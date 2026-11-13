@@ -51,8 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
-import com.noir.lynx.display.ColorMatrixEngine
-import com.noir.lynx.display.ColorMatrixProfile
 import com.noir.lynx.display.DisplayPipelineInfo
 import com.noir.lynx.hardware.DisplayModeInfo
 import com.noir.lynx.hardware.GpuBackend

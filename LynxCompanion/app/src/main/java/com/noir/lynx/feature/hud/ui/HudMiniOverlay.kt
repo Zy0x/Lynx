@@ -44,7 +44,7 @@ internal fun SidekickEdgeTab(dockRight: Boolean, modifier: Modifier = Modifier) 
             shape = tabShape,
             color = HudHandleSurface,
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-            shadowElevation = 4.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .width(15.dp)
                 .height(54.dp)

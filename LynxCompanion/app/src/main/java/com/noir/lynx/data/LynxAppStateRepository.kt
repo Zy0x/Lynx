@@ -164,25 +164,8 @@ internal object LynxAppStateRepository {
                         "balance_min_ratio": 20
                       },
                       "display_touch": {
-                        "touchboost": true,
-                        "refresh_rate_lock": 120,
-                        "nvt_micro_gain": 4,
-                        "nvt_edge_guard_px": 48,
-                        "nvt_spi_speed_hz": 15000000,
-                        "nvt_game_mode": true,
-                        "nvt_hop_fix": true,
-                        "nvt_jitter_level": 0,
-                        "nvt_smooth_level": 0,
-                        "ktch_enabled": true,
-                        "ktch_duration_ms": 280,
-                        "ktch_eas_boost": 80,
-                        "back_gesture_overlay": "narrow",
-                        "back_gesture_scale_left": 0.18,
-                        "back_gesture_scale_right": 0.18,
-                        "back_gesture_ml_enabled": true,
-                        "back_gesture_ml_threshold": 0.96,
-                        "input_resampling": false,
-                        "touch_irq_big_cores": true
+                        "touchboost": false,
+                        "refresh_rate_lock": 120
                       },
                       "network": {
                         "wifi_ping_stabilizer": true,
@@ -400,7 +383,7 @@ internal object LynxAppStateRepository {
 
         val applyCmd = if (lynxdPath != null) {
             when (profile) {
-                "auto" -> "pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run >/dev/null 2>&1 &"
+                "auto" -> "pgrep -f 'lynxd daemon run' >/dev/null 2>&1 || nohup '$lynxdPath' daemon run </dev/null >/dev/null 2>&1 &"
                 "dormant" -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile revert"
                 else -> "rm -f /dev/lynx_mode.lock 2>/dev/null; '$lynxdPath' profile apply '$profile'${if (isGameSessionOverride) " --transient" else ""}"
             }

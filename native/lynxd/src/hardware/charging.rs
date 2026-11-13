@@ -61,7 +61,7 @@ const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
     ("/sys/devices/platform/charger/tran_charger_full", "0"),
     ("/sys/devices/platform/charger/tran_game_mode", "0"),
     ("/sys/devices/platform/charger/BN_TestMode", "0"),
-    ("/sys/devices/platform/charger/BatteryNotify", "1"),
+    ("/sys/devices/platform/charger/BatteryNotify", "0"),
     ("/sys/devices/platform/charger/sw_jeita", "1"),
     ("/sys/devices/platform/charger/input_current", "6000000"),
     ("/sys/devices/platform/charger/sc_ibat_limit", "2000"),
@@ -1691,6 +1691,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::write("/dev/lynx_bypass_active", "1");
+        Self::write_node("/proc/lynx/hyper_charge", "0");
         let _ = ConfigStore::set_batch(&[
             ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
             ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
@@ -1859,21 +1860,18 @@ impl ChargingRegulator {
     /// Evaluates electrochemical CC to CV boundaries and tapering thresholds:
     /// - >= 100% SoC: Bypass AutoCut ("bypass_100", 0 mA)
     /// - 96% to 99% SoC: Saturation trickle step-down ("tapering_96", 1200 mA)
-    /// - 92% to 95% SoC: Controlled late-stage decay ("tapering_92", 2000 mA)
-    /// - 86% to 91% SoC: Optimized mid-saturation ("tapering_86", 3000 mA)
-    /// - 80% to 85% SoC: Sustained high-speed Direct Pump ("tapering_80", 4200 mA)
-    /// - 0% to 79% SoC: Full Max Watt unconstrained peak ("hyper", 12000 mA)
+    /// - 93% to 95% SoC: Controlled late-stage decay ("tapering_93", 2000 mA)
+    /// - 90% to 92% SoC: High-SoC tapering phase ("tapering_90", 3000 mA)
+    /// - 0% to 89% SoC: Full Max Watt unconstrained peak ("hyper", 12000 mA)
     pub fn determine_taper_state(soc: u32, _vbat_mv: u32) -> (&'static str, u32) {
         if soc >= 100 {
             ("bypass_100", 0)
         } else if soc >= 96 {
             ("tapering_96", 1200)
-        } else if soc >= 92 {
-            ("tapering_92", 2000)
-        } else if soc >= 86 {
-            ("tapering_86", 3000)
-        } else if soc >= 80 {
-            ("tapering_80", 4200)
+        } else if soc >= 93 {
+            ("tapering_93", 2000)
+        } else if soc >= 90 {
+            ("tapering_90", 3000)
         } else {
             ("hyper", 12000)
         }
@@ -2173,23 +2171,14 @@ impl ChargingRegulator {
         let is_trickle = effective_ma < 1500;
         let pe_protocol = if is_trickle { "0" } else { "1" };
 
-        // Voltage Gating for Switched-Capacitor Pump (RT9759 2:1):
-        // If enabled when VBUS is at 5V, pump output is 2.5V (< V_BAT ~ 3.8-4.2V),
-        // triggering reverse current / UVLO fault which kills Pump Express handshake.
-        // Therefore, enable_sc is strictly voltage-gated: ONLY activate pump when adapter voltage >= 6.5V.
-        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-            .unwrap_or(0);
-        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-        let is_voltage_boosted = adpv_clean >= 6500;
-        let pump_enable = if !is_trickle && is_voltage_boosted { "1" } else { "0" };
-
+        // Keep MTK SmartCharging overnight limiter disabled (enable_sc controls pinfo->sc.enable, NOT RT9759 pump)
         Self::write_node(&format!("{}/pe20", MTK_DIR), pe_protocol);
         Self::write_node(&format!("{}/pe40", MTK_DIR), pe_protocol);
-        Self::write_node(&format!("{}/enable_sc", MTK_DIR), pump_enable);
+        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
+        Self::set_perm("/proc/lynx/hyper_charge", 0o666);
+        Self::write_node("/proc/lynx/hyper_charge", if is_trickle { "0" } else { "1" });
         Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "0");
-        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_game_mode", MTK_DIR), "0");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
@@ -2484,13 +2473,15 @@ impl ChargingRegulator {
         Self::set_perm("/sys/devices/platform/tran_battery/Charging_CallState", 0o666);
         Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
 
-        // 2. Re-assert Pump Express protocols and test mode
+        // 2. Re-assert Pump Express protocols and clear UI notify test mode
         Self::set_perm(&format!("{}/pe20", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
         Self::set_perm(&format!("{}/pe40", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/pe40", MTK_DIR), "1");
+        Self::set_perm(&format!("{}/BatteryNotify", MTK_DIR), 0o666);
+        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "0");
         Self::set_perm(&format!("{}/BN_TestMode", MTK_DIR), 0o666);
-        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
 
         // 3. Kick Qualcomm rerun_aicl if present (generic platform fallback)
         let rerun_node = format!("{}/rerun_aicl", USB_DIR);
@@ -2617,13 +2608,17 @@ impl ChargingRegulator {
         let is_qcom = Self::is_qualcomm_soc();
 
         Self::ensure_mtk_power_path_enabled();
-        Self::write_node(&format!("{}/pe20", MTK_DIR), "0");
-        Self::write_node(&format!("{}/pe40", MTK_DIR), "0");
+        Self::set_perm("/proc/lynx/hyper_charge", 0o666);
+        let hyper_flag = if effective_ma >= 3500 { "1" } else { "0" };
+        let pe_flag = if effective_ma > 1500 { "1" } else { "0" };
+        Self::write_node("/proc/lynx/hyper_charge", hyper_flag);
+        Self::write_node(&format!("{}/pe20", MTK_DIR), pe_flag);
+        Self::write_node(&format!("{}/pe40", MTK_DIR), pe_flag);
         Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
-        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "0");
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
         Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
         Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
@@ -2784,6 +2779,7 @@ impl ChargingRegulator {
     pub fn apply_standard_mode() {
         Self::clear_bypass_hardware_state();
         let _ = fs::write("/dev/lynx_standard_charging", "standard\n");
+        Self::write_node("/proc/lynx/hyper_charge", "0");
 
         Self::unlock_extreme_nodes();
         Self::restore_charger_thermal_safety();
@@ -2795,7 +2791,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
         Self::write_node(&format!("{}/BN_TestMode", MTK_DIR), "0");
-        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "1");
+        Self::write_node(&format!("{}/BatteryNotify", MTK_DIR), "0");
         Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
         Self::write_node(&format!("{}/sw_jeita", MTK_DIR), "1");
         if let Some(baseline_pdc) = Self::get_session_baseline_value(&format!("{}/pdc_max_watt", MTK_DIR)) {
@@ -2884,8 +2880,8 @@ impl ChargingRegulator {
     /// Mode 3: Hyper Mode (100% dynamic peak, unconstrained)
     pub fn apply_hyper_mode() {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-        let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
         Self::apply_extreme_charging(100, true, 12000);
+        let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
 
         // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
         // Do NOT trigger if cable was connected within the last 4 seconds to allow natural HVDCP/PE handshake!
@@ -2959,8 +2955,8 @@ impl ChargingRegulator {
         ] {
             if Path::new(node).exists() {
                 let cur = Self::read_node(node).unwrap_or_default();
-                if !cur.contains("7000") && !cur.contains("6000") {
-                    Self::write_node_lock(node, "[95,7000,100,7000,7000000]");
+                if !cur.contains("step1=95000") || !cur.contains("min=7000000") {
+                    Self::write_node_lock(node, "95000 0 100000 0 7000000");
                 }
             }
         }
@@ -3018,19 +3014,10 @@ impl ChargingRegulator {
             Self::write_node_lock(CLABCCT_NODE, "70000 1000 200000 7000 7000 0 1 1 0 7000 7000 0");
         }
 
-        // D. Transsion BatteryNotify & BN_TestMode: neutralize userspace thermal notification clamps
+        // D. Transsion BatteryNotify & BN_TestMode: keep BatteryNotify=0 and BN_TestMode=0 (BN_TestMode=1 forces CHG_VBUS_OV_STATUS)
         Self::write_node_lock(&format!("{}/BatteryNotify", MTK_DIR), "0");
-        Self::write_node_lock(&format!("{}/BN_TestMode", MTK_DIR), "1");
-        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-            .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-            .unwrap_or(0);
-        let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-        if adpv_clean >= 6500 {
-            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
-        } else {
-            Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
-        }
+        Self::write_node_lock(&format!("{}/BN_TestMode", MTK_DIR), "0");
+        Self::write_node(&format!("{}/enable_sc", MTK_DIR), "0");
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
 
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
@@ -3195,7 +3182,7 @@ impl ChargingRegulator {
         ] {
             if Path::new(node).exists() {
                 Self::set_perm(node, 0o666);
-                let _ = fs::write(node, "[45,3000,50,2000,1000]");
+                let _ = fs::write(node, "45000 200 50000 200 1000000");
                 Self::set_perm(node, 0o644);
             }
         }
@@ -4000,6 +3987,8 @@ impl ChargingRegulator {
             let marker = Self::read_node("/dev/lynx_extreme_charging").unwrap_or_default();
             let is_mtk = Path::new(MTK_DIR).exists();
             let invariants_intact = if is_mtk {
+                let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
+                let is_laptop = Self::is_laptop_port();
                 let bn_test = Self::read_node(&format!("{}/BN_TestMode", MTK_DIR)).unwrap_or_default();
                 let in_cur = Self::read_i64(&format!("{}/input_current", MTK_DIR)).unwrap_or(0);
                 let sc_limit = Self::read_i64(&format!("{}/sc_ibat_limit", MTK_DIR)).unwrap_or(0);
@@ -4007,20 +3996,23 @@ impl ChargingRegulator {
                 let chg2 = Self::read_i64(&format!("{}/chg2_current", MTK_DIR)).unwrap_or(0);
                 let pe20 = Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default();
                 let pe40 = Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default();
+                let hyper_proc = Self::read_node("/proc/lynx/hyper_charge").unwrap_or_default();
                 let cur_cmd = Self::read_node("/proc/mtk_battery_cmd/current_cmd").unwrap_or_default();
                 let pwr_path = Self::read_node("/proc/mtk_battery_cmd/en_power_path").unwrap_or_default();
                 let call_state = Self::read_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState").unwrap_or_default();
+                let min_sc_limit = if cur_cap < 90 && !is_laptop { 4500 } else { 1000 };
 
                 // Note: Kernel `store_enable_sc` is a no-op stub on MediaTek/Transsion (`enable_sc` always reads `"0"`),
                 // and `en_power_path` reads `"1"` when charging is enabled. Checking `enable_sc == "1"` or
                 // `pwr_path == "0"` caused a 1 Hz infinite re-init loop that aborted `dv2_algo_task` (RT9759 33W pump)!
-                bn_test == "1"
+                (bn_test == "0" || bn_test.is_empty())
                     && (in_cur >= 2_000_000 || in_cur == 4294967295)
-                    && sc_limit >= 1000
+                    && sc_limit >= min_sc_limit
                     && (chg1 >= 2_000_000 || chg1 == 4294967295)
                     && (chg2 >= 2_000_000 || chg2 == 4294967295 || chg2 == 0 || !Path::new(&format!("{}/chg2_current", MTK_DIR)).exists())
                     && pe20 == "1"
                     && pe40 == "1"
+                    && (!Path::new("/proc/lynx/hyper_charge").exists() || hyper_proc.trim() == "1")
                     && (cur_cmd.trim() == "1 0" || cur_cmd.trim() == "0 0" || cur_cmd.is_empty())
                     && (pwr_path.trim() == "1" || pwr_path.trim().ends_with(" 1") || pwr_path.trim() == "0" || pwr_path.is_empty())
                     && (call_state.trim() == "0" || call_state.is_empty())
@@ -4364,18 +4356,46 @@ impl ChargingRegulator {
     }
 
     /// Checks whether the underlying physical hardware is a Qualcomm Snapdragon SoC.
+    pub(crate) fn soc0_indicates_qualcomm(family: &str, machine: &str, vendor: &str) -> bool {
+        let f = family.trim().to_lowercase();
+        let m = machine.trim().to_lowercase();
+        let v = vendor.trim().to_lowercase();
+        if f.contains("mediatek") || f.contains("mtk") || v.contains("mediatek") {
+            return false;
+        }
+        f.contains("snapdragon")
+            || f.contains("qualcomm")
+            || f.contains("qcom")
+            || v.contains("qualcomm")
+            || v.contains("qcom")
+            || m.starts_with("sm")
+            || m.starts_with("sdm")
+            || m.starts_with("msm")
+            || m.starts_with("apq")
+            || m.starts_with("qcs")
+    }
+
     pub fn is_qualcomm_soc() -> bool {
-        if let Ok(compat) = fs::read_to_string("/sys/firmware/devicetree/base/compatible")
-            .or_else(|_| fs::read_to_string("/proc/device-tree/compatible"))
+        if Self::is_mediatek_soc() {
+            return false;
+        }
+        if let Ok(raw) = fs::read("/sys/firmware/devicetree/base/compatible")
+            .or_else(|_| fs::read("/proc/device-tree/compatible"))
         {
-            let lower = compat.to_lowercase();
+            let lower = String::from_utf8_lossy(&raw).to_lowercase();
             if lower.contains("qcom") || lower.contains("qualcomm") {
                 return true;
             }
         }
+        let soc0_is_qcom = Path::new("/sys/devices/soc0").exists() && {
+            let family = fs::read_to_string("/sys/devices/soc0/family").unwrap_or_default();
+            let machine = fs::read_to_string("/sys/devices/soc0/machine").unwrap_or_default();
+            let vendor = fs::read_to_string("/sys/devices/soc0/vendor").unwrap_or_default();
+            Self::soc0_indicates_qualcomm(&family, &machine, &vendor)
+        };
         Path::new("/sys/class/qcom-battery").exists()
             || Path::new("/sys/class/power_supply/bms").exists()
-            || Path::new("/sys/devices/soc0").exists()
+            || soc0_is_qcom
             || Path::new("/sys/class/kgsl").exists()
             || Path::new("/dev/kgsl-3d0").exists()
             || Path::new("/sys/bus/platform/drivers/qcom,qpnp-smb2").exists()
@@ -4401,10 +4421,16 @@ impl ChargingRegulator {
 
     /// Checks whether the underlying physical hardware is a MediaTek SoC.
     pub fn is_mediatek_soc() -> bool {
-        if let Ok(compat) = fs::read_to_string("/sys/firmware/devicetree/base/compatible")
-            .or_else(|_| fs::read_to_string("/proc/device-tree/compatible"))
+        if let Ok(raw) = fs::read("/sys/firmware/devicetree/base/compatible")
+            .or_else(|_| fs::read("/proc/device-tree/compatible"))
         {
-            let lower = compat.to_lowercase();
+            let lower = String::from_utf8_lossy(&raw).to_lowercase();
+            if lower.contains("mediatek") || lower.contains("mtk") {
+                return true;
+            }
+        }
+        if let Ok(family) = fs::read_to_string("/sys/devices/soc0/family") {
+            let lower = family.trim().to_lowercase();
             if lower.contains("mediatek") || lower.contains("mtk") {
                 return true;
             }
@@ -4814,7 +4840,10 @@ impl ChargingRegulator {
 
         let rfc_val = Self::read_first_i2c_node("/sys/bus/i2c/drivers/rt9759", "rfc_dcp_ta")
             .unwrap_or(0);
-        let rfc_auth = rfc_val == 1;
+        let kernel_rfc_auth = Self::read_node("/proc/lynx/status")
+            .map(|s| s.lines().any(|line| line.contains("Transsion RFC Fast TA") && line.trim_end().ends_with(": 1")))
+            .unwrap_or(false);
+        let rfc_auth = rfc_val == 1 || kernel_rfc_auth;
 
         let real_dc = Self::read_real_battery_temp_dc();
 
@@ -4999,7 +5028,7 @@ mod tests {
     fn test_disconnect_resets_contains_r1_and_game_nodes() {
         let map: std::collections::HashMap<_, _> = DISCONNECT_CHARGING_RESETS.iter().cloned().collect();
         assert_eq!(map.get("/sys/devices/platform/charger/BN_TestMode"), Some(&"0"));
-        assert_eq!(map.get("/sys/devices/platform/charger/BatteryNotify"), Some(&"1"));
+        assert_eq!(map.get("/sys/devices/platform/charger/BatteryNotify"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/tran_charger_full"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/tran_game_mode"), Some(&"0"));
         assert_eq!(map.get("/sys/devices/platform/charger/sw_jeita"), Some(&"1"));
@@ -5026,6 +5055,14 @@ mod tests {
         assert!(CHARGING_SESSION_NODES.contains(&"/sys/devices/platform/charger/tran_charger_full"));
         assert!(CHARGING_SESSION_NODES.contains(&"/sys/devices/platform/charger/BN_TestMode"));
         assert!(CHARGING_SESSION_NODES.contains(&"/sys/devices/platform/charger/BatteryNotify"));
+    }
+
+    #[test]
+    fn test_soc0_qualcomm_detection_ignores_mediatek() {
+        assert!(!ChargingRegulator::soc0_indicates_qualcomm("Mediatek", "MT6781V/CD", ""));
+        assert!(!ChargingRegulator::soc0_indicates_qualcomm("MTK", "", "MediaTek"));
+        assert!(ChargingRegulator::soc0_indicates_qualcomm("Snapdragon", "SDM660", "Qualcomm"));
+        assert!(ChargingRegulator::soc0_indicates_qualcomm("", "SM8550", ""));
     }
 
     #[test]
@@ -5129,28 +5166,23 @@ mod tests {
 
     #[test]
     fn test_cc_cv_soc_boundaries_and_tapering_thresholds() {
-        // Deeply discharged / low SoC CC phase (< 80% SoC: Full Max Watt unconstrained peak)
+        // Below 90% SoC: Full Max Watt unconstrained peak (>4000mA PE5.0 target)
         assert_eq!(ChargingRegulator::determine_taper_state(3, 3400), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(15, 3800), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(45, 3950), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(65, 4150), ("hyper", 12000));
         assert_eq!(ChargingRegulator::determine_taper_state(78, 4470), ("hyper", 12000));
-        assert_eq!(ChargingRegulator::determine_taper_state(79, 4480), ("hyper", 12000));
+        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("hyper", 12000));
+        assert_eq!(ChargingRegulator::determine_taper_state(85, 4455), ("hyper", 12000));
+        assert_eq!(ChargingRegulator::determine_taper_state(89, 4470), ("hyper", 12000));
 
-        // High Sustained Phase: 80% to 85% SoC -> 4200 mA (Sustained speed with Direct Pump active)
-        assert_eq!(ChargingRegulator::determine_taper_state(80, 4450), ("tapering_80", 4200));
-        assert_eq!(ChargingRegulator::determine_taper_state(83, 4450), ("tapering_80", 4200));
-        assert_eq!(ChargingRegulator::determine_taper_state(85, 4455), ("tapering_80", 4200));
+        // High-SoC Saturation Phase: 90% to 92% SoC -> 3000 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(90, 4472), ("tapering_90", 3000));
+        assert_eq!(ChargingRegulator::determine_taper_state(92, 4475), ("tapering_90", 3000));
 
-        // Mid-Saturation Sustained Phase: 86% to 91% SoC -> 3000 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(86, 4460), ("tapering_86", 3000));
-        assert_eq!(ChargingRegulator::determine_taper_state(89, 4470), ("tapering_86", 3000));
-        assert_eq!(ChargingRegulator::determine_taper_state(91, 4475), ("tapering_86", 3000));
-
-        // Late-Stage Decay: 92% to 95% SoC -> 2000 mA
-        assert_eq!(ChargingRegulator::determine_taper_state(92, 4475), ("tapering_92", 2000));
-        assert_eq!(ChargingRegulator::determine_taper_state(94, 4480), ("tapering_92", 2000));
-        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_92", 2000));
+        // Late-Stage Decay: 93% to 95% SoC -> 2000 mA
+        assert_eq!(ChargingRegulator::determine_taper_state(93, 4478), ("tapering_93", 2000));
+        assert_eq!(ChargingRegulator::determine_taper_state(95, 4480), ("tapering_93", 2000));
 
         // Saturation Trickle: 96% to 99% SoC -> 1200 mA
         assert_eq!(ChargingRegulator::determine_taper_state(96, 4485), ("tapering_96", 1200));

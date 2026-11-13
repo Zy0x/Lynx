@@ -45,19 +45,24 @@ fun HudSmartTriggerOverlay(
         label = "skipModeTint"
     )
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(700, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
+    val pulseActive = mode == GenshinSkipRunner.SkipMode.AUTO && isExecuting
+    val pulseAlpha = if (pulseActive) {
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        infiniteTransition.animateFloat(
+            initialValue = 0.35f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(700, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseAlpha"
+        ).value
+    } else {
+        1f
+    }
 
-    val borderAlpha = if (mode == GenshinSkipRunner.SkipMode.AUTO && isExecuting) pulseAlpha else 0.5f
-    val beaconAlpha = if (mode == GenshinSkipRunner.SkipMode.AUTO && isExecuting) pulseAlpha else 1f
+    val borderAlpha = if (pulseActive) pulseAlpha else 0.5f
+    val beaconAlpha = if (pulseActive) pulseAlpha else 1f
     val status = hudString(
         when (mode) {
             GenshinSkipRunner.SkipMode.AUTO -> R.string.hud_autoskip_mode_auto

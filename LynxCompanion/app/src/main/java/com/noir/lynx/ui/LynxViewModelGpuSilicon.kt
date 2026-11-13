@@ -61,27 +61,6 @@ fun LynxViewModel.setGpuLlcSlice(enabled: Boolean) {
     }
 }
 
-fun LynxViewModel.setSurfaceFlingerPhaseOffset(earlyNs: Long, earlyGlNs: Long) {
-    viewModelScope.launch {
-        LynxGpuSiliconRepository.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs)
-        refreshGpuSilicon()
-    }
-}
-
-fun LynxViewModel.setTouchBoostDuration(durationMs: Int) {
-    viewModelScope.launch {
-        LynxGpuSiliconRepository.setTouchBoostDuration(durationMs)
-        refreshGpuSilicon()
-    }
-}
-
-fun LynxViewModel.setVsyncSwapBypass(bypass: Boolean) {
-    viewModelScope.launch {
-        LynxGpuSiliconRepository.setVsyncSwapBypass(bypass)
-        refreshGpuSilicon()
-    }
-}
-
 fun LynxViewModel.startGpuStabilityBenchmark(durationSec: Int = 30, onComplete: (StressBenchmarkReport) -> Unit) {
     LynxGpuSiliconRepository.startStabilityStressBenchmark(durationSec) { report ->
         refreshGpuSilicon()

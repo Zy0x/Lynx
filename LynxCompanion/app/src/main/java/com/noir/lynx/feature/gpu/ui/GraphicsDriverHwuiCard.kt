@@ -28,8 +28,7 @@ import com.noir.lynx.designsystem.controls.*
 
 /**
  * Unified Graphics Driver, HWUI Compositor, and Render Pipeline Card.
- * Consolidates Updatable Game Driver, HWUI 5-Engine Backend, Swapchain Buffering,
- * SurfaceFlinger Latch & Early Phase, and VSync Bypass into a single pipeline source of truth.
+ * Consolidates Updatable Game Driver, HWUI 5-Engine Backend, and Swapchain Buffering.
  */
 @Composable
 fun GraphicsDriverHwuiCard(
@@ -41,9 +40,6 @@ fun GraphicsDriverHwuiCard(
     onSetMsaa: (Boolean) -> Unit,
     onSetOemShield: (Boolean) -> Unit,
     onSetDisableBackpressure: (Boolean) -> Unit = {},
-    onSetEarlyPhase: (Boolean) -> Unit = {},
-    onSetPhaseOffset: ((earlyNs: Long, earlyGlNs: Long) -> Unit)? = null,
-    onSetVsyncSwapBypass: ((Boolean) -> Unit)? = null,
     onRefreshShaderCache: () -> Unit = {},
     onSetTextureCacheSize: ((Int) -> Unit)? = null,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
@@ -52,7 +48,6 @@ fun GraphicsDriverHwuiCard(
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentPurple
-    var showPhaseDialog by remember { mutableStateOf(false) }
 
     val cardContent = @Composable {
         Column(Modifier.fillMaxWidth()) {
@@ -167,18 +162,7 @@ fun GraphicsDriverHwuiCard(
 
         HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 8.dp))
 
-        // ── 3. VSYNC INTERVAL BYPASS ──
-        // VSync Swap Interval Bypass (Consolidated from SurfaceFlingerPhaseCard)
-        if (onSetVsyncSwapBypass != null && silicon != null && silicon.isVsyncSwapBypassSupported) {
-            LynxSwitch(
-                label = "Bypass VSync Swap Interval",
-                subLabel = if (silicon.isVsyncSwapBypass) "Bypass (swapinterval=0): Respon input instan tanpa jeda VSync" else "Sync (swapinterval=1): Presentasi frame terikat VSync",
-                checked = silicon.isVsyncSwapBypass,
-                onCheckedChange = { onSetVsyncSwapBypass(it) }
-            )
-        }
-
-        // ── 4. SURFACEFLINGER LATENCY & EARLY PHASE OFFSET ──
+        // ── 3. SURFACEFLINGER SWAPCHAIN BUFFERING ──
         if (graphics.isSfLatchSupported) {
             LynxSwitch(
                 label = "Respon Sentuhan Cepat (Latch Unsignaled)",
@@ -195,68 +179,6 @@ fun GraphicsDriverHwuiCard(
                 checked = graphics.surfaceFlingerDisableBackpressure,
                 onCheckedChange = { onSetDisableBackpressure(it) }
             )
-        }
-
-        if (graphics.isSfEarlyPhaseSupported) {
-            val phaseMs = ((silicon?.sfEarlyPhaseOffsetNs ?: 0L) / 1_000_000L).toInt()
-            Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                Text(
-                    text = "Prioritas Sentuhan Instan (Early Phase)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = if (graphics.isEarlyPhaseOffset) "Render frame lebih awal sebelum VSync pulse (${if (phaseMs > 0) "${phaseMs}ms" else "Auto Offset"})" else "Sinyal pemrosesan frame sentuhan standar",
-                    fontSize = 10.sp,
-                    color = TextSecondary
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (graphics.isEarlyPhaseOffset && onSetPhaseOffset != null) {
-                    Surface(
-                        onClick = { showPhaseDialog = true },
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgElevated,
-                        border = BorderStroke(1.dp, cardAccent.copy(alpha = 0.5f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(Icons.Default.Tune, contentDescription = null, tint = cardAccent, modifier = Modifier.size(13.dp))
-                            Text(
-                                text = if (phaseMs > 0) "${phaseMs}ms" else "0ms",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = cardAccent
-                            )
-                        }
-                    }
-                }
-
-                Switch(
-                    checked = graphics.isEarlyPhaseOffset,
-                    onCheckedChange = { onSetEarlyPhase(it) },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = cardAccent,
-                        uncheckedThumbColor = TextTertiary,
-                        uncheckedTrackColor = BgElevated
-                    )
-                )
-            }
-        }
         }
 
         // Force 4x MSAA
@@ -277,64 +199,6 @@ fun GraphicsDriverHwuiCard(
             onSetAsyncShaderPipeline = onSetAsyncShaderPipeline,
             onSetPureHwVsync = onSetPureHwVsync
         )
-
-        // ── 6. DAMPAK & RISIKO PIPELINE ACCORDION ──
-        HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
-        var showPipelineImpact by remember { mutableStateOf(false) }
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated,
-            border = BorderStroke(1.dp, if (showPipelineImpact) cardAccent.copy(alpha = 0.5f) else BorderGlass),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showPipelineImpact = !showPipelineImpact }
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("🛡️", fontSize = 13.sp)
-                        Text(
-                            text = "Dampak & Analisis Risiko Pipeline",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-                    Text(
-                        text = if (showPipelineImpact) "Tutup ▲" else "Lihat Detail ▼",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = cardAccent
-                    )
-                }
-
-                if (showPipelineImpact) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(BgSurfaceLowest, RoundedCornerShape(8.dp))
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text("VSync Swap Interval Bypass (swapinterval=0)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("• Respon: Input instan dan zero frame latency saat gaming.", fontSize = 10.sp, color = AccentGreen)
-                        Text("• Safeguard: Lynx Dynamic Safeguard otomatis menetralkannya saat aplikasi media (video/streaming) aktif untuk mencegah playback error.", fontSize = 10.sp, color = AccentOrange)
-                        Spacer(Modifier.height(2.dp))
-                        Text("Early Phase Offset", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("• Respon: Memajukan sinyal sentuh SurfaceFlinger sebelum VSync.", fontSize = 10.sp, color = AccentGreen)
-                        Text("• Catatan: Nilai 3-7ms ideal untuk touch-first gaming tanpa resiko frame-skip.", fontSize = 10.sp, color = TextSecondary)
-                    }
-                }
-            }
-        }
     }
     }
 
@@ -352,25 +216,5 @@ fun GraphicsDriverHwuiCard(
         Box(modifier = modifier.fillMaxWidth()) {
             cardContent()
         }
-    }
-
-    if (showPhaseDialog && onSetPhaseOffset != null && silicon != null) {
-        val currentMs = ((silicon.sfEarlyPhaseOffsetNs) / 1_000_000L).toInt().coerceIn(0, 15)
-        GpuCustomNumberDialog(
-            title = "SurfaceFlinger Early Phase Offset",
-            description = "Offset waktu awal render SurfaceFlinger sebelum pulsa VSync (0 - 15ms).",
-            currentValue = currentMs,
-            unit = "ms",
-            minVal = 0,
-            maxVal = 15,
-            step = 1,
-            accentColor = cardAccent,
-            onConfirm = { newVal ->
-                val ns = newVal.toLong() * 1_000_000L
-                onSetPhaseOffset(ns, ns)
-                showPhaseDialog = false
-            },
-            onDismiss = { showPhaseDialog = false }
-        )
     }
 }

@@ -28,7 +28,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
     internal fun LynxViewModel.startTelemetryPolling() {
-        viewModelScope.launch(Dispatchers.IO) {
+        if (telemetryPollingJob?.isActive == true) return
+        telemetryPollingJob = viewModelScope.launch(Dispatchers.IO) {
             var counter = 0
             while (true) {
                 val startMs = System.currentTimeMillis()
@@ -100,8 +101,16 @@ import kotlinx.coroutines.launch
                         } else {
                             batt = null
                         }
+                        val existingGpu = _uiState.value.gpuInfo
+                        val needsGpuCatalogHydration = (existingGpu.platform == "generic" || existingGpu.availFreqsMhz.isEmpty()) &&
+                            (counter == 1 || counter % 6 == 0)
+                        val baseGpu = if (needsGpuCatalogHydration) {
+                            runCatching { LynxRepository.readGpuInfo() }.getOrElse { existingGpu }
+                        } else {
+                            existingGpu
+                        }
                         gpu = mergeGpuInfoWithIntent(
-                            LynxRepository.mapTelemetryToGpuInfo(tel, _uiState.value.gpuInfo)
+                            LynxRepository.mapTelemetryToGpuInfo(tel, baseGpu)
                         )
                     } else {
                         // Slow-Path Universal Fallback (Used ONLY if native lynxd telemetry is unavailable)
@@ -143,7 +152,8 @@ import kotlinx.coroutines.launch
                     val isDashboardActive = _uiState.value.currentTab == 0 && _uiState.value.selectedTuningCategory == null
                     val shouldPollThermal = isThermalCategoryActive || isDashboardActive
                     val therm = if (shouldPollThermal && (counter == 1 || counter % 3 == 0)) LynxRepository.readThermalZones() else null
-                    val freshClusters = if (isCpuCategoryActive && (counter == 1 || counter % 6 == 0)) LynxRepository.readClusters() else null
+                    val needsClusters = _uiState.value.clusters.isEmpty()
+                    val freshClusters = if ((isCpuCategoryActive || needsClusters) && (counter == 1 || counter % 6 == 0)) LynxRepository.readClusters() else null
                     val freshNatStatus = if (counter == 1 || counter % 6 == 0) LynxRepository.readNativeStatus() else null
 
                     if (counter % 8 == 0 && _uiState.value.adbKeepAliveEnabled) {
@@ -195,7 +205,9 @@ import kotlinx.coroutines.launch
                                 cpuLoadHistory = newHistory,
                                 batteryDetails = batt ?: current.batteryDetails,
                                 gpuInfo = gpu ?: current.gpuInfo,
-                                thermalZones = if (therm != null && therm.isNotEmpty()) therm else current.thermalZones,
+                                thermalZones = therm?.takeIf { it.isNotEmpty() }
+                                    ?: tel?.thermalZones?.filter { it.tempC in 10f..120f }?.takeIf { it.isNotEmpty() }
+                                    ?: current.thermalZones,
                                 clusters = activeClusters,
                             )
                         }

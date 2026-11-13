@@ -29,7 +29,6 @@ internal object LynxGraphicsEngineRepository {
                 echo "angle_all:${'$'}(settings get global angle_gl_driver_all_angle 2>/dev/null | tr -d ' \n')"
                 echo "latch:${'$'}(getprop debug.sf.latch_unsignaled 2>/dev/null | tr -d ' \n')"
                 echo "backpressure:${'$'}(getprop debug.sf.disable_backpressure 2>/dev/null | tr -d ' \n')"
-                echo "early_phase:${'$'}(getprop debug.sf.early_phase_offset_ns 2>/dev/null | tr -d ' \n')"
                 msaa=${'$'}(getprop debug.egl.force_msaa 2>/dev/null | tr -d ' \n')
                 [ -z "${'$'}msaa" ] && msaa=${'$'}(settings get global force_msaa 2>/dev/null | tr -d ' \n')
                 echo "msaa:${'$'}msaa"
@@ -70,7 +69,6 @@ internal object LynxGraphicsEngineRepository {
             var shaderBytes = 0L; var shaderCount = 0
             var isVulkanFromShell = false
             var isAngleFromShell = false
-            var earlyPhase = false
             var textureCacheMb = 72
             var asyncShaderOn = false
             var pureHwVsync = false
@@ -94,7 +92,6 @@ internal object LynxGraphicsEngineRepository {
                     }
                     t.startsWith("latch:") -> latch = t.removePrefix("latch:") == "1"
                     t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:") == "1"
-                    t.startsWith("early_phase:") -> earlyPhase = t.removePrefix("early_phase:").isNotBlank()
                     t.startsWith("msaa:") -> msaa = t.removePrefix("msaa:") == "1"
                     t.startsWith("dc:") -> {
                         val dcPath = t.removePrefix("dc:")
@@ -171,7 +168,6 @@ internal object LynxGraphicsEngineRepository {
                 isVulkanSupported = isVulkan || caps.isVulkanSupported,
                 isGraphiteSupported = isGraphite || caps.isGraphiteSupported,
                 isAngleSupported = isAngle || caps.isAngleSupported,
-                isEarlyPhaseOffset = earlyPhase,
                 textureCacheMb = textureCacheMb,
                 asyncShaderPipelineEnabled = asyncShaderOn,
                 pureHwVsyncEnabled = pureHwVsync,
@@ -184,8 +180,7 @@ internal object LynxGraphicsEngineRepository {
                 isAsyncShaderSupported = caps.isAsyncShaderSupported,
                 isPureHwVsyncSupported = caps.isPureHwVsyncSupported,
                 isSfLatchSupported = caps.isSfLatchSupported,
-                isSfDisableBackpressureSupported = caps.isSfDisableBackpressureSupported,
-                isSfEarlyPhaseSupported = caps.isSfEarlyPhaseSupported
+                isSfDisableBackpressureSupported = caps.isSfDisableBackpressureSupported
             )
         } catch (e: Exception) {
             Log.e("LynxGraphicsEngine", "readGraphicsHwuiInfo failed", e)
@@ -215,31 +210,6 @@ internal object LynxGraphicsEngineRepository {
                 if (p.isBlank() || d.isBlank() || d == "default") null else p to d
             }
         return clean.joinToString(",") { it.first } to clean.joinToString(",") { it.second }
-    }
-
-    suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
-            if (!caps.isSfEarlyPhaseSupported) return@withContext false
-            val script = if (enabled) {
-                """
-                    setprop debug.sf.early_phase_offset_ns 500000
-                    setprop debug.sf.early_app_phase_offset_ns 500000
-                    setprop debug.sf.early_gl_phase_offset_ns 3000000
-                    setprop debug.sf.early_gl_app_phase_offset_ns 3000000
-                    echo ok
-                """.trimIndent()
-            } else {
-                """
-                    setprop debug.sf.early_phase_offset_ns ''
-                    setprop debug.sf.early_app_phase_offset_ns ''
-                    setprop debug.sf.early_gl_phase_offset_ns ''
-                    setprop debug.sf.early_gl_app_phase_offset_ns ''
-                    echo ok
-                """.trimIndent()
-            }
-            Shell.cmd(script).exec().isSuccess
-        } catch (e: Exception) { false }
     }
 
     suspend fun setUpdatableGameDriver(mode: String): Boolean = withContext(Dispatchers.IO) {
@@ -421,9 +391,6 @@ internal object LynxGraphicsEngineRepository {
             if (caps.isSfDisableBackpressureSupported) {
                 cmds += "setprop debug.sf.enable_gl_backpressure $bpStr"
                 cmds += "setprop debug.sf.disable_backpressure $valStr"
-            }
-            if (caps.isSfEarlyPhaseSupported) {
-                cmds += "setprop debug.sf.early_phase_offset_ns ${if (enabled) 500000 else 8300000}"
             }
             if (cmds.isEmpty()) return@withContext false
             Shell.cmd(cmds.joinToString("\n") + "\necho ok").exec().isSuccess

@@ -502,14 +502,6 @@ fun LynxViewModel.setOemThrottlerShield(disabled: Boolean) {
     }
 }
 
-fun LynxViewModel.setSurfaceFlingerEarlyPhase(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(isEarlyPhaseOffset = enabled)) }
-    viewModelScope.launch {
-        LynxRepository.setSurfaceFlingerEarlyPhase(enabled)
-    }
-}
-
 fun LynxViewModel.setDcDimming(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(dcDimmingEnabled = enabled)) }

@@ -1,3 +1,18 @@
+# Lynx Universal [Boot/App ANR Elimination, SystemUI Crash Fix & RFC Charging Calibration] 7.0.0-RC391
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.12
+
+- **Eliminasi ANR Boot & Update serta Isolasi Stage-1 (`LynxBootReceiver`, `LynxApp`, `LynxViewModel`, `LynxAppProfileRepository`)**:
+  - Mengganti mekanisme `withTimeoutOrNull` pada `LynxBootReceiver` dengan batas waktu keras `Handler` 4,5 detik untuk `pendingResult.finish()` agar pemanggilan root `libsu` tidak pernah melampaui batas ANR `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED`, serta melewati penerapan ulang profil/scheduler/charging penuh saat `MY_PACKAGE_REPLACED`.
+  - Membatasi startup root `LynxApp.onCreate()` hanya untuk proses utama (mencegah proses sekunder `:hud` menggandakan panggilan root), menghapus pemanggilan lambat `pm grant` berulang, dan menambahkan `</dev/null` saat menjalankan `lynxd daemon run`.
+  - Mengisolasi setiap panggilan `async` Stage-1 di `LynxViewModel.initializeApp()` dengan `supervisorScope` + `safeInitStep` dan mengekstrak `ensureRootObserversStarted()` agar observer file, sinkronisasi berkala, dan polling telemetri tetap berjalan walaupun salah satu probe gagal saat cold boot; menambahkan pemulihan otomatis (`self-heal`) GPU `generic`/cluster/zona termal di `LynxViewModelTelemetry.kt` serta memperlebar jendela snapshot `LynxTelemetryReader` menjadi `0..8000` ms.
+- **Pembersihan Sisa Display/Touch & Stabilitas SystemUI (`LynxCompanion`, `lynxd`, `core/`, `webroot/`)**:
+  - Menghapus modul sisa Display, Touch Precision, Panel Tuning, KCAL, dan SurfaceFlinger Phase yang memicu kemacetan antrean root saat boot serta gangguan `com.android.systemui`, dan menjaga `HudBypassSession.restore()` serta cleanup boot agar tidak menimpa sesi charging atau mematikan daemon `lynxd`.
+- **Optimasi Rendering Idle (`LynxCompanion`)**:
+  - Mengurangi frame idle dan CPU latar melalui isolasi parameter composable pada `LynxBottomNavigationDock`, `DashboardHeaderItem`, dan `DashboardTabContent`, mengganti `CircularProgressIndicator` pada placeholder sinkronisasi zona termal di `DashboardTabContent.kt` menjadi ikon statis non-animasi agar tidak memicu redraw `RenderThread` 114 Hz, `Snapshot.withMutableSnapshot` pada `ChargingHeroDisplayCard`, penghapusan elevasi bayangan berat, serta pembatasan stream `:hud` saat overlay tidak aktif.
+- **Kalibrasi Thermal & Deteksi Transsion RFC Charging (`native/lynxd/src/hardware/charging.rs`)**:
+  - Menyesuaikan format parameter `pcb_thermal_debug` (`odm:tran_battery/pcb_thermal_debug` / `tran_battery/pcb_thermal_debug`) dalam millidegrees/µA terpisah spasi dan menambahkan pembacaan status `Transsion RFC Fast TA` dari `/proc/lynx/status` sebagai fallback `rfc_authenticated`.
+
 # Lynx Universal [Universal Display/Graphics Capability Gating & Anti-Gimmick Cleanup] 7.0.0-RC390
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.11

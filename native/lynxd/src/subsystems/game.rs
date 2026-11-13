@@ -88,18 +88,6 @@ impl GameController {
             }
         }
 
-        // Touch Game Mode Nodes
-        const TOUCH_NODES: &[&str] = &[
-            "/sys/class/touch/touch_dev/touch_game_mode",
-            "/sys/devices/virtual/touch/touch_dev/bump_sample_rate",
-            "/proc/touchscreen/game_mode",
-            "/sys/devices/platform/tp_wake_switch/game_mode",
-        ];
-        for node in TOUCH_NODES {
-            Self::write_opt(node, "1");
-        }
-        crate::subsystems::DisplayController::apply_touch_boost(true);
-
         // 7. MediaTek Platform Game Boost (GED, FPSGO, PPM, Perfmgr, Mali)
         Self::write_opt(MtkHardware::GED_GX_GAME_MODE, "1");
         Self::write_opt(MtkHardware::GED_GX_BOOST_ON, "1");
@@ -471,13 +459,10 @@ impl GameController {
         Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "40");
         Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
 
-        // Touch Boost Disengage
-        crate::subsystems::DisplayController::apply_touch_boost(false);
-
         // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");
 
-        "Game Mode disengaged (Restored Balanced EAS, Audio, and Touch profiles).".to_string()
+        "Game Mode disengaged (Restored Balanced EAS and Audio profiles).".to_string()
     }
 
     /// Optimizes thread scheduling, CPU affinity, and I/O priority for a specific process ID.

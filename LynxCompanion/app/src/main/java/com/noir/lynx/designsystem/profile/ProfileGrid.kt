@@ -658,7 +658,7 @@ fun ProfileGrid(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, BorderGlass),
-                shadowElevation = 18.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -741,7 +741,7 @@ fun ProfileGrid(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.4f)),
-                shadowElevation = 18.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -816,7 +816,7 @@ fun ProfileGrid(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, AccentRed.copy(alpha = 0.35f)),
-                shadowElevation = 18.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -888,7 +888,7 @@ fun ProfileGrid(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, BorderGlass),
-                shadowElevation = 18.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -1152,7 +1152,7 @@ private fun ProfileEditorDialog(
                     listOf(accentColor.copy(alpha = 0.5f), BorderGlass.copy(alpha = 0.35f))
                 )
             ),
-            shadowElevation = 24.dp
+            shadowElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // ── 1. Floating Header ───────────────────────────────────
@@ -2261,7 +2261,7 @@ private fun ProfileEditorDialog(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, Brush.verticalGradient(listOf(headerColor.copy(alpha = 0.5f), BorderGlass.copy(alpha = 0.35f)))),
-                shadowElevation = 24.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
@@ -2401,7 +2401,7 @@ private fun ProfileEditorDialog(
                 shape = RoundedCornerShape(22.dp),
                 color = Color(0xFF10131B),
                 border = BorderStroke(1.dp, BorderGlass),
-                shadowElevation = 18.dp
+                shadowElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),

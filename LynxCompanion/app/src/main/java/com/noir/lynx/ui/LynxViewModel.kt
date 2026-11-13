@@ -21,6 +21,8 @@ import com.noir.lynx.safety.ProtectedTaskManager
 import com.noir.lynx.service.LynxAppAutomationService
 import com.noir.lynx.sync.StateFileObserver
 import android.util.Log
+import androidx.compose.runtime.Stable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,6 +31,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +44,7 @@ import kotlinx.coroutines.launch
  * Exposes a single [uiState] StateFlow consumed by MainActivity Compose UI.
  * Uses [StateFileObserver] for real-time inotify-based 2-way sync.
  */
+@Stable
 class LynxViewModel : ViewModel() {
 
     internal val _uiState = MutableStateFlow(LynxUiState())
@@ -49,6 +53,11 @@ class LynxViewModel : ViewModel() {
     val batteryInformationUiState: StateFlow<BatteryInformationUiState> = _batteryInformationUiState.asStateFlow()
 
     private var fileObserver: StateFileObserver? = null
+    private var initJob: Job? = null
+    private var periodicSyncJob: Job? = null
+    internal var telemetryPollingJob: Job? = null
+    private var observersStarted: Boolean = false
+    @Volatile private var lastRootRetryMs: Long = 0L
 
     init {
         initializeApp()
@@ -58,8 +67,41 @@ class LynxViewModel : ViewModel() {
     //  Initialization
     // ----------------------------------------------------------------
 
-    private fun initializeApp() {
-        viewModelScope.launch(Dispatchers.IO) {
+    private suspend inline fun <T> safeInitStep(fallback: T, crossinline block: suspend () -> T): T {
+        return try {
+            block()
+        } catch (ce: CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Log.w("LynxViewModel", "Non-fatal Stage 1 step failure: ${t.message}")
+            fallback
+        }
+    }
+
+    private fun ensureRootObserversStarted() {
+        // Start background observers once (single-flight guard prevents duplicate collector/polling jobs)
+        startFileObserver()
+        if (!observersStarted) {
+            observersStarted = true
+            startProfileSyncReceiver()
+            viewModelScope.launch {
+                com.noir.lynx.core.sync.LynxProfileSyncBus.profileEvents.collect { (profile, _) ->
+                    syncProfileFromExternal(profile)
+                }
+            }
+            viewModelScope.launch {
+                com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.collect { running ->
+                    _uiState.update { it.copy(isGameHudActive = running) }
+                }
+            }
+        }
+        startPeriodicSync()
+        startTelemetryPolling()
+    }
+
+    private fun initializeApp(force: Boolean = false) {
+        if (!force && initJob?.isActive == true) return
+        initJob = viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoading = true, thermalZones = LynxRepository.getLastKnownThermalZones().ifEmpty { it.thermalZones }) }
 
             val rootAvailable = LynxRepository.isRootAvailable() || com.noir.lynx.BuildConfig.DEBUG
@@ -75,62 +117,66 @@ class LynxViewModel : ViewModel() {
                         } catch (_: Exception) {}
                     }
 
-                    // Stage 1: Ultra-fast parallelized core state hydration with resilient safety timeout (<2500ms max)
+                    // Stage 1: Isolated parallelized core state hydration with resilient safety timeout (<2500ms max)
                     val hydrated = withTimeoutOrNull(2500L) {
-                        val stateDeferred = async { LynxRepository.readState() }
-                        val kernelProfilesDeferred = async { LynxRepository.readKernelProfileCatalog() }
-                        val clustersDeferred = async { LynxRepository.readClusters() }
-                        val telemetryDeferred = async { LynxRepository.readTelemetry() }
-                        val nativeStatusDeferred = async { LynxRepository.readNativeStatus() }
-                        val gpuInfoDeferred = async { LynxRepository.readGpuInfo() }
-                        val cpuCoresDeferred = async { LynxRepository.readCpuCores() }
-                        val statLoadsDeferred = async { LynxRepository.readCpuStatLoads() }
-                        val socPlatformNameDeferred = async { LynxRepository.getSocPlatformName() }
-                        val batteryDetailsDeferred = async { LynxRepository.readBatteryDetails() }
-                        val thermalZonesDeferred = async { LynxRepository.readThermalZones() }
-                        val cachedTunablesDeferred = async { LynxRepository.loadCachedDeepTunables() }
+                        supervisorScope {
+                            val stateDeferred = async { safeInitStep(LynxState()) { LynxRepository.readState() } }
+                            val kernelProfilesDeferred = async {
+                                safeInitStep(com.noir.lynx.profiles.KernelProfileCatalog()) { LynxRepository.readKernelProfileCatalog() }
+                            }
+                            val clustersDeferred = async { safeInitStep(emptyList()) { LynxRepository.readClusters() } }
+                            val telemetryDeferred = async { safeInitStep<TelemetryData?>(null) { LynxRepository.readTelemetry() } }
+                            val nativeStatusDeferred = async { safeInitStep<NativeEngineStatus?>(null) { LynxRepository.readNativeStatus() } }
+                            val gpuInfoDeferred = async { safeInitStep(GpuInfo()) { LynxRepository.readGpuInfo() } }
+                            val cpuCoresDeferred = async { safeInitStep(emptyList()) { LynxRepository.readCpuCores() } }
+                            val statLoadsDeferred = async { safeInitStep(0 to emptyMap<Int, Int>()) { LynxRepository.readCpuStatLoads() } }
+                            val socPlatformNameDeferred = async { safeInitStep("Unknown") { LynxRepository.getSocPlatformName() } }
+                            val batteryDetailsDeferred = async { safeInitStep<BatteryDetails?>(null) { LynxRepository.readBatteryDetails() } }
+                            val thermalZonesDeferred = async { safeInitStep(emptyList()) { LynxRepository.readThermalZones() } }
+                            val cachedTunablesDeferred = async { safeInitStep(emptyList()) { LynxRepository.loadCachedDeepTunables() } }
 
-                        val state = stateDeferred.await()
-                        val kernelProfiles = kernelProfilesDeferred.await()
-                        val clusters = clustersDeferred.await()
-                        val telemetry = telemetryDeferred.await()
-                        val nativeStatus = nativeStatusDeferred.await()
-                        val gpuInfo = gpuInfoDeferred.await()
-                        val cpuCores = cpuCoresDeferred.await()
-                        val statLoads = statLoadsDeferred.await()
-                        val socPlatformName = socPlatformNameDeferred.await()
-                        val batteryDetails = batteryDetailsDeferred.await()
-                        val thermalZones = thermalZonesDeferred.await()
-                        val cachedTunables = cachedTunablesDeferred.await()
+                            val state = stateDeferred.await()
+                            val kernelProfiles = kernelProfilesDeferred.await()
+                            val clusters = clustersDeferred.await()
+                            val telemetry = telemetryDeferred.await()
+                            val nativeStatus = nativeStatusDeferred.await()
+                            val gpuInfo = gpuInfoDeferred.await()
+                            val cpuCores = cpuCoresDeferred.await()
+                            val statLoads = statLoadsDeferred.await()
+                            val socPlatformName = socPlatformNameDeferred.await()
+                            val batteryDetails = batteryDetailsDeferred.await()
+                            val thermalZones = thermalZonesDeferred.await()
+                            val cachedTunables = cachedTunablesDeferred.await()
 
-                        val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
+                            val socTopology = LynxRepository.getSocTopology(clusters, cpuCores.size.coerceAtLeast(8))
 
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                isRootAvailable = true,
-                                isModuleInstalled = moduleInstalled,
-                                state = state,
-                                kernelProfileCatalog = kernelProfiles,
-                                nativeStatus = nativeStatus,
-                                cpuComprehensiveProfile = resolveCpuProfileForState(state, kernelProfiles),
-                                isCpuModified = state.profileOverrides.containsKey(ProfileDomain.CPU),
-                                clusters = clusters,
-                                telemetry = telemetry,
-                                gpuInfo = gpuInfo,
-                                cpuCores = cpuCores,
-                                thermalZones = thermalZones.ifEmpty { it.thermalZones },
-                                totalCpuLoadPercent = statLoads.first,
-                                cpuLoadHistory = listOf(statLoads.first),
-                                socPlatformName = socPlatformName,
-                                socTopology = socTopology,
-                                batteryDetails = batteryDetails,
-                                deepTunables = cachedTunables,
-                                isAppRulesLoading = true,
-                                lastSyncedAt = System.currentTimeMillis(),
-                            )
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    isRootAvailable = true,
+                                    isModuleInstalled = moduleInstalled,
+                                    state = state,
+                                    kernelProfileCatalog = kernelProfiles,
+                                    nativeStatus = nativeStatus,
+                                    cpuComprehensiveProfile = resolveCpuProfileForState(state, kernelProfiles),
+                                    isCpuModified = state.profileOverrides.containsKey(ProfileDomain.CPU),
+                                    clusters = clusters,
+                                    telemetry = telemetry,
+                                    gpuInfo = gpuInfo,
+                                    cpuCores = cpuCores,
+                                    thermalZones = thermalZones.ifEmpty { it.thermalZones },
+                                    totalCpuLoadPercent = statLoads.first,
+                                    cpuLoadHistory = listOf(statLoads.first),
+                                    socPlatformName = socPlatformName,
+                                    socTopology = socTopology,
+                                    batteryDetails = batteryDetails,
+                                    deepTunables = cachedTunables,
+                                    isAppRulesLoading = true,
+                                    lastSyncedAt = System.currentTimeMillis(),
+                                )
+                            }
+                            true
                         }
-                        true
                     }
 
                     if (hydrated == null) {
@@ -144,23 +190,7 @@ class LynxViewModel : ViewModel() {
                             )
                         }
                     }
-                    // Start background observers immediately so UI is live, interactive, and responsive (<200ms)
-                    startFileObserver()
-                    startProfileSyncReceiver()
-                    viewModelScope.launch {
-                        com.noir.lynx.core.sync.LynxProfileSyncBus.profileEvents.collect { (profile, _) ->
-                            syncProfileFromExternal(profile)
-                        }
-                    }
-                    startPeriodicSync()
-                    startTelemetryPolling()
-
-                    // Reactive sync with floating Game HUD daemon state
-                    viewModelScope.launch {
-                        com.noir.lynx.service.LynxFloatingHudService.isRunningFlow.collect { running ->
-                            _uiState.update { it.copy(isGameHudActive = running) }
-                        }
-                    }
+                    ensureRootObserversStarted()
 
                     // Concurrently load app automation profile rules immediately (<30ms, zero lag)
                     viewModelScope.launch(Dispatchers.IO) {
@@ -227,9 +257,6 @@ class LynxViewModel : ViewModel() {
                         delay(300L)
                         val graphicsCaps = LynxRepository.readGraphicsCapabilities()
                         val displayPipe = LynxRepository.readDisplayPipeline()
-                        val colorConflict = LynxRepository.checkColorConflict()
-                        val isColorCalEnabled = LynxRepository.isColorCalibrationEnabled()
-                        val savedColorProf = LynxRepository.readSavedColorProfile()
                         val refreshRate = LynxRepository.readDisplayRefreshRate()
                         val supportedRates = LynxRepository.readSupportedRefreshRates()
                         val forcedFps = LynxRepository.readForcedFpsUnlocker()
@@ -240,9 +267,6 @@ class LynxViewModel : ViewModel() {
                             it.copy(
                                 graphicsCapabilities = graphicsCaps,
                                 displayPipeline = displayPipe,
-                                colorConflictWarning = colorConflict,
-                                isColorCalibrationEnabled = isColorCalEnabled,
-                                colorMatrixProfile = savedColorProf,
                                 displayRefreshRate = refreshRate,
                                 supportedRefreshRates = supportedRates,
                                 forcedFpsUnlockerHz = forcedFps,
@@ -302,6 +326,7 @@ class LynxViewModel : ViewModel() {
                     refreshInstalledApps()
                 }
             } catch (e: Throwable) {
+                if (e is CancellationException) throw e
                 Log.e("LynxViewModel", "Detailed initialization error: ${e.message}", e)
                 _uiState.update {
                     it.copy(
@@ -311,6 +336,7 @@ class LynxViewModel : ViewModel() {
                         errorMessage = "Perhatian: Inisialisasi parsial (${e.message ?: "subsystem error"})"
                     )
                 }
+                ensureRootObserversStarted()
             }
         } else {
                 _uiState.update {
@@ -383,16 +409,27 @@ class LynxViewModel : ViewModel() {
     }
 
     fun retryRootCheck() {
-        LynxRepository.forceResetRoot()
-        initializeApp()
+        if (initJob?.isActive == true) return
+        val now = System.currentTimeMillis()
+        if (now - lastRootRetryMs < 3000L) return
+        lastRootRetryMs = now
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!LynxRepository.isRootVerifiedFast()) {
+                LynxRepository.forceResetRoot()
+            }
+            initializeApp(force = true)
+        }
     }
 
     fun setAppForeground(foreground: Boolean) {
         isForeground = foreground
         if (foreground) {
             if (!_uiState.value.isRootAvailable) {
+                if (initJob?.isActive == true) return
+                val now = System.currentTimeMillis()
+                if (now - lastRootRetryMs < 3000L) return
+                lastRootRetryMs = now
                 viewModelScope.launch(Dispatchers.IO) {
-                    LynxRepository.forceResetRoot()
                     val rootNow = LynxRepository.isRootAvailable()
                     if (rootNow) {
                         initializeApp()
@@ -743,7 +780,7 @@ class LynxViewModel : ViewModel() {
     }
 
     internal fun startFileObserver() {
-        fileObserver?.stopWatching()
+        if (fileObserver != null) return
         fileObserver = StateFileObserver {
             viewModelScope.launch(Dispatchers.IO) {
                 delay(300L)
@@ -756,7 +793,8 @@ class LynxViewModel : ViewModel() {
     }
 
     internal fun startPeriodicSync() {
-        viewModelScope.launch(Dispatchers.IO) {
+        if (periodicSyncJob?.isActive == true) return
+        periodicSyncJob = viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 delay(if (isForeground) 8000L else 30000L)
                 if (isForeground) {

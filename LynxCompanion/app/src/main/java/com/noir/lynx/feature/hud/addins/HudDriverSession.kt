@@ -426,6 +426,11 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
 
     @Synchronized
     override fun restore(): Boolean {
+        val wasEnabledInJournal = journal.getBoolean("enabled", false) || journal.getBoolean("active", false)
+        val markerActive = Shell.cmd("[ -e /dev/lynx_bypass_active ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+        if (!wasEnabledInJournal && !markerActive) {
+            return true
+        }
         journal.edit().clear().commit()
         val bin = binaryPath()
         val script = """

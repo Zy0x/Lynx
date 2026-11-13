@@ -99,7 +99,7 @@ import com.noir.lynx.feature.navigation.model.TuningCategory
 
 @Composable
 internal fun BoxScope.LynxBottomNavigationDock(
-    uiState: LynxUiState,
+    currentTab: Int,
     currentAccent: Color,
     onSelectTab: (Int) -> Unit
 ) {
@@ -130,13 +130,7 @@ internal fun BoxScope.LynxBottomNavigationDock(
                         )
                     )
                 ),
-                shadowElevation = 0.dp,
-                modifier = Modifier.shadow(
-                    elevation = 18.dp,
-                    shape = CircleShape,
-                    spotColor = currentAccent.copy(alpha = 0.35f),
-                    ambientColor = currentAccent.copy(alpha = 0.18f)
-                )
+                shadowElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -151,7 +145,7 @@ internal fun BoxScope.LynxBottomNavigationDock(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     navItems.forEach { (label, icon, index) ->
-                        val isSelected = uiState.currentTab == index
+                        val isSelected = currentTab == index
 
                         val animatedBgColor by animateColorAsState(
                             targetValue = if (isSelected) currentAccent.copy(alpha = 0.16f) else Color.Transparent,
@@ -187,8 +181,8 @@ internal fun BoxScope.LynxBottomNavigationDock(
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     // Reselecting an active tab must not discard its subpage.
-                                    if (uiState.currentTab != index) {
-                                        android.util.Log.i("LynxNavigation", "tab ${uiState.currentTab} -> $index")
+                                    if (currentTab != index) {
+                                        android.util.Log.i("LynxNavigation", "tab $currentTab -> $index")
                                         onSelectTab(index)
                                     }
                                 },

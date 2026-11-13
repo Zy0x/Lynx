@@ -38,13 +38,7 @@ fun DisplayHeroCard(
     val curHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60
     val graphics = uiState.graphicsHwui
     val isAuto = uiState.isAutoRefreshRate
-    val isCalibrationEnabled = uiState.isColorCalibrationEnabled
-    val colorProfile = uiState.colorMatrixProfile
-    val touchBoost = uiState.state.displayTouch.touchboost
-    val touchDuration = uiState.gpuSilicon.touchBoostDurationMs
-    val touchDurationSupported = uiState.gpuSilicon.isTouchBoostDurationSupported
     val dcDimming = graphics.dcDimmingEnabled
-    val isKcal = uiState.displayCalibration.isKcalSupported
 
     val heroAccent = when {
         curHz >= 120 -> AccentCyan
@@ -58,17 +52,7 @@ fun DisplayHeroCard(
         label = "display_hero_accent"
     )
 
-    val profileTitle = if (isCalibrationEnabled) {
-        when (colorProfile) {
-            com.noir.lynx.display.ColorMatrixProfile.ACCURATE -> "Profil Akurat (D65)"
-            com.noir.lynx.display.ColorMatrixProfile.IPS_D65_NATURAL -> stringResource(R.string.display_hero_ips_d65)
-            com.noir.lynx.display.ColorMatrixProfile.IPS_VIVID -> stringResource(R.string.display_hero_ips_vivid)
-            com.noir.lynx.display.ColorMatrixProfile.GAMING -> "Profil Gaming Vivid"
-            com.noir.lynx.display.ColorMatrixProfile.CINEMA -> "Profil Sinema DCI-P3"
-            com.noir.lynx.display.ColorMatrixProfile.READING -> "Profil Membaca Hangat"
-            else -> colorProfile.name.ifEmpty { "Kalibrasi Aktif" }
-        }
-    } else "Warna Standar OEM"
+    val profileTitle = if (isAuto) "Dinamis Auto" else "${curHz}Hz Terkunci"
 
     val displaySubtitle = if (isAuto) {
         "Dinamis Otomatis (60Hz – ${curHz}Hz) • Siap Sentuh"
@@ -222,16 +206,9 @@ fun DisplayHeroCard(
                     val resShort = if (resolutionLabel.contains("x", ignoreCase = true) || resolutionLabel.contains("×")) {
                         resolutionLabel.substringBefore(" ").take(9)
                     } else "FHD+"
-                    val colorText = if (isCalibrationEnabled) colorProfile.name.take(8) else "Standar"
-                    val touchText = when {
-                        !touchBoost -> "Off"
-                        touchDurationSupported -> "${touchDuration}ms"
-                        else -> "Aktif"
-                    }
                     val dcText = if (dcDimming) "Aktif" else "Off"
-                    val kcalText = if (isKcal) "Hardware" else "Standar"
 
-                    // Row 1: Refresh, Mode, Resolusi, Warna
+                    // Refresh, Mode, Resolusi, DC Dimming
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -256,35 +233,9 @@ fun DisplayHeroCard(
                             modifier = Modifier.weight(1f)
                         )
                         DisplayMetricTile(
-                            label = "Warna",
-                            value = colorText,
-                            valueColor = if (isCalibrationEnabled) AccentGreen else TextSecondary,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    // Row 2: DC Dimming, TouchBoost, KCAL
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        DisplayMetricTile(
                             label = "DC Dimming",
                             value = dcText,
                             valueColor = if (dcDimming) AccentGreen else TextSecondary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DisplayMetricTile(
-                            label = "TouchBoost",
-                            value = touchText,
-                            valueColor = if (touchBoost) AccentCyan else TextSecondary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DisplayMetricTile(
-                            label = "KCAL",
-                            value = kcalText,
-                            valueColor = if (isKcal) AccentCyan else TextSecondary,
                             modifier = Modifier.weight(1f)
                         )
                     }

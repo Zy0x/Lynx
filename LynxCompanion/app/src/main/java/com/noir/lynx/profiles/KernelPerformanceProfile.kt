@@ -1,5 +1,6 @@
 package com.noir.lynx.profiles
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -14,6 +15,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.encodeToString
 
 /** A safe, portable performance policy. It stores semantic presets and allowlisted config values only. */
+@Immutable
 data class KernelPerformanceProfile(
     val id: String,
     val name: String,
@@ -206,6 +208,7 @@ data class KernelPerformanceProfile(
     }
 }
 
+@Immutable
 data class KernelProfileCatalog(
     val profiles: List<KernelPerformanceProfile> = KernelPerformanceProfile.builtIns(),
     val activeId: String = "balance",

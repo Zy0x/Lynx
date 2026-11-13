@@ -175,10 +175,11 @@ object StandardChargingScript {
                 fi
             done
 
-            # Disable dual-pump/supercharge rails
+            # Disable dual-pump/supercharge/smartcharging rails and clear BatteryNotify fault flag
             for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40 \
                         /sys/devices/platform/charger/enable_sc \
+                        /sys/devices/platform/charger/BatteryNotify \
                         /sys/devices/platform/charger/bypass_charger; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
@@ -187,8 +188,7 @@ object StandardChargingScript {
             done
 
             # Standard battery enabled
-            for node in /sys/devices/platform/charger/BatteryNotify \
-                        /sys/devices/platform/charger/sw_jeita \
+            for node in /sys/devices/platform/charger/sw_jeita \
                         /sys/class/power_supply/battery/input_suspend \
                         /sys/class/power_supply/battery/charging_enabled; do
                 if [ -e "${'$'}node" ]; then
@@ -230,7 +230,6 @@ object StandardChargingScript {
     fun buildCustomChargingScript(limitMa: Int): String {
         val effectiveMa = limitMa.coerceIn(500, 25000)
         val effectiveUa = effectiveMa * 1000L
-        val enableSc = if (effectiveMa > 3000) 1 else 0
 
         return """
             rm -f /dev/lynx_bypass_active 2>/dev/null
@@ -241,12 +240,21 @@ object StandardChargingScript {
             echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
             echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
 
+            # enable_sc is MTK SmartCharging limiter, NOT RT9759 pump; keep 0 and clear BatteryNotify
             for node in /sys/devices/platform/charger/enable_sc \
-                        /sys/devices/platform/charger/pe20 \
+                        /sys/devices/platform/charger/BatteryNotify \
+                        /sys/devices/platform/charger/BN_TestMode; do
+                if [ -e "${'$'}node" ]; then
+                    chmod 666 "${'$'}node" 2>/dev/null
+                    echo 0 > "${'$'}node" 2>/dev/null
+                fi
+            done
+
+            for node in /sys/devices/platform/charger/pe20 \
                         /sys/devices/platform/charger/pe40; do
                 if [ -e "${'$'}node" ]; then
                     chmod 666 "${'$'}node" 2>/dev/null
-                    echo $enableSc > "${'$'}node" 2>/dev/null
+                    echo 1 > "${'$'}node" 2>/dev/null
                 fi
             done
 
@@ -262,8 +270,7 @@ object StandardChargingScript {
             echo 1 > /sys/class/power_supply/battery/turbo_power 2>/dev/null
             echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
 
-            for node in /sys/devices/platform/charger/BatteryNotify \
-                        /sys/devices/platform/charger/sw_jeita \
+            for node in /sys/devices/platform/charger/sw_jeita \
                         /sys/class/power_supply/battery/input_suspend \
                         /sys/class/power_supply/battery/charging_enabled; do
                 if [ -e "${'$'}node" ]; then

@@ -405,3 +405,22 @@ private fun SiliconToggleRow(
         )
     }
 }
+
+@Composable
+private fun ImpactRow(
+    title: String,
+    pro: String,
+    con: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BgElevated, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(text = title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(text = "• Manfaat: $pro", fontSize = 10.sp, color = AccentGreen, lineHeight = 14.sp)
+        Text(text = "• Catatan: $con", fontSize = 10.sp, color = AccentOrange, lineHeight = 14.sp)
+    }
+}

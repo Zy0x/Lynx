@@ -52,61 +52,6 @@ fun LynxViewModel.refreshDisplayPipeline() {
     }
 }
 
-fun LynxViewModel.setColorCalibrationEnabled(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { it.copy(isColorCalibrationEnabled = enabled) }
-    viewModelScope.launch {
-        if (enabled) {
-            val profile = _uiState.value.colorMatrixProfile
-            val ok = LynxRepository.applyColorProfile(profile)
-            if (ok) {
-                _uiState.update { it.copy(successMessage = "Kalibrasi warna diaktifkan (${profile.name})") }
-            } else {
-                _uiState.update { it.copy(errorMessage = "Gagal mengaktifkan kalibrasi warna") }
-            }
-        } else {
-            LynxRepository.resetColorProfile()
-            _uiState.update {
-                it.copy(
-                    colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE,
-                    successMessage = "Kalibrasi warna dinonaktifkan (standar OEM dipulihkan)"
-                )
-            }
-        }
-    }
-}
-
-fun LynxViewModel.applyColorProfile(profile: com.noir.lynx.display.ColorMatrixProfile) {
-    recordStateMutation()
-    _uiState.update { it.copy(colorMatrixProfile = profile, isColorCalibrationEnabled = true) }
-    viewModelScope.launch {
-        val ok = LynxRepository.applyColorProfile(profile)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "Profil warna '${profile.name}' diterapkan") }
-        } else {
-            _uiState.update { it.copy(errorMessage = "Gagal menerapkan matriks warna") }
-        }
-    }
-}
-
-fun LynxViewModel.resetColorProfile() {
-    recordStateMutation()
-    _uiState.update { it.copy(colorMatrixProfile = com.noir.lynx.display.ColorMatrixProfile.ACCURATE, isColorCalibrationEnabled = false) }
-    viewModelScope.launch {
-        LynxRepository.resetColorProfile()
-        _uiState.update { it.copy(successMessage = "Kalibrasi warna dikembalikan ke default OEM") }
-    }
-}
-
-fun LynxViewModel.checkColorConflict() {
-    viewModelScope.launch {
-        val warning = LynxRepository.checkColorConflict()
-        _uiState.update { it.copy(colorConflictWarning = warning) }
-    }
-}
-
-fun LynxViewModel.refreshColorConflict() = checkColorConflict()
-
 fun LynxViewModel.startLabRecording(pkg: String? = null) {
     viewModelScope.launch {
         _uiState.update { it.copy(isLabRecording = true) }

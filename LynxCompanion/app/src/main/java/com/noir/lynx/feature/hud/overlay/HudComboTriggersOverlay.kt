@@ -216,17 +216,21 @@ private fun ComboTriggersContent(
             val left = (pixelX - buttonRadiusPx).roundToInt()
             val top = (pixelY - buttonRadiusPx).roundToInt()
 
-            // Pulsing animation when running
-            val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-            val pulseScale by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = if (isRunning) 1.25f else 1.0f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(400, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "scale"
-            )
+            // Outer glow ring when executing (animate only while actively running)
+            val pulseScale = if (isRunning) {
+                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                infiniteTransition.animateFloat(
+                    initialValue = 1.0f,
+                    targetValue = 1.25f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(400, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "scale"
+                ).value
+            } else {
+                1.0f
+            }
 
             Box(
                 modifier = Modifier

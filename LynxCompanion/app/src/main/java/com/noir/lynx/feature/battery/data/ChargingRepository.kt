@@ -188,15 +188,9 @@ class ChargingRepository(
                 else
                     # Below target: unlock fast charging to reach target percent quickly
                     echo 0 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
-                    adpv=${'$'}(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null || cat /sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger 2>/dev/null || cat /sys/class/power_supply/usb/voltage_now 2>/dev/null || echo 0)
-                    if [ "${'$'}adpv" -gt 100000 ]; then adpv=${'$'}((adpv / 1000)); fi
-                    if [ "${'$'}adpv" -ge 6500 ]; then
-                        echo 1 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    else
-                        echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
-                    fi
+                    echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/sw_jeita 2>/dev/null
-                    echo 1 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
+                    echo 0 > /sys/devices/platform/charger/BatteryNotify 2>/dev/null
                     echo 0 > /sys/devices/platform/charger/BN_TestMode 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe20 2>/dev/null
                     echo 1 > /sys/devices/platform/charger/pe40 2>/dev/null

@@ -1,5 +1,8 @@
 package com.noir.lynx.data
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class BatteryDetails(
     val level: Int = 0,
     val status: String = "Discharging",

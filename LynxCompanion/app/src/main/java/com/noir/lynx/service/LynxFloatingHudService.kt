@@ -295,8 +295,16 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             }
         }
         scope.launch {
-            interactive.collectLatest { on ->
-                if (!on) {
+            combine(
+                interactive,
+                open,
+                pinMiniFpsFlow,
+                activeModeFlow,
+                preferences.changes
+            ) { isInteractive, isOpen, isPinned, mode, prefs ->
+                isInteractive && (isOpen || isPinned || mode == 1 || prefs.autoSkipEnabled)
+            }.distinctUntilChanged().collectLatest { shouldCollect ->
+                if (!shouldCollect) {
                     repository.unavailable("stale")
                     rendered.value = repository.current()
                     snapshotFlow.value = rendered.value

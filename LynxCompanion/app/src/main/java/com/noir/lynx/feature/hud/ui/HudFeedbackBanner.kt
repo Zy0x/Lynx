@@ -48,17 +48,17 @@ internal fun HudFeedbackBanner(
     val isRed = actionType == "record" || isFailed
     val accentColor = if (isRed) HudRed else HudCyan
 
-    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "SweepTransition")
-    val sweepOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1200f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Restart
-        ),
-        label = "SweepOffset"
-    )
     val borderBrush = if (busy) {
+        val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "SweepTransition")
+        val sweepOffset by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1200f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                animation = androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing),
+                repeatMode = androidx.compose.animation.core.RepeatMode.Restart
+            ),
+            label = "SweepOffset"
+        )
         androidx.compose.ui.graphics.Brush.horizontalGradient(
             colors = listOf(accentColor.copy(alpha = 0.2f), accentColor, accentColor.copy(alpha = 0.2f)),
             startX = sweepOffset - 400f,

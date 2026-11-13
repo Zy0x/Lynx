@@ -113,6 +113,9 @@ import com.noir.lynx.feature.navigation.model.TuningCategory
  *   4. Tools & Flasher (AnyKernel3 Flasher, Boot Backup/Restore, Storage TRIM, CCleaner)
  */
 
+private val DASHBOARD_CPU_PREFIX_REGEX = Regex("(?i)cpu[-_]?")
+private val DASHBOARD_GPU_PREFIX_REGEX = Regex("(?i)gpu[-_]?")
+
 @Composable
 fun DashboardTabContent(
     uiState: LynxUiState,
@@ -157,15 +160,18 @@ fun DashboardTabContent(
                     }
 
                     item(key = "charging_hero_display") {
+                        val onSelectCharging = remember(viewModel) {
+                            { mode: String ->
+                                if (mode == "bypass") viewModel.setBypassCharging(true)
+                                else viewModel.setChargingMode(mode)
+                            }
+                        }
                         ChargingHeroDisplayCard(
                             battery = uiState.batteryDetails,
                             telemetry = uiState.telemetry,
                             chargingConfig = state.charging,
                             accentColor = currentAccent,
-                            onSelectChargingMode = { mode ->
-                                if (mode == "bypass") viewModel.setBypassCharging(true)
-                                else viewModel.setChargingMode(mode)
-                            }
+                            onSelectChargingMode = onSelectCharging
                         )
                     }
                     item(key = "telemetry_gauges") {
@@ -183,9 +189,10 @@ fun DashboardTabContent(
                     }
 
                     item(key = "telemetry_memory") {
+                        val onClean = remember(viewModel) { { viewModel.cleanRam() } }
                         TelemetryMemoryCard(
                             telemetry = uiState.telemetry,
-                            onCleanRam = { viewModel.cleanRam() },
+                            onCleanRam = onClean,
                             isCleaningRam = uiState.isCleaningRam
                         )
                     }
@@ -206,10 +213,11 @@ fun DashboardTabContent(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = AccentRed
+                                    Icon(
+                                        imageVector = Icons.Default.Thermostat,
+                                        contentDescription = null,
+                                        tint = AccentRed.copy(alpha = 0.75f),
+                                        modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(Modifier.width(10.dp))
                                     Text(
@@ -254,8 +262,8 @@ fun DashboardTabContent(
                                                 ) {
                                                     Column(Modifier.weight(1f)) {
                                                         val cleanType = when {
-                                                            zone.type.contains("cpu", ignoreCase = true) -> "CPU " + zone.type.replace(Regex("(?i)cpu[-_]?"), "").uppercase()
-                                                            zone.type.contains("gpu", ignoreCase = true) -> "GPU " + zone.type.replace(Regex("(?i)gpu[-_]?"), "").uppercase()
+                                                            zone.type.contains("cpu", ignoreCase = true) -> "CPU " + zone.type.replace(DASHBOARD_CPU_PREFIX_REGEX, "").uppercase()
+                                                            zone.type.contains("gpu", ignoreCase = true) -> "GPU " + zone.type.replace(DASHBOARD_GPU_PREFIX_REGEX, "").uppercase()
                                                             zone.type.contains("battery", ignoreCase = true) || zone.type.contains("bms", ignoreCase = true) -> "BATERAI"
                                                             zone.type.contains("pm", ignoreCase = true) -> "PMIC / SOC"
                                                             else -> zone.type.replace("mtkts", "").replace("tsens_tz_sensor", "sensor").uppercase()

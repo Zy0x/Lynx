@@ -40,10 +40,6 @@ object LynxSystemControlRepository {
     // ----------------------------------------------------------------
 
 
-    suspend fun applyTouchboost(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        LynxCpuSchedulerControlRepository.setUniversalTouchBoost(enabled, LynxRepository.appContext)
-    }
-
     suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
             val script = if (enabled) {

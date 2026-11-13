@@ -161,7 +161,7 @@ fun LazyListScope.tuningGpuCategoryItems(
             item(key = "gpu_accordion_compositor_pipeline") {
                 GpuCollapsibleSection(
                     title = "Compositor & Pipeline HWUI",
-                    subtitle = "Backend render Vulkan, buffer swapchain, offset fase & shader cache",
+                    subtitle = "Backend render Vulkan, buffer swapchain & shader cache",
                     accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
                     badge = "RENDER ENGINE",
                     defaultExpanded = false
@@ -173,9 +173,6 @@ fun LazyListScope.tuningGpuCategoryItems(
                         onSetRenderer = { backend -> viewModel.setHwuiRenderer(backend) },
                         onSetLatch = { latch -> viewModel.setSurfaceFlingerLatch(latch) },
                         onSetDisableBackpressure = { viewModel.setSurfaceFlingerDisableBackpressure(it) },
-                        onSetEarlyPhase = { viewModel.setSurfaceFlingerEarlyPhase(it) },
-                        onSetPhaseOffset = { earlyNs, earlyGlNs -> viewModel.setSurfaceFlingerPhaseOffset(earlyNs, earlyGlNs) },
-                        onSetVsyncSwapBypass = { viewModel.setVsyncSwapBypass(it) },
                         onSetMsaa = { msaa -> viewModel.setForceMsaa(msaa) },
                         onSetOemShield = { shield -> viewModel.setOemThrottlerShield(shield) },
                         onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
@@ -208,30 +205,27 @@ fun LazyListScope.tuningGpuCategoryItems(
             }
         }
         1 -> {
-            // ── TAB 1: LAYAR (DISPLAY & KALIBRASI PANEL) ──
+            // ── TAB 1: LAYAR (REFRESH RATE & RENDER SCALE) ──
             item(key = "display_hero_card") {
                 DisplayHeroCard(uiState = uiState)
             }
 
-            // ── SECTION 1: REFRESH RATE & RESPON SENTUH ──
+            // ── SECTION 1: REFRESH RATE & SKALA RENDER ──
             item(key = "section_header_display_refresh") {
                 GpuSectionHeader(
-                    title = "Refresh Rate & Respon Sentuh",
-                    subtitle = "Mode fisik panel HWC, Auto Dynamic, TouchBoost & Render Scale",
+                    title = "Refresh Rate & Skala Render",
+                    subtitle = "Mode fisik panel HWC, Auto Dynamic, FPS Unlocker & Render Scale",
                     accentColor = com.noir.lynx.designsystem.theme.AccentGreen,
-                    badge = "OUTPUT & TOUCH"
+                    badge = "DISPLAY HZ"
                 )
             }
 
-            // Display Refresh Rate & Touch Card
+            // Display Refresh Rate & Scale Card
             item(key = "gpu_display_refresh") {
                 DisplayRefreshRateTouchCard(
                     currentHz = if (uiState.displayRefreshRate > 0) uiState.displayRefreshRate else 60,
                     isAuto = uiState.isAutoRefreshRate,
                     supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
-                    touchBoost = state.displayTouch.touchboost,
-                    touchBoostDurationMs = uiState.gpuSilicon.touchBoostDurationMs,
-                    touchBoostDurationSupported = uiState.gpuSilicon.isTouchBoostDurationSupported,
                     dcDimmingSupported = graphics.isDcDimmingSupported,
                     dcDimmingEnabled = graphics.dcDimmingEnabled,
                     isEsportsDownscaleActive = graphics.isEsportsDownscaleActive,
@@ -239,58 +233,10 @@ fun LazyListScope.tuningGpuCategoryItems(
                     activeResolution = graphics.activeResolution,
                     forcedFpsUnlockerHz = uiState.forcedFpsUnlockerHz,
                     onSetRefreshRate = { hz, isAuto -> viewModel.setDisplayRefreshRate(hz, isAuto) },
-                    onSetTouchBoost = { viewModel.setTouchboost(it) },
-                    onSetTouchBoostDuration = { viewModel.setTouchBoostDuration(it) },
                     onSetDcDimming = { viewModel.setDcDimming(it) },
                     onSetRenderScale = { preset -> viewModel.setDisplayRenderScale(preset) },
                     onSetForcedFpsUnlocker = { fps -> viewModel.setForcedFpsUnlocker(fps) }
                 )
-            }
-
-            // Touch Micro-Sensitivity, Novatek SPI, and Edge Back Guard Card
-            item(key = "gpu_touch_precision") {
-                TouchPrecisionCalibrationCard(context = context)
-            }
-
-            // Color & Visual Calibration
-            item(key = "section_header_color_management") {
-                GpuSectionHeader(
-                    title = "Kalibrasi Warna & Visual",
-                    subtitle = "SurfaceFlinger Matrix 1015, D65 White Point & KCAL hardware",
-                    accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
-                    badge = "COLOR & D65"
-                )
-            }
-
-            // Color Management Card (SurfaceFlinger Matrix 1015 & D65 White Point)
-            item(key = "gpu_color_management") {
-                ColorManagementCard(
-                    displayCalibration = uiState.displayCalibration,
-                    colorProfile = uiState.colorMatrixProfile,
-                    isCalibrationEnabled = uiState.isColorCalibrationEnabled,
-                    colorConflict = uiState.colorConflictWarning,
-                    onToggleCalibration = { viewModel.setColorCalibrationEnabled(it) },
-                    onApplyProfile = { viewModel.applyColorProfile(it) },
-                    onResetProfile = { viewModel.resetColorProfile() },
-                    onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) }
-                )
-            }
-
-            // Panel Hardware Tuning (True DCS 0x55 CABC & Display ESD Watchdog Interval)
-            item(key = "gpu_panel_cabc_esd") {
-                PanelTuningCard(context = context)
-            }
-
-            // Kernel KCAL Hardware Card (If supported by kernel)
-            if (uiState.displayCalibration.isKcalSupported) {
-                item(key = "gpu_kcal_hardware") {
-                    KcalHardwareCard(
-                        displayCalibration = uiState.displayCalibration,
-                        onSetKcal = { en, r, g, b, sat, v, c, h ->
-                            viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
-                        }
-                    )
-                }
             }
         }
         2 -> {
@@ -367,9 +313,9 @@ fun GpuSubscreen(
     // Auto refresh data on load
     LaunchedEffect(Unit) {
         viewModel.refreshGpuInfo(); viewModel.refreshGpuSilicon(); viewModel.refreshGraphicsHwui()
-        viewModel.refreshDisplayRefreshRate(); viewModel.refreshDisplayCalibration()
+        viewModel.refreshDisplayRefreshRate()
         viewModel.refreshGraphicsCapabilities(); viewModel.refreshDisplayPipeline()
-        viewModel.refreshColorConflict(); viewModel.refreshSavedLabSessions(context)
+        viewModel.refreshSavedLabSessions(context)
         viewModel.loadPerAppGraphicsRules(context); viewModel.refreshInstalledApps()
     }
 

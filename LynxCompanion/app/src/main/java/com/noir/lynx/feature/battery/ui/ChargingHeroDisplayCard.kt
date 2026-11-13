@@ -165,7 +165,16 @@ fun ChargingHeroDisplayCard(
 
         withContext(Dispatchers.IO) {
             while (true) {
-                // 1. Direct read of current (<0.05ms)
+            var sampledCurrentUa = liveHardwareCurrentUa
+            var sampledCurrentMa = liveHardwareCurrentMa
+            var sampledVoltageMv = liveHardwareVoltageMv
+            var sampledTempC = liveHardwareTempC
+            var sampledCapacity = liveHardwareCapacity
+            var sampledChargeCounterUah = liveHardwareChargeCounterUah
+            var sampledFullChargeUah = liveHardwareFullChargeUah
+            var sampledProtocol = liveHardwareProtocol
+
+            // 1. Direct read of current (<0.05ms)
             var readCurrentUa: Long? = null
             for (node in currentNodes) {
                 try {
@@ -187,8 +196,8 @@ fun ChargingHeroDisplayCard(
                 } catch (_: Exception) {}
             }
             if (readCurrentUa != null && readCurrentUa != 0L) {
-                liveHardwareCurrentUa = readCurrentUa
-                liveHardwareCurrentMa = (readCurrentUa / 1000L).toInt()
+                sampledCurrentUa = readCurrentUa
+                sampledCurrentMa = (readCurrentUa / 1000L).toInt()
             }
 
             // 2. Direct read of voltage
@@ -197,7 +206,7 @@ fun ChargingHeroDisplayCard(
                     if (node.exists() && node.canRead()) {
                         val raw = node.readText().trim().toIntOrNull()
                         if (raw != null && raw > 0) {
-                            liveHardwareVoltageMv = if (raw > 100_000) raw / 1000 else raw
+                            sampledVoltageMv = if (raw > 100_000) raw / 1000 else raw
                             break
                         }
                     }
@@ -210,7 +219,7 @@ fun ChargingHeroDisplayCard(
                     if (node.exists() && node.canRead()) {
                         val raw = node.readText().trim().toFloatOrNull()
                         if (raw != null && raw > 0f) {
-                            liveHardwareTempC = if (raw > 1000f) raw / 1000f else if (raw > 100f) raw / 10f else raw
+                            sampledTempC = if (raw > 1000f) raw / 1000f else if (raw > 100f) raw / 10f else raw
                             break
                         }
                     }
@@ -223,7 +232,7 @@ fun ChargingHeroDisplayCard(
                     if (node.exists() && node.canRead()) {
                         val cap = node.readText().trim().toIntOrNull()
                         if (cap != null && cap in 0..100) {
-                            liveHardwareCapacity = cap
+                            sampledCapacity = cap
                             break
                         }
                     }
@@ -238,7 +247,7 @@ fun ChargingHeroDisplayCard(
                         if (raw != null && raw > 0L) {
                             val uah = if (raw > 100_000L) raw else raw * 1000L
                             if (uah in 10_000L..30_000_000L) {
-                                liveHardwareChargeCounterUah = uah
+                                sampledChargeCounterUah = uah
                                 break
                             }
                         }
@@ -252,7 +261,7 @@ fun ChargingHeroDisplayCard(
                         if (raw != null && raw > 0L) {
                             val uah = if (raw > 100_000L) raw else raw * 1000L
                             if (uah in 100_000L..30_000_000L) {
-                                liveHardwareFullChargeUah = uah
+                                sampledFullChargeUah = uah
                                 break
                             }
                         }
@@ -272,14 +281,14 @@ fun ChargingHeroDisplayCard(
                     }
                 } catch (_: Exception) {}
             }
-            liveHardwareUsbOnline = anyOnline
 
+            var sampledStatus = liveHardwareStatus
             for (node in statusNodes) {
                 try {
                     if (node.exists() && node.canRead()) {
                         val st = node.readText().trim()
                         if (st.isNotBlank()) {
-                            liveHardwareStatus = st
+                            sampledStatus = st
                             break
                         }
                     }
@@ -287,7 +296,7 @@ fun ChargingHeroDisplayCard(
             }
 
             // 5. Direct resolution of physical charger protocol
-            if (anyOnline == 1 || liveHardwareStatus.equals("Charging", ignoreCase = true)) {
+            if (anyOnline == 1 || sampledStatus.equals("Charging", ignoreCase = true)) {
                 try {
                     fun safeRead(path: String): String = runCatching {
                         val f = File(path)
@@ -311,7 +320,7 @@ fun ChargingHeroDisplayCard(
                     val qcSig = qcType.ifBlank { qcomQc }
                     val pdSig = pdActive.ifBlank { typecPd }
 
-                    liveHardwareProtocol = resolveHardwareProtocolDirect(
+                    sampledProtocol = resolveHardwareProtocolDirect(
                         rawPtyp = ptyp,
                         qcSig = qcSig,
                         pdSig = pdSig,
@@ -324,29 +333,62 @@ fun ChargingHeroDisplayCard(
                     )
                 } catch (_: Exception) {}
             } else {
-                liveHardwareProtocol = ""
+                sampledProtocol = ""
+            }
+
+            if (liveHardwareCurrentUa != sampledCurrentUa ||
+                liveHardwareCurrentMa != sampledCurrentMa ||
+                liveHardwareVoltageMv != sampledVoltageMv ||
+                liveHardwareTempC != sampledTempC ||
+                liveHardwareCapacity != sampledCapacity ||
+                liveHardwareChargeCounterUah != sampledChargeCounterUah ||
+                liveHardwareFullChargeUah != sampledFullChargeUah ||
+                liveHardwareUsbOnline != anyOnline ||
+                liveHardwareStatus != sampledStatus ||
+                liveHardwareProtocol != sampledProtocol
+            ) {
+                androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                    if (liveHardwareCurrentUa != sampledCurrentUa) liveHardwareCurrentUa = sampledCurrentUa
+                    if (liveHardwareCurrentMa != sampledCurrentMa) liveHardwareCurrentMa = sampledCurrentMa
+                    if (liveHardwareVoltageMv != sampledVoltageMv) liveHardwareVoltageMv = sampledVoltageMv
+                    if (liveHardwareTempC != sampledTempC) liveHardwareTempC = sampledTempC
+                    if (liveHardwareCapacity != sampledCapacity) liveHardwareCapacity = sampledCapacity
+                    if (liveHardwareChargeCounterUah != sampledChargeCounterUah) liveHardwareChargeCounterUah = sampledChargeCounterUah
+                    if (liveHardwareFullChargeUah != sampledFullChargeUah) liveHardwareFullChargeUah = sampledFullChargeUah
+                    if (liveHardwareUsbOnline != anyOnline) liveHardwareUsbOnline = anyOnline
+                    if (liveHardwareStatus != sampledStatus) liveHardwareStatus = sampledStatus
+                    if (liveHardwareProtocol != sampledProtocol) liveHardwareProtocol = sampledProtocol
+                }
             }
 
             // 6. Direct sample of native lynxd charging state file (/dev/lynx_charging_state)
             try {
+                var sampledMode = liveChargingStateMode
+                var sampledBypass = false
                 val chgStateFile = File("/dev/lynx_charging_state")
                 if (chgStateFile.exists() && chgStateFile.canRead()) {
                     val line = chgStateFile.readText().trim()
                     val rawMode = line.substringBefore(" ").substringAfter("state=").trim()
                     if (rawMode.isNotBlank()) {
-                        liveChargingStateMode = when {
+                        sampledMode = when {
                             rawMode.startsWith("cool") -> "cool"
                             rawMode.startsWith("hyper") -> "hyper"
                             rawMode.startsWith("custom") -> "custom"
                             rawMode.startsWith("standard") -> "standard"
                             else -> ""
                         }
-                        liveBypassActive = rawMode.startsWith("bypass")
+                        sampledBypass = rawMode.startsWith("bypass")
                     } else {
-                        liveBypassActive = File("/dev/lynx_bypass_active").exists()
+                        sampledBypass = File("/dev/lynx_bypass_active").exists()
                     }
                 } else {
-                    liveBypassActive = File("/dev/lynx_bypass_active").exists()
+                    sampledBypass = File("/dev/lynx_bypass_active").exists()
+                }
+                if (liveChargingStateMode != sampledMode || liveBypassActive != sampledBypass) {
+                    androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                        if (liveChargingStateMode != sampledMode) liveChargingStateMode = sampledMode
+                        if (liveBypassActive != sampledBypass) liveBypassActive = sampledBypass
+                    }
                 }
             } catch (_: Exception) {}
 
@@ -489,11 +531,7 @@ fun ChargingHeroDisplayCard(
         baseLevel.toFloat()
     }
 
-    val animatedSoc by animateFloatAsState(
-        targetValue = displayedSoc,
-        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-        label = "battery_soc_ring"
-    )
+    val animatedSoc = displayedSoc
 
     // Hardware Electrical Telemetry Calculations
     val liveVolts = (if (liveHardwareVoltageMv > 0) liveHardwareVoltageMv else if (batt.voltageMv > 0) batt.voltageMv else tel.battVoltMv) / 1000f
@@ -715,26 +753,9 @@ fun ChargingHeroDisplayCard(
         }
     }
 
-    // Layered charge animation: the battery arc breathes while energy sparks orbit the dial.
-    val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
-    val ringAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.70f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ring_pulse"
-    )
-    val orbitAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "charge_orbit"
-    )
+    // Event-driven dial glow (no continuous VSync wakeups when idle or plugged in)
+    val ringAlpha = if (isCharging || isBypass) 0.90f else 0.70f
+    val orbitAngle = 0f
 
     Surface(
         modifier = modifier
@@ -1231,7 +1252,7 @@ private fun QuickChargingModeModal(
             shape = RoundedCornerShape(22.dp),
             color = Color(0xFF0F1219),
             border = BorderStroke(1.dp, Color(0x22FFFFFF)),
-            shadowElevation = 16.dp
+            shadowElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier

@@ -701,12 +701,9 @@ case "$PROFILE" in
         sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
         sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
 
-        # Zero-Risk Video & Compositor Safety: Do not force latch_unsignaled or disable_backpressure
+        # Zero-Risk Video & Compositor Safety: Do not force latch_unsignaled, early_phase, or disable_backpressure
         # to ensure zero regressions in hardware video decoding (Twitter, TikTok, YouTube).
-        if [ "$PROFILE" = "extreme" ]; then
-            setprop debug.sf.early_phase_offset_ns 500000 2>/dev/null
-            setprop debug.sf.early_app_phase_offset_ns 500000 2>/dev/null
-        elif which resetprop >/dev/null 2>&1; then
+        if which resetprop >/dev/null 2>&1; then
             resetprop -p --delete debug.sf.early_phase_offset_ns 2>/dev/null
             resetprop -p --delete debug.sf.early_app_phase_offset_ns 2>/dev/null
             resetprop -p --delete debug.sf.disable_backpressure 2>/dev/null
@@ -896,7 +893,7 @@ case "$PROFILE" in
                 write_node "$has_cp" "/sys/class/qcom-battery/direct_charging"
                 write_node "1" "/sys/class/power_supply/battery/store_mode"
                 write_node "1" "/sys/class/power_supply/battery/batt_slate_mode"
-                write_node "1" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/devices/platform/charger/enable_sc"
                 write_node "$cur_cap" "/sys/devices/platform/charger/sc_tuisoc"
                 write_node "0" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "0" "/sys/devices/platform/charger/chg1_current"
@@ -922,7 +919,9 @@ case "$PROFILE" in
                 write_node "6000" "/sys/devices/platform/charger/chg1_current"
                 write_node "6000" "/sys/devices/platform/charger/chg2_current"
                 write_node "8000" "/sys/devices/platform/charger/sc_ibat_limit"
-                write_node "1" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/devices/platform/charger/BatteryNotify"
+                write_node "0" "/sys/devices/platform/charger/BN_TestMode"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
                 write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
@@ -938,7 +937,8 @@ case "$PROFILE" in
             cur_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 50)
             if [ "$cur_cap" -lt 100 ]; then
                 write_node "0" "/sys/devices/platform/charger/bypass_charger"
-                write_node "1" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/devices/platform/charger/enable_sc"
+                write_node "0" "/sys/devices/platform/charger/BatteryNotify"
                 write_node "6000" "/sys/devices/platform/charger/sc_ibat_limit"
                 write_node "5376" "/sys/devices/platform/charger/chg1_current"
                 write_node "5376" "/sys/devices/platform/charger/chg2_current"
