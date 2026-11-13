@@ -68,8 +68,8 @@ object DisplayCapabilityDetector {
                     break
                 fi
             done
-            for h in /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/class/graphics/fb0/hbm; do
-                if [ -f "${'$'}h" ]; then
+            for h in /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/class/graphics/fb0/hbm /sys/kernel/oplus_display/hbm; do
+                if [ -f "${'$'}h" ] && cat "${'$'}h" >/dev/null 2>&1; then
                     echo "HBM:${'$'}h"
                     break
                 fi

@@ -284,6 +284,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                 MtkPqControlsCard(context = context)
             }
 
+            // Panel Hardware Tuning (True DCS 0x55 CABC & Display ESD Watchdog Interval)
+            item(key = "gpu_panel_cabc_esd") {
+                PanelTuningCard(context = context)
+            }
+
             // Kernel KCAL Hardware Card (If supported by kernel)
             if (uiState.displayCalibration.isKcalSupported) {
                 item(key = "gpu_kcal_hardware") {

@@ -724,6 +724,45 @@
                 </button>
             </div>
 
+            <!-- Panel CABC & ESD Watchdog (Secondary Fallback) -->
+            <div class="card" id="card-panel-tuning" style="display: none;">
+                <div class="card-title">Panel CABC &amp; ESD Watchdog</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Kendalikan mode CABC panel asli (DCS 0x55), interval polling ESD display (/proc/mtk_esd_period_ms), dan Outdoor HBM.
+                </div>
+                <div class="switch-row" id="row-panel-hbm" style="display: none;">
+                    <span class="switch-label">Mode Kecerahan Maksimal Outdoor (HBM)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="panel-hbm-toggle" onchange="toggleWebPanelHbm(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="row-panel-cabc" style="margin-top: 10px; display: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                        <span>Mode CABC Panel Asli (0=Off, 1=UI, 2=Still, 3=Video)</span>
+                        <strong id="panel-cabc-val">0</strong>
+                    </div>
+                    <input type="range" id="panel-cabc-slider" min="0" max="3" step="1" value="0"
+                           oninput="document.getElementById('panel-cabc-val').textContent = this.value">
+                </div>
+                <div id="row-panel-esd" style="margin-top: 10px; display: none;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                        <span>Interval Watchdog ESD (0=Pause, 2–60 dtk)</span>
+                        <strong id="panel-esd-val">15</strong>
+                    </div>
+                    <input type="range" id="panel-esd-slider" min="0" max="60" step="1" value="15"
+                           oninput="const v = Number(this.value) === 1 ? 2 : Number(this.value); this.value = v; document.getElementById('panel-esd-val').textContent = String(v);">
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <button class="btn btn-accent" onclick="applyWebPanelTuning()" style="flex: 1; min-height: 48px;">
+                        Terapkan Panel Tuning
+                    </button>
+                    <button class="btn btn-primary" onclick="resetWebPanelTuning()" style="flex: 1; min-height: 48px;">
+                        Default Arise
+                    </button>
+                </div>
+            </div>
+
             <!-- Boot Partition Backup & Restore -->
             <div class="card">
                 <div class="card-title">Cadangan Partisi Boot</div>

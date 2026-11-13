@@ -196,6 +196,7 @@ impl LifecycleHooks {
 
         // 6. Universal & Platform-Specific Subsystem Optimization
         let _ = SystemController::apply();
+        let _ = crate::subsystems::MtkPanelController::apply_boot();
         Self::log_msg("[+] Core and platform subsystems optimized natively via lynxd");
 
         let _ = Command::new("settings")

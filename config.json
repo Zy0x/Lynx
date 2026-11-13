@@ -60,6 +60,11 @@
     "surfaceflinger_offset_ns": 2000000,
     "skia_vulkan_enabled": false
   },
+  "panel": {
+    "cabc_mode": 0,
+    "esd_period_ms": 15000,
+    "apply_on_boot": true
+  },
   "network": {
     "wifi_ping_stabilizer": true,
     "tcp_congestion": "bbr",

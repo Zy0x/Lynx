@@ -89,7 +89,13 @@ import kotlinx.coroutines.flow.update
             if (ok) {
                 _uiState.update { it.copy(successMessage = if (enabled) "HBM Outdoor Aktif" else "HBM Dimatikan") }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal mengubah status HBM") }
+                val cal = LynxRepository.readDisplayCalibration()
+                _uiState.update {
+                    it.copy(
+                        displayCalibration = cal,
+                        errorMessage = "Gagal mengubah status HBM"
+                    )
+                }
             }
         }
     }

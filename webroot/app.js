@@ -1537,6 +1537,7 @@ window.addEventListener('DOMContentLoaded', () => {
     pollThermalZones();
     loadIoDevices();
     pollWebWakelocks();
+    loadWebPanelTuning();
     loadTcpCongestion();
     loadWebVmTunables();
     loadWebBoefflaAndDoze();
@@ -1628,3 +1629,77 @@ async function resetWebMtkPq() {
 }
 
 
+
+
+async function loadWebPanelTuning() {
+    const card = document.getElementById('card-panel-tuning');
+    if (!card) return;
+    const res = await runShell(`${LYNX_BIN} display panel status 2>/dev/null`);
+    if (res.errno !== 0 || !res.stdout) return;
+    try {
+        const data = JSON.parse(res.stdout);
+        const anySup = Boolean(data.cabc_supported || data.esd_supported || data.hbm_supported);
+        card.style.display = anySup ? 'block' : 'none';
+        if (!anySup) return;
+
+        const rowHbm = document.getElementById('row-panel-hbm');
+        if (rowHbm) rowHbm.style.display = data.hbm_supported ? 'flex' : 'none';
+        const hbmToggle = document.getElementById('panel-hbm-toggle');
+        if (hbmToggle) hbmToggle.checked = Number(data.active_hbm) > 0;
+
+        const rowCabc = document.getElementById('row-panel-cabc');
+        if (rowCabc) rowCabc.style.display = data.cabc_supported ? 'block' : 'none';
+        const cabcVal = Math.max(0, Math.min(3, Number(data.cfg_cabc ?? data.active_cabc ?? 0)));
+        const cabcSlider = document.getElementById('panel-cabc-slider');
+        const cabcLabel = document.getElementById('panel-cabc-val');
+        if (cabcSlider) cabcSlider.value = cabcVal;
+        if (cabcLabel) cabcLabel.textContent = String(cabcVal);
+
+        const rowEsd = document.getElementById('row-panel-esd');
+        if (rowEsd) rowEsd.style.display = data.esd_supported ? 'block' : 'none';
+        const rawEsdMs = Number(data.active_esd_ms >= 0 ? data.active_esd_ms : (data.cfg_esd_ms ?? 15000));
+        const esdSec = rawEsdMs <= 0 ? 0 : Math.max(2, Math.min(60, Math.round(rawEsdMs / 1000)));
+        const esdSlider = document.getElementById('panel-esd-slider');
+        const esdLabel = document.getElementById('panel-esd-val');
+        if (esdSlider) esdSlider.value = esdSec;
+        if (esdLabel) esdLabel.textContent = String(esdSec);
+    } catch (_) {}
+}
+
+async function applyWebPanelTuning() {
+    const cabcSlider = document.getElementById('panel-cabc-slider');
+    const esdSlider = document.getElementById('panel-esd-slider');
+    const cabc = cabcSlider ? Math.max(0, Math.min(3, parseInt(cabcSlider.value, 10) || 0)) : 0;
+    const rawSec = esdSlider ? (parseInt(esdSlider.value, 10) || 0) : 15;
+    const esdMs = rawSec <= 0 ? 0 : Math.max(2, Math.min(60, rawSec)) * 1000;
+    const cmd = `${LYNX_BIN} display panel set-cabc ${cabc} >/dev/null && ${LYNX_BIN} display panel set-esd ${esdMs}`;
+    const res = await runShell(cmd);
+    if (res.errno === 0) {
+        showToast('Panel CABC & Watchdog ESD berhasil diterapkan!', true);
+        loadWebPanelTuning();
+    } else {
+        showToast('Gagal menerapkan Panel CABC & Watchdog ESD.', false);
+    }
+}
+
+async function resetWebPanelTuning() {
+    const res = await runShell(`${LYNX_BIN} display panel reset`);
+    if (res.errno === 0) {
+        showToast('Panel tuning dipulihkan ke default Arise (CABC 0, ESD 15 dtk).', true);
+        loadWebPanelTuning();
+    } else {
+        showToast('Gagal memulihkan default Panel tuning.', false);
+    }
+}
+
+async function toggleWebPanelHbm(enabled) {
+    const val = enabled ? 1 : 0;
+    const res = await runShell(`echo ${val} > /sys/kernel/oplus_display/hbm`);
+    const toggle = document.getElementById('panel-hbm-toggle');
+    if (res.errno === 0) {
+        showToast(enabled ? 'Outdoor HBM diaktifkan.' : 'Outdoor HBM dimatikan.', true);
+    } else {
+        if (toggle) toggle.checked = !enabled;
+        showToast('Gagal mengubah Outdoor HBM (pastikan layar menyala).', false);
+    }
+}

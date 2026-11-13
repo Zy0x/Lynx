@@ -83,7 +83,7 @@ fn print_usage() {
         println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
         println!("  thermal status|mode|set-limit|restore");
         println!("  game on [pid]|off|optimize-pid|status");
-        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|pq|info");
+        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|pq|panel|info");
         println!("  oem freeze|unfreeze");
         println!("  cpuset info|apply|set");
         println!("  cpuidle info|apply|set-state");
@@ -128,7 +128,7 @@ fn print_usage() {
     println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
     println!("  thermal status|mode|set-limit|restore");
     println!("  game on [pid]|off|optimize-pid|status");
-    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|info");
+    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|pq|panel|info");
     println!("  oem freeze|unfreeze");
     println!("  cpuset info|apply|set");
     println!("  cpuidle info|apply|set-state");
@@ -1020,6 +1020,23 @@ fn handle_display(args: &[String]) {
                 "status" => println!("{}", subsystems::MtkPqController::status_json()),
                 "reset" => println!("{}", subsystems::MtkPqController::reset_defaults()),
                 _ => println!("{}", subsystems::MtkPqController::apply_full()),
+            }
+        }
+        "panel" | "cabc" | "esd" => {
+            let sub = args.get(3).map(|s| s.as_str()).unwrap_or("status");
+            match sub {
+                "status" => println!("{}", subsystems::MtkPanelController::status_json()),
+                "apply" => println!("{}", subsystems::MtkPanelController::apply_full()),
+                "reset" => println!("{}", subsystems::MtkPanelController::reset_defaults()),
+                "set-cabc" => {
+                    let val = args.get(4).and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+                    println!("{}", subsystems::MtkPanelController::apply_cabc(val));
+                }
+                "set-esd" => {
+                    let val = args.get(4).and_then(|s| s.parse::<i64>().ok()).unwrap_or(15000);
+                    println!("{}", subsystems::MtkPanelController::apply_esd_period(val));
+                }
+                _ => println!("{}", subsystems::MtkPanelController::status_json()),
             }
         }
         other => {

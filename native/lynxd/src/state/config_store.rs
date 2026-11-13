@@ -167,6 +167,11 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "debug_shp_enabled": true,
     "debug_dshp_enabled": true
   },
+  "panel": {
+    "cabc_mode": 0,
+    "esd_period_ms": 15000,
+    "apply_on_boot": true
+  },
   "network": {
     "wifi_ping_stabilizer": true,
     "tcp_congestion": "bbr",

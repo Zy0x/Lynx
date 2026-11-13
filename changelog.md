@@ -1,3 +1,15 @@
+# Lynx Universal [True Panel CABC, Outdoor HBM & ESD Watchdog Control] 7.0.0-RC389
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.10
+
+- **Dukungan Hardware Panel CABC (`0x55`) & Watchdog ESD (`PanelTuningCard.kt`, `LynxPanelTuningRepository.kt`, `lynxd`, & `webroot/`)**:
+  - Menambahkan kartu dinamis **Panel CABC & ESD Watchdog** pada Tab 1 (`OUTPUT & TOUCH`) yang tampil otomatis saat kernel mengekspos `/sys/kernel/oplus_display/LCM_CABC` dan/atau `/proc/mtk_esd_period_ms` (`Sol-Kernel-Arise-R1.024+ / R1.025+`).
+  - Menyediakan pemilih 4 mode **True Panel CABC** (`Off 0`, `UI 1`, `Still 2`, `Video 3`) untuk penghematan daya konten statis tanpa mengorbankan akurasi profil warna, serta kendali penuh **Interval Polling ESD** (`Pause 0 ms` untuk bebas *micro-jank* polling register `0x0A`, `5 dtk Pabrik`, `15 dtk Arise Default`, `30 dtk`, `60 dtk`, atau geseran halus `2–60 dtk`), sinkronisasi `config.json` via `lynxd display panel`, dan persistensi otomatis saat boot (`LynxBootReceiver` & `LifecycleHooks::run_boot`).
+- **Konektivitas Outdoor HBM Hardware (`LynxDisplayRepository.kt`, `DisplayCapabilityDetector.kt`, `LynxHbmTileService.kt`)**:
+  - Menghubungkan jalur deteksi dan sakelar **High Brightness Mode (HBM)** ke `/sys/kernel/oplus_display/hbm` dengan validasi keterbacaan/tulis aman serta sinkronisasi status `Quick Settings HBM Tile` dan kartu kalibrasi warna (`ColorManagementCard`).
+- **Paritas WebUI Sekunder (`webroot/`)**:
+  - Menambahkan kartu pendamping `#card-panel-tuning` yang mendeteksi dukungan CABC, ESD Watchdog, dan Outdoor HBM secara dinamis melalui `lynxd display panel status`.
+
 # Lynx Universal [ColorMatrix Engine 1015 Fix, IPS Calibration Presets & MTK PQ Control] 7.0.0-RC388
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.9

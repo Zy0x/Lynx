@@ -290,8 +290,8 @@ internal object LynxDisplayRepository {
                 fi
 
                 hbm_node=""
-                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm; do
-                    if [ -f "${'$'}n" ]; then
+                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/kernel/oplus_display/hbm; do
+                    if [ -f "${'$'}n" ] && cat "${'$'}n" >/dev/null 2>&1; then
                         hbm_node="${'$'}n"
                         break
                     fi
@@ -335,9 +335,9 @@ internal object LynxDisplayRepository {
 
             var hbmSupported = false
             var hbmEnabled = false
-            if (hbmNode.isNotEmpty() && Shell.cmd("[ -f '$hbmNode' ] && echo 1").exec().out.firstOrNull() == "1") {
+            if (hbmNode.isNotEmpty() && Shell.cmd("[ -f '$hbmNode' ] && cat '$hbmNode' >/dev/null 2>&1 && echo 1").exec().out.firstOrNull() == "1") {
                 hbmSupported = true
-                val hbmVal = Shell.cmd("cat $hbmNode 2>/dev/null").exec().out.firstOrNull()?.trim()
+                val hbmVal = Shell.cmd("cat '$hbmNode' 2>/dev/null").exec().out.firstOrNull()?.trim()
                 hbmEnabled = hbmVal == "1" || hbmVal == "2"
             }
 
@@ -399,11 +399,15 @@ internal object LynxDisplayRepository {
 
     suspend fun setHbmEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val target = if (enabled) "1" else "0"
             val script = """
-                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm; do
-                    if [ -f "${'$'}n" ]; then
-                        echo "${if (enabled) 1 else 0}" > "${'$'}n" 2>/dev/null
-                        echo 1
+                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/kernel/oplus_display/hbm; do
+                    if [ -f "${'$'}n" ] && cat "${'$'}n" >/dev/null 2>&1; then
+                        if echo "$target" > "${'$'}n" 2>/dev/null; then
+                            echo 1
+                        else
+                            echo 0
+                        fi
                         exit 0
                     fi
                 done

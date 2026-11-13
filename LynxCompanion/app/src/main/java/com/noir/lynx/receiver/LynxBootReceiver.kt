@@ -70,6 +70,9 @@ class LynxBootReceiver : BroadcastReceiver() {
                     // Restore MediaTek PQ (AAL Bypass, DRE, Sharpness, UltraRes) if supported
                     com.noir.lynx.data.LynxMtkPqRepository.applySavedDefaultsOnBoot(context)
 
+                    // Restore Panel CABC (0x55) & ESD Watchdog polling interval if supported
+                    com.noir.lynx.data.LynxPanelTuningRepository.applySavedDefaultsOnBoot(context)
+
                     val enabledResult = Shell.cmd("cat /data/adb/lynx/automation_enabled 2>/dev/null").exec()
                     val isEnabled = enabledResult.out.firstOrNull()?.trim() == "1"
 
