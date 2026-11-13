@@ -50,6 +50,7 @@ fun DisplayRefreshRateTouchCard(
     supportedRates: List<Int>,
     touchBoost: Boolean,
     touchBoostDurationMs: Int = 500,
+    touchBoostDurationSupported: Boolean = false,
     touchIrqSteering: Boolean = false,
     dcDimmingSupported: Boolean,
     dcDimmingEnabled: Boolean,
@@ -355,7 +356,7 @@ fun DisplayRefreshRateTouchCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (touchBoost && onSetTouchBoostDuration != null) {
+                if (touchBoostDurationSupported && touchBoost && onSetTouchBoostDuration != null) {
                     Surface(
                         onClick = { showTouchDurationDialog = true },
                         shape = RoundedCornerShape(8.dp),

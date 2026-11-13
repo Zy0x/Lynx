@@ -29,10 +29,3 @@ vendor.debug.sf.latch_unsignaled=0
 debug.sf.enable_hwc_vds=0
 ro.surface_flinger.supports_background_blur=0
 ro.sf.blurs_are_expensive=1
-
-
-# ── 4. Touch Digitizer (Novatek NT36672C) Responsiveness & Low-Latency ────────
-# Note: view.touch_slop and ro.input.resampling must NOT be artificially overridden
-# to prevent touch jitter, missed fast typing, and multi-touch gesture collisions.
-persist.sys.touch.latency=0
-debug.touch.frequency.boost=1

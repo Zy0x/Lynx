@@ -162,13 +162,17 @@ fun TouchPrecisionCalibrationCard(
             )
         }
 
-        InputPipelineKtchSection(
-            config = config,
-            ktchPresent = support.ktchPresent,
-            onConfigChange = updateConfig,
-            onCommit = commitLive,
-            onCommitLatest = commitLatest,
-        )
+        if (support.ktchPresent || support.resamplingSupported || support.touchIrqSupported) {
+            InputPipelineKtchSection(
+                config = config,
+                ktchPresent = support.ktchPresent,
+                resamplingSupported = support.resamplingSupported,
+                touchIrqSupported = support.touchIrqSupported,
+                onConfigChange = updateConfig,
+                onCommit = commitLive,
+                onCommitLatest = commitLatest,
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -288,7 +292,6 @@ private fun TouchTelemetryBanner(support: TouchPrecisionHardwareSupport) {
                     support.edgeWidthLeftPx,
                     support.edgeWidthRightPx,
                     support.edgeMlThresholdActive,
-                    support.activeSlop,
                 ),
                 color = TextSecondary,
                 fontSize = 11.sp,

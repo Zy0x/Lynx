@@ -29,9 +29,10 @@ data class TouchPrecisionHardwareSupport(
     val edgeWidthLeftPx: Int = 14,
     val edgeWidthRightPx: Int = 14,
     val edgeMlThresholdActive: String = "0.96",
-    val activeSlop: Int = 4,
     val activeResampling: Boolean = false,
-    val activeFreqBoost: Boolean = true,
+    val activeIrqPinned: Boolean = false,
+    val resamplingSupported: Boolean = false,
+    val touchIrqSupported: Boolean = false,
 )
 
 /**
@@ -57,9 +58,7 @@ data class TouchPrecisionConfig(
     val backGestureLinkSides: Boolean = true,
     val backGestureMlEnabled: Boolean = true,
     val backGestureMlThreshold: Float = 0.96f,
-    val viewTouchSlop: Int = 4,
     val inputResampling: Boolean = false,
-    val debugTouchFreqBoost: Boolean = true,
     val touchIrqBigCores: Boolean = true,
 ) {
     companion object {

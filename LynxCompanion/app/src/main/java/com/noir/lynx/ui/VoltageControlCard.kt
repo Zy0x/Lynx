@@ -180,7 +180,7 @@ fun VoltageControlCard(
 }
 
 // ============================================================
-//  FKM PARITY: DISPLAY CALIBRATION CARD (KCAL & HBM)
+//  FKM PARITY: DISPLAY CALIBRATION CARD (KCAL)
 // ============================================================
 
 // ============================================================

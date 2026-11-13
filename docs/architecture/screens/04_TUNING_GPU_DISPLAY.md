@@ -1,6 +1,6 @@
 # 📐 Screen Architecture 04: GPU & Display Subscreen (`gpu`)
 > **Scope**: GPU Master Tuner (Min/Max OPP), Adreno KGSL & MTK GED Tunables, Display Refresh Rate, TouchBoost Multi-OEM, & Color Management  
-> **Source Files**: `GpuSubscreen.kt`, `GpuMasterTunerCard.kt`, `DisplayRefreshRateTouchCard.kt`, `GraphicsDriverHwuiCard.kt`, `ColorManagementCard.kt`, `GpuProfilesAndHardwareCard.kt`  
+> **Source Files**: `GpuSubscreen.kt`, `GpuMasterTunerCard.kt`, `DisplayRefreshRateTouchCard.kt`, `GraphicsDriverHwuiCard.kt`, `GraphicsMemoryPipelineSection.kt`, `SurfaceFlingerPhaseCard.kt`, `ColorManagementCard.kt`, `PanelTuningCard.kt`, `TouchPrecisionCalibrationCard.kt`, `GpuProfilesAndHardwareCard.kt`, `GraphicsPipelineProbe.kt`, `TouchIrqShellBuilder.kt`  
 
 ---
 
@@ -20,21 +20,19 @@ Sub-halaman GPU & Display mengontrol subsistem grafis dan panel output visual. H
    - Menjadi *Single Source of Truth* untuk parameter kernel driver grafis:
      - **Qualcomm Adreno**: KGSL bus split, force bus on, devfreq governor (`msm-adreno-tz`, `simple_ondemand`), idle timer.
      - **MediaTek Mali / GED**: GED GPU boost, FPSGO frame tracking, boosting policy `ged_boost_enable`, CCI limits.
-3. **Graphics Driver & HWUI Pipeline Card (`GraphicsDriverHwuiCard`)**:
-   - Pilihan driver rendering per-aplikasi (System Graphics Driver vs Game Driver).
-   - RenderThread priority booster (`setpriority -20`).
-   - SurfaceFlinger latching optimization.
+3. **Graphics Driver & HWUI Pipeline Card (`GraphicsDriverHwuiCard`, `GraphicsMemoryPipelineSection`, `SurfaceFlingerPhaseCard`)**:
+   - **Runtime Capability Gating (`GraphicsPipelineProbe.kt`)**: Memeriksa dukungan biner `resetprop`, simbol `ro.hwui.*` pada `libhwui.so`, backend `skiavk`/`skiagraphite`, ketersediaan paket ANGLE & pengaturan global `angle_gl_driver_*`, serta properti SurfaceFlinger/EGL sebelum menampilkan kontrol ke UI. Kontrol yang tidak didukung kernel/ROM otomatis disembunyikan agar bebas opsi palsu (*zero gimmick*).
+   - Pilihan backend rendering global & per-aplikasi menggunakan `angle_gl_driver_all_angle` + pasangan AOSP `angle_gl_driver_selection_pkgs` / `angle_gl_driver_selection_values` (bukan key non-standar).
+   - Cache HWUI (`ro.hwui.{texture,layer,path}_cache_size`) & `ro.input.resampling` diterapkan secara atomik via `resetprop` karena bersifat `ro.*`.
+   - RenderThread priority booster (`setpriority -20`), `debug.sf.latch_unsignaled`, `debug.sf.disable_backpressure`, dan `debug.sf.early_phase_offset_ns`.
 4. **Display Refresh Rate & Touch Card (`DisplayRefreshRateTouchCard`)**:
    - Pemilih Laju Penyegaran: `60 Hz`, `90 Hz`, `120 Hz`, `144 Hz` (bergantung panel).
    - **Auto Dynamic Refresh Rate Toggle**: Mengizinkan OS menurunkan refresh rate saat layar diam.
-   - **Multi-OEM TouchBoost Toggle**: Peningkatan polling rate sentuhan (Xiaomi, OnePlus, Realme, Infinix).
-5. **Color Management & Panel Calibration (`ColorManagementCard`)**:
+   - **Multi-OEM TouchBoost Toggle**: Peningkatan polling rate sentuhan berdasarkan node sysfs OEM yang benar-benar ada di kernel.
+5. **Color Management & Panel Calibration (`ColorManagementCard`, `PanelTuningCard`)**:
    - SurfaceFlinger ColorMatrix 1015 *column-major* via `su 1000` (Preset `D65 Natural IPS`, `IPS Vivid`, `Akurat`, `Gaming`, `Cinema`, `Membaca`).
    - KCAL RGB Hardware Matrix (jika kernel mendukung interface `/sys/devices/platform/kcal_ctrl.0/kcal`).
-   - High Brightness Mode (HBM) sunlight booster.
-6. **MediaTek Picture Quality (`MtkPqControlsCard` — MediaTek Only)**:
-   - Tersembunyi secara dinamis pada perangkat non-MediaTek (`ro.vendor.mtk_pq_support`).
-   - Mengontrol `persist.vendor.sys.pq.disp.aal.bypass` (AAL Bypass), `mdp.dre.en` / `mdp.vp.dre.en`, `shp.idx` (`0–9`), `iso.shp.en`, `ultrares.en`, `ultrares.strength` (`0–4`), dan `vendor.debug.pq.{shp,dshp}.en`, disertai reload aman HAL `pq-2-2` dan sinkronisasi `lynxd display pq`.
+   - True Panel CABC (`0x55`) & ESD Polling Watchdog (tampil dinamis hanya jika node sysfs/procfs panel terdeteksi). Fitur gimmick/non-berdampak seperti HBM palsu dan MTK PQ dilepas pada Fase 1 Universalization.
 
 ---
 
@@ -59,11 +57,12 @@ Sub-halaman GPU & Display mengontrol subsistem grafis dan panel output visual. H
 | **GED Boost Enable** | *N/A (Khusus MediaTek)* | `/sys/module/ged/parameters/ged_boost_enable` |
 | **Display Refresh Rate**| `service call SurfaceFlinger 1035 i32 <mode>` | `service call SurfaceFlinger 1035 i32 <mode>` |
 | **Hardware KCAL RGB** | `/sys/devices/platform/kcal_ctrl.0/kcal` | *Bergantung pada driver panel kustom OEM* |
-| **Novatek Touch Precision** | *Fallback Android Back Edge & Slop* | `/proc/nvt_micro_gain` (`0..12`), `/proc/nvt_edge_guard` (`0..240`), `/proc/nvt_spi_speed` (`4.8M..24M`), `/proc/nvt_game_mode`, `/proc/perfmgr/tchbst/kernel/tb_*` |
+| **Touch Precision & IRQ Affinity** | Dynamic `TouchIrqShellBuilder` (deteksi `/sys/devices/system/cpu/cpufreq/policy*` cluster tertinggi + `/proc/interrupts` touch/SPI/I2C + Edge Back Guard & `resetprop ro.input.resampling`) | Dinamis Multi-OEM (`TouchIrqShellBuilder` + node panel sentuh vendor yang terverifikasi & `/proc/perfmgr/tchbst/kernel/tb_*` jika tersedia) |
 
-- **7. Kalibrasi Presisi Sentuh & Pelindung Tepian (`TouchPrecisionCalibrationCard.kt`, `TouchPrecisionSections.kt`, `LynxTouchPrecisionRepository.kt`)**:
-  - Menyetel default tervalidasi pengguna (`micro_gain=4` `3.0x`, `edge_guard=48 px`, `SPI=15 MHz`, `gestural_narrow_back`, `back_gesture_scale=0.18`, `ML=0.96`, `view.touch_slop=4`, `resampling=false`, `ktch=280ms/80%`) sekaligus membuka batas maksimum hardware (`gain 0..12`, `edge 0..240 px`, `SPI 24 MHz`, `Back scale 0.00..2.00`).
-  - Terintegrasi ke `native/lynxd` (`TouchPrecisionController`) serta `LynxBootReceiver` standalone.
+- **6. Kalibrasi Presisi Sentuh & Pelindung Tepian (`TouchPrecisionCalibrationCard.kt`, `TouchPrecisionSections.kt`, `LynxTouchPrecisionRepository.kt`, `TouchIrqShellBuilder.kt`)**:
+  - Kontrol sepenuhnya *capability-gated*: slider `micro_gain`, `edge_guard`, dan `SPI` hanya aktif bila node kernel driver panel sentuh terverifikasi ada; pada perangkat lain tetap menyediakan **Edge Back Guard**, `resetprop ro.input.resampling`, dan penyematan **IRQ + kthread Sentuh Dinamis** ke cluster core performa tertinggi secara universal across Qualcomm/MediaTek/Exynos/Tensor.
+  - Properti mati tanpa efek AOSP (`view.touch_slop`, `debug.touch.frequency.boost`, `windowsmgr.max_events_per_second`, `persist.sys.touch.latency`, `debug.hwui.blob_cache_size_mb`, `debug.hwui.compiler_threads`, `debug.sf.max_acquired_buffers`) telah dihapus bersih.
+  - Terintegrasi ke `native/lynxd` (`TouchPrecisionController` + `irq_topology.rs`) serta `LynxBootReceiver` standalone.
 
 ---
 

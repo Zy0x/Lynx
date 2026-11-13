@@ -1541,7 +1541,6 @@ window.addEventListener('DOMContentLoaded', () => {
     loadTcpCongestion();
     loadWebVmTunables();
     loadWebBoefflaAndDoze();
-    loadWebMtkPq();
 
     setInterval(syncState, 3000);
     setInterval(pollTelemetry, 1500);
@@ -1568,69 +1567,6 @@ async function applyWebTouchPrecision() {
     }
 }
 
-async function loadWebMtkPq() {
-    const card = document.getElementById('card-mtk-pq');
-    if (!card) return;
-    const res = await execCmd(`${LYNXD} display pq status`);
-    if (res.errno !== 0 || !res.stdout) return;
-    try {
-        const data = JSON.parse(res.stdout.trim());
-        if (!data.supported) {
-            card.style.display = 'none';
-            return;
-        }
-        card.style.display = 'block';
-        const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
-        const setRng = (sid, vid, v) => {
-            const s = document.getElementById(sid);
-            const t = document.getElementById(vid);
-            if (s) s.value = String(v);
-            if (t) t.textContent = String(v);
-        };
-        setChk('pq-aal-bypass-toggle', data.aal_bypass);
-        setChk('pq-vp-dre-toggle', data.vp_dre_enabled);
-        setChk('pq-iso-shp-toggle', data.iso_shp_enabled);
-        setChk('pq-ultrares-toggle', data.ultrares_enabled);
-        setRng('pq-dre-slider', 'pq-dre-val', data.dre_mode);
-        setRng('pq-shp-slider', 'pq-shp-val', data.shp_index);
-        setRng('pq-ur-str-slider', 'pq-ur-str-val', data.ultrares_strength);
-    } catch (_) {}
-}
-
-async function applyWebMtkPq() {
-    const getChk = (id, def) => { const el = document.getElementById(id); return el ? el.checked : def; };
-    const getInt = (id, def) => { const el = document.getElementById(id); return el ? parseInt(el.value, 10) : def; };
-    await updateStateKey('mtk_pq.aal_bypass', getChk('pq-aal-bypass-toggle', false));
-    await updateStateKey('mtk_pq.vp_dre_enabled', getChk('pq-vp-dre-toggle', true));
-    await updateStateKey('mtk_pq.iso_shp_enabled', getChk('pq-iso-shp-toggle', true));
-    await updateStateKey('mtk_pq.ultrares_enabled', getChk('pq-ultrares-toggle', true));
-    await updateStateKey('mtk_pq.dre_mode', getInt('pq-dre-slider', 2));
-    await updateStateKey('mtk_pq.shp_index', getInt('pq-shp-slider', 2));
-    await updateStateKey('mtk_pq.ultrares_strength', getInt('pq-ur-str-slider', 0));
-    logToConsole('Applying MTK PQ configuration and reloading HAL...');
-    const res = await execCmd(`${LYNXD} display pq apply`);
-    if (res.errno === 0) {
-        logToConsole('MTK PQ settings applied.', 'success');
-        loadWebMtkPq();
-    } else {
-        logToConsole(`Failed applying MTK PQ: ${res.stderr}`, 'error');
-    }
-}
-
-async function resetWebMtkPq() {
-    logToConsole('Restoring MTK PQ factory defaults...');
-    const res = await execCmd(`${LYNXD} display pq reset`);
-    if (res.errno === 0) {
-        logToConsole('MTK PQ defaults restored.', 'success');
-        loadWebMtkPq();
-    } else {
-        logToConsole(`Failed resetting MTK PQ: ${res.stderr}`, 'error');
-    }
-}
-
-
-
-
 async function loadWebPanelTuning() {
     const card = document.getElementById('card-panel-tuning');
     if (!card) return;
@@ -1638,14 +1574,9 @@ async function loadWebPanelTuning() {
     if (res.errno !== 0 || !res.stdout) return;
     try {
         const data = JSON.parse(res.stdout);
-        const anySup = Boolean(data.cabc_supported || data.esd_supported || data.hbm_supported);
+        const anySup = Boolean(data.cabc_supported || data.esd_supported);
         card.style.display = anySup ? 'block' : 'none';
         if (!anySup) return;
-
-        const rowHbm = document.getElementById('row-panel-hbm');
-        if (rowHbm) rowHbm.style.display = data.hbm_supported ? 'flex' : 'none';
-        const hbmToggle = document.getElementById('panel-hbm-toggle');
-        if (hbmToggle) hbmToggle.checked = Number(data.active_hbm) > 0;
 
         const rowCabc = document.getElementById('row-panel-cabc');
         if (rowCabc) rowCabc.style.display = data.cabc_supported ? 'block' : 'none';
@@ -1689,17 +1620,5 @@ async function resetWebPanelTuning() {
         loadWebPanelTuning();
     } else {
         showToast('Gagal memulihkan default Panel tuning.', false);
-    }
-}
-
-async function toggleWebPanelHbm(enabled) {
-    const val = enabled ? 1 : 0;
-    const res = await runShell(`echo ${val} > /sys/kernel/oplus_display/hbm`);
-    const toggle = document.getElementById('panel-hbm-toggle');
-    if (res.errno === 0) {
-        showToast(enabled ? 'Outdoor HBM diaktifkan.' : 'Outdoor HBM dimatikan.', true);
-    } else {
-        if (toggle) toggle.checked = !enabled;
-        showToast('Gagal mengubah Outdoor HBM (pastikan layar menyala).', false);
     }
 }

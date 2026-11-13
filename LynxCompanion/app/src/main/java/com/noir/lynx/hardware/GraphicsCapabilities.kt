@@ -39,7 +39,6 @@ data class GraphicsCapabilities(
     val maxLuminanceNits: Float? = null,
     val hasKcal: Boolean = false,
     val dcDimmingNode: String? = null,
-    val hbmNode: String? = null,
     val nodes: List<NodeStatus> = emptyList(),
     // Anti-Spoofing & Detailed Telemetry
     val isSpoofed: Boolean = false,

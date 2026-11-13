@@ -33,6 +33,9 @@ fun SurfaceFlingerPhaseCard(
     onSetVsyncSwapBypass: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    if (!silicon.isSfEarlyPhaseSupported && !silicon.isTouchBoostDurationSupported && !silicon.isVsyncSwapBypassSupported) {
+        return
+    }
     var showPhaseDialog by remember { mutableStateOf(false) }
     var showTouchBoostDialog by remember { mutableStateOf(false) }
 
@@ -104,116 +107,122 @@ fun SurfaceFlingerPhaseCard(
             HorizontalDivider(color = BorderGlass)
 
             // ── 1. EARLY PHASE OFFSET NS ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("SF Early Phase Offset", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(
-                        text = "Offset waktu awal render SurfaceFlinger sebelum VSync pulse",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-                }
-
-                val phaseMs = (silicon.sfEarlyPhaseOffsetNs / 1_000_000L).toInt()
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.6f)),
-                    modifier = Modifier
-                        .clickable { showPhaseDialog = true }
-                        .padding(start = 8.dp)
+            if (silicon.isSfEarlyPhaseSupported) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SF Early Phase Offset", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                         Text(
-                            text = if (phaseMs == 0) "Default (0ms)" else "${phaseMs}ms",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentBlue
+                            text = "Offset waktu awal render SurfaceFlinger sebelum VSync pulse",
+                            fontSize = 11.sp,
+                            color = TextSecondary
                         )
+                    }
+
+                    val phaseMs = (silicon.sfEarlyPhaseOffsetNs / 1_000_000L).toInt()
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .clickable { showPhaseDialog = true }
+                            .padding(start = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(14.dp))
+                            Text(
+                                text = if (phaseMs == 0) "Default (0ms)" else "${phaseMs}ms",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentBlue
+                            )
+                        }
                     }
                 }
             }
 
             // ── 2. TOUCHBOOST DURATION MS ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("TouchBoost Duration", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text(
-                        text = "Lama penguncian clock responsif saat layar disentuh (50 - 2000 ms)",
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgElevated,
-                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)),
-                    modifier = Modifier
-                        .clickable { showTouchBoostDialog = true }
-                        .padding(start = 8.dp)
+            if (silicon.isTouchBoostDurationSupported) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Default.TouchApp, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("TouchBoost Duration", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                         Text(
-                            text = "${silicon.touchBoostDurationMs}ms",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentCyan
+                            text = "Lama penguncian clock responsif saat layar disentuh (50 - 2000 ms)",
+                            fontSize = 11.sp,
+                            color = TextSecondary
                         )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .clickable { showTouchBoostDialog = true }
+                            .padding(start = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.TouchApp, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                            Text(
+                                text = "${silicon.touchBoostDurationMs}ms",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan
+                            )
+                        }
                     }
                 }
             }
 
             // ── 3. VSYNC SWAP BYPASS ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .defaultMinSize(minHeight = 48.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text(
-                        text = "VSync Swap Interval Bypass",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = if (silicon.isVsyncSwapBypass) "Bypass (swapinterval=0): Respon input instan tanpa menunggu VSync" else "Sync (swapinterval=1): Presentasi frame terikat VSync",
-                        fontSize = 11.sp,
-                        color = TextSecondary
+            if (silicon.isVsyncSwapBypassSupported) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "VSync Swap Interval Bypass",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (silicon.isVsyncSwapBypass) "Bypass (swapinterval=0): Respon input instan tanpa menunggu VSync" else "Sync (swapinterval=1): Presentasi frame terikat VSync",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+
+                    Switch(
+                        checked = silicon.isVsyncSwapBypass,
+                        onCheckedChange = onSetVsyncSwapBypass,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = AccentOrange,
+                            uncheckedThumbColor = TextTertiary,
+                            uncheckedTrackColor = BgElevated
+                        )
                     )
                 }
-
-                Switch(
-                    checked = silicon.isVsyncSwapBypass,
-                    onCheckedChange = onSetVsyncSwapBypass,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = AccentOrange,
-                        uncheckedThumbColor = TextTertiary,
-                        uncheckedTrackColor = BgElevated
-                    )
-                )
             }
 
             HorizontalDivider(color = BorderGlass)

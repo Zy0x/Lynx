@@ -67,9 +67,6 @@ class LynxBootReceiver : BroadcastReceiver() {
                     // Restore calibrated Touch Micro-Sensitivity & Edge Back Guard settings
                     com.noir.lynx.data.LynxTouchPrecisionRepository.applySavedDefaultsOnBoot(context)
 
-                    // Restore MediaTek PQ (AAL Bypass, DRE, Sharpness, UltraRes) if supported
-                    com.noir.lynx.data.LynxMtkPqRepository.applySavedDefaultsOnBoot(context)
-
                     // Restore Panel CABC (0x55) & ESD Watchdog polling interval if supported
                     com.noir.lynx.data.LynxPanelTuningRepository.applySavedDefaultsOnBoot(context)
 

@@ -1,6 +1,7 @@
 package com.noir.lynx.hardware.gpu
 
 import com.noir.lynx.data.GpuSiliconInfo
+import com.noir.lynx.hardware.GraphicsPipelineProbe
 import com.noir.lynx.hardware.NodeWriter
 import com.noir.lynx.hardware.WriteResult
 import com.topjohnwu.superuser.Shell
@@ -50,6 +51,8 @@ object QualcommAdrenoSiliconExt {
         val touchBoostDur = Shell.cmd("getprop debug.sf.touch_boost_duration_ms").exec().out.firstOrNull()?.trim()?.toIntOrNull() ?: 500
         val swapInterval = Shell.cmd("getprop debug.egl.swapinterval").exec().out.firstOrNull()?.trim() ?: "1"
 
+        val caps = GraphicsPipelineProbe.detect()
+
         GpuSiliconInfo(
             sptpPcEnabled = sptpVal != 0,
             skipSaveRestore = skipVal != 0,
@@ -69,7 +72,10 @@ object QualcommAdrenoSiliconExt {
             sfEarlyGlPhaseOffsetNs = sfEarlyGlPhase,
             touchBoostDurationMs = touchBoostDur,
             isVsyncSwapBypass = swapInterval == "0",
-            isEarlyPhaseOffsetActive = sfEarlyPhase > 0L || sfEarlyGlPhase > 0L
+            isEarlyPhaseOffsetActive = sfEarlyPhase > 0L || sfEarlyGlPhase > 0L,
+            isTouchBoostDurationSupported = caps.isSfTouchBoostDurationSupported,
+            isSfEarlyPhaseSupported = caps.isSfEarlyPhaseSupported,
+            isVsyncSwapBypassSupported = caps.isEglSwapIntervalSupported
         )
     }
 
@@ -111,17 +117,23 @@ object QualcommAdrenoSiliconExt {
     }
 
     suspend fun setSurfaceFlingerPhaseOffset(earlyNs: Long, earlyGlNs: Long): Boolean = withContext(Dispatchers.IO) {
+        val caps = GraphicsPipelineProbe.detect()
+        if (!caps.isSfEarlyPhaseSupported) return@withContext false
         val cmd1 = "setprop debug.sf.early_phase_offset_ns $earlyNs"
         val cmd2 = "setprop debug.sf.early_gl_phase_offset_ns $earlyGlNs"
         Shell.cmd(cmd1, cmd2).exec().isSuccess
     }
 
     suspend fun setTouchBoostDuration(durationMs: Int): Boolean = withContext(Dispatchers.IO) {
+        val caps = GraphicsPipelineProbe.detect()
+        if (!caps.isSfTouchBoostDurationSupported) return@withContext false
         val safe = durationMs.coerceIn(50, 2000)
         Shell.cmd("setprop debug.sf.touch_boost_duration_ms $safe").exec().isSuccess
     }
 
     suspend fun setVsyncSwapBypass(bypass: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val caps = GraphicsPipelineProbe.detect()
+        if (!caps.isEglSwapIntervalSupported) return@withContext false
         val v = if (bypass) "0" else "1"
         Shell.cmd("setprop debug.egl.swapinterval $v").exec().isSuccess
     }

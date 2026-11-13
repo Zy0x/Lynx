@@ -77,30 +77,6 @@ import kotlinx.coroutines.flow.update
     }
 
 
-    fun LynxViewModel.setHbmEnabled(enabled: Boolean) {
-        recordStateMutation()
-        _uiState.update { it.copy(displayCalibration = it.displayCalibration.copy(hbmEnabled = enabled)) }
-        viewModelScope.launch(Dispatchers.IO) {
-            if (!_uiState.value.displayCalibration.isHbmSupported) {
-                _uiState.update { it.copy(errorMessage = "HBM tidak didukung oleh panel display perangkat ini") }
-                return@launch
-            }
-            val ok = LynxRepository.setHbmEnabled(enabled)
-            if (ok) {
-                _uiState.update { it.copy(successMessage = if (enabled) "HBM Outdoor Aktif" else "HBM Dimatikan") }
-            } else {
-                val cal = LynxRepository.readDisplayCalibration()
-                _uiState.update {
-                    it.copy(
-                        displayCalibration = cal,
-                        errorMessage = "Gagal mengubah status HBM"
-                    )
-                }
-            }
-        }
-    }
-
-
     fun LynxViewModel.setSoundGain(hpL: Int, hpR: Int, spk: Int, mic: Int, highPerf: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(soundControl = it.soundControl.copy(

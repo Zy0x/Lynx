@@ -3,13 +3,12 @@ use std::path::Path;
 
 use crate::state::ConfigStore;
 
-/// Hardware controller for MediaTek / Novatek NT36672C panel CABC (DCS 0x55),
-/// Outdoor HBM readback, and ESD polling watchdog interval (/proc/mtk_esd_period_ms).
+/// Hardware controller for MediaTek / Novatek NT36672C panel CABC (DCS 0x55)
+/// and ESD polling watchdog interval (/proc/mtk_esd_period_ms).
 pub struct MtkPanelController;
 
 impl MtkPanelController {
     const CABC_NODE: &'static str = "/sys/kernel/oplus_display/LCM_CABC";
-    const HBM_NODE: &'static str = "/sys/kernel/oplus_display/hbm";
     const ESD_PERIOD_NODE: &'static str = "/proc/mtk_esd_period_ms";
 
     pub const DEFAULT_CABC_MODE: i64 = 0;
@@ -122,20 +121,17 @@ impl MtkPanelController {
     pub fn status_json() -> String {
         let active_cabc = Self::read_sys_i64(Self::CABC_NODE);
         let active_esd = Self::read_sys_i64(Self::ESD_PERIOD_NODE);
-        let active_hbm = Self::read_sys_i64(Self::HBM_NODE);
 
         let cfg_cabc = Self::clamp_cabc_mode(Self::read_i64_cfg("panel.cabc_mode", Self::DEFAULT_CABC_MODE));
         let cfg_esd = Self::clamp_esd_period_ms(Self::read_i64_cfg("panel.esd_period_ms", Self::DEFAULT_ESD_PERIOD_MS));
         let apply_on_boot = Self::read_bool_cfg("panel.apply_on_boot", true);
 
         format!(
-            "{{\"cabc_supported\":{},\"esd_supported\":{},\"hbm_supported\":{},\"active_cabc\":{},\"active_esd_ms\":{},\"active_hbm\":{},\"cfg_cabc\":{},\"cfg_esd_ms\":{},\"apply_on_boot\":{}}}",
+            "{{\"cabc_supported\":{},\"esd_supported\":{},\"active_cabc\":{},\"active_esd_ms\":{},\"cfg_cabc\":{},\"cfg_esd_ms\":{},\"apply_on_boot\":{}}}",
             active_cabc.is_some(),
             active_esd.is_some(),
-            active_hbm.is_some(),
             active_cabc.unwrap_or(-1),
             active_esd.unwrap_or(-1),
-            active_hbm.unwrap_or(-1),
             cfg_cabc,
             cfg_esd,
             apply_on_boot,
@@ -169,7 +165,7 @@ mod tests {
         let json = MtkPanelController::status_json();
         assert!(json.contains("\"cabc_supported\""));
         assert!(json.contains("\"esd_supported\""));
-        assert!(json.contains("\"hbm_supported\""));
+        assert!(!json.contains("hbm"));
         assert!(json.contains("\"active_esd_ms\""));
         assert!(json.contains("\"cfg_cabc\""));
         assert!(json.contains("\"cfg_esd_ms\""));

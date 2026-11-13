@@ -83,7 +83,7 @@ fn print_usage() {
         println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
         println!("  thermal status|mode|set-limit|restore");
         println!("  game on [pid]|off|optimize-pid|status");
-        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|pq|panel|info");
+        println!("  display set-refresh-rate|restore|touch-boost|touch-precision|panel|info");
         println!("  oem freeze|unfreeze");
         println!("  cpuset info|apply|set");
         println!("  cpuidle info|apply|set-state");
@@ -128,7 +128,7 @@ fn print_usage() {
     println!("  profile list|show|validate|apply|verify|current|revert|recover|journal");
     println!("  thermal status|mode|set-limit|restore");
     println!("  game on [pid]|off|optimize-pid|status");
-    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|pq|panel|info");
+    println!("  display set-refresh-rate|restore|touch-boost|touch-precision|panel|info");
     println!("  oem freeze|unfreeze");
     println!("  cpuset info|apply|set");
     println!("  cpuidle info|apply|set-state");
@@ -1012,14 +1012,6 @@ fn handle_display(args: &[String]) {
             match sub {
                 "status" => println!("{}", subsystems::TouchPrecisionController::status_json()),
                 _ => println!("{}", subsystems::TouchPrecisionController::apply_full()),
-            }
-        }
-        "pq" | "mtk-pq" => {
-            let sub = args.get(3).map(|s| s.as_str()).unwrap_or("apply");
-            match sub {
-                "status" => println!("{}", subsystems::MtkPqController::status_json()),
-                "reset" => println!("{}", subsystems::MtkPqController::reset_defaults()),
-                _ => println!("{}", subsystems::MtkPqController::apply_full()),
             }
         }
         "panel" | "cabc" | "esd" => {

@@ -37,13 +37,10 @@ fun GraphicsMemoryPipelineSection(
     onRefreshShaderCache: () -> Unit,
     onSetOemShield: (Boolean) -> Unit,
     onSetTextureCacheSize: ((Int) -> Unit)?,
-    onSetShaderBlobCache: ((Int) -> Unit)?,
-    onSetShaderCompilerThreads: ((Int) -> Unit)?,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)?,
     onSetPureHwVsync: ((Boolean) -> Unit)?
 ) {
     var showCustomTextureDialog by remember { mutableStateOf(false) }
-    var showCustomShaderBlobDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -170,8 +167,8 @@ fun GraphicsMemoryPipelineSection(
             }
         }
 
-        // ── 3. MEMORY ALLOCATION & MULTI-CORE SHADER COMPILATION ──
-        if (onSetTextureCacheSize != null || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null || onSetShaderCompilerThreads != null) {
+        // ── 3. MEMORY ALLOCATION & RENDER PIPELINE ──
+        if ((onSetTextureCacheSize != null && graphics.isTextureCacheSupported) || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
@@ -209,7 +206,7 @@ fun GraphicsMemoryPipelineSection(
             }
 
             // HWUI Texture Cache Size Selector
-            if (onSetTextureCacheSize != null) {
+            if (onSetTextureCacheSize != null && graphics.isTextureCacheSupported) {
                 Column(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
                     Text(
                         "Alokasi Memori Cache Tekstur",
@@ -287,138 +284,8 @@ fun GraphicsMemoryPipelineSection(
                 }
             }
 
-            // Disk Shader Blob Cache Size Selector
-            if (onSetShaderBlobCache != null) {
-                Column(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                    Text(
-                        "Kapasitas Disk Shader Blob Cache",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Penyimpanan shader terkompilasi di disk untuk mencegah micro-stutter pada game.",
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        graphics.shaderBlobCacheOptions.forEach { (mb, label) ->
-                            val isSelected = graphics.shaderBlobCacheMb == mb
-                            Surface(
-                                onClick = { onSetShaderBlobCache(mb) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 48.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        "${mb}MB",
-                                        color = if (isSelected) cardAccent else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        label.substringAfter("(").removeSuffix(")"),
-                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        val isPresetBlob = graphics.shaderBlobCacheOptions.any { it.first == graphics.shaderBlobCacheMb }
-                        val isCustomBlob = !isPresetBlob && graphics.shaderBlobCacheMb > 0
-                        Surface(
-                            onClick = { showCustomShaderBlobDialog = true },
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isCustomBlob) cardAccent.copy(alpha = 0.25f) else BgElevated,
-                            border = BorderStroke(1.2.dp, if (isCustomBlob) cardAccent else BorderGlass),
-                            modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 48.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    if (isCustomBlob) "${graphics.shaderBlobCacheMb}MB" else "✎ Kustom",
-                                    color = if (isCustomBlob) cardAccent else TextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isCustomBlob) FontWeight.Bold else FontWeight.Medium
-                                )
-                                Text(
-                                    if (isCustomBlob) "Kustom" else "Bebas",
-                                    color = if (isCustomBlob) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                    fontSize = 8.5.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Skia HWUI Compiler Threads Selector
-            if (onSetShaderCompilerThreads != null) {
-                Column(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                    Text(
-                        "Kompilasi Grafis Multi-Core",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Gunakan inti CPU paralel untuk pra-kompilasi shader visual.",
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        graphics.shaderCompilerThreadOptions.forEach { (threads, label) ->
-                            val isSelected = graphics.shaderCompilerThreads == threads
-                            Surface(
-                                onClick = { onSetShaderCompilerThreads(threads) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 46.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        if (threads == 0) "Auto" else "${threads} Inti",
-                                        color = if (isSelected) cardAccent else TextPrimary,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
-                                    Text(
-                                        label.substringAfter("(").removeSuffix(")"),
-                                        color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // Async Shader & Pure Hardware VSync
-            if (onSetAsyncShaderPipeline != null) {
+            if (onSetAsyncShaderPipeline != null && graphics.isAsyncShaderSupported) {
                 LynxSwitch(
                     label = "Pra-Pemuatan Efek Visual (Async Shader)",
                     subLabel = "Siapkan shader di latar belakang agar rendering game tetap lancar",
@@ -427,7 +294,7 @@ fun GraphicsMemoryPipelineSection(
                 )
             }
 
-            if (onSetPureHwVsync != null) {
+            if (onSetPureHwVsync != null && graphics.isPureHwVsyncSupported) {
                 LynxSwitch(
                     label = "Akselerasi VSync Hardware Layar",
                     subLabel = "Sinkronisasi animasi langsung ke panel fisik layar untuk mencegah tearing",
@@ -438,7 +305,7 @@ fun GraphicsMemoryPipelineSection(
         }
     }
 
-    if (showCustomTextureDialog && onSetTextureCacheSize != null) {
+    if (showCustomTextureDialog && onSetTextureCacheSize != null && graphics.isTextureCacheSupported) {
         GpuCustomNumberDialog(
             title = "Alokasi Cache Tekstur",
             description = "Atur ukuran memori cache grafis untuk rendering antarmuka.",
@@ -450,21 +317,6 @@ fun GraphicsMemoryPipelineSection(
             accentColor = cardAccent,
             onConfirm = { newVal -> onSetTextureCacheSize(newVal) },
             onDismiss = { showCustomTextureDialog = false }
-        )
-    }
-
-    if (showCustomShaderBlobDialog && onSetShaderBlobCache != null) {
-        GpuCustomNumberDialog(
-            title = "Kapasitas Disk Shader Blob Cache",
-            description = "Menyimpan shader terkompilasi di disk untuk mencegah freeze game.",
-            currentValue = graphics.shaderBlobCacheMb.coerceIn(32, 2048),
-            unit = "MB",
-            minVal = 32,
-            maxVal = 2048,
-            step = 32,
-            accentColor = cardAccent,
-            onConfirm = { newVal -> onSetShaderBlobCache(newVal) },
-            onDismiss = { showCustomShaderBlobDialog = false }
         )
     }
 }

@@ -47,12 +47,10 @@ internal fun HudZoneTouchControls() {
     val zoneTouch = runtime.zoneTouch
     val esportsEnabled by zoneTouch.esportsEnabled.collectAsState()
     val samplingBoost by zoneTouch.samplingBoost.collectAsState()
-    val touchSlop by zoneTouch.touchSlop.collectAsState()
 
     val zoneTouchInfo = "${hudString(R.string.hud_zonetouch_desc)}\n\n" +
     "• Esports Low-Latency Touch: Memaksa responsivitas touch event ke prioritas tertinggi di subsistem Android InputReader.\n\n" +
-    "• Sampling Rate Boost: Meningkatkan touch report rate hingga batas maksimal hardware digitizer (240Hz - 480Hz).\n\n" +
-    "• Ultra-Sensitive Touch Slop (2px): Mengurangi ambang batas jarak pergerakan jari sebelum diakui sebagai gesture scroll/swipe, membuat sentuhan sangat peka."
+    "• Sampling Rate Boost: Meningkatkan touch report rate hingga batas maksimal hardware digitizer (240Hz - 480Hz)."
 
     HudSection(
         title = hudString(R.string.hud_zonetouch_title),
@@ -71,15 +69,6 @@ internal fun HudZoneTouchControls() {
                 label = hudString(R.string.hud_zonetouch_sampling),
                 checked = samplingBoost,
                 onChange = zoneTouch::setSamplingBoost
-            )
-
-            AddinToggle(
-                label = hudString(R.string.hud_zonetouch_slop),
-                checked = touchSlop <= 2,
-                info = hudString(R.string.hud_zonetouch_slop_desc),
-                onChange = { ultra ->
-                    zoneTouch.setTouchSlop(if (ultra) 2 else 8)
-                }
             )
         }
     }

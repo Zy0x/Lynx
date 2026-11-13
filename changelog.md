@@ -1,3 +1,16 @@
+# Lynx Universal [Universal Display/Graphics Capability Gating & Anti-Gimmick Cleanup] 7.0.0-RC390
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.11
+
+- **Penghapusan Fitur Gimmick & Properti Mati (`LynxCompanion`, `lynxd`, `webroot/`, `core/`, `platforms/`)**:
+  - Menghapus kontrol **HBM** (`LynxHbmTileService` serta entri HBM di `LynxDisplayRepository`, `ColorManagementCard`, `DisplayCapabilityDetector`, dan `webroot/`) dan kontrol **MediaTek PQ** (`MtkPqControlsCard`, `LynxMtkPqRepository`, `LynxMtkPqModels`, modul Rust `mtk_pq.rs`, dan `#card-mtk-pq` WebUI) agar tidak menampilkan kontrol yang tidak berdampak nyata.
+  - Menghapus properti mati tanpa efek di Android/AOSP modern (`view.touch_slop`, `persist.sys.touch.latency`, `debug.touch.frequency.boost`, `persist.sys.lynx.touchboost`, `windowsmgr.max_events_per_second`, `persist.sys.lynx.blob_cache_mb`, `persist.sys.lynx.swapchain_mode`, `renderthread.skia.pipeline`, `debug.angle.backend`, `ro.egl.blobcache.multithread_limit`, `debug.hwui.blob_cache_size_mb`, `debug.hwui.compiler_threads`, dan `debug.sf.max_acquired_buffers`).
+- **Universal Runtime Capability Gating & Topologi Dinamis (`GraphicsPipelineProbe.kt`, `TouchIrqShellBuilder.kt`, `irq_topology.rs`)**:
+  - Menambahkan validasi kemampuan *runtime* pada lapisan Companion untuk memverifikasi dukungan `resetprop`, `ro.hwui.*` (`texture_cache_size`, `layer_cache_size`, `path_cache_size`), `debug.hwui.renderer`, `debug.sf.*`, `debug.egl.swapinterval`, dan `ro.input.resampling` secara dinamis lintas chipset dan ROM.
+  - Mengganti penargetan core/IRQ hardcoded dengan deteksi topologi cluster CPU (`cpufreq/policy*`) serta interrupt & kthread sentuh/SPI/I2C dinamis lintas Qualcomm, MediaTek, Exynos, Tensor, maupun kernel generik.
+  - Memperbaiki manajemen driver per-aplikasi **ANGLE** menggunakan pengaturan global AOSP standar (`angle_gl_driver_all_angle`, `angle_gl_driver_selection_pkgs`, dan `angle_gl_driver_selection_values`).
+  - Mempertahankan penuh fitur yang tervalidasi nyata: **True Panel CABC (`0x55`)**, **ESD Watchdog**, **SurfaceFlinger `1015` ColorMatrix**, **KCAL**, **DC Dimming**, **Refresh Rate**, dan **Touch Precision**.
+
 # Lynx Universal [True Panel CABC, Outdoor HBM & ESD Watchdog Control] 7.0.0-RC389
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.10

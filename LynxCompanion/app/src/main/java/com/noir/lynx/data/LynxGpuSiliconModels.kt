@@ -27,6 +27,9 @@ data class GpuSiliconInfo(
     val touchBoostDurationMs: Int = 500,
     val isVsyncSwapBypass: Boolean = false,
     val isEarlyPhaseOffsetActive: Boolean = false,
+    val isTouchBoostDurationSupported: Boolean = false,
+    val isSfEarlyPhaseSupported: Boolean = false,
+    val isVsyncSwapBypassSupported: Boolean = false,
 
     // Studio Lab Telemetry & Stability Benchmark
     val fpsOnePercentLow: Float = 0f,

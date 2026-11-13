@@ -167,7 +167,6 @@ internal object LynxDisplayRepository {
                 maxLuminanceNits = disp.maxLuminanceNits,
                 hasKcal = disp.hasKcal,
                 dcDimmingNode = disp.dcDimmingNode,
-                hbmNode = disp.hbmNode,
                 nodes = gpu.nodeStatuses,
                 isSpoofed = gpu.isSpoofed,
                 spoofedGpuModel = gpu.spoofedGpuModel,
@@ -289,21 +288,12 @@ internal object LynxDisplayRepository {
                     kcal_dir="/sys/module/msm_fb/parameters"
                 fi
 
-                hbm_node=""
-                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/kernel/oplus_display/hbm; do
-                    if [ -f "${'$'}n" ] && cat "${'$'}n" >/dev/null 2>&1; then
-                        hbm_node="${'$'}n"
-                        break
-                    fi
-                done
-
-                echo "KCAL:${'$'}kcal_dir|HBM:${'$'}hbm_node"
+                echo "KCAL:${'$'}kcal_dir"
             """.trimIndent()
 
             val res = Shell.cmd(script).exec()
             val line = res.out.firstOrNull()?.trim() ?: ""
-            val kcalDir = line.substringAfter("KCAL:").substringBefore("|").trim()
-            val hbmNode = line.substringAfter("HBM:").trim()
+            val kcalDir = line.substringAfter("KCAL:").trim()
 
             var kcalSupported = false
             var kcalEnabled = false
@@ -333,14 +323,6 @@ internal object LynxDisplayRepository {
                 hue = Shell.cmd("cat $kcalDir/kcal_hue 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
             }
 
-            var hbmSupported = false
-            var hbmEnabled = false
-            if (hbmNode.isNotEmpty() && Shell.cmd("[ -f '$hbmNode' ] && cat '$hbmNode' >/dev/null 2>&1 && echo 1").exec().out.firstOrNull() == "1") {
-                hbmSupported = true
-                val hbmVal = Shell.cmd("cat '$hbmNode' 2>/dev/null").exec().out.firstOrNull()?.trim()
-                hbmEnabled = hbmVal == "1" || hbmVal == "2"
-            }
-
             val univColor = Shell.cmd("settings get system display_color_adjustment 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1.0 1.0 1.0"
             val uParts = univColor.split(Regex("\\s+"))
             val uR = uParts.getOrNull(0)?.toFloatOrNull() ?: 1.0f
@@ -358,9 +340,6 @@ internal object LynxDisplayRepository {
                 value = v,
                 contrast = cont,
                 hue = hue,
-                isHbmSupported = hbmSupported,
-                hbmUnsupportedReason = if (!hbmSupported) "Driver HBM (High Brightness Mode) tidak didukung oleh panel display ini" else "",
-                hbmEnabled = hbmEnabled,
                 isUniversalColorSupported = true,
                 universalRed = uR,
                 universalGreen = uG,
@@ -392,29 +371,6 @@ internal object LynxDisplayRepository {
                 echo "$hue" > $dir/kcal_hue 2>/dev/null
             """.trimIndent()
             Shell.cmd(cmd).exec().isSuccess
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    suspend fun setHbmEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val target = if (enabled) "1" else "0"
-            val script = """
-                for n in /sys/class/graphics/fb0/hbm /sys/devices/virtual/graphics/fb0/hbm /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/kernel/oplus_display/hbm; do
-                    if [ -f "${'$'}n" ] && cat "${'$'}n" >/dev/null 2>&1; then
-                        if echo "$target" > "${'$'}n" 2>/dev/null; then
-                            echo 1
-                        else
-                            echo 0
-                        fi
-                        exit 0
-                    fi
-                done
-                echo 0
-            """.trimIndent()
-            val res = Shell.cmd(script).exec()
-            res.out.firstOrNull()?.trim() == "1"
         } catch (e: Exception) {
             false
         }

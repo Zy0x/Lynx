@@ -61,16 +61,10 @@ object DisplayCapabilityDetector {
             echo "---MARKER_SF_HWC---"
             dumpsys SurfaceFlinger 2>/dev/null | grep -iE "Hardware Composer|HWC version|hwcomposer" | head -n 3
             echo "---MARKER_PANEL_NODES---"
-            # 3. Check DC Dimming, HBM, KCAL
+            # 3. Check DC Dimming and KCAL
             for d in /sys/devices/virtual/graphics/fb0/dc_dimming /sys/class/drm/card0-DSI-1/dc_dimming /sys/kernel/display/dc_dimming /sys/devices/platform/soc/soc:qcom,dsi-display-primary/dc_dimming; do
                 if [ -f "${'$'}d" ]; then
                     echo "DCDIM:${'$'}d"
-                    break
-                fi
-            done
-            for h in /sys/class/drm/card0-DSI-1/hbm /sys/devices/platform/soc/soc:qcom,dsi-display-primary/hbm /sys/class/graphics/fb0/hbm /sys/kernel/oplus_display/hbm; do
-                if [ -f "${'$'}h" ] && cat "${'$'}h" >/dev/null 2>&1; then
-                    echo "HBM:${'$'}h"
                     break
                 fi
             done
@@ -91,7 +85,6 @@ object DisplayCapabilityDetector {
         var sfHwc = ""
         var shellDpi = 0
         var dcDimmingNode: String? = null
-        var hbmNode: String? = null
         var hasKcal = false
 
         for (line in lines) {
@@ -123,7 +116,6 @@ object DisplayCapabilityDetector {
                 3 -> {
                     when {
                         line.startsWith("DCDIM:") -> dcDimmingNode = line.removePrefix("DCDIM:").trim()
-                        line.startsWith("HBM:") -> hbmNode = line.removePrefix("HBM:").trim()
                         line == "KCAL_EXISTS" -> hasKcal = true
                     }
                 }
@@ -200,7 +192,6 @@ object DisplayCapabilityDetector {
             maxLuminanceNits = maxLum,
             hasKcal = hasKcal,
             dcDimmingNode = dcDimmingNode,
-            hbmNode = hbmNode,
             displayDpi = displayDpi,
             displayDensity = displayDensity,
             displayColorMode = resolvedColorMode,
@@ -215,7 +206,6 @@ object DisplayCapabilityDetector {
         val maxLuminanceNits: Float?,
         val hasKcal: Boolean,
         val dcDimmingNode: String?,
-        val hbmNode: String?,
         val displayDpi: Int,
         val displayDensity: Float,
         val displayColorMode: String,

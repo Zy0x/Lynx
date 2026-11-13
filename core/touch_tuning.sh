@@ -7,7 +7,6 @@
 
 ACTION="${1:-enable}"
 SAMPLING_BOOST="${2:-1}"
-TOUCH_SLOP="${3:-2}"
 
 apply_node() {
     local val="$1"
@@ -18,14 +17,32 @@ apply_node() {
     fi
 }
 
+set_ro_prop() {
+    local key="$1"
+    local val="$2"
+    for rp in /data/adb/ksu/bin/resetprop /data/adb/magisk/resetprop /data/adb/ap/bin/resetprop "$(command -v resetprop 2>/dev/null)"; do
+        if [ -n "$rp" ] && [ -x "$rp" ]; then
+            "$rp" -n "$key" "$val" 2>/dev/null || "$rp" "$key" "$val" 2>/dev/null
+            return 0
+        fi
+    done
+    return 1
+}
+
+supports_input_resampling() {
+    for lib in /system/lib64/libinput.so /system/lib/libinput.so /system/lib64/libinputflinger.so /system/lib/libinputflinger.so /vendor/lib64/libinput.so; do
+        if [ -r "$lib" ] && grep -Fq "ro.input.resampling" "$lib" 2>/dev/null; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 enable_esports_touch() {
-    # 1. Ultra-Low Touch Slop & Micro-Aiming Sensitivity
-    setprop view.touch_slop "$TOUCH_SLOP"
-    setprop ro.input.resampling 1
-    setprop windowsmgr.max_events_per_second 300
-    setprop persist.sys.touch.latency 0
-    setprop debug.touch.frequency.boost 1
-    setprop touch.pressure.scale 0.001
+    # 1. InputFlinger Resampling (verified in libinput)
+    if supports_input_resampling; then
+        set_ro_prop ro.input.resampling 1
+    fi
 
     # 2. Dynamic Hardware Touch IC Polling Boost
     if [ "$SAMPLING_BOOST" -eq 1 ]; then
@@ -81,9 +98,9 @@ enable_esports_touch() {
 }
 
 disable_esports_touch() {
-    resetprop --delete view.touch_slop 2>/dev/null || setprop view.touch_slop ""
-    resetprop --delete touch.pressure.scale 2>/dev/null
-    setprop debug.touch.frequency.boost 0
+    if supports_input_resampling; then
+        set_ro_prop ro.input.resampling 0
+    fi
     apply_node 0 /proc/touch_report_rate
     apply_node 0 /proc/driver/touchpanel/game_switch_enable
     apply_node 0 /sys/class/touchscreen/game_quick_mode
@@ -94,14 +111,14 @@ disable_esports_touch() {
 case "$ACTION" in
     enable)
         enable_esports_touch
-        echo "[OK] ZoneTouch Esports Engine Enabled (Slop: $TOUCH_SLOP px, Sampling: $SAMPLING_BOOST)"
+        echo "[OK] ZoneTouch Esports Engine Enabled (Sampling: $SAMPLING_BOOST)"
         ;;
     disable)
         disable_esports_touch
         echo "[OK] ZoneTouch Esports Engine Restored"
         ;;
     *)
-        echo "Usage: $0 [enable|disable] [sampling_boost: 0|1] [touch_slop: 1..8]"
+        echo "Usage: $0 [enable|disable] [sampling_boost: 0|1]"
         exit 1
         ;;
 esac

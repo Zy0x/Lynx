@@ -65,7 +65,6 @@ fun DisplayCalibrationCard(
     displayCalibration: DisplayCalibrationInfo,
     onSetUniversalColor: (Float, Float, Float) -> Unit,
     onSetKcal: (Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit,
-    onSetHbm: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentGreen
@@ -169,26 +168,6 @@ fun DisplayCalibrationCard(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
-        }
-
-        // HBM Sunlight Booster (If supported)
-        if (displayCalibration.isHbmSupported) {
-            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("HBM Sunlight Booster", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Text("Meningkatkan batas kecerahan panel display di luar slider standar", color = TextSecondary, fontSize = 10.5.sp)
-                }
-                Switch(
-                    checked = displayCalibration.hbmEnabled,
-                    onCheckedChange = { onSetHbm(it) },
-                    colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = cardAccent)
                 )
             }
         }

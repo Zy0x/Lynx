@@ -26,6 +26,7 @@ internal object LynxGraphicsEngineRepository {
             val script = """
                 echo "driver:${'$'}(settings get global updatable_driver_all_apps 2>/dev/null | tr -d ' \n')"
                 echo "renderer:${'$'}(getprop debug.hwui.renderer 2>/dev/null | tr -d ' \n')"
+                echo "angle_all:${'$'}(settings get global angle_gl_driver_all_angle 2>/dev/null | tr -d ' \n')"
                 echo "latch:${'$'}(getprop debug.sf.latch_unsignaled 2>/dev/null | tr -d ' \n')"
                 echo "backpressure:${'$'}(getprop debug.sf.disable_backpressure 2>/dev/null | tr -d ' \n')"
                 echo "early_phase:${'$'}(getprop debug.sf.early_phase_offset_ns 2>/dev/null | tr -d ' \n')"
@@ -61,14 +62,10 @@ internal object LynxGraphicsEngineRepository {
                 echo "tex_cache:${'$'}(getprop ro.hwui.texture_cache_size 2>/dev/null | tr -d ' \n')"
                 echo "async_shader:${'$'}(getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null | tr -d ' \n')"
                 echo "pure_vsync:${'$'}(getprop debug.cpurend.vsync 2>/dev/null | tr -d ' \n')"
-                echo "compiler_threads:${'$'}(getprop debug.hwui.compiler_threads 2>/dev/null | tr -d ' \n')"
-                b_blob=${'$'}(getprop debug.hwui.blob_cache_size_mb 2>/dev/null | tr -d ' \n')
-                [ -z "${'$'}b_blob" ] && b_blob=${'$'}(getprop persist.sys.lynx.blob_cache_mb 2>/dev/null | tr -d ' \n')
-                echo "blob_cache:${'$'}b_blob"
-                echo "swapchain:${'$'}(getprop persist.sys.lynx.swapchain_mode 2>/dev/null | tr -d ' \n')"
             """.trimIndent()
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
             val res = Shell.cmd(script).exec()
-            var driver = "default"; var renderer = "auto"; var latch = false; var disableBackpressure = false; var msaa = false
+            var driver = "default"; var renderer = "auto"; var angleAll = false; var latch = false; var disableBackpressure = false; var msaa = false
             var isDcSupported = false; var dcEnabled = false
             var shaderBytes = 0L; var shaderCount = 0
             var isVulkanFromShell = false
@@ -77,9 +74,6 @@ internal object LynxGraphicsEngineRepository {
             var textureCacheMb = 72
             var asyncShaderOn = false
             var pureHwVsync = false
-            var compilerThreads = 0
-            var shaderBlobMb = 128
-            var swapchainMode = "triple"
 
             for (line in res.out) {
                 val t = line.trim()
@@ -90,7 +84,13 @@ internal object LynxGraphicsEngineRepository {
                     }
                     t.startsWith("renderer:") -> {
                         val rVal = t.removePrefix("renderer:")
-                        renderer = if (rVal.isNotBlank()) rVal else "auto"
+                        if (!angleAll) renderer = if (rVal.isNotBlank()) rVal else "auto"
+                    }
+                    t.startsWith("angle_all:") -> {
+                        if (t.removePrefix("angle_all:") == "1") {
+                            angleAll = true
+                            renderer = "angle"
+                        }
                     }
                     t.startsWith("latch:") -> latch = t.removePrefix("latch:") == "1"
                     t.startsWith("backpressure:") -> disableBackpressure = t.removePrefix("backpressure:") == "1"
@@ -114,15 +114,6 @@ internal object LynxGraphicsEngineRepository {
                     t.startsWith("tex_cache:") -> textureCacheMb = t.removePrefix("tex_cache:").toIntOrNull() ?: 72
                     t.startsWith("async_shader:") -> asyncShaderOn = t.removePrefix("async_shader:") == "true"
                     t.startsWith("pure_vsync:") -> pureHwVsync = t.removePrefix("pure_vsync:") == "false"
-                    t.startsWith("compiler_threads:") -> compilerThreads = t.removePrefix("compiler_threads:").toIntOrNull() ?: 0
-                    t.startsWith("blob_cache:") -> {
-                        val b = t.removePrefix("blob_cache:").toIntOrNull()
-                        if (b != null && b > 0) shaderBlobMb = b
-                    }
-                    t.startsWith("swapchain:") -> {
-                        val s = t.removePrefix("swapchain:").trim()
-                        if (s.isNotBlank()) swapchainMode = s
-                    }
                 }
             }
 
@@ -135,8 +126,8 @@ internal object LynxGraphicsEngineRepository {
                 File("/vendor/lib/hw/vulkan.mali.so").exists() ||
                 File("/vendor/lib64/hw/vulkan.qcom.so").exists()
 
-            val isVulkan = hasVulkanHardware || isVulkanFromShell
-            val isGraphite = (android.os.Build.VERSION.SDK_INT >= 34) && isVulkan
+            val isVulkan = hasVulkanHardware || isVulkanFromShell || caps.isVulkanSupported
+            val isGraphite = caps.isGraphiteSupported
 
             val hasAngleHardware = (android.os.Build.VERSION.SDK_INT >= 29) && (
                 systemFeatures.any { it.contains("angle", ignoreCase = true) } ||
@@ -146,7 +137,7 @@ internal object LynxGraphicsEngineRepository {
                 File("/system/lib64/egl/libGLESv2_angle.so").exists() ||
                 File("/system/lib/egl/libGLESv2_angle.so").exists()
             )
-            val isAngle = (android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && (hasAngleHardware || isAngleFromShell)
+            val isAngle = caps.isAngleSupported || ((android.os.Build.VERSION.SDK_INT >= 29) && isVulkan && (hasAngleHardware || isAngleFromShell))
 
             // Read current display resolution for esports scaler
             val (nativeRes, activeRes, nativeDpi) = try {
@@ -177,9 +168,9 @@ internal object LynxGraphicsEngineRepository {
                 dcDimmingEnabled = dcEnabled,
                 shaderCacheSizeBytes = shaderBytes,
                 shaderCacheCount = shaderCount,
-                isVulkanSupported = isVulkan,
-                isGraphiteSupported = isGraphite,
-                isAngleSupported = isAngle,
+                isVulkanSupported = isVulkan || caps.isVulkanSupported,
+                isGraphiteSupported = isGraphite || caps.isGraphiteSupported,
+                isAngleSupported = isAngle || caps.isAngleSupported,
                 isEarlyPhaseOffset = earlyPhase,
                 textureCacheMb = textureCacheMb,
                 asyncShaderPipelineEnabled = asyncShaderOn,
@@ -188,10 +179,13 @@ internal object LynxGraphicsEngineRepository {
                 nativeResolution = nativeRes,
                 activeResolution = activeRes,
                 nativeDensity = nativeDpi,
-                shaderCompilerThreads = compilerThreads,
                 forcedFpsUnlockerHz = forcedFps,
-                shaderBlobCacheMb = shaderBlobMb,
-                swapchainBufferMode = swapchainMode,
+                isTextureCacheSupported = caps.isTextureCacheSupported,
+                isAsyncShaderSupported = caps.isAsyncShaderSupported,
+                isPureHwVsyncSupported = caps.isPureHwVsyncSupported,
+                isSfLatchSupported = caps.isSfLatchSupported,
+                isSfDisableBackpressureSupported = caps.isSfDisableBackpressureSupported,
+                isSfEarlyPhaseSupported = caps.isSfEarlyPhaseSupported
             )
         } catch (e: Exception) {
             Log.e("LynxGraphicsEngine", "readGraphicsHwuiInfo failed", e)
@@ -199,19 +193,34 @@ internal object LynxGraphicsEngineRepository {
         }
     }
 
-    suspend fun setShaderCompilerThreads(threads: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (threads <= 0) {
-                Shell.cmd("setprop debug.hwui.compiler_threads ''").exec().isSuccess
-            } else {
-                val valid = threads.coerceIn(1, 8)
-                Shell.cmd("setprop debug.hwui.compiler_threads $valid").exec().isSuccess
+    internal fun parseAngleSelectionMap(pkgsRaw: String, valsRaw: String): Map<String, String> {
+        val pkgs = pkgsRaw.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "null" }
+        val vals = valsRaw.split(",").map { it.trim() }.filter { it.isNotBlank() && it != "null" }
+        if (pkgs.isEmpty() || pkgs.size != vals.size) return emptyMap()
+        val result = linkedMapOf<String, String>()
+        for (i in pkgs.indices) {
+            val driver = vals[i].lowercase()
+            if (driver != "default") {
+                result[pkgs[i]] = driver
             }
-        } catch (e: Exception) { false }
+        }
+        return result
+    }
+
+    internal fun formatAngleSelectionPairs(selection: Map<String, String>): Pair<String, String> {
+        val clean = selection.entries
+            .mapNotNull { (pkg, drv) ->
+                val p = pkg.trim()
+                val d = drv.trim().lowercase()
+                if (p.isBlank() || d.isBlank() || d == "default") null else p to d
+            }
+        return clean.joinToString(",") { it.first } to clean.joinToString(",") { it.second }
     }
 
     suspend fun setSurfaceFlingerEarlyPhase(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isSfEarlyPhaseSupported) return@withContext false
             val script = if (enabled) {
                 """
                     setprop debug.sf.early_phase_offset_ns 500000
@@ -247,34 +256,40 @@ internal object LynxGraphicsEngineRepository {
 
     suspend fun setHwuiRenderer(backend: String): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
             val script = when (backend) {
                 "auto" -> """
-                    setprop debug.hwui.renderer ''
-                    setprop debug.angle.backend ''
-                    setprop renderthread.skia.pipeline ''
-                    setprop debug.renderengine.backend ''
+                    ${com.noir.lynx.hardware.GraphicsPipelineProbe.buildDeletePropCommand("debug.hwui.renderer")}
+                    ${com.noir.lynx.hardware.GraphicsPipelineProbe.buildDeletePropCommand("debug.renderengine.backend")}
+                    settings put global angle_gl_driver_all_angle 0 2>/dev/null || true
                 """.trimIndent()
                 "skiagl" -> """
                     setprop debug.hwui.renderer skiagl
-                    setprop debug.angle.backend ''
-                    setprop renderthread.skia.pipeline OpenGL
                     setprop debug.renderengine.backend skiagl
+                    settings put global angle_gl_driver_all_angle 0 2>/dev/null || true
                 """.trimIndent()
-                "skiavk" -> """
-                    setprop debug.hwui.renderer skiavk
-                    setprop debug.angle.backend ''
-                    setprop renderthread.skia.pipeline Vulkan
-                    setprop debug.renderengine.backend skiavk
-                """.trimIndent()
-                "skiagraphite" -> """
-                    setprop debug.hwui.renderer skiagraphite
-                    setprop debug.angle.backend ''
-                    setprop renderthread.skia.pipeline Graphite
-                """.trimIndent()
-                "angle" -> """
-                    setprop debug.hwui.renderer angle
-                    setprop debug.angle.backend vulkan
-                """.trimIndent()
+                "skiavk" -> {
+                    if (!caps.isVulkanSupported) return@withContext false
+                    """
+                        setprop debug.hwui.renderer skiavk
+                        setprop debug.renderengine.backend skiavk
+                        settings put global angle_gl_driver_all_angle 0 2>/dev/null || true
+                    """.trimIndent()
+                }
+                "skiagraphite" -> {
+                    if (!caps.isGraphiteSupported) return@withContext false
+                    """
+                        setprop debug.hwui.renderer skiagraphite
+                        settings put global angle_gl_driver_all_angle 0 2>/dev/null || true
+                    """.trimIndent()
+                }
+                "angle" -> {
+                    if (!caps.isAngleSupported) return@withContext false
+                    """
+                        setprop debug.hwui.renderer skiagl
+                        settings put global angle_gl_driver_all_angle 1 2>/dev/null || true
+                    """.trimIndent()
+                }
                 else -> "setprop debug.hwui.renderer '$backend'"
             }
             Shell.cmd(script).exec().isSuccess
@@ -285,11 +300,13 @@ internal object LynxGraphicsEngineRepository {
         try {
             val optInStr = Shell.cmd("settings get global game_driver_opt_in_apps 2>/dev/null").exec().out.joinToString("").trim()
             val prereleaseStr = Shell.cmd("settings get global game_driver_prerelease_opt_in_apps 2>/dev/null").exec().out.joinToString("").trim()
-            val angleStr = Shell.cmd("settings get global angle_enabled_for_packages 2>/dev/null").exec().out.joinToString("").trim()
+            val anglePkgsStr = Shell.cmd("settings get global angle_gl_driver_selection_pkgs 2>/dev/null").exec().out.joinToString("").trim()
+            val angleValsStr = Shell.cmd("settings get global angle_gl_driver_selection_values 2>/dev/null").exec().out.joinToString("").trim()
 
             val optInList = if (optInStr.isNotBlank() && optInStr != "null") optInStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
             val prereleaseList = if (prereleaseStr.isNotBlank() && prereleaseStr != "null") prereleaseStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
-            val angleList = if (angleStr.isNotBlank() && angleStr != "null") angleStr.split(",").map { it.trim() }.filter { it.isNotBlank() } else emptyList()
+            val angleSelection = parseAngleSelectionMap(anglePkgsStr, angleValsStr)
+            val angleList = angleSelection.filterValues { it == "angle" }.keys.toList()
 
             val file = File(context.filesDir, "per_app_graphics.json")
             val savedMeta = mutableMapOf<String, Int>()
@@ -302,7 +319,7 @@ internal object LynxGraphicsEngineRepository {
                         val rr = obj.optInt("targetRefreshRate", 0)
                         if (pkg.isNotBlank()) savedMeta[pkg] = rr
                     }
-                } catch (ignored: Exception) {}
+                } catch (_: Exception) {}
             }
 
             val allPkgs = (optInList + prereleaseList + angleList + savedMeta.keys).distinct().filter { it.isNotBlank() }
@@ -312,7 +329,7 @@ internal object LynxGraphicsEngineRepository {
                 val appName = try {
                     val appInfo = pm.getApplicationInfo(pkg, 0)
                     pm.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     pkg.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: pkg
                 }
                 val driverType = when {
@@ -330,9 +347,45 @@ internal object LynxGraphicsEngineRepository {
                     targetRefreshRate = rr
                 )
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
+    }
+
+    private suspend fun persistPerAppGraphicsRules(rules: List<PerAppGraphicsRule>, context: Context): Boolean {
+        val optInVal = rules.filter { it.driverType == "game" }.joinToString(",") { it.packageName }
+        val prereleaseVal = rules.filter { it.driverType == "prerelease" }.joinToString(",") { it.packageName }
+
+        // Preserve any external non-ANGLE driver entries while updating our managed packages
+        val existingPkgsStr = Shell.cmd("settings get global angle_gl_driver_selection_pkgs 2>/dev/null").exec().out.joinToString("").trim()
+        val existingValsStr = Shell.cmd("settings get global angle_gl_driver_selection_values 2>/dev/null").exec().out.joinToString("").trim()
+        val mergedSelection = parseAngleSelectionMap(existingPkgsStr, existingValsStr).toMutableMap()
+        mergedSelection.entries.removeAll { it.value == "angle" }
+        rules.filter { it.useAngle }.forEach { mergedSelection[it.packageName] = "angle" }
+        val (anglePkgsVal, angleDriversVal) = formatAngleSelectionPairs(mergedSelection)
+
+        val script = """
+            settings put global game_driver_opt_in_apps '$optInVal'
+            settings put global game_driver_prerelease_opt_in_apps '$prereleaseVal'
+            settings put global angle_gl_driver_selection_pkgs '$anglePkgsVal'
+            settings put global angle_gl_driver_selection_values '$angleDriversVal'
+            echo ok
+        """.trimIndent()
+        Shell.cmd(script).exec()
+
+        val file = File(context.filesDir, "per_app_graphics.json")
+        val json = org.json.JSONArray()
+        rules.forEach { r ->
+            val obj = org.json.JSONObject()
+            obj.put("packageName", r.packageName)
+            obj.put("appName", r.appName)
+            obj.put("driverType", r.driverType)
+            obj.put("useAngle", r.useAngle)
+            obj.put("targetRefreshRate", r.targetRefreshRate)
+            json.put(obj)
+        }
+        file.writeText(json.toString(2))
+        return true
     }
 
     suspend fun savePerAppGraphicsRule(rule: PerAppGraphicsRule, context: Context): Boolean = withContext(Dispatchers.IO) {
@@ -340,37 +393,8 @@ internal object LynxGraphicsEngineRepository {
             val current = readPerAppGraphicsRules(context).toMutableList()
             val idx = current.indexOfFirst { it.packageName == rule.packageName }
             if (idx >= 0) current[idx] = rule else current.add(rule)
-
-            val optInPkgs = current.filter { it.driverType == "game" }.map { it.packageName }
-            val prereleasePkgs = current.filter { it.driverType == "prerelease" }.map { it.packageName }
-            val anglePkgs = current.filter { it.useAngle }.map { it.packageName }
-
-            val optInVal = optInPkgs.joinToString(",")
-            val prereleaseVal = prereleasePkgs.joinToString(",")
-            val angleVal = anglePkgs.joinToString(",")
-
-            val script = """
-                settings put global game_driver_opt_in_apps '$optInVal'
-                settings put global game_driver_prerelease_opt_in_apps '$prereleaseVal'
-                settings put global angle_enabled_for_packages '$angleVal'
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec()
-
-            val file = File(context.filesDir, "per_app_graphics.json")
-            val json = org.json.JSONArray()
-            current.forEach { r ->
-                val obj = org.json.JSONObject()
-                obj.put("packageName", r.packageName)
-                obj.put("appName", r.appName)
-                obj.put("driverType", r.driverType)
-                obj.put("useAngle", r.useAngle)
-                obj.put("targetRefreshRate", r.targetRefreshRate)
-                json.put(obj)
-            }
-            file.writeText(json.toString(2))
-            true
-        } catch (e: Exception) {
+            persistPerAppGraphicsRules(current, context)
+        } catch (_: Exception) {
             false
         }
     }
@@ -378,35 +402,7 @@ internal object LynxGraphicsEngineRepository {
     suspend fun deletePerAppGraphicsRule(packageName: String, context: Context): Boolean = withContext(Dispatchers.IO) {
         try {
             val current = readPerAppGraphicsRules(context).filter { it.packageName != packageName }
-            val optInPkgs = current.filter { it.driverType == "game" }.map { it.packageName }
-            val prereleasePkgs = current.filter { it.driverType == "prerelease" }.map { it.packageName }
-            val anglePkgs = current.filter { it.useAngle }.map { it.packageName }
-
-            val optInVal = optInPkgs.joinToString(",")
-            val prereleaseVal = prereleasePkgs.joinToString(",")
-            val angleVal = anglePkgs.joinToString(",")
-
-            val script = """
-                settings put global game_driver_opt_in_apps '$optInVal'
-                settings put global game_driver_prerelease_opt_in_apps '$prereleaseVal'
-                settings put global angle_enabled_for_packages '$angleVal'
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec()
-
-            val file = File(context.filesDir, "per_app_graphics.json")
-            val json = org.json.JSONArray()
-            current.forEach { r ->
-                val obj = org.json.JSONObject()
-                obj.put("packageName", r.packageName)
-                obj.put("appName", r.appName)
-                obj.put("driverType", r.driverType)
-                obj.put("useAngle", r.useAngle)
-                obj.put("targetRefreshRate", r.targetRefreshRate)
-                json.put(obj)
-            }
-            file.writeText(json.toString(2))
-            true
+            persistPerAppGraphicsRules(current, context)
         } catch (e: Exception) {
             false
         }
@@ -414,15 +410,23 @@ internal object LynxGraphicsEngineRepository {
 
     suspend fun setSurfaceFlingerLatch(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
             val valStr = if (enabled) "1" else "0"
             val bpStr = if (enabled) "0" else "1"
-            val script = """
-                setprop debug.sf.latch_unsignaled $valStr
-                setprop debug.sf.enable_gl_backpressure $bpStr
-                setprop debug.sf.early_phase_offset_ns ${if (enabled) 500000 else 8300000}
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec().isSuccess
+            val cmds = mutableListOf<String>()
+            if (caps.isSfLatchSupported) {
+                cmds += "setprop debug.sf.latch_unsignaled $valStr"
+                cmds += "setprop debug.sf.auto_latch_unsignaled $valStr"
+            }
+            if (caps.isSfDisableBackpressureSupported) {
+                cmds += "setprop debug.sf.enable_gl_backpressure $bpStr"
+                cmds += "setprop debug.sf.disable_backpressure $valStr"
+            }
+            if (caps.isSfEarlyPhaseSupported) {
+                cmds += "setprop debug.sf.early_phase_offset_ns ${if (enabled) 500000 else 8300000}"
+            }
+            if (cmds.isEmpty()) return@withContext false
+            Shell.cmd(cmds.joinToString("\n") + "\necho ok").exec().isSuccess
         } catch (e: Exception) { false }
     }
 
@@ -470,47 +474,8 @@ internal object LynxGraphicsEngineRepository {
         } catch (e: Exception) { false }
     }
 
-    suspend fun setShaderBlobCacheSize(mb: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = """
-                setprop persist.sys.lynx.blob_cache_mb $mb
-                setprop ro.egl.blobcache.multithread_limit 4
-                setprop debug.hwui.blob_cache_size_mb $mb
-                setprop ro.hwui.layer_cache_size ${mb / 2}
-                echo ok
-            """.trimIndent()
-            Shell.cmd(script).exec().isSuccess
-        } catch (e: Exception) { false }
-    }
-
-    suspend fun setSwapchainBufferMode(mode: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val isDouble = mode == "double"
-            val script = if (isDouble) {
-                """
-                    setprop persist.sys.lynx.swapchain_mode double
-                    setprop debug.sf.latch_unsignaled 1
-                    setprop debug.sf.enable_gl_backpressure 0
-                    setprop debug.sf.max_acquired_buffers 2
-                    echo ok
-                """.trimIndent()
-            } else {
-                """
-                    setprop persist.sys.lynx.swapchain_mode triple
-                    setprop persist.sys.lynx.swapchain_mode triple
-                    setprop debug.sf.latch_unsignaled 0
-                    setprop debug.sf.enable_gl_backpressure 1
-                    setprop debug.sf.max_acquired_buffers 3
-                    echo ok
-                """.trimIndent()
-            }
-            Shell.cmd(script).exec().isSuccess
-        } catch (e: Exception) { false }
-    }
-
     // ============================================================
     //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
     // ============================================================
-
 
 }

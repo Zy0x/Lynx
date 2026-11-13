@@ -458,13 +458,17 @@ internal object LynxGpuControlRepository {
 
     suspend fun setSurfaceFlingerLatchUnsignaled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isSfLatchSupported) return@withContext false
             val v = if (enabled) "1" else "0"
-            Shell.cmd("setprop debug.sf.latch_unsignaled $v").exec().isSuccess
+            Shell.cmd("setprop debug.sf.latch_unsignaled $v; setprop debug.sf.auto_latch_unsignaled $v").exec().isSuccess
         } catch (e: Exception) { false }
     }
 
     suspend fun setSurfaceFlingerDisableBackpressure(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isSfDisableBackpressureSupported) return@withContext false
             val v = if (enabled) "1" else "0"
             val glV = if (enabled) "0" else "1"
             Shell.cmd("setprop debug.sf.disable_backpressure $v; setprop debug.sf.enable_gl_backpressure $glV").exec().isSuccess
@@ -502,8 +506,6 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setWakeNice(0)
                     setAsyncShaderPipeline(false)
                     setTextureCacheSize(48)
-                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(64)
-                    LynxGraphicsEngineRepository.setShaderCompilerThreads(0)
                     setPureHwVsync(false)
                 }
                 "balanced" -> {
@@ -529,8 +531,6 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setWakeNice(0)
                     setAsyncShaderPipeline(false)
                     setTextureCacheSize(72)
-                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(128)
-                    LynxGraphicsEngineRepository.setShaderCompilerThreads(0)
                     setPureHwVsync(false)
                 }
                 "esports" -> {
@@ -560,8 +560,6 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
                     setAsyncShaderPipeline(true)
                     setTextureCacheSize(96)
-                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(256)
-                    LynxGraphicsEngineRepository.setShaderCompilerThreads(4)
                     setPureHwVsync(true)
                 }
                 "extreme" -> {
@@ -591,8 +589,6 @@ internal object LynxGpuControlRepository {
                     QualcommAdrenoSiliconExt.setGpuLlcSlice(true)
                     setAsyncShaderPipeline(true)
                     setTextureCacheSize(128)
-                    LynxGraphicsEngineRepository.setShaderBlobCacheSize(512)
-                    LynxGraphicsEngineRepository.setShaderCompilerThreads(4)
                     setPureHwVsync(true)
                 }
             }
@@ -607,22 +603,26 @@ internal object LynxGpuControlRepository {
 
     suspend fun setTextureCacheSize(mb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isTextureCacheSupported || !caps.hasResetprop) return@withContext false
             val validMb = mb.coerceIn(48, 128)
-            val r1 = Shell.cmd("setprop ro.hwui.texture_cache_size $validMb").exec().isSuccess
-            val r2 = Shell.cmd("setprop ro.hwui.layer_cache_size ${(validMb * 0.75).toInt()}").exec().isSuccess
-            val r3 = Shell.cmd("setprop ro.hwui.path_cache_size ${(validMb * 0.5).toInt()}").exec().isSuccess
-            // Runtime properties for HWUI caching
+            val r1 = Shell.cmd(com.noir.lynx.hardware.GraphicsPipelineProbe.buildSetPropCommand("ro.hwui.texture_cache_size", validMb.toString(), readOnlyProp = true)).exec().isSuccess
+            val r2 = Shell.cmd(com.noir.lynx.hardware.GraphicsPipelineProbe.buildSetPropCommand("ro.hwui.layer_cache_size", (validMb * 0.75).toInt().toString(), readOnlyProp = true)).exec().isSuccess
+            val r3 = Shell.cmd(com.noir.lynx.hardware.GraphicsPipelineProbe.buildSetPropCommand("ro.hwui.path_cache_size", (validMb * 0.5).toInt().toString(), readOnlyProp = true)).exec().isSuccess
             r1 || r2 || r3
         } catch (e: Exception) { false }
     }
 
     suspend fun setAsyncShaderPipeline(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            // NEVER override debug.hwui.render_thread or debug.hwui.use_buffer_age (causes black screen / rendering corruption)
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isAsyncShaderSupported) return@withContext false
+            val delUnsafe = "${com.noir.lynx.hardware.GraphicsPipelineProbe.buildDeletePropCommand("debug.hwui.render_thread")}\n${com.noir.lynx.hardware.GraphicsPipelineProbe.buildDeletePropCommand("debug.hwui.use_buffer_age")}"
+            // NEVER override debug.hwui.render_thread or debug.hwui.use_buffer_age (can corrupt rendering)
             val cmd = if (enabled) {
-                "setprop debug.hwui.use_gpu_pixel_buffers true; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null"
+                "setprop debug.hwui.use_gpu_pixel_buffers true\n$delUnsafe"
             } else {
-                "resetprop -d debug.hwui.use_gpu_pixel_buffers 2>/dev/null; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null"
+                "${com.noir.lynx.hardware.GraphicsPipelineProbe.buildDeletePropCommand("debug.hwui.use_gpu_pixel_buffers")}\n$delUnsafe"
             }
             Shell.cmd(cmd).exec().isSuccess
         } catch (e: Exception) { false }
@@ -630,6 +630,8 @@ internal object LynxGpuControlRepository {
 
     suspend fun setPureHwVsync(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isPureHwVsyncSupported) return@withContext false
             // debug.cpurend.vsync=false = Pure Hardware VSync (disable CPU rendering vsync)
             val v = if (enabled) "false" else "true"
             Shell.cmd("setprop debug.cpurend.vsync $v").exec().isSuccess

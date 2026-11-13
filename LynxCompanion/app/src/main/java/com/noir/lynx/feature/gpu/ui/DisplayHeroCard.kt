@@ -42,8 +42,8 @@ fun DisplayHeroCard(
     val colorProfile = uiState.colorMatrixProfile
     val touchBoost = uiState.state.displayTouch.touchboost
     val touchDuration = uiState.gpuSilicon.touchBoostDurationMs
+    val touchDurationSupported = uiState.gpuSilicon.isTouchBoostDurationSupported
     val dcDimming = graphics.dcDimmingEnabled
-    val hbm = uiState.displayCalibration.hbmEnabled
     val isKcal = uiState.displayCalibration.isKcalSupported
 
     val heroAccent = when {
@@ -223,9 +223,12 @@ fun DisplayHeroCard(
                         resolutionLabel.substringBefore(" ").take(9)
                     } else "FHD+"
                     val colorText = if (isCalibrationEnabled) colorProfile.name.take(8) else "Standar"
-                    val touchText = if (touchBoost) "${touchDuration}ms" else "Off"
+                    val touchText = when {
+                        !touchBoost -> "Off"
+                        touchDurationSupported -> "${touchDuration}ms"
+                        else -> "Aktif"
+                    }
                     val dcText = if (dcDimming) "Aktif" else "Off"
-                    val hbmText = if (hbm) "Aktif" else "Off"
                     val kcalText = if (isKcal) "Hardware" else "Standar"
 
                     // Row 1: Refresh, Mode, Resolusi, Warna
@@ -260,7 +263,7 @@ fun DisplayHeroCard(
                         )
                     }
 
-                    // Row 2: DC Dimming, TouchBoost, HBM, KCAL
+                    // Row 2: DC Dimming, TouchBoost, KCAL
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -276,12 +279,6 @@ fun DisplayHeroCard(
                             label = "TouchBoost",
                             value = touchText,
                             valueColor = if (touchBoost) AccentCyan else TextSecondary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DisplayMetricTile(
-                            label = "HBM",
-                            value = hbmText,
-                            valueColor = if (hbm) AccentOrange else TextSecondary,
                             modifier = Modifier.weight(1f)
                         )
                         DisplayMetricTile(

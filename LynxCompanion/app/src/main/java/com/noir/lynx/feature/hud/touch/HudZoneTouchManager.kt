@@ -25,9 +25,6 @@ class HudZoneTouchManager(
     private val mutableSamplingBoost = MutableStateFlow(prefs.getBoolean("touch_sampling_boost", true))
     val samplingBoost = mutableSamplingBoost.asStateFlow()
 
-    private val mutableSlop = MutableStateFlow(prefs.getInt("touch_slop_px", 2).coerceIn(1, 8))
-    val touchSlop = mutableSlop.asStateFlow()
-
     init {
         applySettings()
     }
@@ -44,28 +41,24 @@ class HudZoneTouchManager(
         applySettings()
     }
 
-    fun setTouchSlop(slopPx: Int) {
-        val clamped = slopPx.coerceIn(1, 8)
-        mutableSlop.value = clamped
-        prefs.edit().putInt("touch_slop_px", clamped).apply()
-        applySettings()
-    }
-
     private fun applySettings() {
         scope.launch(Dispatchers.IO) {
             val esports = mutableEsports.value
-            val slop = mutableSlop.value
 
             if (esports) {
                 val cmd = """
-                    # 1. Sub-pixel Touch Slop & Framework Resampling (VSYNC-aligned Butter-Smooth)
-                    setprop view.touch_slop $slop
-                    resetprop -n ro.input.resampling 1 2>/dev/null || setprop ro.input.resampling 1 2>/dev/null
-                    setprop windowsmgr.max_events_per_second 300
-                    setprop persist.sys.touch.latency 0
-                    setprop debug.touch.frequency.boost 1
+                    # 1. InputFlinger Resampling (only applied when supported by libinput/libinputflinger)
+                    RESAMP_CMD=""
+                    for lib in /system/lib64/libinput.so /system/lib/libinput.so /system/lib64/libinputflinger.so /system/lib/libinputflinger.so; do
+                        if [ -r "${'$'}lib" ] && grep -Fq "ro.input.resampling" "${'$'}lib" 2>/dev/null; then
+                            RESAMP_CMD='1'
+                            break
+                        fi
+                    done
+                    if [ "${'$'}RESAMP_CMD" = "1" ]; then
+                        ${com.noir.lynx.hardware.GraphicsPipelineProbe.buildSetPropCommand("ro.input.resampling", "1", readOnlyProp = true)}
+                    fi
                     setprop vendor.perf.gestureFlingBoost.enable 1 2>/dev/null
-                    setprop persist.sys.lynx.touchboost 1 2>/dev/null
 
                     # 2. Multi-OEM High Polling Rate & Game Mode Settings
                     settings put system high_touch_polling_rate_enable 1 2>/dev/null
@@ -123,8 +116,6 @@ class HudZoneTouchManager(
                 Shell.cmd(cmd).submit()
             } else {
                 val restoreCmd = """
-                    resetprop --delete view.touch_slop 2>/dev/null || setprop view.touch_slop ""
-                    setprop debug.touch.frequency.boost 0
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time ] && echo 4 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time 2>/dev/null
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 ] && echo 4 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time0 2>/dev/null
                     [ -e /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 ] && echo 4 > /sys/module/tpd_setting/parameters/tpd_em_debounce_time1 2>/dev/null

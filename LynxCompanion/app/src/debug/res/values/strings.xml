@@ -2,6 +2,5 @@
 <resources>
     <string name="app_name">Lynx (Debug)</string>
     <string name="tile_profile_label">Lynx Profile (Debug)</string>
-    <string name="tile_hbm_label">Lynx HBM (Debug)</string>
     <string name="tile_hud_label">Lynx HUD (Debug)</string>
 </resources>

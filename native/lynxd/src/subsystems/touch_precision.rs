@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::Command;
 
 use crate::state::ConfigStore;
+use crate::subsystems::IrqTopology;
 
 pub struct TouchPrecisionController;
 
@@ -76,16 +77,32 @@ impl TouchPrecisionController {
         let _ = Command::new("/system/bin/setprop").args(&[key, val]).status();
     }
 
-    pub fn configured_touch_slop() -> i64 {
-        Self::read_i64("display_touch.view_touch_slop", 4, 1, 16)
-    }
-
     pub fn configured_input_resampling() -> bool {
         Self::read_bool("display_touch.input_resampling", false)
     }
 
-    pub fn configured_freq_boost() -> bool {
-        Self::read_bool("display_touch.debug_touch_freq_boost", true)
+    /// Probes native input binaries to verify `ro.input.resampling` is actually honored by the ROM.
+    pub fn is_input_resampling_supported() -> bool {
+        const NEEDLE: &[u8] = b"ro.input.resampling";
+        const LIB_PATHS: &[&str] = &[
+            "/system/lib64/libinput.so",
+            "/system/lib/libinput.so",
+            "/system/lib64/libinputflinger.so",
+            "/system/lib/libinputflinger.so",
+            "/vendor/lib64/libinput.so",
+        ];
+        for path in LIB_PATHS {
+            if let Ok(bytes) = fs::read(path) {
+                if bytes.windows(NEEDLE.len()).any(|w| w == NEEDLE) {
+                    return true;
+                }
+            }
+        }
+        if let Ok(out) = Command::new("getprop").arg("ro.input.resampling").output() {
+            let val = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            return !val.is_empty();
+        }
+        false
     }
 
     /// Applies kernel Novatek NT36672C, MTK KTCH, and touch IRQ affinity parameters from config.json.
@@ -147,35 +164,19 @@ impl TouchPrecisionController {
             applied += 1;
         }
 
-        if Self::read_bool("display_touch.touch_irq_big_cores", true) {
-            if let Ok(interrupts) = fs::read_to_string("/proc/interrupts") {
-                for line in interrupts.lines() {
-                    let lower = line.to_ascii_lowercase();
-                    if lower.contains("novatek") || lower.contains("11013000.spi3") {
-                        if let Some((irq_num, _)) = line.split_once(':') {
-                            let irq = irq_num.trim();
-                            let affinity_node = format!("/proc/irq/{}/smp_affinity_list", irq);
-                            if Self::write_node_if_exists(&affinity_node, "6-7") {
-                                applied += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let touch_big_cores = Self::read_bool("display_touch.touch_irq_big_cores", true);
+        let (irq_updates, kthread_updates) = IrqTopology::apply_touch_irq_and_kthreads(touch_big_cores);
+        applied += irq_updates + kthread_updates;
 
         applied
     }
 
-    /// Applies Android input pipeline props while respecting user saved configuration.
+    /// Applies Android input pipeline props only when verified against loaded system binaries.
     pub fn apply_input_props() {
-        let slop = Self::configured_touch_slop().to_string();
-        let resamp = if Self::configured_input_resampling() { "true" } else { "false" };
-        let freq_boost = if Self::configured_freq_boost() { "1" } else { "0" };
-
-        Self::set_prop_reset_first("view.touch_slop", &slop);
-        Self::set_prop_reset_first("ro.input.resampling", resamp);
-        Self::set_prop_reset_first("debug.touch.frequency.boost", freq_boost);
+        if Self::is_input_resampling_supported() {
+            let resamp = if Self::configured_input_resampling() { "true" } else { "false" };
+            Self::set_prop_reset_first("ro.input.resampling", resamp);
+        }
     }
 
     /// Applies Edge Back Gesture overlays, left/right inset scales, and ML confidence threshold.
@@ -231,9 +232,8 @@ impl TouchPrecisionController {
         Self::apply_input_props();
         Self::apply_edge_gesture();
         format!(
-            "Touch Precision & Edge Guard applied ({} kernel nodes, slop={}, resampling={}, gain={}).",
+            "Touch Precision & Edge Guard applied ({} kernel/IRQ nodes, resampling={}, gain={}).",
             count,
-            Self::configured_touch_slop(),
             Self::configured_input_resampling(),
             Self::read_i64("display_touch.nvt_micro_gain", 4, 0, 12)
         )
@@ -242,6 +242,13 @@ impl TouchPrecisionController {
     pub fn status_json() -> String {
         let nvt_present = Path::new(Self::NVT_MICRO_GAIN_NODE).exists();
         let ktch_present = Path::new(Self::KTCH_ENABLE_NODE).exists();
+        let resampling_supported = Self::is_input_resampling_supported();
+        let touch_irq_supported = fs::read_to_string("/proc/interrupts")
+            .map(|text| {
+                let tokens = IrqTopology::discover_touch_controller_tokens();
+                !IrqTopology::find_touch_irqs_in_proc(&text, &tokens).is_empty()
+            })
+            .unwrap_or(false);
         let gain = fs::read_to_string(Self::NVT_MICRO_GAIN_NODE)
             .ok()
             .and_then(|s| s.trim().parse::<i64>().ok())
@@ -262,14 +269,15 @@ impl TouchPrecisionController {
         let stats_escaped = stats.replace('\n', " ").replace('"', "");
 
         format!(
-            "{{\"nvt_present\":{},\"ktch_present\":{},\"micro_gain\":{},\"edge_guard_px\":{},\"ktch_duration_ms\":{},\"ktch_eas_boost\":{},\"slop\":{},\"resampling\":{},\"stats\":\"{}\"}}",
+            "{{\"nvt_present\":{},\"ktch_present\":{},\"resampling_supported\":{},\"touch_irq_supported\":{},\"micro_gain\":{},\"edge_guard_px\":{},\"ktch_duration_ms\":{},\"ktch_eas_boost\":{},\"resampling\":{},\"stats\":\"{}\"}}",
             nvt_present,
             ktch_present,
+            resampling_supported,
+            touch_irq_supported,
             gain,
             edge_guard,
             ktch_dur,
             ktch_eas,
-            Self::configured_touch_slop(),
             Self::configured_input_resampling(),
             stats_escaped.trim()
         )

@@ -156,23 +156,14 @@ data class GraphicsHwuiInfo(
     val nativeResolution: String = "",           // e.g. "1080x2400" (physical display)
     val activeResolution: String = "",           // e.g. "720x1600" (current render)
     val nativeDensity: Int = 0,                  // physical DPI
-    val shaderCompilerThreads: Int = 0,          // 0 = Auto OS, 2, 4 worker threads
     val forcedFpsUnlockerHz: Int = 0,            // 0 = Off, 90, 120, 144, 240
-    val shaderBlobCacheMb: Int = 128,            // 64, 128, 256, 512 MB
-    val swapchainBufferMode: String = "triple",  // "double", "triple"
+    val isTextureCacheSupported: Boolean = false,
+    val isAsyncShaderSupported: Boolean = false,
+    val isPureHwVsyncSupported: Boolean = false,
+    val isSfLatchSupported: Boolean = false,
+    val isSfDisableBackpressureSupported: Boolean = false,
+    val isSfEarlyPhaseSupported: Boolean = false
 ) {
-    val shaderBlobCacheOptions: List<Pair<Int, String>> get() = listOf(
-        64 to "64MB (Default)",
-        128 to "128MB (Optimal)",
-        256 to "256MB (Esports)",
-        512 to "512MB (Ultra)"
-    )
-
-    val swapchainBufferOptions: List<Pair<String, String>> get() = listOf(
-        "double" to "Double Buffering (2 Buffers - Input Cepat)",
-        "triple" to "Triple Buffering (3 Buffers - Bebas Tearing)"
-    )
-
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true
         "skiavk" -> isVulkanSupported
@@ -187,13 +178,6 @@ data class GraphicsHwuiInfo(
         72 to "72MB (Standar)",
         96 to "96MB (Tinggi)",
         128 to "128MB (Maksimum)"
-    )
-
-    /** Skia compiler thread options with display labels */
-    val shaderCompilerThreadOptions: List<Pair<Int, String>> get() = listOf(
-        0 to "Auto (OS)",
-        2 to "2 Threads (Stabil)",
-        4 to "4 Threads (Esports)"
     )
 }
 
@@ -341,9 +325,6 @@ data class DisplayCalibrationInfo(
     val value: Int = 256,
     val contrast: Int = 256,
     val hue: Int = 0,
-    val isHbmSupported: Boolean = false,
-    val hbmUnsupportedReason: String = "Driver HBM (High Brightness Mode) tidak didukung oleh panel display ini",
-    val hbmEnabled: Boolean = false,
     val isUniversalColorSupported: Boolean = true,
     val universalRed: Float = 1.0f,
     val universalGreen: Float = 1.0f,

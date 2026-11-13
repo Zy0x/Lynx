@@ -43,9 +43,7 @@ object LynxTouchPrecisionRepository {
             backGestureLinkSides = prefs.getBoolean("back_gesture_link_sides", true),
             backGestureMlEnabled = prefs.getBoolean("back_gesture_ml_enabled", true),
             backGestureMlThreshold = prefs.getFloat("back_gesture_ml_threshold", 0.96f).coerceIn(0.50f, 0.99f),
-            viewTouchSlop = prefs.getInt("view_touch_slop", 4).coerceIn(1, 16),
             inputResampling = prefs.getBoolean("input_resampling", false),
-            debugTouchFreqBoost = prefs.getBoolean("debug_touch_freq_boost", true),
             touchIrqBigCores = prefs.getBoolean("touch_irq_big_cores", true),
         )
     }
@@ -70,9 +68,7 @@ object LynxTouchPrecisionRepository {
             .putBoolean("back_gesture_link_sides", config.backGestureLinkSides)
             .putBoolean("back_gesture_ml_enabled", config.backGestureMlEnabled)
             .putFloat("back_gesture_ml_threshold", config.backGestureMlThreshold.coerceIn(0.50f, 0.99f))
-            .putInt("view_touch_slop", config.viewTouchSlop.coerceIn(1, 16))
             .putBoolean("input_resampling", config.inputResampling)
-            .putBoolean("debug_touch_freq_boost", config.debugTouchFreqBoost)
             .putBoolean("touch_irq_big_cores", config.touchIrqBigCores)
             .apply()
     }
@@ -88,10 +84,9 @@ object LynxTouchPrecisionRepository {
             fw=${'$'}(cat /proc/nvt_fw_version 2>/dev/null | tr -d '\n')
             ktch_dur=${'$'}(cat /proc/perfmgr/tchbst/kernel/tb_duration_ms 2>/dev/null | tr -dc '0-9')
             ktch_eas=${'$'}(cat /proc/perfmgr/tchbst/kernel/tb_eas_boost 2>/dev/null | tr -dc '0-9')
-            slop=${'$'}(getprop view.touch_slop 2>/dev/null | tr -dc '0-9')
             resamp=${'$'}(getprop ro.input.resampling 2>/dev/null | tr -d '[:space:]')
-            fboost=${'$'}(getprop debug.touch.frequency.boost 2>/dev/null | tr -dc '0-9')
             edge_dump=${'$'}(dumpsys activity service com.android.systemui/.SystemUIService 2>/dev/null | grep -E "mEdgeWidthLeft=|mEdgeWidthRight=|mMLModelThreshold=" | head -n 6 | tr '\n' ';')
+            ${com.noir.lynx.hardware.TouchIrqShellBuilder.buildProbeSnippet()}
             echo "NVT=${'$'}nvt_present"
             echo "KTCH=${'$'}ktch_present"
             echo "GAIN=${'$'}gain"
@@ -101,9 +96,10 @@ object LynxTouchPrecisionRepository {
             echo "FW=${'$'}fw"
             echo "KDUR=${'$'}ktch_dur"
             echo "KEAS=${'$'}ktch_eas"
-            echo "SLOP=${'$'}slop"
             echo "RESAMP=${'$'}resamp"
-            echo "FBOOST=${'$'}fboost"
+            echo "RESAMP_SUP=${'$'}resamp_sup"
+            echo "IRQ_SUP=${'$'}irq_sup"
+            echo "IRQPIN=${'$'}irq_pin"
             echo "EDGE=${'$'}edge_dump"
         """.trimIndent()
         val lines = runCatching { Shell.cmd(script).exec().out }.getOrDefault(emptyList())
@@ -136,9 +132,8 @@ object LynxTouchPrecisionRepository {
         val mlStr = String.format(Locale.US, "%.2f", mlThresh)
         val tmpMlStr = if (abs(mlThresh - 0.95f) > 0.005f) "0.951" else "0.961"
         val mlEn = if (config.backGestureMlEnabled) "true" else "false"
-        val slop = config.viewTouchSlop.coerceIn(1, 16)
         val resamp = if (config.inputResampling) "true" else "false"
-        val fboost = if (config.debugTouchFreqBoost) "1" else "0"
+        val resamplingSupported = com.noir.lynx.hardware.GraphicsPipelineProbe.detect().isInputResamplingSupported
 
         val overlayCmd = when (config.backGestureOverlay) {
             TouchPrecisionConfig.OVERLAY_DEFAULT -> """
@@ -163,18 +158,11 @@ object LynxTouchPrecisionRepository {
             """.trimIndent()
         }
 
-        val irqCmd = if (config.touchIrqBigCores) {
-            """
-            for irq in ${'$'}(grep -iE 'novatek|11013000\.spi3|fts|goodix|synaptics' /proc/interrupts | awk -F: '{print ${'$'}1}' | tr -d ' '); do
-                echo 6-7 > "/proc/irq/${'$'}irq/smp_affinity_list" 2>/dev/null
-            done
-            """.trimIndent()
+        val irqCmd = com.noir.lynx.hardware.TouchIrqShellBuilder.buildApplyAffinitySnippet(config.touchIrqBigCores)
+        val resampCmd = if (resamplingSupported) {
+            com.noir.lynx.hardware.GraphicsPipelineProbe.buildSetPropCommand("ro.input.resampling", resamp, readOnlyProp = true)
         } else {
-            """
-            for irq in ${'$'}(grep -iE 'novatek|11013000\.spi3|fts|goodix|synaptics' /proc/interrupts | awk -F: '{print ${'$'}1}' | tr -d ' '); do
-                echo 0-7 > "/proc/irq/${'$'}irq/smp_affinity_list" 2>/dev/null
-            done
-            """.trimIndent()
+            ""
         }
 
         val cmd = """
@@ -201,19 +189,7 @@ object LynxTouchPrecisionRepository {
             sleep 0.25
             device_config put systemui back_gesture_ml_model_threshold $mlStr >/dev/null 2>&1
             device_config put systemui use_back_gesture_ml_model $mlEn >/dev/null 2>&1
-            RP=""
-            for b in /data/adb/ksu/bin/resetprop /data/adb/magisk/resetprop /data/adb/ap/bin/resetprop; do
-                [ -x "${'$'}b" ] && RP="${'$'}b" && break
-            done
-            if [ -n "${'$'}RP" ]; then
-                "${'$'}RP" view.touch_slop $slop 2>/dev/null
-                "${'$'}RP" ro.input.resampling $resamp 2>/dev/null
-                "${'$'}RP" debug.touch.frequency.boost $fboost 2>/dev/null
-            else
-                setprop view.touch_slop $slop 2>/dev/null
-                setprop ro.input.resampling $resamp 2>/dev/null
-                setprop debug.touch.frequency.boost $fboost 2>/dev/null
-            fi
+            $resampCmd
         """.trimIndent()
 
         runCatching { Shell.cmd(cmd).exec() }
@@ -245,9 +221,7 @@ object LynxTouchPrecisionRepository {
             Triple("display_touch.back_gesture_scale_right", String.format(Locale.US, "%.2f", cfg.backGestureScaleRight), "float"),
             Triple("display_touch.back_gesture_ml_enabled", cfg.backGestureMlEnabled.toString(), "bool"),
             Triple("display_touch.back_gesture_ml_threshold", String.format(Locale.US, "%.2f", cfg.backGestureMlThreshold), "float"),
-            Triple("display_touch.view_touch_slop", cfg.viewTouchSlop.toString(), "int"),
             Triple("display_touch.input_resampling", cfg.inputResampling.toString(), "bool"),
-            Triple("display_touch.debug_touch_freq_boost", cfg.debugTouchFreqBoost.toString(), "bool"),
             Triple("display_touch.touch_irq_big_cores", cfg.touchIrqBigCores.toString(), "bool"),
         )
         for ((k, v, t) in pairs) {
@@ -297,9 +271,10 @@ object LynxTouchPrecisionRepository {
             edgeWidthLeftPx = leftPx,
             edgeWidthRightPx = rightPx,
             edgeMlThresholdActive = mlActive,
-            activeSlop = kv["SLOP"]?.toIntOrNull() ?: 4,
-            activeResampling = kv["RESAMP"] == "true",
-            activeFreqBoost = kv["FBOOST"] != "0",
+            activeResampling = kv["RESAMP"] == "true" || kv["RESAMP"] == "1",
+            activeIrqPinned = kv["IRQPIN"] == "1",
+            resamplingSupported = kv["RESAMP_SUP"] == "1",
+            touchIrqSupported = kv["IRQ_SUP"] == "1",
         )
     }
 

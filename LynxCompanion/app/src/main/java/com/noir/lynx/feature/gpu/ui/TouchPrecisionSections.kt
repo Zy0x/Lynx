@@ -341,58 +341,38 @@ fun NovatekMicroSensitivitySection(
 fun InputPipelineKtchSection(
     config: TouchPrecisionConfig,
     ktchPresent: Boolean,
+    resamplingSupported: Boolean = false,
+    touchIrqSupported: Boolean = false,
     onConfigChange: (TouchPrecisionConfig) -> Unit,
     onCommit: (TouchPrecisionConfig) -> Unit,
     onCommitLatest: () -> Unit,
 ) {
     TouchSubSectionHeader(title = stringResource(R.string.touch_precision_sec_pipeline_ktch))
 
-    LynxSlider(
-        label = stringResource(R.string.touch_precision_slop_label),
-        value = config.viewTouchSlop.toFloat(),
-        valueRange = 1f..16f,
-        steps = 14,
-        displayValue = stringResource(
-            R.string.touch_precision_slop_val,
-            config.viewTouchSlop,
-            (config.viewTouchSlop * 2.6f).roundToInt(),
-        ),
-        onValueChange = { raw ->
-            onConfigChange(config.copy(viewTouchSlop = raw.roundToInt().coerceIn(1, 16)))
-        },
-        onValueChangeFinished = onCommitLatest,
-    )
-
-    LynxSwitch(
-        label = stringResource(R.string.touch_precision_resampling_label),
-        subLabel = stringResource(R.string.touch_precision_resampling_sub),
-        checked = config.inputResampling,
-        onCheckedChange = { checked ->
-            val updated = config.copy(inputResampling = checked)
-            onConfigChange(updated)
-            onCommit(updated)
-        },
-    )
-    LynxSwitch(
-        label = stringResource(R.string.touch_precision_freq_boost_label),
-        subLabel = stringResource(R.string.touch_precision_freq_boost_sub),
-        checked = config.debugTouchFreqBoost,
-        onCheckedChange = { checked ->
-            val updated = config.copy(debugTouchFreqBoost = checked)
-            onConfigChange(updated)
-            onCommit(updated)
-        },
-    )
-    LynxSwitch(
-        label = stringResource(R.string.touch_precision_irq_affinity_label),
-        subLabel = stringResource(R.string.touch_precision_irq_affinity_sub),
-        checked = config.touchIrqBigCores,
-        onCheckedChange = { checked ->
-            val updated = config.copy(touchIrqBigCores = checked)
-            onConfigChange(updated)
-            onCommit(updated)
-        },
-    )
+    if (resamplingSupported) {
+        LynxSwitch(
+            label = stringResource(R.string.touch_precision_resampling_label),
+            subLabel = stringResource(R.string.touch_precision_resampling_sub),
+            checked = config.inputResampling,
+            onCheckedChange = { checked ->
+                val updated = config.copy(inputResampling = checked)
+                onConfigChange(updated)
+                onCommit(updated)
+            },
+        )
+    }
+    if (touchIrqSupported) {
+        LynxSwitch(
+            label = stringResource(R.string.touch_precision_irq_affinity_label),
+            subLabel = stringResource(R.string.touch_precision_irq_affinity_sub),
+            checked = config.touchIrqBigCores,
+            onCheckedChange = { checked ->
+                val updated = config.copy(touchIrqBigCores = checked)
+                onConfigChange(updated)
+                onCommit(updated)
+            },
+        )
+    }
 
     if (ktchPresent) {
         LynxSwitch(

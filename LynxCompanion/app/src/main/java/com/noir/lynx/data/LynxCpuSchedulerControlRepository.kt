@@ -372,7 +372,6 @@ internal object LynxCpuSchedulerControlRepository {
             [ -f /sys/module/cpu_boost/parameters/sched_boost_on_input ] && echo "$valStr" > /sys/module/cpu_boost/parameters/sched_boost_on_input 2>/dev/null
             setprop vendor.perf.gestureFlingBoost.enable "$valStr" 2>/dev/null
             setprop vendor.perf.gestureflingboost.enable "$boolStr" 2>/dev/null
-            setprop persist.sys.lynx.touchboost "$valStr" 2>/dev/null
             mkdir -p /data/adb/lynx 2>/dev/null
             echo "$valStr" > /data/adb/lynx/qcom_touch_boost 2>/dev/null
             echo "ok"

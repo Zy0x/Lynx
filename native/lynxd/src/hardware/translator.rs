@@ -1439,19 +1439,22 @@ impl HardwareTranslator {
 
         // ── 8. Hardware IRQ Affinity Steering (Unchoke CPU0) ────────────────
         let irqs = crate::subsystems::IrqController::scan_interrupts();
+        let clusters = crate::subsystems::IrqTopology::probe_clusters();
         if is_perf_or_ext {
             if let Some(&touch_irq) = irqs.get("touchscreen") {
-                Self::push_op(&mut ops, "IRQ", "Touchscreen interrupt affinity (Core 1)", format!("/proc/irq/{}/smp_affinity_list", touch_irq), "1", false);
+                let core = clusters.little_offload_core(0).to_string();
+                Self::push_op(&mut ops, "IRQ", "Touchscreen interrupt affinity (LITTLE offload)", format!("/proc/irq/{}/smp_affinity_list", touch_irq), core, false);
             }
             if let Some(&wifi_irq) = irqs.get("wifi") {
-                Self::push_op(&mut ops, "IRQ", "Wi-Fi interrupt affinity (Core 2)", format!("/proc/irq/{}/smp_affinity_list", wifi_irq), "2", false);
+                let core = clusters.little_offload_core(1).to_string();
+                Self::push_op(&mut ops, "IRQ", "Wi-Fi interrupt affinity (LITTLE offload)", format!("/proc/irq/{}/smp_affinity_list", wifi_irq), core, false);
             }
             if let Some(&gpu_irq) = irqs.get("gpu") {
-                Self::push_op(&mut ops, "IRQ", "GPU interrupt affinity (Big Cluster)", format!("/proc/irq/{}/smp_affinity_list", gpu_irq), "4-7", false);
+                Self::push_op(&mut ops, "IRQ", "GPU interrupt affinity (Big Cluster)", format!("/proc/irq/{}/smp_affinity_list", gpu_irq), &clusters.big_cpu_range, false);
             }
         } else {
             for (_, &irq) in irqs.iter() {
-                Self::push_op(&mut ops, "IRQ", "Restore universal IRQ affinity", format!("/proc/irq/{}/smp_affinity_list", irq), "0-7", false);
+                Self::push_op(&mut ops, "IRQ", "Restore universal IRQ affinity", format!("/proc/irq/{}/smp_affinity_list", irq), &clusters.all_cpu_range, false);
             }
         }
 

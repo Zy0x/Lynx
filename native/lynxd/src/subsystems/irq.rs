@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use crate::subsystems::IrqTopology;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 #[derive(Debug, Clone)]
@@ -14,13 +15,18 @@ pub struct DetectedIrq {
 pub struct IrqController;
 
 impl IrqController {
-    /// Parses /proc/interrupts to map device names to their IRQ numbers.
+    /// Parses /proc/interrupts to map device categories to their IRQ numbers.
     pub fn scan_interrupts() -> HashMap<String, u32> {
         let mut map = HashMap::new();
         let content = match fs::read_to_string("/proc/interrupts") {
             Ok(c) => c,
             Err(_) => return map,
         };
+
+        let controller_tokens = IrqTopology::discover_touch_controller_tokens();
+        for (irq_num, _) in IrqTopology::find_touch_irqs_in_proc(&content, &controller_tokens) {
+            map.entry("touchscreen".into()).or_insert(irq_num);
+        }
 
         for line in content.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -34,9 +40,7 @@ impl IrqController {
             };
 
             let line_lower = line.to_lowercase();
-            if line_lower.contains("touch") || line_lower.contains("nvt") || line_lower.contains("goodix") || line_lower.contains("fts") {
-                map.insert("touchscreen".into(), irq_num);
-            } else if line_lower.contains("wlan") || line_lower.contains("wcnss") {
+            if line_lower.contains("wlan") || line_lower.contains("wcnss") {
                 map.insert("wifi".into(), irq_num);
             } else if line_lower.contains("kgsl") || line_lower.contains("mali") {
                 map.insert("gpu".into(), irq_num);
@@ -47,60 +51,64 @@ impl IrqController {
         map
     }
 
-    /// Steers hardware IRQs to dedicated CPU cores to eliminate CPU0 bottleneck during gaming.
+    /// Steers hardware IRQs using dynamically discovered CPU cluster topology.
     pub fn balance_for_gaming() -> Result<Vec<DetectedIrq>, String> {
         let irqs = Self::scan_interrupts();
+        let clusters = IrqTopology::probe_clusters();
         let mut results = Vec::new();
 
-        // 1. Touchscreen -> Core 1 (Little core with minimal background noise)
+        // 1. Touchscreen -> Dynamic non-CPU0 LITTLE offload core
         if let Some(&irq) = irqs.get("touchscreen") {
             let path = format!("/proc/irq/{}/smp_affinity_list", irq);
             let cur = SysfsReader::read_trimmed(&path).unwrap_or_default();
-            let _ = SysfsWriter::write(&path, "1", WriteMode::ForcePermission);
+            let core = clusters.little_offload_core(0);
+            let _ = SysfsWriter::write(&path, &core.to_string(), WriteMode::ForcePermission);
             results.push(DetectedIrq {
                 irq_num: irq,
                 name: "touchscreen".into(),
                 current_affinity: cur,
-                target_core: 1,
+                target_core: core,
             });
         }
 
-        // 2. Wi-Fi -> Core 2
+        // 2. Wi-Fi -> Secondary non-CPU0 LITTLE offload core
         if let Some(&irq) = irqs.get("wifi") {
             let path = format!("/proc/irq/{}/smp_affinity_list", irq);
             let cur = SysfsReader::read_trimmed(&path).unwrap_or_default();
-            let _ = SysfsWriter::write(&path, "2", WriteMode::ForcePermission);
+            let core = clusters.little_offload_core(1);
+            let _ = SysfsWriter::write(&path, &core.to_string(), WriteMode::ForcePermission);
             results.push(DetectedIrq {
                 irq_num: irq,
                 name: "wifi".into(),
                 current_affinity: cur,
-                target_core: 2,
+                target_core: core,
             });
         }
 
-        // 3. GPU -> Big Cluster (e.g. Cores 4-7 on 8-core Snapdragon/MTK)
+        // 3. GPU -> Dynamically discovered Big/Performance cluster
         if let Some(&irq) = irqs.get("gpu") {
             let path = format!("/proc/irq/{}/smp_affinity_list", irq);
             let cur = SysfsReader::read_trimmed(&path).unwrap_or_default();
-            let _ = SysfsWriter::write(&path, "4-7", WriteMode::ForcePermission);
+            let _ = SysfsWriter::write(&path, &clusters.big_cpu_range, WriteMode::ForcePermission);
             results.push(DetectedIrq {
                 irq_num: irq,
                 name: "gpu".into(),
                 current_affinity: cur,
-                target_core: 4,
+                target_core: clusters.big_cpus.first().copied().unwrap_or(0),
             });
         }
 
         Ok(results)
     }
 
-    /// Restores all managed IRQs back to universal distribution (0-7).
+    /// Restores all managed IRQs back to all online CPUs dynamically.
     pub fn restore_default() -> Result<(), String> {
         let irqs = Self::scan_interrupts();
+        let clusters = IrqTopology::probe_clusters();
         for (_, &irq) in irqs.iter() {
             let path = format!("/proc/irq/{}/smp_affinity_list", irq);
             if Path::new(&path).exists() {
-                let _ = SysfsWriter::write(&path, "0-7", WriteMode::ForcePermission);
+                let _ = SysfsWriter::write(&path, &clusters.all_cpu_range, WriteMode::ForcePermission);
             }
         }
         Ok(())

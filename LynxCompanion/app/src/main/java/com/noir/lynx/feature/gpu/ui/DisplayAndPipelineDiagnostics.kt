@@ -207,7 +207,6 @@ fun DisplayTelemetryCard(
         // Hardware Panel Feature Row (clean, informative)
         val activeFeatures = buildList {
             if (caps.dcDimmingNode != null) add("DC Dimming")
-            if (caps.hbmNode != null) add("HBM Booster")
             if (caps.hasKcal) add("Kernel KCAL")
         }
         if (activeFeatures.isNotEmpty()) {

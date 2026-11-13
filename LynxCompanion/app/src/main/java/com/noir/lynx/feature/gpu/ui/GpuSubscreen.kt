@@ -181,10 +181,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                         onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
                         onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
                         onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
-                        onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
-                        onSetShaderCompilerThreads = { threads -> viewModel.setShaderCompilerThreads(threads) },
-                        onSetShaderBlobCache = { mb -> viewModel.setShaderBlobCacheSize(mb) },
-                        onSetSwapchainBufferMode = { mode -> viewModel.setSwapchainBufferMode(mode) }
+                        onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) }
                     )
                     GpuShaderRebuilderCard()
                 }
@@ -234,6 +231,7 @@ fun LazyListScope.tuningGpuCategoryItems(
                     supportedRates = uiState.supportedRefreshRates.ifEmpty { listOf(uiState.displayRefreshRate.takeIf { it > 0 } ?: 60) },
                     touchBoost = state.displayTouch.touchboost,
                     touchBoostDurationMs = uiState.gpuSilicon.touchBoostDurationMs,
+                    touchBoostDurationSupported = uiState.gpuSilicon.isTouchBoostDurationSupported,
                     dcDimmingSupported = graphics.isDcDimmingSupported,
                     dcDimmingEnabled = graphics.dcDimmingEnabled,
                     isEsportsDownscaleActive = graphics.isEsportsDownscaleActive,
@@ -254,11 +252,11 @@ fun LazyListScope.tuningGpuCategoryItems(
                 TouchPrecisionCalibrationCard(context = context)
             }
 
-            // ── SECTION 2: KALIBRASI WARNA & VISUAL ──
+            // Color & Visual Calibration
             item(key = "section_header_color_management") {
                 GpuSectionHeader(
                     title = "Kalibrasi Warna & Visual",
-                    subtitle = "SurfaceFlinger Matrix 1015, D65 White Point, KCAL hardware & HBM",
+                    subtitle = "SurfaceFlinger Matrix 1015, D65 White Point & KCAL hardware",
                     accentColor = com.noir.lynx.designsystem.theme.AccentOrange,
                     badge = "COLOR & D65"
                 )
@@ -274,14 +272,8 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onToggleCalibration = { viewModel.setColorCalibrationEnabled(it) },
                     onApplyProfile = { viewModel.applyColorProfile(it) },
                     onResetProfile = { viewModel.resetColorProfile() },
-                    onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) },
-                    onSetHbm = { viewModel.setHbmEnabled(it) }
+                    onSetUniversalColor = { r, g, b -> viewModel.setUniversalColor(r, g, b) }
                 )
-            }
-
-            // MediaTek Picture Quality (MTK PQ: AAL Bypass, DRE, Sharpness & UltraRes)
-            item(key = "gpu_mtk_pq") {
-                MtkPqControlsCard(context = context)
             }
 
             // Panel Hardware Tuning (True DCS 0x55 CABC & Display ESD Watchdog Interval)

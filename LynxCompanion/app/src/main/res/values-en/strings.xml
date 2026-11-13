@@ -7,17 +7,12 @@
     <string name="language_indonesian" formatted="false">Bahasa Indonesia</string>
     <string name="language_english" formatted="false">English</string>
     <string name="accessibility_open_category">Open %1$s</string>
-    <string name="toast_hbm_unsupported" formatted="false">HBM is not supported by this display panel</string>
     <string name="toast_overlay_permission_required" formatted="false">Display over other apps permission is required</string>
     <string name="toast_path_copied">Path copied: %1$s</string>
     <string name="toast_driver_path_copied" formatted="false">Driver path copied to clipboard</string>
     <string name="toast_session_exported" formatted="false">Session exported to Download/Lynx/</string>
     <string name="toast_session_analyzing" formatted="false">Analyzing recording session…</string>
     <string name="toast_recording_started" formatted="false">Recording started. Open your game or app.</string>
-    <string name="tile_hbm_unsupported" formatted="false">HBM: Unsupported</string>
-    <string name="tile_hbm_subtitle_unsupported" formatted="false">Unsupported</string>
-    <string name="tile_hbm_subtitle_active" formatted="false">Outdoor Boost Active</string>
-    <string name="tile_hbm_subtitle_normal" formatted="false">Normal</string>
     <string name="tile_hud_overlay_active" formatted="false">Overlay Active</string>
     <string name="tile_hud_off" formatted="false">Off</string>
     <string name="thermal_guard_channel_description" formatted="false">Real-time device thermal safety monitoring</string>
@@ -47,7 +42,6 @@
         <item quantity="other">%1$d thermal sensors detected</item>
     </plurals>
     <string name="tile_profile_label" formatted="false">Lynx Profile</string>
-    <string name="tile_hbm_label" formatted="false">Lynx HBM</string>
     <string name="tile_hud_label" formatted="false">Lynx Engine</string>
     <string name="reset_to_oem_default" formatted="false">Reset to OEM Default</string>
     <string name="full_info_guide" formatted="false">Full Information Guide</string>
@@ -404,7 +398,6 @@
     <string name="legacy_ui_ce401b834bed9c" formatted="false">Overlay Display Style (OSD)</string>
     <string name="legacy_ui_f7554a8cddaf62" formatted="false">Global Undervolt Offset</string>
     <string name="legacy_ui_d944bf6ee9e7a2" formatted="false">HARDWARE</string>
-    <string name="legacy_ui_c331c166bfed72" formatted="false">HBM Sunlight Booster</string>
     <string name="legacy_ui_3fc391cbe2f215" formatted="false">Lynx Engine active! Swipe the side rail or tap the header for quick controls in a game.</string>
     <string name="legacy_ui_f3102b70ab5e6b" formatted="false">Pages Shared</string>
     <string name="legacy_ui_5c34c9dfb1282a" formatted="false">Shared Pages</string>
@@ -721,7 +714,6 @@
     <string name="legacy_ui_6717f5529455c0" formatted="false">Deep Kernel &amp; System Tunables</string>
     <string name="legacy_ui_1fe9e0317f3144" formatted="false">Discharging</string>
     <string name="legacy_ui_973b32667ce77f" formatted="false">Saved from Lynx configuration</string>
-    <string name="legacy_ui_48694b47e10da8" formatted="false">Display HBM</string>
     <string name="legacy_ui_5da3844178cc9f" formatted="false">Display Refresh Rate &amp; Touch</string>
     <string name="legacy_ui_ef4e9e3f43d29f" formatted="false">SurfaceFlinger and HWUI Canvas distribution</string>
     <string name="legacy_ui_d3bb00f0b01019" formatted="false">Applied directly to the kernel without a restart</string>
@@ -744,7 +736,6 @@
     <string name="legacy_ui_0fadfa22881467" formatted="false">Gaming</string>
     <string name="legacy_ui_5a8169fe00930a" formatted="false">Notification &amp; Mode Feedback Style</string>
     <string name="legacy_ui_ea65c4c5851eeb" formatted="false">HARDWARE COMPOSER</string>
-    <string name="legacy_ui_656aa5b7bee5ba" formatted="false">HBM: Unsupported</string>
     <string name="legacy_ui_fcd6a7c5067053" formatted="false">Verified Physical Hardware</string>
     <string name="legacy_ui_babf1c50d3277b" formatted="false">HeaderSubtitleMorph</string>
     <string name="legacy_ui_ffb5ffa7f40b8f" formatted="false">Power Saver</string>
@@ -1150,7 +1141,6 @@
     <string name="legacy_ui_fb6956ee94c869" formatted="false">Failed to change the CCI and memory bus mode</string>
     <string name="legacy_ui_00f632d5b3380a" formatted="false">Failed to change the SELinux mode.</string>
     <string name="legacy_ui_fa48c309109b2d" formatted="false">Failed to change the memory bus and interconnect profile</string>
-    <string name="legacy_ui_a8c5b12b490f16" formatted="false">Failed to change the HBM state</string>
     <string name="legacy_ui_ea5de4bdb2323c" formatted="false">Failed to change the TouchBoost state</string>
     <string name="legacy_ui_a4036de27cb0cf" formatted="false">Failed to change the entropy threshold</string>
     <string name="legacy_ui_e15cf9eaad10fb" formatted="false">Failed to copy the profile</string>
@@ -1161,9 +1151,6 @@
     <string name="legacy_ui_c0be130f6ecf2e" formatted="false">Failed to save the script</string>
     <string name="legacy_ui_b9f081a13a8637" formatted="false">Failed to reset battery statistics</string>
     <string name="legacy_ui_6462dedc4374e0" formatted="false">Audio gain updated</string>
-    <string name="legacy_ui_9f66ebbf708933" formatted="false">HBM disabled</string>
-    <string name="legacy_ui_38e69deb3c7460" formatted="false">Outdoor HBM enabled</string>
-    <string name="legacy_ui_f702b2bcc15e2b" formatted="false">HBM is not supported by this device\'s display panel</string>
     <string name="legacy_ui_f01696800a62a2" formatted="false">Hardware DC dimming is not supported by this panel</string>
     <string name="legacy_ui_412bcbaeb9644a" formatted="false">Battery indicator and fuel gauge calibrated successfully!</string>
     <string name="legacy_ui_417a0c420492ca" formatted="false">KCAL is not supported by this device\'s kernel</string>
@@ -2245,11 +2232,9 @@
 
     <!-- ZoneTouch Master -->
     <string name="hud_zonetouch_title">ZoneTouch Master</string>
-    <string name="hud_zonetouch_desc">Hardware touch IC optimization, minimal touch slop (2px), and input responsiveness.</string>
+    <string name="hud_zonetouch_desc">Hardware touch IC optimization and input responsiveness.</string>
     <string name="hud_zonetouch_esports">Esports Full-Link Boost</string>
     <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
-    <string name="hud_zonetouch_slop">Ultra-Sensitive (2px Slop)</string>
-    <string name="hud_zonetouch_slop_desc">Detects finger movement at just 2 pixels for instant micro-aiming response.</string>
     <string name="hud_touch_show_touches">Show System Taps</string>
     <string name="hud_touch_show_touches_desc">Displays visual touch circles anywhere on screen via Android system settings.</string>
 
@@ -2477,12 +2462,12 @@
     <string name="hud_subpage_hardware_swap_used">ZRAM In-Use</string>
     <string name="hud_subpage_hardware_ram_free">Available RAM</string>
     <string name="touch_precision_card_title">Touch Precision &amp; Edge Guard</string>
-    <string name="touch_precision_card_subtitle">Calibrate Novatek NT36672C micro-motion sensitivity, SPI clock ceiling, Back Gesture edge filter, and Android input pipeline</string>
+    <string name="touch_precision_card_subtitle">Calibrate touch controller micro-sensitivity (when kernel-supported), Back Gesture edge guard, IRQ affinity, and Android input pipeline</string>
     <string name="touch_precision_hw_detected_badge">NVT HARDWARE</string>
     <string name="touch_precision_hw_generic_badge">ANDROID INPUT</string>
     <string name="touch_precision_refresh_cd">Refresh live touch telemetry</string>
     <string name="touch_precision_live_stats_line">Active: Gain %1$s | Bezel %2$d px | SPI %3$s MHz | Err %4$d | Frame %5$d us</string>
-    <string name="touch_precision_live_edge_line">Back Edge: Left %1$d px / Right %2$d px | ML %3$s | Slop %4$d dp</string>
+    <string name="touch_precision_live_edge_line">Back Edge: Left %1$d px / Right %2$d px | ML %3$s</string>
     <string name="touch_precision_sec_edge_guard">Edge Protection &amp; Back Gesture</string>
     <string name="touch_precision_sec_novatek_micro">Novatek Micro-Sensitivity &amp; Bus</string>
     <string name="touch_precision_sec_pipeline_ktch">Input Pipeline &amp; Kernel TouchBoost</string>
@@ -2518,14 +2503,10 @@
     <string name="touch_precision_nvt_smooth_label">IC Coordinate Smoothing Level</string>
     <string name="touch_precision_nvt_filter_level_off">0x00 (Off / Most Sensitive)</string>
     <string name="touch_precision_nvt_filter_level_val">0x0%1$d</string>
-    <string name="touch_precision_slop_label">Android Drag Slop (view.touch_slop)</string>
-    <string name="touch_precision_slop_val">%1$d dp (~%2$d px)</string>
     <string name="touch_precision_resampling_label">Android Predictive Resampling</string>
     <string name="touch_precision_resampling_sub">Disable for raw 1:1 sensor coordinates without frame interpolation lag</string>
-    <string name="touch_precision_freq_boost_label">Touch Input Frequency Priority</string>
-    <string name="touch_precision_freq_boost_sub">Enable debug.touch.frequency.boost for immediate touch thread response</string>
-    <string name="touch_precision_irq_affinity_label">Pin Touch IRQ to Big Cores (6-7)</string>
-    <string name="touch_precision_irq_affinity_sub">Routes touch controller &amp; SPI3 interrupts to Cortex-A76 cluster</string>
+    <string name="touch_precision_irq_affinity_label">Pin Touch IRQ to Performance Cores</string>
+    <string name="touch_precision_irq_affinity_sub">Dynamically routes touch controller &amp; SPI/I2C interrupts to the highest performance CPU cluster</string>
     <string name="touch_precision_ktch_enable">MTK Kernel TouchBoost (ktch)</string>
     <string name="touch_precision_ktch_enable_sub">Kernel-level CPU/GPU boost on touch input</string>
     <string name="touch_precision_ktch_duration_label">TouchBoost Hold Duration</string>
@@ -2546,47 +2527,6 @@
     <string name="color_preset_reading">Reading</string>
     <string name="display_hero_ips_d65">D65 Natural IPS Profile</string>
     <string name="display_hero_ips_vivid">IPS Vivid Profile</string>
-    <string name="mtk_pq_card_title">MediaTek Picture Quality (PQ)</string>
-    <string name="mtk_pq_card_subtitle">Control AAL Bypass, DRE Local Contrast, TDSHP Sharpness &amp; UltraRes</string>
-    <string name="mtk_pq_hw_badge">PQ LV %1$d</string>
-    <string name="mtk_pq_refresh_cd">Refresh MTK PQ status</string>
-    <string name="mtk_pq_state_bypassed">Bypassed</string>
-    <string name="mtk_pq_state_active">Active</string>
-    <string name="mtk_pq_telemetry_primary">AAL: %1$s • DRE: Lv %2$d • Sharpness: %3$d</string>
-    <string name="mtk_pq_telemetry_secondary">UltraRes: %1$d (+%2$d) • HAL: %3$s</string>
-    <string name="mtk_pq_presets_title">Quick MTK PQ Presets</string>
-    <string name="mtk_pq_preset_stock">Stock</string>
-    <string name="mtk_pq_preset_natural">Pure Natural</string>
-    <string name="mtk_pq_preset_cinema">Cinema DRE+</string>
-    <string name="mtk_pq_preset_gaming">Sharp Gaming</string>
-    <string name="mtk_pq_aal_bypass_label">Bypass AAL (Disable Adaptive Luma &amp; Wash)</string>
-    <string name="mtk_pq_aal_bypass_sub">Disables Ambient Adaptive Luma so gamma curve and D65 balance stay consistent</string>
-    <string name="mtk_pq_dre_mode_label">MDP DRE Local Contrast (Dynamic Range Enhancement)</string>
-    <string name="mtk_pq_dre_off">Off (0)</string>
-    <string name="mtk_pq_dre_on">On (1)</string>
-    <string name="mtk_pq_dre_auto">Adaptive (2)</string>
-    <string name="mtk_pq_vp_dre_label">Video Playback DRE (Video Local Contrast)</string>
-    <string name="mtk_pq_vp_dre_sub">Enables dynamic local contrast enhancement during MDP video playback</string>
-    <string name="mtk_pq_shp_idx_label">Sharpness Index (TDSHP Index)</string>
-    <string name="mtk_pq_shp_idx_val">Lv %1$d / 9</string>
-    <string name="mtk_pq_iso_shp_label">Isotropic Sharpness</string>
-    <string name="mtk_pq_iso_shp_sub">Applies directionally uniform sharpening to reduce harsh ringing artifacts</string>
-    <string name="mtk_pq_dbg_shp_label">Master TDSHP Engine (debug.pq.shp.en)</string>
-    <string name="mtk_pq_dbg_shp_sub">Master switch for the MediaTek 2D texture sharpening block</string>
-    <string name="mtk_pq_dbg_dshp_label">Dynamic Sharpness (debug.pq.dshp.en)</string>
-    <string name="mtk_pq_dbg_dshp_sub">Content-adaptive dynamic sharpness boost</string>
-    <string name="mtk_pq_ultrares_enable_label">Ultra Resolution (Super Detail)</string>
-    <string name="mtk_pq_ultrares_enable_sub">Enhances fine texture detail when scaling video and UI content</string>
-    <string name="mtk_pq_ultrares_str_label">UltraRes Strength</string>
-    <string name="mtk_pq_ultrares_str_val">+%1$d / 4</string>
-    <string name="mtk_pq_boot_persist">Auto-Apply on Boot</string>
-    <string name="mtk_pq_boot_persist_sub">Restores saved MTK PQ properties and AAL Bypass automatically after reboot</string>
-    <string name="mtk_pq_apply_btn">Apply &amp; Reload PQ</string>
-    <string name="mtk_pq_applying_btn">Reloading PQ HAL…</string>
-    <string name="mtk_pq_restore_btn">Stock Default</string>
-    <string name="mtk_pq_status_applied">MTK PQ properties applied and PQ HAL reloaded safely.</string>
-    <string name="mtk_pq_status_restored">MTK PQ restored to factory balanced baseline (AAL Active, Adaptive DRE, SHP 2).</string>
-    <string name="mtk_pq_status_reload_warn">Properties saved, but the PQ HAL did not confirm reload.</string>
     <string name="panel_hw_card_title">Panel CABC &amp; ESD Watchdog</string>
     <string name="panel_hw_card_subtitle">DCS 0x55 Content Adaptive Backlight Control &amp; Panel ESD Check Interval</string>
     <string name="panel_hw_badge_full">CABC • ESD</string>
@@ -2594,7 +2534,7 @@
     <string name="panel_hw_badge_esd_only">ESD CHECK</string>
     <string name="panel_hw_refresh_cd">Refresh Panel CABC &amp; ESD hardware state</string>
     <string name="panel_hw_telemetry_line">CABC Mode: %1$s • ESD Watchdog: %2$s</string>
-    <string name="panel_hw_telemetry_hint">HBM automatically defers CABC outdoors; ESD polling checks panel TE register 0x0A</string>
+    <string name="panel_hw_telemetry_hint">CABC 0x55 trims backlight current dynamically; ESD polling checks panel register 0x0A</string>
     <string name="panel_hw_cabc_section_title">True Panel CABC Mode (Register 0x55)</string>
     <string name="panel_hw_cabc_section_sub">Dynamically trims backlight LED current on static content to save power without changing sRGB gamut</string>
     <string name="panel_hw_cabc_off">Off (0)</string>

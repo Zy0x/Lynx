@@ -372,13 +372,6 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
         "esports" -> 96
         else -> 128
     }
-    val targetBlobCache = when (profile) {
-        "battery" -> 64
-        "balanced" -> 128
-        "esports" -> 256
-        else -> 512
-    }
-    val targetCompilerThreads = if (isGaming) 4 else 0
     val targetAsync = isGaming
     val targetPureHwVsync = isGaming
     activeGpuIntent = LynxViewModel.GpuIntent(
@@ -411,8 +404,6 @@ fun LynxViewModel.applyGpuProfile(profile: String, context: android.content.Cont
             ),
             graphicsHwui = it.graphicsHwui.copy(
                 textureCacheMb = targetTextureCache,
-                shaderBlobCacheMb = targetBlobCache,
-                shaderCompilerThreads = targetCompilerThreads,
                 asyncShaderPipelineEnabled = targetAsync,
                 pureHwVsyncEnabled = targetPureHwVsync
             )
@@ -578,24 +569,6 @@ fun LynxViewModel.setTextureCacheSize(mb: Int) {
             _uiState.update { it.copy(successMessage = "HWUI Texture Cache diatur ke ${mb}MB — restart app untuk efek penuh") }
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal mengatur texture cache size") }
-        }
-    }
-}
-
-fun LynxViewModel.setShaderCompilerThreads(threads: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(shaderCompilerThreads = threads)) }
-    viewModelScope.launch {
-        val ok = LynxRepository.setShaderCompilerThreads(threads)
-        if (ok) {
-            _uiState.update {
-                it.copy(
-                    successMessage = if (threads > 0) "Skia Shader Compiler diatur ke $threads worker threads"
-                                     else "Skia Shader Compiler dikembalikan ke mode Auto OS"
-                )
-            }
-        } else {
-            _uiState.update { it.copy(errorMessage = "Gagal mengatur Skia compiler threads") }
         }
     }
 }

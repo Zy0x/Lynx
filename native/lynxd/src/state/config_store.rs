@@ -151,21 +151,8 @@ pub const DEFAULT_CONFIG_TEMPLATE: &str = r#"{
     "back_gesture_scale_right": 0.18,
     "back_gesture_ml_enabled": true,
     "back_gesture_ml_threshold": 0.96,
-    "view_touch_slop": 4,
     "input_resampling": false,
-    "debug_touch_freq_boost": true,
     "touch_irq_big_cores": true
-  },
-  "mtk_pq": {
-    "aal_bypass": false,
-    "dre_mode": 2,
-    "vp_dre_enabled": true,
-    "shp_index": 2,
-    "iso_shp_enabled": true,
-    "ultrares_enabled": true,
-    "ultrares_strength": 0,
-    "debug_shp_enabled": true,
-    "debug_dshp_enabled": true
   },
   "panel": {
     "cabc_mode": 0,

@@ -109,17 +109,6 @@
         </service>
 
         <service
-            android:name=".service.LynxHbmTileService"
-            android:exported="true"
-            android:label="@string/tile_hbm_label"
-            android:icon="@mipmap/ic_launcher"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <service
             android:name=".service.LynxHudTileService"
             android:process=":hud"
             android:exported="true"

@@ -193,7 +193,6 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
 
             # 4. Framework Properties & State Flag
             setprop vendor.perf.gestureFlingBoost.enable "$valStr" 2>/dev/null
-            setprop persist.sys.lynx.touchboost "$valStr" 2>/dev/null
             mkdir -p /data/adb/lynx 2>/dev/null
             if [ "$valStr" = "1" ]; then
                 echo 1 > /data/adb/lynx/hud_touch_active
@@ -223,7 +222,6 @@ class HudTouchSession(context: Context) : HudDriverSession(context, "touch", lis
                      /sys/class/touch/touch_dev/game_mode; do
                 [ -e "${'$'}d" ] && echo 0 > "${'$'}d" 2>/dev/null
             done
-            setprop persist.sys.lynx.touchboost 0 2>/dev/null
             rm -f /data/adb/lynx/hud_touch_active 2>/dev/null
         """.trimIndent()
         Shell.cmd(script).exec()

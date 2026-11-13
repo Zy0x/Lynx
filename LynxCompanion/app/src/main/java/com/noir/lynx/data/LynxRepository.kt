@@ -716,7 +716,6 @@ object LynxRepository {
     suspend fun setForceMsaa(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setForceMsaa(enabled)
     suspend fun setOemThrottlerShield(oemThrottler: String, disable: Boolean): Boolean = LynxGraphicsEngineRepository.setOemThrottlerShield(oemThrottler, disable)
     suspend fun setDcDimming(enabled: Boolean): Boolean = LynxGraphicsEngineRepository.setDcDimming(enabled)
-    suspend fun setShaderCompilerThreads(threads: Int): Boolean = LynxGraphicsEngineRepository.setShaderCompilerThreads(threads)
     suspend fun setForcedFpsUnlocker(hz: Int): Boolean = LynxDisplayRepository.setForcedFpsUnlocker(hz)
     suspend fun readForcedFpsUnlocker(): Int = LynxDisplayRepository.readForcedFpsUnlocker()
     suspend fun readSocOverride(): String = LynxSystemTuningRepository.readSocOverride()
@@ -1075,7 +1074,7 @@ object LynxRepository {
     suspend fun readBatteryHealth(): BatteryHealthStats = LynxBatteryDiagnosticsRepository.readBatteryHealth()
 
     // ============================================================
-    //  FKM ADVANCED SUBSYSTEMS: DISPLAY CALIBRATION (KCAL & HBM)
+    //  FKM ADVANCED SUBSYSTEMS: DISPLAY CALIBRATION (KCAL)
     // ============================================================
 
     suspend fun readDisplayCalibration(): DisplayCalibrationInfo = LynxDisplayRepository.readDisplayCalibration()
@@ -1084,8 +1083,6 @@ object LynxRepository {
 
     suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean =
         LynxDisplayRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
-
-    suspend fun setHbmEnabled(enabled: Boolean): Boolean = LynxDisplayRepository.setHbmEnabled(enabled)
 
     // ============================================================
     //  FKM ADVANCED SUBSYSTEMS: SOUND CONTROL

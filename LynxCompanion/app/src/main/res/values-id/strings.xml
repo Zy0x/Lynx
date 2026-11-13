@@ -7,17 +7,12 @@
     <string name="language_indonesian">Bahasa Indonesia</string>
     <string name="language_english">English</string>
     <string name="accessibility_open_category">Buka %1$s</string>
-    <string name="toast_hbm_unsupported">HBM tidak didukung oleh panel layar ini</string>
     <string name="toast_overlay_permission_required">Izin Tampilkan di Atas Aplikasi Lain diperlukan</string>
     <string name="toast_path_copied">Path disalin: %1$s</string>
     <string name="toast_driver_path_copied">Path driver disalin ke clipboard</string>
     <string name="toast_session_exported">Sesi diekspor ke Download/Lynx/</string>
     <string name="toast_session_analyzing">Menganalisis sesi perekaman…</string>
     <string name="toast_recording_started">Perekaman dimulai. Buka game/aplikasi Anda.</string>
-    <string name="tile_hbm_unsupported">HBM: Tidak Didukung</string>
-    <string name="tile_hbm_subtitle_unsupported">Tidak Didukung</string>
-    <string name="tile_hbm_subtitle_active">Outdoor Boost Aktif</string>
-    <string name="tile_hbm_subtitle_normal">Normal</string>
     <string name="tile_hud_overlay_active">Overlay Aktif</string>
     <string name="tile_hud_off">Mati</string>
     <string name="thermal_guard_channel_description">Pemantauan keselamatan termal perangkat secara real-time</string>
@@ -47,7 +42,6 @@
         <item quantity="other">%1$d sensor terdeteksi</item>
     </plurals>
     <string name="tile_profile_label">Lynx Profile</string>
-    <string name="tile_hbm_label">Lynx HBM</string>
     <string name="tile_hud_label">Lynx Engine</string>
 
     <!-- Design System & Common Controls -->
@@ -428,7 +422,6 @@
     <string name="legacy_ui_ce401b834bed9c" formatted="false">Gaya Tampilan Overlay (OSD Style)</string>
     <string name="legacy_ui_f7554a8cddaf62" formatted="false">Global Undervolt Offset</string>
     <string name="legacy_ui_d944bf6ee9e7a2" formatted="false">HARDWARE</string>
-    <string name="legacy_ui_c331c166bfed72" formatted="false">HBM Sunlight Booster</string>
     <string name="legacy_ui_3fc391cbe2f215" formatted="false">Lynx Engine Aktif! Geser bilah samping atau ketuk header untuk interaksi cepat saat berada di dalam game.</string>
     <string name="legacy_ui_f3102b70ab5e6b" formatted="false">Halaman Shared</string>
     <string name="legacy_ui_5c34c9dfb1282a" formatted="false">Halaman Sharing</string>
@@ -745,7 +738,6 @@
     <string name="legacy_ui_6717f5529455c0" formatted="false">Deep Kernel &amp; System Tunables</string>
     <string name="legacy_ui_1fe9e0317f3144" formatted="false">Discharging</string>
     <string name="legacy_ui_973b32667ce77f" formatted="false">Disimpan dari konfigurasi Lynx</string>
-    <string name="legacy_ui_48694b47e10da8" formatted="false">Display HBM</string>
     <string name="legacy_ui_5da3844178cc9f" formatted="false">Display Refresh Rate &amp; Touch</string>
     <string name="legacy_ui_ef4e9e3f43d29f" formatted="false">Distribusi SurfaceFlinger dan HWUI Canvas</string>
     <string name="legacy_ui_d3bb00f0b01019" formatted="false">Diterapkan langsung ke kernel tanpa restart</string>
@@ -768,7 +760,6 @@
     <string name="legacy_ui_0fadfa22881467" formatted="false">Gaming</string>
     <string name="legacy_ui_5a8169fe00930a" formatted="false">Gaya Notifikasi &amp; Feedback Mode</string>
     <string name="legacy_ui_ea65c4c5851eeb" formatted="false">HARDWARE COMPOSER</string>
-    <string name="legacy_ui_656aa5b7bee5ba" formatted="false">HBM: Unsupported</string>
     <string name="legacy_ui_fcd6a7c5067053" formatted="false">Hardware Asli Terverifikasi</string>
     <string name="legacy_ui_babf1c50d3277b" formatted="false">HeaderSubtitleMorph</string>
     <string name="legacy_ui_ffb5ffa7f40b8f" formatted="false">Hemat</string>
@@ -1174,7 +1165,6 @@
     <string name="legacy_ui_fb6956ee94c869" formatted="false">Gagal mengubah mode Bus CCI &amp; Memori</string>
     <string name="legacy_ui_00f632d5b3380a" formatted="false">Gagal mengubah mode SELinux.</string>
     <string name="legacy_ui_fa48c309109b2d" formatted="false">Gagal mengubah profil Bus Memori &amp; Interkoneksi</string>
-    <string name="legacy_ui_a8c5b12b490f16" formatted="false">Gagal mengubah status HBM</string>
     <string name="legacy_ui_ea5de4bdb2323c" formatted="false">Gagal mengubah status Touchboost</string>
     <string name="legacy_ui_a4036de27cb0cf" formatted="false">Gagal mengubah threshold entropi</string>
     <string name="legacy_ui_e15cf9eaad10fb" formatted="false">Gagal menyalin profil</string>
@@ -1185,9 +1175,6 @@
     <string name="legacy_ui_c0be130f6ecf2e" formatted="false">Gagal menyimpan skrip</string>
     <string name="legacy_ui_b9f081a13a8637" formatted="false">Gagal mereset statistik baterai</string>
     <string name="legacy_ui_6462dedc4374e0" formatted="false">Gain audio diperbarui</string>
-    <string name="legacy_ui_9f66ebbf708933" formatted="false">HBM Dimatikan</string>
-    <string name="legacy_ui_38e69deb3c7460" formatted="false">HBM Outdoor Aktif</string>
-    <string name="legacy_ui_f702b2bcc15e2b" formatted="false">HBM tidak didukung oleh panel display perangkat ini</string>
     <string name="legacy_ui_f01696800a62a2" formatted="false">Hardware DC Dimming tidak didukung oleh panel ini</string>
     <string name="legacy_ui_412bcbaeb9644a" formatted="false">Indikator Baterai &amp; Fuel Gauge Berhasil Dikalibrasi!</string>
     <string name="legacy_ui_417a0c420492ca" formatted="false">KCAL tidak didukung oleh kernel perangkat ini</string>
@@ -2269,11 +2256,9 @@
 
     <!-- ZoneTouch Master -->
     <string name="hud_zonetouch_title">ZoneTouch Master</string>
-    <string name="hud_zonetouch_desc">Optimasi touch IC hardware, touch slop minimal (2px), dan responsivitas input.</string>
+    <string name="hud_zonetouch_desc">Optimasi touch IC hardware dan responsivitas input.</string>
     <string name="hud_zonetouch_esports">Esports Full-Link Boost</string>
     <string name="hud_zonetouch_sampling">Sampling Rate Maximize (240Hz/360Hz)</string>
-    <string name="hud_zonetouch_slop">Sensitivitas Ultra-Peka (2px Slop)</string>
-    <string name="hud_zonetouch_slop_desc">Deteksi pergeseran seketika pada 2 piksel untuk bidikan mikro super peka.</string>
 
     <!-- TouchShare -->
     <string name="hud_touchshare_export">Salin Kode</string>
@@ -2499,12 +2484,12 @@
     <string name="hud_subpage_hardware_swap_used">ZRAM Terpakai</string>
     <string name="hud_subpage_hardware_ram_free">RAM Bebas</string>
     <string name="touch_precision_card_title">Presisi Sentuh &amp; Tepi</string>
-    <string name="touch_precision_card_subtitle">Kalibrasi sensitivitas gerakan mikro Novatek NT36672C, batas SPI, filter tepi Back Gesture, dan pipeline input Android</string>
+    <string name="touch_precision_card_subtitle">Kalibrasi sensitivitas mikro IC panel sentuh (jika didukung kernel), pelindung tepi Back Gesture, IRQ affinity, dan pipeline input Android</string>
     <string name="touch_precision_hw_detected_badge">NVT HARDWARE</string>
     <string name="touch_precision_hw_generic_badge">ANDROID INPUT</string>
     <string name="touch_precision_refresh_cd">Muat ulang telemetri sentuh</string>
     <string name="touch_precision_live_stats_line">Aktif: Gain %1$s | Bezel %2$d px | SPI %3$s MHz | Error %4$d | Frame %5$d us</string>
-    <string name="touch_precision_live_edge_line">Back Edge: Kiri %1$d px / Kanan %2$d px | ML %3$s | Slop %4$d dp</string>
+    <string name="touch_precision_live_edge_line">Back Edge: Kiri %1$d px / Kanan %2$d px | ML %3$s</string>
     <string name="touch_precision_sec_edge_guard">Pelindung Tepian &amp; Back Gesture</string>
     <string name="touch_precision_sec_novatek_micro">Sensitivitas Mikro &amp; Bus Novatek</string>
     <string name="touch_precision_sec_pipeline_ktch">Pipeline Input &amp; TouchBoost Kernel</string>
@@ -2540,14 +2525,10 @@
     <string name="touch_precision_nvt_smooth_label">Level Penghalusan Koordinat IC</string>
     <string name="touch_precision_nvt_filter_level_off">0x00 (Nonaktif / Terpeka)</string>
     <string name="touch_precision_nvt_filter_level_val">0x0%1$d</string>
-    <string name="touch_precision_slop_label">Ambang Geser Android (view.touch_slop)</string>
-    <string name="touch_precision_slop_val">%1$d dp (~%2$d px)</string>
     <string name="touch_precision_resampling_label">Resampling Prediksi Android</string>
     <string name="touch_precision_resampling_sub">Matikan untuk koordinat mentah 1:1 tanpa jeda interpolasi frame</string>
-    <string name="touch_precision_freq_boost_label">Prioritas Frekuensi Input Sentuh</string>
-    <string name="touch_precision_freq_boost_sub">Aktifkan debug.touch.frequency.boost agar thread input segera merespons</string>
-    <string name="touch_precision_irq_affinity_label">Sematkan IRQ Sentuh ke Big Core (6-7)</string>
-    <string name="touch_precision_irq_affinity_sub">Mengarahkan interupsi driver sentuh &amp; SPI3 ke kluster Cortex-A76</string>
+    <string name="touch_precision_irq_affinity_label">Sematkan IRQ Sentuh ke Core Performa</string>
+    <string name="touch_precision_irq_affinity_sub">Mengarahkan interupsi driver sentuh &amp; bus SPI/I2C ke kluster CPU performa tertinggi secara dinamis</string>
     <string name="touch_precision_ktch_enable">MTK Kernel TouchBoost (ktch)</string>
     <string name="touch_precision_ktch_enable_sub">Dorongan CPU/GPU tingkat kernel saat layar tersentuh</string>
     <string name="touch_precision_ktch_duration_label">Durasi Tahan TouchBoost</string>
@@ -2568,47 +2549,6 @@
     <string name="color_preset_reading">Membaca</string>
     <string name="display_hero_ips_d65">Profil D65 Natural IPS</string>
     <string name="display_hero_ips_vivid">Profil IPS Vivid</string>
-    <string name="mtk_pq_card_title">MediaTek Picture Quality (PQ)</string>
-    <string name="mtk_pq_card_subtitle">Kendali AAL Bypass, DRE Local Contrast, TDSHP Sharpness &amp; UltraRes</string>
-    <string name="mtk_pq_hw_badge">PQ LV %1$d</string>
-    <string name="mtk_pq_refresh_cd">Segarkan status MTK PQ</string>
-    <string name="mtk_pq_state_bypassed">Bypass</string>
-    <string name="mtk_pq_state_active">Aktif</string>
-    <string name="mtk_pq_telemetry_primary">AAL: %1$s • DRE: Lv %2$d • Sharpness: %3$d</string>
-    <string name="mtk_pq_telemetry_secondary">UltraRes: %1$d (+%2$d) • HAL: %3$s</string>
-    <string name="mtk_pq_presets_title">Preset Cepat MTK PQ</string>
-    <string name="mtk_pq_preset_stock">Standar</string>
-    <string name="mtk_pq_preset_natural">Natural Murni</string>
-    <string name="mtk_pq_preset_cinema">Sinema DRE+</string>
-    <string name="mtk_pq_preset_gaming">Esports Tajam</string>
-    <string name="mtk_pq_aal_bypass_label">Bypass AAL (Matikan Auto-Gamma &amp; Redup Adaptif)</string>
-    <string name="mtk_pq_aal_bypass_sub">Menonaktifkan Ambient Adaptive Luma agar kurva gamma &amp; D65 tidak berubah otomatis</string>
-    <string name="mtk_pq_dre_mode_label">MDP DRE Local Contrast (Dynamic Range Enhancement)</string>
-    <string name="mtk_pq_dre_off">Mati (0)</string>
-    <string name="mtk_pq_dre_on">Aktif (1)</string>
-    <string name="mtk_pq_dre_auto">Adaptif (2)</string>
-    <string name="mtk_pq_vp_dre_label">Video Playback DRE (Kontras Lokal Video)</string>
-    <string name="mtk_pq_vp_dre_sub">Aktifkan peningkatan kontras dinamis saat pemutaran video MDP</string>
-    <string name="mtk_pq_shp_idx_label">Indeks Ketajaman (TDSHP Index)</string>
-    <string name="mtk_pq_shp_idx_val">Lv %1$d / 9</string>
-    <string name="mtk_pq_iso_shp_label">Isotropic Sharpness (Halus Merata)</string>
-    <string name="mtk_pq_iso_shp_sub">Ketajaman seragam di semua arah untuk mengurangi aliasing tepi keras</string>
-    <string name="mtk_pq_dbg_shp_label">Master TDSHP Engine (debug.pq.shp.en)</string>
-    <string name="mtk_pq_dbg_shp_sub">Sakelar utama blok penajaman tekstur 2D MediaTek</string>
-    <string name="mtk_pq_dbg_dshp_label">Dynamic Sharpness (debug.pq.dshp.en)</string>
-    <string name="mtk_pq_dbg_dshp_sub">Penyesuaian ketajaman dinamis berbasis kontras konten</string>
-    <string name="mtk_pq_ultrares_enable_label">Ultra Resolution (Super Detail)</string>
-    <string name="mtk_pq_ultrares_enable_sub">Pemulihan tekstur halus saat melakukan scaling video &amp; gambar</string>
-    <string name="mtk_pq_ultrares_str_label">Kekuatan UltraRes</string>
-    <string name="mtk_pq_ultrares_str_val">+%1$d / 4</string>
-    <string name="mtk_pq_boot_persist">Terapkan Otomatis Saat Boot</string>
-    <string name="mtk_pq_boot_persist_sub">Menyelaraskan properti MTK PQ dan AAL Bypass secara otomatis setelah reboot</string>
-    <string name="mtk_pq_apply_btn">Terapkan &amp; Muat Ulang PQ</string>
-    <string name="mtk_pq_applying_btn">Memuat Ulang HAL PQ…</string>
-    <string name="mtk_pq_restore_btn">Default Pabrik</string>
-    <string name="mtk_pq_status_applied">Properti MTK PQ diterapkan &amp; HAL PQ dimuat ulang dengan aman.</string>
-    <string name="mtk_pq_status_restored">MTK PQ dipulihkan ke konfigurasi standar pabrik (AAL Aktif, DRE Adaptif, SHP 2).</string>
-    <string name="mtk_pq_status_reload_warn">Properti tersimpan, tetapi HAL PQ tidak merespons reload.</string>
     <string name="panel_hw_card_title">Panel CABC &amp; ESD Watchdog</string>
     <string name="panel_hw_card_subtitle">Kendali CABC Panel Asli (DCS 0x55) &amp; Interval Pengecekan ESD</string>
     <string name="panel_hw_badge_full">CABC • ESD</string>
@@ -2616,7 +2556,7 @@
     <string name="panel_hw_badge_esd_only">CEK ESD</string>
     <string name="panel_hw_refresh_cd">Segarkan status hardware CABC &amp; ESD panel</string>
     <string name="panel_hw_telemetry_line">Mode CABC: %1$s • Watchdog ESD: %2$s</string>
-    <string name="panel_hw_telemetry_hint">HBM otomatis menangguhkan CABC di luar ruangan; ESD memeriksa register 0x0A panel</string>
+    <string name="panel_hw_telemetry_hint">CABC 0x55 menghemat daya LED backlight; ESD memeriksa register 0x0A panel</string>
     <string name="panel_hw_cabc_section_title">Mode CABC Panel Asli (Register 0x55)</string>
     <string name="panel_hw_cabc_section_sub">Menurunkan arus LED backlight secara dinamis pada konten statis untuk menghemat daya panel</string>
     <string name="panel_hw_cabc_off">Mati (0)</string>

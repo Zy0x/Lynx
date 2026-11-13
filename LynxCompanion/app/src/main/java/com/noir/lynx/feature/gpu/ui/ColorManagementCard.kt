@@ -34,8 +34,8 @@ import com.noir.lynx.data.DisplayCalibrationInfo
 import com.noir.lynx.display.ColorMatrixProfile
 
 /**
- * Kartu Manajemen Warna Layar (Color Engine).
- * Mengontrol kalibrasi visual SurfaceFlinger ColorMatrix 1015, D65 White Point, dan HBM Sunlight Booster.
+ * Display Color Management Card (Color Engine).
+ * Controls SurfaceFlinger ColorMatrix 1015 visual calibration and D65 White Point.
  */
 @Composable
 fun ColorManagementCard(
@@ -48,7 +48,6 @@ fun ColorManagementCard(
     onResetProfile: () -> Unit,
     onSetUniversalColor: (Float, Float, Float) -> Unit,
     onSetKcal: ((Boolean, Int, Int, Int, Int, Int, Int, Int) -> Unit)? = null,
-    onSetHbm: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardAccent = AccentGreen
@@ -581,15 +580,5 @@ fun ColorManagementCard(
             }
         }
 
-        // ── HBM Sunlight Booster (If supported) ──
-        if (displayCalibration.isHbmSupported) {
-            HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 10.dp))
-            LynxSwitch(
-                label = "Mode Kecerahan Maksimal (Matahari)",
-                subLabel = "Tingkatkan kecerahan layar ekstra saat berada di bawah terik matahari langsung",
-                checked = displayCalibration.hbmEnabled,
-                onCheckedChange = { onSetHbm(it) }
-            )
-        }
     }
 }

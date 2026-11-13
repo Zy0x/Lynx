@@ -48,9 +48,6 @@ fun GraphicsDriverHwuiCard(
     onSetTextureCacheSize: ((Int) -> Unit)? = null,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
     onSetPureHwVsync: ((Boolean) -> Unit)? = null,
-    onSetShaderCompilerThreads: ((Int) -> Unit)? = null,
-    onSetShaderBlobCache: ((Int) -> Unit)? = null,
-    onSetSwapchainBufferMode: ((String) -> Unit)? = null,
     wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -100,8 +97,9 @@ fun GraphicsDriverHwuiCard(
                     color = BgElevated,
                     border = BorderStroke(0.6.dp, BorderGlass)
                 ) {
+                    val supportedCount = listOf("auto", "skiagl", "skiavk", "skiagraphite", "angle").count { graphics.isBackendSupported(it) }
                     Text(
-                        text = "5 Pilihan Engine",
+                        text = "$supportedCount Engine Didukung",
                         color = cardAccent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
@@ -115,7 +113,7 @@ fun GraphicsDriverHwuiCard(
                 Triple("auto", "Default", "Stabil"),
                 Triple("skiagl", "SkiaGL", "OpenGL ES"),
                 Triple("skiavk", "SkiaVK", if (graphics.isVulkanSupported) "Vulkan" else "Tidak Didukung"),
-                Triple("skiagraphite", "Graphite", if (graphics.isGraphiteSupported) "Android 14+" else "Tidak Didukung"),
+                Triple("skiagraphite", "Graphite", if (graphics.isGraphiteSupported) "Skia Next" else "Tidak Didukung"),
                 Triple("angle", "ANGLE", if (graphics.isAngleSupported) "Khronos" else "Tidak Didukung")
             )
 
@@ -169,32 +167,9 @@ fun GraphicsDriverHwuiCard(
 
         HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(bottom = 8.dp))
 
-        // ── 3. SWAPCHAIN BUFFER MODE & VSYNC INTERVAL BYPASS ──
-        if (onSetSwapchainBufferMode != null) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                Text("Mode Antrean Frame Swapchain", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Text("Double (2 Buffers) untuk respon input kompetitif instan, Triple (3 Buffers) untuk kestabilan visual", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("double" to "Double (2 Buffers)", "triple" to "Triple (3 Buffers)").forEach { (mode, label) ->
-                        val isSel = graphics.swapchainBufferMode == mode
-                        Surface(
-                            onClick = { onSetSwapchainBufferMode(mode) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                            border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass)
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 9.dp)) {
-                                Text(label, color = if (isSel) cardAccent else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        // ── 3. VSYNC INTERVAL BYPASS ──
         // VSync Swap Interval Bypass (Consolidated from SurfaceFlingerPhaseCard)
-        if (onSetVsyncSwapBypass != null && silicon != null) {
+        if (onSetVsyncSwapBypass != null && silicon != null && silicon.isVsyncSwapBypassSupported) {
             LynxSwitch(
                 label = "Bypass VSync Swap Interval",
                 subLabel = if (silicon.isVsyncSwapBypass) "Bypass (swapinterval=0): Respon input instan tanpa jeda VSync" else "Sync (swapinterval=1): Presentasi frame terikat VSync",
@@ -204,25 +179,27 @@ fun GraphicsDriverHwuiCard(
         }
 
         // ── 4. SURFACEFLINGER LATENCY & EARLY PHASE OFFSET ──
-        // Latch Unsignaled
-        LynxSwitch(
-            label = "Respon Sentuhan Cepat (Latch Unsignaled)",
-            subLabel = "Memangkas jeda respon sentuhan hingga 1 frame untuk interaksi langsung",
-            checked = graphics.surfaceFlingerLatchUnsignaled,
-            onCheckedChange = { onSetLatch(it) }
-        )
+        if (graphics.isSfLatchSupported) {
+            LynxSwitch(
+                label = "Respon Sentuhan Cepat (Latch Unsignaled)",
+                subLabel = "Memangkas jeda respon sentuhan hingga 1 frame untuk interaksi langsung",
+                checked = graphics.surfaceFlingerLatchUnsignaled,
+                onCheckedChange = { onSetLatch(it) }
+            )
+        }
 
-        // Bypass Backpressure
-        LynxSwitch(
-            label = "Bypass Antrean Frame Layar",
-            subLabel = "Mengurangi antrean buffer tampilan untuk respon visual langsung",
-            checked = graphics.surfaceFlingerDisableBackpressure,
-            onCheckedChange = { onSetDisableBackpressure(it) }
-        )
+        if (graphics.isSfDisableBackpressureSupported) {
+            LynxSwitch(
+                label = "Bypass Antrean Frame Layar",
+                subLabel = "Mengurangi antrean buffer tampilan untuk respon visual langsung",
+                checked = graphics.surfaceFlingerDisableBackpressure,
+                onCheckedChange = { onSetDisableBackpressure(it) }
+            )
+        }
 
-        // Early Phase Offset (Consolidated with Fine-Tune Dialog)
-        val phaseMs = ((silicon?.sfEarlyPhaseOffsetNs ?: 0L) / 1_000_000L).toInt()
-        Row(
+        if (graphics.isSfEarlyPhaseSupported) {
+            val phaseMs = ((silicon?.sfEarlyPhaseOffsetNs ?: 0L) / 1_000_000L).toInt()
+            Row(
             modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -280,6 +257,7 @@ fun GraphicsDriverHwuiCard(
                 )
             }
         }
+        }
 
         // Force 4x MSAA
         LynxSwitch(
@@ -296,8 +274,6 @@ fun GraphicsDriverHwuiCard(
             onRefreshShaderCache = onRefreshShaderCache,
             onSetOemShield = onSetOemShield,
             onSetTextureCacheSize = onSetTextureCacheSize,
-            onSetShaderBlobCache = onSetShaderBlobCache,
-            onSetShaderCompilerThreads = onSetShaderCompilerThreads,
             onSetAsyncShaderPipeline = onSetAsyncShaderPipeline,
             onSetPureHwVsync = onSetPureHwVsync
         )

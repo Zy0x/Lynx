@@ -23,9 +23,7 @@ class TouchPrecisionModelsTest {
         assertEquals(0.18f, cfg.backGestureScaleLeft, 0.0001f)
         assertEquals(0.18f, cfg.backGestureScaleRight, 0.0001f)
         assertEquals(0.96f, cfg.backGestureMlThreshold, 0.0001f)
-        assertEquals(4, cfg.viewTouchSlop)
         assertFalse(cfg.inputResampling)
-        assertTrue(cfg.debugTouchFreqBoost)
         assertTrue(cfg.touchIrqBigCores)
     }
 

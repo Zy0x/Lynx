@@ -93,7 +93,6 @@ internal fun HudTouchPage(
 
     val esportsEnabled by zoneTouch?.esportsEnabled?.collectAsState() ?: remember { mutableStateOf(false) }
     val samplingBoost by zoneTouch?.samplingBoost?.collectAsState() ?: remember { mutableStateOf(false) }
-    val touchSlop by zoneTouch?.touchSlop?.collectAsState() ?: remember { mutableStateOf(2) }
 
     val touchCapText = hudString(
         when (touchStatus.capability) {
@@ -113,8 +112,7 @@ internal fun HudTouchPage(
     val touchInfo = "${hudString(R.string.hud_lab_touch_desc)}\n\n" +
         "• Kernel CPU Touch Boost: Memaksa governor CPU melompat ke frekuensi tertinggi seketika jari menyentuh layar.\n\n" +
         "• Esports Low-Latency: Prioritas real-time SCHED_FIFO pada thread InputReader & InputDispatcher Android.\n\n" +
-        "• Sampling Rate Boost: Memaksa digitizer IC hardware ke kecepatan baca maksimal (hingga 240Hz/480Hz).\n\n" +
-        "• Ultra-Sensitive Touch Slop (2px): Responsivitas gesekan instan dengan meminimalkan deadzone pergerakan jari."
+        "• Sampling Rate Boost: Memaksa digitizer IC hardware ke kecepatan baca maksimal (hingga 240Hz/480Hz)."
 
     // 2 Subpages: 0 = Setelan (Controls & Fine Tuning), 1 = Uji Sentuh (Spacious Test Pad)
     HudSubpages(listOf(R.string.hud_detail_controls, R.string.hud_detail_test)) { section ->
@@ -182,15 +180,6 @@ internal fun HudTouchPage(
                                 checked = samplingBoost,
                                 info = "Menaikkan touch reporting rate digitizer ke batas maksimal.",
                                 onChange = zoneTouch::setSamplingBoost
-                            )
-
-                            AddinToggle(
-                                label = hudString(R.string.hud_zonetouch_slop),
-                                checked = touchSlop <= 2,
-                                info = hudString(R.string.hud_zonetouch_slop_desc),
-                                onChange = { ultra ->
-                                    zoneTouch.setTouchSlop(if (ultra) 2 else 8)
-                                }
                             )
                         }
                     }
