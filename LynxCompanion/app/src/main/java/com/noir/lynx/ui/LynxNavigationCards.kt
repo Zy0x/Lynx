@@ -72,15 +72,18 @@ fun SubsystemCategoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
+    val cardShape = RoundedCornerShape(20.dp)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 88.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle),
-        tonalElevation = 0.dp
+            .heightIn(min = 88.dp)
+            .clip(cardShape)
+            .background(BgCard)
+            .border(BorderStroke(0.8.dp, BorderSubtle), cardShape)
+            .clickable {
+                android.util.Log.i("LynxNavigation", "SubsystemCategoryCard clicked: ${category.id}")
+                onClick()
+            }
     ) {
         Row(
             modifier = Modifier
@@ -90,20 +93,20 @@ fun SubsystemCategoryCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Left Icon Tile (min 48x48 touch visual)
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.size(48.dp)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(BgElevated)
+                    .border(BorderStroke(0.8.dp, BorderSubtle), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = category.icon,
-                        contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
-                        tint = category.accentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
+                    tint = category.accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
 
             // Middle Info Column
@@ -126,10 +129,11 @@ fun SubsystemCategoryCard(
                     )
 
                     if (badgeText.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = BgElevated,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(BgElevated)
+                                .border(BorderStroke(0.8.dp, BorderSubtle), RoundedCornerShape(6.dp))
                         ) {
                             Text(
                                 text = badgeText,
@@ -209,15 +213,18 @@ fun ToolCategoryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
+    val cardShape = RoundedCornerShape(20.dp)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 88.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle),
-        tonalElevation = 0.dp
+            .heightIn(min = 88.dp)
+            .clip(cardShape)
+            .background(BgCard)
+            .border(BorderStroke(0.8.dp, BorderSubtle), cardShape)
+            .clickable {
+                android.util.Log.i("LynxNavigation", "ToolCategoryCard clicked: ${category.id}")
+                onClick()
+            }
     ) {
         Row(
             modifier = Modifier
@@ -227,20 +234,20 @@ fun ToolCategoryCard(
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Left Icon Tile (min 48x48 touch visual)
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = BgElevated,
-                border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.size(48.dp)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(BgElevated)
+                    .border(BorderStroke(0.8.dp, BorderSubtle), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = category.icon,
-                        contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
-                        tint = category.accentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = com.noir.lynx.core.locale.localizedUiText(category.title),
+                    tint = category.accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
 
             // Middle Info Column
@@ -263,10 +270,11 @@ fun ToolCategoryCard(
                     )
 
                     if (badgeText.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = BgElevated,
-                            border = BorderStroke(0.8.dp, BorderSubtle)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(BgElevated)
+                                .border(BorderStroke(0.8.dp, BorderSubtle), RoundedCornerShape(6.dp))
                         ) {
                             Text(
                                 text = badgeText,

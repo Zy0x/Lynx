@@ -1,3 +1,15 @@
+# Lynx Universal [Single-Tap Navigation Fix & Touch Pipeline Optimization] 7.0.0-RC395
+Released on: 2026-11-14
+> Lynx Kernel Manager v3.4.16
+
+- **Perbaikan Responsivitas Navigasi Pusat Tuning & Pusat Tools (`SubsystemCategoryCard`, `ToolCategoryCard`, `MainDashboard`, `LynxViewModel`)**:
+  - Mengatasi tuntas kendala di mana seluruh kartu subsistem di Pusat Tuning dan Pusat Tools harus ditekan 2 kali agar dapat terbuka (*double-tap issue*).
+  - Mengeliminasi divergensi status antara variabel lokal `selectedCategory` dan `uiState.selectedTuningCategory` di `MainDashboard.kt` yang sebelumnya memicu *state fighting* dan reset dini kembali ke `null` pada sentuhan pertama saat recomposition.
+  - Menetapkan `uiState.selectedTuningCategory` sebagai *Single Source of Truth* mutlak, sehingga setiap ketukan kartu langsung memperbarui state ViewModel secara atomik dan merender transisi subscreen seketika dalam 1 kali sentuh (*instant single-tap response*).
+  - Mengganti pembungkus `Surface` bawaan pada ubin ikon dan lencana status kartu dengan komponen `Box` murni dengan dekorasi visual (`background` + `border`), menghilangkan interferensi konsumsi *pointer input* dan *semantics container* bersarang di dalam `LazyColumn`.
+  - Menambahkan kemampuan navigasi cerdas pada bottom navigation dock: mengetuk ulang tab *Tuning Engine* saat berada di dalam subhalaman akan secara otomatis kembali (*pop back*) ke Pusat Tuning Hub.
+  - Memverifikasi fungsionalitas secara langsung di perangkat fisik Infinix Note 11s (Helio G96) dan memperbarui instalasi aplikasi di Redmi Note 7 (Snapdragon 660).
+
 # Lynx Universal [Harmonized Semantic Charging Color Palette & UI Polish] 7.0.0-RC394
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.15

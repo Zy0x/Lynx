@@ -120,13 +120,6 @@ fun MainDashboard(
     val tuningHubFling = rememberFluidFlingBehavior()
     val toolsFling = rememberFluidFlingBehavior()
     val subscreenFling = rememberFluidFlingBehavior()
-    var selectedCategory by rememberSaveable { mutableStateOf<String?>(uiState.selectedTuningCategory) }
-
-    LaunchedEffect(uiState.selectedTuningCategory) {
-        if (uiState.selectedTuningCategory != selectedCategory) {
-            selectedCategory = uiState.selectedTuningCategory
-        }
-    }
 
     var selectedToolsCategory by rememberSaveable { mutableStateOf<String?>(null) }
     val toolsHubLazyState = rememberLazyListState()
@@ -151,9 +144,8 @@ fun MainDashboard(
     LaunchedEffect(Unit) {
         viewModel.syncHudPrefs(context)
     }
-    BackHandler(enabled = uiState.currentTab == 1 && selectedCategory != null) {
-        android.util.Log.i("LynxNavigation", "system-back category=$selectedCategory scrolling=${subscreenLazyState.isScrollInProgress}")
-        selectedCategory = null
+    BackHandler(enabled = uiState.currentTab == 1 && uiState.selectedTuningCategory != null) {
+        android.util.Log.i("LynxNavigation", "system-back category=${uiState.selectedTuningCategory} scrolling=${subscreenLazyState.isScrollInProgress}")
         viewModel.setSelectedTuningCategory(null)
     }
     BackHandler(enabled = (uiState.currentTab == 2 || uiState.currentTab == 3) && selectedToolsCategory != null) {
@@ -163,9 +155,9 @@ fun MainDashboard(
     LaunchedEffect(selectedToolsCategory) {
         toolsSubscreenLazyState.scrollToItem(0)
     }
-    LaunchedEffect(selectedCategory) {
+    LaunchedEffect(uiState.selectedTuningCategory) {
         subscreenLazyState.scrollToItem(0)
-        if (selectedCategory == "gpu") {
+        if (uiState.selectedTuningCategory == "gpu") {
             viewModel.refreshGpuInfo()
             viewModel.refreshGraphicsCapabilities()
             viewModel.refreshDisplayRefreshRate()
@@ -238,7 +230,6 @@ fun MainDashboard(
                 onExtremeConfirmRequired = onExtremeConfirmRequired,
                 onNavigateToProfilesCatalog = {
                     android.util.Log.i("LynxNavigation", "navigating to profiles catalog")
-                    selectedCategory = "profiles"
                     viewModel.setSelectedTuningCategory("profiles")
                     viewModel.switchTab(1)
                 },
@@ -252,9 +243,9 @@ fun MainDashboard(
             1 -> TuningTabContent(
                 uiState = uiState,
                 viewModel = viewModel,
-                selectedCategory = selectedCategory,
+                selectedCategory = uiState.selectedTuningCategory,
                 onSelectedCategoryChange = {
-                    selectedCategory = it
+                    android.util.Log.i("LynxNavigation", "onSelectedCategoryChange: $it")
                     viewModel.setSelectedTuningCategory(it)
                 },
                 tuningHubLazyState = tuningHubLazyState,
@@ -271,13 +262,15 @@ fun MainDashboard(
                 uiState = uiState,
                 viewModel = viewModel,
                 selectedCategory = selectedToolsCategory,
-                onSelectedCategoryChange = { selectedToolsCategory = it },
+                onSelectedCategoryChange = {
+                    android.util.Log.i("LynxNavigation", "onSelectedToolsCategoryChange: $it")
+                    selectedToolsCategory = it
+                },
                 toolsHubLazyState = toolsHubLazyState,
                 toolsHubFling = toolsHubFling,
                 toolsSubscreenLazyState = toolsSubscreenLazyState,
                 toolsSubscreenFling = toolsSubscreenFling,
                 onNavigateToTuning = { targetCategory ->
-                    selectedCategory = targetCategory
                     viewModel.setSelectedTuningCategory(targetCategory)
                     viewModel.switchTab(1)
                 }

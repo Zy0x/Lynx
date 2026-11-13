@@ -35,7 +35,17 @@ import kotlinx.coroutines.launch
  */
 
 fun LynxViewModel.switchTab(tabIndex: Int) {
-    _uiState.update { it.copy(currentTab = tabIndex) }
+    _uiState.update { current ->
+        if (current.currentTab == tabIndex) {
+            if (tabIndex == 1 && current.selectedTuningCategory != null) {
+                current.copy(selectedTuningCategory = null)
+            } else {
+                current
+            }
+        } else {
+            current.copy(currentTab = tabIndex)
+        }
+    }
     if (tabIndex == 1 && _uiState.value.selectedCpuTab == 2 && isForeground) {
         startCpuMonitorStream()
     } else {
