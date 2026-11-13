@@ -1052,6 +1052,15 @@ object LynxRepository {
     suspend fun readBatteryHealth(): BatteryHealthStats = LynxBatteryDiagnosticsRepository.readBatteryHealth()
 
     // ============================================================
+    //  FKM ADVANCED SUBSYSTEMS: DISPLAY CALIBRATION (KCAL)
+    // ============================================================
+
+    suspend fun readDisplayCalibration(): DisplayCalibrationInfo = LynxDisplayRepository.readDisplayCalibration()
+
+    suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean =
+        LynxDisplayRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
+
+    // ============================================================
     //  FKM ADVANCED SUBSYSTEMS: SOUND CONTROL
     // ============================================================
 

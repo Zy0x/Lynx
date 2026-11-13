@@ -86,6 +86,7 @@ fun GpuSwipeableSubscreen(
         viewModel.refreshGpuInfo()
         viewModel.refreshGraphicsHwui()
         viewModel.refreshDisplayRefreshRate()
+        viewModel.refreshDisplayCalibration()
         viewModel.refreshGraphicsCapabilities()
         viewModel.refreshDisplayPipeline()
         viewModel.refreshSavedLabSessions(context)

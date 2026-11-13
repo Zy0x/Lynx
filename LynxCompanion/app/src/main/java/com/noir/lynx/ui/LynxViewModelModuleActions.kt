@@ -75,6 +75,7 @@ fun LynxViewModel.setSelectedTuningCategory(category: String?) {
                     refreshGraphicsCapabilities()
                     refreshDisplayRefreshRate()
                     refreshDisplayPipeline()
+                    refreshDisplayCalibration()
                 }
             }
         }

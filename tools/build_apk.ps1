@@ -5,10 +5,21 @@ param(
     [switch]$RunUnitTests
 )
 
-$env:JAVA_HOME = "D:\temp\jdk-17"
-$env:PATH = "D:\temp\jdk-17\bin;" + $env:PATH
-$env:ANDROID_HOME = "D:\temp\android-sdk"
-$env:ANDROID_SDK_ROOT = "D:\temp\android-sdk"
+if (Test-Path "F:\AutoGram\.toolchains\jdk-17") {
+    $env:JAVA_HOME = "F:\AutoGram\.toolchains\jdk-17"
+    $env:PATH = "F:\AutoGram\.toolchains\jdk-17\bin;" + $env:PATH
+} elseif (Test-Path "D:\temp\jdk-17") {
+    $env:JAVA_HOME = "D:\temp\jdk-17"
+    $env:PATH = "D:\temp\jdk-17\bin;" + $env:PATH
+}
+
+if (Test-Path "F:\AutoGram\.toolchains\android-sdk") {
+    $env:ANDROID_HOME = "F:\AutoGram\.toolchains\android-sdk"
+    $env:ANDROID_SDK_ROOT = "F:\AutoGram\.toolchains\android-sdk"
+} elseif (Test-Path "D:\temp\android-sdk") {
+    $env:ANDROID_HOME = "D:\temp\android-sdk"
+    $env:ANDROID_SDK_ROOT = "D:\temp\android-sdk"
+}
 $env:ANDROID_USER_HOME = "D:\temp\.build-cache\android-user-home"
 $env:GRADLE_USER_HOME = "D:\temp\.build-cache\gradle"
 $env:GRADLE_OPTS = "-Djava.io.tmpdir=D:\temp -Dorg.gradle.user.home=D:\temp\.build-cache\gradle -Xmx3072m -XX:+UseG1GC"

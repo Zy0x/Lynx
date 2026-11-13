@@ -212,7 +212,86 @@ internal object LynxDisplayRepository {
 
 
 
-    // Calibration removed per A1 display cleanup; keep Refresh Rate & Lab exports only.
+    suspend fun readDisplayCalibration(): DisplayCalibrationInfo = withContext(Dispatchers.IO) {
+        try {
+            val script = """
+                kcal_dir=""
+                if [ -d /sys/devices/platform/kcal_ctrl.0 ]; then
+                    kcal_dir="/sys/devices/platform/kcal_ctrl.0"
+                elif [ -d /sys/module/msm_fb/parameters ]; then
+                    kcal_dir="/sys/module/msm_fb/parameters"
+                fi
+
+                echo "KCAL:${'$'}kcal_dir"
+            """.trimIndent()
+
+            val res = Shell.cmd(script).exec()
+            val line = res.out.firstOrNull()?.trim() ?: ""
+            val kcalDir = line.substringAfter("KCAL:").trim()
+
+            var kcalSupported = false
+            var kcalEnabled = false
+            var r = 256
+            var g = 256
+            var b = 256
+            var sat = 256
+            var v = 256
+            var cont = 256
+            var hue = 0
+
+            if (kcalDir.isNotEmpty() && Shell.cmd("[ -d '$kcalDir' ] && echo 1").exec().out.firstOrNull() == "1") {
+                kcalSupported = true
+                val en = Shell.cmd("cat $kcalDir/kcal_enable 2>/dev/null").exec().out.firstOrNull()?.trim()
+                kcalEnabled = en == "1"
+
+                val rgb = Shell.cmd("cat $kcalDir/kcal 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+                val rgbParts = rgb.split(Regex("\\s+"))
+                if (rgbParts.size >= 3) {
+                    r = rgbParts[0].toIntOrNull() ?: 256
+                    g = rgbParts[1].toIntOrNull() ?: 256
+                    b = rgbParts[2].toIntOrNull() ?: 256
+                }
+                sat = Shell.cmd("cat $kcalDir/kcal_sat 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                v = Shell.cmd("cat $kcalDir/kcal_val 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                cont = Shell.cmd("cat $kcalDir/kcal_cont 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 256
+                hue = Shell.cmd("cat $kcalDir/kcal_hue 2>/dev/null").exec().out.firstOrNull()?.toIntOrNull() ?: 0
+            }
+
+            DisplayCalibrationInfo(
+                isKcalSupported = kcalSupported,
+                kcalUnsupportedReason = if (!kcalSupported) "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)" else "",
+                kcalEnabled = kcalEnabled,
+                red = r,
+                green = g,
+                blue = b,
+                saturation = sat,
+                value = v,
+                contrast = cont,
+                hue = hue
+            )
+        } catch (e: Exception) {
+            DisplayCalibrationInfo()
+        }
+    }
+
+    suspend fun setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val dir = "/sys/devices/platform/kcal_ctrl.0"
+            if (Shell.cmd("[ -d '$dir' ] && echo 1").exec().out.firstOrNull() != "1") return@withContext false
+
+            val cmd = """
+                echo "${if (enabled) 1 else 0}" > $dir/kcal_enable 2>/dev/null
+                echo "$r $g $b" > $dir/kcal 2>/dev/null
+                echo "$sat" > $dir/kcal_sat 2>/dev/null
+                echo "$v" > $dir/kcal_val 2>/dev/null
+                echo "$cont" > $dir/kcal_cont 2>/dev/null
+                echo "$hue" > $dir/kcal_hue 2>/dev/null
+            """.trimIndent()
+            Shell.cmd(cmd).exec().isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     suspend fun readSupportedRefreshRates(): List<Int> = withContext(Dispatchers.IO) {
         try {

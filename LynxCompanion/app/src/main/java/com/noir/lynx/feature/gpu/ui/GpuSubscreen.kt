@@ -238,6 +238,18 @@ fun LazyListScope.tuningGpuCategoryItems(
                     onSetForcedFpsUnlocker = { fps -> viewModel.setForcedFpsUnlocker(fps) }
                 )
             }
+
+            // Kernel KCAL Hardware Card (If supported by kernel)
+            if (uiState.displayCalibration.isKcalSupported) {
+                item(key = "gpu_kcal_hardware") {
+                    KcalHardwareCard(
+                        displayCalibration = uiState.displayCalibration,
+                        onSetKcal = { en, r, g, b, sat, v, c, h ->
+                            viewModel.setKcalParams(en, r, g, b, sat, v, c, h)
+                        }
+                    )
+                }
+            }
         }
         2 -> {
             // ── TAB 2: LAB (PERFORMANCE LAB & FRAME ANALYSIS) ──
@@ -313,7 +325,7 @@ fun GpuSubscreen(
     // Auto refresh data on load
     LaunchedEffect(Unit) {
         viewModel.refreshGpuInfo(); viewModel.refreshGpuSilicon(); viewModel.refreshGraphicsHwui()
-        viewModel.refreshDisplayRefreshRate()
+        viewModel.refreshDisplayRefreshRate(); viewModel.refreshDisplayCalibration()
         viewModel.refreshGraphicsCapabilities(); viewModel.refreshDisplayPipeline()
         viewModel.refreshSavedLabSessions(context)
         viewModel.loadPerAppGraphicsRules(context); viewModel.refreshInstalledApps()

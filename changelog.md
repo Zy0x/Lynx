@@ -1,3 +1,17 @@
+# Lynx Universal [Hardware KCAL Panel Calibration & DISP_CCORR Integration] 7.0.0-RC396
+Released on: 2026-11-14
+> Lynx Kernel Manager v3.4.17
+
+- **Restorasi & Integrasi Penuh Kartu Kalibrasi Hardware Panel Fisik KCAL (`KcalHardwareCard`, `GpuSubscreen`, `LynxDisplayRepository`, `LynxViewModel`)**:
+  - Mengintegrasikan kembali antarmuka kartu `KcalHardwareCard` pada Tab 1 (Layar) di subhalaman GPU & Display Tuning dengan dukungan penuh untuk driver KCAL kernel MediaTek MT6781 (Sol-Kernel Arise R1.028) dan Qualcomm Snapdragon.
+  - Mengimplementasikan deteksi status dinamis via `readDisplayCalibration()` yang memverifikasi keberadaan dan keterbacaan node `/sys/devices/platform/kcal_ctrl.0/` serta `/sys/module/msm_fb/parameters`.
+  - Menyediakan kontrol slider presisi untuk parameter warna hardware:
+    - **Saturasi Hardware**: Rentang 128 hingga 384 (Default: 256).
+    - **Kontras Hardware**: Rentang 128 hingga 384 (Default: 256).
+    - **Kecerahan Panel (Value)**: Rentang 128 hingga 384 (Default: 256).
+  - Menyediakan tombol preset cepat: **Vivid OLED**, **Cinematic D65**, **Outdoor Boost**, dan **Default Flat**.
+  - Mengintegrasikan pembaruan real-time pada `LaunchedEffect` subhalaman GPU, navigasi kategori, dan transisi pager tanpa memicu overhead GPU atau underflow scanout.
+
 # Lynx Universal [Single-Tap Navigation Fix & Touch Pipeline Optimization] 7.0.0-RC395
 Released on: 2026-11-14
 > Lynx Kernel Manager v3.4.16

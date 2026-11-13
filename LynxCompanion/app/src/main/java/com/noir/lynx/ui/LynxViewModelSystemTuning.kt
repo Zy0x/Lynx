@@ -33,6 +33,36 @@ import kotlinx.coroutines.flow.update
     }
 
 
+    fun LynxViewModel.refreshDisplayCalibration() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cal = LynxRepository.readDisplayCalibration()
+                _uiState.update { it.copy(displayCalibration = cal) }
+            } catch (_: Exception) {}
+        }
+    }
+
+
+    fun LynxViewModel.setKcalParams(enabled: Boolean, r: Int, g: Int, b: Int, sat: Int, v: Int, cont: Int, hue: Int) {
+        recordStateMutation()
+        _uiState.update { it.copy(displayCalibration = it.displayCalibration.copy(
+            kcalEnabled = enabled, red = r, green = g, blue = b, saturation = sat, value = v, contrast = cont, hue = hue
+        )) }
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!_uiState.value.displayCalibration.isKcalSupported) {
+                _uiState.update { it.copy(errorMessage = "KCAL tidak didukung oleh kernel perangkat ini") }
+                return@launch
+            }
+            val ok = LynxRepository.setKcalParams(enabled, r, g, b, sat, v, cont, hue)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Kalibrasi KCAL diperbarui") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menerapkan parameter KCAL") }
+            }
+        }
+    }
+
+
     fun LynxViewModel.setSoundGain(hpL: Int, hpR: Int, spk: Int, mic: Int, highPerf: Boolean) {
         recordStateMutation()
         _uiState.update { it.copy(soundControl = it.soundControl.copy(

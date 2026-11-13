@@ -312,6 +312,24 @@ data class BatteryHealthStats(
     val deepSleepPct: Float = 0f,
 )
 
+@Immutable
+data class DisplayCalibrationInfo(
+    val isKcalSupported: Boolean = false,
+    val kcalUnsupportedReason: String = "Driver KCAL platform tidak terpasang di kernel ini (KCAL node tidak ditemukan)",
+    val kcalEnabled: Boolean = false,
+    val red: Int = 256,
+    val green: Int = 256,
+    val blue: Int = 256,
+    val saturation: Int = 256,
+    val value: Int = 256,
+    val contrast: Int = 256,
+    val hue: Int = 0,
+    val isUniversalColorSupported: Boolean = true,
+    val universalRed: Float = 1.0f,
+    val universalGreen: Float = 1.0f,
+    val universalBlue: Float = 1.0f,
+)
+
 data class SoundControlInfo(
     val isSupported: Boolean = false,
     val unsupportedReason: String = "Driver Sound Control (Faux/Franco sound) tidak ditemukan di kernel ini",
@@ -498,6 +516,7 @@ data class LynxUiState(
     // FKM Feature Parity Subsystems
     val voltageInfo: VoltageTableInfo = VoltageTableInfo(),
     val batteryHealthStats: BatteryHealthStats = BatteryHealthStats(),
+    val displayCalibration: DisplayCalibrationInfo = DisplayCalibrationInfo(),
     val soundControl: SoundControlInfo = SoundControlInfo(),
     val memoryEntropy: MemoryEntropyInfo = MemoryEntropyInfo(),
     val customScripts: List<CustomScriptItem> = emptyList(),
