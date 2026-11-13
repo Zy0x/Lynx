@@ -884,11 +884,18 @@ fn handle_charging(args: &[String]) {
                 ));
                 std::process::exit(1);
             }
+            ChargingRegulator::apply_bypass_charging();
+            if !std::path::Path::new("/dev/lynx_bypass_active").exists() {
+                eprintln!("[ERROR] {}", ui(
+                    "Gagal: Kernel menolak aktivasi Bypass Charging (cek koneksi charger atau batas baterai kritis).",
+                    "Failed: Kernel refused Bypass Charging activation (check charger connection or critical low battery guard)."
+                ));
+                std::process::exit(1);
+            }
             let _ = ConfigStore::set_batch(&[
                 ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
                 ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
             ]);
-            ChargingRegulator::apply_bypass_charging();
             println!("[OK] {}", ui("Bypass pengisian hardware aktif (arus ke sel baterai 0 mA)", "Hardware Bypass Charging engaged (0 mA battery cell cutoff)"));
         }
         "extreme" => {

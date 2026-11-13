@@ -56,23 +56,27 @@ class ChargingRepository(
 
     suspend fun setAutoCutEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val nativeResult = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply && echo lynx_applied; fi").exec()
+            val fullVal = if (enabled) "1" else "0"
+            val syncFullBypassCmd = "if [ -e /proc/lynx/full_bypass ]; then chmod 666 /proc/lynx/full_bypass 2>/dev/null; echo $fullVal > /proc/lynx/full_bypass 2>/dev/null; fi"
+            val nativeResult = Shell.cmd("$syncFullBypassCmd; if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging apply && echo lynx_applied; fi").exec()
             if (nativeResult.isSuccess && nativeResult.out.any { it.trim() == "lynx_applied" }) {
                 return@withContext true
             }
             if (!enabled) {
                 Shell.cmd("""
-                    for node in /sys/class/power_supply/battery/charge_control_limit_max /sys/class/power_supply/battery/charge_control_limit; do
-                        [ -w "${'$'}node" ] && printf '100\n' > "${'$'}node" 2>/dev/null
-                    done
-                    for node in /sys/class/power_supply/battery/charging_enabled /sys/class/power_supply/battery/battery_charging_enabled; do
-                        [ -w "${'$'}node" ] && printf '1\n' > "${'$'}node" 2>/dev/null
-                    done
-                    for node in /sys/class/power_supply/battery/input_suspend; do
-                        [ -w "${'$'}node" ] && printf '0\n' > "${'$'}node" 2>/dev/null
-                    done
-                    rm -f /dev/lynx_bypass_active 2>/dev/null
-                    dumpsys battery reset 2>/dev/null
+                    if [ ! -e /proc/lynx/bypass_charging ]; then
+                        for node in /sys/class/power_supply/battery/charge_control_limit_max /sys/class/power_supply/battery/charge_control_limit; do
+                            [ -w "${'$'}node" ] && printf '100\n' > "${'$'}node" 2>/dev/null
+                        done
+                        for node in /sys/class/power_supply/battery/charging_enabled /sys/class/power_supply/battery/battery_charging_enabled; do
+                            [ -w "${'$'}node" ] && printf '1\n' > "${'$'}node" 2>/dev/null
+                        done
+                        for node in /sys/class/power_supply/battery/input_suspend; do
+                            [ -w "${'$'}node" ] && printf '0\n' > "${'$'}node" 2>/dev/null
+                        done
+                        rm -f /dev/lynx_bypass_active 2>/dev/null
+                        dumpsys battery reset 2>/dev/null
+                    fi
                 """.trimIndent()).exec()
             }
             true
@@ -132,7 +136,13 @@ class ChargingRepository(
                         if [ -e "${'$'}n" ]; then has_hw_bypass=1; break; fi
                     done
 
-                    if [ "${'$'}has_hw_bypass" -eq 1 ]; then
+                    if [ -e /proc/lynx/bypass_charging ]; then
+                        chmod 666 /proc/lynx/bypass_charging 2>/dev/null
+                        if printf '1' > /proc/lynx/bypass_charging 2>/dev/null; then
+                            echo 1 > /dev/lynx_bypass_active 2>/dev/null
+                        fi
+                        dumpsys battery reset 2>/dev/null
+                    elif [ "${'$'}has_hw_bypass" -eq 1 ]; then
                         # 1. MediaTek / Transsion Hardware Bypass
                         echo 1 > /sys/devices/platform/charger/bypass_charger 2>/dev/null
                         echo 0 > /sys/devices/platform/charger/enable_sc 2>/dev/null
@@ -350,16 +360,20 @@ class ChargingRepository(
 
             Shell.cmd(
                 "rm -f /dev/lynx_bypass_active /dev/lynx_charging_state /dev/lynx_standard_charging; " +
+                "if [ -e /proc/lynx/bypass_charging ]; then " +
+                "chmod 666 /proc/lynx/bypass_charging 2>/dev/null; " +
+                "grep -q '^1' /proc/lynx/bypass_charging 2>/dev/null && echo 0 > /proc/lynx/bypass_charging 2>/dev/null; " +
+                "else " +
                 "[ \"$(cat /proc/mtk_battery_cmd/current_cmd 2>/dev/null)\" != '1 0' ] && echo '1 0' > /proc/mtk_battery_cmd/current_cmd 2>/dev/null; " +
                 "[ \"$(cat /proc/mtk_battery_cmd/en_power_path 2>/dev/null)\" != '1' ] && echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null; " +
                 "chmod 666 /sys/devices/platform/odm/odm:tran_battery/Charging_CallState /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null; " +
                 "echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null; " +
                 "echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null; " +
-                "echo 0 > /proc/lynx/bypass_charging 2>/dev/null; " +
                 "echo 0 > /sys/class/qcom-battery/restricted_charging 2>/dev/null; " +
                 "echo 3500 > /sys/class/qcom-battery/restrict_cur 2>/dev/null; " +
                 "echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null; " +
-                "echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null"
+                "echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null; " +
+                "fi"
             ).exec()
 
             val nativeCmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' charging mode $normalizedMode $targetMa && echo ok; fi"

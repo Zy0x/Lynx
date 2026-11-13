@@ -47,9 +47,12 @@ pub const SPOOFED_BATT_TEMP_PATH: &str = "/dev/lynx_spoofed_batt_temp";
 pub const SPOOFED_QUIET_THERM_PATH: &str = "/dev/lynx_spoofed_quiet_therm";
 const CLABCCT_NODE: &str = "/proc/driver/thermal/clabcct";
 const CLABCCT_LCMOFF_NODE: &str = "/proc/driver/thermal/clabcct_lcmoff";
+const LYNX_KERNEL_BYPASS_NODE: &str = "/proc/lynx/bypass_charging";
+const LYNX_KERNEL_FULL_BYPASS_NODE: &str = "/proc/lynx/full_bypass";
+const LYNX_KERNEL_BYPASS_ACTIVE_NODE: &str = "/proc/lynx/bypass_active";
 
 const DISCONNECT_CHARGING_RESETS: &[(&str, &str)] = &[
-    ("/proc/lynx/bypass_charging", "0"),
+    (LYNX_KERNEL_BYPASS_NODE, "0"),
     ("/proc/mtk_battery_cmd/en_power_path", "1"),
     ("/proc/mtk_battery_cmd/current_cmd", "1 0"),
     ("/sys/class/power_supply/battery/input_suspend", "0"),
@@ -1380,6 +1383,14 @@ impl ChargingRegulator {
 
         let cfg = ConfigStore::load_charging_config();
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+
+        // Honor hardware-latched Full-Charge Bypass when user has not forced manual bypass.
+        if !cfg.bypass_enabled && Self::is_lynx_kernel_full_bypass_latched() {
+            let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+            Self::release_charging_wake_lock();
+            return;
+        }
+
         let is_bypass_active = Path::new("/dev/lynx_bypass_active").exists() || cfg.bypass_enabled;
 
         // Bypass Charging: Run continuous closed-loop Net-Zero regulator
@@ -1588,6 +1599,114 @@ impl ChargingRegulator {
         }
     }
 
+    /// Returns true if the kernel exposes the direct `/proc/lynx/bypass_charging` hardware switch.
+    pub fn has_lynx_kernel_bypass() -> bool {
+        Path::new(LYNX_KERNEL_BYPASS_NODE).exists()
+    }
+
+    pub(crate) fn is_flag_enabled(raw: Option<&str>) -> bool {
+        raw.map(|s| s.trim() == "1").unwrap_or(false)
+    }
+
+    /// Evaluates kernel Full-Charge Bypass latch state from proc node contents.
+    /// True only when effective kernel bypass is active (`bypass_active == 1`),
+    /// manual bypass is NOT active (`bypass_charging != 1`), and `full_bypass != 0`.
+    pub(crate) fn is_full_bypass_latched_from_nodes(
+        manual_node: Option<&str>,
+        active_node: Option<&str>,
+        full_node: Option<&str>,
+    ) -> bool {
+        Self::is_flag_enabled(active_node)
+            && !Self::is_flag_enabled(manual_node)
+            && full_node.map(|s| s.trim() != "0").unwrap_or(true)
+    }
+
+    /// Returns true when the kernel itself latched Full-Charge Bypass at EOC (`CHGDONE`).
+    pub fn is_lynx_kernel_full_bypass_latched() -> bool {
+        if !Self::has_lynx_kernel_bypass() {
+            return false;
+        }
+        Self::is_full_bypass_latched_from_nodes(
+            Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref(),
+            Self::read_node(LYNX_KERNEL_BYPASS_ACTIVE_NODE).as_deref(),
+            Self::read_node(LYNX_KERNEL_FULL_BYPASS_NODE).as_deref(),
+        )
+    }
+
+    pub(crate) fn should_respect_kernel_full_bypass(
+        cfg_bypass_enabled: bool,
+        kernel_full_latched: bool,
+    ) -> bool {
+        !cfg_bypass_enabled && kernel_full_latched
+    }
+
+    /// Engages `/proc/lynx/bypass_charging = "1"` directly with brownout guard and kernel error checking.
+    /// When `verify_write` is `false` and the node already reads `"1"`, avoids redundant proc writes.
+    pub fn engage_lynx_kernel_manual_bypass(verify_write: bool) -> bool {
+        if !Self::is_hardware_plugged() {
+            eprintln!("[LynxCharging] Refusing bypass charging: Charger not connected (Brownout Guard).");
+            let _ = fs::remove_file("/dev/lynx_bypass_active");
+            return false;
+        }
+        if !Self::has_lynx_kernel_bypass() {
+            return false;
+        }
+
+        let already_active = Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref());
+        if !verify_write && already_active {
+            return true;
+        }
+
+        Self::set_perm(LYNX_KERNEL_BYPASS_NODE, 0o666);
+        if let Err(err) = fs::write(LYNX_KERNEL_BYPASS_NODE, "1") {
+            eprintln!(
+                "[LynxCharging] Kernel rejected manual bypass ({}): {}",
+                LYNX_KERNEL_BYPASS_NODE, err
+            );
+            let _ = fs::remove_file("/dev/lynx_bypass_active");
+            return false;
+        }
+
+        if verify_write {
+            let confirmed = Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref());
+            if !confirmed {
+                eprintln!(
+                    "[LynxCharging] Kernel bypass verification failed: {} did not latch 1",
+                    LYNX_KERNEL_BYPASS_NODE
+                );
+                let _ = fs::remove_file("/dev/lynx_bypass_active");
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Clears `/proc/lynx/bypass_charging` cleanly only if it is currently `"1"`.
+    pub fn clear_lynx_kernel_manual_bypass() {
+        if Self::has_lynx_kernel_bypass()
+            && Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref())
+        {
+            Self::set_perm(LYNX_KERNEL_BYPASS_NODE, 0o666);
+            Self::write_node(LYNX_KERNEL_BYPASS_NODE, "0");
+        }
+    }
+
+    fn publish_bypass_telemetry() {
+        let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
+        let cur_now_ma = if cur_now_raw.abs() > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+        let temp_dc = Self::read_real_battery_temp_dc();
+        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+            .unwrap_or(5000);
+        let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
+
+        let status_json = format!(
+            "{{\"active\":true,\"plugged\":true,\"vbus_mv\":{},\"net_current_ma\":{},\"temp_c\":{:.1},\"status\":\"NET_ZERO_ACTIVE\"}}\n",
+            adpv_mv, cur_now_ma, temp_dc as f64 / 10.0
+        );
+        let _ = fs::write("/dev/lynx_bypass_telemetry", status_json);
+    }
+
     /// Continuous Closed-Loop Watchdog for True Hardware Bypass Charging (Net-Zero Regulation)
     /// Runs every tick (~1s) while bypass is active.
     /// Guarantees:
@@ -1598,6 +1717,15 @@ impl ChargingRegulator {
     pub fn regulate_bypass_net_zero() {
         if !Self::is_hardware_plugged() {
             Self::handle_disconnect();
+            return;
+        }
+
+        // Fast-path for kernels with direct hardware bypass (/proc/lynx/bypass_charging):
+        // Avoid legacy MTK current_cmd / Charging_CallState / chg1_current / clabcct writes.
+        if Self::has_lynx_kernel_bypass() {
+            if Self::engage_lynx_kernel_manual_bypass(false) {
+                Self::publish_bypass_telemetry();
+            }
             return;
         }
 
@@ -1645,7 +1773,6 @@ impl ChargingRegulator {
             Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "1");
             Self::write_node("/proc/driver/thermal/clabcct", "0 1 42000 1000 200000 0 0");
             Self::write_node("/proc/driver/thermal/clbcct", "3");
-            Self::write_node("/proc/lynx/bypass_charging", "1");
         }
 
         // Generic Linux sysfs fallback nodes
@@ -1658,21 +1785,8 @@ impl ChargingRegulator {
             }
         }
 
-        // 2. Read live electrical telemetry
-        let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
-        let cur_now_ma = if cur_now_raw.abs() > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
-        let temp_dc = Self::read_real_battery_temp_dc();
-        let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-            .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-            .unwrap_or(5000);
-        let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
-
-        // 3. Persist high-speed status for UI & CLI (Lynx Companion App & TUI)
-        let status_json = format!(
-            "{{\"active\":true,\"plugged\":true,\"vbus_mv\":{},\"net_current_ma\":{},\"temp_c\":{:.1},\"status\":\"NET_ZERO_ACTIVE\"}}\n",
-            adpv_mv, cur_now_ma, temp_dc as f64 / 10.0
-        );
-        let _ = fs::write("/dev/lynx_bypass_telemetry", status_json);
+        // 2-3. Read live electrical telemetry and persist status for UI & CLI
+        Self::publish_bypass_telemetry();
     }
 
     /// Mode 1: True Hardware Bypass Charging (Zero Battery Current, Vsys powered by Adapter)
@@ -1690,12 +1804,25 @@ impl ChargingRegulator {
         Self::release_charging_wake_lock();
         let _ = fs::remove_file("/dev/lynx_extreme_charging");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
+
+        // Direct Kernel Bypass Path (/proc/lynx/bypass_charging):
+        // Do NOT mutate config.json (charging_mode/bypass_enabled) here so Tier 3/4 AutoCut
+        // preserves user's configured mode, and skip legacy MTK register/sysfs workarounds.
+        if Self::has_lynx_kernel_bypass() {
+            if !Self::engage_lynx_kernel_manual_bypass(true) {
+                return;
+            }
+            let _ = fs::write("/dev/lynx_bypass_active", "1");
+            Self::write_node("/proc/lynx/hyper_charge", "0");
+            let _ = std::process::Command::new("dumpsys")
+                .args(["battery", "reset"])
+                .output();
+            Self::publish_bypass_telemetry();
+            return;
+        }
+
         let _ = fs::write("/dev/lynx_bypass_active", "1");
         Self::write_node("/proc/lynx/hyper_charge", "0");
-        let _ = ConfigStore::set_batch(&[
-            ("charging.charging_mode".to_string(), "bypass".to_string(), Some("str".to_string())),
-            ("charging.bypass_enabled".to_string(), "true".to_string(), Some("bool".to_string())),
-        ]);
         Self::unlock_extreme_nodes();
 
         let is_qcom = Self::is_qualcomm_soc();
@@ -1723,7 +1850,6 @@ impl ChargingRegulator {
                 Self::write_node("/sys/devices/platform/charger/pe20", "0");
                 Self::write_node("/sys/devices/platform/charger/pe40", "0");
                 Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger", "5000");
-                Self::write_node("/proc/lynx/bypass_charging", "1");
                 Self::write_node(&format!("{}/chg1_current", MTK_DIR), &buck_keepalive_hex);
                 Self::write_node(&format!("{}/chg2_current", MTK_DIR), &buck_keepalive_hex);
                 Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "0");
@@ -1888,9 +2014,8 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
 
-        // 1. MediaTek power path & battery cmd reset (non-destructive if already enabled)
-        Self::set_perm("/proc/lynx/bypass_charging", 0o666);
-        Self::write_node("/proc/lynx/bypass_charging", "0");
+        // 1. Direct kernel bypass clear + MediaTek power path reset (only writes "0" if currently "1")
+        Self::clear_lynx_kernel_manual_bypass();
         Self::ensure_mtk_power_path_enabled();
 
         // 2. Transsion / ODM call state unlock & clear
@@ -1930,13 +2055,15 @@ impl ChargingRegulator {
 
         // 4. Reset hardware bypass OEM nodes (ROG, Sony, Pixel, Samsung, MediaTek, etc.)
         if let Some(byp_node) = Self::detect_hw_bypass_node() {
-            Self::set_perm(byp_node, 0o666);
-            if byp_node.contains("charge_stop_level") {
-                Self::write_node(byp_node, "100");
-            } else if byp_node.contains("current_cmd") {
-                Self::write_node(byp_node, "1 0");
-            } else {
-                Self::write_node(byp_node, "0");
+            if byp_node != LYNX_KERNEL_BYPASS_NODE {
+                Self::set_perm(byp_node, 0o666);
+                if byp_node.contains("charge_stop_level") {
+                    Self::write_node(byp_node, "100");
+                } else if byp_node.contains("current_cmd") {
+                    Self::write_node(byp_node, "1 0");
+                } else {
+                    Self::write_node(byp_node, "0");
+                }
             }
         }
 
@@ -2786,7 +2913,7 @@ impl ChargingRegulator {
         Self::unlock_bcct();
 
         // Restore standard charging flags
-        Self::write_node("/proc/lynx/bypass_charging", "0");
+        Self::clear_lynx_kernel_manual_bypass();
         Self::ensure_mtk_power_path_enabled();
         Self::write_node(&format!("{}/bypass_charger", MTK_DIR), "0");
         Self::write_node(&format!("{}/tran_charger_full", MTK_DIR), "0");
@@ -3906,9 +4033,30 @@ impl ChargingRegulator {
             return;
         }
 
+        // Kernel Full-Charge Bypass Coordination:
+        // Honor hardware-latched full-charge bypass without forcing manual bypass or resetting into active charging.
+        if Self::should_respect_kernel_full_bypass(
+            cfg.bypass_enabled,
+            Self::is_lynx_kernel_full_bypass_latched(),
+        ) {
+            let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+            Self::publish_bypass_telemetry();
+            return;
+        }
+
         // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut)
         if cfg.auto_cut_enabled && (cur_cap >= 100 || cur_stat == "Full") {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+            if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
+                if !Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_FULL_BYPASS_NODE).as_deref()) {
+                    Self::set_perm(LYNX_KERNEL_FULL_BYPASS_NODE, 0o666);
+                    Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "1");
+                }
+                if Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_ACTIVE_NODE).as_deref()) {
+                    Self::publish_bypass_telemetry();
+                    return;
+                }
+            }
             Self::apply_bypass_charging();
             return;
         }
@@ -3932,13 +4080,16 @@ impl ChargingRegulator {
                 } else {
                     // Battery dropped below lower bound: drop bypass lock so charging can top it back up to limit
                     let _ = fs::remove_file("/dev/lynx_bypass_active");
+                    Self::clear_lynx_kernel_manual_bypass();
                     let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
-                    Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
-                    Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
-                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-                    Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
-                    Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-                    Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+                    if !Self::has_lynx_kernel_bypass() {
+                        Self::write_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState", "0");
+                        Self::write_node("/sys/devices/platform/tran_battery/Charging_CallState", "0");
+                        Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                        Self::write_node(&format!("{}/direct_charging", QC_DIR), "0");
+                        Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
+                        Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+                    }
                     Self::unlock_extreme_nodes();
                     Self::apply_standard_mode();
                 }
@@ -4946,8 +5097,11 @@ impl ChargingRegulator {
 
         let guard_state = Path::new("/dev/lynx_charging_guard").exists();
         let chg_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
-        let bypass_requested = Path::new("/dev/lynx_bypass_active").exists();
-        let is_overnight_latch = chg_state.contains("bypass_100") || (cap >= 100 && bypass_requested) || stat == "Full";
+        let kernel_manual_bypass = Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref());
+        let kernel_bypass_active = Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_ACTIVE_NODE).as_deref());
+        let kernel_full_bypass_latched = Self::is_lynx_kernel_full_bypass_latched();
+        let bypass_requested = Path::new("/dev/lynx_bypass_active").exists() || kernel_manual_bypass || kernel_bypass_active;
+        let is_overnight_latch = kernel_full_bypass_latched || chg_state.contains("bypass_100") || (cap >= 100 && bypass_requested) || stat == "Full";
         let is_limit_latched = chg_state.contains("bypass_limit")
             && cfg.max_battery_percent > 0
             && cfg.max_battery_percent < 100
@@ -5338,6 +5492,54 @@ mod tests {
         assert_eq!(temp_c.to_string(), "25");
         assert_eq!(super::SPOOFED_BATT_TEMP_PATH, "/dev/lynx_spoofed_batt_temp");
         assert_eq!(super::SPOOFED_QUIET_THERM_PATH, "/dev/lynx_spoofed_quiet_therm");
+    }
+
+    #[test]
+    fn test_kernel_full_bypass_latch_and_coordination_logic() {
+        assert!(!ChargingRegulator::is_flag_enabled(None));
+        assert!(!ChargingRegulator::is_flag_enabled(Some("0\n")));
+        assert!(ChargingRegulator::is_flag_enabled(Some("1\n")));
+
+        // Latched at EOC when bypass_active=1, manual=0, full_bypass=1
+        assert!(ChargingRegulator::is_full_bypass_latched_from_nodes(
+            Some("0\n"),
+            Some("1\n"),
+            Some("1\n"),
+        ));
+        // If manual bypass is explicitly 1, it is manual bypass rather than full-charge latch
+        assert!(!ChargingRegulator::is_full_bypass_latched_from_nodes(
+            Some("1\n"),
+            Some("1\n"),
+            Some("1\n"),
+        ));
+        // Disabled if full_bypass=0 or bypass_active=0 or absent kernel nodes
+        assert!(!ChargingRegulator::is_full_bypass_latched_from_nodes(
+            Some("0"),
+            Some("1"),
+            Some("0"),
+        ));
+        assert!(!ChargingRegulator::is_full_bypass_latched_from_nodes(
+            Some("0"),
+            Some("0"),
+            Some("1"),
+        ));
+        assert!(!ChargingRegulator::is_full_bypass_latched_from_nodes(None, None, None));
+
+        // Respect policy: respect full-charge latch only when user didn't force manual bypass
+        assert!(ChargingRegulator::should_respect_kernel_full_bypass(false, true));
+        assert!(!ChargingRegulator::should_respect_kernel_full_bypass(true, true));
+        assert!(!ChargingRegulator::should_respect_kernel_full_bypass(false, false));
+    }
+
+    #[test]
+    fn test_kernel_bypass_helpers_safe_when_nodes_absent() {
+        if !ChargingRegulator::has_lynx_kernel_bypass() {
+            assert!(!ChargingRegulator::is_lynx_kernel_full_bypass_latched());
+            assert!(!ChargingRegulator::engage_lynx_kernel_manual_bypass(true));
+            assert!(!ChargingRegulator::engage_lynx_kernel_manual_bypass(false));
+        }
+        ChargingRegulator::clear_lynx_kernel_manual_bypass();
+        ChargingRegulator::apply_bypass_charging();
     }
 }
 

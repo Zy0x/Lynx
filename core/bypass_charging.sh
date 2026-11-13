@@ -55,16 +55,32 @@ enable_bypass() {
 
     log_info "Mengaktifkan Lynx Real Hardware Bypass Charging..."
 
-    # 1. Pastikan izin sysfs terbuka
+    # 1. Direct Kernel Hardware Bypass Fast-Path (/proc/lynx/bypass_charging)
+    # Jika kernel mengekspos node direct hardware bypass, hindari workaround legacy MTK/sysfs.
+    if [ -e "/proc/lynx/bypass_charging" ]; then
+        chmod 666 /proc/lynx/bypass_charging 2>/dev/null
+        local err_msg
+        if ! err_msg=$(printf '1' > /proc/lynx/bypass_charging 2>&1) || [ "$(cat /proc/lynx/bypass_charging 2>/dev/null | tr -d '\r\n')" != "1" ]; then
+            rm -f /dev/lynx_bypass_active 2>/dev/null
+            log_warn "GAGAL: Kernel menolak aktivasi Bypass Charging${err_msg:+ ($err_msg)}"
+            return 1
+        fi
+        log_success "Layer 1: Direct Kernel /proc/lynx/bypass_charging set to 1"
+        echo 1 > /dev/lynx_bypass_active 2>/dev/null
+        dumpsys battery reset 2>/dev/null
+        log_success "Hardware Bypass Charging AKTIF!"
+        log_info "Arus Baterai Sekarang: $(cat /sys/class/power_supply/battery/current_now 2>/dev/null) uA"
+        log_info "Suhu Baterai: $(awk '{print $1/10}' /sys/class/power_supply/battery/temp 2>/dev/null) °C"
+        return 0
+    fi
+
+    # 2. Fallback Legacy / Non-Direct-Kernel: Pastikan izin sysfs terbuka
     chmod 666 /sys/devices/platform/charger/* 2>/dev/null
     chmod 666 /sys/devices/platform/odm/odm:tran_battery/* 2>/dev/null
     chmod 666 /proc/mtk_battery_cmd/* 2>/dev/null
 
-    # 2. Layer 1: KernelPatch Module (KPM) Trigger
-    if [ -f "/proc/lynx/bypass_charging" ]; then
-        echo 1 > /proc/lynx/bypass_charging 2>/dev/null
-        log_success "Layer 1: KPM /proc/lynx/bypass_charging set to 1"
-    elif command -v kpm >/dev/null 2>&1; then
+    # Layer 1 Fallback: APatch KPM ctl0 jika ada
+    if command -v kpm >/dev/null 2>&1; then
         kpm ctl0 lynx_bypass_charge 1 2>/dev/null
         log_success "Layer 1: APatch KPM ctl0 engaged"
     fi
@@ -161,14 +177,23 @@ enable_bypass() {
 disable_bypass() {
     log_info "Memulihkan Pengisian Daya Standar (Disable Bypass)..."
 
-    # 1. Pastikan izin sysfs terbuka
+    # 1. Direct Kernel Hardware Bypass Fast-Path: cukup kembalikan node ke 0
+    # tanpa mengotori limit arus legacy (mis. 3000mA) saat pengisian normal/hyper aktif.
+    if [ -e "/proc/lynx/bypass_charging" ]; then
+        chmod 666 /proc/lynx/bypass_charging 2>/dev/null
+        [ "$(cat /proc/lynx/bypass_charging 2>/dev/null | tr -d '\r\n')" = "1" ] && echo 0 > /proc/lynx/bypass_charging 2>/dev/null
+        rm -f /dev/lynx_bypass_active /dev/lynx_bypass_telemetry 2>/dev/null
+        dumpsys battery reset 2>/dev/null
+        log_success "Pengisian Daya Standar Telah Dipulihkan."
+        log_info "Arus Baterai Sekarang: $(cat /sys/class/power_supply/battery/current_now 2>/dev/null) uA"
+        return 0
+    fi
+
+    # 2. Fallback Legacy: Pastikan izin sysfs terbuka
     chmod 666 /sys/devices/platform/charger/* 2>/dev/null
     chmod 666 /proc/mtk_battery_cmd/* 2>/dev/null
 
-    # 2. Layer 1: KernelPatch Module (KPM)
-    if [ -f "/proc/lynx/bypass_charging" ]; then
-        echo 0 > /proc/lynx/bypass_charging 2>/dev/null
-    elif command -v kpm >/dev/null 2>&1; then
+    if command -v kpm >/dev/null 2>&1; then
         kpm ctl0 lynx_bypass_charge 0 2>/dev/null
     fi
 
@@ -254,11 +279,21 @@ get_status() {
     echo "=================================================="
     local is_kpm=0
     local is_active=0
+    local manual_val=""
+    local full_enabled=""
+    local kernel_active=""
 
-    if [ -f "/proc/lynx/bypass_charging" ]; then
+    if [ -e "/proc/lynx/bypass_charging" ]; then
         is_kpm=1
-        local kpm_val=$(cat /proc/lynx/bypass_charging 2>/dev/null | tr -d '\r\n')
-        [ "$kpm_val" = "1" ] && is_active=1
+        manual_val=$(cat /proc/lynx/bypass_charging 2>/dev/null | tr -d '\r\n')
+        [ "$manual_val" = "1" ] && is_active=1
+    fi
+    if [ -e "/proc/lynx/full_bypass" ]; then
+        full_enabled=$(cat /proc/lynx/full_bypass 2>/dev/null | tr -d '\r\n')
+    fi
+    if [ -e "/proc/lynx/bypass_active" ]; then
+        kernel_active=$(cat /proc/lynx/bypass_active 2>/dev/null | tr -d '\r\n')
+        [ "$kernel_active" = "1" ] && is_active=1
     fi
 
     [ -f "/dev/lynx_bypass_active" ] && is_active=1
@@ -275,8 +310,20 @@ get_status() {
     local batt_stat=$(cat /sys/class/power_supply/battery/status 2>/dev/null)
     local vbus=$(cat /sys/devices/platform/charger/ADC_Charger_Voltage 2>/dev/null)
 
-    echo "Status Bypass   : $( [ "$is_active" = "1" ] && echo 'AKTIF [BYPASS / DIRECT POWER]' || echo 'NONAKTIF [NORMAL CHARGE]' )"
-    echo "KPM Kernel Node : $( [ "$is_kpm" = "1" ] && echo 'TERPASANG (/proc/lynx/bypass_charging)' || echo 'TIDAK TERPASANG' )"
+    local bypass_label='NONAKTIF [NORMAL CHARGE]'
+    if [ "$is_active" = "1" ]; then
+        if [ "$manual_val" != "1" ] && [ "$kernel_active" = "1" ]; then
+            bypass_label='AKTIF [FULL-CHARGE BYPASS EOC]'
+        else
+            bypass_label='AKTIF [BYPASS / DIRECT POWER]'
+        fi
+    fi
+
+    echo "Status Bypass   : $bypass_label"
+    echo "Kernel Node     : $( [ "$is_kpm" = "1" ] && echo 'TERPASANG (/proc/lynx/bypass_charging)' || echo 'TIDAK TERPASANG' )"
+    if [ -n "$full_enabled" ] || [ -n "$kernel_active" ]; then
+        echo "Manual Bypass   : ${manual_val:-0} | Full-Chg Bypass: ${full_enabled:-N/A} | HW Active: ${kernel_active:-0}"
+    fi
     echo "Kabel Charger   : $( is_charger_connected && echo "TERHUBUNG (VBUS: ${vbus:-0} mV)" || echo 'TIDAK TERHUBUNG' )"
     echo "Status Baterai  : $batt_stat ($cap%)"
     echo "Arus Baterai    : $cur_mA mA ($cur_uA uA)"
@@ -298,7 +345,7 @@ case "$1" in
         get_status
         ;;
     toggle)
-        if [ -f "/dev/lynx_bypass_active" ] || [ "$(cat /proc/lynx/bypass_charging 2>/dev/null)" = "1" ]; then
+        if [ -f "/dev/lynx_bypass_active" ] || [ "$(cat /proc/lynx/bypass_charging 2>/dev/null | tr -d '\r\n')" = "1" ]; then
             disable_bypass
         else
             enable_bypass

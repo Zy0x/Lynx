@@ -1,3 +1,16 @@
+# Lynx Universal [True Hardware Bypass Charging & Full-Charge Bypass Coordination] 7.0.0-RC392
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.13
+
+- **Dukungan Penuh Hardware Bypass & Full-Charge Bypass (`lynxd`, `core/bypass_charging.sh`)**:
+  - Menambahkan jalur cepat khusus ketika kernel menyediakan node bypass langsung (`/proc/lynx/bypass_charging`, `/proc/lynx/full_bypass`, `/proc/lynx/bypass_active`) sehingga kontrol hardware berjalan murni melalui driver charger PMIC tanpa menulis workaround legacy (`current_cmd`, `Charging_CallState`, `chg1_current`, `clabcct`, atau crawler sysfs) sambil tetap mempertahankan jalur fallback untuk perangkat lain.
+  - Menambahkan validasi error tulis kernel (charger terputus maupun proteksi baterai kritis) pada `engage_lynx_kernel_manual_bypass` dan perintah `lynxd charging bypass` / `bypass_charging.sh`, serta menghindari penulisan berulang saat watchdog berkala berjalan atau penulisan ganda saat melepas bypass.
+  - Memisahkan persistensi konfigurasi user dari `apply_bypass_charging()` agar fitur batas pengisian otomatis (`auto_cut_enabled` / `max_battery_percent`) tidak menimpa `charging_mode` menjadi `"bypass"` di `config.json`.
+  - Menghormati status Full-Charge Bypass yang terkunci otomatis oleh hardware saat penuh (`EOC`) melalui sinkronisasi `/proc/lynx/full_bypass` & `/proc/lynx/bypass_active` serta memperbarui status JSON (`overnight_bypass_latched`, `bypass_active`).
+- **Sinkronisasi Companion & Overlay HUD (`ChargingRepository`, `HudDriverSession`)**:
+  - Menyinkronkan sakelar Batas Pengisian Cerdas ke `/proc/lynx/full_bypass` serta membersihkan jalur pemulihan mode charging agar tidak mengotori register legacy pada kernel yang mendukung bypass langsung.
+  - Memperbarui `HudBypassSession.probe()`, `set()`, dan `restore()` agar membaca status hardware `/proc/lynx/bypass_active`, membersihkan status journal usang saat charger dilepas, memverifikasi keberhasilan aktivasi, dan mereset `/proc/lynx/bypass_charging` pada pemulihan sesi HUD.
+
 # Lynx Universal [Boot/App ANR Elimination, SystemUI Crash Fix & RFC Charging Calibration] 7.0.0-RC391
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.12

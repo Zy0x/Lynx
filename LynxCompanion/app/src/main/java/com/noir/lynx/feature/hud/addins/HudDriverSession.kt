@@ -307,9 +307,12 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                 val parsed = parseChargingStatusJson(raw, rootAvailable = true)
                 if (parsed.capability == HudCapability.READY) {
                     val activeFile = Shell.cmd("[ -f /dev/lynx_bypass_active ] && echo 1").exec().out.any { it.trim() == "1" }
-                    val isJournalActive = journal.getBoolean("active", false)
-                    val isEffectiveActive = parsed.active || activeFile || isJournalActive
-                    val isEffectiveEnabled = parsed.enabled || activeFile || isJournalActive
+                    val kernelActive = Shell.cmd("[ -e /proc/lynx/bypass_active ] && grep -q '^1' /proc/lynx/bypass_active 2>/dev/null && echo 1").exec().out.any { it.trim() == "1" }
+                    val isEffectiveActive = isPlugged && (parsed.active || activeFile || kernelActive)
+                    val isEffectiveEnabled = isPlugged && (parsed.enabled || activeFile || kernelActive)
+                    if (!isPlugged && (journal.getBoolean("active", false) || journal.getBoolean("enabled", false))) {
+                        journal.edit().putBoolean("enabled", false).putBoolean("active", false).commit()
+                    }
                     return parsed.copy(
                         enabled = isEffectiveEnabled,
                         active = isEffectiveActive,
@@ -327,11 +330,18 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
             if (exists) {
                 val readVal = Shell.cmd("cat '$candidate' 2>/dev/null").exec().out.firstOrNull()?.trim().orEmpty()
                 val activeFile = Shell.cmd("[ -f /dev/lynx_bypass_active ] && echo 1").exec().out.any { it.trim() == "1" }
-                val isJournalActive = journal.getBoolean("active", false)
+                val kernelFullBypassActive = if (candidate == "/proc/lynx/bypass_charging") {
+                    Shell.cmd("[ -e /proc/lynx/bypass_active ] && grep -q '^1' /proc/lynx/bypass_active 2>/dev/null && echo 1").exec().out.any { it.trim() == "1" }
+                } else {
+                    false
+                }
                 val isChargingEnabledNode = candidate.contains("charging_enabled") || candidate.contains("charging_enable")
                 val isNodeActive = if (isChargingEnabledNode) readVal == "0" else (readVal == "1" || readVal.toIntOrNull()?.let { it > 0 } == true)
-                val isEffectiveActive = isNodeActive || activeFile || isJournalActive
-                val isEffectiveEnabled = isEffectiveActive || journal.getBoolean("enabled", false)
+                val isEffectiveActive = isPlugged && (isNodeActive || activeFile || kernelFullBypassActive)
+                val isEffectiveEnabled = isPlugged && (isEffectiveActive || (readVal == "1"))
+                if (!isPlugged && (journal.getBoolean("active", false) || journal.getBoolean("enabled", false))) {
+                    journal.edit().putBoolean("enabled", false).putBoolean("active", false).commit()
+                }
 
                 val chipLabel = when {
                     candidate.contains("proc/lynx") -> "Lynx True Hardware KPM Bypass"
@@ -376,16 +386,13 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                 return false
             }
         }
-        journal.edit().putBoolean("enabled", enabled).putBoolean("active", enabled).commit()
-
         val bin = binaryPath()
         if (bin != null) {
             val cmd = if (enabled) {
                 """
-                '$bin' state set charging.bypass_enabled=true 2>/dev/null
-                '$bin' charging bypass 2>/dev/null
-                touch /dev/lynx_bypass_active 2>/dev/null
-                echo ok
+                if '$bin' charging bypass 2>/dev/null; then
+                    echo ok
+                fi
                 """.trimIndent()
             } else {
                 """
@@ -397,7 +404,12 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
             }
             val res = Shell.cmd(cmd).exec()
             if (res.isSuccess && res.out.any { it.trim() == "ok" }) {
+                journal.edit().putBoolean("enabled", enabled).putBoolean("active", enabled).commit()
                 return true
+            }
+            if (enabled && Shell.cmd("[ -e /proc/lynx/bypass_charging ] && echo 1").exec().out.any { it.trim() == "1" }) {
+                journal.edit().putBoolean("enabled", false).putBoolean("active", false).commit()
+                return false
             }
         }
 
@@ -411,12 +423,16 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                 } else {
                     if (enabled) "1" else "0"
                 }
-                Shell.cmd("echo '$targetVal' > '$candidate' 2>/dev/null").exec()
+                val writeRes = Shell.cmd("printf '%s' '$targetVal' > '$candidate' 2>/dev/null && echo ok").exec()
+                if (!writeRes.isSuccess || !writeRes.out.any { it.trim() == "ok" }) {
+                    return false
+                }
                 if (enabled) {
                     Shell.cmd("touch /dev/lynx_bypass_active 2>/dev/null").exec()
                 } else {
                     Shell.cmd("rm -f /dev/lynx_bypass_active 2>/dev/null").exec()
                 }
+                journal.edit().putBoolean("enabled", enabled).putBoolean("active", enabled).commit()
                 return true
             }
         }
@@ -428,7 +444,8 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
     override fun restore(): Boolean {
         val wasEnabledInJournal = journal.getBoolean("enabled", false) || journal.getBoolean("active", false)
         val markerActive = Shell.cmd("[ -e /dev/lynx_bypass_active ] && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
-        if (!wasEnabledInJournal && !markerActive) {
+        val kernelManualActive = Shell.cmd("[ -e /proc/lynx/bypass_charging ] && grep -q '^1' /proc/lynx/bypass_charging 2>/dev/null && echo 1 || echo 0").exec().out.firstOrNull()?.trim() == "1"
+        if (!wasEnabledInJournal && !markerActive && !kernelManualActive) {
             return true
         }
         journal.edit().clear().commit()
@@ -439,19 +456,24 @@ class HudBypassSession(context: Context) : HudDriverSession(context, "bypass", l
                 '$bin' charging apply 2>/dev/null
             fi
             rm -f /dev/lynx_bypass_active 2>/dev/null
-            for n in /sys/class/power_supply/battery/charging_enabled \
-                     /sys/class/power_supply/charger/charging_enabled \
-                     /sys/devices/platform/charger/charging_enabled \
-                     /sys/class/power_supply/battery/battery_charging_enabled \
-                     /sys/class/power_supply/main/charging_enabled; do
-                [ -w "${'$'}n" ] && echo 1 > "${'$'}n" 2>/dev/null
-            done
-            for n in /sys/devices/platform/charger/bypass_charger \
-                     /sys/class/power_supply/battery/device/smart_charging \
-                     /sys/class/power_supply/battery/store_mode \
-                     /sys/class/power_supply/battery/bypass_charging; do
-                [ -w "${'$'}n" ] && echo 0 > "${'$'}n" 2>/dev/null
-            done
+            if [ -e /proc/lynx/bypass_charging ]; then
+                chmod 666 /proc/lynx/bypass_charging 2>/dev/null
+                grep -q '^1' /proc/lynx/bypass_charging 2>/dev/null && echo 0 > /proc/lynx/bypass_charging 2>/dev/null
+            else
+                for n in /sys/class/power_supply/battery/charging_enabled \
+                         /sys/class/power_supply/charger/charging_enabled \
+                         /sys/devices/platform/charger/charging_enabled \
+                         /sys/class/power_supply/battery/battery_charging_enabled \
+                         /sys/class/power_supply/main/charging_enabled; do
+                    [ -w "${'$'}n" ] && echo 1 > "${'$'}n" 2>/dev/null
+                done
+                for n in /sys/devices/platform/charger/bypass_charger \
+                         /sys/class/power_supply/battery/device/smart_charging \
+                         /sys/class/power_supply/battery/store_mode \
+                         /sys/class/power_supply/battery/bypass_charging; do
+                    [ -w "${'$'}n" ] && echo 0 > "${'$'}n" 2>/dev/null
+                done
+            fi
         """.trimIndent()
         Shell.cmd(script).exec()
         super.restore()
