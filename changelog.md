@@ -1,3 +1,12 @@
+# Lynx Universal [Smooth Charging Ring Animation & Draw-Phase Optimization] 7.0.0-RC393
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.14
+
+- **Restorasi & Optimasi Animasi Circle Charging Dashboard (`ChargingHeroDisplayCard`)**:
+  - Mengaktifkan kembali animasi rotasi sparks energi (`orbitAngle`), denyut breathing halo (`ringAlpha`), dan transisi halus persentase baterai (`animatedSoc`) saat pengisian daya aktif maupun bypass mode.
+  - Memisahkan pembacaan state animasi ke dalam fase render canvas (`DrawScope`) secara terisolasi tanpa memicu recomposition pada parent composable card, sehingga animasi berputar sangat mulus (60/120 Hz) dengan efisiensi render thread yang tinggi.
+  - Menjaga transisi tetap dormant (idle 0 fps / 0% CPU) saat perangkat tidak terhubung ke charger (unplugged on battery) demi efisiensi daya maksimal.
+
 # Lynx Universal [True Hardware Bypass Charging & Full-Charge Bypass Coordination] 7.0.0-RC392
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.13

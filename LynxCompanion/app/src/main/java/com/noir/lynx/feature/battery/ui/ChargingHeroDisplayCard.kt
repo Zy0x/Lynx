@@ -531,7 +531,11 @@ fun ChargingHeroDisplayCard(
         baseLevel.toFloat()
     }
 
-    val animatedSoc = displayedSoc
+    val animatedSocState = animateFloatAsState(
+        targetValue = displayedSoc,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "battery_soc_ring"
+    )
 
     // Hardware Electrical Telemetry Calculations
     val liveVolts = (if (liveHardwareVoltageMv > 0) liveHardwareVoltageMv else if (batt.voltageMv > 0) batt.voltageMv else tel.battVoltMv) / 1000f
@@ -753,9 +757,35 @@ fun ChargingHeroDisplayCard(
         }
     }
 
-    // Event-driven dial glow (no continuous VSync wakeups when idle or plugged in)
-    val ringAlpha = if (isCharging || isBypass) 0.90f else 0.70f
-    val orbitAngle = 0f
+    // Layered charge animation: when plugged in or in bypass, energy sparks smoothly orbit the dial and glow breathes.
+    // When unplugged on battery, transitions are idle to ensure zero VSync wakeups and preserve battery.
+    val (ringAlphaState, orbitAngleState) = if (isCharging || isBypass) {
+        val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
+        val alpha = infiniteTransition.animateFloat(
+            initialValue = 0.70f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "ring_pulse"
+        )
+        val angle = infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2400, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "charge_orbit"
+        )
+        Pair(alpha, angle)
+    } else {
+        Pair(
+            remember { mutableFloatStateOf(0.70f) },
+            remember { mutableFloatStateOf(0f) }
+        )
+    }
 
     Surface(
         modifier = modifier
@@ -805,6 +835,9 @@ fun ChargingHeroDisplayCard(
                 ) {
                     // Precision EV / Cyberpunk Ring Canvas
                     Canvas(modifier = Modifier.fillMaxSize()) {
+                        val ringAlpha = ringAlphaState.value
+                        val orbitAngle = orbitAngleState.value
+                        val animatedSoc = animatedSocState.value
                         val canvasSize = size.minDimension
                         val strokeW = 5.5.dp.toPx()
                         val glowW = 10.dp.toPx()
