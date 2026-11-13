@@ -52,7 +52,7 @@ fun BatteryProtectionCard(
     LynxCard(
         title = stringResource(R.string.battery_protection_bypass_title),
         icon = Icons.Default.Shield,
-        accentColor = AccentGreen,
+        accentColor = Color(0xFFA855F7),
         modifier = modifier
     ) {
         // 1. Motherboard Bypass Switch

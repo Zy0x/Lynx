@@ -695,29 +695,36 @@ fun ChargingHeroDisplayCard(
     }
 
     // Banner & Theme Configuration
-    val modeInfo = remember(isPlugged, isBypass, isCharging, detectedProtocolName, liveWatts, activeChargingMode, isPropsSpoofed) {
+    val modeInfo = remember(isPlugged, isBypass, isCharging, detectedProtocolName, liveWatts, activeChargingMode, isPropsSpoofed, chargingConfig.limitCurrentMa) {
         when {
             !isPlugged -> {
                 when (activeChargingMode) {
                     "hyper" -> ChargingDisplayMode(
                         title = "⚡ MODE HYPER SIAGA",
                         description = "Daya penuh aktif saat kabel terhubung",
-                        badgeColor = AccentOrange,
-                        badgeBg = Color(0x33FF6B00),
+                        badgeColor = Color(0xFFFF9100),
+                        badgeBg = Color(0x26FF9100),
                         icon = Icons.Default.Bolt
                     )
                     "cool" -> ChargingDisplayMode(
                         title = "❄️ MODE SEJUK SIAGA",
                         description = "Regulasi ~1.0A aktif saat terhubung",
-                        badgeColor = AccentCyan,
+                        badgeColor = Color(0xFF00E5FF),
                         badgeBg = Color(0x2200E5FF),
                         icon = Icons.Default.AcUnit
+                    )
+                    "custom" -> ChargingDisplayMode(
+                        title = "⚙️ MODE KUSTOM SIAGA",
+                        description = "Limit ${chargingConfig.limitCurrentMa} mA aktif saat terhubung",
+                        badgeColor = Color(0xFFFF4081),
+                        badgeBg = Color(0x28FF4081),
+                        icon = Icons.Default.Tune
                     )
                     else -> ChargingDisplayMode(
                         title = "Discharging",
                         description = "Menggunakan daya baterai",
-                        badgeColor = TextSecondary,
-                        badgeBg = BgSurfaceLowest,
+                        badgeColor = Color(0xFF64748B),
+                        badgeBg = Color(0x1F64748B),
                         icon = Icons.Default.BatteryStd
                     )
                 }
@@ -725,22 +732,22 @@ fun ChargingHeroDisplayCard(
             isBypass -> ChargingDisplayMode(
                 title = "⚡ BYPASS CHARGING",
                 description = "Daya ke motherboard (0 mA)",
-                badgeColor = AccentCyan,
-                badgeBg = AccentCyanDim,
+                badgeColor = Color(0xFFA855F7),
+                badgeBg = Color(0x28A855F7),
                 icon = Icons.Default.Shield
             )
             else -> {
                 val badgeCol = when (activeChargingMode) {
-                    "hyper" -> Color(0xFF00FF9D)
-                    "cool" -> AccentCyan
-                    "custom" -> AccentPurple
-                    else -> AccentGreen
+                    "hyper" -> Color(0xFFFF9100)
+                    "cool" -> Color(0xFF00E5FF)
+                    "custom" -> Color(0xFFFF4081)
+                    else -> Color(0xFF00E676)
                 }
                 val badgeB = when (activeChargingMode) {
-                    "hyper" -> Color(0x1F00FF9D)
-                    "cool" -> AccentCyanDim
-                    "custom" -> AccentPurple.copy(alpha = 0.15f)
-                    else -> AccentGreenDim
+                    "hyper" -> Color(0x26FF9100)
+                    "cool" -> Color(0x2200E5FF)
+                    "custom" -> Color(0x28FF4081)
+                    else -> Color(0x2200E676)
                 }
                 val baseDesc = if (liveWatts > 0.5f) {
                     "Daya baterai • ${String.format(Locale.US, "%.1f", liveWatts)} W"
@@ -758,7 +765,17 @@ fun ChargingHeroDisplayCard(
     }
 
     // Layered charge animation: when plugged in or in bypass, energy sparks smoothly orbit the dial and glow breathes.
+    // Dynamic orbit speed tuned per mode: Hyper (1800ms energetic), Standard/Bypass (2400ms balanced), Cool (3000ms calm).
     // When unplugged on battery, transitions are idle to ensure zero VSync wakeups and preserve battery.
+    val orbitDuration = remember(isBypass, activeChargingMode) {
+        when {
+            isBypass -> 2400
+            activeChargingMode == "hyper" -> 1800
+            activeChargingMode == "cool" -> 3000
+            else -> 2400
+        }
+    }
+
     val (ringAlphaState, orbitAngleState) = if (isCharging || isBypass) {
         val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
         val alpha = infiniteTransition.animateFloat(
@@ -774,7 +791,7 @@ fun ChargingHeroDisplayCard(
             initialValue = 0f,
             targetValue = 360f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 2400, easing = LinearEasing),
+                animation = tween(durationMillis = orbitDuration, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "charge_orbit"
@@ -904,13 +921,14 @@ fun ChargingHeroDisplayCard(
                         // High-Precision Energy Arc
                         val primaryColor = modeInfo.badgeColor
                         val startColor = when {
-                            isBypass -> AccentCyan
+                            isBypass -> Color(0xFF8B5CF6)
                             isCharging -> when (activeChargingMode) {
-                                "hyper" -> Color(0xFF00E5FF)
-                                "cool" -> Color(0xFF00B0FF)
-                                else -> Color(0xFF00E676)
+                                "hyper" -> Color(0xFFFF5E00)
+                                "cool" -> Color(0xFF0284C7)
+                                "custom" -> Color(0xFFE11D48)
+                                else -> Color(0xFF00B0FF)
                             }
-                            else -> AccentCyan.copy(alpha = 0.85f)
+                            else -> Color(0xFF475569)
                         }
 
                         val arcBrush = Brush.linearGradient(
@@ -948,9 +966,9 @@ fun ChargingHeroDisplayCard(
                                 )
                             }
                         } else if (isBypass) {
-                            // A short cyan comet around the outer rail represents power routed around the battery.
+                            // A short electric violet comet around the outer rail represents power routed around the battery.
                             drawArc(
-                                color = AccentCyan.copy(alpha = 0.32f + 0.25f * ringAlpha),
+                                color = Color(0xFFA855F7).copy(alpha = 0.35f + 0.25f * ringAlpha),
                                 startAngle = orbitAngle - 90f,
                                 sweepAngle = 54f,
                                 useCenter = false,
@@ -1060,7 +1078,7 @@ fun ChargingHeroDisplayCard(
                                     activeChargingMode == "custom" -> "⚡ CUSTOM"
                                     else -> "⚡ STANDARD"
                                 }
-                                val activePillColor = if (isBypass) AccentCyan else modeInfo.badgeColor
+                                val activePillColor = modeInfo.badgeColor
 
                                 Surface(
                                     shape = RoundedCornerShape(7.dp),
@@ -1206,7 +1224,8 @@ private data class ChargingModeOption(
     val id: String,
     val title: String,
     val description: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val color: Color
 )
 
 @Composable
@@ -1247,27 +1266,39 @@ private fun QuickChargingModeModal(
             id = "hyper",
             title = "Mode Hyper",
             description = "Kecepatan pengisian maksimal dengan daya penuh",
-            icon = Icons.Default.Bolt
+            icon = Icons.Default.Bolt,
+            color = Color(0xFFFF9100)
         ),
         ChargingModeOption(
             id = "standard",
             title = "Mode Standar",
             description = "Keseimbangan cerdas kecepatan dan suhu perangkat",
-            icon = Icons.Default.Balance
+            icon = Icons.Default.Balance,
+            color = Color(0xFF00E676)
         ),
         ChargingModeOption(
             id = "cool",
             title = "Mode Sejuk",
             description = "Menjaga perangkat tetap dingin untuk keawetan baterai",
-            icon = Icons.Default.AcUnit
+            icon = Icons.Default.AcUnit,
+            color = Color(0xFF00E5FF)
         ),
         ChargingModeOption(
             id = "bypass",
             title = "Bypass Baterai",
             description = "Jika didukung perangkat, daya adaptor dialirkan ke sistem tanpa mengisi baterai.",
-            icon = Icons.Default.Shield
+            icon = Icons.Default.Shield,
+            color = Color(0xFFA855F7)
         )
     )
+
+    val currentModeColor = when (currentMode.lowercase()) {
+        "hyper" -> Color(0xFFFF9100)
+        "cool" -> Color(0xFF00E5FF)
+        "bypass" -> Color(0xFFA855F7)
+        "custom" -> Color(0xFFFF4081)
+        else -> Color(0xFF00E676)
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1306,13 +1337,13 @@ private fun QuickChargingModeModal(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(accentColor.copy(alpha = 0.12f)),
+                                .background(currentModeColor.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Bolt,
                                 contentDescription = null,
-                                tint = accentColor,
+                                tint = currentModeColor,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1347,16 +1378,16 @@ private fun QuickChargingModeModal(
 
                 Spacer(Modifier.height(14.dp))
 
-                // Mode Selection Cards (Streamlined OEM Rows)
+                // Mode Selection Cards (Streamlined OEM Rows with Semantic Accents)
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     modes.forEach { item ->
                         val isSelected = currentMode == item.id
                         Surface(
                             shape = RoundedCornerShape(14.dp),
-                            color = if (isSelected) accentColor.copy(alpha = 0.08f) else Color(0xFF131722),
+                            color = if (isSelected) item.color.copy(alpha = 0.10f) else Color(0xFF131722),
                             border = BorderStroke(
                                 width = if (isSelected) 1.2.dp else 0.8.dp,
-                                color = if (isSelected) accentColor.copy(alpha = 0.80f) else Color(0x18FFFFFF)
+                                color = if (isSelected) item.color.copy(alpha = 0.85f) else Color(0x18FFFFFF)
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1377,15 +1408,15 @@ private fun QuickChargingModeModal(
                                         .size(36.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isSelected) accentColor.copy(alpha = 0.16f)
-                                            else Color(0x0EFFFFFF)
+                                            if (isSelected) item.color.copy(alpha = 0.20f)
+                                            else item.color.copy(alpha = 0.08f)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = item.icon,
                                         contentDescription = null,
-                                        tint = if (isSelected) accentColor else Color(0xFFC0C4CC),
+                                        tint = if (isSelected) item.color else item.color.copy(alpha = 0.70f),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -1412,7 +1443,7 @@ private fun QuickChargingModeModal(
 
                                 RadioIndicator(
                                     selected = isSelected,
-                                    accentColor = accentColor
+                                    accentColor = item.color
                                 )
                             }
                         }

@@ -78,28 +78,28 @@ fun FastChargingControlCard(
                 title = stringResource(R.string.battery_mode_cool),
                 sub = stringResource(R.string.battery_mode_cool_sub),
                 icon = Icons.Default.AcUnit,
-                accent = AccentCyan
+                accent = Color(0xFF00E5FF)
             ),
             ChargingModeItem(
                 id = "standard",
                 title = stringResource(R.string.battery_mode_standard),
                 sub = stringResource(R.string.battery_mode_standard_sub),
                 icon = Icons.Default.Balance,
-                accent = AccentGreen
+                accent = Color(0xFF00E676)
             ),
             ChargingModeItem(
                 id = "hyper",
                 title = stringResource(R.string.battery_mode_hyper),
                 sub = stringResource(R.string.battery_mode_hyper_sub),
                 icon = Icons.Default.Bolt,
-                accent = AccentOrange
+                accent = Color(0xFFFF9100)
             ),
             ChargingModeItem(
                 id = "custom",
                 title = stringResource(R.string.battery_mode_custom),
                 sub = if (activeMode == "custom") "${state.charging.limitCurrentMa} mA" else stringResource(R.string.battery_mode_custom_sub),
                 icon = Icons.Default.Tune,
-                accent = AccentPurple
+                accent = Color(0xFFFF4081)
             )
         )
 

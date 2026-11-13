@@ -1,3 +1,18 @@
+# Lynx Universal [Harmonized Semantic Charging Color Palette & UI Polish] 7.0.0-RC394
+Released on: 2026-11-13
+> Lynx Kernel Manager v3.4.15
+
+- **Harmonisasi Palet Warna Semantik Mode Pengisian Daya (`ChargingHeroDisplayCard`, `FastChargingControlCard`, `BatteryProtectionCard`)**:
+  - Mengimplementasikan skema warna semantik khas untuk seluruh mode charging di dashboard dan modal selektor:
+    - **Mode Hyper**: Amber Listrik `#FF9100` → Oranye Kilat `#FF5E00` dengan rotasi sparks dinamis cepat (1800ms).
+    - **Mode Standar**: Cyber Emerald Mint `#00E676` dengan ritme seimbang (2400ms).
+    - **Mode Sejuk**: Sian Arktik Dingin `#00E5FF` → Biru Langit `#38BDF8` dengan ritme halus (3000ms).
+    - **Mode Bypass**: Violet Siber Elektrik `#A855F7` → Amethyst `#C084FC` dengan komet orbital khusus (2400ms).
+    - **Mode Kustom**: Magenta Koral `#FF4081`.
+    - **Discharging**: Abu-abu Slate `#64748B` dormant statis (0 fps) demi efisiensi daya maksimal.
+  - Memperbarui `QuickChargingModeModal` dengan kartu opsi individual beraksen semantik, ikon berlatar warna dinamis, dan indikator radio terpilih yang selaras.
+  - Menyelaraskan kartu proteksi bypass (`BatteryProtectionCard`) dan kartu kontrol 4-tier (`FastChargingControlCard`) dengan token warna semantik yang konsisten.
+
 # Lynx Universal [Smooth Charging Ring Animation & Draw-Phase Optimization] 7.0.0-RC393
 Released on: 2026-11-13
 > Lynx Kernel Manager v3.4.14
