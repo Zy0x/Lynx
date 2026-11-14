@@ -38,18 +38,18 @@ impl NetworkController {
         format!("{:x}", mask)
     }
 
-    /// Dynamically scale TCP/socket buffers & netdev budgets based on physical RAM size.
-    fn resolve_ram_scaled_params() -> (u64, u64, u64, u64, u64) {
+    /// Dynamically scale TCP/socket buffers, UDP memory, & netdev budgets based on physical RAM size.
+    fn resolve_ram_scaled_params() -> (u64, u64, u64, u64, u64, u64, &'static str, u64) {
         let mem = HardwareCapability::resolve_memory();
         if mem.total_ram_mb >= 7500 {
-            // 8GB+ RAM
-            (16_777_216, 262_144, 16_384, 600, 32_768)
+            // 8GB+ RAM: max_buf, def_buf, backlog, budget, total_flows, syn_backlog, udp_mem, somaxconn
+            (16_777_216, 262_144, 32_768, 800, 32_768, 4096, "393216 524288 786432", 2048)
         } else if mem.total_ram_mb >= 3800 {
             // 4GB - 6GB RAM
-            (8_388_608, 131_072, 8_192, 450, 16_384)
+            (8_388_608, 131_072, 16_384, 600, 16_384, 2048, "196608 262144 393216", 1024)
         } else {
             // < 4GB RAM
-            (4_194_304, 65_536, 4_096, 300, 8_192)
+            (4_194_304, 65_536, 4_096, 300, 8_192, 1024, "98304 131072 196608", 512)
         }
     }
 
@@ -60,7 +60,7 @@ impl NetworkController {
         } else {
             "0".to_string()
         };
-        let (_, _, _, _, total_flows) = Self::resolve_ram_scaled_params();
+        let (_, _, _, _, total_flows, _, _, _) = Self::resolve_ram_scaled_params();
         Self::write_opt(
             "/proc/sys/net/core/rps_sock_flow_entries",
             if enable { total_flows.to_string() } else { "0".to_string() },
@@ -283,7 +283,7 @@ impl NetworkController {
             }
         }
 
-        let (max_buf, def_buf, backlog, budget, _) = Self::resolve_ram_scaled_params();
+        let (max_buf, def_buf, backlog, budget, _, syn_backlog, udp_mem, somaxconn) = Self::resolve_ram_scaled_params();
         let max_s = max_buf.to_string();
         let def_s = def_buf.to_string();
 
@@ -294,6 +294,7 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/core/netdev_max_backlog", backlog.to_string());
         Self::write_opt("/proc/sys/net/core/netdev_budget", budget.to_string());
         Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "8000");
+        Self::write_opt("/proc/sys/net/core/somaxconn", somaxconn.to_string());
         Self::write_opt("/proc/sys/net/ipv4/tcp_rmem", format!("4096 87380 {}", max_buf));
         Self::write_opt("/proc/sys/net/ipv4/tcp_wmem", format!("4096 65536 {}", max_buf));
         Self::write_opt("/proc/sys/net/ipv4/tcp_ecn", "1");
@@ -306,6 +307,24 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "131072");
         Self::write_opt("/proc/sys/net/ipv4/tcp_autocorking", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "0");
+
+        // 1. UDP stack enhancements (Zero packet loss for gaming bursts, in-game voice chat, & HTTP/3 QUIC)
+        Self::write_opt("/proc/sys/net/ipv4/udp_rmem_min", "16384");
+        Self::write_opt("/proc/sys/net/ipv4/udp_wmem_min", "16384");
+        Self::write_opt("/proc/sys/net/ipv4/udp_mem", udp_mem);
+
+        // 2. TCP SYN handshake & keep-alive tuning (Fast failover & anti-zombie connection)
+        Self::write_opt("/proc/sys/net/ipv4/tcp_max_syn_backlog", syn_backlog.to_string());
+        Self::write_opt("/proc/sys/net/ipv4/tcp_syn_retries", "3");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_synack_retries", "3");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_keepalive_time", "300");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_keepalive_intvl", "15");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_keepalive_probes", "4");
+
+        // 3. DNS resolver caching & data stall threshold
+        let _ = Command::new("setprop").args(["net.dns_cache_size", "1024"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        let _ = Command::new("setprop").args(["net.dns_cache_ttl", "7200"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        let _ = Command::new("setprop").args(["persist.device_config.connectivity.data_stall_consecutive_dns_timeout_threshold", "3"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
 
         Self::apply_dynamic_rps_xps(true);
         Self::apply_dynamic_wifi_silicon(false);
@@ -338,6 +357,30 @@ impl NetworkController {
                 }
             }
         }
+
+        // 1. Suppress Wi-Fi & Bluetooth RF Coexistence background scanning (Eliminates periodic ping spikes)
+        if !Path::new("/dev/lynx_orig_ble_scan").exists() {
+            if let Ok(out) = Command::new("settings").args(["get", "global", "ble_scan_always_enabled"]).output() {
+                let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !v.is_empty() && v != "null" {
+                    let _ = fs::write("/dev/lynx_orig_ble_scan", &v);
+                }
+            }
+        }
+        if !Path::new("/dev/lynx_orig_wifi_scan").exists() {
+            if let Ok(out) = Command::new("settings").args(["get", "global", "wifi_scan_always_enabled"]).output() {
+                let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if !v.is_empty() && v != "null" {
+                    let _ = fs::write("/dev/lynx_orig_wifi_scan", &v);
+                }
+            }
+        }
+        let _ = Command::new("settings").args(["put", "global", "ble_scan_always_enabled", "0"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        let _ = Command::new("settings").args(["put", "global", "wifi_scan_always_enabled", "0"]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+
+        // 2. NAPI Low-Latency Polling (Immediate packet dispatch to userspace)
+        Self::write_opt("/proc/sys/net/core/netdev_budget", "300");
+        Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "2000");
 
         Self::apply_dynamic_rps_xps(true);
         Self::apply_dynamic_wifi_silicon(true);
@@ -375,6 +418,21 @@ impl NetworkController {
                 }
             }
         }
+
+        // 1. Restore Wi-Fi & Bluetooth RF Coexistence background scanning
+        if let Ok(orig_ble) = fs::read_to_string("/dev/lynx_orig_ble_scan") {
+            let _ = Command::new("settings").args(["put", "global", "ble_scan_always_enabled", orig_ble.trim()]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            let _ = fs::remove_file("/dev/lynx_orig_ble_scan");
+        }
+        if let Ok(orig_wifi) = fs::read_to_string("/dev/lynx_orig_wifi_scan") {
+            let _ = Command::new("settings").args(["put", "global", "wifi_scan_always_enabled", orig_wifi.trim()]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            let _ = fs::remove_file("/dev/lynx_orig_wifi_scan");
+        }
+
+        // 2. Restore NAPI Batching for High Throughput Transfers
+        let (_, _, _, budget, _, _, _, _) = Self::resolve_ram_scaled_params();
+        Self::write_opt("/proc/sys/net/core/netdev_budget", budget.to_string());
+        Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "8000");
 
         Self::apply_dynamic_wifi_silicon(false);
         Self::write_opt("/proc/sys/net/ipv4/tcp_thin_linear_timeouts", "0");

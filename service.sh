@@ -61,13 +61,13 @@ fi
     MEM_KB=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print $2}')
     [ -z "$MEM_KB" ] && MEM_KB=4000000
     if [ "$MEM_KB" -ge 8000000 ]; then
-        BUF_MAX=33554432; BUF_DEF=524288; BACKLOG=32768; BUDGET=800; RPS_ENTRIES=65536
+        BUF_MAX=33554432; BUF_DEF=524288; BACKLOG=32768; BUDGET=800; RPS_ENTRIES=65536; SYN_BACKLOG=4096; SOMAXCONN=2048; UDP_MEM="393216 524288 786432"
     elif [ "$MEM_KB" -ge 4000000 ]; then
-        BUF_MAX=16777216; BUF_DEF=262144; BACKLOG=16384; BUDGET=600; RPS_ENTRIES=32768
+        BUF_MAX=16777216; BUF_DEF=262144; BACKLOG=16384; BUDGET=600; RPS_ENTRIES=32768; SYN_BACKLOG=2048; SOMAXCONN=1024; UDP_MEM="196608 262144 393216"
     elif [ "$MEM_KB" -ge 2500000 ]; then
-        BUF_MAX=8388608; BUF_DEF=131072; BACKLOG=8192; BUDGET=400; RPS_ENTRIES=16384
+        BUF_MAX=8388608; BUF_DEF=131072; BACKLOG=8192; BUDGET=400; RPS_ENTRIES=16384; SYN_BACKLOG=1024; SOMAXCONN=1024; UDP_MEM="98304 131072 196608"
     else
-        BUF_MAX=4194304; BUF_DEF=65536; BACKLOG=4096; BUDGET=300; RPS_ENTRIES=8192
+        BUF_MAX=4194304; BUF_DEF=65536; BACKLOG=4096; BUDGET=300; RPS_ENTRIES=8192; SYN_BACKLOG=1024; SOMAXCONN=512; UDP_MEM="98304 131072 196608"
     fi
 
     echo fq_codel > /proc/sys/net/core/default_qdisc 2>/dev/null || echo fq > /proc/sys/net/core/default_qdisc 2>/dev/null
@@ -97,6 +97,25 @@ fi
     echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
     echo 131072 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
     echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+
+    # UDP buffer scaling (Gaming packet bursts, in-game voice chat, & HTTP/3 QUIC)
+    echo 16384 > /proc/sys/net/ipv4/udp_rmem_min 2>/dev/null
+    echo 16384 > /proc/sys/net/ipv4/udp_wmem_min 2>/dev/null
+    echo "$UDP_MEM" > /proc/sys/net/ipv4/udp_mem 2>/dev/null
+
+    # TCP SYN handshake, somaxconn, & keepalive tuning (Fast failover & anti-zombie connection)
+    echo "$SOMAXCONN" > /proc/sys/net/core/somaxconn 2>/dev/null
+    echo "$SYN_BACKLOG" > /proc/sys/net/ipv4/tcp_max_syn_backlog 2>/dev/null
+    echo 3 > /proc/sys/net/ipv4/tcp_syn_retries 2>/dev/null
+    echo 3 > /proc/sys/net/ipv4/tcp_synack_retries 2>/dev/null
+    echo 300 > /proc/sys/net/ipv4/tcp_keepalive_time 2>/dev/null
+    echo 15 > /proc/sys/net/ipv4/tcp_keepalive_intvl 2>/dev/null
+    echo 4 > /proc/sys/net/ipv4/tcp_keepalive_probes 2>/dev/null
+
+    # Android DNS caching & data stall timeout threshold
+    setprop net.dns_cache_size 1024 2>/dev/null
+    setprop net.dns_cache_ttl 7200 2>/dev/null
+    setprop persist.device_config.connectivity.data_stall_consecutive_dns_timeout_threshold 3 2>/dev/null
 
     # 6. Dynamic Interface Queue Enumeration (Wi-Fi, Cellular RMNET/CCCI, Ethernet, USB)
     for if_path in /sys/class/net/*; do
