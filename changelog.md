@@ -1,3 +1,15 @@
+# Lynx Universal [Restorasi Penuh Arsitektur Cold-Plug & Handshake 9V HVDCP Quick Charge 3.0] 7.0.0-RC398
+Released on: 2026-11-14
+> Lynx Kernel Manager v3.4.19
+
+- **Restorasi Penuh Arsitektur Cold-Charging & Handshake 9V HVDCP Qualcomm PM660 Sesuai Referensi Teruji RC383 (`lynxd`, `charging.rs`, `LynxCompanion`)**:
+  - **Restorasi Pemicu `rerun_apsd` (Auto Power Source Detection)**: Mengembalikan pemicuan hardware APSD pada subsistem USB dan Baterai di seluruh fase kritis (`handle_connect`, Stage 2 Cold-Plug 3.0s, Stage 3 Current Assurance 5.0s, dan watchdog `qcom_stalled`). Mengizinkan PMIC PM660 menegosiasikan protokol QC 3.0 / 9V HVDCP seketika tanpa tercekik di mode standar 5V DCP (600–1500mA).
+  - **Pelepasan Kunci Izin Read-Only (`0444`) pada Node Arus Aktif**: Mengembalikan izin penulisan terbuka (`0666`) dan metode `write_node` normal pada `constant_charge_current_max`, `constant_charge_current`, `current_max`, dan `input_current_limit`. Menghilangkan penolakan izin kernel (*EACCES*) pada worker voter PMIC Qualcomm yang sebelumnya memicu siklus flapping (1500mA $\to$ discharge $\to$ 1500mA).
+  - **Restorasi Dynamic Descending Probe (Hingga 3.5A Headroom)**: Mengembalikan algoritma probing bertingkat cerdas (`qcom_candidates` 3.5A s/d 2.8A) untuk menemukan titik jenuh tertinggi konverter buck silikon tanpa penguncian kaku artifisial, memungkinkan arus menembus di atas 3000mA (~17.6W).
+  - **Stabilisasi Transisi Mode Hyper**: Memulihkan kondisi soft-reconnect berbasis buffer waktu dan deteksi stall (`adpv < 6.5V && cur < 1.5A` setelah 4 detik), mengeliminasi siklus pemutusan koneksi berulang (*reconnection loop*) saat adaptor telah aktif.
+  - **Preservasi Proteksi Termal Terpilih**: Tetap mempertahankan penguncian mutlak `0444` khusus pada register throttling dan trip-point OEM (`restricted_charging = 0`, `system_temp_level = 0`, `thermal_input_current_limit = -1`, `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, `allow_hvdcp3 = 1`) untuk mencegah intervensi pemotongan arus sepihak dari `thermal-engine`.
+  - **Kompilasi & Sinkronisasi Biner Release**: Mengompilasi ulang biner native `lynxd` dengan profil release LTO strip, menyinkronkan seluruh aset di `system/bin/` dan `LynxCompanion/app/src/main/assets/`, serta membangun `LynxKernelManager.apk` rilis v3.4.19.
+
 # Lynx Universal [Qualcomm PM660 Hardware Buck Ceiling Calibration & Hyper Charge Restoration] 7.0.0-RC397
 Released on: 2026-11-14
 > Lynx Kernel Manager v3.4.18
