@@ -196,7 +196,9 @@ impl LifecycleHooks {
 
         // 6. Universal & Platform-Specific Subsystem Optimization
         let _ = SystemController::apply();
-        Self::log_msg("[+] Core and platform subsystems optimized natively via lynxd");
+        let _ = crate::subsystems::NetworkController::apply_universal();
+        let _ = crate::subsystems::NetworkController::apply_balance();
+        Self::log_msg("[+] Core, network, and platform subsystems optimized natively via lynxd");
 
         // 7. Apply Charging, ADB Keep-Alive & Storage Maintenance
         ChargingRegulator::apply_from_config();

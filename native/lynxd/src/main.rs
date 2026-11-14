@@ -373,6 +373,11 @@ fn handle_profile_apply(name: &str, dry_run: bool, transient: bool, silent: bool
                 if !transient {
                     ConfigStore::sync_baseline_marker(&plan.profile_name);
                 }
+                if plan.profile_name == "performance" || plan.profile_name == "extreme" {
+                    crate::subsystems::NetworkController::apply_game();
+                } else if plan.profile_name == "balance" || plan.profile_name == "powersave" || plan.profile_name == "battery" {
+                    crate::subsystems::NetworkController::apply_balance();
+                }
                 if !silent {
                     let handle = DaemonRunner::notify_profile_transition(&plan.profile_name, "");
                     let _ = handle.join();
@@ -435,6 +440,7 @@ fn handle_profile_revert() {
                 report.elapsed_micros,
                 report.elapsed_micros as f64 / 1000.0
             );
+            crate::subsystems::NetworkController::apply_balance();
             log_info!("Baseline hardware berhasil dipulihkan.", "Hardware baseline successfully restored.");
         }
         Err(e) => {

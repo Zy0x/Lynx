@@ -1,7 +1,7 @@
 use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use crate::hardware::capability::HardwareCapability;
 use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
@@ -303,7 +303,9 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/ipv4/tcp_fin_timeout", "15");
         Self::write_opt("/proc/sys/net/ipv4/tcp_slow_start_after_idle", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_mtu_probing", "1");
-        Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "16384");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "131072");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_autocorking", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "0");
 
         Self::apply_dynamic_rps_xps(true);
         Self::apply_dynamic_wifi_silicon(false);
@@ -313,14 +315,26 @@ impl NetworkController {
 
     pub fn apply_game() -> String {
         let _ = Self::apply_universal();
-        let _ = Command::new("cmd").args(["wifi", "set-power-save-mode", "0"]).status();
-        let _ = Command::new("cmd").args(["wifi", "force-low-latency-mode", "enabled"]).status();
+        let _ = Command::new("cmd")
+            .args(["wifi", "set-power-save-mode", "0"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = Command::new("cmd")
+            .args(["wifi", "force-low-latency-mode", "enabled"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
 
         if let Ok(entries) = fs::read_dir("/sys/class/net") {
             for e in entries.flatten() {
                 let name = e.file_name().to_string_lossy().to_string();
                 if name.starts_with("wlan") || name.starts_with("swlan") || name.starts_with("wifi") || name.starts_with("sta") {
-                    let _ = Command::new("iw").args(["dev", &name, "set", "power_save", "off"]).status();
+                    let _ = Command::new("iw")
+                        .args(["dev", &name, "set", "power_save", "off"])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .status();
                 }
             }
         }
@@ -338,14 +352,26 @@ impl NetworkController {
     }
 
     pub fn apply_balance() -> String {
-        let _ = Command::new("cmd").args(["wifi", "set-power-save-mode", "1"]).status();
-        let _ = Command::new("cmd").args(["wifi", "force-low-latency-mode", "disabled"]).status();
+        let _ = Command::new("cmd")
+            .args(["wifi", "set-power-save-mode", "1"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = Command::new("cmd")
+            .args(["wifi", "force-low-latency-mode", "disabled"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
 
         if let Ok(entries) = fs::read_dir("/sys/class/net") {
             for e in entries.flatten() {
                 let name = e.file_name().to_string_lossy().to_string();
                 if name.starts_with("wlan") || name.starts_with("swlan") || name.starts_with("wifi") || name.starts_with("sta") {
-                    let _ = Command::new("iw").args(["dev", &name, "set", "power_save", "on"]).status();
+                    let _ = Command::new("iw")
+                        .args(["dev", &name, "set", "power_save", "on"])
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .status();
                 }
             }
         }
@@ -355,6 +381,7 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/ipv4/tcp_reordering", "3");
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_autocorking", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "131072");
 
         "Balanced power-efficient network & Wi-Fi mode restored.".to_string()
     }

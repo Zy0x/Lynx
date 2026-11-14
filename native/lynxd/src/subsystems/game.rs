@@ -299,7 +299,10 @@ impl GameController {
         // 9. Active Game Flag
         let _ = fs::write("/dev/lynx_active_game", "1\n");
 
-        // 10. Process Optimization if PID provided
+        // 10. Dynamic Low-Latency Network & Wi-Fi Silicon Engagement
+        crate::subsystems::NetworkController::apply_game();
+
+        // 11. Process Optimization if PID provided
         let pid_msg = if let Some(pid) = top_pid {
             Self::optimize_pid(pid);
             format!(" [PID {} optimized]", pid)
@@ -462,7 +465,10 @@ impl GameController {
         // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");
 
-        "Game Mode disengaged (Restored Balanced EAS and Audio profiles).".to_string()
+        // 9. Restore Dynamic Balanced Network & Standard Wi-Fi Power Save
+        crate::subsystems::NetworkController::apply_balance();
+
+        "Game Mode disengaged (Restored Balanced EAS, Network, and Audio profiles).".to_string()
     }
 
     /// Optimizes thread scheduling, CPU affinity, and I/O priority for a specific process ID.

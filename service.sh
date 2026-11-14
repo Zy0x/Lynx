@@ -29,41 +29,17 @@ fi
         mount -o bind "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" /vendor/firmware/wifi.cfg 2>/dev/null || true
     fi
 
-    # 1. Dynamic MediaTek Gen4m / ConnInfra / Legacy WLAN Probing
-    if [ -f /proc/net/wlan/dbgLevel ]; then
-        if grep -q ":" /proc/net/wlan/dbgLevel 2>/dev/null; then
-            echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
-        else
-            echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
-        fi
-    fi
-    [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
+    # 1. Dynamic MediaTek Wi-Fi Silicon Probing (Safe Balanced Baseline at Boot)
+    [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
     [ -f /proc/net/wlan/setCAM ] && echo "CAM 0" > /proc/net/wlan/setCAM 2>/dev/null
-    [ -f /proc/net/wlan/pkt_filter ] && echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
-    if [ -f /proc/net/wlan/cfg ]; then
-        CFG_DUMP=$(cat /proc/net/wlan/cfg 2>/dev/null)
-        for kv in "PowerSave 0" "KeepFullPwr 1" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
-            k=${kv%% *}
-            if [ -z "$CFG_DUMP" ] || echo "$CFG_DUMP" | grep -qE "(D:)?${k}\|"; then
-                echo "$kv" > /proc/net/wlan/cfg 2>/dev/null
-            fi
-        done
-    fi
+    [ -f /proc/net/wlan/pkt_filter ] && echo 1 > /proc/net/wlan/pkt_filter 2>/dev/null
 
-    # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery (QCOM, Exynos/Tensor, Broadcom, Unisoc)
+    # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery (Safe Baseline)
     for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do
         [ -d "$mod_dir" ] || continue
-        for p_zero in con_mode gEnablePacketFilter dynamic_ps auto_power packet_filter dhd_slpauto dhd_watchdog_ms dhd_pkt_filter_enable slp_enable; do
-            [ -f "$mod_dir/$p_zero" ] && echo 0 > "$mod_dir/$p_zero" 2>/dev/null
-        done
-        for p_one in rx_mode op_mode; do
+        for p_one in dynamic_ps auto_power packet_filter gEnablePacketFilter dhd_slpauto dhd_pkt_filter_enable slp_enable; do
             [ -f "$mod_dir/$p_one" ] && echo 1 > "$mod_dir/$p_one" 2>/dev/null
         done
-    done
-
-    # 3. Dynamic Multi-Vendor Wireless Kernel Thread High Priority Boost (CFS Nice -20, Safe Anti-Starvation)
-    for t in $(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print $1}'); do
-        renice -n -20 -p "$t" 2>/dev/null
     done
 
     # 4. Dynamic CPU Bitmask Discovery (4, 6, 8, 10, 12+ Cores)
@@ -116,10 +92,10 @@ fi
     echo "4096 87380 $BUF_MAX" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
     echo "4096 65536 $BUF_MAX" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
     echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
-    echo 1 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
-    echo 0 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
+    echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
     echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
-    echo 16384 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
+    echo 131072 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
     echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
 
     # 6. Dynamic Interface Queue Enumeration (Wi-Fi, Cellular RMNET/CCCI, Ethernet, USB)
