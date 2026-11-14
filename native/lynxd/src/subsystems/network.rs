@@ -134,7 +134,7 @@ impl NetworkController {
             "/proc/net/wlan/autoPerfCfg",
             if low_latency { "ForceEnable:1" } else { "ForceEnable:0" },
         );
-        Self::write_opt("/proc/net/wlan/setCAM", if low_latency { "1" } else { "0" });
+        Self::write_opt("/proc/net/wlan/setCAM", if low_latency { "CAM 1" } else { "CAM 0" });
         Self::write_opt("/proc/net/wlan/pkt_filter", if low_latency { "0" } else { "1" });
 
         let cfg_path = Path::new("/proc/net/wlan/cfg");
@@ -328,6 +328,8 @@ impl NetworkController {
         Self::apply_dynamic_rps_xps(true);
         Self::apply_dynamic_wifi_silicon(true);
 
+        Self::write_opt("/proc/sys/net/ipv4/tcp_thin_linear_timeouts", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_reordering", "6");
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_autocorking", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_notsent_lowat", "16384");
@@ -349,6 +351,8 @@ impl NetworkController {
         }
 
         Self::apply_dynamic_wifi_silicon(false);
+        Self::write_opt("/proc/sys/net/ipv4/tcp_thin_linear_timeouts", "0");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_reordering", "3");
         Self::write_opt("/proc/sys/net/ipv4/tcp_low_latency", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_autocorking", "1");
 

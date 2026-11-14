@@ -38,7 +38,7 @@ fi
         fi
     fi
     [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-    [ -f /proc/net/wlan/setCAM ] && echo "CAM 1" > /proc/net/wlan/setCAM 2>/dev/null
+    [ -f /proc/net/wlan/setCAM ] && echo "CAM 0" > /proc/net/wlan/setCAM 2>/dev/null
     [ -f /proc/net/wlan/pkt_filter ] && echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
     if [ -f /proc/net/wlan/cfg ]; then
         CFG_DUMP=$(cat /proc/net/wlan/cfg 2>/dev/null)
@@ -121,8 +121,6 @@ fi
     echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
     echo 16384 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
     echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
-    echo 1 > /proc/sys/net/ipv4/tcp_thin_linear_timeouts 2>/dev/null
-    echo 6 > /proc/sys/net/ipv4/tcp_reordering 2>/dev/null
 
     # 6. Dynamic Interface Queue Enumeration (Wi-Fi, Cellular RMNET/CCCI, Ethernet, USB)
     for if_path in /sys/class/net/*; do
