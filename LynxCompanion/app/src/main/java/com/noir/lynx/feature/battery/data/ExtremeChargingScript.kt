@@ -44,8 +44,8 @@ object ExtremeChargingScript {
             echo 0 > /sys/devices/platform/odm/odm:tran_battery/Charging_CallState 2>/dev/null
             echo 0 > /sys/devices/platform/tran_battery/Charging_CallState 2>/dev/null
             chmod 666 /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
-            echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
-            echo "[95,6000,100,6000,6000000]" > /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
+            echo "[95,7000,100,7000,7000000]" > /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug 2>/dev/null
+            echo "[95,7000,100,7000,7000000]" > /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
             chmod 444 /sys/devices/platform/odm/odm:tran_battery/pcb_thermal_debug /sys/devices/platform/tran_battery/pcb_thermal_debug 2>/dev/null
             if ! grep -q "7000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null && ! grep -q "6000" /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null; then
                 chmod 666 /sys/devices/platform/pca_dv2_algo/dv2_debug 2>/dev/null
@@ -82,10 +82,10 @@ object ExtremeChargingScript {
             echo "70000 1000 200000 6000 6000 0 1 1 0" > /proc/driver/thermal/clabcct 2>/dev/null
             echo "1 70000 1000 200000 6000 6000 0 6000 0" > /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
             chmod 444 /proc/driver/thermal/clabcct /proc/driver/thermal/clabcct_lcmoff 2>/dev/null
-            echo 33170 > /sys/devices/platform/charger/input_current 2>/dev/null
+            echo 7000000 > /sys/devices/platform/charger/input_current 2>/dev/null
             echo 12000 > /sys/devices/platform/charger/sc_ibat_limit 2>/dev/null
-            echo 33170 > /sys/devices/platform/charger/chg1_current 2>/dev/null
-            echo 33170 > /sys/devices/platform/charger/chg2_current 2>/dev/null
+            echo 7000000 > /sys/devices/platform/charger/chg1_current 2>/dev/null
+            echo 7000000 > /sys/devices/platform/charger/chg2_current 2>/dev/null
             echo 120 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
             echo 20000 > /sys/devices/platform/charger/pd_vbus_upper_bound 2>/dev/null
             echo 5000 > /sys/devices/platform/charger/pd_vbus_low_bound 2>/dev/null

@@ -1,3 +1,22 @@
+# Lynx Universal [Stabilisasi Pompa Langsung RT9759 5500mA Transsion & Isolasi Total QC RN7] 7.0.0-RC401
+Released on: 2026-11-15
+> Lynx Kernel Manager v3.4.22
+
+- **Eliminasi Siklus Looping Arus Pengisian Infinix/Transsion (5500mA $\leftrightarrow$ 1600mA) & Preservasi 100% Quick Charge Qualcomm (`charging.rs`, `ExtremeChargingScript.kt`)**:
+  - **Akar Masalah Looping Arus 5500mA ke 1600mA**:
+    - Pada adaptor 33W Transsion, pompa direct charge pump Richtek RT9759 (2:1 switched-capacitor) berhasil aktif hingga mencapai arus puncak +5500mA. Namun, loop invariant daemon `enforce_live_charging_invariants()` mengevaluasi `cur_usb < target_usb_ua` (12A) yang permanen bernilai true pada arsitektur MediaTek (di mana register `current_max` USB merupakan batas buck AICR 1.5–2A). Setiap 15 detik, daemon menulis ulang register sysfs USB dan baterai.
+    - Penulisan ke `power_supply/usb/current_max` dan `battery/input_current_limit` memicu callback notifikasi kernel `PSY_EVENT_PROP_CHANGED`. Driver kernel Transsion (`rt9759_dv2` / `dv2_algo_task`) mengartikan sinyal ini sebagai interupsi eksternal dan seketika mematikan pompa direct RT9759 (`dv2_stop_algo`), memulangkan jalur pengisian ke konverter buck primer (`rt9471`) yang mentok di 1600mA. Setelah beberapa detik jeda, driver kernel mencoba memulai kembali pompa hingga mencapai 5500mA, lalu terinterupsi kembali oleh siklus penulisan berikutnya (loop tak berujung).
+  - **Fast-Path Imunitas & Pengecekan Invariant Aman**:
+    - **Fast-Path Arus Aktif**: Pada `apply_from_config()`, ditambahkan filter evaluasi cepat: jika baterai telah aktif dialiri arus $\ge 2500$ mA (`cur_now_ma >= 2500`), status invariant seketika dikunci sebagai utuh (`true`). Daemon dilarang keras memicu `apply_hyper_mode()` yang dapat membanjiri bus I2C/SPMI dengan penulisan berulang.
+    - **Ambang Batas `sc_ibat_limit` Realistis**: Mengoreksi syarat batas aman `sc_limit >= 1000 || sc_limit == 0` (sebagaimana referensi stabil teruji RC383), mencegah kegagalan invariant 1 Hz akibat nilai default kernel `sc_ibat_limit = 2000`.
+    - **Fencing Khusus MediaTek pada Invariant Reapply**: Menutup penulisan `fcc_needs_reapply`, `usb_needs_reapply`, dan `in_lim_needs_reapply` pada MediaTek/Transsion saat tegangan tinggi aktif (`adpv >= 6.5V`) atau arus pengisian telah melampaui 1500mA.
+  - **Restorasi Gating Voltase `enable_sc` & Sintaks `pcb_thermal_debug`**:
+    - Mengembalikan logika penulisan `enable_sc = 1` saat voltase adaptor terdeteksi $\ge 6.5V$ (Pump Express / Direct Charge aktif), memastikan pompa switched-capacitor diizinkan penuh oleh kernel.
+    - Memulihkan sintaks penulisan `pcb_thermal_debug` ke format matriks kurva kernel Transsion: `[95,7000,100,7000,7000000]`.
+    - Mengoreksi penulisan `input_current`, `chg1_current`, dan `chg2_current` pada `ExtremeChargingScript.kt` ke format desimal mikroampere (`7000000` uA).
+  - **Preservasi Mutlak Logika Qualcomm Quick Charge (Redmi Note 7)**:
+    - Seluruh blok kode Qualcomm (`is_qcom`) dipertahankan 100% tanpa modifikasi apa pun (*zero disturbance / zero regression*). Arsitektur PM660, peniadaan `rerun_apsd`, penguncian `allow_hvdcp3 = 1`, dan unclamp QC 3.0 yang telah stabil di Redmi Note 7 tetap beroperasi optimal.
+
 # Lynx Universal [Eliminasi Intervensi rerun_apsd & Pengawalan Handshake Qualcomm Quick Charge 3.0] 7.0.0-RC400
 Released on: 2026-11-15
 > Lynx Kernel Manager v3.4.21
