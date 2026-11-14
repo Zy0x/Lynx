@@ -1,3 +1,14 @@
+# Lynx Universal [Eliminasi Intervensi rerun_apsd & Pengawalan Handshake Qualcomm Quick Charge 3.0] 7.0.0-RC400
+Released on: 2026-11-15
+> Lynx Kernel Manager v3.4.21
+
+- **Eliminasi Total Pemanggilan `rerun_apsd` Selama Pengisian Aktif (`charging.rs`, `ExtremeChargingScript.kt`, `StandardChargingScript.kt`)**:
+  - **Analisis Akar Masalah Negosiasi QC**: Pada kernel Qualcomm (`smb-lib.c`), pemicuan `rerun_apsd = 1` memaksa PMIC (PM660) mereset mesin Auto Power Source Detection (APSD), yang memutuskan jalur pin data D+/D-. Ketika adapter Quick Charge (QC 2.0 / 3.0 / 4.0) mendeteksi pemutusan pin D+/D-, adapter seketika membatalkan negosiasi voltase 9V/12V dan menjatuhkan (*collapse*) tegangan VBUS kembali ke standar 5V DCP.
+  - **Pemberhentian Loop Watchdog `qcom_stalled`**: Watchdog sebelumnya memicu `rerun_apsd` setiap 2 detik saat arus pengisian masih di bawah 2000mA (fase ramp-up awal), sehingga menjebak adapter QC dalam loop reset berulang tanpa henti.
+  - **Pembersihan Arsitektural**: Menghapus seluruh pemicuan `rerun_apsd` dari daemon native `lynxd` (`trigger_charger_soft_reconnect`, `handle_connect`, Stage 2 Cold-Plug, Stage 3 Current Assurance, dan loop `qcom_stalled`), serta skrip fallback Kotlin `ExtremeChargingScript.kt` dan `StandardChargingScript.kt`.
+  - **Pengawalan Handshake QC 3.0**: Mempertahankan protokol stabil tanpa intervensi sinyal data: mengunci `allow_hvdcp3 = 1` dan `hvdcp_opti_allowed = 1`, menetralkan seluruh pembatas termal OEM (`restricted_charging = 0`, `system_temp_level = 0`, `thermal_input_current_limit = -1`, `step_charging_enabled = 0`, `sw_jeita_enabled = 0`), serta membiarkan kernel mengeksekusi `rerun_aicl` dengan cooldown aman (60 detik) tanpa mereset jalur D+/D-.
+  - **Verifikasi Hardware MediaTek (Infinix Note 11s Helio G96)**: Mengonfirmasi bahwa keterbatasan pengisian lambat (~700-850 mA) pada Infinix saat terhubung ke charger QC murni disebabkan oleh perbedaan protokol hardware (chipset Helio G96 + Richtek RT9471 memerlukan MediaTek Pump Express atau USB-PD dan tidak memiliki silikon Qualcomm Quick Charge, sehingga jatuh ke fallback standar 5V DCP 1.4A AICR), bukan disebabkan oleh bug kernel maupun Lynx.
+
 # Lynx Universal [Qualcomm HVDCP Soft-Reconnect APSD Synchronization & Companion Fallback Guard] 7.0.0-RC399
 Released on: 2026-11-14
 > Lynx Kernel Manager v3.4.20

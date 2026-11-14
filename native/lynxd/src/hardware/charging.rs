@@ -2571,15 +2571,8 @@ impl ChargingRegulator {
                 }
             }
 
-            for apsd in &[
-                format!("{}/rerun_apsd", USB_DIR),
-                format!("{}/rerun_apsd", BATT_DIR),
-            ] {
-                if Path::new(apsd).exists() {
-                    Self::set_perm(apsd, 0o666);
-                    Self::write_node(apsd, "1");
-                }
-            }
+            // CRITICAL: NEVER write rerun_apsd during active charging!
+            // Rerunning APSD resets D+/D- lines, which causes QC 3.0 / HVDCP chargers to collapse back to 5V standard DCP.
 
             for rerun in &[
                 format!("{}/rerun_aicl", USB_DIR),
@@ -4408,15 +4401,6 @@ impl ChargingRegulator {
             Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
-            for apsd in &[
-                format!("{}/rerun_apsd", USB_DIR),
-                format!("{}/rerun_apsd", BATT_DIR),
-            ] {
-                if Path::new(apsd).exists() {
-                    Self::set_perm(apsd, 0o666);
-                    Self::write_node(apsd, "1");
-                }
-            }
         } else {
             Self::ensure_mtk_power_path_enabled();
             Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
@@ -4782,8 +4766,6 @@ impl ChargingRegulator {
                 Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
                 Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                 for rerun in &[
-                    format!("{}/rerun_apsd", USB_DIR),
-                    format!("{}/rerun_apsd", BATT_DIR),
                     format!("{}/rerun_aicl", USB_DIR),
                     format!("{}/rerun_aicl", BATT_DIR),
                     format!("{}/rerun_aicl", MAIN_DIR),
@@ -4825,8 +4807,6 @@ impl ChargingRegulator {
                     Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
                     Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                     for rerun in &[
-                        format!("{}/rerun_apsd", USB_DIR),
-                        format!("{}/rerun_apsd", BATT_DIR),
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),
                         format!("{}/rerun_aicl", MAIN_DIR),
@@ -4962,15 +4942,6 @@ impl ChargingRegulator {
                     Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
                     Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
                     Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
-                    for apsd in &[
-                        format!("{}/rerun_apsd", USB_DIR),
-                        format!("{}/rerun_apsd", BATT_DIR),
-                    ] {
-                        if Path::new(apsd).exists() {
-                            Self::set_perm(apsd, 0o666);
-                            Self::write_node(apsd, "1");
-                        }
-                    }
                     Self::neutralise_battery_cooling_devices();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());

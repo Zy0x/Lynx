@@ -163,9 +163,6 @@ object ExtremeChargingScript {
                 echo 6000000 > /sys/class/power_supply/usb/apdo_max 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/turbo_power 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
-                for apsd in /sys/class/power_supply/usb/rerun_apsd /sys/class/power_supply/battery/rerun_apsd; do
-                    [ -e "${'$'}apsd" ] && chmod 666 "${'$'}apsd" 2>/dev/null && echo 1 > "${'$'}apsd" 2>/dev/null
-                done
                 for aicl in /sys/class/power_supply/usb/rerun_aicl /sys/class/power_supply/battery/rerun_aicl /sys/class/power_supply/main/rerun_aicl; do
                     [ -e "${'$'}aicl" ] && chmod 666 "${'$'}aicl" 2>/dev/null && echo 1 > "${'$'}aicl" 2>/dev/null
                 done
