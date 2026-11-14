@@ -1,3 +1,12 @@
+# Lynx Universal [Qualcomm HVDCP Soft-Reconnect APSD Synchronization & Companion Fallback Guard] 7.0.0-RC399
+Released on: 2026-11-14
+> Lynx Kernel Manager v3.4.20
+
+- **Sinkronisasi Lengkap Auto Power Source Detection (`rerun_apsd`) & Pengawalan Negosiasi QC 3.0 (`charging.rs`, `ExtremeChargingScript`, `StandardChargingScript`)**:
+  - **Injeksi `rerun_apsd` pada `trigger_charger_soft_reconnect()`**: Menambahkan pemicuan eksplisit node `rerun_apsd` pada subsistem USB dan Baterai sebelum `rerun_aicl` dieksekusi di `trigger_charger_soft_reconnect()`, memastikan PMIC PM660 melakukan evaluasi ulang jalur D+/D- secara menyeluruh saat pemulihan koneksi.
+  - **Sinkronisasi Skrip Fallback Kotlin (`ExtremeChargingScript.kt` & `StandardChargingScript.kt`)**: Melengkapi skrip fallback shell aplikasi pendamping dengan eksekusi sekuensial `rerun_apsd` dan `rerun_aicl` pasca penguncian `allow_hvdcp3 = 1`, menjamin negosiasi tegangan tinggi tetap berjalan tanpa bergantung pada status IPC daemon.
+  - **Kompilasi & Pemasangan Release**: Mengompilasi ulang biner release `lynxd` (1.26 MB) dengan optimasi LTO strip, menyinkronkan seluruh aset biner ke dalam installer dan aplikasi, serta membangun dan memperbarui `LynxKernelManager.apk` rilis v3.4.20.
+
 # Lynx Universal [Restorasi Penuh Arsitektur Cold-Plug & Handshake 9V HVDCP Quick Charge 3.0] 7.0.0-RC398
 Released on: 2026-11-14
 > Lynx Kernel Manager v3.4.19

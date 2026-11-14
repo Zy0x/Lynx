@@ -71,6 +71,9 @@ object StandardChargingScript {
         echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
         echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
         echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
+        for apsd in /sys/class/power_supply/usb/rerun_apsd /sys/class/power_supply/battery/rerun_apsd; do
+            [ -e "${'$'}apsd" ] && chmod 666 "${'$'}apsd" 2>/dev/null && echo 1 > "${'$'}apsd" 2>/dev/null
+        done
         [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
         for cd in /sys/class/thermal/cooling_device*; do
             if [ -f "${'$'}cd/type" ]; then

@@ -2571,6 +2571,16 @@ impl ChargingRegulator {
                 }
             }
 
+            for apsd in &[
+                format!("{}/rerun_apsd", USB_DIR),
+                format!("{}/rerun_apsd", BATT_DIR),
+            ] {
+                if Path::new(apsd).exists() {
+                    Self::set_perm(apsd, 0o666);
+                    Self::write_node(apsd, "1");
+                }
+            }
+
             for rerun in &[
                 format!("{}/rerun_aicl", USB_DIR),
                 format!("{}/rerun_aicl", BATT_DIR),
