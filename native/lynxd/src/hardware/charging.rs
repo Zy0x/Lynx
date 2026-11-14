@@ -487,6 +487,7 @@ impl ChargingRegulator {
     pub fn ensure_power_supply_traversal() {
         const CRITICAL_DIRS: &[&str] = &[
             "/sys/class/power_supply",
+            "/sys/class/qcom-battery",
             "/sys/devices/platform/battery",
             "/sys/devices/platform/battery/power_supply",
             "/sys/devices/platform/battery/power_supply/battery",
@@ -499,6 +500,14 @@ impl ChargingRegulator {
         for &dir in CRITICAL_DIRS {
             if Path::new(dir).is_dir() {
                 Self::set_perm(dir, 0o755);
+            }
+        }
+        if let Ok(entries) = fs::read_dir("/sys/class/power_supply") {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    Self::set_perm(&p.to_string_lossy(), 0o755);
+                }
             }
         }
     }
@@ -945,8 +954,15 @@ impl ChargingRegulator {
         }
 
         if is_qcom {
-            // Intelligent descending step-probe for Qualcomm single-PMIC architectures (PM660/PM6150/PM7250):
-            // Test descending steps from highest possible silicon capability (3500mA down to 2800mA)
+            if !has_cp {
+                // Qualcomm PM660 single PMIC (e.g. Redmi Note 7) has a 3.1A–3.2A hardware buck converter limit.
+                // Writing candidate values > 3.2A causes Qualcomm smb-lib USB_ICL_VOTABLE collapse down to 1.5A!
+                // Locking ceiling cleanly at 3,150,000 uA guarantees 3.1A–3.3A continuous INOV without collapse.
+                let _ = fs::write(cache_file, "3150000");
+                return 3_150_000;
+            }
+
+            // Intelligent descending step-probe for multi-PMIC Qualcomm architectures:
             let qcom_candidates: &[u64] = &[
                 3_500_000, 3_400_000, 3_300_000, 3_250_000, 3_200_000,
                 3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000,
@@ -1044,16 +1060,14 @@ impl ChargingRegulator {
         }
 
         let is_qcom_single = Self::is_qualcomm_soc() && !Self::has_qcom_direct_charge_pump();
-        let candidates: &[u64] = if is_qcom_single {
-            &[
-                3_500_000, 3_400_000, 3_300_000, 3_250_000, 3_200_000,
-                3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000,
-            ]
-        } else {
-            &[
-                6_000_000, 5_000_000, 4_500_000, 4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
-            ]
-        };
+        if is_qcom_single {
+            let _ = fs::write(cache_file, "3150000");
+            return 3_150_000;
+        }
+
+        let candidates: &[u64] = &[
+            6_000_000, 5_000_000, 4_500_000, 4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
+        ];
 
         let node = format!("{}/current_max", USB_DIR);
         if Path::new(&node).exists() {
@@ -1277,8 +1291,7 @@ impl ChargingRegulator {
                             Self::write_node_lock(&cur_path, "0");
                         } else if t_lower == "battery" || t_lower == "charger" {
                             let cur_path = format!("/sys/class/thermal/{}/cur_state", name_str);
-                            Self::set_perm(&cur_path, 0o666);
-                            Self::write_node(&cur_path, "0");
+                            Self::write_node_lock(&cur_path, "0");
                         }
                     }
                 } else if name_str.starts_with("thermal_zone") {
@@ -1430,6 +1443,8 @@ impl ChargingRegulator {
             Self::write_node_lock("/sys/class/power_supply/usb/allow_hvdcp3", "1");
             Self::write_node_lock("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
             Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", MAIN_DIR), "1");
             Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
             Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
             Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
@@ -1437,8 +1452,18 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            for temp_node in &[
+                format!("{}/system_temp_level", QC_DIR),
+                format!("{}/system_temp_level", BATT_DIR),
+                format!("{}/system_temp_level", USB_DIR),
+                format!("{}/system_temp_level", MAIN_DIR),
+            ] {
+                if Path::new(temp_node).exists() {
+                    Self::write_node_lock(temp_node, "0");
+                }
+            }
+            let silicon_ceiling_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000).to_string();
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &silicon_ceiling_ma);
             Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
         }
 
@@ -1531,14 +1556,26 @@ impl ChargingRegulator {
                 let effective_usb_str = target_usb_ua.to_string();
                 let effective_ma_str = effective_ma.to_string();
 
-                Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-                Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-                if usb_needs_reapply {
-                    Self::write_node(&format!("{}/current_max", USB_DIR), &effective_usb_str);
-                }
-                Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
-                if in_lim_needs_reapply {
-                    Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                if is_qcom {
+                    Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                    Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+                    if usb_needs_reapply {
+                        Self::write_node_lock(&format!("{}/current_max", USB_DIR), &effective_usb_str);
+                    }
+                    Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+                    if in_lim_needs_reapply {
+                        Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                    }
+                } else {
+                    Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+                    Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+                    if usb_needs_reapply {
+                        Self::write_node(&format!("{}/current_max", USB_DIR), &effective_usb_str);
+                    }
+                    Self::write_node(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
+                    if in_lim_needs_reapply {
+                        Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &effective_usb_str);
+                    }
                 }
 
                 if is_qcom {
@@ -1546,9 +1583,17 @@ impl ChargingRegulator {
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
                     Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
                     Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
-                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
+                    for temp_node in &[
+                        format!("{}/system_temp_level", QC_DIR),
+                        format!("{}/system_temp_level", BATT_DIR),
+                        format!("{}/system_temp_level", USB_DIR),
+                        format!("{}/system_temp_level", MAIN_DIR),
+                    ] {
+                        if Path::new(temp_node).exists() {
+                            Self::write_node_lock(temp_node, "0");
+                        }
+                    }
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
                     Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
                     Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
@@ -2075,13 +2120,21 @@ impl ChargingRegulator {
 
         // 6. Qualcomm Snapdragon un-restrict and direct charging restore
         if Self::is_qualcomm_soc() {
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), "3000");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            let ceiling_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000).to_string();
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &ceiling_ma);
             let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+
+            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            PLUGGED_AT_EPOCH.store(now_sec, Ordering::Relaxed);
+            let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
+            let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+            let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
         }
     }
 
@@ -2351,30 +2404,51 @@ impl ChargingRegulator {
         let qc_restrict_str = effective_ma.max(100).to_string();
 
         if is_qcom {
-            Self::write_node(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
-            Self::write_node(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
-            Self::write_node(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
-            Self::write_node(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
-            Self::write_node(&format!("{}/voltage_max", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max_design", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max", MAIN_DIR), "12000000");
-            Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
+            Self::write_node_lock(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
+            Self::write_node_lock(&format!("{}/voltage_max", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max_design", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/voltage_max", MAIN_DIR), "12000000");
+            Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
+            for temp_node in &[
+                format!("{}/system_temp_level", QC_DIR),
+                format!("{}/system_temp_level", BATT_DIR),
+                format!("{}/system_temp_level", USB_DIR),
+                format!("{}/system_temp_level", MAIN_DIR),
+            ] {
+                if Path::new(temp_node).exists() {
+                    Self::write_node_lock(temp_node, "0");
+                }
+            }
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
             Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-            Self::write_node(&format!("{}/rerun_aicl", BATT_DIR), "1");
-            Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node_lock(&format!("{}/allow_hvdcp3", MAIN_DIR), "1");
+            Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+            for rerun in &[
+                format!("{}/rerun_aicl", USB_DIR),
+                format!("{}/rerun_aicl", BATT_DIR),
+                format!("{}/rerun_aicl", MAIN_DIR),
+            ] {
+                if Path::new(rerun).exists() {
+                    Self::set_perm(rerun, 0o666);
+                    Self::write_node(rerun, "1");
+                }
+            }
         } else {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
@@ -2527,17 +2601,27 @@ impl ChargingRegulator {
                 }
             }
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
+            for temp_node in &[
+                format!("{}/system_temp_level", QC_DIR),
+                format!("{}/system_temp_level", BATT_DIR),
+                format!("{}/system_temp_level", USB_DIR),
+                format!("{}/system_temp_level", MAIN_DIR),
+            ] {
+                if Path::new(temp_node).exists() {
+                    Self::write_node_lock(temp_node, "0");
+                }
+            }
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
             // 2. Qualcomm Safe Re-Handshake (Zero Flapping):
             // NEVER pulse input_suspend or allow_hvdcp3 on Qualcomm single-PMIC (PM660)!
             // Pulsing allow_hvdcp3 to 0 aborts HVDCP 3.0 (9V), forcing the charger to collapse to 5V DCP (1.5A max).
-            // Always keep allow_hvdcp3 strictly locked at 1.
+            // Pulsing input_suspend cuts the input FET and drops VBUS, forcing an endless connect/disconnect (mati-nyala) loop.
+            // Always keep allow_hvdcp3 strictly locked at 1, input_suspend strictly locked at 0.
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", USB_DIR), "0");
 
@@ -2548,11 +2632,12 @@ impl ChargingRegulator {
                 "/sys/class/power_supply/allow_hvdcp3".to_string(),
             ] {
                 if Path::new(hvdcp).exists() {
-                    Self::set_perm(hvdcp, 0o666);
-                    Self::write_node(hvdcp, "1");
+                    Self::write_node_lock(hvdcp, "1");
                 }
             }
+            Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
 
+            // Kick AICL rerun to accelerate current ramp-up after HVDCP negotiation completes
             for rerun in &[
                 format!("{}/rerun_aicl", USB_DIR),
                 format!("{}/rerun_aicl", BATT_DIR),
@@ -3010,32 +3095,42 @@ impl ChargingRegulator {
         Self::apply_extreme_charging(100, true, 12000);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
 
-        // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
-        // Do NOT trigger if cable was connected within the last 4 seconds to allow natural HVDCP/PE handshake!
+        // Re-arm cold-plug stages so switching modes without physical replug immediately executes full unclamp & ramp!
         let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
-        let plugged_elapsed = now_sec.saturating_sub(plugged_at);
+        // Store PLUGGED_AT_EPOCH 4s in the past so Stage 2/3 fire on next tick immediately
+        let fake_plug_epoch = now_sec.saturating_sub(4);
+        PLUGGED_AT_EPOCH.store(fake_plug_epoch, Ordering::Relaxed);
+        let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
+        let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
+        let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
+        let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
+        let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
+        let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
+        LAST_SOFT_RECONNECT_EPOCH.store(0, Ordering::Relaxed);
 
-        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 90 && plugged_elapsed >= 4 {
-            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
-                .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
-                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
-                .unwrap_or(0);
-            let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
-            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
-            let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
-
-            let should_reconnect = if Self::is_qualcomm_soc() {
-                // Qualcomm QC: Unconstrained step-up kick (tested & proven on RN7)
-                adpv_clean < 6500 && cur_now_ma < 1500
-            } else {
-                // Non-QC / MediaTek / 5V Standard Chargers: Only kick if genuinely stalled!
-                // Standard 5V charging (4.6V - 5.2V) with healthy current (> 350mA) must NOT be interrupted!
-                adpv_clean > 3500 && cur_now_ma < 350
-            };
-
-            if should_reconnect {
+        if Self::is_hardware_plugged() && !Self::is_laptop_port() && cur_cap < 90 {
+            if Self::is_qualcomm_soc() {
+                // Qualcomm PM660: Always trigger VBUS soft-pulse when entering Hyper Mode.
+                // This forces PM660 BC1.2/APSD to re-detect charger and re-negotiate HVDCP 3.0
+                // (5.4V continuous INOV @ 3200mA+). Without this, the charger stays in 5V DCP
+                // at ~1500mA even though hyper mode is requested.
+                // allow_hvdcp3 is locked at 1 inside trigger_charger_soft_reconnect() — safe.
+                LAST_SOFT_RECONNECT_EPOCH.store(0, Ordering::Relaxed);
                 Self::trigger_charger_soft_reconnect();
+            } else {
+                // Non-Qualcomm / MediaTek: Only kick if genuinely stalled (avoid interrupting healthy 5V charge)
+                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                    .unwrap_or(0);
+                let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+                let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+                let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+                // Standard 5V charging (4.6V–5.2V) with healthy current (> 350mA) must NOT be interrupted!
+                if adpv_clean > 3500 && cur_now_ma < 350 {
+                    Self::trigger_charger_soft_reconnect();
+                }
             }
         }
     }
@@ -3480,12 +3575,21 @@ impl ChargingRegulator {
         }
 
         // Try reading bundled module Qualcomm thermal-engine.conf first
-        let qcom_mod_conf = "/data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf";
-        let elevated = if Path::new(qcom_mod_conf).exists() {
-            fs::read_to_string(qcom_mod_conf).ok()
-        } else {
-            None
-        };
+        let candidates = &[
+            "/data/local/tmp/thermal-engine.conf",
+            "/data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf",
+            "/data/adb/modules/Lynx/system/vendor/etc/thermal-engine.conf",
+            "/data/adb/modules/Lynx/vendor/etc/thermal-engine.conf",
+        ];
+        let mut elevated = None;
+        for &cand in candidates {
+            if Path::new(cand).exists() {
+                if let Ok(c) = fs::read_to_string(cand) {
+                    elevated = Some(c);
+                    break;
+                }
+            }
+        }
 
         let elevated_content = if let Some(content) = elevated {
             content
@@ -3571,8 +3675,9 @@ impl ChargingRegulator {
         };
 
         let live_conf = "/dev/lynx_thermal_engine.conf";
-        if fs::write(live_conf, elevated_content).is_ok() {
+        if fs::write(live_conf, &elevated_content).is_ok() {
             Self::set_perm(live_conf, 0o644);
+            let _ = fs::write("/data/local/tmp/thermal-engine.conf", &elevated_content);
             let _ = std::process::Command::new("mount")
                 .args(["-o", "bind", live_conf, &stock_conf])
                 .output();
@@ -3580,9 +3685,11 @@ impl ChargingRegulator {
                 .args(["-t", "1", "-m", "mount", "-o", "bind", live_conf, &stock_conf])
                 .output();
 
-            // DO NOT kill or restart thermal-engine!
-            // In Android init, thermal-engine is flagged as critical. If restarted >4 times in 4 mins, init triggers a reboot.
-            // With quiet-therm thermistor spoofing active, thermal-engine naturally clears charging throttling.
+            // Restart thermal-engine ONCE when bind-mounted so it parses the elevated configuration:
+            if !Path::new("/dev/lynx_thermal_reloaded").exists() {
+                let _ = fs::write("/dev/lynx_thermal_reloaded", "1");
+                let _ = std::process::Command::new("killall").arg("thermal-engine").output();
+            }
         }
 
         // Elevate quiet-therm-step trip points (thermal_zone20 or any zone named quiet-therm-step)
@@ -4179,10 +4286,11 @@ impl ChargingRegulator {
                 };
                 let is_pd = Self::is_usb_pd_active();
                 let is_pc = Self::is_laptop_port();
+                let min_qcom_ua = if is_pc { 500_000 } else { 2_800_000 };
                 let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
-                let fcc_ok = cur_fcc == 0 || cur_fcc >= 1_500_000 || is_pd || is_pc;
+                let fcc_ok = cur_fcc == 0 || cur_fcc >= min_qcom_ua || is_pd;
                 let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
-                let usb_ok = cur_usb == 0 || cur_usb >= 1_500_000 || is_pd || is_pc;
+                let usb_ok = cur_usb == 0 || cur_usb >= min_qcom_ua || is_pd;
                 susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
             };
 
@@ -4367,15 +4475,6 @@ impl ChargingRegulator {
             Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
-            for apsd in &[
-                format!("{}/rerun_apsd", USB_DIR),
-                format!("{}/rerun_apsd", BATT_DIR),
-            ] {
-                if Path::new(apsd).exists() {
-                    Self::set_perm(apsd, 0o666);
-                    Self::write_node(apsd, "1");
-                }
-            }
         } else {
             Self::ensure_mtk_power_path_enabled();
             Self::write_node(&format!("{}/pe20", MTK_DIR), "1");
@@ -4727,10 +4826,10 @@ impl ChargingRegulator {
                     format!("{}/constant_charge_current", BATT_DIR),
                     format!("{}/current_max", USB_DIR),
                     format!("{}/current_max", MAIN_DIR),
+                    format!("{}/input_current_limit", BATT_DIR),
                 ] {
                     if Path::new(node).exists() {
-                        Self::set_perm(node, 0o666);
-                        Self::write_node(node, &ceiling_ua);
+                        Self::write_node_lock(node, &ceiling_ua);
                     }
                 }
                 Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
@@ -4741,8 +4840,6 @@ impl ChargingRegulator {
                 Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
                 Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                 for rerun in &[
-                    format!("{}/rerun_apsd", USB_DIR),
-                    format!("{}/rerun_apsd", BATT_DIR),
                     format!("{}/rerun_aicl", USB_DIR),
                     format!("{}/rerun_aicl", BATT_DIR),
                     format!("{}/rerun_aicl", MAIN_DIR),
@@ -4770,10 +4867,10 @@ impl ChargingRegulator {
                         format!("{}/constant_charge_current", BATT_DIR),
                         format!("{}/current_max", USB_DIR),
                         format!("{}/current_max", MAIN_DIR),
+                        format!("{}/input_current_limit", BATT_DIR),
                     ] {
                         if Path::new(node).exists() {
-                            Self::set_perm(node, 0o666);
-                            Self::write_node(node, &ceiling_ua);
+                            Self::write_node_lock(node, &ceiling_ua);
                         }
                     }
                     Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
@@ -4784,8 +4881,6 @@ impl ChargingRegulator {
                     Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
                     Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
                     for rerun in &[
-                        format!("{}/rerun_apsd", USB_DIR),
-                        format!("{}/rerun_apsd", BATT_DIR),
                         format!("{}/rerun_aicl", USB_DIR),
                         format!("{}/rerun_aicl", BATT_DIR),
                         format!("{}/rerun_aicl", MAIN_DIR),
@@ -4900,17 +4995,24 @@ impl ChargingRegulator {
                         format!("{}/hw_current_max", USB_DIR),
                     ] {
                         if Path::new(node).exists() {
-                            Self::set_perm(node, 0o666);
-                            Self::write_node(node, &target_limit_str);
+                            Self::write_node_lock(node, &target_limit_str);
                         }
                     }
                     let direct_val = if has_cp { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
                     Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
                     Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-                    Self::write_node(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
-                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
+                    for temp_node in &[
+                        format!("{}/system_temp_level", QC_DIR),
+                        format!("{}/system_temp_level", BATT_DIR),
+                        format!("{}/system_temp_level", USB_DIR),
+                        format!("{}/system_temp_level", MAIN_DIR),
+                    ] {
+                        if Path::new(temp_node).exists() {
+                            Self::write_node_lock(temp_node, "0");
+                        }
+                    }
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
                     Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
                     Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
@@ -4921,15 +5023,6 @@ impl ChargingRegulator {
                     Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
                     Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
                     Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
-                    for apsd in &[
-                        format!("{}/rerun_apsd", USB_DIR),
-                        format!("{}/rerun_apsd", BATT_DIR),
-                    ] {
-                        if Path::new(apsd).exists() {
-                            Self::set_perm(apsd, 0o666);
-                            Self::write_node(apsd, "1");
-                        }
-                    }
                     Self::neutralise_battery_cooling_devices();
                 } else {
                     let _ = fs::write(marker_path, (count + 1).to_string());

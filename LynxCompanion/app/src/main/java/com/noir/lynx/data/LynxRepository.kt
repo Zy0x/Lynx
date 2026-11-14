@@ -231,11 +231,18 @@ object LynxRepository {
                 pkill -9 -f "AI_performance.sh" 2>/dev/null
                 pkill -9 -f "AI_balance.sh" 2>/dev/null
                 killall -CONT thermal-engine thermal-engine-v2 2>/dev/null
+                if [ ! -f /data/local/tmp/thermal-engine.conf ] && [ -f /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf ]; then
+                    cp -af /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf /data/local/tmp/thermal-engine.conf 2>/dev/null
+                fi
                 if [ -f /data/local/tmp/thermal-engine.conf ]; then
                     mkdir -p /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc 2>/dev/null
                     cp -af /data/local/tmp/thermal-engine.conf /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf 2>/dev/null
                     mount --bind /data/local/tmp/thermal-engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
                     mount --bind /data/local/tmp/thermal-engine.conf /system/vendor/etc/thermal-engine.conf 2>/dev/null
+                    if [ ! -f /dev/lynx_thermal_reloaded ]; then
+                        touch /dev/lynx_thermal_reloaded 2>/dev/null
+                        killall thermal-engine 2>/dev/null
+                    fi
                 fi
                 for c in /sys/devices/system/cpu/cpu[0-9]*; do
                     [ -f "${'$'}c/isolate" ] && echo 0 > "${'$'}c/isolate" 2>/dev/null

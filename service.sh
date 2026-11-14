@@ -29,6 +29,12 @@ fi
         mount -o bind "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" /vendor/firmware/wifi.cfg 2>/dev/null || true
     fi
 
+    # Qualcomm Snapdragon thermal-engine override
+    if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ]; then
+        [ -f /vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null || true
+        [ -f /system/vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /system/vendor/etc/thermal-engine.conf 2>/dev/null || true
+    fi
+
     # 1. Dynamic MediaTek Wi-Fi Silicon Probing (Safe Balanced Baseline at Boot)
     [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
     [ -f /proc/net/wlan/setCAM ] && echo "CAM 0" > /proc/net/wlan/setCAM 2>/dev/null

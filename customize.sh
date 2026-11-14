@@ -168,6 +168,10 @@ if [ "$TARGET_SOC" = "qcom" ]; then
     if [ -d "$MODPATH/platforms/qcom/system" ]; then
         cp -af "$MODPATH/platforms/qcom/system/"* "$MODPATH/system/" 2>/dev/null
     fi
+    if [ -d "$MODPATH/platforms/qcom/system/vendor" ]; then
+        mkdir -p "$MODPATH/vendor" 2>/dev/null
+        cp -af "$MODPATH/platforms/qcom/system/vendor/"* "$MODPATH/vendor/" 2>/dev/null
+    fi
     if [ -f "$MODPATH/platforms/qcom/system.prop" ]; then
         echo "" >> "$MODPATH/system.prop"
         cat "$MODPATH/platforms/qcom/system.prop" >> "$MODPATH/system.prop"

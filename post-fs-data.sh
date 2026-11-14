@@ -11,4 +11,10 @@ MODPATH=${0%/*}
 [ -f "$MODPATH/system/bin/lynx" ] && chmod 755 "$MODPATH/system/bin/lynx" 2>/dev/null
 [ -f "$MODPATH/system/bin/lynxd" ] && chmod 755 "$MODPATH/system/bin/lynxd" 2>/dev/null
 
+# Early Qualcomm Snapdragon thermal-engine conf bind-mount (zero throttle past 40°C)
+if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ]; then
+    [ -f /vendor/etc/thermal-engine.conf ] && mount --bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null
+    [ -f /system/vendor/etc/thermal-engine.conf ] && mount --bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /system/vendor/etc/thermal-engine.conf 2>/dev/null
+fi
+
 exit 0

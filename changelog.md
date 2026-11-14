@@ -1,3 +1,12 @@
+# Lynx Universal [Qualcomm PM660 Hardware Buck Ceiling Calibration & Hyper Charge Restoration] 7.0.0-RC397
+Released on: 2026-11-14
+> Lynx Kernel Manager v3.4.18
+
+- **Optimalisasi Plafon Silikon PMIC & Pemulihan Arus Puncak Quick Charge 3.0 (`lynxd`, `charging.rs`, `LynxCompanion`)**:
+  - Mengatasi kendala penurunan arus pengisian daya (*throttling*) pada arsitektur Qualcomm single-PMIC (Snapdragon 660 / PM660 Redmi Note 7) dengan mengunci batas probing silikon pada nilai optimal 3.15A (`3150000 uA`). Hal ini mencegah terjadinya *voting rejection* pada register kernel PMIC yang sebelumnya memicu *collapse* arus ke batas darurat 1.5A.
+  - Memperbaiki evaluasi status mode Hyper pada manajemen pengisian daya latar belakang agar register arus tetap dipertahankan pada performa tertinggi hardware.
+  - Memperbarui biner mesin native `lynxd` dan menyinkronkan aset biner rilis ke dalam aplikasi `LynxKernelManager.apk` v3.4.18.
+
 # Lynx Universal [Hardware KCAL Panel Calibration & DISP_CCORR Integration] 7.0.0-RC396
 Released on: 2026-11-14
 > Lynx Kernel Manager v3.4.17
