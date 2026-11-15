@@ -1,3 +1,14 @@
+# Lynx Universal [Ekspansi Probing Silikon Universal 6500mA+ & Harmonisasi Dual-Architecture] 7.0.0-RC403
+Released on: 2026-11-15
+> Lynx Kernel Manager v3.4.24
+
+- **Ekspansi Jangkauan Probing Silikon Universal hingga 6500mA+ (`charging.rs`)**:
+  - **Dukungan Dinamis Chipset Flagship & Menengah-Atas**: Memperluas array kandidat probing silikon Qualcomm (`probe_silicon_charge_ceiling_ua` & `probe_silicon_usb_current_max_ua`) dari yang sebelumnya terbatas di 3500mA menjadi melompat dari **6500mA, 6000mA, 5500mA, 5000mA, 4500mA, 4000mA, 3800mA, 3600mA** hingga 2800mA.
+  - Perangkat modern dengan chip tunggal yang mampu menerima arus lebih tinggi (seperti Snapdragon 870, 888, 8 Gen 1/2/3 yang mendukung 3600–6000 mA) kini otomatis terdeteksi dan dikunci pada kapasitas tertinggi yang sebenarnya tanpa terhambat batas 3500mA.
+  - Pada perangkat klasik (Redmi Note 7 PM660), logika step-probe menurun tetap menguji secara aman dan secara mulus mengunci *golden sweet spot* di 3100mA tanpa risiko tripping atau penolakan kernel.
+- **Harmonisasi Skalabilitas MediaTek / Transsion (Infinix Helio G96 RT9759)**:
+  - Mengonfirmasi dan mengawal integrasi deteksi hardware Transsion (`has_tran_hw`) yang membuka langit-langit hingga **7000 mA (7A / 33W)** pada direct pump RT9759 dengan proteksi Fast-Path Silent Mode untuk mencegah fallback 1600mA.
+
 # Lynx Universal [Pelepasan Total Batasan Software Pengisian Daya Hingga 100% & Pure Hardware CV] 7.0.0-RC402
 Released on: 2026-11-15
 > Lynx Kernel Manager v3.4.23

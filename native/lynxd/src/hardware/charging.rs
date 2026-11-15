@@ -954,11 +954,13 @@ impl ChargingRegulator {
         }
 
         if is_qcom {
-            // Intelligent descending step-probe for Qualcomm single-PMIC architectures (PM660/PM6150/PM7250):
-            // Test descending steps from highest possible silicon capability (3500mA down to 2800mA)
+            // Intelligent descending step-probe for Qualcomm single-PMIC architectures (PM660/PM6150/PM7250/PM8150/PM8350/PM8550):
+            // Dynamically probe from ultra-high single-PMIC limits (6500mA down to 2800mA)
             let qcom_candidates: &[u64] = &[
-                3_500_000, 3_400_000, 3_300_000, 3_250_000, 3_200_000,
-                3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000,
+                6_500_000, 6_000_000, 5_500_000, 5_000_000, 4_500_000,
+                4_000_000, 3_800_000, 3_600_000, 3_500_000, 3_400_000,
+                3_300_000, 3_250_000, 3_200_000, 3_150_000, 3_100_000,
+                3_050_000, 3_000_000, 2_800_000,
             ];
 
             let probe_node = format!("{}/constant_charge_current_max", BATT_DIR);
@@ -1055,12 +1057,15 @@ impl ChargingRegulator {
         let is_qcom_single = Self::is_qualcomm_soc() && !Self::has_qcom_direct_charge_pump();
         let candidates: &[u64] = if is_qcom_single {
             &[
-                3_500_000, 3_400_000, 3_300_000, 3_250_000, 3_200_000,
-                3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000,
+                6_500_000, 6_000_000, 5_500_000, 5_000_000, 4_500_000,
+                4_000_000, 3_800_000, 3_600_000, 3_500_000, 3_400_000,
+                3_300_000, 3_250_000, 3_200_000, 3_150_000, 3_100_000,
+                3_050_000, 3_000_000, 2_800_000,
             ]
         } else {
             &[
-                6_000_000, 5_000_000, 4_500_000, 4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
+                12_000_000, 10_000_000, 8_000_000, 6_000_000, 5_000_000,
+                4_500_000, 4_000_000, 3_500_000, 3_000_000, 2_500_000, 2_000_000,
             ]
         };
 
