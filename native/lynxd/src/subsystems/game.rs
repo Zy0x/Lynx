@@ -136,6 +136,14 @@ impl GameController {
             Self::write_opt(MtkHardware::GED_GPU_CUST_UPBOUND_FREQ, final_upbound_khz.to_string());
             Self::write_opt(MtkHardware::GED_GPU_CUST_BOOST_FREQ, peak_khz.to_string());
             Self::write_opt(MtkHardware::GED_GPU_BOTTOM_FREQ, peak_khz.to_string());
+            Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", peak_khz.to_string());
+            Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", peak_khz.to_string());
+            Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", final_upbound_khz.to_string());
+            Self::write_opt("/sys/module/ged/parameters/boost_upper_bound", "100");
+            Self::write_opt("/sys/module/ged/parameters/boost_extra", "1");
+            Self::write_opt("/sys/module/ged/parameters/gx_force_cpu_boost", "1");
+            Self::write_opt("/sys/module/ged/parameters/gx_game_mode", "1");
+            Self::write_opt("/sys/module/ged/parameters/gx_boost_on", "1");
 
             // GED HAL upbound and boost: '0' points to topmost OPP table index (even if extended by OC)
             Self::write_opt("/sys/kernel/ged/hal/custom_upbound_gpu_freq", "0");
@@ -247,12 +255,14 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
         Self::write_opt("/proc/sys/vm/dirty_background_ratio", vm.dirty_background_ratio.to_string());
         Self::write_opt("/proc/sys/vm/dirty_ratio", vm.dirty_ratio.to_string());
+        Self::write_opt("/proc/sys/vm/page-cluster", "0");
+        Self::write_opt("/proc/sys/vm/stat_interval", "20");
 
         if mountx.is_detected {
             if let Some(sd_dev) = storage.devices.iter().find(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Sd) {
                 Self::write_opt(sd_dev.queue_path.join("nr_requests"), "512");
                 Self::write_opt(sd_dev.queue_path.join("iosched/writes_starved"), "8");
-                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "2048");
+                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "1024");
                 Self::write_opt(sd_dev.queue_path.join("scheduler"), "deadline");
             }
             let _ = std::fs::write("/dev/lynx_mountx_active", "1\n");
@@ -531,6 +541,7 @@ impl GameController {
                         || c.contains("Gfx")
                         || c.contains("VKWorker")
                         || c.contains("GLWorker")
+                        || c.contains("mali")
                     {
                         let _ = Command::new("renice").args(&["-n", "-20", "-p", &tid]).output();
                         let _ = Command::new("taskset").args(&["-p", &hex_all, &tid]).output();
@@ -538,7 +549,7 @@ impl GameController {
                         let _ = Command::new("renice").args(&["-n", "-10", "-p", &tid]).output();
                         let _ = Command::new("taskset").args(&["-p", &hex_little, &tid]).output();
                     } else if c.contains("Worker") || c.contains("Job") {
-                        let _ = Command::new("renice").args(&["-n", "-5", "-p", &tid]).output();
+                        let _ = Command::new("renice").args(&["-n", "-15", "-p", &tid]).output();
                         let _ = Command::new("taskset").args(&["-p", &hex_all, &tid]).output();
                     }
                 }

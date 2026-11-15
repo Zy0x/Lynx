@@ -128,49 +128,54 @@ impl DeviceTier {
 
         match profile.as_str() {
             "extreme" => VmProfileTargets {
-                // Modern ZRAM architecture requires swappiness 80..100 so idle background pages
-                // proactively compress into ZRAM, preserving 1.5GB+ physical RAM headroom for the active game.
-                swappiness: 80,
-                vfs_cache_pressure: 50,
+                // If MountX SD is active, aggressive swapping creates major page fault storms (8000/s)
+                // during rapid world traversal; lock swappiness and watermarks low to eliminate frame freezes.
+                swappiness: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 50 } else { 20 },
+                vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 50 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
                 dirty_expire_cs: expire_cs,
-                watermark_scale_factor: if self.is_low_end_ram { 60 } else { 150 },
-                extra_free_kbytes: if self.is_low_end_ram { 32768 } else { 65536 },
+                watermark_scale_factor: if self.has_mountx_sd { 16 } else if self.is_low_end_ram { 40 } else { 60 },
+                extra_free_kbytes: if self.has_mountx_sd { 16384 } else if self.is_low_end_ram { 24576 } else { 32768 },
                 f2fs_cp_interval_secs: if self.is_emmc_primary { 150 } else { 300 },
-                allow_drop_caches_full: !self.is_emmc_primary,
+                allow_drop_caches_full: !self.is_emmc_primary && !self.has_mountx_sd,
             },
             "performance" | "gaming" | "game" => VmProfileTargets {
-                swappiness: 80,
-                // Keep dentry/inode caches hot in RAM on eMMC & <=4.5GB to avoid FBE cold lookups
-                vfs_cache_pressure: if self.is_emmc_primary {
+                swappiness: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 50 } else { 20 },
+                // Keep dentry/inode caches hot in RAM on eMMC & SD to avoid cold lookups
+                vfs_cache_pressure: if self.has_mountx_sd {
+                    10
+                } else if self.is_emmc_primary {
                     50
                 } else if self.is_low_end_ram {
                     60
                 } else if self.is_mid_ram {
-                    80
-                } else {
                     50
+                } else {
+                    40
                 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
                 dirty_expire_cs: expire_cs,
-                // Scale kswapd watermarks proportionally: ~120MB forced reserve thrashes 4GB ZRAM
-                watermark_scale_factor: if self.is_low_end_ram {
+                watermark_scale_factor: if self.has_mountx_sd {
+                    16
+                } else if self.is_low_end_ram {
                     40
                 } else if self.is_emmc_primary || self.is_mid_ram {
-                    90
+                    60
                 } else {
-                    150
+                    80
                 },
-                extra_free_kbytes: if self.is_low_end_ram {
+                extra_free_kbytes: if self.has_mountx_sd {
+                    16384
+                } else if self.is_low_end_ram {
                     24576
                 } else if self.is_mid_ram {
-                    49152
+                    32768
                 } else {
-                    65536
+                    49152
                 },
                 // Shorter F2FS checkpoint interval on eMMC prevents giant sync stalls on full /data
                 f2fs_cp_interval_secs: if self.is_emmc_primary {
@@ -180,7 +185,7 @@ impl DeviceTier {
                 } else {
                     300
                 },
-                allow_drop_caches_full: !self.is_emmc_primary && !self.is_low_end_ram,
+                allow_drop_caches_full: !self.is_emmc_primary && !self.is_low_end_ram && !self.has_mountx_sd,
             },
             "powersave" | "battery" => VmProfileTargets {
                 swappiness: 100,

@@ -205,10 +205,10 @@ impl StoragePolicy {
             }
             BlockDeviceType::Sd => {
                 // External MicroSD: High serial command latency on SDR104 bus.
-                // 256-512KB burst read is optimal for continuous game asset/OBB streaming (Infinix X698 trial).
+                // 1024KB burst read is optimal for continuous game asset/OBB streaming without head contention.
                 let (ra, nr, exp, starv, sched) = match profile_name {
-                    "extreme" => (2048, 512, 50, 8, "deadline"),
-                    "performance" => (2048, 512, 50, 8, "deadline"),
+                    "extreme" => (1024, 512, 50, 8, "deadline"),
+                    "performance" => (1024, 512, 50, 8, "deadline"),
                     "powersave" => (256, 64, 350, 2, "noop"),
                     _ => (1024, 256, 100, 4, "deadline"), // Balance: conservative 1024KB for App2SD MountX
                 };
