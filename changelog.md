@@ -1,3 +1,22 @@
+# Lynx Universal [Intelligent Thermal Pacing & Two-Phase Adaptive Charge Control] 7.0.0-RC404
+Released on: 2026-11-15
+> Lynx Kernel Manager v3.4.25
+
+- **Arsip & Golden Baseline Terverifikasi (`docs/benchmark/RN7_QC3_BASELINE.md`)**:
+  - Membukukan dan mengunci hasil uji empiris pengisian Redmi Note 7 (4% ke 90% dalam 57–61 menit, net gain +86%) ke dalam repositori dengan tag Git `v3.4.24-rn7-qc3-base` sebagai tolok ukur acuan baku stabilitas Qualcomm Quick Charge 3.0.
+- **Intelligent Thermal Pacing Engine (`charging.rs`)**:
+  - **Eliminasi Osilasi Termal Hardware (Ping-Pong 3300mA $\leftrightarrow$ 2100mA)**:
+    - Data telemetri membuktikan bahwa memaksakan arus di atas 3200mA terus-menerus memicu kenaikan suhu die silikon PM660 (`quiet_therm`) hingga menyentuh 54°C, yang mengaktifkan sirkuit proteksi analog hardware dan memotong arus ke 2100mA selama 15–20 detik.
+    - Mengimplementasikan `calculate_adaptive_charge_current_ma()` yang memantau suhu baterai dan PMIC secara simultan: saat suhu mendekati 48.5°C–51.5°C, arus dikunci secara presisi pada *golden sweet-spot* **2950–3000 mA** (Qualcomm) dan **4000 mA** (MediaTek/Transsion) **sebelum** proteksi silikon darurat terpicu.
+    - Arus konstan 2950mA terbukti menghasilkan transfer watt yang lebih tinggi dan suhu yang jauh lebih stabil tanpa rem darurat analog.
+- **Two-Phase Adaptive Charge Control (Sadar Transisi CC ke CV)**:
+  - **Fase 1: Constant Current (CC) Ultra-Boost (< 78% SoC & < 4380 mV)**: Seluruh batas software dilepaskan penuh dengan perlindungan Thermal Pacing.
+  - **Fase 2: Constant Voltage (CV) Natural Saturation ($\ge 78$% SoC atau $\ge 4380$ mV)**: Arus target ditransisikan secara halus mengikuti daya serap elektrokimia sel Li-Polymer menuju batas ambang pelampung (*float limit* 4.40V). Menghilangkan konflik penulisan register (*SPMI register contention*) dengan IC Fuel Gauge (BMS) sehingga saturasi baterai 100% lebih padat dan aman.
+- **Akselerasi Respons Watchdog Pemulihan Throttle (5 Detik)**:
+  - Mengurangi jeda cooldown evaluasi pemulihan FCC (`fcc_cooldown_expired`) dari 15 detik menjadi **5 detik** saat terdeteksi penurunan limit oleh kernel workqueue, memastikan arus seketika kembali ke target optimal.
+- **Harmonisasi Universal Multi-Platform**:
+  - Arsitektur Thermal Pacing dan Two-Phase Control beroperasi secara dinamis baik pada Qualcomm Snapdragon (PM660/PMIC) maupun MediaTek Helio G96 (Richtek RT9759 Direct Charge Pump).
+
 # Lynx Universal [Ekspansi Probing Silikon Universal 6500mA+ & Harmonisasi Dual-Architecture] 7.0.0-RC403
 Released on: 2026-11-15
 > Lynx Kernel Manager v3.4.24
