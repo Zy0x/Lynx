@@ -361,8 +361,11 @@ class ChargingRepository(
             Shell.cmd(
                 "rm -f /dev/lynx_bypass_active /dev/lynx_charging_state /dev/lynx_standard_charging; " +
                 "if [ -e /proc/lynx/bypass_charging ]; then " +
-                "chmod 666 /proc/lynx/bypass_charging 2>/dev/null; " +
-                "grep -q '^1' /proc/lynx/bypass_charging 2>/dev/null && echo 0 > /proc/lynx/bypass_charging 2>/dev/null; " +
+                "chmod 666 /proc/lynx/bypass_charging /proc/lynx/full_bypass /proc/lynx/hyper_charge 2>/dev/null; " +
+                "echo 0 > /proc/lynx/bypass_charging 2>/dev/null; " +
+                "echo 0 > /proc/lynx/full_bypass 2>/dev/null; " +
+                "echo 1 > /proc/lynx/full_bypass 2>/dev/null; " +
+                (if (normalizedMode == "hyper") "echo 1 > /proc/lynx/hyper_charge 2>/dev/null; " else "") +
                 "else " +
                 "[ \"$(cat /proc/mtk_battery_cmd/current_cmd 2>/dev/null)\" != '1 0' ] && echo '1 0' > /proc/mtk_battery_cmd/current_cmd 2>/dev/null; " +
                 "[ \"$(cat /proc/mtk_battery_cmd/en_power_path 2>/dev/null)\" != '1' ] && echo 1 > /proc/mtk_battery_cmd/en_power_path 2>/dev/null; " +

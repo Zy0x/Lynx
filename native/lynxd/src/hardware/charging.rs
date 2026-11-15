@@ -1725,11 +1725,9 @@ impl ChargingRegulator {
         true
     }
 
-    /// Clears `/proc/lynx/bypass_charging` cleanly only if it is currently `"1"`.
+    /// Clears `/proc/lynx/bypass_charging` cleanly.
     pub fn clear_lynx_kernel_manual_bypass() {
-        if Self::has_lynx_kernel_bypass()
-            && Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref())
-        {
+        if Self::has_lynx_kernel_bypass() {
             Self::set_perm(LYNX_KERNEL_BYPASS_NODE, 0o666);
             Self::write_node(LYNX_KERNEL_BYPASS_NODE, "0");
         }
@@ -2183,8 +2181,13 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
 
-        // 1. Direct kernel bypass clear + MediaTek power path reset (only writes "0" if currently "1")
+        // 1. Direct kernel bypass clear + MediaTek power path reset
         Self::clear_lynx_kernel_manual_bypass();
+        if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
+            Self::set_perm(LYNX_KERNEL_FULL_BYPASS_NODE, 0o666);
+            Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "0");
+            Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "1");
+        }
         Self::ensure_mtk_power_path_enabled();
 
         // 2. Transsion / ODM call state unlock & clear
@@ -3188,6 +3191,8 @@ impl ChargingRegulator {
     pub fn apply_hyper_mode() {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
+        Self::clear_bypass_hardware_state();
+        Self::write_node("/proc/lynx/hyper_charge", "1");
         Self::apply_extreme_charging(100, true, 12000);
 
         // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
@@ -4233,8 +4238,8 @@ impl ChargingRegulator {
         }
 
         // Kernel Full-Charge Bypass Coordination:
-        // Honor hardware-latched full-charge bypass without forcing manual bypass or resetting into active charging.
-        if Self::should_respect_kernel_full_bypass(
+        // Honor hardware-latched full-charge bypass ONLY if NOT in hyper mode!
+        if !is_hyper && Self::should_respect_kernel_full_bypass(
             cfg.bypass_enabled,
             Self::is_lynx_kernel_full_bypass_latched(),
         ) {
