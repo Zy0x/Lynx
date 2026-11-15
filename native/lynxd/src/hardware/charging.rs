@@ -2129,9 +2129,9 @@ impl ChargingRegulator {
         // When cell voltage is already elevated near float limit (4.380V - 4.400V) or SoC >= 78%
         if cur_soc >= 78 || cell_mv >= 4380 {
             if cur_soc >= 95 {
-                return 600;
+                return 1500;
             } else if cur_soc >= 90 {
-                return 1000;
+                return 1800;
             } else if cur_soc >= 85 {
                 return 1400;
             } else if cur_soc >= 80 {
@@ -2181,12 +2181,11 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
 
-        // 1. Direct kernel bypass clear + MediaTek power path reset
+        // 1. Direct kernel bypass clear + unlatch
         Self::clear_lynx_kernel_manual_bypass();
         if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
             Self::set_perm(LYNX_KERNEL_FULL_BYPASS_NODE, 0o666);
             Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "0");
-            Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "1");
         }
         Self::ensure_mtk_power_path_enabled();
 
@@ -4249,7 +4248,7 @@ impl ChargingRegulator {
         }
 
         // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut)
-        if cfg.auto_cut_enabled && (cur_cap >= 100 || cur_stat == "Full") {
+        if !is_hyper && cfg.auto_cut_enabled && cur_cap >= 100 {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
             if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
                 if !Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_FULL_BYPASS_NODE).as_deref()) {
