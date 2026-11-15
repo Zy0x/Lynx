@@ -250,9 +250,10 @@ impl GameController {
 
         if mountx.is_detected {
             if let Some(sd_dev) = storage.devices.iter().find(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Sd) {
-                Self::write_opt(sd_dev.queue_path.join("nr_requests"), "256");
+                Self::write_opt(sd_dev.queue_path.join("nr_requests"), "512");
                 Self::write_opt(sd_dev.queue_path.join("iosched/writes_starved"), "8");
-                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "512");
+                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "2048");
+                Self::write_opt(sd_dev.queue_path.join("scheduler"), "deadline");
             }
             let _ = std::fs::write("/dev/lynx_mountx_active", "1\n");
         } else {
