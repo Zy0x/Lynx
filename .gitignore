@@ -48,6 +48,8 @@ native/kpm/**/build/
 *.webp
 dump*.xml
 *.xml.dump
+tools/*.csv
+*.csv
 *.lock
 test-results/
 
