@@ -132,6 +132,21 @@ impl NetworkController {
             for tx in tx_dirs {
                 Self::write_opt(tx.join("xps_cpus"), &cpu_hex);
             }
+
+            // Dynamically enable GRO (Generic Receive Offload) super-packet aggregation (20µs timeout)
+            let gro_path = entry.path().join("gro_flush_timeout");
+            if gro_path.exists() {
+                Self::write_opt(&gro_path, if enable { "20000" } else { "0" });
+            }
+
+            // Universal Anti-Bufferbloat: dynamically attach FQ-CoDel to physical interfaces if tc is available
+            if enable && (iface.starts_with("wlan") || iface.starts_with("wlp") || iface.starts_with("mlan") || iface.starts_with("eth") || iface.starts_with("rmnet") || iface.starts_with("ccmni")) {
+                let _ = Command::new("tc")
+                    .args(["qdisc", "replace", "dev", &iface, "root", "fq_codel"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
         }
     }
 
@@ -165,8 +180,16 @@ impl NetworkController {
                     ("HtAmsduInAmpduRx", "1"),
                     ("PowerSave", "0"),
                     ("AdvPws", "0"),
-                    ("DisOnlineScan", "1"),
+                    ("DisOnlineScan", "1"), // User requested: only active during game sessions
                     ("ThreadSched", "1"),
+                    ("Rx2OsLoop", "32"),
+                    ("Rx2ReorderLoop", "16"),
+                    ("TxMaxAmsduInAmpduLen", "0x4000"),
+                    ("TxBaSize", "64"),
+                    ("RxVhtBaSize", "64"),
+                    ("RxHtBaSize", "64"),
+                    ("Probe256QAM", "1"),
+                    ("IstLoop", "64"),
                 ]
             } else {
                 &[
@@ -175,7 +198,16 @@ impl NetworkController {
                     ("HtAmsduInAmpduTx", "1"),
                     ("VhtAmsduInAmpduRx", "1"),
                     ("HtAmsduInAmpduRx", "1"),
-                    ("DisOnlineScan", "0"),
+                    ("DisOnlineScan", "0"), // Explicitly 0 during balance/daily mode to keep background roaming
+                    ("PowerSave", "0"),
+                    ("Rx2OsLoop", "16"),
+                    ("Rx2ReorderLoop", "8"),
+                    ("TxMaxAmsduInAmpduLen", "0x2000"),
+                    ("TxBaSize", "64"),
+                    ("RxVhtBaSize", "64"),
+                    ("RxHtBaSize", "64"),
+                    ("Probe256QAM", "1"),
+                    ("IstLoop", "32"),
                 ]
             };
 
@@ -244,7 +276,7 @@ impl NetworkController {
                         | "hip5_bh"
                         | "sprdwl_rx"
                         | "sprdwl_tx"
-                ) || comm.starts_with("napi/wlan");
+                ) || comm.starts_with("napi/wlan") || comm.starts_with("ksoftirqd");
 
                 if is_wifi_kthread {
                     if low_latency {

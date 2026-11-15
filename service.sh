@@ -176,7 +176,29 @@ fi
         for tx in "$if_path"/queues/tx-*; do
             [ -f "$tx/xps_cpus" ] && echo "$CPU_HEX" > "$tx/xps_cpus" 2>/dev/null
         done
+        [ -f "$if_path/gro_flush_timeout" ] && echo 20000 > "$if_path/gro_flush_timeout" 2>/dev/null
+        case "$iface" in
+            wlan*|wlp*|mlan*|eth*|rmnet*|ccmni*)
+                tc qdisc replace dev "$iface" root fq_codel 2>/dev/null || tc qdisc replace dev "$iface" root fq 2>/dev/null
+                ;;
+        esac
     done
+
+    # MediaTek Wi-Fi silicon baseline tuning (CAM 1, performance monitor, burst loops)
+    [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
+    [ -f /proc/net/wlan/setCAM ] && echo "CAM 1" > /proc/net/wlan/setCAM 2>/dev/null
+    if [ -f /proc/net/wlan/cfg ]; then
+        echo "PowerSave 0" > /proc/net/wlan/cfg 2>/dev/null
+        echo "Rx2OsLoop 16" > /proc/net/wlan/cfg 2>/dev/null
+        echo "Rx2ReorderLoop 8" > /proc/net/wlan/cfg 2>/dev/null
+        echo "DisOnlineScan 0" > /proc/net/wlan/cfg 2>/dev/null
+        echo "VhtAmsduInAmpduTx 1" > /proc/net/wlan/cfg 2>/dev/null
+        echo "VhtAmsduInAmpduRx 1" > /proc/net/wlan/cfg 2>/dev/null
+        echo "HtAmsduInAmpduTx 1" > /proc/net/wlan/cfg 2>/dev/null
+        echo "HtAmsduInAmpduRx 1" > /proc/net/wlan/cfg 2>/dev/null
+        echo "TxBaSize 64" > /proc/net/wlan/cfg 2>/dev/null
+        echo "RxVhtBaSize 64" > /proc/net/wlan/cfg 2>/dev/null
+    fi
 ) &
 
 exec "$MODPATH/system/bin/lynxd" boot
