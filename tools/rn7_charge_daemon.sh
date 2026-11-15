@@ -69,13 +69,22 @@ while true; do
         IS_CHARGING=1
     fi
 
-    # 2. Query lynxd telemetry JSON
+    # 2. Query real-time current directly from hardware sysfs (fallback to lynxd telemetry)
     CUR_MA=0
+    RAW_CUR=$(cat /sys/class/power_supply/battery/current_now 2>/dev/null)
+    if [ -n "$RAW_CUR" ] && [ "$RAW_CUR" -ne 0 ]; then
+        CUR_MA=$(awk "BEGIN {c = $RAW_CUR; if (c < 0) c = -c; if (c > 10000) c = c / 1000.0; printf \"%d\", c}")
+    fi
+    if [ -z "$CUR_MA" ] || [ "$CUR_MA" -eq 0 ]; then
+        if [ -f "/data/local/tmp/lynxd_telemetry.json" ]; then
+            CUR_MA=$(cat /data/local/tmp/lynxd_telemetry.json 2>/dev/null | awk -F'"batt_current_ma":' '{print $2}' | awk -F',' '{print $1}' | tr -d ' \r\n')
+            [ -z "$CUR_MA" ] && CUR_MA=0
+        fi
+    fi
+
+    # Query quiet-therm
     QUIET_THERM="0.0"
     if [ -f "/data/local/tmp/lynxd_telemetry.json" ]; then
-        CUR_MA=$(cat /data/local/tmp/lynxd_telemetry.json 2>/dev/null | awk -F'"batt_current_ma":' '{print $2}' | awk -F',' '{print $1}' | tr -d ' \r\n')
-        [ -z "$CUR_MA" ] && CUR_MA=0
-        
         QT_RAW=$(cat /data/local/tmp/lynxd_telemetry.json 2>/dev/null | awk -F'"quiet-therm-adc"' '{print $2}' | awk -F'"temp_c":' '{print $2}' | awk -F'}' '{print $1}' | tr -d ' \r\n')
         [ -n "$QT_RAW" ] && QUIET_THERM="$QT_RAW"
     fi
@@ -139,7 +148,7 @@ while true; do
             [ -z "$USB_CUR" ] && USB_CUR=0
             
             # If kernel or thermal-engine throttled FCC below 3000mA
-            if [ "$FCC_BAT" -lt 3000000 ] || [ "$USB_CUR" -lt 3000000 ] || [ "$CUR_MA" -lt 1500 ]; then
+            if [ "$FCC_BAT" -lt 3000000 ] || [ "$USB_CUR" -lt 3000000 ]; then
                 ANOMALY_COUNT=$((ANOMALY_COUNT + 1))
                 AUTO_FIX_COUNT=$((AUTO_FIX_COUNT + 1))
                 enforce_hyper_charge
