@@ -34,8 +34,8 @@ enable_network_turbo() {
     apply_sysctl net/ipv4/tcp_fastopen 3
     apply_sysctl net/ipv4/tcp_tw_reuse 1
     apply_sysctl net/ipv4/tcp_sack 1
-    apply_sysctl net/ipv4/tcp_timestamps 0
-    apply_sysctl net/core/netdev_max_backlog 10000
+    apply_sysctl net/ipv4/tcp_timestamps 1
+    apply_sysctl net/core/netdev_max_backlog 16384
     apply_sysctl net/core/somaxconn 4096
 
     # 5. MediaTek & Qualcomm Wi-Fi driver power save nodes
