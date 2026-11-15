@@ -1470,13 +1470,17 @@ impl ChargingRegulator {
                 Self::probe_hardware_ceiling_ma().max(12000)
             };
 
-            let effective_ma = if Self::is_laptop_port() {
-                1500
-            } else if cur_cap >= 100 {
-                100
-            } else {
-                target_peak_ma
-            };
+            let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
+            let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
+            let has_qcom_cp = Self::has_qcom_direct_charge_pump();
+
+            let effective_ma = Self::calculate_adaptive_charge_current_ma(
+                target_peak_ma,
+                cur_cap,
+                v_clean_mv,
+                is_qcom,
+                has_qcom_cp,
+            );
 
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
@@ -1506,10 +1510,18 @@ impl ChargingRegulator {
 
             let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
-            let fcc_cooldown_expired = now_sec.saturating_sub(last_fcc) >= 15;
+            let elapsed_fcc = now_sec.saturating_sub(last_fcc);
+            // Dynamic responsiveness: If kernel/thermal-engine throttled FCC below our adaptive target,
+            // recover within 5 seconds instead of waiting 15 seconds!
+            // When already at or above target, maintain 15-second cooldown to avoid SPMI bus contention.
+            let is_fcc_throttled = cur_fcc > 0 && cur_fcc < (target_ua - 200_000);
+            let fcc_cooldown_expired = if is_fcc_throttled {
+                elapsed_fcc >= 5
+            } else {
+                elapsed_fcc >= 15
+            };
 
             // In Hyper or Qualcomm unclamp: keep charging at peak without spamming SPMI bus.
-            // Enforce at least a 15-second cooldown before reapplying lowered limits to prevent SPMI driver mutex contention.
             // On MediaTek/Transsion: Never write to buck registers while Direct Charge Pump is active (cur_now_ma >= 1500 or is_high_voltage)!
             let fcc_needs_reapply = if is_qcom {
                 if fcc_cooldown_expired {
@@ -2035,6 +2047,131 @@ impl ChargingRegulator {
         }
     }
 
+    /// Authentic battery temperature in Celsius with automatic scale normalization.
+    pub fn read_authentic_battery_temp_c() -> f32 {
+        if let Some(raw) = Self::read_i64(&format!("{}/temp", BATT_DIR)) {
+            let val = raw.abs();
+            if val > 1000 {
+                return (val as f32) / 1000.0;
+            } else if val > 100 {
+                return (val as f32) / 10.0;
+            } else if val > 0 {
+                return val as f32;
+            }
+        }
+        if let Some(raw) = Self::read_i64(BATT_TEMP_NODE) {
+            let val = raw.abs();
+            if val > 100 {
+                return (val as f32) / 10.0;
+            } else if val > 0 {
+                return val as f32;
+            }
+        }
+        35.0 // Safe nominal fallback
+    }
+
+    /// Read PMIC / quiet_therm die temperature in Celsius across Qualcomm & MTK.
+    pub fn read_pmic_or_quiet_therm_c() -> Option<f32> {
+        if let Ok(entries) = fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("thermal_zone") {
+                    let type_path = format!("/sys/class/thermal/{}/type", name_str);
+                    if let Ok(t) = fs::read_to_string(&type_path) {
+                        let t_lower = t.trim().to_lowercase();
+                        if t_lower.contains("quiet-therm") || t_lower.contains("pm660") || t_lower.contains("pmic") {
+                            let temp_path = format!("/sys/class/thermal/{}/temp", name_str);
+                            if let Some(raw) = Self::read_i64(&temp_path) {
+                                let val = raw.abs();
+                                if val > 1000 {
+                                    return Some((val as f32) / 1000.0);
+                                } else if val > 100 {
+                                    return Some((val as f32) / 10.0);
+                                } else if val > 0 {
+                                    return Some(val as f32);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Intelligent Two-Phase Adaptive & Thermal Paced Charging Regulator:
+    ///
+    /// Phase 1: Constant Current (CC) Ultra-Boost (< 78% SoC and < 4380 mV):
+    /// - Battery & PMIC Cool (< 48.5°C): Full peak current (3500mA on RN7 / 6500mA on MTK).
+    /// - Pacing Zone (48.5°C - 51.5°C batt or 49.5°C - 52.5°C PMIC): Locks current to the hardware
+    ///   sweet-spot (2950-3000mA on RN7 / 4000mA on MTK). This eliminates thermal oscillation by
+    ///   preventing PM660 analog circuit from tripping at 54°C!
+    /// - Soft Cooling (> 51.5°C batt or > 52.5°C PMIC): Graceful taper to 2600mA (QCOM) / 3000mA (MTK).
+    ///
+    /// Phase 2: Constant Voltage (CV) Natural Saturation (>= 78% SoC or >= 4380 mV):
+    /// - Matches the electrochemical absorption headroom as cell approaches 4.40V float limit.
+    /// - Eliminates SPMI register fighting and prevents artificial float disruption.
+    pub fn calculate_adaptive_charge_current_ma(
+        base_peak_ma: u32,
+        cur_soc: u32,
+        cell_mv: u32,
+        is_qcom: bool,
+        has_qcom_cp: bool,
+    ) -> u32 {
+        if Self::is_laptop_port() {
+            return 1500;
+        }
+
+        if cur_soc >= 100 {
+            return 100; // Anti-Flapping Single-Path Float Floor
+        }
+
+        // --- Phase 2: Constant Voltage (CV) Saturation Curve ---
+        // When cell voltage is already elevated near float limit (4.380V - 4.400V) or SoC >= 78%
+        if cur_soc >= 78 || cell_mv >= 4380 {
+            if cur_soc >= 95 {
+                return 600;
+            } else if cur_soc >= 90 {
+                return 1000;
+            } else if cur_soc >= 85 {
+                return 1400;
+            } else if cur_soc >= 80 {
+                return 1900;
+            } else {
+                return 2400;
+            }
+        }
+
+        // --- Phase 1: Constant Current (CC) with Intelligent Thermal Pacing ---
+        let batt_temp = Self::read_authentic_battery_temp_c();
+        let pmic_temp = Self::read_pmic_or_quiet_therm_c().unwrap_or(batt_temp);
+
+        if is_qcom && !has_qcom_cp {
+            // Qualcomm Single-PMIC Architecture (PM660 / SD660 / SD845 / SM8150 single):
+            // Hardware die safety limit is 54°C (quiet_therm).
+            if batt_temp >= 51.5 || pmic_temp >= 52.5 {
+                // Tier 2 Hot: Soft pacing to 2600mA to shed heat before hard analog cut
+                2600
+            } else if batt_temp >= 48.5 || pmic_temp >= 49.5 {
+                // Tier 1 Warm Sweet Spot: 2950mA maintains steady 12.5W without tripping PMIC
+                base_peak_ma.min(2950)
+            } else {
+                // Tier 0 Cool: Unrestricted Peak (3500mA)
+                base_peak_ma
+            }
+        } else {
+            // Dual Charge Pump / MediaTek Direct Pump (Infinix Helio G96 SC / Xiaomi Dual CP):
+            if batt_temp >= 50.0 || pmic_temp >= 52.0 {
+                3000
+            } else if batt_temp >= 48.0 || pmic_temp >= 50.0 {
+                base_peak_ma.min(4000)
+            } else {
+                base_peak_ma
+            }
+        }
+    }
+
     /// Universal Hardware Bypass Purge:
     /// Completely restores kernel PMIC power paths, battery charging registers,
     /// ODM in-call states, and clears bypass markers so normal or hyper charging resumes instantly.
@@ -2285,25 +2422,19 @@ impl ChargingRegulator {
             hw_ceiling.max(12000)
         };
 
-        // Unrestricted maximum peak current until 100% or AutoCut!
-        // Remove all artificial software stepping/tapering before 100%:
-        // Allow the hardware PMIC and electrochemical physics to naturally regulate current via Constant Voltage (CV).
-        let effective_ma = if Self::is_laptop_port() {
-            1500
-        } else if cur_cap >= 100 {
-            // Anti-Flapping Single-Path Float Floor (100 mA):
-            // On single-PMIC architectures (PM660), never drop battery charging current to 0 mA!
-            // Dropping to 0 causes the primary buck converter to shut off VBUS, triggering
-            // an instant disconnect/reconnect (mati-nyala / flapping) loop.
-            // A 100 mA float floor at 4.40V cell saturation draws 0 mA net current with zero heat,
-            // while keeping Vsys alive and maintaining continuous, unbroken power!
-            100
-        } else if target_soc > 0 && target_soc < 100 && cur_cap >= target_soc {
+        // Intelligent Two-Phase Adaptive & Thermal Paced Charging Regulation:
+        let effective_ma = if target_soc > 0 && target_soc < 100 && cur_cap >= target_soc {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             let safe_taper = taper_ma.max(100);
             target_peak_ma.min(safe_taper)
         } else {
-            target_peak_ma
+            Self::calculate_adaptive_charge_current_ma(
+                target_peak_ma,
+                cur_cap,
+                v_clean_mv,
+                is_qcom,
+                has_qcom_cp,
+            )
         };
         let silicon_cap_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32;
         let qcom_ma_cap = if is_qcom && !has_qcom_cp {
@@ -4916,15 +5047,21 @@ impl ChargingRegulator {
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
 
             let has_cp = Self::has_qcom_direct_charge_pump();
-            let silicon_ceiling_ua = if has_cp { 6_000_000 } else { Self::probe_silicon_charge_ceiling_ua() };
-            let target_limit_str = silicon_ceiling_ua.to_string();
-            let target_ma_str = (silicon_ceiling_ua / 1000).to_string();
+            let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
+            let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
+            let base_ceiling_ma = if has_cp { 6000 } else { (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32 };
+            let adaptive_ma = Self::calculate_adaptive_charge_current_ma(base_ceiling_ma, cur_cap, v_clean_mv, true, has_cp);
+            let adaptive_ua = (adaptive_ma as u64) * 1000;
+            let target_limit_str = adaptive_ua.to_string();
+            let target_ma_str = adaptive_ma.to_string();
 
-            // Autonomous Anti-Throttle: Detect if Qualcomm/Xiaomi kernel or thermal-engine throttled charging below 2000mA or choked registers
-            let is_stalled_current = cur_cap < 90 && cur_now_ma > 0 && cur_now_ma < 2000;
-            let is_choked_register = cur_fcc > 0 && cur_fcc < (silicon_ceiling_ua as i64 - 400_000);
+            // Autonomous Anti-Throttle: Detect if Qualcomm/Xiaomi kernel or thermal-engine throttled charging below adaptive target.
+            // In Phase 1 (CC, cur_cap < 78), flag stalled current if lagging below 2000mA.
+            // In Phase 2 (CV, cur_cap >= 78), natural electrochemical saturation is respected.
+            let is_stalled_current = cur_cap < 78 && cur_now_ma > 0 && cur_now_ma < 2000;
+            let is_choked_register = cur_fcc > 0 && cur_fcc < (adaptive_ua as i64 - 200_000);
             let is_choked_usb = cur_usb > 0 && cur_usb < 2_000_000;
-            let qcom_stalled = (cur_cap < 90 && is_stalled_current) || (cur_cap < 100 && (is_choked_register || is_choked_usb));
+            let qcom_stalled = (cur_cap < 78 && is_stalled_current) || (cur_cap < 95 && (is_choked_register || is_choked_usb));
 
             if qcom_stalled {
                 let marker_path = "/dev/lynx_qcom_stalled_count";
@@ -4939,7 +5076,7 @@ impl ChargingRegulator {
                     let now_ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0) as i64;
                     if now_ts.saturating_sub(last_kick) >= 60 {
                         let _ = fs::write("/dev/lynx_last_aicl_kick", now_ts.to_string());
-                        Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { (silicon_ceiling_ua / 1000) as u32 });
+                        Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { base_ceiling_ma });
                         for rerun in &[
                             format!("{}/rerun_aicl", USB_DIR),
                             format!("{}/rerun_aicl", BATT_DIR),
@@ -5522,6 +5659,23 @@ mod tests {
         ChargingRegulator::release_charging_wake_lock();
         ChargingRegulator::neutralise_battery_cooling_devices();
         ChargingRegulator::enforce_live_charging_invariants();
+    }
+
+    #[test]
+    fn test_adaptive_charge_current_and_thermal_pacing() {
+        // Phase 2: CV Saturation Curve
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 100, 4400, true, false), 100);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 95, 4395, true, false), 600);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 90, 4390, true, false), 1000);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 85, 4385, true, false), 1400);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 80, 4382, true, false), 1900);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 78, 4380, true, false), 2400);
+
+        // Phase 1: High voltage (>= 4380 mV) enters Phase 2 CV even if SoC < 78%
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 75, 4385, true, false), 2400);
+
+        // Phase 1: On host without sysfs (defaults to 35°C nominal cool), returns base peak
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3500, 30, 4100, true, false), 3500);
     }
 
     #[test]
