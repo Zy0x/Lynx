@@ -50,16 +50,41 @@ fi
 
     # 4. Dynamic CPU Bitmask Discovery (4, 6, 8, 10, 12+ Cores)
     CPU_MASK=0
-    for c in /sys/devices/system/cpu/cpu[0-9]*; do
-        [ -f "$c/online" ] && [ "$(cat "$c/online" 2>/dev/null)" = "0" ] && continue
-        c_num=${c##*cpu}
-        case "$c_num" in
-            ''|*[!0-9]*) continue ;;
-        esac
-        if [ "$c_num" -lt 31 ]; then
-            CPU_MASK=$(( CPU_MASK | (1 << c_num) ))
-        fi
-    done
+    if [ -f /sys/devices/system/cpu/present ]; then
+        PRESENT_CPUS=$(cat /sys/devices/system/cpu/present 2>/dev/null)
+        IFS=','
+        for part in $PRESENT_CPUS; do
+            case "$part" in
+                *-*)
+                    start=${part%-*}
+                    end=${part#*-}
+                    i=$start
+                    while [ "$i" -le "$end" ] && [ "$i" -lt 31 ]; do
+                        CPU_MASK=$(( CPU_MASK | (1 << i) ))
+                        i=$(( i + 1 ))
+                    done
+                    ;;
+                *)
+                    if [ -n "$part" ] && [ "$part" -lt 31 ]; then
+                        CPU_MASK=$(( CPU_MASK | (1 << part) ))
+                    fi
+                    ;;
+            esac
+        done
+        unset IFS
+    fi
+    if [ "$CPU_MASK" -le 0 ]; then
+        for c in /sys/devices/system/cpu/cpu[0-9]*; do
+            [ -f "$c/online" ] && [ "$(cat "$c/online" 2>/dev/null)" = "0" ] && continue
+            c_num=${c##*cpu}
+            case "$c_num" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            if [ "$c_num" -lt 31 ]; then
+                CPU_MASK=$(( CPU_MASK | (1 << c_num) ))
+            fi
+        done
+    fi
     [ "$CPU_MASK" -le 0 ] && CPU_MASK=255
     CPU_HEX=$(printf "%x" "$CPU_MASK")
 
@@ -95,9 +120,16 @@ fi
     echo "$BUF_MAX" > /proc/sys/net/core/wmem_max 2>/dev/null
     echo "$BUF_DEF" > /proc/sys/net/core/rmem_default 2>/dev/null
     echo "$BUF_DEF" > /proc/sys/net/core/wmem_default 2>/dev/null
-    echo "4096 87380 $BUF_MAX" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
-    echo "4096 65536 $BUF_MAX" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
+    echo "4096 $BUF_DEF $BUF_MAX" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
+    echo "4096 $(( BUF_DEF / 2 )) $BUF_MAX" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
     echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_timestamps 2>/dev/null
+    echo 2 > /proc/sys/net/ipv4/tcp_adv_win_scale 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_sack 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_dsack 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_window_scaling 2>/dev/null
+    echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
+    echo 15 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
     echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
     echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
     echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null

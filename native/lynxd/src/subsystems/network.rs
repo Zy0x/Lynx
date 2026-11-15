@@ -16,21 +16,36 @@ impl NetworkController {
         }
     }
 
-    /// Dynamically compute hex bitmask of all online CPU cores (supports 4, 6, 8, 10, 12+ cores).
+    /// Dynamically compute hex bitmask of all present CPU cores (supports 4, 6, 8, 10, 12+ cores).
+    /// Uses /sys/devices/system/cpu/present (e.g. "0-7" -> 0xff) to ensure big cores that may be
+    /// in low-power idle states during boot are not excluded from RPS steering.
     fn resolve_online_cpu_mask_hex() -> String {
         let mut mask: u64 = 0;
-        for idx in 0..32 {
-            let cpu_dir = format!("/sys/devices/system/cpu/cpu{}", idx);
-            if !Path::new(&cpu_dir).exists() {
-                continue;
-            }
-            let online_file = format!("{}/online", cpu_dir);
-            if Path::new(&online_file).exists() {
-                if SysfsReader::read_trimmed(&online_file).unwrap_or_else(|_| "1".to_string()) == "0" {
-                    continue;
+        if let Ok(present_str) = SysfsReader::read_trimmed("/sys/devices/system/cpu/present") {
+            for part in present_str.split(',') {
+                let range: Vec<&str> = part.split('-').collect();
+                if range.len() == 2 {
+                    if let (Ok(start), Ok(end)) = (range[0].trim().parse::<u32>(), range[1].trim().parse::<u32>()) {
+                        for idx in start..=end.min(63) {
+                            mask |= 1u64 << idx;
+                        }
+                    }
+                } else if range.len() == 1 {
+                    if let Ok(idx) = range[0].trim().parse::<u32>() {
+                        if idx < 64 {
+                            mask |= 1u64 << idx;
+                        }
+                    }
                 }
             }
-            mask |= 1u64 << idx;
+        }
+        if mask == 0 {
+            for idx in 0..32 {
+                let cpu_dir = format!("/sys/devices/system/cpu/cpu{}", idx);
+                if Path::new(&cpu_dir).exists() {
+                    mask |= 1u64 << idx;
+                }
+            }
         }
         if mask == 0 {
             mask = 0xff;
@@ -46,9 +61,12 @@ impl NetworkController {
             (16_777_216, 262_144, 32_768, 800, 32_768, 4096, "393216 524288 786432", 2048)
         } else if mem.total_ram_mb >= 3800 {
             // 4GB - 6GB RAM
-            (8_388_608, 131_072, 16_384, 600, 16_384, 2048, "196608 262144 393216", 1024)
+            (16_777_216, 262_144, 16_384, 600, 16_384, 2048, "196608 262144 393216", 1024)
+        } else if mem.total_ram_mb >= 2500 {
+            // 3GB RAM
+            (8_388_608, 131_072, 8_192, 400, 16_384, 1024, "98304 131072 196608", 1024)
         } else {
-            // < 4GB RAM
+            // < 2.5GB RAM
             (4_194_304, 65_536, 4_096, 300, 8_192, 1024, "98304 131072 196608", 512)
         }
     }
@@ -130,11 +148,8 @@ impl NetworkController {
             }
         }
 
-        Self::write_opt(
-            "/proc/net/wlan/autoPerfCfg",
-            if low_latency { "ForceEnable:1" } else { "ForceEnable:0" },
-        );
-        Self::write_opt("/proc/net/wlan/setCAM", if low_latency { "CAM 1" } else { "CAM 0" });
+        Self::write_opt("/proc/net/wlan/autoPerfCfg", "ForceEnable:1");
+        Self::write_opt("/proc/net/wlan/setCAM", "CAM 1");
         Self::write_opt("/proc/net/wlan/pkt_filter", if low_latency { "0" } else { "1" });
 
         let cfg_path = Path::new("/proc/net/wlan/cfg");
@@ -156,7 +171,10 @@ impl NetworkController {
             } else {
                 &[
                     ("Sta2gBw", "1"),
-                    ("PowerSave", "1"),
+                    ("VhtAmsduInAmpduTx", "1"),
+                    ("HtAmsduInAmpduTx", "1"),
+                    ("VhtAmsduInAmpduRx", "1"),
+                    ("HtAmsduInAmpduRx", "1"),
                     ("DisOnlineScan", "0"),
                 ]
             };
@@ -295,11 +313,15 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/core/netdev_budget", budget.to_string());
         Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "8000");
         Self::write_opt("/proc/sys/net/core/somaxconn", somaxconn.to_string());
-        Self::write_opt("/proc/sys/net/ipv4/tcp_rmem", format!("4096 87380 {}", max_buf));
-        Self::write_opt("/proc/sys/net/ipv4/tcp_wmem", format!("4096 65536 {}", max_buf));
+        Self::write_opt("/proc/sys/net/ipv4/tcp_rmem", format!("4096 {} {}", def_buf, max_buf));
+        Self::write_opt("/proc/sys/net/ipv4/tcp_wmem", format!("4096 {} {}", def_buf / 2, max_buf));
         Self::write_opt("/proc/sys/net/ipv4/tcp_ecn", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_fastopen", "3");
-        Self::write_opt("/proc/sys/net/ipv4/tcp_timestamps", "0");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_timestamps", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_adv_win_scale", "2");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_sack", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_dsack", "1");
+        Self::write_opt("/proc/sys/net/ipv4/tcp_window_scaling", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_tw_reuse", "1");
         Self::write_opt("/proc/sys/net/ipv4/tcp_fin_timeout", "15");
         Self::write_opt("/proc/sys/net/ipv4/tcp_slow_start_after_idle", "0");
@@ -434,6 +456,7 @@ impl NetworkController {
         Self::write_opt("/proc/sys/net/core/netdev_budget", budget.to_string());
         Self::write_opt("/proc/sys/net/core/netdev_budget_usecs", "8000");
 
+        Self::apply_dynamic_rps_xps(true);
         Self::apply_dynamic_wifi_silicon(false);
         Self::write_opt("/proc/sys/net/ipv4/tcp_thin_linear_timeouts", "0");
         Self::write_opt("/proc/sys/net/ipv4/tcp_reordering", "3");
