@@ -1,3 +1,21 @@
+# Lynx Universal [Pelepasan Total Batasan Software Pengisian Daya Hingga 100% & Pure Hardware CV] 7.0.0-RC402
+Released on: 2026-11-15
+> Lynx Kernel Manager v3.4.23
+
+- **Pelepasan Total Batasan Perangkat Lunak Pengisian Daya (Unconstrained Full-Scale hingga 100% & Regulasi Alami Hardware) (`charging.rs`)**:
+  - **Evolusi Paradigma Regulasi Arus (Pure Hardware Constant Voltage)**:
+    - Menghapus seluruh pembatasan berjenjang buatan software (*artificial step-down clamping*) pada persentase 85%–99%. Sistem kini mempertahankan permintaan target arus puncak (*hardware silicon ceiling*) secara penuh dari 0% hingga 100%, membiarkan modul komparator tegangan analog internal PMIC (Qualcomm PM660) dan hukum fisika elektrokimia baterai (*Ohm's Law & Internal Resistance*) yang secara alami mengatur peluruhan arus (*natural CV decay*) tanpa intervensi pemotongan dini oleh tabel software.
+  - **Peningkatan Ambang Batas Qualcomm Hardware Unclamp ke 100%**:
+    - Mengubah syarat `qcom_unclamp_active` dari sebelumnya dibatasi pada `cur_cap < 90` menjadi aktif penuh pada `cur_cap < 100`.
+    - Dengan perubahan ini, penonaktifan tabel `step_charging_enabled = 0`, `sw_jeita_enabled = 0`, penetralan batas termal OEM (`system_temp_level = 0`, `restricted_charging = 0`, `thermal_input_current_limit = -1`), dan pemaksaan voltase jenuh aman (*float voltage* 4.40V) terus dikawal aktif dan konsisten oleh daemon hingga baterai mencapai 100% / AutoCut.
+  - **Eliminasi Pemotongan Arus Artifisial di `apply_extreme_charging()` & `effective_ma`**:
+    - Menghapus logika pemotongan arus bertahap buatan pada `apply_extreme_charging()` yang sebelumnya menurunkan target arus ke 3000mA (90%), 2000mA (93%), dan 1200mA (96%). Arus target kini tetap berada di puncak silikon hingga 100% (kecuali pengguna menetapkan batas kustom `target_soc` di antarmuka aplikasi).
+    - Menghapus pemotongan paksa `effective_ma = 1500` pada 99% di loop invariant.
+  - **Penyempurnaan Deteksi Register Tercekik (`is_choked_register`)**:
+    - Memisahkan evaluasi stall: deteksi register yang dicekik oleh kernel/thermal-engine (`is_choked_register || is_choked_usb`) kini aktif hingga `cur_cap < 100` untuk memulihkan register ke kapasitas penuh silikon, sementara deteksi arus rendah (`is_stalled_current < 2000mA`) tetap dibatasi pada `cur_cap < 90` guna mencegah false trigger saat arus secara alami meluruh di fase Constant Voltage (CV).
+  - **Preservasi 100% Stabilitas Jalur MediaTek / Transsion**:
+    - Seluruh perlindungan direct charge pump RT9759 (Infinix Helio G96) yang telah distabilkan pada RC401 tetap terjaga murni tanpa terpengaruh.
+
 # Lynx Universal [Stabilisasi Pompa Langsung RT9759 5500mA Transsion & Isolasi Total QC RN7] 7.0.0-RC401
 Released on: 2026-11-15
 > Lynx Kernel Manager v3.4.22

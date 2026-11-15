@@ -1428,7 +1428,7 @@ impl ChargingRegulator {
             let _ = fs::remove_file(SPOOFED_QUIET_THERM_PATH);
         }
 
-        let qcom_unclamp_active = is_qcom && cur_cap < 90 && !cfg.bypass_enabled;
+        let qcom_unclamp_active = is_qcom && cur_cap < 100 && !cfg.bypass_enabled;
         if (is_hyper || qcom_unclamp_active) && is_qcom {
             Self::apply_qcom_thermal_engine_bind_mount();
             // Xiaomi & Qualcomm Screen-On & Deep Sleep Hardware Unclamp & HVDCP Protection
@@ -1450,6 +1450,10 @@ impl ChargingRegulator {
             Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
             Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            let fv_uv_str = Self::probe_hardware_voltage_ceiling_uv().to_string();
+            Self::write_node(&format!("{}/constant_charge_voltage", BATT_DIR), &fv_uv_str);
+            Self::write_node(&format!("{}/constant_charge_voltage_max", BATT_DIR), &fv_uv_str);
+            Self::write_node(&format!("{}/voltage_max", BATT_DIR), &fv_uv_str);
         }
 
         if is_hyper || qcom_unclamp_active {
@@ -1463,8 +1467,8 @@ impl ChargingRegulator {
 
             let effective_ma = if Self::is_laptop_port() {
                 1500
-            } else if cur_cap >= 99 {
-                1500
+            } else if cur_cap >= 100 {
+                100
             } else {
                 target_peak_ma
             };
@@ -2276,10 +2280,9 @@ impl ChargingRegulator {
             hw_ceiling.max(12000)
         };
 
-        // Utilize target_soc: In Hyper mode, do NOT clamp to 3200mA at 80% or 2200mA at 90%!
-        // Unrestricted maximum peak current until 99% or AutoCut!
-        // In Hyper mode: Maintain absolute peak maximum current up to 90% SoC.
-        // Once battery reaches 90% (or custom target_soc), smoothly transition into electrochemical tapering!
+        // Unrestricted maximum peak current until 100% or AutoCut!
+        // Remove all artificial software stepping/tapering before 100%:
+        // Allow the hardware PMIC and electrochemical physics to naturally regulate current via Constant Voltage (CV).
         let effective_ma = if Self::is_laptop_port() {
             1500
         } else if cur_cap >= 100 {
@@ -2290,7 +2293,7 @@ impl ChargingRegulator {
             // A 100 mA float floor at 4.40V cell saturation draws 0 mA net current with zero heat,
             // while keeping Vsys alive and maintaining continuous, unbroken power!
             100
-        } else if cur_cap >= 90 || (target_soc > 0 && target_soc < 100 && cur_cap >= target_soc) {
+        } else if target_soc > 0 && target_soc < 100 && cur_cap >= target_soc {
             let (_, taper_ma) = Self::determine_taper_state(cur_cap, v_clean_mv);
             let safe_taper = taper_ma.max(100);
             target_peak_ma.min(safe_taper)
@@ -4916,7 +4919,7 @@ impl ChargingRegulator {
             let is_stalled_current = cur_cap < 90 && cur_now_ma > 0 && cur_now_ma < 2000;
             let is_choked_register = cur_fcc > 0 && cur_fcc < (silicon_ceiling_ua as i64 - 400_000);
             let is_choked_usb = cur_usb > 0 && cur_usb < 2_000_000;
-            let qcom_stalled = cur_cap < 90 && (is_choked_register || is_choked_usb || is_stalled_current);
+            let qcom_stalled = (cur_cap < 90 && is_stalled_current) || (cur_cap < 100 && (is_choked_register || is_choked_usb));
 
             if qcom_stalled {
                 let marker_path = "/dev/lynx_qcom_stalled_count";
