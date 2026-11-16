@@ -1,3 +1,12 @@
+# Lynx Universal [High-FPS SurfaceFlinger 1-VSync Phase Alignment & App-UID SELinux Audit Fix] 7.0.0-RC406
+Released on: 2026-11-16
+> Lynx Kernel Manager v3.4.27
+
+- **Penyelarasan Penuh Fase VSync SurfaceFlinger Multi-Refresh (`platforms/mtk/system.prop`)**:
+  - Menambahkan properti `debug.sf.high_fps_late_*` dan `debug.sf.high_fps_early_gl_*` yang sebelumnya hilang serta menyelaraskan offset bangun `app` (`500000 ns`) <= `SF` (`1500000 ns`) di seluruh jadwal 60Hz maupun High-FPS (90Hz/120Hz+), menghilangkan penalti antrean 2-VSync pada animasi normal (`late`) dan komposisi RenderEngine (`early_gl`) sambil tetap menjaga headroom SF agar bebas jank tanpa mengaktifkan `latch_unsignaled`.
+- **Eliminasi Flood Audit SELinux `cgroup.procs` (`LynxForegroundDetector.kt`)**:
+  - Menghentikan probing langsung `/dev/cpuset/top-app/cgroup.procs` dari UID unprivileged aplikasi pendamping agar tidak membanjiri `logd.auditd`/`dmesg` dengan penolakan `avc: denied`; deteksi aplikasi foreground tetap beroperasi universal melalui `UsageStatsManager` dan daemon root `lynxd`.
+
 # Lynx Universal [Dynamic Thread Quarantine, Anti-Thrash VM & Universal Hardware Telemetry] 7.0.0-RC405
 Released on: 2026-11-16
 > Lynx Kernel Manager v3.4.26

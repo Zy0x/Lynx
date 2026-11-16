@@ -65,10 +65,9 @@ class LynxForegroundDetector(private val context: Context) {
     }
 
     private fun getTopPackageFromCpuset(): ForegroundAppInfo? {
-        val cpusetFiles = arrayOf(
-            File("/dev/cpuset/top-app/cgroup.procs"),
-            File("/sys/fs/cgroup/cpuset/top-app/cgroup.procs")
-        )
+        // Skip direct cpuset procfs file probes from unprivileged app UID to avoid SELinux avc audit floods;
+        // foreground detection uses UsageStatsManager and the root lynxd daemon.
+        val cpusetFiles = emptyArray<File>()
         val file = cpusetFiles.firstOrNull { it.exists() && it.canRead() } ?: return null
 
         return try {
