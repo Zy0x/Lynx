@@ -236,7 +236,10 @@ impl ThermalController {
                 Self::write_opt("/proc/ppm/policy_status", "4 1");
                 Self::write_opt("/proc/ppm/policy_status", "5 1");
                 Self::write_opt("/proc/ppm/cpi/cpi_enabled", "1");
-                Self::write_opt("/proc/cpufreq/cpufreq_imax_thermal_protect", "1");
+                Self::write_opt(crate::hardware::mtk::MtkHardware::CPUFREQ_IMAX_THERMAL_PROTECT, "1");
+                crate::hardware::mtk::MtkHardware::restore_orig_imax();
+                Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER, "0");
+                crate::hardware::mtk::MtkHardware::restore_orig_gpu_max_khz();
 
                 // Restore GPU limits (MTK)
                 if Path::new("/proc/gpufreq/gpufreq_limit_table").exists() {
@@ -316,7 +319,17 @@ impl ThermalController {
                 Self::freeze_oem_throttlers();
 
                 // Software Throttling Stripped (MTK)
-                Self::write_opt("/proc/cpufreq/cpufreq_imax_thermal_protect", "0");
+                Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER, "1");
+                crate::hardware::mtk::MtkHardware::capture_and_disable_imax();
+                Self::write_opt(crate::hardware::mtk::MtkHardware::CPUFREQ_IMAX_THERMAL_PROTECT, "0");
+                if Path::new(crate::hardware::mtk::MtkHardware::LYNX_GPU_MAX_KHZ).exists() {
+                    let (v, _) = crate::hardware::detector::ScoreBoard::evaluate();
+                    let gpu = crate::hardware::capability::HardwareCapability::resolve_gpu(v);
+                    if let Some(opp) = crate::hardware::mtk::MtkHardware::resolve_verified_peak_opp(&gpu) {
+                        let base_khz = crate::hardware::mtk::MtkHardware::capture_orig_gpu_max_khz().unwrap_or(opp.freq_khz);
+                        Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_GPU_MAX_KHZ, opp.freq_khz.max(base_khz).to_string());
+                    }
+                }
                 Self::write_opt("/proc/ppm/policy_status", "3 0");
                 Self::write_opt("/proc/ppm/policy_status", "4 0");
                 Self::write_opt("/proc/ppm/policy_status", "5 0");
@@ -350,7 +363,17 @@ impl ThermalController {
                 Self::freeze_oem_throttlers();
 
                 // Maximum bypass for extreme benchmarks/gaming
-                Self::write_opt("/proc/cpufreq/cpufreq_imax_thermal_protect", "0");
+                Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER, "1");
+                crate::hardware::mtk::MtkHardware::capture_and_disable_imax();
+                Self::write_opt(crate::hardware::mtk::MtkHardware::CPUFREQ_IMAX_THERMAL_PROTECT, "0");
+                if Path::new(crate::hardware::mtk::MtkHardware::LYNX_GPU_MAX_KHZ).exists() {
+                    let (v, _) = crate::hardware::detector::ScoreBoard::evaluate();
+                    let gpu = crate::hardware::capability::HardwareCapability::resolve_gpu(v);
+                    if let Some(opp) = crate::hardware::mtk::MtkHardware::resolve_verified_peak_opp(&gpu) {
+                        let base_khz = crate::hardware::mtk::MtkHardware::capture_orig_gpu_max_khz().unwrap_or(opp.freq_khz);
+                        Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_GPU_MAX_KHZ, opp.freq_khz.max(base_khz).to_string());
+                    }
+                }
                 Self::write_opt("/proc/ppm/policy_status", "3 0");
                 Self::write_opt("/proc/ppm/policy_status", "4 0");
                 Self::write_opt("/proc/ppm/policy_status", "5 0");

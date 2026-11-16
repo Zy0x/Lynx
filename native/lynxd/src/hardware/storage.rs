@@ -142,8 +142,8 @@ impl StoragePolicy {
         if SysfsReader::read_trimmed(block.join("ro")).ok()?.as_str() != "0" {
             return None;
         }
-        let _current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
-        Some(1024)
+        let current = SysfsReader::read_int::<u32>(dev.queue_path.join("read_ahead_kb")).ok()?;
+        Some(current.min(256))
     }
 
     /// Resolves the physical device type of a block device, traversing device-mapper slaves.
@@ -162,10 +162,10 @@ impl StoragePolicy {
         match effective_type {
             BlockDeviceType::Ufs => {
                 let (ra, nr) = match profile_name {
-                    "extreme" => (2048, 512),
-                    "performance" => (1024, 256),
-                    "powersave" => (256, 64),
-                    _ => (512, 128), // Balance
+                    "extreme" => (256, 256),
+                    "performance" => (128, 128),
+                    "powersave" => (128, 64),
+                    _ => (256, 128), // Balance
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
@@ -429,8 +429,8 @@ mod tests {
         assert_eq!(emmc_p.rq_affinity, 1);
         assert_eq!(emmc_p.wbt_lat_usec, Some(30000));
 
-        assert_eq!(ufs_p.read_ahead_kb, 1024);
-        assert_eq!(ufs_p.nr_requests, Some(256));
+        assert_eq!(ufs_p.read_ahead_kb, 128);
+        assert_eq!(ufs_p.nr_requests, Some(128));
         assert_eq!(ufs_p.scheduler, "none");
         assert_eq!(ufs_p.rq_affinity, 2);
         assert_eq!(ufs_p.wbt_lat_usec, None);

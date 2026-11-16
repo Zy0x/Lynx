@@ -767,6 +767,16 @@ impl ChargingRegulator {
         if Self::read_node("/sys/class/typec/port0-partner/supports_usb_power_delivery").map(|v| v.trim() == "yes").unwrap_or(false) {
             return false;
         }
+        if ptyp == "USB" {
+            let usb_cmax = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(500_000);
+            let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
+                .unwrap_or(0);
+            let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            if usb_cmax <= 900_000 && adpv_mv < 6500 {
+                return true;
+            }
+        }
         ptyp.contains("SDP") || ptyp.contains("CDP") || ptyp.contains("PC")
     }
 
@@ -2506,10 +2516,16 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_hex);
         Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_hex);
 
-        // Dynamically uncap pdc_max_watt (never choke to 68W if device supports 120W+)
-        let current_pdc = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
-        if current_pdc < 120 && Path::new(&format!("{}/pdc_max_watt", MTK_DIR)).exists() {
-            Self::write_node_lock(&format!("{}/pdc_max_watt", MTK_DIR), "120");
+        // Dynamically uncap pdc_max_watt once per plug session on PD / high-voltage adapters (avoids 1Hz dmesg spam)
+        if !Self::is_laptop_port() && (Self::is_usb_pd_active() || adpv_clean >= 6500) {
+            let current_pdc = Self::read_i64(&format!("{}/pdc_max_watt", MTK_DIR)).unwrap_or(0);
+            if current_pdc < 120
+                && Path::new(&format!("{}/pdc_max_watt", MTK_DIR)).exists()
+                && !Path::new("/dev/lynx_pdc_uncapped").exists()
+            {
+                Self::write_node_lock(&format!("{}/pdc_max_watt", MTK_DIR), "120");
+                let _ = fs::write("/dev/lynx_pdc_uncapped", "1");
+            }
         }
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
@@ -3336,7 +3352,7 @@ impl ChargingRegulator {
         if adpv_clean >= 6500 {
             Self::write_node(&format!("{}/enable_sc", MTK_DIR), "1");
         }
-        Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), "7000");
+        let _ = fs::remove_file("/dev/lynx_standard_charging");
 
         // 6. Freeze BCCT & ABCCT Cooling Devices (53-57) to state 0 locked
         Self::set_bcct_throttle(false);
@@ -4191,7 +4207,7 @@ impl ChargingRegulator {
 
         let cfg = ConfigStore::load_charging_config();
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
-        let cur_stat = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_else(|| "Unknown".to_string());
+        let _cur_stat = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_else(|| "Unknown".to_string());
         let real_dc = Self::read_real_battery_temp_dc();
 
         let is_hyper = cfg.charging_mode == "hyper" || cfg.extreme_charging_enabled;
@@ -4317,6 +4333,10 @@ impl ChargingRegulator {
         };
         if !is_hyper && cfg.night_sleep_guard_enabled && is_night_time {
             let _ = fs::write("/dev/lynx_charging_state", format!("state=night_gentle cap={}\n", cur_cap));
+            let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+            if marker.trim() == "regulated-1500" {
+                return;
+            }
             Self::apply_regulated_charging(1500);
             return;
         }
@@ -4333,47 +4353,81 @@ impl ChargingRegulator {
                 target_ma
             };
             let _ = fs::write("/dev/lynx_charging_state", format!("state={} cap={}\n", state_tag, cur_cap));
+            let marker = Self::read_node("/dev/lynx_standard_charging").unwrap_or_default();
+            if marker.trim() == format!("regulated-{}", effective_target) {
+                return;
+            }
             Self::apply_regulated_charging(effective_target);
             return;
         }
 
         if is_hyper {
             let marker = Self::read_node("/dev/lynx_extreme_charging").unwrap_or_default();
+            if !marker.starts_with("hyper-") {
+                Self::apply_hyper_mode();
+                return;
+            }
+
             let is_mtk = Path::new(MTK_DIR).exists();
             let invariants_intact = if is_mtk {
-                let _cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-                let _is_laptop = Self::is_laptop_port();
-                let bn_test = Self::read_node(&format!("{}/BN_TestMode", MTK_DIR)).unwrap_or_default();
-                let in_cur = Self::read_i64(&format!("{}/input_current", MTK_DIR)).unwrap_or(0);
-                let sc_limit = Self::read_i64(&format!("{}/sc_ibat_limit", MTK_DIR)).unwrap_or(0);
-                let chg1 = Self::read_i64(&format!("{}/chg1_current", MTK_DIR)).unwrap_or(0);
-                let chg2 = Self::read_i64(&format!("{}/chg2_current", MTK_DIR)).unwrap_or(0);
-                let pe20 = Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default();
-                let pe40 = Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default();
-                let hyper_proc = Self::read_node("/proc/lynx/hyper_charge").unwrap_or_default();
-                let cur_cmd = Self::read_node("/proc/mtk_battery_cmd/current_cmd").unwrap_or_default();
-                let pwr_path = Self::read_node("/proc/mtk_battery_cmd/en_power_path").unwrap_or_default();
-                let call_state = Self::read_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState").unwrap_or_default();
-
                 let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
                 let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
 
                 // Fast-Path: If battery is already actively charging at high current (>= 2500 mA),
-                // invariants are 100% intact! DO NOT re-initialize, which dispatches psy notifications that abort dv2_algo_task!
+                // invariants are 100% intact! DO NOT read noisy MTK sysfs nodes or re-initialize.
                 if cur_now_ma >= 2500 {
                     true
                 } else {
-                    (bn_test == "0" || bn_test == "1" || bn_test.is_empty())
-                        && (in_cur >= 2_000_000 || in_cur == 4294967295)
-                        && (sc_limit >= 1000 || sc_limit == 0)
-                        && (chg1 >= 2_000_000 || chg1 == 4294967295)
-                        && (chg2 >= 2_000_000 || chg2 == 4294967295 || chg2 == 0 || !Path::new(&format!("{}/chg2_current", MTK_DIR)).exists())
-                        && pe20 == "1"
-                        && pe40 == "1"
-                        && (!Path::new("/proc/lynx/hyper_charge").exists() || hyper_proc.trim() == "1")
+                    static LAST_MTK_NOISY_CHECK_EPOCH: std::sync::atomic::AtomicU64 =
+                        std::sync::atomic::AtomicU64::new(0);
+                    let cur_cap_i = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
+                    let is_laptop = Self::is_laptop_port();
+                    let min_exp_ua = if is_laptop {
+                        500_000
+                    } else if cur_cap_i >= 95 {
+                        1_000_000
+                    } else if cur_cap_i >= 78 {
+                        1_300_000
+                    } else {
+                        2_000_000
+                    };
+                    let require_pe = !is_laptop && cur_cap_i < 95;
+                    let bn_test = Self::read_node(&format!("{}/BN_TestMode", MTK_DIR)).unwrap_or_default();
+                    let in_cur = Self::read_i64(&format!("{}/input_current", MTK_DIR)).unwrap_or(0);
+                    let chg1 = Self::read_i64(&format!("{}/chg1_current", MTK_DIR)).unwrap_or(0);
+                    let chg2 = Self::read_i64(&format!("{}/chg2_current", MTK_DIR)).unwrap_or(0);
+                    let hyper_proc = Self::read_node("/proc/lynx/hyper_charge").unwrap_or_default();
+                    let cur_cmd = Self::read_node("/proc/mtk_battery_cmd/current_cmd").unwrap_or_default();
+                    let pwr_path = Self::read_node("/proc/mtk_battery_cmd/en_power_path").unwrap_or_default();
+                    let call_state = Self::read_node("/sys/devices/platform/odm/odm:tran_battery/Charging_CallState").unwrap_or_default();
+
+                    let basic_ok = (bn_test == "0" || bn_test == "1" || bn_test.is_empty())
+                        && (in_cur >= min_exp_ua || in_cur == 4294967295)
+                        && (chg1 >= min_exp_ua || chg1 == 4294967295)
+                        && (chg2 >= min_exp_ua || chg2 == 4294967295 || chg2 == 0 || !Path::new(&format!("{}/chg2_current", MTK_DIR)).exists())
+                        && (!Path::new("/proc/lynx/hyper_charge").exists() || hyper_proc.trim() == "1" || is_laptop || cur_cap_i >= 100)
                         && (cur_cmd.trim() == "1 0" || cur_cmd.trim() == "0 0" || cur_cmd.is_empty())
                         && (pwr_path.trim() == "1" || pwr_path.trim().ends_with(" 1") || pwr_path.trim() == "0" || pwr_path.is_empty())
-                        && (call_state.trim() == "0" || call_state.is_empty())
+                        && (call_state.trim() == "0" || call_state.is_empty());
+
+                    if !basic_ok {
+                        false
+                    } else {
+                        // Throttle reads of sc_ibat_limit / pe20 / pe40 (show_* emits kernel printk per open)
+                        let now_s = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                        let last_noisy = LAST_MTK_NOISY_CHECK_EPOCH.load(Ordering::Relaxed);
+                        if now_s.saturating_sub(last_noisy) >= 30 {
+                            LAST_MTK_NOISY_CHECK_EPOCH.store(now_s, Ordering::Relaxed);
+                            let sc_limit = Self::read_i64(&format!("{}/sc_ibat_limit", MTK_DIR)).unwrap_or(0);
+                            let pe_ok = !require_pe || (
+                                Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default() == "1"
+                                && Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default() == "1"
+                            );
+                            (sc_limit >= 1000 || cur_cap_i >= 100 || sc_limit == 0) && pe_ok
+                        } else {
+                            true
+                        }
+                    }
                 }
             } else {
                 let susp = Self::read_node(&format!("{}/input_suspend", BATT_DIR)).unwrap_or_else(|| "0".to_string());
@@ -4553,6 +4607,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_pdc_uncapped");
         let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
         let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
         let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
@@ -4606,6 +4661,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_qcom_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_pdc_uncapped");
         let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
         let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
         PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);

@@ -186,7 +186,9 @@ impl DecisionEngine {
                     Some("balance") => "balance",
                     Some("performance") => "performance",
                     _ => {
-                        if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark) {
+                        if fg_app.map(|a| a.category) == Some(AppCategory::Benchmark)
+                            || self.baseline_profile == "extreme"
+                        {
                             "extreme"
                         } else {
                             "performance"

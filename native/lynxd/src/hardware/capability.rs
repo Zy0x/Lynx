@@ -127,6 +127,22 @@ impl GpuCapability {
     pub fn peak_opp(&self) -> Option<&GpuOppEntry> {
         self.highest_opp()
     }
+
+    /// Snaps a target MHz frequency to the nearest real hardware OPP available on this GPU.
+    pub fn snap_freq_mhz(&self, target_mhz: u64) -> u64 {
+        snap_freq_in_list(target_mhz, &self.available_freqs_mhz)
+    }
+}
+
+pub(crate) fn snap_freq_in_list(target_mhz: u64, freqs: &[u64]) -> u64 {
+    if target_mhz == 0 || freqs.is_empty() {
+        return target_mhz;
+    }
+    freqs
+        .iter()
+        .copied()
+        .min_by(|a, b| a.abs_diff(target_mhz).cmp(&b.abs_diff(target_mhz)).then_with(|| a.cmp(b)))
+        .unwrap_or(target_mhz)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -535,14 +551,7 @@ impl HardwareCapability {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
 
-            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
-            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(0);
-            if is_cfg_locked && locked_f > 0 {
-                min_freq_mhz = locked_f;
-                max_freq_mhz = locked_f;
-            }
+            Self::apply_locked_gpu_cfg(&available_freqs_mhz, &mut min_freq_mhz, &mut max_freq_mhz);
 
             let mut available_governors = Vec::new();
             if let Ok(govs_raw) = SysfsReader::read_trimmed("/sys/class/kgsl/kgsl-3d0/devfreq/available_governors") {
@@ -637,14 +646,7 @@ impl HardwareCapability {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
 
-            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
-            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(0);
-            if is_cfg_locked && locked_f > 0 {
-                min_freq_mhz = locked_f;
-                max_freq_mhz = locked_f;
-            }
+            Self::apply_locked_gpu_cfg(&available_freqs_mhz, &mut min_freq_mhz, &mut max_freq_mhz);
 
             let mut mtk_devfreq_path = None;
             let mut cur_governor = String::new();
@@ -789,14 +791,7 @@ impl HardwareCapability {
                 std::mem::swap(&mut min_freq_mhz, &mut max_freq_mhz);
             }
 
-            let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
-            let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
-                .and_then(|s| s.parse::<u64>().ok())
-                .unwrap_or(0);
-            if is_cfg_locked && locked_f > 0 {
-                min_freq_mhz = locked_f;
-                max_freq_mhz = locked_f;
-            }
+            Self::apply_locked_gpu_cfg(&available_freqs_mhz, &mut min_freq_mhz, &mut max_freq_mhz);
             let cur_governor = SysfsReader::read_trimmed(devpath.join("governor"))
                 .unwrap_or_else(|_| "simple_ondemand".to_string());
             let load_pct = SysfsReader::read_int::<u32>(devpath.join("load")).unwrap_or(0);
@@ -900,8 +895,21 @@ impl HardwareCapability {
         resolved
     }
 
+    fn apply_locked_gpu_cfg(available_freqs_mhz: &[u64], min_freq_mhz: &mut u64, max_freq_mhz: &mut u64) {
+        let is_cfg_locked = crate::state::ConfigStore::get("gpu.is_locked").unwrap_or_default() == "true";
+        let locked_f = crate::state::ConfigStore::get("gpu.locked_freq_mhz")
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+        if is_cfg_locked && locked_f > 0 {
+            let snapped = snap_freq_in_list(locked_f, available_freqs_mhz);
+            *min_freq_mhz = snapped;
+            *max_freq_mhz = snapped;
+        }
+    }
+
+    /// Normalizes frequency raw integers reported across Hz (e.g. QCOM >=19.2MHz), kHz (MTK <=10M kHz), or MHz.
     pub fn normalize_freq_to_mhz(raw: u64) -> u64 {
-        if raw > 1_000_000 {
+        if raw > 10_000_000 {
             raw / 1_000_000
         } else if raw > 10_000 {
             raw / 1_000
@@ -1207,5 +1215,29 @@ impl HardwareCapability {
             current_tcp_algo,
             best_tcp_algo,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_hz_khz_and_mhz_beyond_1000mhz_accurately() {
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(950), 950);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(300_000), 300);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(1_002_000), 1002);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(1_300_000), 1300);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(19_200_000), 19);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(200_000_000), 200);
+        assert_eq!(HardwareCapability::normalize_freq_to_mhz(1_002_000_000), 1002);
+    }
+
+    #[test]
+    fn snaps_stale_locked_freq_to_nearest_hardware_opp() {
+        let freqs = vec![300, 600, 950, 1002];
+        assert_eq!(snap_freq_in_list(1040, &freqs), 1002);
+        assert_eq!(snap_freq_in_list(950, &freqs), 950);
+        assert_eq!(snap_freq_in_list(0, &freqs), 0);
     }
 }

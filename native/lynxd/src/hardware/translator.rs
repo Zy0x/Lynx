@@ -328,17 +328,30 @@ impl HardwareTranslator {
                 );
 
                 // MediaTek EEM (Energy Estimation Model) Hardware Calibration Undervolt
-                // Synchronizes native kernel EEM tables (-3 steps = -18.75 mV sweet spot)
+                // Dynamically discovers all exposed /proc/eem/EEM_DET_*/eem_offset CPU/CCI detectors (excluding GPU)
                 let eem_step = match profile.name {
                     "powersave" => "-4",
                     _ => "-3",
                 };
-                for eem_node in &[
-                    "/proc/eem/EEM_DET_B/eem_offset",
-                    "/proc/eem/EEM_DET_L/eem_offset",
-                    "/proc/eem/EEM_DET_CCI/eem_offset",
-                ] {
-                    Self::push_op(&mut ops, "MTK-EEM", "MediaTek EEM hardware undervolt offset", *eem_node, eem_step, false);
+                if let Ok(entries) = std::fs::read_dir("/proc/eem") {
+                    let mut paths: Vec<PathBuf> = entries
+                        .flatten()
+                        .filter_map(|e| {
+                            let name = e.file_name().to_string_lossy().to_string();
+                            if name.starts_with("EEM_DET_") && !name.contains("GPU") {
+                                let p = e.path().join("eem_offset");
+                                if p.exists() {
+                                    return Some(p);
+                                }
+                            }
+                            None
+                        })
+                        .collect();
+                    paths.sort();
+                    for p in paths {
+                        let p_str = p.to_string_lossy().to_string();
+                        Self::push_op(&mut ops, "MTK-EEM", "MediaTek EEM hardware undervolt offset", p_str, eem_step, false);
+                    }
                 }
 
                 // Dynamic MediaTek GPU OPP & GED Translation
@@ -434,9 +447,32 @@ impl HardwareTranslator {
                     let locked_freq = ConfigStore::get("gpu.locked_freq_mhz")
                         .and_then(|s| s.parse::<u64>().ok())
                         .unwrap_or(0);
+                    let resolved_locked_khz = if is_gpu_locked && locked_freq > 0 {
+                        cap.gpu
+                            .opp_table
+                            .iter()
+                            .min_by_key(|e| (e.freq_mhz as i64 - locked_freq as i64).abs())
+                            .map(|e| e.freq_khz)
+                            .unwrap_or(locked_freq * 1000)
+                    } else {
+                        target_max_opp.freq_khz
+                    };
+
+                    Self::push_op(
+                        &mut ops,
+                        "GPU",
+                        "MediaTek Kernel OC Ceiling Unlock/Release",
+                        MtkHardware::LYNX_GPU_MAX_KHZ,
+                        if is_extreme || (is_gpu_locked && locked_freq > 0) {
+                            resolved_locked_khz.to_string()
+                        } else {
+                            target_max_opp.freq_khz.to_string()
+                        },
+                        false,
+                    );
 
                     let mtk_opp_val = if is_gpu_locked && locked_freq > 0 {
-                        (locked_freq * 1000).to_string()
+                        resolved_locked_khz.to_string()
                     } else if is_extreme {
                         target_max_opp.freq_khz.to_string()
                     } else {
@@ -1145,10 +1181,10 @@ impl HardwareTranslator {
                     }
                     crate::hardware::capability::BlockDeviceType::Ufs
                     | crate::hardware::capability::BlockDeviceType::Nvme => {
-                        &["none", "noop", "mq-deadline", "kyber", "deadline"]
+                        &["mq-deadline", "deadline", "bfq", "kyber", "none", "noop"]
                     }
                     crate::hardware::capability::BlockDeviceType::Sd => {
-                        &["noop", "none", "mq-deadline", "deadline", "bfq"]
+                        &["mq-deadline", "deadline", "bfq", "noop", "none"]
                     }
                     _ => &["mq-deadline", "deadline", "noop", "none"],
                 };

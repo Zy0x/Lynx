@@ -358,6 +358,12 @@ impl DeviceState {
             }
             let z_type = SysfsReader::read_trimmed(format!("{}/type", tz_dir))
                 .unwrap_or_else(|_| format!("zone{}", id));
+            let z_type_lower = z_type.to_ascii_lowercase();
+            // Skip connectivity SDIO radio thermal sensors (e.g. mtktswmt) during background capture
+            // to avoid synchronous _stp_psm_do_wait wakeups (~22ms SDIO stalls per cycle).
+            if z_type_lower.contains("tswmt") || z_type_lower.ends_with("wmt") {
+                continue;
+            }
             let z_raw = SysfsReader::read_int::<i64>(format!("{}/temp", tz_dir)).unwrap_or(0);
             let temp_c = if z_raw.abs() > 1000 {
                 z_raw as f32 / 1000.0

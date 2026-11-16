@@ -157,7 +157,8 @@ impl GpuController {
             .unwrap_or(0);
 
         let (final_min, final_max, is_locked) = if cfg_locked && locked_freq > 0 {
-            (locked_freq, locked_freq, true)
+            let snapped = gpu.snap_freq_mhz(locked_freq);
+            (snapped, snapped, true)
         } else if gpu.min_freq_mhz > 0 && gpu.min_freq_mhz == gpu.max_freq_mhz {
             (gpu.min_freq_mhz, gpu.max_freq_mhz, true)
         } else {
@@ -188,6 +189,15 @@ impl GpuController {
     }
 
     pub fn set_freq(min_mhz: u64, max_mhz: Option<u64>) -> String {
+        Self::set_freq_internal(min_mhz, max_mhz, true)
+    }
+
+    /// Applies runtime GPU frequency bounds without overwriting persistent user preferences in `config.json`.
+    pub fn apply_freq_ephemeral(min_mhz: u64, max_mhz: Option<u64>) -> String {
+        Self::set_freq_internal(min_mhz, max_mhz, false)
+    }
+
+    fn set_freq_internal(min_mhz: u64, max_mhz: Option<u64>, persist_config: bool) -> String {
         let mut target_min = min_mhz;
         let mut target_max = max_mhz.unwrap_or(min_mhz);
         if target_min > target_max {
@@ -211,12 +221,14 @@ impl GpuController {
         };
 
         if target_min == 0 && target_max == 0 {
-            let _ = ConfigStore::set_batch(&[
-                ("gpu.is_locked".to_string(), "false".to_string(), Some("bool".to_string())),
-                ("gpu.locked_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
-                ("gpu.min_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
-                ("gpu.max_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
-            ]);
+            if persist_config {
+                let _ = ConfigStore::set_batch(&[
+                    ("gpu.is_locked".to_string(), "false".to_string(), Some("bool".to_string())),
+                    ("gpu.locked_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+                    ("gpu.min_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+                    ("gpu.max_freq_mhz".to_string(), "0".to_string(), Some("val".to_string())),
+                ]);
+            }
 
             match gpu.driver {
                 GpuDriver::QcomKgsl => {
@@ -234,17 +246,19 @@ impl GpuController {
                     return "Adreno GPU clock reset to Auto DVFS.".to_string();
                 }
                 GpuDriver::MtkGed | GpuDriver::MtkGpufreq => {
+                    crate::hardware::mtk::MtkHardware::restore_orig_gpu_max_khz();
                     Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", "0");
                     Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
-                    let min_khz = gpu.idle_opp().map(|e| e.freq_khz).unwrap_or(300_000);
-                    let max_khz = gpu.peak_opp().map(|e| e.freq_khz).unwrap_or(950_000);
-                    Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
-                    Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
-                    Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
-                    if let Some(boost_opp) = gpu.idle_opp() {
-                        Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", boost_opp.index.to_string());
+                    if let Some(min_opp) = gpu.idle_opp() {
+                        Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_opp.freq_khz.to_string());
+                        Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_opp.freq_khz.to_string());
+                        Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", min_opp.index.to_string());
                     }
                     if let Some(max_opp) = gpu.peak_opp() {
+                        let safe_upbound_khz = crate::hardware::mtk::MtkHardware::capture_orig_gpu_max_khz()
+                            .map(|orig| max_opp.freq_khz.min(orig))
+                            .unwrap_or(max_opp.freq_khz);
+                        Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", safe_upbound_khz.to_string());
                         Self::write_opt("/sys/kernel/ged/hal/custom_upbound_gpu_freq", max_opp.index.to_string());
                     }
                     return "MediaTek Mali GPU clock reset to Auto DVFS (0).".to_string();
@@ -286,12 +300,14 @@ impl GpuController {
         }
 
         let is_locked = target_min == target_max;
-        let _ = ConfigStore::set_batch(&[
-            ("gpu.is_locked".to_string(), is_locked.to_string(), Some("bool".to_string())),
-            ("gpu.locked_freq_mhz".to_string(), if is_locked { target_max.to_string() } else { "0".to_string() }, Some("val".to_string())),
-            ("gpu.min_freq_mhz".to_string(), target_min.to_string(), Some("val".to_string())),
-            ("gpu.max_freq_mhz".to_string(), target_max.to_string(), Some("val".to_string())),
-        ]);
+        if persist_config {
+            let _ = ConfigStore::set_batch(&[
+                ("gpu.is_locked".to_string(), is_locked.to_string(), Some("bool".to_string())),
+                ("gpu.locked_freq_mhz".to_string(), if is_locked { target_max.to_string() } else { "0".to_string() }, Some("val".to_string())),
+                ("gpu.min_freq_mhz".to_string(), target_min.to_string(), Some("val".to_string())),
+                ("gpu.max_freq_mhz".to_string(), target_max.to_string(), Some("val".to_string())),
+            ]);
+        }
 
         match gpu.driver {
             GpuDriver::QcomKgsl => {
@@ -336,6 +352,10 @@ impl GpuController {
                 let min_khz = target_min * 1000;
                 let max_khz = target_max * 1000;
 
+                // Release kernel KIR_LYNX_OC ceiling dynamically above captured boot default
+                let base_khz = crate::hardware::mtk::MtkHardware::capture_orig_gpu_max_khz().unwrap_or(max_khz);
+                Self::write_opt("/proc/lynx/gpu_max_khz", max_khz.max(base_khz).to_string());
+
                 if target_min == target_max {
                     Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", max_khz.to_string());
                     Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", max_khz.to_string());
@@ -354,9 +374,7 @@ impl GpuController {
                 Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", min_khz.to_string());
                 Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", min_khz.to_string());
 
-                let live_upbound = SysfsReader::read_int::<u64>("/sys/module/ged/parameters/gpu_cust_upbound_freq").unwrap_or(0);
-                let safe_upbound = max_khz.max(live_upbound);
-                Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", safe_upbound.to_string());
+                Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", max_khz.to_string());
                 format!("MediaTek Mali GPU clock set to {} - {} MHz.", target_min, target_max)
             }
             GpuDriver::GenericDevfreq => {

@@ -95,6 +95,10 @@ impl DaemonRunner {
         let mut last_tmp_status_sig = String::new();
         let mut last_tmp_bat_pct = u32::MAX;
         let mut last_hud_override: Option<(String, String)> = None;
+        let mut game_boost_active: bool = false;
+        let mut game_boost_pkg: Option<String> = None;
+        let mut game_boost_pid: Option<u32> = None;
+        let mut game_boost_recheck_at: Option<u64> = None;
         let mut last_maintenance_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -275,6 +279,7 @@ impl DaemonRunner {
                 &state,
                 now,
             );
+            let in_exit_cooldown = matches!(action, DecisionAction::HoldInCooldown { .. });
 
             match action {
                 DecisionAction::ApplyProfile { target_profile, reason } => {
@@ -296,15 +301,6 @@ impl DaemonRunner {
                                 decision_engine.notify_applied(target_profile);
                                 // Synchronize active profile markers & lynx.mode without redundant flash churn
                                 crate::state::ConfigStore::sync_profile_markers(target_profile, true);
-                                let is_actual_game = fg_app.as_ref().map(|app| app.category == AppCategory::Game).unwrap_or(false);
-                                if is_actual_game && (target_profile == "performance" || target_profile == "extreme") {
-                                    let game_pid = fg_app.as_ref().and_then(|app| {
-                                        crate::subsystems::GameController::find_pid_for_package(&app.package)
-                                    });
-                                    crate::subsystems::GameController::game_on(game_pid);
-                                } else {
-                                    crate::subsystems::GameController::game_off();
-                                }
                                 let _ = Self::notify_profile_transition(target_profile, &reason);
                             }
                             Err(e) => {
@@ -355,6 +351,46 @@ impl DaemonRunner {
             }
 
             let active_prof = decision_engine.current_profile();
+            let fg_is_game = current_screen == ScreenState::On
+                && fg_app
+                    .as_ref()
+                    .map(|a| a.category == AppCategory::Game || a.category == AppCategory::Benchmark)
+                    .unwrap_or(false);
+            let is_high_perf_prof = active_prof == "performance" || active_prof == "extreme";
+            if fg_is_game && is_high_perf_prof {
+                let fg_pkg = fg_app.as_ref().map(|a| a.package.clone());
+                if !game_boost_active || game_boost_pkg != fg_pkg {
+                    let game_pid = fg_app.as_ref().and_then(|app| {
+                        crate::subsystems::GameController::find_pid_for_package(&app.package)
+                    });
+                    crate::subsystems::GameController::game_on(game_pid);
+                    game_boost_active = true;
+                    game_boost_pkg = fg_pkg;
+                    game_boost_pid = game_pid;
+                    game_boost_recheck_at = Some(now + 8);
+                } else if game_boost_pid.is_none() {
+                    if let Some(pid) = fg_app.as_ref().and_then(|app| {
+                        crate::subsystems::GameController::find_pid_for_package(&app.package)
+                    }) {
+                        crate::subsystems::GameController::optimize_pid(pid);
+                        game_boost_pid = Some(pid);
+                        game_boost_recheck_at = Some(now + 6);
+                    }
+                } else if game_boost_recheck_at.map(|ts| now >= ts).unwrap_or(false) {
+                    if let Some(pid) = game_boost_pid {
+                        crate::subsystems::GameController::optimize_pid(pid);
+                    }
+                    // Keep periodic sub-millisecond thread quarantine sweeps active so late-spawned
+                    // dynamic worker/network threads never preempt prime render cores mid-session.
+                    game_boost_recheck_at = Some(now + 10);
+                }
+            } else if !in_exit_cooldown && game_boost_active {
+                crate::subsystems::GameController::game_off();
+                game_boost_active = false;
+                game_boost_pkg = None;
+                game_boost_pid = None;
+                game_boost_recheck_at = None;
+            }
             let current_mod = decision_engine.current_modifier();
             let profile_desc = if current_mod == ModifierLevel::None {
                 active_prof.to_string()
@@ -843,6 +879,7 @@ impl DaemonRunner {
                     if let Ok(comm) = std::fs::read_to_string(&comm_path) {
                         let comm_trim = comm.trim();
                         let tid_str = entry.file_name().to_string_lossy().to_string();
+                        #[allow(unused_variables)]
                         if let Ok(tid) = tid_str.parse::<u32>() {
                             let prio = if comm_trim == "RenderThread" {
                                 Some(-16)

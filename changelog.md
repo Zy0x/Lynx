@@ -1,3 +1,18 @@
+# Lynx Universal [Dynamic Thread Quarantine, Anti-Thrash VM & Universal Hardware Telemetry] 7.0.0-RC405
+Released on: 2026-11-16
+> Lynx Kernel Manager v3.4.26
+
+- **Zero-Hardcode Dynamic Game Thread Quarantine & Asymmetric Topology Engine (`game.rs`, `runner.rs`)**:
+  - **Eksklusivitas Core Prime Dinamis Tanpa Hardcode CPU/Game**: `optimize_pid()` kini memindai topologi `cpufreq/policy*` untuk memisahkan core berkapasitas puncak (*prime/big*) dari core pekerja/efisiensi, serta menganalisis `/proc/<pid>/task/*/stat` (*live ticks*) + klasifikasi peran secara langsung via syscall native `sched_setaffinity` + `setpriority` dengan guard target `any(target_os = "android", target_os = "linux")` (sub-1ms tanpa fork proses). Thread render & main loop terberat diisolasi ke core prime eksklusif sementara thread pengganggu (`mali-*`/`kgsl`, network, asset loader, `AsyncRead`, telemetry, dan worker dinamis `Thread-*`) dikarantina ke *worker pool* non-prime secara berkala selama game berjalan.
+  - **Perlindungan IRQ & Reclaimer Sistem**: Selama mode game aktif pada arsitektur multi-kluster asimetris, IRQ GPU/UFS/Display dan thread `kswapd`/`kcompactd` dipindahkan secara reversibel ke kluster non-prime untuk meminimalkan gangguan *hardirq* pada thread render utama.
+- **Eliminasi Badai Reclaim `kswapd` & Penguatan I/O Storage (`device_tier.rs`, `storage.rs`)**:
+  - Menyelaraskan parameter `watermark_scale_factor`, `extra_free_kbytes`, `swappiness`, dan `vfs_cache_pressure` agar `kswapd` tidak melakukan *reclaim/ZRAM swap storm* agresif saat `MemAvailable` masih sehat.
+  - Menyelaraskan batas `read_ahead_kb` UFS dan SD pada `StoragePolicy` ke `128–256 KB` untuk menekan *read amplification* aset game 4K acak.
+- **Kalibrasi Dinamis EEM, DVFSRC, & Ketepatan Verifikasi GPU (`mtk.rs`, `translator.rs`, `capability.rs`, `gpu.rs`)**:
+  - **Penjaga Konfigurasi `config.json` Saat Keluar/Masuk Game**: Menambahkan `GpuController::apply_freq_ephemeral()` agar transisi otomatis `game_on()` / `game_off()` tidak menimpa atau menghapus preferensi kunci frekuensi GPU pengguna di `config.json`.
+  - **Deteksi EEM & DVFSRC Menyeluruh**: `translator.rs` kini memindai seluruh detektor CPU/CCI `/proc/eem/EEM_DET_*/eem_offset` non-GPU secara dinamis, dan `boost_ddr_peak()` turut mengonfigurasi `dvfsrc_req_vcore_opp` bersama `dvfsrc_req_ddr_opp`.
+  - **Verifikasi Silikon GPU & Normalisasi `> 1000 MHz` Akurat**: Memperbaiki `normalize_freq_to_mhz()` (ambang batas Hz `> 10_000_000` agar kHz GPU `>= 1000 MHz` tidak terbagi menjadi `1 MHz`), memperbaiki `read_gpufreq_var_dump_freq_khz()` untuk memvalidasi pembacaan `(real) freq:` FMETER perangkat keras, serta menambahkan `apply_locked_gpu_cfg()` / `GpuCapability::snap_freq_mhz()` agar kunci frekuensi GPU selalu diselaraskan terhadap `opp_table` aktual.
+
 # Lynx Universal [Intelligent Thermal Pacing & Two-Phase Adaptive Charge Control] 7.0.0-RC404
 Released on: 2026-11-15
 > Lynx Kernel Manager v3.4.25

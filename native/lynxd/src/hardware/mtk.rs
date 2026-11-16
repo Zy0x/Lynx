@@ -1,4 +1,9 @@
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::thread::sleep;
+use std::time::Duration;
+
+use super::capability::{GpuCapability, GpuOppEntry};
 
 pub struct MtkHardware;
 
@@ -81,5 +86,270 @@ impl MtkHardware {
 
     pub fn is_fpsgo_available() -> bool {
         Path::new(Self::FPSGO_ENABLE).exists()
+    }
+
+    pub const LYNX_GPU_MAX_KHZ: &'static str = "/proc/lynx/gpu_max_khz";
+    pub const LYNX_THERMAL_SILENCER: &'static str = "/proc/lynx/thermal_silencer";
+    pub const CPUFREQ_IMAX_ENABLE: &'static str = "/proc/cpufreq/cpufreq_imax_enable";
+    pub const DRAM_CTRL_DDR: &'static str = "/proc/perfmgr/boost_ctrl/dram_ctrl/ddr";
+
+    const ORIG_GPU_MAX_FILE: &'static str = "/dev/lynx_orig_gpu_max_khz";
+    const VERIFIED_GPU_MAX_FILE: &'static str = "/dev/lynx_verified_gpu_max_khz";
+    const ORIG_IMAX_MODE_FILE: &'static str = "/dev/lynx_orig_imax_mode";
+    const DVFSRC_PEAK_OPP_FILE: &'static str = "/dev/lynx_dvfsrc_peak_opp";
+
+    fn read_u64_node(path: &Path) -> Option<u64> {
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+    }
+
+    fn write_raw_node(path: impl AsRef<Path>, val: &str) -> bool {
+        let p = path.as_ref();
+        if !p.exists() {
+            return false;
+        }
+        crate::sysfs::SysfsWriter::write(p, val, crate::sysfs::WriteMode::ForcePermission).is_ok()
+    }
+
+    /// Dynamically discovers Mali driver sysfs base directories instead of assuming one fixed platform bus address.
+    pub fn mali_sysfs_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        if let Ok(entries) = fs::read_dir("/sys/devices/platform") {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() && entry.file_name().to_string_lossy().to_lowercase().contains("mali") {
+                    paths.push(p);
+                }
+            }
+        }
+        for fallback in &["/sys/class/misc/mali0/device", "/sys/kernel/gpu"] {
+            let p = PathBuf::from(fallback);
+            if p.exists() && !paths.contains(&p) {
+                paths.push(p);
+            }
+        }
+        paths
+    }
+
+    /// Snapshots boot/default `/proc/lynx/gpu_max_khz` once so restores never hardcode clock limits.
+    pub fn capture_orig_gpu_max_khz() -> Option<u64> {
+        if !Path::new(Self::LYNX_GPU_MAX_KHZ).exists() {
+            return None;
+        }
+        if let Some(saved) = Self::read_u64_node(Path::new(Self::ORIG_GPU_MAX_FILE)) {
+            if saved > 0 {
+                return Some(saved);
+            }
+        }
+        if let Some(live) = Self::read_u64_node(Path::new(Self::LYNX_GPU_MAX_KHZ)) {
+            if live > 0 {
+                let _ = fs::write(Self::ORIG_GPU_MAX_FILE, live.to_string());
+                return Some(live);
+            }
+        }
+        None
+    }
+
+    /// Restores `/proc/lynx/gpu_max_khz` to the dynamically captured kernel baseline.
+    pub fn restore_orig_gpu_max_khz() {
+        if let Some(orig_khz) = Self::read_u64_node(Path::new(Self::ORIG_GPU_MAX_FILE))
+            .or_else(Self::capture_orig_gpu_max_khz)
+        {
+            let _ = Self::write_raw_node(Self::LYNX_GPU_MAX_KHZ, &orig_khz.to_string());
+        }
+    }
+
+    fn read_gpufreq_var_dump_freq_khz() -> Option<u64> {
+        let content = fs::read_to_string(Self::GPUFREQ_VAR_DUMP).ok()?;
+        let mut sw_khz: Option<u64> = None;
+        for line in content.lines() {
+            if let Some(pos) = line.find("freq:") {
+                let prefix = &line[..pos];
+                let digits: String = line[pos + 5..]
+                    .trim_start()
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect();
+                if let Ok(khz) = digits.parse::<u64>() {
+                    if prefix.contains("(real)") {
+                        if khz > 0 {
+                            return Some(khz);
+                        }
+                    } else if khz > 0 && sw_khz.is_none() {
+                        sw_khz = Some(khz);
+                    }
+                }
+            }
+        }
+        sw_khz
+    }
+
+    /// Dynamically probes and caches the highest silicon-verified GPU OPP entry without hardcoding.
+    pub fn resolve_verified_peak_opp(gpu: &GpuCapability) -> Option<GpuOppEntry> {
+        if gpu.opp_table.is_empty() {
+            return None;
+        }
+        let table_top_khz = gpu.highest_opp().map(|e| e.freq_khz).unwrap_or(0);
+        let orig_cap_khz = Self::capture_orig_gpu_max_khz();
+        if let Ok(raw_cache) = fs::read_to_string(Self::VERIFIED_GPU_MAX_FILE) {
+            let mut parts = raw_cache.trim().split(':');
+            if let (Some(c_khz), Some(c_top)) = (
+                parts.next().and_then(|s| s.parse::<u64>().ok()),
+                parts.next().and_then(|s| s.parse::<u64>().ok()),
+            ) {
+                if c_top == table_top_khz {
+                    if let Some(found) = gpu.opp_table.iter().min_by_key(|e| (e.freq_khz as i64 - c_khz as i64).abs()) {
+                        if found.freq_khz == c_khz {
+                            return Some(found.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut sorted = gpu.opp_table.clone();
+        sorted.sort_by(|a, b| b.freq_khz.cmp(&a.freq_khz));
+
+        if Path::new(Self::LYNX_GPU_MAX_KHZ).exists() && Path::new(Self::GPUFREQ_OPP_FREQ).exists() {
+            let mut verified: Option<GpuOppEntry> = None;
+            for opp in &sorted {
+                // Avoid testing lower than boot baseline when boot baseline itself is valid.
+                if let Some(orig) = orig_cap_khz {
+                    if opp.freq_khz <= orig {
+                        verified = Some(opp.clone());
+                        break;
+                    }
+                }
+                let khz_s = opp.freq_khz.to_string();
+                let _ = Self::write_raw_node(Self::LYNX_GPU_MAX_KHZ, &khz_s);
+                let _ = Self::write_raw_node(Self::GPUFREQ_OPP_FREQ, &khz_s);
+                sleep(Duration::from_millis(2));
+                if let Some(actual_khz) = Self::read_gpufreq_var_dump_freq_khz() {
+                    let delta = (actual_khz as i64 - opp.freq_khz as i64).abs();
+                    if delta * 100 <= (opp.freq_khz as i64 * 3) {
+                        verified = Some(opp.clone());
+                        break;
+                    }
+                }
+            }
+            let _ = Self::write_raw_node(Self::GPUFREQ_OPP_FREQ, "0");
+            Self::restore_orig_gpu_max_khz();
+
+            if let Some(ref best) = verified {
+                let _ = fs::write(Self::VERIFIED_GPU_MAX_FILE, format!("{}:{}", best.freq_khz, table_top_khz));
+                return Some(best.clone());
+            }
+        }
+
+        gpu.highest_opp().cloned()
+    }
+
+    /// Dynamically snapshots `/proc/cpufreq/cpufreq_imax_enable` mode before disabling IMAX/MPMM.
+    pub fn capture_and_disable_imax() {
+        if !Path::new(Self::CPUFREQ_IMAX_ENABLE).exists() {
+            return;
+        }
+        if !Path::new(Self::ORIG_IMAX_MODE_FILE).exists() {
+            if let Ok(raw) = fs::read_to_string(Self::CPUFREQ_IMAX_ENABLE) {
+                let mode_digit = raw
+                    .split('=')
+                    .nth(1)
+                    .unwrap_or(&raw)
+                    .trim_start()
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect::<String>();
+                if !mode_digit.is_empty() {
+                    let _ = fs::write(Self::ORIG_IMAX_MODE_FILE, &mode_digit);
+                }
+            }
+        }
+        let _ = Self::write_raw_node(Self::CPUFREQ_IMAX_ENABLE, "0");
+    }
+
+    /// Restores `/proc/cpufreq/cpufreq_imax_enable` to the captured original mode (e.g., MPMM / Enabled).
+    pub fn restore_orig_imax() {
+        if let Ok(saved) = fs::read_to_string(Self::ORIG_IMAX_MODE_FILE) {
+            let trimmed = saved.trim();
+            if !trimmed.is_empty() {
+                let _ = Self::write_raw_node(Self::CPUFREQ_IMAX_ENABLE, trimmed);
+            }
+        }
+    }
+
+    /// Dynamically discovers any `*.dvfsrc/helio-dvfsrc` controller in `/sys/devices/platform`.
+    pub fn find_dvfsrc_dir() -> Option<PathBuf> {
+        if let Ok(entries) = fs::read_dir("/sys/devices/platform") {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.contains("dvfsrc") {
+                    let candidate = entry.path().join("helio-dvfsrc");
+                    if candidate.is_dir() {
+                        return Some(candidate);
+                    }
+                    if entry.path().join("dvfsrc_opp_table").exists() {
+                        return Some(entry.path());
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Parses `dvfsrc_opp_table` dynamically to find the OPP index offering peak DDR frequency & Vcore.
+    fn resolve_dvfsrc_peak_opp(dir: &Path) -> String {
+        if let Ok(cached) = fs::read_to_string(Self::DVFSRC_PEAK_OPP_FILE) {
+            let t = cached.trim();
+            if !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()) {
+                return t.to_string();
+            }
+        }
+        let mut best: Option<(u64, u64, String)> = None;
+        if let Ok(table) = fs::read_to_string(dir.join("dvfsrc_opp_table")) {
+            for line in table.lines() {
+                // Example: `[OPP0 ]: 800000   uv 4266000  khz`
+                let Some(opp_tag_start) = line.find("[OPP") else { continue };
+                let after_opp = &line[opp_tag_start + 4..];
+                let Some(opp_tag_end) = after_opp.find(']') else { continue };
+                let opp_idx = after_opp[..opp_tag_end].trim().to_string();
+                if opp_idx.is_empty() || !opp_idx.chars().all(|c| c.is_ascii_digit()) {
+                    continue;
+                }
+                let nums: Vec<u64> = after_opp[opp_tag_end + 1..]
+                    .split_whitespace()
+                    .filter_map(|tok| tok.parse::<u64>().ok())
+                    .collect();
+                let (uv, khz) = match nums.as_slice() {
+                    [u, k, ..] => (*u, *k),
+                    [k] => (0, *k),
+                    _ => continue,
+                };
+                if best.as_ref().map_or(true, |(bk, bu, _)| (khz, uv) > (*bk, *bu)) {
+                    best = Some((khz, uv, opp_idx));
+                }
+            }
+        }
+        let opp_str = best.map(|(_, _, idx)| idx).unwrap_or_else(|| "0".to_string());
+        let _ = fs::write(Self::DVFSRC_PEAK_OPP_FILE, &opp_str);
+        opp_str
+    }
+
+    /// Dynamically boosts or releases MediaTek DVFSRC DDR bandwidth and Perfmgr DRAM floor.
+    pub fn boost_ddr_peak(enable: bool) {
+        if let Some(dir) = Self::find_dvfsrc_dir() {
+            let val = if enable {
+                Self::resolve_dvfsrc_peak_opp(&dir)
+            } else {
+                "-1".to_string()
+            };
+            let _ = Self::write_raw_node(Self::DRAM_CTRL_DDR, &val);
+            let _ = Self::write_raw_node(dir.join("dvfsrc_force_vcore_dvfs_opp"), &val);
+            let _ = Self::write_raw_node(dir.join("dvfsrc_req_ddr_opp"), &val);
+            let _ = Self::write_raw_node(dir.join("dvfsrc_req_vcore_opp"), &val);
+        } else {
+            let val = if enable { "0" } else { "-1" };
+            let _ = Self::write_raw_node(Self::DRAM_CTRL_DDR, val);
+        }
     }
 }

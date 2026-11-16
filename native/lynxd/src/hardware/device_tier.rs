@@ -128,54 +128,46 @@ impl DeviceTier {
 
         match profile.as_str() {
             "extreme" => VmProfileTargets {
-                // If MountX SD is active, aggressive swapping creates major page fault storms (8000/s)
-                // during rapid world traversal; lock swappiness and watermarks low to eliminate frame freezes.
-                swappiness: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 50 } else { 20 },
-                vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 50 },
+                // Keep watermarks & extra_free_kbytes lean so kswapd never thrash-scans active game textures
+                // while MemAvailable is still healthy across all RAM tiers.
+                swappiness: if self.has_mountx_sd || !self.is_low_end_ram { 10 } else { 35 },
+                vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 15 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
                 dirty_expire_cs: expire_cs,
-                watermark_scale_factor: if self.has_mountx_sd { 16 } else if self.is_low_end_ram { 40 } else { 60 },
-                extra_free_kbytes: if self.has_mountx_sd { 16384 } else if self.is_low_end_ram { 24576 } else { 32768 },
+                watermark_scale_factor: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 20 } else { 10 },
+                extra_free_kbytes: if self.has_mountx_sd { 4096 } else { 8192 },
                 f2fs_cp_interval_secs: if self.is_emmc_primary { 150 } else { 300 },
                 allow_drop_caches_full: !self.is_emmc_primary && !self.has_mountx_sd,
             },
             "performance" | "gaming" | "game" => VmProfileTargets {
-                swappiness: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 50 } else { 20 },
+                swappiness: if self.has_mountx_sd { 10 } else if self.is_low_end_ram { 35 } else { 15 },
                 // Keep dentry/inode caches hot in RAM on eMMC & SD to avoid cold lookups
                 vfs_cache_pressure: if self.has_mountx_sd {
                     10
                 } else if self.is_emmc_primary {
-                    50
-                } else if self.is_low_end_ram {
-                    60
-                } else if self.is_mid_ram {
-                    50
+                    25
                 } else {
-                    40
+                    20
                 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
                 dirty_expire_cs: expire_cs,
                 watermark_scale_factor: if self.has_mountx_sd {
-                    16
+                    10
                 } else if self.is_low_end_ram {
-                    40
-                } else if self.is_emmc_primary || self.is_mid_ram {
-                    60
+                    25
                 } else {
-                    80
+                    12
                 },
                 extra_free_kbytes: if self.has_mountx_sd {
-                    16384
+                    4096
                 } else if self.is_low_end_ram {
-                    24576
-                } else if self.is_mid_ram {
-                    32768
+                    8192
                 } else {
-                    49152
+                    8192
                 },
                 // Shorter F2FS checkpoint interval on eMMC prevents giant sync stalls on full /data
                 f2fs_cp_interval_secs: if self.is_emmc_primary {
@@ -310,17 +302,17 @@ mod tests {
         let rn7_vm = rn7.vm_profile_targets("performance");
         let ufs_vm = flagship.vm_profile_targets("performance");
 
-        assert_eq!(rn7_vm.vfs_cache_pressure, 50);
+        assert_eq!(rn7_vm.vfs_cache_pressure, 25);
         assert_eq!(rn7_vm.dirty_ratio, 10);
         assert_eq!(rn7_vm.dirty_background_ratio, 5);
-        assert_eq!(rn7_vm.watermark_scale_factor, 40);
-        assert_eq!(rn7_vm.extra_free_kbytes, 24576);
+        assert_eq!(rn7_vm.watermark_scale_factor, 25);
+        assert_eq!(rn7_vm.extra_free_kbytes, 8192);
         assert_eq!(rn7_vm.f2fs_cp_interval_secs, 120);
         assert!(!rn7_vm.allow_drop_caches_full);
 
         assert_eq!(ufs_vm.dirty_ratio, 20);
-        assert_eq!(ufs_vm.watermark_scale_factor, 150);
-        assert_eq!(ufs_vm.extra_free_kbytes, 65536);
+        assert_eq!(ufs_vm.watermark_scale_factor, 12);
+        assert_eq!(ufs_vm.extra_free_kbytes, 8192);
         assert_eq!(ufs_vm.f2fs_cp_interval_secs, 300);
         assert!(ufs_vm.allow_drop_caches_full);
     }
