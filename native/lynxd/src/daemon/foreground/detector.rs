@@ -106,11 +106,14 @@ impl ForegroundDetector {
     }
 
     /// Detects if multitasking (Split-Screen / Freeform / PiP) is actively running
-    /// by checking for multiple distinct user packages in the top-app / foreground cgroup.
+    /// by checking for multiple distinct user packages at TOP_APP priority inside `top-app` cgroups.
     pub fn is_multitasking_active(&self) -> bool {
         let mut active_packages = std::collections::HashSet::new();
 
         for node_path in &self.cgroup_nodes {
+            if !node_path.to_string_lossy().contains("top-app") {
+                continue;
+            }
             if let Ok(content) = fs::read_to_string(node_path) {
                 for line in content.lines() {
                     let pid_str = line.trim();
@@ -124,17 +127,19 @@ impl ForegroundDetector {
                         .and_then(|s| s.trim().parse::<i32>().ok())
                         .unwrap_or(999);
 
-                    if oom_adj <= 100 {
+                    if oom_adj <= 0 {
                         let cmdline_path = format!("/proc/{}/cmdline", pid_str);
                         if let Ok(cmd_bytes) = fs::read(&cmdline_path) {
                             if !cmd_bytes.is_empty() {
                                 let cmd_str = String::from_utf8_lossy(&cmd_bytes);
                                 let first_token = cmd_str.split('\0').next().unwrap_or("").trim();
                                 if Self::is_valid_user_package(first_token) {
-                                    let clean_pkg = first_token.split(':').next().unwrap_or(first_token).to_string();
-                                    active_packages.insert(clean_pkg);
-                                    if active_packages.len() >= 2 {
-                                        return true;
+                                    let clean_pkg = first_token.split(':').next().unwrap_or(first_token);
+                                    if clean_pkg != "com.android.systemui" {
+                                        active_packages.insert(clean_pkg.to_string());
+                                        if active_packages.len() >= 2 {
+                                            return true;
+                                        }
                                     }
                                 }
                             }

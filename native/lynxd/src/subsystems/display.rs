@@ -186,9 +186,11 @@ impl DisplayController {
 
         // 2. Universal Android settings provider
         let hz_str = format!("{}.0", target_hz);
+        let target_str = target_hz.to_string();
         let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
         let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
+        let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &target_str]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_str]);
 
         // 3. Kernel / Vendor Panel Sysfs Nodes
         let nodes = [
@@ -223,10 +225,12 @@ impl DisplayController {
 
         // 3. Android settings provider (spawn non-blocking async thread to avoid daemon loop stall)
         let hz_str = format!("{}.0", target_hz);
+        let target_str = target_hz.to_string();
         std::thread::spawn(move || {
             let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
             let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_hz.to_string()]);
+            let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &target_str]);
+            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_str]);
         });
     }
 
@@ -274,10 +278,12 @@ impl DisplayController {
 
             // 3. Asynchronously align Android framework settings provider
             let hz_str = format!("{}.0", high_hz);
+            let high_str = high_hz.to_string();
             std::thread::spawn(move || {
                 let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
                 let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-                let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_hz.to_string()]);
+                let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &high_str]);
+                let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_str]);
             });
         }
     }
@@ -370,13 +376,10 @@ impl DisplayController {
             }).unwrap_or(false);
 
             if is_social_feed {
-                // Social feed: keep 120Hz during natural reading pauses (kinetic window 8s),
-                // completely eliminating the annoying 60 <-> 120Hz display modeset stutter during feed browsing!
-                if is_kinetic_active {
-                    high_hz
-                } else {
-                    low_hz
-                }
+                // Short-form social video feeds (TikTok, Instagram, Reels, Twitter, Facebook):
+                // Keep continuously at high_hz so rapid swipe transitions after watching a clip
+                // never suffer 60Hz <-> 120Hz SurfaceFlinger modeset hitching.
+                high_hz
             } else {
                 // Long-form video streaming (YouTube, Netflix, VLC, MX Player):
                 // If actively touching / scrubbing timeline: High Tier (120Hz)
@@ -387,8 +390,8 @@ impl DisplayController {
                     low_hz
                 }
             }
-        } else if is_kinetic_active {
-            // Active touch / scrolling / reading session: Zero Latency (0 ms) High Tier
+        } else if is_kinetic_active || CURRENT_DISPLAY_HZ.load(Ordering::Relaxed) == 0 {
+            // Active touch / scrolling / initial screen wake: Zero Latency (0 ms) High Tier
             high_hz
         } else {
             // Stationary reading / deep idle (>8s): Drop to Low Tier (60Hz) for maximum panel power savings

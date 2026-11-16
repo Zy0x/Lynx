@@ -62,9 +62,9 @@ impl MemoryController {
         let min_free_kb = if mem.total_ram_mb <= 4500 {
             "16384"
         } else if mem.total_ram_mb <= 6500 {
-            "24576"
+            "20480"
         } else {
-            "32768"
+            "16384"
         };
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());

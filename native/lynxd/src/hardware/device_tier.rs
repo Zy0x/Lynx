@@ -191,14 +191,20 @@ impl DeviceTier {
                 f2fs_cp_interval_secs: 60,
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
-            _ => VmProfileTargets {
-                swappiness: 80,
+            "balance" | "balanced" | _ => VmProfileTargets {
+                swappiness: if self.is_low_end_ram {
+                    80
+                } else if self.is_mid_ram || self.is_emmc_primary {
+                    50
+                } else {
+                    40
+                },
                 vfs_cache_pressure: if self.is_emmc_primary {
                     50
                 } else if self.is_low_end_ram {
                     100
                 } else {
-                    80
+                    50
                 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
@@ -206,13 +212,19 @@ impl DeviceTier {
                 dirty_expire_cs: expire_cs,
                 watermark_scale_factor: if self.is_low_end_ram {
                     30
-                } else if self.is_emmc_primary {
-                    60
+                } else if self.is_mid_ram || self.is_emmc_primary {
+                    20
                 } else {
-                    100
+                    10
                 },
-                extra_free_kbytes: if self.is_low_end_ram { 16384 } else { 20480 },
-                f2fs_cp_interval_secs: 60,
+                extra_free_kbytes: if self.is_low_end_ram {
+                    12288
+                } else if self.is_mid_ram || self.is_emmc_primary {
+                    4096
+                } else {
+                    0
+                },
+                f2fs_cp_interval_secs: if self.is_emmc_primary { 60 } else { 180 },
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
         }
@@ -315,6 +327,17 @@ mod tests {
         assert_eq!(ufs_vm.extra_free_kbytes, 8192);
         assert_eq!(ufs_vm.f2fs_cp_interval_secs, 300);
         assert!(ufs_vm.allow_drop_caches_full);
+
+        let bal_vm = flagship.vm_profile_targets("balance");
+        assert_eq!(bal_vm.watermark_scale_factor, 10);
+        assert_eq!(bal_vm.extra_free_kbytes, 0);
+        assert_eq!(bal_vm.swappiness, 40);
+
+        let rn7_bal = rn7.vm_profile_targets("balance");
+        assert_eq!(rn7_bal.watermark_scale_factor, 30);
+        assert_eq!(rn7_bal.extra_free_kbytes, 12288);
+        assert_eq!(rn7_bal.swappiness, 80);
+        assert_eq!(rn7_bal.vfs_cache_pressure, 50);
     }
 
     #[test]
@@ -345,6 +368,7 @@ mod tests {
         assert_eq!(touch_decay_window_ms(&rn7, false), 450);
         assert_eq!(touch_decay_window_ms(&ufs_flagship, false), 600);
         assert_eq!(touch_decay_window_ms(&rn7, true), 650);
+        assert_eq!(touch_decay_window_ms(&ufs_flagship, true), 1200);
 
         // Proportional GPU normalization works equally across 450 MHz Mali and 1000 MHz Adreno
         assert_eq!(normalized_gpu_compute_pct(450, 450, 50), 50);

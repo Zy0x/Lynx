@@ -1,3 +1,13 @@
+# Lynx Universal [Tier-Aware Smooth Scroll, Steady Social-Feed Refresh Rate & Low-RAM Safeguards] 7.0.0-RC407
+Released on: 2026-11-16
+> Lynx Kernel Manager v3.4.27
+
+### Engine & Optimization (`lynxd`)
+- **Tier-Aware Balanced VM Tuning (`device_tier.rs`, `memory.rs`)**: Added dedicated balanced VM watermarks and swappiness curves distinguishing `>= 8GB UFS` devices (`watermark_scale_factor=10`, `extra_free_kbytes=0`, `swappiness=40`, `vfs_cache_pressure=50`, `min_free_kbytes=16384`), mid-RAM/eMMC tiers (`20`, `4096`, `50`), and `<= 4.5GB` eMMC low-end devices such as RN7 (`30`, `12288`, `80`, `min_free_kbytes=16384`).
+- **Auto Refresh Rate Feed Stability (`display.rs`)**: Keeps detected social media feed apps (TikTok, Instagram, Twitter, Facebook, Snapchat) steadily locked at `high_hz` while in `Auto` mode to avoid backdoor modeset hitches during rapid scrolling, defaults initial screen-wake state to `high_hz`, and synchronizes `system user_refresh_rate` alongside `secure` (preserving safe early-return on single-rate panels).
+- **Refined Touch Floor & Scheduler Safety (`cluster.rs`, `detector.rs`)**: Extended active motion decay window to `1200ms` on non-low-end UFS devices (keeping `650ms` for eMMC/low-RAM), added hardware-touch `top-app/schedtune.util.min` lift (`450` / `250` on UFS, skipped on low-end/eMMC) with clean `0` decay, fixed duplicate `foreground/schedtune.prefer_high_cap` writes, and restricted `is_multitasking_active()` strictly to non-SystemUI `top-app` cgroup processes with `oom_score_adj <= 0`.
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`1,293,136` B) inside `LynxCompanion` release APK assets (`assets/lynxd` and `assets/bin/lynxd`) and module `system/bin/lynxd`.
+
 # Lynx Universal [High-FPS SurfaceFlinger 1-VSync Phase Alignment & App-UID SELinux Audit Fix] 7.0.0-RC406
 Released on: 2026-11-16
 > Lynx Kernel Manager v3.4.27

@@ -49,7 +49,11 @@ pub(crate) fn pick_opp_quantile_freq(
 /// Computes dynamic CPU touch-hold window based on hardware tier & live touch motion continuity.
 pub(crate) fn touch_decay_window_ms(tier: &DeviceTier, actively_moving: bool) -> u64 {
     if actively_moving {
-        650
+        if tier.is_low_end_ram || tier.is_emmc_primary {
+            650
+        } else {
+            1200
+        }
     } else if tier.is_low_end_ram || tier.is_emmc_primary {
         450
     } else {
@@ -389,6 +393,17 @@ impl ClusterController {
             WriteMode::Direct,
         );
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "1", WriteMode::Direct);
+        if !tier.is_low_end_ram && !tier.is_emmc_primary {
+            // Lift top-app UI & RenderThread minimum capacity above Little cluster ceiling
+            // during active touch/scroll on UFS >=6GB+ multi-cluster platforms (skip on low-end/eMMC like RN7).
+            let (util_min, uclamp_pct) = if tier.is_mid_ram {
+                ("250", "25")
+            } else {
+                ("450", "45")
+            };
+            let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.util.min", util_min, WriteMode::Direct);
+            let _ = SysfsWriter::write("/dev/cpuctl/top-app/cpu.uclamp.min", uclamp_pct, WriteMode::Direct);
+        }
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", base_fg, WriteMode::Direct);
 
         // Elevate discovered Big/Performance clusters dynamically using hardware OPP quantiles
@@ -455,12 +470,23 @@ impl ClusterController {
             "performance" => if tier.is_low_end_ram { "0" } else { "1" },
             _ => "0",
         };
+        let idle_util_min = match current_profile {
+            "extreme" => "250",
+            "performance" => if tier.is_low_end_ram { "100" } else { "150" },
+            _ => "0",
+        };
+        let idle_uclamp_pct = match current_profile {
+            "extreme" => "25",
+            "performance" => if tier.is_low_end_ram { "10" } else { "15" },
+            _ => "0",
+        };
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", target_boost, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_idle", "1", WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.util.min", idle_util_min, WriteMode::Direct);
+        let _ = SysfsWriter::write("/dev/cpuctl/top-app/cpu.uclamp.min", idle_uclamp_pct, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", fg_boost, WriteMode::Direct);
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "0", WriteMode::Direct);
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", prefer_high, WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {
             for pol in &cpu.policies {
