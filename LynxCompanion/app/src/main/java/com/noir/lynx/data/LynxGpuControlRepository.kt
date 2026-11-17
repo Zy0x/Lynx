@@ -507,6 +507,9 @@ internal object LynxGpuControlRepository {
                     setAsyncShaderPipeline(false)
                     setTextureCacheSize(48)
                     setPureHwVsync(false)
+                    LynxGraphicsEngineRepository.setEglMultifileBlobCache(true)
+                    LynxGraphicsEngineRepository.setHwuiHintManager(false)
+                    LynxGraphicsEngineRepository.setHwuiSkipEmptyDamage(true)
                 }
                 "balanced" -> {
                     setGpuFreq(minAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -532,6 +535,9 @@ internal object LynxGpuControlRepository {
                     setAsyncShaderPipeline(false)
                     setTextureCacheSize(72)
                     setPureHwVsync(false)
+                    LynxGraphicsEngineRepository.setEglMultifileBlobCache(true)
+                    LynxGraphicsEngineRepository.setHwuiHintManager(true)
+                    LynxGraphicsEngineRepository.setHwuiSkipEmptyDamage(true)
                 }
                 "esports" -> {
                     val floor = freqs.filter { it >= (maxAvail * 0.65).toInt() }.firstOrNull() ?: minAvail
@@ -561,6 +567,9 @@ internal object LynxGpuControlRepository {
                     setAsyncShaderPipeline(true)
                     setTextureCacheSize(96)
                     setPureHwVsync(true)
+                    LynxGraphicsEngineRepository.setEglMultifileBlobCache(true)
+                    LynxGraphicsEngineRepository.setHwuiHintManager(true)
+                    LynxGraphicsEngineRepository.setHwuiSkipEmptyDamage(true)
                 }
                 "extreme" -> {
                     setGpuFreq(maxAvail.toLong() * 1_000_000L, maxAvail.toLong() * 1_000_000L)
@@ -590,6 +599,9 @@ internal object LynxGpuControlRepository {
                     setAsyncShaderPipeline(true)
                     setTextureCacheSize(128)
                     setPureHwVsync(true)
+                    LynxGraphicsEngineRepository.setEglMultifileBlobCache(true)
+                    LynxGraphicsEngineRepository.setHwuiHintManager(true)
+                    LynxGraphicsEngineRepository.setHwuiSkipEmptyDamage(true)
                 }
             }
             true

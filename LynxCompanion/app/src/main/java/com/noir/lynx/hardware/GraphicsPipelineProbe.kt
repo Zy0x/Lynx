@@ -25,7 +25,10 @@ data class GraphicsPipelineCapabilities(
     val isSfEarlyPhaseSupported: Boolean = false,
     val isSfTouchBoostDurationSupported: Boolean = false,
     val isInputResamplingSupported: Boolean = false,
-    val hasResetprop: Boolean = false
+    val hasResetprop: Boolean = false,
+    val isEglMultifileCacheSupported: Boolean = false,
+    val isHwuiHintManagerSupported: Boolean = false,
+    val isHwuiSkipEmptyDamageSupported: Boolean = false
 )
 
 object GraphicsPipelineProbe {
@@ -48,7 +51,10 @@ object GraphicsPipelineProbe {
             isSfEarlyPhaseSupported = "CAP_SF_EARLY_PHASE=1" in tokens,
             isSfTouchBoostDurationSupported = "CAP_SF_TOUCH_DUR=1" in tokens,
             isInputResamplingSupported = "CAP_INPUT_RESAMPLE=1" in tokens,
-            hasResetprop = "CAP_RESETPROP=1" in tokens
+            hasResetprop = "CAP_RESETPROP=1" in tokens,
+            isEglMultifileCacheSupported = "CAP_EGL_MULTIFILE=1" in tokens,
+            isHwuiHintManagerSupported = "CAP_HWUI_HINT_MGR=1" in tokens,
+            isHwuiSkipEmptyDamageSupported = "CAP_HWUI_SKIP_DAMAGE=1" in tokens
         )
     }
 
@@ -106,7 +112,7 @@ object GraphicsPipelineProbe {
             SF_BINS="/system/bin/surfaceflinger /system/lib64/libsurfaceflinger.so /system/lib/libsurfaceflinger.so /system_ext/lib64/libsurfaceflinger.so"
             INPUT_LIBS="/system/lib64/libinput.so /system/lib/libinput.so /system/lib64/libinputflinger.so /system/lib/libinputflinger.so /vendor/lib64/libinput.so"
 
-            if pm list features 2>/dev/null | grep -q "android.hardware.vulkan" || [ -f /system/lib64/libvulkan.so ] || ls /vendor/lib64/hw/vulkan.*.so >/dev/null 2>&1; then
+            if pm list features 2>/dev/null | grep -q "android.hardware.vulkan" || [ -f /system/lib64/libvulkan.so ] || ls /vendor/lib64/hw/vulkan*.so /vendor/lib/hw/vulkan*.so /system/vendor/lib64/hw/vulkan*.so /odm/lib64/hw/vulkan*.so >/dev/null 2>&1; then
                 echo "CAP_VULKAN=1"
             fi
             if has_str "graphite" ${'$'}HWUI_LIBS || has_str "skiagraphite" ${'$'}HWUI_LIBS; then
@@ -126,6 +132,15 @@ object GraphicsPipelineProbe {
             fi
             if has_str "debug.cpurend.vsync" ${'$'}HWUI_LIBS; then
                 echo "CAP_CPUREND_VSYNC=1"
+            fi
+            if has_str "debug.egl.blobcache.multifile" ${'$'}EGL_LIBS || has_str "ro.egl.blobcache.multifile" ${'$'}EGL_LIBS; then
+                echo "CAP_EGL_MULTIFILE=1"
+            fi
+            if has_str "debug.hwui.use_hint_manager" ${'$'}HWUI_LIBS; then
+                echo "CAP_HWUI_HINT_MGR=1"
+            fi
+            if has_str "debug.hwui.skip_empty_damage" ${'$'}HWUI_LIBS; then
+                echo "CAP_HWUI_SKIP_DAMAGE=1"
             fi
             if has_str "debug.egl.swapinterval" ${'$'}EGL_LIBS; then
                 echo "CAP_EGL_SWAP=1"

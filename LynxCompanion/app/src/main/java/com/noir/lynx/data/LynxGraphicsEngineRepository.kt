@@ -42,9 +42,9 @@ internal object LynxGraphicsEngineRepository {
                 sc_kb=${'$'}(du -sk /data/user_de/0/*/cache/*shader* /data/data/*/cache/*shader* /data/data/*/code_cache/*shader* 2>/dev/null | awk '{s+=${'$'}1; c++} END {print s "|" c}')
                 echo "scache:${'$'}sc_kb"
 
-                # Vulkan support probe
+                # Vulkan support probe (wildcard ICD covers vulkan.mt*, vulkan.adreno*, vulkan.exynos*, vulkan.mali*, etc.)
                 vk_probe=0
-                if [ -c "/dev/kgsl-3d0" ] || [ -c "/dev/mali0" ] || [ -f "/vendor/lib64/hw/vulkan.mali.so" ] || [ -f "/vendor/lib64/hw/vulkan.adreno.so" ] || [ -f "/vendor/lib/hw/vulkan.adreno.so" ]; then
+                if [ -c "/dev/kgsl-3d0" ] || [ -c "/dev/mali0" ] || ls /vendor/lib64/hw/vulkan*.so /vendor/lib/hw/vulkan*.so /system/vendor/lib64/hw/vulkan*.so /odm/lib64/hw/vulkan*.so >/dev/null 2>&1; then
                     vk_probe=1
                 fi
                 echo "vk:${'$'}vk_probe"
@@ -61,6 +61,11 @@ internal object LynxGraphicsEngineRepository {
                 echo "tex_cache:${'$'}(getprop ro.hwui.texture_cache_size 2>/dev/null | tr -d ' \n')"
                 echo "async_shader:${'$'}(getprop debug.hwui.use_gpu_pixel_buffers 2>/dev/null | tr -d ' \n')"
                 echo "pure_vsync:${'$'}(getprop debug.cpurend.vsync 2>/dev/null | tr -d ' \n')"
+                echo "egl_mf:${'$'}(getprop debug.egl.blobcache.multifile 2>/dev/null | tr -d ' \n')"
+                echo "egl_mf_ro:${'$'}(getprop ro.egl.blobcache.multifile 2>/dev/null | tr -d ' \n')"
+                echo "egl_mf_lim:${'$'}(getprop debug.egl.blobcache.multifile_limit 2>/dev/null | tr -d ' \n')"
+                echo "hwui_hint:${'$'}(getprop debug.hwui.use_hint_manager 2>/dev/null | tr -d ' \n')"
+                echo "hwui_skip:${'$'}(getprop debug.hwui.skip_empty_damage 2>/dev/null | tr -d ' \n')"
             """.trimIndent()
             val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
             val res = Shell.cmd(script).exec()
@@ -72,6 +77,9 @@ internal object LynxGraphicsEngineRepository {
             var textureCacheMb = 72
             var asyncShaderOn = false
             var pureHwVsync = false
+            var eglMfRaw = ""; var eglMfRoRaw = ""; var eglMfLimitBytes = 0L
+            var hwuiHintOn = false
+            var hwuiSkipDmgOn = true
 
             for (line in res.out) {
                 val t = line.trim()
@@ -111,17 +119,25 @@ internal object LynxGraphicsEngineRepository {
                     t.startsWith("tex_cache:") -> textureCacheMb = t.removePrefix("tex_cache:").toIntOrNull() ?: 72
                     t.startsWith("async_shader:") -> asyncShaderOn = t.removePrefix("async_shader:") == "true"
                     t.startsWith("pure_vsync:") -> pureHwVsync = t.removePrefix("pure_vsync:") == "false"
+                    t.startsWith("egl_mf:") -> eglMfRaw = t.removePrefix("egl_mf:")
+                    t.startsWith("egl_mf_ro:") -> eglMfRoRaw = t.removePrefix("egl_mf_ro:")
+                    t.startsWith("egl_mf_lim:") -> eglMfLimitBytes = t.removePrefix("egl_mf_lim:").toLongOrNull() ?: 0L
+                    t.startsWith("hwui_hint:") -> {
+                        val v = t.removePrefix("hwui_hint:")
+                        hwuiHintOn = v == "true" || v == "1"
+                    }
+                    t.startsWith("hwui_skip:") -> {
+                        val v = t.removePrefix("hwui_skip:")
+                        hwuiSkipDmgOn = v.isEmpty() || (v != "false" && v != "0")
+                    }
                 }
             }
 
+            val vkDirs = listOf("/vendor/lib64/hw", "/vendor/lib/hw", "/system/vendor/lib64/hw", "/system/vendor/lib/hw", "/odm/lib64/hw", "/odm/lib/hw")
             val hasVulkanHardware = systemFeatures.any { it.contains("vulkan", ignoreCase = true) } ||
                 File("/dev/kgsl-3d0").exists() ||
                 File("/dev/mali0").exists() ||
-                File("/vendor/lib64/hw/vulkan.adreno.so").exists() ||
-                File("/vendor/lib/hw/vulkan.adreno.so").exists() ||
-                File("/vendor/lib64/hw/vulkan.mali.so").exists() ||
-                File("/vendor/lib/hw/vulkan.mali.so").exists() ||
-                File("/vendor/lib64/hw/vulkan.qcom.so").exists()
+                hasVulkanIcdInDirs(vkDirs)
 
             val isVulkan = hasVulkanHardware || isVulkanFromShell || caps.isVulkanSupported
             val isGraphite = caps.isGraphiteSupported
@@ -154,6 +170,14 @@ internal object LynxGraphicsEngineRepository {
                 prefs.getInt("forced_fps_unlocker_hz", 0)
             } catch (_: Exception) { 0 }
 
+            val eglMultifileEnabled = when {
+                eglMfRaw.isNotBlank() -> eglMfRaw == "true" || eglMfRaw == "1"
+                eglMfRoRaw.isNotBlank() -> eglMfRoRaw == "true" || eglMfRoRaw == "1"
+                else -> false
+            }
+            val adaptiveLimitMb = (computeAdaptiveEglBlobCacheLimitBytes(readTotalRamMb()) / (1024L * 1024L)).toInt()
+            val resolvedEglLimitMb = if (eglMfLimitBytes > 0L) (eglMfLimitBytes / (1024L * 1024L)).toInt().coerceAtLeast(1) else adaptiveLimitMb
+
             GraphicsHwuiInfo(
                 updatableGameDriver = driver,
                 hwuiRenderer = renderer,
@@ -180,7 +204,14 @@ internal object LynxGraphicsEngineRepository {
                 isAsyncShaderSupported = caps.isAsyncShaderSupported,
                 isPureHwVsyncSupported = caps.isPureHwVsyncSupported,
                 isSfLatchSupported = caps.isSfLatchSupported,
-                isSfDisableBackpressureSupported = caps.isSfDisableBackpressureSupported
+                isSfDisableBackpressureSupported = caps.isSfDisableBackpressureSupported,
+                eglMultifileCacheEnabled = eglMultifileEnabled,
+                eglMultifileCacheLimitMb = resolvedEglLimitMb,
+                isEglMultifileCacheSupported = caps.isEglMultifileCacheSupported,
+                hwuiHintManagerEnabled = hwuiHintOn,
+                isHwuiHintManagerSupported = caps.isHwuiHintManagerSupported,
+                hwuiSkipEmptyDamageEnabled = hwuiSkipDmgOn,
+                isHwuiSkipEmptyDamageSupported = caps.isHwuiSkipEmptyDamageSupported
             )
         } catch (e: Exception) {
             Log.e("LynxGraphicsEngine", "readGraphicsHwuiInfo failed", e)
@@ -444,5 +475,76 @@ internal object LynxGraphicsEngineRepository {
     // ============================================================
     //  GPU & DISPLAY INTELLIGENCE FRAMEWORK
     // ============================================================
+
+    internal fun hasVulkanIcdFileNames(fileNames: Iterable<String>): Boolean =
+        fileNames.any { it.startsWith("vulkan.") && it.endsWith(".so") }
+
+    internal fun hasVulkanIcdInDirs(dirPaths: List<String>): Boolean =
+        dirPaths.any { dir ->
+            val files = File(dir).list()?.asIterable() ?: emptyList()
+            hasVulkanIcdFileNames(files)
+        }
+
+    internal fun computeAdaptiveEglBlobCacheLimitBytes(totalRamMb: Long): Long = when {
+        totalRamMb in 1L..4096L -> 4L * 1024L * 1024L
+        totalRamMb in 4097L..8192L -> 8L * 1024L * 1024L
+        totalRamMb > 8192L -> 16L * 1024L * 1024L
+        else -> 8L * 1024L * 1024L
+    }
+
+    private fun readTotalRamMb(): Long {
+        return try {
+            val line = File("/proc/meminfo").useLines { lines ->
+                lines.firstOrNull { it.startsWith("MemTotal:") }
+            } ?: return 4096L
+            val kb = line.removePrefix("MemTotal:").trim().split(Regex("\\s+")).firstOrNull()?.toLongOrNull() ?: return 4096L
+            (kb / 1024L).coerceAtLeast(512L)
+        } catch (_: Exception) {
+            4096L
+        }
+    }
+
+    suspend fun setEglMultifileBlobCache(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isEglMultifileCacheSupported) return@withContext false
+            val limitBytes = computeAdaptiveEglBlobCacheLimitBytes(readTotalRamMb())
+            val v = if (enabled) "true" else "false"
+            val mark = if (enabled) "1" else "0"
+            val script = """
+                mkdir -p /data/adb/lynx 2>/dev/null
+                echo "$mark" > /data/adb/lynx/user_egl_multifile 2>/dev/null
+                setprop debug.egl.blobcache.multifile $v
+                ${if (enabled) "setprop debug.egl.blobcache.multifile_limit $limitBytes" else ""}
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setHwuiHintManager(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isHwuiHintManagerSupported) return@withContext false
+            val v = if (enabled) "true" else "false"
+            val mark = if (enabled) "1" else "0"
+            val script = """
+                mkdir -p /data/adb/lynx 2>/dev/null
+                echo "$mark" > /data/adb/lynx/user_hwui_hint_mgr 2>/dev/null
+                setprop debug.hwui.use_hint_manager $v
+                echo ok
+            """.trimIndent()
+            Shell.cmd(script).exec().isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setHwuiSkipEmptyDamage(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val caps = com.noir.lynx.hardware.GraphicsPipelineProbe.detect()
+            if (!caps.isHwuiSkipEmptyDamageSupported) return@withContext false
+            val v = if (enabled) "true" else "false"
+            Shell.cmd("setprop debug.hwui.skip_empty_damage $v").exec().isSuccess
+        } catch (_: Exception) { false }
+    }
 
 }

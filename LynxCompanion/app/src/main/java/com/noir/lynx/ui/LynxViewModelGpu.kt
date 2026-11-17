@@ -591,6 +591,61 @@ fun LynxViewModel.setPureHwVsync(enabled: Boolean) {
     }
 }
 
+fun LynxViewModel.setEglMultifileBlobCache(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(eglMultifileCacheEnabled = enabled)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setEglMultifileBlobCache(enabled)
+        if (ok) {
+            _uiState.update {
+                it.copy(
+                    successMessage = if (enabled) {
+                        "EGL Multi-File Shader Cache (${it.graphicsHwui.eglMultifileCacheLimitMb}MB) diaktifkan"
+                    } else {
+                        "EGL Multi-File Shader Cache dimatikan"
+                    }
+                )
+            }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Properti EGL Multi-File Cache tidak didukung ROM ini") }
+        }
+    }
+}
+
+fun LynxViewModel.setHwuiHintManager(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(hwuiHintManagerEnabled = enabled)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setHwuiHintManager(enabled)
+        if (ok) {
+            _uiState.update {
+                it.copy(
+                    successMessage = if (enabled) "ADPF Render Hint Manager diaktifkan" else "ADPF Render Hint Manager dimatikan"
+                )
+            }
+        } else {
+            _uiState.update { it.copy(errorMessage = "ADPF Hint Manager tidak didukung HWUI ROM ini") }
+        }
+    }
+}
+
+fun LynxViewModel.setHwuiSkipEmptyDamage(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { it.copy(graphicsHwui = it.graphicsHwui.copy(hwuiSkipEmptyDamageEnabled = enabled)) }
+    viewModelScope.launch {
+        val ok = LynxRepository.setHwuiSkipEmptyDamage(enabled)
+        if (ok) {
+            _uiState.update {
+                it.copy(
+                    successMessage = if (enabled) "Skip Empty Damage (lossless) aktif" else "Skip Empty Damage dinonaktifkan"
+                )
+            }
+        } else {
+            _uiState.update { it.copy(errorMessage = "Skip Empty Damage tidak didukung HWUI ROM ini") }
+        }
+    }
+}
+
 fun LynxViewModel.setDisplayRenderScale(preset: String) {
     recordStateMutation()
     viewModelScope.launch {

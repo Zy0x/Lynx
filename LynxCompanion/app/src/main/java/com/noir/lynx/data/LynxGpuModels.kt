@@ -159,7 +159,15 @@ data class GraphicsHwuiInfo(
     val isAsyncShaderSupported: Boolean = false,
     val isPureHwVsyncSupported: Boolean = false,
     val isSfLatchSupported: Boolean = false,
-    val isSfDisableBackpressureSupported: Boolean = false
+    val isSfDisableBackpressureSupported: Boolean = false,
+    // Android 13/14+ EGL Shader BlobCache & ADPF / Lossless Damage Pipeline
+    val eglMultifileCacheEnabled: Boolean = false,
+    val eglMultifileCacheLimitMb: Int = 8,
+    val isEglMultifileCacheSupported: Boolean = false,
+    val hwuiHintManagerEnabled: Boolean = false,
+    val isHwuiHintManagerSupported: Boolean = false,
+    val hwuiSkipEmptyDamageEnabled: Boolean = true,
+    val isHwuiSkipEmptyDamageSupported: Boolean = false
 ) {
     fun isBackendSupported(backend: String): Boolean = when (backend.lowercase()) {
         "auto", "skiagl" -> true

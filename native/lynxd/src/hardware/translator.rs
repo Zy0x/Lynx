@@ -588,6 +588,17 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS step", "/sys/kernel/ged/hal/loading_base_dvfs_step", dvfs_step, false);
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS margin", "/sys/kernel/ged/hal/dvfs_margin_value", dvfs_margin, false);
 
+                let active_hz = crate::subsystems::DisplayController::active_refresh_hz();
+                let target_t_cpu = crate::subsystems::DisplayController::ged_target_cpu_remained_ns(active_hz, is_perf_or_ext);
+                Self::push_op(
+                    &mut ops,
+                    "MTK-GPU",
+                    format!("GED CPU-remained frame budget ({}Hz)", active_hz),
+                    "/sys/module/ged/parameters/target_t_cpu_remained",
+                    target_t_cpu.to_string(),
+                    false,
+                );
+
                 // MediaTek CoreLink Interconnect (CCI) & Power Mode
                 let power_mode = if is_perf_or_ext { "3" } else if is_powersave { "1" } else { "0" };
                 let cci_mode = if is_perf_or_ext { "1" } else { "0" };
@@ -977,6 +988,34 @@ impl HardwareTranslator {
                 }
             }
             Vendor::Generic => {}
+        }
+
+        // Universal ARM Mali Kbase Memory Pool & Scheduler Tuning (MediaTek / Exynos / Tensor)
+        let mali_dirs = MtkHardware::mali_sysfs_paths();
+        if !mali_dirs.is_empty() {
+            let (mem_4k, lp_2m, dvfs_period, power_policy) =
+                crate::subsystems::GpuController::compute_mali_pool_targets(cap.memory.total_ram_mb, profile.name);
+            let ctx_sched = if is_perf_or_ext { "0" } else { "1" };
+            for mdir in &mali_dirs {
+                let simp_dir = mdir.join("mempool");
+                if simp_dir.is_dir() {
+                    Self::push_op(&mut ops, "GPU", "Mali mempool 4K max_size", simp_dir.join("max_size"), mem_4k.to_string(), false);
+                    Self::push_op(&mut ops, "GPU", "Mali mempool 2MB lp_max_size", simp_dir.join("lp_max_size"), lp_2m.to_string(), false);
+                }
+                let max_attr = mdir.join("mem_pool_max_size");
+                if max_attr.exists() {
+                    let payload = crate::subsystems::GpuController::mali_pool_attr_payload(&max_attr, mem_4k);
+                    Self::push_op(&mut ops, "GPU", "Mali 4K pool max_size", max_attr, payload, false);
+                }
+                let lp_attr = mdir.join("lp_mem_pool_max_size");
+                if lp_attr.exists() {
+                    let payload = crate::subsystems::GpuController::mali_pool_attr_payload(&lp_attr, lp_2m);
+                    Self::push_op(&mut ops, "GPU", "Mali 2MB huge-page pool max_size", lp_attr, payload, false);
+                }
+                Self::push_op(&mut ops, "GPU", "Mali DVFS polling period", mdir.join("dvfs_period"), dvfs_period, false);
+                Self::push_op(&mut ops, "GPU", "Mali power policy", mdir.join("power_policy"), power_policy, false);
+                Self::push_op(&mut ops, "GPU", "Mali context priority mode", mdir.join("js_ctx_scheduling_mode"), ctx_sched, false);
+            }
         }
 
         // Generic Devfreq GPU Fallback

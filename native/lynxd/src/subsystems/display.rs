@@ -450,4 +450,55 @@ impl DisplayController {
             cur_hz, min_rr, peak_rr, rates_str, has_override
         )
     }
+
+    /// Resolves live active refresh rate cleanly without hardcoding a panel ceiling.
+    pub fn active_refresh_hz() -> u32 {
+        let cached = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
+        if cached >= 30 {
+            return cached.clamp(60, 240);
+        }
+        for key in ["peak_refresh_rate", "min_refresh_rate"] {
+            if let Ok(out) = Self::run_cmd("settings", &["get", "system", key]) {
+                let raw = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if let Ok(val) = raw.parse::<f32>() {
+                    let rounded = val.round() as u32;
+                    if (30..=360).contains(&rounded) {
+                        return rounded.clamp(60, 240);
+                    }
+                }
+            }
+        }
+        Self::get_display_modes()
+            .supported_rates
+            .last()
+            .copied()
+            .unwrap_or(60)
+            .clamp(60, 240)
+    }
+
+    /// Computes dynamic MediaTek GED CPU-remained frame budget (ns) matching display Hz.
+    pub fn ged_target_cpu_remained_ns(hz: u32, gaming: bool) -> u64 {
+        let safe_hz = hz.clamp(60, 240) as u64;
+        let frame_ns = 1_000_000_000u64 / safe_hz;
+        if gaming {
+            frame_ns / 2
+        } else {
+            frame_ns
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DisplayController;
+
+    #[test]
+    fn ged_target_cpu_remained_scales_with_refresh_rate() {
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(60, true), 8_333_333);
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(90, true), 5_555_555);
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(120, true), 4_166_666);
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(144, true), 3_472_222);
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(120, false), 8_333_333);
+        assert_eq!(DisplayController::ged_target_cpu_remained_ns(30, false), 16_666_666);
+    }
 }

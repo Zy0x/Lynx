@@ -150,8 +150,121 @@ impl SystemController {
         }
         Self::write_opt("/sys/module/workqueue/parameters/power_efficient", "Y");
         Self::write_opt("/proc/sys/kernel/sched_autogroup_enabled", "1");
+        count += Self::apply_universal_graphics_pipeline();
 
         format!("Universal system and kernel core optimizations applied ({} nodes written).", count)
+    }
+
+    pub fn compute_adaptive_egl_blobcache_limit_bytes(total_ram_mb: u64) -> u64 {
+        if total_ram_mb <= 4096 {
+            4 * 1024 * 1024
+        } else if total_ram_mb <= 8192 {
+            8 * 1024 * 1024
+        } else {
+            16 * 1024 * 1024
+        }
+    }
+
+    /// Streams ELF/shared libraries in bounded 256 KiB chunks to check whether a property key is supported.
+    pub fn binary_contains_bytes(path: &Path, needle: &[u8]) -> bool {
+        use std::io::Read;
+        if needle.is_empty() {
+            return false;
+        }
+        let Ok(mut file) = std::fs::File::open(path) else {
+            return false;
+        };
+        let chunk_len = 256 * 1024;
+        let overlap = needle.len().saturating_sub(1);
+        let mut buf = vec![0u8; chunk_len + overlap];
+        let mut carry = 0usize;
+        loop {
+            let Ok(read_n) = file.read(&mut buf[carry..]) else {
+                return false;
+            };
+            if read_n == 0 {
+                return false;
+            }
+            let valid_len = carry + read_n;
+            if buf[..valid_len].windows(needle.len()).any(|w| w == needle) {
+                return true;
+            }
+            if overlap > 0 && valid_len > overlap {
+                buf.copy_within(valid_len - overlap..valid_len, 0);
+                carry = overlap;
+            } else {
+                carry = 0;
+            }
+        }
+    }
+
+    fn set_system_prop(key: &str, val: &str) -> bool {
+        let bin = if Path::new("/system/bin/setprop").exists() {
+            "/system/bin/setprop"
+        } else {
+            "setprop"
+        };
+        Command::new(bin)
+            .args([key, val])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    /// Probes Android ELF libraries at runtime and applies lossless OpenGL ES / HWUI optimizations
+    /// (EGL multi-file shader blobcache + HWUI ADPF hint manager + skip empty damage).
+    pub fn apply_universal_graphics_pipeline() -> usize {
+        let mut applied = 0usize;
+        let mem = crate::hardware::capability::HardwareCapability::resolve_memory();
+        let limit_bytes = Self::compute_adaptive_egl_blobcache_limit_bytes(mem.total_ram_mb);
+
+        let egl_libs = ["/system/lib64/libEGL.so", "/system/lib/libEGL.so"];
+        let supports_multifile = egl_libs
+            .iter()
+            .map(Path::new)
+            .any(|p| Self::binary_contains_bytes(p, b"debug.egl.blobcache.multifile"));
+        if supports_multifile {
+            let user_opt_out = std::fs::read_to_string("/data/adb/lynx/user_egl_multifile")
+                .map(|s| s.trim() == "0")
+                .unwrap_or(false);
+            if !user_opt_out {
+                if Self::set_system_prop("debug.egl.blobcache.multifile", "true") {
+                    applied += 1;
+                }
+                if Self::set_system_prop("debug.egl.blobcache.multifile_limit", &limit_bytes.to_string()) {
+                    applied += 1;
+                }
+            }
+        }
+
+        let hwui_libs = [
+            "/system/lib64/libhwui.so",
+            "/system/lib/libhwui.so",
+            "/system_ext/lib64/libhwui.so",
+            "/system_ext/lib/libhwui.so",
+        ];
+        let supports_hint = hwui_libs
+            .iter()
+            .map(Path::new)
+            .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.use_hint_manager"));
+        if supports_hint {
+            let user_opt_out = std::fs::read_to_string("/data/adb/lynx/user_hwui_hint_mgr")
+                .map(|s| s.trim() == "0")
+                .unwrap_or(false);
+            if !user_opt_out && Self::set_system_prop("debug.hwui.use_hint_manager", "true") {
+                applied += 1;
+            }
+        }
+
+        let supports_skip_dmg = hwui_libs
+            .iter()
+            .map(Path::new)
+            .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.skip_empty_damage"));
+        if supports_skip_dmg && Self::set_system_prop("debug.hwui.skip_empty_damage", "true") {
+            applied += 1;
+        }
+
+        applied
     }
 
     /// Checks if kernel Boeffla / Generic Wakelock Blocker driver is present.
@@ -495,6 +608,31 @@ impl SystemController {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SystemController;
+
+    #[test]
+    fn adaptive_egl_blobcache_limit_scales_by_ram_tier() {
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(3584), 4 * 1024 * 1024);
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(7680), 8 * 1024 * 1024);
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(12288), 16 * 1024 * 1024);
+    }
+
+    #[test]
+    fn binary_contains_bytes_handles_boundary_match() {
+        let mut p = std::env::temp_dir();
+        p.push("lynx_probe_test_blob.bin");
+        let mut data = vec![b'A'; 262_130];
+        data.extend_from_slice(b"debug.egl.blobcache.multifile");
+        data.extend_from_slice(&[b'Z'; 32]);
+        std::fs::write(&p, &data).unwrap();
+        assert!(SystemController::binary_contains_bytes(&p, b"debug.egl.blobcache.multifile"));
+        assert!(!SystemController::binary_contains_bytes(&p, b"ro.hwui.nonexistent_prop"));
+        let _ = std::fs::remove_file(&p);
     }
 }
 

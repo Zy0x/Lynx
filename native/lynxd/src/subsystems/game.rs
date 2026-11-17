@@ -98,7 +98,14 @@ impl GameController {
         Self::write_opt(MtkHardware::GED_BOOST_GPU_ENABLE, "1");
         Self::write_opt(MtkHardware::GED_GPU_IDLE, "0");
         Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "1");
-        Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", "4166666");
+        if !Path::new("/dev/lynx_orig_ged_t_cpu").exists() {
+            if let Some(orig_t) = Self::read_trimmed("/sys/module/ged/parameters/target_t_cpu_remained") {
+                let _ = fs::write("/dev/lynx_orig_ged_t_cpu", orig_t);
+            }
+        }
+        let game_hz = crate::subsystems::DisplayController::active_refresh_hz();
+        let game_t_cpu = crate::subsystems::DisplayController::ged_target_cpu_remained_ns(game_hz, true);
+        Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", game_t_cpu.to_string());
 
         // Universal Dynamic Hardware-Aware GPU Frequency Floor & Ceiling
         // BANS all hardcoded frequencies (e.g. 850/950 MHz). Adapts dynamically to ANY SoC
@@ -197,10 +204,15 @@ impl GameController {
         crate::subsystems::SchedulerGuardian::enforce_permission_shield(true);
 
         // Dynamic Mali Bifrost/Valhall GPU Driver Tuning
+        let mem_info = HardwareCapability::resolve_memory();
+        let (mali_4k, mali_2m, _, _) =
+            crate::subsystems::GpuController::compute_mali_pool_targets(mem_info.total_ram_mb, "performance");
         for entry in MtkHardware::mali_sysfs_paths() {
             Self::write_opt(entry.join("dvfs_period"), "10");
             Self::write_opt(entry.join("power_policy"), "always_on");
             Self::write_opt(entry.join("js_scheduling_period"), "50");
+            Self::write_opt(entry.join("js_ctx_scheduling_mode"), "0");
+            crate::subsystems::GpuController::sync_mali_mempool_dir(&entry, mali_4k, mali_2m);
         }
         Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "100");
         Self::write_opt("/sys/kernel/ged/hal/timer_base_dvfs_margin", "100");
@@ -442,6 +454,19 @@ impl GameController {
         Self::write_opt(MtkHardware::GED_BOOST_EXTRA, "0");
         Self::write_opt(MtkHardware::GED_GPU_IDLE, "100");
         Self::write_opt(MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, "0");
+        if Path::new("/dev/lynx_orig_ged_t_cpu").exists() {
+            if let Ok(orig_t) = fs::read_to_string("/dev/lynx_orig_ged_t_cpu") {
+                let t = orig_t.trim();
+                if !t.is_empty() {
+                    Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", t);
+                }
+            }
+            let _ = fs::remove_file("/dev/lynx_orig_ged_t_cpu");
+        } else {
+            let bal_hz = crate::subsystems::DisplayController::active_refresh_hz();
+            let bal_t_cpu = crate::subsystems::DisplayController::ged_target_cpu_remained_ns(bal_hz, false);
+            Self::write_opt("/sys/module/ged/parameters/target_t_cpu_remained", bal_t_cpu.to_string());
+        }
 
         Self::write_opt(MtkHardware::FPSGO_FBT_THRM_TEMP_TH, "65");
         Self::write_opt(MtkHardware::FPSGO_FBT_THRM_LIMIT_CPU, "1");
@@ -458,10 +483,15 @@ impl GameController {
         Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "0");
         crate::subsystems::SchedulerGuardian::enforce_permission_shield(false);
 
+        let mem_info = HardwareCapability::resolve_memory();
+        let (mali_4k, mali_2m, _, _) =
+            crate::subsystems::GpuController::compute_mali_pool_targets(mem_info.total_ram_mb, "balanced");
         for entry in MtkHardware::mali_sysfs_paths() {
             Self::write_opt(entry.join("dvfs_period"), "20");
             Self::write_opt(entry.join("power_policy"), "coarse_demand");
             Self::write_opt(entry.join("js_scheduling_period"), "100");
+            Self::write_opt(entry.join("js_ctx_scheduling_mode"), "1");
+            crate::subsystems::GpuController::sync_mali_mempool_dir(&entry, mali_4k, mali_2m);
         }
         Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "0");
         Self::write_opt("/sys/kernel/ged/hal/timer_base_dvfs_margin", "0");

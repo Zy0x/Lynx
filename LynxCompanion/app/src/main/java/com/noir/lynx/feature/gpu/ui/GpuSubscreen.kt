@@ -178,7 +178,10 @@ fun LazyListScope.tuningGpuCategoryItems(
                         onRefreshShaderCache = { viewModel.refreshGraphicsHwui() },
                         onSetTextureCacheSize = { mb -> viewModel.setTextureCacheSize(mb) },
                         onSetAsyncShaderPipeline = { enabled -> viewModel.setAsyncShaderPipeline(enabled) },
-                        onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) }
+                        onSetPureHwVsync = { enabled -> viewModel.setPureHwVsync(enabled) },
+                        onSetEglMultifileCache = { enabled -> viewModel.setEglMultifileBlobCache(enabled) },
+                        onSetHwuiHintManager = { enabled -> viewModel.setHwuiHintManager(enabled) },
+                        onSetHwuiSkipEmptyDamage = { enabled -> viewModel.setHwuiSkipEmptyDamage(enabled) }
                     )
                     GpuShaderRebuilderCard()
                 }

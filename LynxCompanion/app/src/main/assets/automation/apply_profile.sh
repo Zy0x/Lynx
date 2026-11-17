@@ -320,14 +320,21 @@ case "$PROFILE" in
         write_node "1" "/sys/module/ged/parameters/ged_boost_enable"
         write_node "1" "/sys/module/ged/parameters/ged_force_mdp_enable"
         write_node "1" "/sys/module/ged/parameters/ged_monitor_3D_fence_disable"
+        cur_rr_int=$(settings get system peak_refresh_rate 2>/dev/null | cut -d. -f1)
+        case "$cur_rr_int" in
+            [0-9]*) [ "$cur_rr_int" -lt 60 ] 2>/dev/null && cur_rr_int=60 ;;
+            *) cur_rr_int=60 ;;
+        esac
+        t_cpu_full=$(( 1000000000 / cur_rr_int ))
+        t_cpu_half=$(( t_cpu_full / 2 ))
         if [ "$PROFILE" = "extreme" ]; then
             write_node "0" "/sys/module/ged/parameters/gpu_idle"
             write_node "0" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "100" "/sys/module/ged/parameters/boost_upper_bound"
             # Disable Mali DVFS — freq dikunci via hardware PLL
             write_node "0" "/proc/mali/dvfs_enable"
-            # Improve CPU response for the render thread (240 Hz budget).
-            write_node "4166666" "/sys/module/ged/parameters/target_t_cpu_remained"
+            # Improve CPU response for the render thread (dynamic half-frame budget).
+            write_node "$t_cpu_half" "/sys/module/ged/parameters/target_t_cpu_remained"
             # Dynamically route Mali/GPU IRQs to the big cores.
             big_mask=0
             max_cap=0
@@ -366,7 +373,7 @@ case "$PROFILE" in
             write_node "1" "/sys/module/ged/parameters/ged_smart_boost"
             write_node "80" "/sys/module/ged/parameters/boost_upper_bound"
             write_node "1" "/proc/mali/dvfs_enable"
-            write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
+            write_node "$t_cpu_full" "/sys/module/ged/parameters/target_t_cpu_remained"
         fi
         write_node "1" "/sys/module/ged/parameters/gx_force_cpu_boost"
         write_node "0" "/proc/gpufreq/gpufreq_aging_enable"
@@ -1455,15 +1462,12 @@ case "$PROFILE" in
         write_node "1" "/proc/mali/always_on"
         write_node "1" "/proc/mali/dvfs_enable"
 
-        cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null)
+        cur_peak_rr=$(settings get system peak_refresh_rate 2>/dev/null | cut -d. -f1)
         case "$cur_peak_rr" in
-            144*|144|120*|120|90*|90)
-                write_node "8333333" "/sys/module/ged/parameters/target_t_cpu_remained"
-                ;;
-            *)
-                write_node "16666666" "/sys/module/ged/parameters/target_t_cpu_remained"
-                ;;
+            [0-9]*) [ "$cur_peak_rr" -lt 60 ] 2>/dev/null && cur_peak_rr=60 ;;
+            *) cur_peak_rr=60 ;;
         esac
+        write_node "$(( 1000000000 / cur_peak_rr ))" "/sys/module/ged/parameters/target_t_cpu_remained"
 
         write_node "1" "/sys/class/kgsl/kgsl-3d0/throttling"
         write_node "0" "/sys/class/kgsl/kgsl-3d0/force_bus_on"

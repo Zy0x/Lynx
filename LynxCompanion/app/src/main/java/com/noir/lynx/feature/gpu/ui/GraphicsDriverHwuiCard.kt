@@ -44,6 +44,9 @@ fun GraphicsDriverHwuiCard(
     onSetTextureCacheSize: ((Int) -> Unit)? = null,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)? = null,
     onSetPureHwVsync: ((Boolean) -> Unit)? = null,
+    onSetEglMultifileCache: ((Boolean) -> Unit)? = null,
+    onSetHwuiHintManager: ((Boolean) -> Unit)? = null,
+    onSetHwuiSkipEmptyDamage: ((Boolean) -> Unit)? = null,
     wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -197,7 +200,10 @@ fun GraphicsDriverHwuiCard(
             onSetOemShield = onSetOemShield,
             onSetTextureCacheSize = onSetTextureCacheSize,
             onSetAsyncShaderPipeline = onSetAsyncShaderPipeline,
-            onSetPureHwVsync = onSetPureHwVsync
+            onSetPureHwVsync = onSetPureHwVsync,
+            onSetEglMultifileCache = onSetEglMultifileCache,
+            onSetHwuiHintManager = onSetHwuiHintManager,
+            onSetHwuiSkipEmptyDamage = onSetHwuiSkipEmptyDamage
         )
     }
     }

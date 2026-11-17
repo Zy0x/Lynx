@@ -972,4 +972,116 @@ impl GpuController {
             GpuDriver::Unsupported => {}
         }
     }
+
+    /// Computes universal RAM-and-profile-aware ARM Mali memory pool limits & DVFS window:
+    /// returns `(mem_pool_max_4k_pages, lp_mem_pool_max_2m_pages, dvfs_period_ms, power_policy)`.
+    pub fn compute_mali_pool_targets(
+        total_ram_mb: u64,
+        profile_name: &str,
+    ) -> (u64, u64, &'static str, &'static str) {
+        let mem_4k = if total_ram_mb <= 4096 {
+            16_384 // 64 MiB
+        } else if total_ram_mb <= 8192 {
+            32_768 // 128 MiB
+        } else {
+            65_536 // 256 MiB
+        };
+
+        let is_powersave = matches!(profile_name, "powersave" | "battery");
+        let is_perf_or_ext = matches!(profile_name, "performance" | "perf" | "esports" | "extreme" | "ext");
+        let is_extreme = matches!(profile_name, "extreme" | "ext");
+
+        let lp_2m = if is_powersave {
+            if total_ram_mb > 8192 { 32 } else { 16 }
+        } else if is_perf_or_ext {
+            if total_ram_mb <= 4096 {
+                32
+            } else if total_ram_mb <= 8192 {
+                64
+            } else {
+                96
+            }
+        } else {
+            // Balanced
+            if total_ram_mb <= 4096 {
+                24
+            } else if total_ram_mb <= 8192 {
+                48
+            } else {
+                64
+            }
+        };
+
+        let dvfs_period = if is_extreme {
+            "10"
+        } else if is_perf_or_ext {
+            "25"
+        } else if is_powersave {
+            "100"
+        } else {
+            "50"
+        };
+
+        let power_policy = if is_perf_or_ext {
+            "always_on"
+        } else {
+            "coarse_demand"
+        };
+
+        (mem_4k, lp_2m, dvfs_period, power_policy)
+    }
+
+    /// Formats a space-delimited group payload matching the kernel attr's exposed group count.
+    pub fn format_group_attr_payload(existing_raw: &str, value: u64) -> String {
+        let count = existing_raw.split_whitespace().count().clamp(1, 16);
+        let tok = value.to_string();
+        vec![tok; count].join(" ")
+    }
+
+    pub fn mali_pool_attr_payload(attr_path: &Path, value: u64) -> String {
+        let existing = SysfsReader::read_trimmed(attr_path).unwrap_or_default();
+        Self::format_group_attr_payload(&existing, value)
+    }
+
+    /// Updates simplified `mempool/*` and multi-group `*_mem_pool_max_size` sysfs attributes safely.
+    pub fn sync_mali_mempool_dir(mali_dir: &Path, mem_4k: u64, lp_2m: u64) {
+        let simp_dir = mali_dir.join("mempool");
+        if simp_dir.is_dir() {
+            Self::write_opt(simp_dir.join("max_size"), mem_4k.to_string());
+            Self::write_opt(simp_dir.join("lp_max_size"), lp_2m.to_string());
+        }
+        let max_attr = mali_dir.join("mem_pool_max_size");
+        if max_attr.exists() {
+            let payload = Self::mali_pool_attr_payload(&max_attr, mem_4k);
+            Self::write_opt(&max_attr, payload);
+        }
+        let lp_attr = mali_dir.join("lp_mem_pool_max_size");
+        if lp_attr.exists() {
+            let payload = Self::mali_pool_attr_payload(&lp_attr, lp_2m);
+            Self::write_opt(&lp_attr, payload);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GpuController;
+
+    #[test]
+    fn mali_pool_targets_scale_monotonically_with_ram_and_profile() {
+        let (m4_low, lp_low_bal, dvfs_bal, pol_bal) =
+            GpuController::compute_mali_pool_targets(4096, "balanced");
+        assert_eq!((m4_low, lp_low_bal, dvfs_bal, pol_bal), (16_384, 24, "50", "coarse_demand"));
+
+        let (m8_mid, lp_mid_perf, dvfs_perf, pol_perf) =
+            GpuController::compute_mali_pool_targets(8192, "performance");
+        assert_eq!((m8_mid, lp_mid_perf, dvfs_perf, pol_perf), (32_768, 64, "25", "always_on"));
+
+        let (m12_hi, lp_hi_ext, dvfs_ext, pol_ext) =
+            GpuController::compute_mali_pool_targets(12288, "extreme");
+        assert_eq!((m12_hi, lp_hi_ext, dvfs_ext, pol_ext), (65_536, 96, "10", "always_on"));
+
+        assert_eq!(GpuController::format_group_attr_payload("64", 48), "48");
+        assert_eq!(GpuController::format_group_attr_payload("64 64 64", 48), "48 48 48");
+    }
 }

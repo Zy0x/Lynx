@@ -38,7 +38,10 @@ fun GraphicsMemoryPipelineSection(
     onSetOemShield: (Boolean) -> Unit,
     onSetTextureCacheSize: ((Int) -> Unit)?,
     onSetAsyncShaderPipeline: ((Boolean) -> Unit)?,
-    onSetPureHwVsync: ((Boolean) -> Unit)?
+    onSetPureHwVsync: ((Boolean) -> Unit)?,
+    onSetEglMultifileCache: ((Boolean) -> Unit)? = null,
+    onSetHwuiHintManager: ((Boolean) -> Unit)? = null,
+    onSetHwuiSkipEmptyDamage: ((Boolean) -> Unit)? = null
 ) {
     var showCustomTextureDialog by remember { mutableStateOf(false) }
 
@@ -168,7 +171,13 @@ fun GraphicsMemoryPipelineSection(
         }
 
         // ── 3. MEMORY ALLOCATION & RENDER PIPELINE ──
-        if ((onSetTextureCacheSize != null && graphics.isTextureCacheSupported) || onSetAsyncShaderPipeline != null || onSetPureHwVsync != null) {
+        val hasPipelineControls = (onSetTextureCacheSize != null && graphics.isTextureCacheSupported) ||
+            (onSetAsyncShaderPipeline != null && graphics.isAsyncShaderSupported) ||
+            (onSetPureHwVsync != null && graphics.isPureHwVsyncSupported) ||
+            (onSetEglMultifileCache != null && graphics.isEglMultifileCacheSupported) ||
+            (onSetHwuiHintManager != null && graphics.isHwuiHintManagerSupported) ||
+            (onSetHwuiSkipEmptyDamage != null && graphics.isHwuiSkipEmptyDamageSupported)
+        if (hasPipelineControls) {
             HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
@@ -300,6 +309,33 @@ fun GraphicsMemoryPipelineSection(
                     subLabel = "Sinkronisasi animasi langsung ke panel fisik layar untuk mencegah tearing",
                     checked = graphics.pureHwVsyncEnabled,
                     onCheckedChange = { onSetPureHwVsync(it) }
+                )
+            }
+
+            if (onSetEglMultifileCache != null && graphics.isEglMultifileCacheSupported) {
+                LynxSwitch(
+                    label = "EGL Multi-File Shader BlobCache (${graphics.eglMultifileCacheLimitMb}MB)",
+                    subLabel = "Percepat kompilasi shader OpenGL ES antar aplikasi tanpa mengorbankan kualitas gambar",
+                    checked = graphics.eglMultifileCacheEnabled,
+                    onCheckedChange = { onSetEglMultifileCache(it) }
+                )
+            }
+
+            if (onSetHwuiHintManager != null && graphics.isHwuiHintManagerSupported) {
+                LynxSwitch(
+                    label = "Sinkronisasi ADPF Render Thread (Hint Manager)",
+                    subLabel = "Laporkan anggaran waktu render ke scheduler kernel agar frame rate antarmuka stabil",
+                    checked = graphics.hwuiHintManagerEnabled,
+                    onCheckedChange = { onSetHwuiHintManager(it) }
+                )
+            }
+
+            if (onSetHwuiSkipEmptyDamage != null && graphics.isHwuiSkipEmptyDamageSupported) {
+                LynxSwitch(
+                    label = "Lewati Redraw Kosong (Skip Empty Damage)",
+                    subLabel = "Optimasi lossless yang mencegah render ulang area statis tanpa ubah presisi piksel",
+                    checked = graphics.hwuiSkipEmptyDamageEnabled,
+                    onCheckedChange = { onSetHwuiSkipEmptyDamage(it) }
                 )
             }
         }

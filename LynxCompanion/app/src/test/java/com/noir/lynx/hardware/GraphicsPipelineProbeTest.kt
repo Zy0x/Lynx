@@ -20,6 +20,9 @@ class GraphicsPipelineProbeTest {
         assertFalse(minimal.isTextureCacheSupported)
         assertFalse(minimal.isSfTouchBoostDurationSupported)
         assertFalse(minimal.isInputResamplingSupported)
+        assertFalse(minimal.isEglMultifileCacheSupported)
+        assertFalse(minimal.isHwuiHintManagerSupported)
+        assertFalse(minimal.isHwuiSkipEmptyDamageSupported)
         assertTrue(minimal.hasResetprop)
 
         val android15Minimal = GraphicsPipelineProbe.parseProbeOutput(
@@ -42,7 +45,10 @@ class GraphicsPipelineProbeTest {
                 "CAP_SF_EARLY_PHASE=1",
                 "CAP_SF_TOUCH_DUR=1",
                 "CAP_INPUT_RESAMPLE=1",
-                "CAP_RESETPROP=1"
+                "CAP_RESETPROP=1",
+                "CAP_EGL_MULTIFILE=1",
+                "CAP_HWUI_HINT_MGR=1",
+                "CAP_HWUI_SKIP_DAMAGE=1"
             ),
             sdkInt = 34
         )
@@ -57,6 +63,21 @@ class GraphicsPipelineProbeTest {
         assertTrue(full.isSfEarlyPhaseSupported)
         assertTrue(full.isSfTouchBoostDurationSupported)
         assertTrue(full.isInputResamplingSupported)
+        assertTrue(full.isEglMultifileCacheSupported)
+        assertTrue(full.isHwuiHintManagerSupported)
+        assertTrue(full.isHwuiSkipEmptyDamageSupported)
+    }
+
+    @Test
+    fun wildcardVulkanIcdAndAdaptiveBlobCacheScaleUniversally() {
+        assertTrue(LynxGraphicsEngineRepository.hasVulkanIcdFileNames(listOf("audio.primary.mt6781.so", "vulkan.mt6781.so")))
+        assertTrue(LynxGraphicsEngineRepository.hasVulkanIcdFileNames(listOf("vulkan.adreno.so")))
+        assertTrue(LynxGraphicsEngineRepository.hasVulkanIcdFileNames(listOf("vulkan.exynos9820.so")))
+        assertFalse(LynxGraphicsEngineRepository.hasVulkanIcdFileNames(listOf("libGLES_mali.so", "hwcomposer.mt6781.so")))
+
+        assertEquals(4L * 1024L * 1024L, LynxGraphicsEngineRepository.computeAdaptiveEglBlobCacheLimitBytes(3584L))
+        assertEquals(8L * 1024L * 1024L, LynxGraphicsEngineRepository.computeAdaptiveEglBlobCacheLimitBytes(7680L))
+        assertEquals(16L * 1024L * 1024L, LynxGraphicsEngineRepository.computeAdaptiveEglBlobCacheLimitBytes(12288L))
     }
 
     @Test

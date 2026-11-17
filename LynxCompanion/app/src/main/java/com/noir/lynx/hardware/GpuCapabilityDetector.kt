@@ -130,9 +130,12 @@ object GpuCapabilityDetector {
             [ -z "${'$'}mv" ] && [ -f "/sys/module/mali_kbase/version" ] && mv=${'$'}(cat /sys/module/mali_kbase/version 2>/dev/null | head -n 1 | tr -d '\r\n')
             echo "MALI_VER:${'$'}mv"
             dp=""
-            for p in /vendor/lib64/egl/libGLES_mali.so /vendor/lib64/egl/libEGL_adreno.so /vendor/lib64/hw/vulkan.mali.so /vendor/lib64/hw/vulkan.adreno.so /system/vendor/lib64/egl/libGLES_mali.so /system/vendor/lib64/egl/libEGL_adreno.so; do
+            for p in /vendor/lib64/egl/libGLES_mali.so /vendor/lib64/egl/libEGL_adreno.so /system/vendor/lib64/egl/libGLES_mali.so /system/vendor/lib64/egl/libEGL_adreno.so /vendor/lib64/hw/vulkan.*.so /vendor/lib/hw/vulkan.*.so /system/vendor/lib64/hw/vulkan.*.so /odm/lib64/hw/vulkan.*.so; do
                 if [ -f "${'$'}p" ]; then dp="${'$'}p"; break; fi
             done
+            if [ -z "${'$'}dp" ]; then
+                dp=${'$'}(ls /vendor/lib64/egl/libGLES_*.so /vendor/lib64/egl/libEGL_*.so 2>/dev/null | head -n 1)
+            fi
             echo "DRV_PATH:${'$'}dp"
             echo "PROP_MANUF:${'$'}(getprop ro.soc.manufacturer 2>/dev/null | tr -d '\r\n')"
             echo "PROP_PLAT:${'$'}(getprop ro.board.platform 2>/dev/null | tr -d '\r\n')"

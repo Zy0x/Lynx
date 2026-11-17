@@ -1,6 +1,6 @@
-# Lynx Universal [V4 Auto-Skip Vision & Lossless OpenGL ES / Vulkan GPU Pipeline] 7.0.0-RC411
+# Lynx Universal [Lossless OpenGL ES / Vulkan Pipeline, Wildcard ICD Probe & Dynamic Mali/GED Tuning] 7.0.0-RC412
 Released on: 2026-11-17
-> Lynx Kernel Manager v3.4.30
+> Lynx Kernel Manager v3.4.31
 
 ### Graphics & Kernel GPU Pipeline (`lynxd`, `LynxGraphicsEngineRepository`, `GraphicsPipelineProbe`, `GpuCapabilityDetector`)
 - **Universal Wildcard Vulkan ICD & Runtime HWUI/EGL Pipeline Probing (`LynxGraphicsEngineRepository`, `GraphicsPipelineProbe`, `GpuCapabilityDetector`)**:
@@ -10,7 +10,11 @@ Released on: 2026-11-17
   - Added bounded ELF byte scanning in `SystemController::apply_universal_graphics_pipeline()` to enable EGL multifile shader blobcache (RAM-tiered `4/8/16 MB`), HWUI ADPF hint manager, and `skip_empty_damage` only when supported and not explicitly opted out by the user.
   - Replaced hardcoded `4166666` ns in `GameController::game_on()` with `DisplayController::ged_target_cpu_remained_ns()` dynamically derived from active panel refresh rate (`60–240 Hz`), snapshotting and cleanly restoring kernel defaults in `game_off()`.
   - Added RAM-and-profile-aware `GpuController::compute_mali_pool_targets()` and group-count-safe sysfs synchronization across simplified `mempool/*` (`max_size`, `lp_max_size`) and `mem_pool_max_size` / `lp_mem_pool_max_size` / `js_ctx_scheduling_mode` for universal ARM Mali Kbase compatibility (`2MB` huge-page & `4KB` pools).
-- **Companion Asset Sync**: Updated bundled `lynxd` binary (`system/bin/lynxd` & APK assets) alongside `LynxKernelManager.apk` `v3.4.30`.
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`system/bin/lynxd` & APK assets) alongside `LynxKernelManager.apk` `v3.4.31`.
+
+# Lynx Universal [V4 Multi-Topology Dialogue Vision, Special CG Cutscene Detection & Zero-Trigger Auto-Skip] 7.0.0-RC411
+Released on: 2026-11-17
+> Lynx Kernel Manager v3.4.30
 
 ### HUD & Auto-Skip Engine (`GenshinDialogueVision`, `GenshinBottomSceneVision`, `GenshinSkipEngine`, `GenshinSkipRunner`, `RootTapPipeClient`, `HudAutoSkipWindow`, `HudSceneDiagnostics`)
 - **Multi-Topology Dialogue Disc Recognition (`GenshinDialogueVision`, `GenshinSkipEngine`)**:
