@@ -7,7 +7,7 @@ pub fn get_profile() -> Profile {
         description: "Hardcore gaming & benchmarks with highest performance limits",
         cpu: CpuPolicy {
             governor: Governor::Performance,
-            min_percent: 85,
+            min_percent: 100,
             max_percent: 100,
             boost: true,
         },

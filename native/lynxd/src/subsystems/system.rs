@@ -308,18 +308,33 @@ impl SystemController {
         Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "4096");
         Self::write_opt("/dev/cpuctl/background/cpu.shares", "128");
         Self::write_opt("/dev/cpuctl/system-background/cpu.shares", "256");
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "0");
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "0");
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "0");
-
-        // Elevate Big Cluster minimum frequency to 1.4 GHz (1401600 kHz) immediately
-        // so that ZRAM decompression and lockscreen unlock happen with ZERO ramp-up latency!
-        for pol_id in &[4, 6, 7] {
-            let min_path = format!("/sys/devices/system/cpu/cpufreq/policy{}/scaling_min_freq", pol_id);
-            if Path::new(&min_path).exists() {
-                let _ = SysfsWriter::write(&min_path, "1401600", WriteMode::ForcePermission);
+        // Elevate dynamic OPP floor (~55% quartile) across non-efficiency clusters without hardcoding frequencies
+        let cpu = crate::hardware::capability::HardwareCapability::resolve_cpu();
+        let single_cluster = cpu.policies.len() <= 1;
+        for pol in &cpu.policies {
+            for gdir in &pol.gov_tunable_dirs {
+                Self::write_opt(gdir.join("up_rate_limit_us"), "0");
+            }
+            let is_big = single_cluster || pol.index > 0 || pol.role.contains("Big") || pol.role.contains("Prime");
+            if !is_big || pol.is_locked || pol.current_governor == "performance" {
+                continue;
+            }
+            let boost_hz = crate::subsystems::cluster::pick_opp_quantile_freq(
+                &pol.available_freqs,
+                pol.min_freq,
+                pol.max_freq,
+                55,
+                100,
+            );
+            if pol.current_min_freq < boost_hz {
+                let boost_str = boost_hz.to_string();
+                let _ = SysfsWriter::write(pol.path.join("scaling_min_freq"), &boost_str, WriteMode::ForcePermission);
+                if vendor == crate::hardware::detector::Vendor::MediaTek {
+                    Self::write_opt("/proc/ppm/policy/hard_userlimit_min_cpu_freq", format!("{} {}", pol.mtk_cluster_index, boost_hz));
+                }
             }
         }
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "0");
 
         // 3. Dynamic I/O Priority Elevation (Anti-Lockscreen Freeze):
         // Elevate I/O priority for UI critical processes (keystore2, system_server, surfaceflinger).
@@ -357,9 +372,13 @@ impl SystemController {
             crate::subsystems::ClusterController::restore_baseline_floor(&cpu, &active_profile);
 
             Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "2048");
-            Self::write_opt("/sys/devices/system/cpu/cpufreq/policy0/schedutil/up_rate_limit_us", "500");
-            Self::write_opt("/sys/devices/system/cpu/cpufreq/policy4/schedutil/up_rate_limit_us", "500");
-            Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "500");
+            let restored_up = if active_profile == "powersave" { "4000" } else { "500" };
+            for pol in &cpu.policies {
+                for gdir in &pol.gov_tunable_dirs {
+                    Self::write_opt(gdir.join("up_rate_limit_us"), restored_up);
+                }
+            }
+            Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", restored_up);
 
             match vendor {
                 crate::hardware::detector::Vendor::Qualcomm => {

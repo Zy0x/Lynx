@@ -66,7 +66,7 @@ impl ProfileVerifier {
         // 1. Audit CPU Policies
         for pol in &cap.cpu.policies {
             let gov_str = profile.cpu.governor.as_str();
-            let expected_gov = if is_extreme && pol.available_governors.iter().any(|g| g == "performance") {
+            let expected_gov = if is_extreme && profile.cpu.min_percent >= 100 && pol.available_governors.iter().any(|g| g == "performance") {
                 "performance"
             } else if pol.available_governors.iter().any(|g| g == gov_str) {
                 gov_str

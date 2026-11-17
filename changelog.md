@@ -1,3 +1,18 @@
+# Lynx Universal [Zero-Hardcode Adaptive VM Headroom, F2FS Anti-Downgrade & Hybrid DVFS Peak Lock] 7.0.0-RC409
+Released on: 2026-11-17
+> Lynx Kernel Manager v3.4.28
+
+### Engine & Architecture (`lynxd`, `apply_profile.sh`, `LynxMemoryShield`)
+- **Universal Proportional VM Headroom & Anti-Allocstall Shield (`device_tier.rs`, `translator.rs`, `memory.rs`, `game.rs`, `apply_profile.sh`, `LynxMemoryShield.kt`)**:
+  - Derived `min_free_kbytes` monotonically from physical RAM (`~0.32%` aligned to 4 MiB blocks in `16..=32 MiB`, fixing the `<=4.5/6.5/>6.5 GB` drop bug in `memory.rs`) and enforced it uniformly across `HardwareTranslator`, `MemoryController`, `GameController`, `apply_profile.sh`, and `LynxMemoryShield`.
+  - Replaced hardcoded low-headroom constants (`watermark_scale_factor=10` / `extra_free_kbytes=0` in `device_tier.rs` and over-reclaim `120`/`200` in `apply_profile.sh`) with KiB-precision physical reclaim headroom scaled from `MemTotal`, primary storage duplex behavior (`is_emmc_primary`, no longer misclassifying full-duplex UFS phones when secondary microSD storage is mounted), MGLRU presence, and missing `extra_free_kbytes` sysctl compensation (`<= 85` cap on mainline/GKI kernels).
+- **F2FS `cp_interval` Anti-Downgrade (`device_tier.rs`, `translator.rs`)**:
+  - Snapshots each F2FS device's original kernel `cp_interval` into `/dev/lynx_orig_f2fs_cp_<dev>` and preserves custom-kernel intervals up to `600s` on non-eMMC non-powersave paths (preventing silent downgrades from `600s` down to `180s`/`300s`).
+- **Universal CPU Peak Lock & Hybrid DVFS / Touch Integrity (`extreme.rs`, `translator.rs`, `verifier.rs`, `cluster.rs`, `system.rs`)**:
+  - Extracted shared `HardwareTranslator::resolve_policy_cpu_targets()` (`min=100%` on unthrottled `extreme`, automatic fallback to dynamic EAS governors when thermal/battery modifiers relax `min_percent < 100`, and aligned `target_min_hz == target_max_hz` under `performance` governor + ordered MTK PPM limits so MediaTek `CONFIG_HYBRID_CPU_DVFS` / SSPM PLLs stay locked without OPP drift).
+  - Updated `ClusterController::on_hardware_touch()` and `restore_baseline_floor()` to enforce strictly upward-only touch lifting (never undercutting active locks or `performance` governor) with MTK PPM min sync, and replaced hardcoded `1401600` / `policy4,6,7` in `SystemController::wakeup_boost()` with dynamic OPP quantile discovery across probed non-efficiency clusters.
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`1,296,648` B) in `system/bin/lynxd` and `LynxCompanion` release APK assets (`v3.4.28`).
+
 # Lynx Universal [MGLRU Hex & Legacy Bitmask Compatibility Fix] 7.0.0-RC408
 Released on: 2026-11-17
 > Lynx Kernel Manager v3.4.27

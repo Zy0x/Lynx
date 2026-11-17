@@ -284,6 +284,7 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
         Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+        Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
@@ -490,6 +491,7 @@ impl GameController {
         let tier = crate::hardware::DeviceTier::detect_live();
         let vm = tier.vm_profile_targets("balance");
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "15000");

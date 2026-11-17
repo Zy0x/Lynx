@@ -39,6 +39,12 @@ object LynxMemoryShield {
                     [ "$(cat ${'$'}blk/device/type 2>/dev/null)" = "MMC" ] && is_emmc=1
                 done
 
+                ram_mb=$(awk '/^MemTotal:/ {printf "%d", ${'$'}2/1024}' /proc/meminfo 2>/dev/null)
+                [ -z "${'$'}ram_mb" ] || [ "${'$'}ram_mb" -le 0 ] 2>/dev/null && ram_mb=4096
+                mfk_kb=$(( (ram_mb * 32 / 10 + 2048) / 4096 * 4096 ))
+                [ "${'$'}mfk_kb" -lt 16384 ] && mfk_kb=16384
+                [ "${'$'}mfk_kb" -gt 32768 ] && mfk_kb=32768
+
                 if [ "${'$'}is_emmc" = "1" ]; then
                     echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
                     echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
@@ -46,14 +52,32 @@ object LynxMemoryShield {
                     echo 200 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
                     echo 100 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
                 else
-                    echo 60 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
-                    echo 15 > /proc/sys/vm/dirty_ratio 2>/dev/null
-                    echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+                    echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    echo 16 > /proc/sys/vm/dirty_ratio 2>/dev/null
+                    echo 8 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
                 fi
 
-                echo 60 > /proc/sys/vm/swappiness 2>/dev/null
-                echo 24576 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
-                echo 40 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                if [ "${'$'}ram_mb" -le 4500 ]; then
+                    echo 80 > /proc/sys/vm/swappiness 2>/dev/null
+                    echo "${'$'}mfk_kb" > /proc/sys/vm/min_free_kbytes 2>/dev/null
+                    echo 12288 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
+                    echo 30 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                else
+                    echo 40 > /proc/sys/vm/swappiness 2>/dev/null
+                    efk_kb=$(( (mfk_kb * 2 / 3 + 2048) / 4096 * 4096 ))
+                    [ "${'$'}efk_kb" -lt 12288 ] && efk_kb=12288
+                    permille=45
+                    [ -e /sys/kernel/mm/lru_gen/enabled ] || permille=35
+                    step_mb=$(( (ram_mb * permille + 5000) / 10000 ))
+                    [ "${'$'}step_mb" -lt 20 ] && step_mb=20
+                    [ "${'$'}step_mb" -gt 44 ] && step_mb=44
+                    [ ! -e /proc/sys/vm/extra_free_kbytes ] && step_mb=$(( step_mb + efk_kb / 2048 ))
+                    wsf=$(( (step_mb * 10000 + ram_mb / 2) / ram_mb ))
+                    [ "${'$'}wsf" -gt 85 ] && wsf=85
+                    echo "${'$'}mfk_kb" > /proc/sys/vm/min_free_kbytes 2>/dev/null
+                    echo "${'$'}efk_kb" > /proc/sys/vm/extra_free_kbytes 2>/dev/null
+                    echo "${'$'}wsf" > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                fi
 
                 # 2. Dynamic Block Device Queue Tuning (Strict Separation: eMMC vs MicroSD vs UFS)
                 for blk in /sys/block/*; do

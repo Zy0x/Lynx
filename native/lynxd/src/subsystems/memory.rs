@@ -69,16 +69,9 @@ impl MemoryController {
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };
         Self::write_opt("/proc/sys/vm/max_map_count", max_maps);
 
-        let min_free_kb = if mem.total_ram_mb <= 4500 {
-            "16384"
-        } else if mem.total_ram_mb <= 6500 {
-            "20480"
-        } else {
-            "16384"
-        };
+        Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
-        Self::write_opt("/proc/sys/vm/min_free_kbytes", min_free_kb);
 
         // â”€â”€ Multitasking & ActivityManager / LMKD Tiering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Strictly guards <= 4GB and <= 6GB RAM devices from lag & OOM stuttering,
@@ -372,42 +365,36 @@ impl MemoryController {
         })
     }
 
-    /// Applies predefined VM tuning profiles.
+    fn apply_vm_targets(vm: &crate::hardware::VmProfileTargets, stat_interval: &str) {
+        let dr = vm.dirty_ratio.to_string();
+        let dbr = vm.dirty_background_ratio.to_string();
+        Self::write_opt("/proc/sys/vm/dirty_ratio", &dr);
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dbr);
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+        Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
+        Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
+        Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
+        Self::write_opt("/proc/sys/vm/stat_interval", stat_interval);
+    }
+
+    /// Applies predefined VM tuning profiles dynamically per hardware tier.
     pub fn apply_vm_preset(preset: &str) -> Result<String, String> {
         let tier = crate::hardware::DeviceTier::detect_live();
         match preset.to_lowercase().as_str() {
             "gaming" | "game" => {
                 let vm = tier.vm_profile_targets("performance");
-                let dr = vm.dirty_ratio.to_string();
-                let dbr = vm.dirty_background_ratio.to_string();
-                Self::write_opt("/proc/sys/vm/dirty_ratio", &dr);
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dbr);
-                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
-                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
-                Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
-                Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
-                Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
-                Self::write_opt("/proc/sys/vm/stat_interval", "1");
+                Self::apply_vm_targets(&vm, "1");
+                Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
                 Ok(ui("Preset VM diterapkan: Gaming (buffer dirty adaptif, writeback terukur, pelindung VFS).", "VM preset applied: Gaming (Adaptive dirty buffers, measured writeback, VFS shield).").to_string())
             }
             "balanced" | "balance" => {
                 let vm = tier.vm_profile_targets("balance");
-                let dr = vm.dirty_ratio.to_string();
-                let dbr = vm.dirty_background_ratio.to_string();
-                Self::write_opt("/proc/sys/vm/dirty_ratio", &dr);
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", &dbr);
-                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
-                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
-                Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
-                Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
-                Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
-                Self::write_opt("/proc/sys/vm/stat_interval", "1");
+                Self::apply_vm_targets(&vm, "1");
                 Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
                 Self::write_opt("/proc/sys/vm/compaction_proactiveness", "20");
                 Ok(ui(
@@ -417,15 +404,8 @@ impl MemoryController {
                 .to_string())
             }
             "battery" | "powersave" => {
-                Self::write_opt("/proc/sys/vm/dirty_ratio", "30");
-                Self::write_opt("/proc/sys/vm/dirty_background_ratio", "15");
-                Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "30");
-                Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "15");
-                Self::write_opt("/proc/sys/vm/vfs_cache_pressure", "80");
-                Self::write_opt("/proc/sys/vm/swappiness", "60");
-                Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "1500");
-                Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "500");
-                Self::write_opt("/proc/sys/vm/stat_interval", "5");
+                let vm = tier.vm_profile_targets("powersave");
+                Self::apply_vm_targets(&vm, "5");
                 Ok(ui("Preset VM diterapkan: Battery (writeback tertunda, interval flush lebih renggang).", "VM preset applied: Battery (Delayed writeback, relaxed flush intervals).").to_string())
             }
             other => Err(if is_english() {

@@ -20,7 +20,10 @@ static IS_CPU_TOUCH_BOOSTED: AtomicBool = AtomicBool::new(false);
 struct CachedTouchCluster {
     min_path: PathBuf,
     max_path: PathBuf,
+    gov_path: PathBuf,
+    mtk_cluster_index: usize,
     max_freq: u64,
+    touch_min_hz: u64,
     touch_min_str: String,
     is_big_cluster: bool,
 }
@@ -98,10 +101,14 @@ impl ClusterController {
                         );
                         let min_path = pol.path.join("scaling_min_freq");
                         let max_path = pol.path.join("scaling_max_freq");
+                        let gov_path = pol.path.join("scaling_governor");
                         CachedTouchCluster {
                             min_path,
                             max_path,
+                            gov_path,
+                            mtk_cluster_index: pol.mtk_cluster_index,
                             max_freq: pol.max_freq,
+                            touch_min_hz: touch_min,
                             touch_min_str: touch_min.to_string(),
                             is_big_cluster: is_big || is_single_cluster,
                         }
@@ -406,10 +413,31 @@ impl ClusterController {
         }
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", base_fg, WriteMode::Direct);
 
-        // Elevate discovered Big/Performance clusters dynamically using hardware OPP quantiles
+        // Elevate discovered Big/Performance clusters upward only (respecting locks and performance governor)
+        let has_ppm_min = Path::new("/proc/ppm/policy/hard_userlimit_min_cpu_freq").exists();
         for pol in Self::cached_touch_clusters() {
-            if pol.is_big_cluster {
+            if !pol.is_big_cluster {
+                continue;
+            }
+            let is_locked = std::fs::metadata(&pol.min_path)
+                .map(|m| m.permissions().readonly())
+                .unwrap_or(false);
+            if is_locked {
+                continue;
+            }
+            if SysfsReader::read_trimmed(&pol.gov_path).ok().as_deref() == Some("performance") {
+                continue;
+            }
+            let cur_min = SysfsReader::read_int::<u64>(&pol.min_path).unwrap_or(0);
+            if cur_min < pol.touch_min_hz {
                 let _ = SysfsWriter::write(&pol.min_path, &pol.touch_min_str, WriteMode::Direct);
+                if has_ppm_min {
+                    let _ = SysfsWriter::write(
+                        "/proc/ppm/policy/hard_userlimit_min_cpu_freq",
+                        format!("{} {}", pol.mtk_cluster_index, pol.touch_min_str),
+                        WriteMode::Direct,
+                    );
+                }
             }
         }
     }
@@ -489,29 +517,45 @@ impl ClusterController {
         let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.prefer_high_cap", "0", WriteMode::Direct);
 
         if let Some(prof) = crate::profile::get_profile_by_name(current_profile) {
+            let anti_heat_enabled = crate::state::ConfigStore::get("cpu.anti_heat_mode")
+                .map(|s| s != "false" && s != "0")
+                .unwrap_or(true);
+            let has_ppm_hard_min = Path::new("/proc/ppm/policy/hard_userlimit_min_cpu_freq").exists();
+            let has_ppm_user_min = Path::new("/proc/ppm/policy/userlimit_min_cpu_freq").exists();
+            let total_policies = cpu.policies.len();
             for pol in &cpu.policies {
                 if pol.is_locked {
                     continue;
                 }
-                let is_little = pol.role.contains("Little")
-                    || pol.role.contains("Efisiensi")
-                    || (cpu.policies.len() > 1 && pol.index == 0);
-
-                let (min_pct, _) = tier.cpu_bounds(
-                    current_profile,
-                    is_little,
-                    prof.cpu.min_percent,
-                    prof.cpu.max_percent,
-                );
-                let raw_min_hz = crate::hardware::HardwareTranslator::snap_frequency(
-                    pol.min_freq,
-                    pol.max_freq,
-                    min_pct,
-                    &pol.available_freqs,
-                    true,
-                );
+                let (target_gov, _, _, computed_min_hz, target_max_hz) =
+                    crate::hardware::HardwareTranslator::resolve_policy_cpu_targets(
+                        &prof,
+                        pol,
+                        &tier,
+                        anti_heat_enabled,
+                        total_policies,
+                    );
+                let target_min_hz = if pol.current_governor == "performance" || target_gov == "performance" {
+                    target_max_hz
+                } else {
+                    computed_min_hz
+                };
                 let min_path = pol.path.join("scaling_min_freq");
-                let _ = SysfsWriter::write(&min_path, raw_min_hz.to_string(), WriteMode::Direct);
+                let _ = SysfsWriter::write(&min_path, target_min_hz.to_string(), WriteMode::Direct);
+                if has_ppm_hard_min {
+                    let _ = SysfsWriter::write(
+                        "/proc/ppm/policy/hard_userlimit_min_cpu_freq",
+                        format!("{} {}", pol.mtk_cluster_index, target_min_hz),
+                        WriteMode::Direct,
+                    );
+                }
+                if has_ppm_user_min {
+                    let _ = SysfsWriter::write(
+                        "/proc/ppm/policy/userlimit_min_cpu_freq",
+                        format!("{} {}", pol.mtk_cluster_index, target_min_hz),
+                        WriteMode::Direct,
+                    );
+                }
             }
         }
     }

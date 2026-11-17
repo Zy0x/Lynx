@@ -67,6 +67,126 @@ impl HardwareTranslator {
         });
     }
 
+    fn pick_dynamic_governor<'a>(
+        avail: &'a [String],
+        requested: &'a str,
+        is_powersave: bool,
+    ) -> &'a str {
+        if avail.iter().any(|g| g == requested) {
+            return requested;
+        }
+        let chain: &[&str] = if is_powersave {
+            &["conservative", "powersave", "schedutil", "energy_step", "interactive", "ondemand"]
+        } else {
+            &["walt", "sugov_ext", "schedutil", "energy_step", "conservative", "interactive", "ondemand"]
+        };
+        for candidate in chain {
+            if let Some(found) = avail.iter().find(|g| g.as_str() == *candidate) {
+                return found.as_str();
+            }
+        }
+        avail.first().map(|s| s.as_str()).unwrap_or(requested)
+    }
+
+    fn resolve_f2fs_cp_interval(
+        entry_name: &str,
+        default_target: u32,
+        is_emmc_primary: bool,
+        is_powersave: bool,
+    ) -> u32 {
+        let block_is_emmc = if entry_name.starts_with("mmcblk") {
+            let base = entry_name
+                .split('p')
+                .next()
+                .unwrap_or(entry_name);
+            let sys_blk = Path::new("/sys/block").join(base);
+            if sys_blk.is_dir() {
+                matches!(StoragePolicy::classify(&sys_blk), crate::hardware::capability::BlockDeviceType::Emmc)
+            } else {
+                is_emmc_primary
+            }
+        } else {
+            is_emmc_primary
+        };
+
+        if block_is_emmc || is_powersave {
+            return default_target;
+        }
+
+        let cache_file = Path::new("/dev").join(format!("lynx_orig_f2fs_cp_{}", entry_name));
+        let cp_node = Path::new("/sys/fs/f2fs").join(entry_name).join("cp_interval");
+        let orig_cp = SysfsReader::read_int::<u32>(&cache_file).ok().or_else(|| {
+            let live = SysfsReader::read_int::<u32>(&cp_node).ok()?;
+            if live > 0 {
+                let _ = fs::write(&cache_file, live.to_string());
+                Some(live)
+            } else {
+                None
+            }
+        });
+
+        match orig_cp {
+            Some(orig) if orig > 0 => default_target.max(orig.min(600)),
+            _ => default_target,
+        }
+    }
+
+    /// Resolves `(governor, min_pct, max_pct, min_khz, max_khz)` for one CPU policy cleanly across all profiles.
+    pub(crate) fn resolve_policy_cpu_targets<'a>(
+        profile: &'a Profile,
+        pol: &'a crate::hardware::capability::PolicyCapability,
+        tier: &DeviceTier,
+        anti_heat_enabled: bool,
+        total_policies: usize,
+    ) -> (&'a str, u8, u8, u64, u64) {
+        let is_extreme = profile.name == "extreme";
+        let is_powersave = profile.name == "powersave";
+        let is_little = pol.role.contains("Little")
+            || pol.role.contains("Efisiensi")
+            || (total_policies > 1 && pol.index == 0);
+
+        let (target_gov, min_pct, max_pct) = if is_extreme && profile.cpu.min_percent >= 100 {
+            let picked_gov = if pol.available_governors.iter().any(|g| g == "performance") {
+                "performance"
+            } else {
+                Self::pick_dynamic_governor(&pol.available_governors, profile.cpu.governor.as_str(), false)
+            };
+            (picked_gov, 100, 100)
+        } else if is_extreme {
+            // Cooling/battery modifier reduced min_percent below 100: step down to dynamic EAS governor.
+            let picked_gov = Self::pick_dynamic_governor(&pol.available_governors, "schedutil", false);
+            (picked_gov, profile.cpu.min_percent, profile.cpu.max_percent.min(100))
+        } else {
+            let picked_gov = Self::pick_dynamic_governor(
+                &pol.available_governors,
+                profile.cpu.governor.as_str(),
+                is_powersave,
+            );
+            let (t_min, t_max) = if profile.name == "performance" && !anti_heat_enabled {
+                (if is_little { 0 } else { profile.cpu.min_percent }, profile.cpu.max_percent)
+            } else {
+                tier.cpu_bounds(
+                    profile.name,
+                    is_little,
+                    profile.cpu.min_percent,
+                    profile.cpu.max_percent,
+                )
+            };
+            (picked_gov, t_min, t_max)
+        };
+
+        let raw_min_hz = Self::snap_frequency(pol.min_freq, pol.max_freq, min_pct, &pol.available_freqs, true);
+        let target_max_hz = Self::snap_frequency(pol.min_freq, pol.max_freq, max_pct, &pol.available_freqs, false);
+        // Linux 'performance' governor pins target_max_hz; aligning min == max prevents
+        // MediaTek Hybrid CPU DVFS (SSPM) from drifting hardware PLLs toward a looser min OPP.
+        let target_min_hz = if target_gov == "performance" {
+            target_max_hz
+        } else {
+            raw_min_hz.min(target_max_hz)
+        };
+        (target_gov, min_pct, max_pct, target_min_hz, target_max_hz)
+    }
+
     /// Translates declarative profile intent into concrete sysfs planned operations across
     /// all 7 hardware subsystems based on the device's probed capabilities (Zero-Hardcode).
     pub fn translate(profile: &Profile, cap: &HardwareCapability) -> Vec<PlannedOperation> {
@@ -82,91 +202,15 @@ impl HardwareTranslator {
 
         // ── 1. CPU Policies, Governor Sub-Tunables & PPM Sync ───────────────
         for pol in &cap.cpu.policies {
-            let is_little = pol.role.contains("Little")
-                || pol.role.contains("Efisiensi")
-                || (cap.cpu.policies.len() > 1 && pol.index == 0);
-
-            // A. Dynamic Governor Resolution & Tiered Thermal-Safe Bounds
-            let (target_gov, min_pct, max_pct) = if is_extreme {
-                // Mode Extreme: Unrestricted maximum power on all cores!
-                let picked_gov = if pol.available_governors.iter().any(|g| g == "performance") {
-                    "performance"
-                } else {
-                    profile.cpu.governor.as_str()
-                };
-                (picked_gov, profile.cpu.min_percent, 100)
-            } else {
-                let gov_str = profile.cpu.governor.as_str();
-                let picked_gov = if pol.available_governors.iter().any(|g| g == gov_str) {
-                    // Exact governor match: use what the profile requests.
-                    gov_str
-                } else if is_powersave {
-                    // Powersave intent: prefer power-conservative governors before resorting to schedutil.
-                    // NEVER fall back to walt/performance for powersave — it defeats the battery objective.
-                    let mut picked = gov_str;
-                    for candidate in &["conservative", "powersave", "schedutil", "energy_step", "interactive", "ondemand"] {
-                        if pol.available_governors.iter().any(|g| g == candidate) {
-                            picked = candidate;
-                            break;
-                        }
-                    }
-                    if !pol.available_governors.iter().any(|g| g == picked) {
-                        if let Some(first) = pol.available_governors.first() {
-                            picked = first.as_str();
-                        }
-                    }
-                    picked
-                } else {
-                    // Performance / Balanced intent: prefer EAS-aware responsive governors.
-                    // Dynamic priority chain: walt → sugov_ext → schedutil → energy_step → conservative → interactive → ondemand → first available
-                    let mut picked = gov_str;
-                    for candidate in &["walt", "sugov_ext", "schedutil", "energy_step", "conservative", "interactive", "ondemand"] {
-                        if pol.available_governors.iter().any(|g| g == candidate) {
-                            picked = candidate;
-                            break;
-                        }
-                    }
-                    if !pol.available_governors.iter().any(|g| g == picked) {
-                        if let Some(first) = pol.available_governors.first() {
-                            picked = first.as_str();
-                        }
-                    }
-                    picked
-                };
-                let (t_min, t_max) = if profile.name == "performance" && !anti_heat_enabled {
-                    (if is_little { 0 } else { profile.cpu.min_percent }, profile.cpu.max_percent)
-                } else {
-                    tier.cpu_bounds(
-                        profile.name,
-                        is_little,
-                        profile.cpu.min_percent,
-                        profile.cpu.max_percent,
-                    )
-                };
-                (picked_gov, t_min, t_max)
-            };
-
-            // B. Min & Max Frequency Percentage Snapping into Real OPP Table
-            let raw_min_hz = Self::snap_frequency(
-                pol.min_freq,
-                pol.max_freq,
-                min_pct,
-                &pol.available_freqs,
-                true,
-            );
-            let target_max_hz = Self::snap_frequency(
-                pol.min_freq,
-                pol.max_freq,
-                max_pct,
-                &pol.available_freqs,
-                false,
-            );
-            // Note: Linux cpufreq 'performance' governor locks min_freq == max_freq on many kernels
-            let target_min_hz = if target_gov == "performance" {
-                raw_min_hz.min(target_max_hz)
-            } else {
-                raw_min_hz
-            };
+            // A & B. Dynamic Governor Resolution, Tiered Thermal Bounds & OPP Snapping
+            let (target_gov, min_pct, max_pct, target_min_hz, target_max_hz) =
+                Self::resolve_policy_cpu_targets(
+                    profile,
+                    pol,
+                    &tier,
+                    anti_heat_enabled,
+                    cap.cpu.policies.len(),
+                );
 
             // If leaving 'performance' governor, pre-unclamp min frequency so kernel accepts governor switch without EINVAL
             if target_gov != "performance" {
@@ -265,37 +309,48 @@ impl HardwareTranslator {
                 );
             }
 
-            // D. MediaTek PPM Per-Cluster Frequency Sync
+            // D. MediaTek PPM Per-Cluster Frequency Sync (raise max->min or lower min->max)
             if cap.vendor == Vendor::MediaTek {
-                for ppm_max in &[
-                    "/proc/ppm/policy/hard_userlimit_max_cpu_freq",
-                    "/proc/ppm/policy/userlimit_max_cpu_freq",
-                ] {
-                    if Path::new(ppm_max).exists() {
-                        ops.push(PlannedOperation {
-                            subsystem: "MTK-PPM",
-                            description: format!("Cluster {} PPM max limit", pol.mtk_cluster_index),
-                            path: PathBuf::from(ppm_max),
-                            current_value: "dynamic".to_string(),
-                            target_value: format!("{} {}", pol.mtk_cluster_index, target_max_hz),
-                            critical: false,
-                        });
+                let push_ppm_max = |ops_vec: &mut Vec<PlannedOperation>| {
+                    for ppm_max in &[
+                        "/proc/ppm/policy/hard_userlimit_max_cpu_freq",
+                        "/proc/ppm/policy/userlimit_max_cpu_freq",
+                    ] {
+                        if Path::new(ppm_max).exists() {
+                            ops_vec.push(PlannedOperation {
+                                subsystem: "MTK-PPM",
+                                description: format!("Cluster {} PPM max limit", pol.mtk_cluster_index),
+                                path: PathBuf::from(ppm_max),
+                                current_value: "dynamic".to_string(),
+                                target_value: format!("{} {}", pol.mtk_cluster_index, target_max_hz),
+                                critical: false,
+                            });
+                        }
                     }
-                }
-                for ppm_min in &[
-                    "/proc/ppm/policy/hard_userlimit_min_cpu_freq",
-                    "/proc/ppm/policy/userlimit_min_cpu_freq",
-                ] {
-                    if Path::new(ppm_min).exists() {
-                        ops.push(PlannedOperation {
-                            subsystem: "MTK-PPM",
-                            description: format!("Cluster {} PPM min limit", pol.mtk_cluster_index),
-                            path: PathBuf::from(ppm_min),
-                            current_value: "dynamic".to_string(),
-                            target_value: format!("{} {}", pol.mtk_cluster_index, target_min_hz),
-                            critical: false,
-                        });
+                };
+                let push_ppm_min = |ops_vec: &mut Vec<PlannedOperation>| {
+                    for ppm_min in &[
+                        "/proc/ppm/policy/hard_userlimit_min_cpu_freq",
+                        "/proc/ppm/policy/userlimit_min_cpu_freq",
+                    ] {
+                        if Path::new(ppm_min).exists() {
+                            ops_vec.push(PlannedOperation {
+                                subsystem: "MTK-PPM",
+                                description: format!("Cluster {} PPM min limit", pol.mtk_cluster_index),
+                                path: PathBuf::from(ppm_min),
+                                current_value: "dynamic".to_string(),
+                                target_value: format!("{} {}", pol.mtk_cluster_index, target_min_hz),
+                                critical: false,
+                            });
+                        }
                     }
+                };
+                if target_max_hz >= pol.current_max_freq {
+                    push_ppm_max(&mut ops);
+                    push_ppm_min(&mut ops);
+                } else {
+                    push_ppm_min(&mut ops);
+                    push_ppm_max(&mut ops);
                 }
             }
         }
@@ -1091,6 +1146,7 @@ impl HardwareTranslator {
         Self::push_op(&mut ops, "Memory", "Kernel page_writeback vm_dirty_ratio sync", "/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_fg, false);
         Self::push_op(&mut ops, "Memory", "VM dirty_writeback_centisecs (smooth flush cadence)", "/proc/sys/vm/dirty_writeback_centisecs", vm_targets.dirty_writeback_cs.to_string(), false);
         Self::push_op(&mut ops, "Memory", "VM dirty_expire_centisecs", "/proc/sys/vm/dirty_expire_centisecs", vm_targets.dirty_expire_cs.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM min_free_kbytes baseline", "/proc/sys/vm/min_free_kbytes", vm_targets.min_free_kbytes.to_string(), false);
         Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-allocstall buffer)", "/proc/sys/vm/watermark_scale_factor", vm_targets.watermark_scale_factor.to_string(), false);
         Self::push_op(&mut ops, "Memory", "VM extra_free_kbytes buffer", "/proc/sys/vm/extra_free_kbytes", vm_targets.extra_free_kbytes.to_string(), false);
 
@@ -1334,17 +1390,20 @@ impl HardwareTranslator {
         let f2fs_dir = Path::new("/sys/fs/f2fs");
         if f2fs_dir.is_dir() {
             let ipu_target = if is_perf_or_ext { "3" } else { "0" };
-            let cp_interval_target = vm_targets.f2fs_cp_interval_secs.to_string();
             if let Ok(entries) = fs::read_dir(f2fs_dir) {
                 for entry in entries.flatten() {
                     let p = entry.path();
                     if p.is_dir() {
+                        let entry_name = entry.file_name().to_string_lossy().to_string();
+                        if entry_name == "features" {
+                            continue;
+                        }
                         let ipu_node = p.join("ipu_policy");
                         if ipu_node.exists() {
                             Self::push_op(
                                 &mut ops,
                                 "Storage",
-                                format!("F2FS {} in-place updates (anti-gc stutter)", entry.file_name().to_string_lossy()),
+                                format!("F2FS {} in-place updates (anti-gc stutter)", entry_name),
                                 ipu_node,
                                 ipu_target,
                                 false,
@@ -1352,12 +1411,18 @@ impl HardwareTranslator {
                         }
                         let cp_node = p.join("cp_interval");
                         if cp_node.exists() {
+                            let eff_cp = Self::resolve_f2fs_cp_interval(
+                                &entry_name,
+                                vm_targets.f2fs_cp_interval_secs,
+                                tier.is_emmc_primary,
+                                is_powersave,
+                            );
                             Self::push_op(
                                 &mut ops,
                                 "Storage",
-                                format!("F2FS {} checkpoint interval", entry.file_name().to_string_lossy()),
+                                format!("F2FS {} checkpoint interval", entry_name),
                                 cp_node,
-                                &cp_interval_target,
+                                eff_cp.to_string(),
                                 false,
                             );
                         }
@@ -1544,5 +1609,92 @@ impl HardwareTranslator {
             }
             best
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::decision::{apply_modifier, ModifierLevel};
+    use crate::hardware::capability::{BlockDeviceType, PolicyCapability};
+    use crate::profile::{balanced, extreme};
+
+    fn sample_policy(index: usize, role: &str, freqs: Vec<u64>, govs: Vec<&str>) -> PolicyCapability {
+        PolicyCapability {
+            index,
+            mtk_cluster_index: index,
+            role: role.to_string(),
+            related_cpus: "0".to_string(),
+            path: PathBuf::from(format!("/sys/devices/system/cpu/cpufreq/policy{}", index)),
+            gov_tunable_dirs: Vec::new(),
+            min_freq: *freqs.first().unwrap_or(&500_000),
+            max_freq: *freqs.last().unwrap_or(&2_000_000),
+            available_freqs: freqs,
+            available_governors: govs.into_iter().map(String::from).collect(),
+            current_governor: "schedutil".to_string(),
+            current_min_freq: 500_000,
+            current_max_freq: 2_000_000,
+            is_locked: false,
+        }
+    }
+
+    #[test]
+    fn extreme_pins_min_equal_to_max_and_honors_thermal_relaxation() {
+        let tier = DeviceTier::classify_with_vm_caps(7812, Some(BlockDeviceType::Ufs), false, false, true, true);
+        let ext = extreme::get_profile();
+        let big_pol = sample_policy(
+            1,
+            "Performa Big",
+            vec![725_000, 1_400_000, 1_860_000, 2_050_000],
+            vec!["schedutil", "performance", "powersave"],
+        );
+
+        let (gov, min_pct, max_pct, min_hz, max_hz) =
+            HardwareTranslator::resolve_policy_cpu_targets(&ext, &big_pol, &tier, true, 2);
+        assert_eq!(gov, "performance");
+        assert_eq!((min_pct, max_pct), (100, 100));
+        assert_eq!(min_hz, 2_050_000);
+        assert_eq!(max_hz, 2_050_000);
+
+        // Cooling modifier relaxes extreme floor from 100% -> 85% and yields back to dynamic EAS governor.
+        let cooled = apply_modifier(&ext, ModifierLevel::ThermalCooling);
+        let (c_gov, c_min_pct, c_max_pct, c_min_hz, c_max_hz) =
+            HardwareTranslator::resolve_policy_cpu_targets(&cooled, &big_pol, &tier, true, 2);
+        assert_eq!(c_gov, "schedutil");
+        assert_eq!((c_min_pct, c_max_pct), (85, 100));
+        assert_eq!(c_max_hz, 2_050_000);
+        assert!(c_min_hz < c_max_hz);
+    }
+
+    #[test]
+    fn resolves_dynamic_governors_across_heterogeneous_kernels() {
+        let tier = DeviceTier::classify(3663, Some(BlockDeviceType::Emmc), false, false);
+        let bal = balanced::get_profile();
+        let walt_pol = sample_policy(
+            0,
+            "Efisiensi Little",
+            vec![633_600, 1_401_600, 1_843_200],
+            vec!["walt", "schedutil", "performance"],
+        );
+        // Exact requested governor ("schedutil") is honored when present
+        let (gov, _, _, min_hz, max_hz) =
+            HardwareTranslator::resolve_policy_cpu_targets(&bal, &walt_pol, &tier, true, 2);
+        assert_eq!(gov, "schedutil");
+        assert_eq!(min_hz, 633_600);
+        assert_eq!(max_hz, 1_843_200);
+
+        // Without performance governor, extreme still locks 100% using the best dynamic EAS chain
+        let ext = extreme::get_profile();
+        let no_perf_pol = sample_policy(
+            1,
+            "Performa Big",
+            vec![800_000, 1_600_000, 2_400_000],
+            vec!["walt", "interactive"],
+        );
+        let (e_gov, _, _, e_min, e_max) =
+            HardwareTranslator::resolve_policy_cpu_targets(&ext, &no_perf_pol, &tier, true, 2);
+        assert_eq!(e_gov, "walt");
+        assert_eq!(e_min, 2_400_000);
+        assert_eq!(e_max, 2_400_000);
     }
 }

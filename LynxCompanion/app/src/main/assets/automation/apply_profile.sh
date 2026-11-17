@@ -440,12 +440,26 @@ case "$PROFILE" in
         # CFS Low-Latency Scheduler & Hardware-Tiered VM Optimization (No eMMC drop_caches=3 stall)
         write_node "1" "/proc/sys/vm/compact_memory"
         local is_emmc_primary=0
-        for blk in /sys/block/mmcblk*; do
-            [ -f "$blk/device/ext_csd" ] && is_emmc_primary=1
-            [ "$(cat "$blk/device/type" 2>/dev/null)" = "MMC" ] && is_emmc_primary=1
+        local has_ufs_primary=0
+        for blk in /sys/block/sd*; do
+            [ -d "$blk/queue" ] && has_ufs_primary=1
         done
+        if [ "$has_ufs_primary" = "0" ]; then
+            for blk in /sys/block/mmcblk*; do
+                [ -f "$blk/device/ext_csd" ] && is_emmc_primary=1
+                [ "$(cat "$blk/device/type" 2>/dev/null)" = "MMC" ] && is_emmc_primary=1
+            done
+        fi
         local total_ram_mb=0
         total_ram_mb=$(awk '/^MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null)
+        local ram_mb="${total_ram_mb:-4096}"
+        [ "$ram_mb" -le 0 ] 2>/dev/null && ram_mb=4096
+        local mfk_kb=$(( (ram_mb * 32 / 10 + 2048) / 4096 * 4096 ))
+        [ "$mfk_kb" -lt 16384 ] && mfk_kb=16384
+        [ "$mfk_kb" -gt 32768 ] && mfk_kb=32768
+        local efk_kb=$mfk_kb
+        local target_wsf=30
+
         if [ "$PROFILE" = "extreme" ]; then
             write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
             write_node "3000000" "/proc/sys/kernel/sched_min_granularity_ns"
@@ -457,16 +471,30 @@ case "$PROFILE" in
             write_node "1" "/proc/sys/kernel/sched_child_runs_first"
             write_node "0" "/proc/sys/kernel/sched_cstate_aware"
             write_node "10" "/proc/sys/vm/stat_interval"
-            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
-            write_node "45" "/proc/sys/vm/swappiness"
+            write_node "15" "/proc/sys/vm/vfs_cache_pressure"
+            write_node "10" "/proc/sys/vm/swappiness"
             if [ "$is_emmc_primary" = "1" ]; then
                 write_node "10" "/proc/sys/vm/dirty_ratio"
                 write_node "5" "/proc/sys/vm/dirty_background_ratio"
-                write_node "60" "/proc/sys/vm/watermark_scale_factor"
             else
-                write_node "25" "/proc/sys/vm/dirty_ratio"
+                write_node "20" "/proc/sys/vm/dirty_ratio"
                 write_node "10" "/proc/sys/vm/dirty_background_ratio"
-                write_node "200" "/proc/sys/vm/watermark_scale_factor"
+            fi
+            if [ "$ram_mb" -le 4500 ]; then
+                target_wsf=30
+                [ "$is_emmc_primary" = "1" ] && efk_kb=8192 || efk_kb=12288
+            else
+                local step_mb=$(( (ram_mb * 75 + 5000) / 10000 ))
+                local step_cap=64
+                if [ "$is_emmc_primary" = "1" ]; then
+                    step_mb=$(( (ram_mb * 60 + 5000) / 10000 ))
+                    step_cap=54
+                fi
+                [ "$step_mb" -lt 32 ] && step_mb=32
+                [ "$step_mb" -gt "$step_cap" ] && step_mb="$step_cap"
+                [ ! -e /proc/sys/vm/extra_free_kbytes ] && step_mb=$(( step_mb + efk_kb / 2048 ))
+                target_wsf=$(( (step_mb * 10000 + ram_mb / 2) / ram_mb ))
+                [ "$target_wsf" -gt 85 ] && target_wsf=85
             fi
         else
             write_node "10000000" "/proc/sys/kernel/sched_latency_ns"
@@ -479,28 +507,42 @@ case "$PROFILE" in
             write_node "0" "/proc/sys/kernel/sched_child_runs_first"
             write_node "1" "/proc/sys/kernel/sched_cstate_aware"
             write_node "1" "/proc/sys/vm/stat_interval"
-            write_node "60" "/proc/sys/vm/swappiness"
+            if [ "$ram_mb" -le 4500 ]; then
+                write_node "35" "/proc/sys/vm/swappiness"
+                target_wsf=25
+                [ "$is_emmc_primary" = "1" ] && efk_kb=8192 || efk_kb=12288
+            else
+                write_node "15" "/proc/sys/vm/swappiness"
+                local step_mb=$(( (ram_mb * 65 + 5000) / 10000 ))
+                local step_cap=58
+                if [ "$is_emmc_primary" = "1" ]; then
+                    step_mb=$(( (ram_mb * 55 + 5000) / 10000 ))
+                    step_cap=48
+                    efk_kb=$(( (mfk_kb * 3 / 4 + 2048) / 4096 * 4096 ))
+                fi
+                [ "$step_mb" -lt 28 ] && step_mb=28
+                [ "$step_mb" -gt "$step_cap" ] && step_mb="$step_cap"
+                [ ! -e /proc/sys/vm/extra_free_kbytes ] && step_mb=$(( step_mb + efk_kb / 2048 ))
+                target_wsf=$(( (step_mb * 10000 + ram_mb / 2) / ram_mb ))
+                [ "$target_wsf" -gt 85 ] && target_wsf=85
+            fi
             if [ "$is_emmc_primary" = "1" ]; then
-                write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+                write_node "25" "/proc/sys/vm/vfs_cache_pressure"
                 write_node "10" "/proc/sys/vm/dirty_ratio"
                 write_node "5" "/proc/sys/vm/dirty_background_ratio"
                 write_node "400" "/proc/sys/vm/dirty_expire_centisecs"
                 write_node "150" "/proc/sys/vm/dirty_writeback_centisecs"
             else
-                write_node "60" "/proc/sys/vm/vfs_cache_pressure"
+                write_node "20" "/proc/sys/vm/vfs_cache_pressure"
                 write_node "20" "/proc/sys/vm/dirty_ratio"
                 write_node "10" "/proc/sys/vm/dirty_background_ratio"
                 write_node "500" "/proc/sys/vm/dirty_expire_centisecs"
                 write_node "200" "/proc/sys/vm/dirty_writeback_centisecs"
             fi
-            if [ "${total_ram_mb:-0}" -le 4500 ]; then
-                write_node "40" "/proc/sys/vm/watermark_scale_factor"
-                write_node "24576" "/proc/sys/vm/extra_free_kbytes"
-            else
-                write_node "120" "/proc/sys/vm/watermark_scale_factor"
-                write_node "49152" "/proc/sys/vm/extra_free_kbytes"
-            fi
         fi
+        write_node "$mfk_kb" "/proc/sys/vm/min_free_kbytes"
+        write_node "$target_wsf" "/proc/sys/vm/watermark_scale_factor"
+        write_node "$efk_kb" "/proc/sys/vm/extra_free_kbytes"
 
         write_node "0" "/proc/sys/vm/watermark_boost_factor"
         write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
@@ -1462,11 +1504,50 @@ case "$PROFILE" in
         write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 
         enable_mglru
-        write_node "20" "/proc/sys/vm/dirty_ratio"
-        write_node "5" "/proc/sys/vm/dirty_background_ratio"
-        write_node "80" "/proc/sys/vm/swappiness"
-        write_node "16" "/proc/sys/vm/watermark_scale_factor"
-        write_node "60" "/proc/sys/vm/vfs_cache_pressure"
+        bal_ram_mb=$(awk '/^MemTotal:/ {printf "%d", $2/1024}' /proc/meminfo 2>/dev/null)
+        [ -z "$bal_ram_mb" ] || [ "$bal_ram_mb" -le 0 ] 2>/dev/null && bal_ram_mb=4096
+        bal_mfk_kb=$(( (bal_ram_mb * 32 / 10 + 2048) / 4096 * 4096 ))
+        [ "$bal_mfk_kb" -lt 16384 ] && bal_mfk_kb=16384
+        [ "$bal_mfk_kb" -gt 32768 ] && bal_mfk_kb=32768
+        bal_emmc=0
+        bal_ufs=0
+        for b in /sys/block/sd*; do [ -d "$b/queue" ] && bal_ufs=1; done
+        if [ "$bal_ufs" = "0" ]; then
+            for b in /sys/block/mmcblk*; do
+                [ -f "$b/device/ext_csd" ] && bal_emmc=1
+                [ "$(cat "$b/device/type" 2>/dev/null)" = "MMC" ] && bal_emmc=1
+            done
+        fi
+        if [ "$bal_emmc" = "1" ]; then
+            write_node "10" "/proc/sys/vm/dirty_ratio"
+            write_node "5" "/proc/sys/vm/dirty_background_ratio"
+            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+        else
+            write_node "16" "/proc/sys/vm/dirty_ratio"
+            write_node "8" "/proc/sys/vm/dirty_background_ratio"
+            write_node "50" "/proc/sys/vm/vfs_cache_pressure"
+        fi
+        if [ "$bal_ram_mb" -le 4500 ]; then
+            write_node "80" "/proc/sys/vm/swappiness"
+            write_node "$bal_mfk_kb" "/proc/sys/vm/min_free_kbytes"
+            write_node "12288" "/proc/sys/vm/extra_free_kbytes"
+            write_node "30" "/proc/sys/vm/watermark_scale_factor"
+        else
+            write_node "40" "/proc/sys/vm/swappiness"
+            bal_efk_kb=$(( (bal_mfk_kb * 2 / 3 + 2048) / 4096 * 4096 ))
+            [ "$bal_efk_kb" -lt 12288 ] && bal_efk_kb=12288
+            bal_permille=45
+            [ -e /sys/kernel/mm/lru_gen/enabled ] || bal_permille=35
+            bal_step_mb=$(( (bal_ram_mb * bal_permille + 5000) / 10000 ))
+            [ "$bal_step_mb" -lt 20 ] && bal_step_mb=20
+            [ "$bal_step_mb" -gt 44 ] && bal_step_mb=44
+            [ ! -e /proc/sys/vm/extra_free_kbytes ] && bal_step_mb=$(( bal_step_mb + bal_efk_kb / 2048 ))
+            bal_wsf=$(( (bal_step_mb * 10000 + bal_ram_mb / 2) / bal_ram_mb ))
+            [ "$bal_wsf" -gt 85 ] && bal_wsf=85
+            write_node "$bal_mfk_kb" "/proc/sys/vm/min_free_kbytes"
+            write_node "$bal_efk_kb" "/proc/sys/vm/extra_free_kbytes"
+            write_node "$bal_wsf" "/proc/sys/vm/watermark_scale_factor"
+        fi
         for q in /sys/block/*/queue/scheduler; do
             [ -e "$q" ] && echo deadline > "$q" 2>/dev/null
         done
