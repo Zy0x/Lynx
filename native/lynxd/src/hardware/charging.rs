@@ -1744,8 +1744,13 @@ impl ChargingRegulator {
     }
 
     fn publish_bypass_telemetry() {
+        let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
         let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
-        let cur_now_ma = if cur_now_raw.abs() > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+        let cur_now_ma = if volt_raw.abs() >= 100_000 || cur_now_raw.abs() >= 10_000 {
+            cur_now_raw / 1000
+        } else {
+            cur_now_raw
+        };
         let temp_dc = Self::read_real_battery_temp_dc();
         let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
             .or_else(|| Self::read_i64(&format!("{}/voltage_now", USB_DIR)))
@@ -2228,11 +2233,11 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
 
-        // 1. Direct kernel bypass clear + unlatch
+        // 1. Direct kernel bypass clear + unlatch (clear_lynx_kernel_manual_bypass already clears g_lynx_full_bypass_latched)
         Self::clear_lynx_kernel_manual_bypass();
         if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
             Self::set_perm(LYNX_KERNEL_FULL_BYPASS_NODE, 0o666);
-            Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "0");
+            Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "1");
         }
         Self::ensure_mtk_power_path_enabled();
 
@@ -3133,8 +3138,8 @@ impl ChargingRegulator {
     pub fn apply_cool_mode(limit_ma: u32) {
         let target = if limit_ma > 0 && limit_ma <= 1500 { limit_ma } else { 1000 };
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-        let _ = fs::write("/dev/lynx_charging_state", format!("state=cool cap={}\n", cur_cap));
         Self::apply_regulated_charging(target);
+        let _ = fs::write("/dev/lynx_charging_state", format!("state=cool cap={}\n", cur_cap));
     }
 
     /// Mode 2: Standard Mode (OEM adaptive normal fast charging)
@@ -3242,10 +3247,10 @@ impl ChargingRegulator {
     /// Mode 3: Hyper Mode (100% dynamic peak, unconstrained)
     pub fn apply_hyper_mode() {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-        let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
         Self::clear_bypass_hardware_state();
         Self::write_node("/proc/lynx/hyper_charge", "1");
         Self::apply_extreme_charging(100, true, 12000);
+        let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
 
         // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
         // Do NOT trigger if cable was connected within the last 4 seconds to allow natural HVDCP/PE handshake!
@@ -4295,8 +4300,9 @@ impl ChargingRegulator {
         }
 
         // Kernel Full-Charge Bypass Coordination:
-        // Honor hardware-latched full-charge bypass ONLY if NOT in hyper mode!
-        if !is_hyper && Self::should_respect_kernel_full_bypass(
+        // Honor hardware-latched full-charge bypass across all charging modes (including Hyper mode)
+        // so 100% EOC AutoCut is never unlatched overnight.
+        if Self::should_respect_kernel_full_bypass(
             cfg.bypass_enabled,
             Self::is_lynx_kernel_full_bypass_latched(),
         ) {
@@ -4305,21 +4311,36 @@ impl ChargingRegulator {
             return;
         }
 
-        // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut)
-        if !is_hyper && cfg.auto_cut_enabled && cur_cap >= 100 {
-            let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+        // Tier 3: AutoCut when 100% Full (Overnight / Safe Full AutoCut across all modes)
+        if cfg.auto_cut_enabled && cur_cap >= 100 {
             if Path::new(LYNX_KERNEL_FULL_BYPASS_NODE).exists() {
                 if !Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_FULL_BYPASS_NODE).as_deref()) {
                     Self::set_perm(LYNX_KERNEL_FULL_BYPASS_NODE, 0o666);
                     Self::write_node(LYNX_KERNEL_FULL_BYPASS_NODE, "1");
                 }
                 if Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_ACTIVE_NODE).as_deref()) {
+                    let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
                     Self::publish_bypass_telemetry();
                     return;
                 }
             }
-            Self::apply_bypass_charging();
-            return;
+            let prev_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
+            let bat_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+            let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
+            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
+            let cur_now_ma = if volt_raw.abs() >= 100_000 || cur_now_raw.abs() > 10_000 {
+                cur_now_raw / 1000
+            } else {
+                cur_now_raw
+            };
+            let is_saturated = prev_state.contains("state=bypass_100")
+                || bat_status.trim().eq_ignore_ascii_case("Full")
+                || cur_now_ma <= 250;
+            if is_saturated {
+                let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+                Self::apply_bypass_charging();
+                return;
+            }
         }
 
         // Tier 4: Smart battery limit (50%–99%).
@@ -4566,6 +4587,16 @@ impl ChargingRegulator {
             return true;
         }
 
+        let is_unknown_charger = charger_type == "0"
+            || charger_type.eq_ignore_ascii_case("unknown")
+            || charger_type.eq_ignore_ascii_case("none")
+            || charger_type.is_empty();
+
+        // Guard against stale kernel "Charging" status after physical cable unplug when VBUS is near 0mV
+        if is_unknown_charger && vbus_mv > 0 && vbus_mv < 4000 {
+            return false;
+        }
+
         // 2. Verified battery charging current into cell:
         // If fuel gauge / kernel battery driver reports "Charging", external power is actively supplying the battery.
         if batt_status.eq_ignore_ascii_case("charging") {
@@ -4582,10 +4613,6 @@ impl ChargingRegulator {
         }
 
         let is_discharging = batt_status.eq_ignore_ascii_case("discharging");
-        let is_unknown_charger = charger_type == "0"
-            || charger_type.eq_ignore_ascii_case("unknown")
-            || charger_type.eq_ignore_ascii_case("none")
-            || charger_type.is_empty();
 
         // 4. Decoupling capacitor float after physical unplug: VBUS floats between 3.5V and 4.4V
         // while rails are 0 and charger type dropped to unknown/0 or discharging.
@@ -4708,6 +4735,10 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
         PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);
         WAS_PLUGGED_STATE.store(false, Ordering::Relaxed);
+        if !needs_session_cleanup {
+            Self::sync_authentic_battery_temp();
+            return;
+        }
         Self::clear_bypass_hardware_state();
 
         // Unlock all candidate sysfs nodes so vendor HALs and kernel have write access
@@ -4715,10 +4746,6 @@ impl ChargingRegulator {
 
         Self::unlock_bcct();
         Self::set_perm(&format!("{}/sw_jeita", MTK_DIR), 0o666);
-        if !needs_session_cleanup {
-            Self::sync_authentic_battery_temp();
-            return;
-        }
         let cap_now = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=discharging cap={}\n", cap_now));
 
@@ -5290,12 +5317,16 @@ impl ChargingRegulator {
         let real_dc = Self::read_real_battery_temp_dc();
 
         let v_clean = if volt_raw.abs() >= 10_000 { volt_raw / 1000 } else { volt_raw };
-        let mut c_clean = if cur_raw.abs() >= 10_000 { cur_raw / 1000 } else { cur_raw };
+        let mut c_clean = if volt_raw.abs() >= 100_000 || cur_raw.abs() >= 10_000 {
+            cur_raw / 1000
+        } else {
+            cur_raw
+        };
         if stat == "Charging" && c_clean < 0 {
             c_clean = c_clean.abs();
         }
 
-        let is_chg = c_clean > 50 || stat == "Charging";
+        let is_chg = c_clean > 50 || stat == "Charging" || (stat == "Full" && adpv >= 4500);
 
         let topology = Self::scan_charging_hardware_chips();
         let dynamic_nodes = Self::crawl_dynamic_power_supply_nodes();
