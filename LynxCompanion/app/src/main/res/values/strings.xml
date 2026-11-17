@@ -2202,6 +2202,11 @@
     <string name="hud_autoskip_scene_title">Diagnosis Scene Vision</string>
     <string name="hud_autoskip_scene_detected">Dialog Terdeteksi</string>
     <string name="hud_autoskip_scene_non_dialog">Scene Non-Dialog / Kustom</string>
+    <string name="hud_autoskip_scene_type_standard">Dialog Standar (Tipe A)</string>
+    <string name="hud_autoskip_scene_type_black">Narasi Layar Hitam (Tipe B)</string>
+    <string name="hud_autoskip_scene_type_special">Cutscene Spesial / CG (Tipe B+)</string>
+    <string name="hud_autoskip_scene_type_loading">Layar Transisi / Loading</string>
+    <string name="hud_autoskip_scene_type_openworld">Non-Dialog · Eksplorasi / Menu</string>
     <string name="hud_autoskip_scene_pixels">Piksel Putih: %1$d / %2$d px</string>
     <string name="hud_autoskip_scene_zone">Zona 16:9: X[%1$d..%2$d], Y: %3$d</string>
     <string name="hud_autoskip_scene_retake">Tangkap Ulang</string>

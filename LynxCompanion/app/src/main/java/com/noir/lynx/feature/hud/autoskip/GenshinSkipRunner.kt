@@ -11,10 +11,6 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.BufferedInputStream
-import java.io.BufferedReader
-import java.io.BufferedWriter
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.min
@@ -45,9 +41,9 @@ class GenshinSkipRunner(
     companion object {
         private const val MIN_INTER_TAP_GAP_MS = 45L
         private const val EST_TAP_EXEC_MS = 95L
-        private const val TOUCH_RELEASE_COOLDOWN_MS = 360L
+        private const val TOUCH_CLICK_COOLDOWN_MS = 120L
+        private const val TOUCH_RELEASE_COOLDOWN_MS = 320L
         private const val OVERLAY_TOUCH_FAILSAFE_MS = 4500L
-        private const val TAP_SENTINEL = "__LYNX_TAP_OK__"
     }
 
     private val modeState = MutableStateFlow(SkipMode.PAUSED)
@@ -92,20 +88,8 @@ class GenshinSkipRunner(
     @Volatile
     private var touchResumeDeadlineMs: Long = 0L
 
-    @Volatile
-    private var tapInFlight: Boolean = false
-
-    @Volatile
-    private var lastSyntheticTapStartedMs: Long = 0L
-
-    @Volatile
-    private var lastSyntheticTapEndedMs: Long = 0L
-
     private val overlayRects = ConcurrentHashMap<String, GenshinSkipEngine.OverlayRect>()
-    private val tapLock = Any()
-    private var tapProc: Process? = null
-    private var tapWriter: BufferedWriter? = null
-    private var tapReader: BufferedReader? = null
+    private val tapPipe = RootTapPipeClient(scope)
 
     private var tapJob: Job? = null
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
@@ -163,7 +147,7 @@ class GenshinSkipRunner(
     }
 
     /** Pauses synthetic tap dispatch immediately while a finger interacts with any Lynx overlay. */
-    fun onOverlayTouchChanged(touching: Boolean) {
+    fun onOverlayTouchChanged(touching: Boolean, wasDrag: Boolean = false) {
         val now = SystemClock.uptimeMillis()
         if (touching) {
             overlayTouchStartedMs = now
@@ -171,25 +155,26 @@ class GenshinSkipRunner(
             executingState.value = false
         } else {
             overlayInteracting = false
-            touchResumeDeadlineMs = now + TOUCH_RELEASE_COOLDOWN_MS
+            val cooldown = if (wasDrag) TOUCH_RELEASE_COOLDOWN_MS else TOUCH_CLICK_COOLDOWN_MS
+            touchResumeDeadlineMs = now + cooldown
         }
     }
 
     /** Returns true while a synthetic tap is executing or recently completed, suppressing false outside-touch closes. */
     fun isSyntheticTapWindow(graceMs: Long = 650L): Boolean {
         val now = SystemClock.uptimeMillis()
-        return tapInFlight ||
-            (now - lastSyntheticTapEndedMs) in 0L..graceMs ||
-            (now - lastSyntheticTapStartedMs) in 0L..(graceMs + 250L)
+        return tapPipe.tapInFlight ||
+            (now - tapPipe.lastTapEndedMs) in 0L..graceMs ||
+            (now - tapPipe.lastTapStartedMs) in 0L..(graceMs + 250L)
     }
 
     /** Returns true when an overlay ACTION_CANCEL closely coincides with an injected synthetic tap. */
     fun shouldRecoverCancelledTap(windowMs: Long = 280L): Boolean {
         if (modeState.value == SkipMode.PAUSED) return false
         val now = SystemClock.uptimeMillis()
-        return tapInFlight ||
-            (now - lastSyntheticTapEndedMs) in 0L..windowMs ||
-            (now - lastSyntheticTapStartedMs) in 0L..windowMs
+        return tapPipe.tapInFlight ||
+            (now - tapPipe.lastTapEndedMs) in 0L..windowMs ||
+            (now - tapPipe.lastTapStartedMs) in 0L..windowMs
     }
 
     private fun isTouchShieldActive(): Boolean {
@@ -249,7 +234,7 @@ class GenshinSkipRunner(
     }
 
     fun setMode(mode: SkipMode) {
-        if (modeState.value == mode && (tapJob != null || mode == SkipMode.PAUSED)) return
+        if (modeState.value == mode && (tapJob?.isActive == true || mode == SkipMode.PAUSED)) return
         modeState.value = mode
         when (mode) {
             SkipMode.PAUSED -> {
@@ -258,7 +243,7 @@ class GenshinSkipRunner(
                 executingState.value = false
                 tapJob?.cancel()
                 tapJob = null
-                closeTapPipeAsync()
+                tapPipe.closeAsync()
                 triggerHaptic(25L)
             }
             SkipMode.AUTO -> {
@@ -289,70 +274,6 @@ class GenshinSkipRunner(
                 vibrator?.vibrate(durationMs)
             }
         } catch (_: Throwable) {}
-    }
-
-    private fun ensureTapPipe(): Boolean {
-        synchronized(tapLock) {
-            val existing = tapProc
-            if (existing != null && existing.isAlive && tapWriter != null && tapReader != null) {
-                return true
-            }
-            closeTapPipeLocked()
-            return try {
-                val suBin = com.noir.lynx.data.LynxRepository.getSuBinary()
-                val proc = ProcessBuilder(suBin).redirectErrorStream(true).start()
-                tapProc = proc
-                tapWriter = BufferedWriter(OutputStreamWriter(proc.outputStream))
-                tapReader = BufferedReader(InputStreamReader(proc.inputStream))
-                true
-            } catch (_: Throwable) {
-                closeTapPipeLocked()
-                false
-            }
-        }
-    }
-
-    private fun closeTapPipeLocked() {
-        runCatching { tapWriter?.close() }
-        runCatching { tapReader?.close() }
-        runCatching { tapProc?.destroy() }
-        tapWriter = null
-        tapReader = null
-        tapProc = null
-    }
-
-    private fun closeTapPipeAsync() {
-        scope.launch(Dispatchers.IO) {
-            synchronized(tapLock) { closeTapPipeLocked() }
-        }
-    }
-
-    private fun executeSingleTapSync(tapBin: String, x: Int, y: Int): Long {
-        val start = SystemClock.uptimeMillis()
-        lastSyntheticTapStartedMs = start
-        tapInFlight = true
-        try {
-            if (!ensureTapPipe()) return 0L
-            synchronized(tapLock) {
-                val writer = tapWriter ?: return 0L
-                val reader = tapReader ?: return 0L
-                writer.write("$tapBin $x $y >/dev/null 2>&1; echo $TAP_SENTINEL\n")
-                writer.flush()
-                while (true) {
-                    val line = reader.readLine() ?: run {
-                        closeTapPipeLocked()
-                        return 0L
-                    }
-                    if (line.contains(TAP_SENTINEL)) break
-                }
-            }
-        } catch (_: Throwable) {
-            synchronized(tapLock) { closeTapPipeLocked() }
-        } finally {
-            tapInFlight = false
-            lastSyntheticTapEndedMs = SystemClock.uptimeMillis()
-        }
-        return (lastSyntheticTapEndedMs - start).coerceAtLeast(0L)
     }
 
     private suspend fun readExactBytes(stream: BufferedInputStream, target: ByteArray): Int {
@@ -421,7 +342,7 @@ class GenshinSkipRunner(
             }
 
             val bandMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(bandBuf, bandSpec, isBgra = isBgra)
-            if (bandMetrics.isConfirmedDialogue) {
+            if (bandMetrics.isConfirmedDialogue && !bandMetrics.needsOpenWorldHpCheck) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.STANDARD_DIALOGUE,
                     0.99f,
@@ -432,7 +353,7 @@ class GenshinSkipRunner(
                 )
             }
 
-            if (bandMetrics.whiteRatio > 0.85f) {
+            if (!bandMetrics.isConfirmedDialogue && bandMetrics.whiteRatio > 0.96f) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.WHITE_LOADING,
                     0.99f,
@@ -443,9 +364,81 @@ class GenshinSkipRunner(
                 )
             }
 
-            if (bandMetrics.blackRatio < 0.85f) {
+            // Stage 2 Probe: Advance down the stream to the bottom band (85%..97.2% H) to verify
+            // Open-World HP Bar Shield, Black-Screen Interstitials, and Special CG Cutscene prompts.
+            val bottomSpec = GenshinSkipEngine.calculateBottomSceneBand(frameW, frameH)
+            val gapToBottom = (bottomSpec.bandStartByte - bandSpec.bandEndByte).coerceAtLeast(0L)
+            if (!skipExactBytes(stream, gapToBottom, skipBuf)) {
+                val fallbackType = if (bandMetrics.isConfirmedDialogue) {
+                    GenshinSkipEngine.SceneType.STANDARD_DIALOGUE
+                } else {
+                    GenshinSkipEngine.SceneType.OPEN_WORLD
+                }
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    fallbackType, 0.80f, bandMetrics.peakDiscCreamMatches, 0, bandMetrics.blackRatio, bandMetrics.whiteRatio
+                )
+            }
+
+            val bottomBuf = ByteArray(bottomSpec.bandBytes)
+            if (readExactBytes(stream, bottomBuf) < bottomBuf.size) {
+                val fallbackType = if (bandMetrics.isConfirmedDialogue) {
+                    GenshinSkipEngine.SceneType.STANDARD_DIALOGUE
+                } else {
+                    GenshinSkipEngine.SceneType.OPEN_WORLD
+                }
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    fallbackType, 0.80f, bandMetrics.peakDiscCreamMatches, 0, bandMetrics.blackRatio, bandMetrics.whiteRatio
+                )
+            }
+
+            val bottomMetrics = GenshinSkipEngine.evaluateBottomSceneBand(bottomBuf, bottomSpec, isBgra = isBgra)
+            if (bottomMetrics.hasOpenWorldHpBar) {
                 return@withContext GenshinSkipEngine.SceneClassification(
                     GenshinSkipEngine.SceneType.OPEN_WORLD,
+                    0.99f,
+                    bandMetrics.peakDiscCreamMatches,
+                    bottomMetrics.promptGoldPixels,
+                    bandMetrics.blackRatio,
+                    bandMetrics.whiteRatio
+                )
+            }
+
+            if (bandMetrics.isConfirmedDialogue) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.STANDARD_DIALOGUE,
+                    0.98f,
+                    bandMetrics.peakDiscCreamMatches,
+                    bottomMetrics.diamondGoldPixels,
+                    bandMetrics.blackRatio,
+                    bandMetrics.whiteRatio
+                )
+            }
+
+            if (bandMetrics.blackRatio >= 0.80f && bottomMetrics.isConfirmedBlackInterstitial) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
+                    0.99f,
+                    bandMetrics.peakDiscCreamMatches,
+                    bottomMetrics.promptGoldPixels + bottomMetrics.diamondGoldPixels,
+                    bandMetrics.blackRatio,
+                    bandMetrics.whiteRatio
+                )
+            }
+
+            if (bottomMetrics.isConfirmedSpecialNarration) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.SPECIAL_NARRATION,
+                    0.98f,
+                    bandMetrics.peakDiscCreamMatches,
+                    bottomMetrics.promptGoldPixels + bottomMetrics.diamondGoldPixels,
+                    bandMetrics.blackRatio,
+                    bandMetrics.whiteRatio
+                )
+            }
+
+            if (bandMetrics.whiteRatio > 0.85f) {
+                return@withContext GenshinSkipEngine.SceneClassification(
+                    GenshinSkipEngine.SceneType.WHITE_LOADING,
                     0.95f,
                     bandMetrics.peakDiscCreamMatches,
                     0,
@@ -454,44 +447,14 @@ class GenshinSkipRunner(
                 )
             }
 
-            // Deep Probe: Pitch black upper header detected (blackRatio >= 85%).
-            // Advance forward down the screencap stream to bottom narration prompt band.
-            val (promptHead, promptSliceBytes) = GenshinSkipEngine.calculatePromptScanSlice(frameW, frameH)
-            val promptStart = promptHead - promptSliceBytes
-            val gapToPrompt = (promptStart - bandSpec.bandEndByte).coerceAtLeast(0L)
-            if (!skipExactBytes(stream, gapToPrompt, skipBuf)) {
-                return@withContext GenshinSkipEngine.SceneClassification(
-                    GenshinSkipEngine.SceneType.OPEN_WORLD, 0.80f, bandMetrics.peakDiscCreamMatches, 0, bandMetrics.blackRatio, bandMetrics.whiteRatio
-                )
-            }
-
-            val promptSlice = ByteArray(promptSliceBytes.toInt())
-            if (readExactBytes(stream, promptSlice) < promptSlice.size) {
-                return@withContext GenshinSkipEngine.SceneClassification(
-                    GenshinSkipEngine.SceneType.OPEN_WORLD, 0.80f, bandMetrics.peakDiscCreamMatches, 0, bandMetrics.blackRatio, bandMetrics.whiteRatio
-                )
-            }
-
-            val metrics = GenshinSkipEngine.evaluatePromptSliceWithMargins(promptSlice, frameW, frameH, isBgra = isBgra)
-            return@withContext if (metrics.isConfirmedNarration) {
-                GenshinSkipEngine.SceneClassification(
-                    GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
-                    0.99f,
-                    bandMetrics.peakDiscCreamMatches,
-                    metrics.goldMatches,
-                    bandMetrics.blackRatio,
-                    bandMetrics.whiteRatio
-                )
-            } else {
-                GenshinSkipEngine.SceneClassification(
-                    GenshinSkipEngine.SceneType.OPEN_WORLD,
-                    0.90f,
-                    bandMetrics.peakDiscCreamMatches,
-                    metrics.goldMatches,
-                    bandMetrics.blackRatio,
-                    bandMetrics.whiteRatio
-                )
-            }
+            return@withContext GenshinSkipEngine.SceneClassification(
+                GenshinSkipEngine.SceneType.OPEN_WORLD,
+                0.92f,
+                bandMetrics.peakDiscCreamMatches,
+                bottomMetrics.promptGoldPixels,
+                bandMetrics.blackRatio,
+                bandMetrics.whiteRatio
+            )
         } catch (ce: CancellationException) {
             throw ce
         } catch (_: Throwable) {
@@ -508,9 +471,7 @@ class GenshinSkipRunner(
     }
 
     suspend fun isGenshinDialogueActive(): Boolean {
-        val scene = probeScene()
-        return scene.sceneType == GenshinSkipEngine.SceneType.STANDARD_DIALOGUE ||
-               scene.sceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL
+        return probeScene().sceneType.isSkippableDialogue
     }
 
     /**
@@ -571,8 +532,9 @@ class GenshinSkipRunner(
                                 consecutiveInactiveCount = 0
                                 executingState.value = true
                             }
-                            GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL -> {
-                                burstCountRemaining = (520L / estCycleMs).toInt().coerceIn(3, 6)
+                            GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL,
+                            GenshinSkipEngine.SceneType.SPECIAL_NARRATION -> {
+                                burstCountRemaining = (480L / estCycleMs).toInt().coerceIn(2, 4)
                                 consecutiveInactiveCount = 0
                                 executingState.value = true
                             }
@@ -580,7 +542,11 @@ class GenshinSkipRunner(
                                 burstCountRemaining = 0
                                 executingState.value = false
                                 consecutiveInactiveCount++
-                                val standbyDelay = if (consecutiveInactiveCount > 3) 1050L else 650L
+                                val standbyDelay = when {
+                                    consecutiveInactiveCount <= 2 -> 220L
+                                    consecutiveInactiveCount <= 10 -> 420L
+                                    else -> 700L
+                                }
                                 awaitWithTouchShield(standbyDelay)
                                 continue
                             }
@@ -615,11 +581,14 @@ class GenshinSkipRunner(
                     }
                 }
 
-                val rawTarget = if (activeSceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL) {
+                val rawTarget = if (
+                    activeSceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL ||
+                    activeSceneType == GenshinSkipEngine.SceneType.SPECIAL_NARRATION
+                ) {
                     rawCoords.narration
                 } else {
                     when (cycleIndex % 3) {
-                        0 -> rawCoords.advance
+                        0 -> rawCoords.safeAdvance
                         1 -> choiceTarget
                         else -> rawCoords.narration
                     }
@@ -631,7 +600,7 @@ class GenshinSkipRunner(
                     rawTarget, activeOverlays, screenWidth, screenHeight, padPx
                 )
 
-                val elapsedMs = executeSingleTapSync(tapBin, safeTarget.x, safeTarget.y)
+                val elapsedMs = tapPipe.executeSingleTapSync(tapBin, safeTarget.x, safeTarget.y)
                 cycleIndex++
 
                 // Always leave a genuine inter-tap quiet breather window so human overlay touches never starve
@@ -640,7 +609,7 @@ class GenshinSkipRunner(
             }
         } finally {
             executingState.value = false
-            closeTapPipeAsync()
+            tapPipe.closeAsync()
             if (modeState.value != SkipMode.PAUSED && !currentCoroutineContext().isActive) {
                 modeState.value = SkipMode.PAUSED
                 activeState.value = false

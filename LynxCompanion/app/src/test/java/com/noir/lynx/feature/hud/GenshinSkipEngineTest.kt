@@ -465,5 +465,171 @@ class GenshinSkipEngineTest {
         // Unobstructed targets stay exact
         val clear = GenshinSkipEngine.resolveTapAvoidingOverlays(raw, emptyList(), 2460, 1080)
         assertEquals(raw, clear)
+
+        // Choice-free safeAdvance stays left of the right-hand dialogue choice column
+        val coords = GenshinSkipEngine.resolveCoordinates(2460, 1080)
+        assertTrue(coords.safeAdvance.x < coords.choice1.x - 400)
+    }
+
+    @Test
+    fun evaluateDialogueHeaderBandRecognizesPartiallyDimmedAndSingleAnchoredDialogues() {
+        val w = 2460
+        val h = 1080
+        val spec = GenshinSkipEngine.calculateDialogueHeaderBand(w, h)
+        val bandH = (spec.yMax - spec.yMin) + 1
+
+        fun fillBg(buf: ByteArray, r: Int, g: Int, b: Int) {
+            var idx = 0
+            while (idx <= buf.size - 4) {
+                buf[idx] = r.toByte(); buf[idx + 1] = g.toByte(); buf[idx + 2] = b.toByte(); buf[idx + 3] = 255.toByte()
+                idx += 4
+            }
+        }
+
+        fun paintDisc(buf: ByteArray, cx: Int, cy: Int, fgR: Int = 236, fgG: Int = 229, fgB: Int = 216, glyR: Int = 59, glyG: Int = 67, glyB: Int = 84) {
+            val r = 23.0
+            for (y in (cy - 25)..(cy + 25)) {
+                if (y !in spec.yMin..spec.yMax) continue
+                for (x in (cx - 25)..(cx + 25)) {
+                    if (x !in 0 until w) continue
+                    val dx = x - cx
+                    val dy = y - cy
+                    if (kotlin.math.hypot(dx.toDouble(), dy.toDouble()) <= r) {
+                        val isGlyph = kotlin.math.abs(dx) <= 9 && (kotlin.math.abs(dy + 5) <= 2 || kotlin.math.abs(dy - 5) <= 2 || kotlin.math.abs(dy) <= 1)
+                        val idx = (y - spec.yMin) * spec.headerStrideBytes + x * 4
+                        if (isGlyph) {
+                            buf[idx] = glyR.toByte(); buf[idx + 1] = glyG.toByte(); buf[idx + 2] = glyB.toByte()
+                        } else {
+                            buf[idx] = fgR.toByte(); buf[idx + 1] = fgG.toByte(); buf[idx + 2] = fgB.toByte()
+                        }
+                    }
+                }
+            }
+        }
+
+        fun paintAutoTextStrokes(buf: ByteArray, startX: Int, cy: Int) {
+            // Paint crisp letter-like vertical strokes ("Otomatis" / "Auto") in cream off-white
+            for (xOff in 0 until 130 step 7) {
+                for (wOff in 0..2) {
+                    for (y in (cy - 9)..(cy + 9)) {
+                        if (y !in spec.yMin..spec.yMax) continue
+                        val x = startX + xOff + wOff
+                        val idx = (y - spec.yMin) * spec.headerStrideBytes + x * 4
+                        buf[idx] = 239.toByte(); buf[idx + 1] = 239.toByte(); buf[idx + 2] = 240.toByte()
+                    }
+                }
+            }
+        }
+
+        // 1. Cutscene dialogue where [▶] (x=91) & [👁] (x=429) are bright while [☰] (x=339) & [🔊] (x=519) are dimmed
+        val splitBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBg(splitBand, 18, 22, 50)
+        paintDisc(splitBand, 91, 57)
+        paintAutoTextStrokes(splitBand, 130, 57)
+        paintDisc(splitBand, 339, 60, fgR = 73, fgG = 72, fgB = 92, glyR = 28, glyG = 30, glyB = 58)
+        paintDisc(splitBand, 429, 60)
+        paintDisc(splitBand, 519, 60, fgR = 73, fgG = 72, fgB = 92, glyR = 28, glyG = 30, glyB = 58)
+        val splitMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(splitBand, spec)
+        assertTrue(splitMetrics.isConfirmedDialogue)
+        assertTrue(splitMetrics.splitPairCount >= 1)
+
+        // 2. Extreme dimming where only [▶] + "Auto" text are bright and [☰], [👁], [🔊] are dimmed
+        val singleAnchoredBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBg(singleAnchoredBand, 18, 22, 50)
+        paintDisc(singleAnchoredBand, 91, 57)
+        paintAutoTextStrokes(singleAnchoredBand, 130, 57)
+        paintDisc(singleAnchoredBand, 339, 60, fgR = 75, fgG = 74, fgB = 96, glyR = 28, glyG = 30, glyB = 58)
+        paintDisc(singleAnchoredBand, 429, 60, fgR = 75, fgG = 74, fgB = 96, glyR = 28, glyG = 30, glyB = 58)
+        val singleMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(singleAnchoredBand, spec)
+        assertTrue(singleMetrics.isConfirmedDialogue)
+        assertTrue(singleMetrics.singleAnchoredConfirmed)
+
+        // 3. Artifact menu tab #1 (single cream disc at x=92 without Auto text or dimmed dialogue discs) must be rejected
+        val artifactTab1Band = ByteArray(bandH * spec.headerStrideBytes)
+        fillBg(artifactTab1Band, 29, 111, 102)
+        paintDisc(artifactTab1Band, 92, 51)
+        val artifactTab1Metrics = GenshinSkipEngine.evaluateDialogueHeaderBand(artifactTab1Band, spec)
+        assertFalse(artifactTab1Metrics.isConfirmedDialogue)
+    }
+
+    @Test
+    fun evaluateBottomSceneBandDistinguishesSpecialCgAndBlackNarrationFromOpenWorld() {
+        val w = 2460
+        val h = 1080
+        val spec = GenshinSkipEngine.calculateBottomSceneBand(w, h)
+        val bandH = (spec.yMax - spec.yMin) + 1
+
+        fun fillBg(buf: ByteArray, r: Int, g: Int, b: Int) {
+            var idx = 0
+            while (idx <= buf.size - 4) {
+                buf[idx] = r.toByte(); buf[idx + 1] = g.toByte(); buf[idx + 2] = b.toByte(); buf[idx + 3] = 255.toByte()
+                idx += 4
+            }
+        }
+
+        fun paintPromptAndDiamond(buf: ByteArray) {
+            // Paint crisp letter-like strokes across y=932..952 centered at x=1230
+            for (y in 932..952) {
+                for (x in 1020..1440 step 5) {
+                    for (dx in 0..1) {
+                        val idx = (y - spec.yMin) * spec.strideBytes + (x + dx) * 4
+                        buf[idx] = 240.toByte(); buf[idx + 1] = 185.toByte(); buf[idx + 2] = 4.toByte()
+                    }
+                }
+            }
+            // Paint centered bottom diamond at y=1004..1014, x=1225..1235
+            for (y in 1004..1014) {
+                val half = 5 - kotlin.math.abs(y - 1009)
+                for (x in (1230 - half)..(1230 + half)) {
+                    val idx = (y - spec.yMin) * spec.strideBytes + x * 4
+                    buf[idx] = 245.toByte(); buf[idx + 1] = 192.toByte(); buf[idx + 2] = 8.toByte()
+                }
+            }
+        }
+
+        // 1. Special CG / Illustrated cutscene (colored blue-purple background, NOT black margins!)
+        val cgBand = ByteArray(bandH * spec.strideBytes)
+        fillBg(cgBand, 36, 48, 92)
+        paintPromptAndDiamond(cgBand)
+        val cgMetrics = GenshinSkipEngine.evaluateBottomSceneBand(cgBand, spec)
+        assertFalse(cgMetrics.hasOpenWorldHpBar)
+        assertTrue(cgMetrics.isConfirmedSpecialNarration)
+        assertFalse(cgMetrics.isConfirmedBlackInterstitial)
+
+        // 2. Black-screen narration interstitial
+        val blkBand = ByteArray(bandH * spec.strideBytes)
+        fillBg(blkBand, 2, 2, 2)
+        paintPromptAndDiamond(blkBand)
+        val blkMetrics = GenshinSkipEngine.evaluateBottomSceneBand(blkBand, spec)
+        assertFalse(blkMetrics.hasOpenWorldHpBar)
+        assertTrue(blkMetrics.isConfirmedBlackInterstitial)
+
+        // 3. Open-world scene with green HP bar at y=986..998 MUST suppress narration even with stray gold pixels
+        val owBand = ByteArray(bandH * spec.strideBytes)
+        fillBg(owBand, 60, 75, 90)
+        paintPromptAndDiamond(owBand)
+        for (y in 986..996) {
+            for (x in 1100..1240) {
+                val idx = (y - spec.yMin) * spec.strideBytes + x * 4
+                owBand[idx] = 128.toByte(); owBand[idx + 1] = 190.toByte(); owBand[idx + 2] = 48.toByte()
+            }
+        }
+        val owMetrics = GenshinSkipEngine.evaluateBottomSceneBand(owBand, spec)
+        assertTrue(owMetrics.hasOpenWorldHpBar)
+        assertFalse(owMetrics.isConfirmedSpecialNarration)
+        assertFalse(owMetrics.isConfirmedBlackInterstitial)
+
+        // 4. Start screen yellow email footer at y=1000..1015 without prompt text MUST be rejected
+        val startBand = ByteArray(bandH * spec.strideBytes)
+        fillBg(startBand, 24, 65, 130)
+        for (y in 1002..1014) {
+            for (x in 1050..1410) {
+                val idx = (y - spec.yMin) * spec.strideBytes + x * 4
+                startBand[idx] = 240.toByte(); startBand[idx + 1] = 185.toByte(); startBand[idx + 2] = 5.toByte()
+            }
+        }
+        val startMetrics = GenshinSkipEngine.evaluateBottomSceneBand(startBand, spec)
+        assertFalse(startMetrics.isConfirmedSpecialNarration)
+        assertFalse(startMetrics.isConfirmedBlackInterstitial)
     }
 }

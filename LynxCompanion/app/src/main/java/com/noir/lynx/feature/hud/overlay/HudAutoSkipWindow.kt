@@ -28,7 +28,7 @@ internal class HudAutoSkipWindow(
     private val onToggle: () -> Unit,
     mode: StateFlow<com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner.SkipMode>? = null,
     executing: StateFlow<Boolean>? = null,
-    private val onTouchInteracting: (Boolean) -> Unit = {},
+    private val onTouchInteracting: (Boolean, Boolean) -> Unit = { _, _ -> },
     private val shouldRecoverCancelledTap: () -> Boolean = { false },
     private val onBoundsChanged: (GenshinSkipEngine.OverlayRect?) -> Unit = {}
 ) {
@@ -58,7 +58,7 @@ internal class HudAutoSkipWindow(
             val dragSlop = maxOf(ViewConfiguration.get(context).scaledTouchSlop * 1.6f, 14f * density)
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    onTouchInteracting(true)
+                    onTouchInteracting(true, false)
                     downX = event.rawX; downY = event.rawY
                     downUptimeMs = SystemClock.uptimeMillis()
                     startX = params.x; startY = params.y; dragging = false
@@ -69,12 +69,12 @@ internal class HudAutoSkipWindow(
                     if (dragging) move(bounds.place((startX + dx).roundToInt(), (startY + dy).roundToInt(), badgeWidth(), badgeHeight()))
                 }
                 MotionEvent.ACTION_UP -> {
-                    onTouchInteracting(false)
+                    onTouchInteracting(false, dragging)
                     if (dragging) save() else performClick()
                     dragging = false
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    onTouchInteracting(false)
+                    onTouchInteracting(false, dragging)
                     val elapsed = SystemClock.uptimeMillis() - downUptimeMs
                     if (dragging) {
                         save()
@@ -152,7 +152,7 @@ internal class HudAutoSkipWindow(
         if (rotated) restore() else move(bounds.place(params.x, params.y, badgeWidth(), badgeHeight()))
     }
     fun close() {
-        onTouchInteracting(false)
+        onTouchInteracting(false, false)
         onBoundsChanged(null)
         visibilityJob.cancel(); runCatching { windows.removeView(host) }; compose.disposeComposition()
     }

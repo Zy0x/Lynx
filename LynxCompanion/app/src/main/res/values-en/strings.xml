@@ -2178,6 +2178,11 @@
     <string name="hud_autoskip_scene_title">Scene Vision Diagnosis</string>
     <string name="hud_autoskip_scene_detected">Dialogue Detected</string>
     <string name="hud_autoskip_scene_non_dialog">Non-Dialogue / Custom Scene</string>
+    <string name="hud_autoskip_scene_type_standard">Standard Dialogue (Type A)</string>
+    <string name="hud_autoskip_scene_type_black">Black Screen Narration (Type B)</string>
+    <string name="hud_autoskip_scene_type_special">Special Cutscene / CG (Type B+)</string>
+    <string name="hud_autoskip_scene_type_loading">Transition / Loading Screen</string>
+    <string name="hud_autoskip_scene_type_openworld">Non-Dialogue · Exploration / Menu</string>
     <string name="hud_autoskip_scene_pixels">White Pixels: %1$d / %2$d px</string>
     <string name="hud_autoskip_scene_zone">16:9 Zone: X[%1$d..%2$d], Y: %3$d</string>
     <string name="hud_autoskip_scene_retake">Retake</string>

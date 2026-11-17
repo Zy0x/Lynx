@@ -409,13 +409,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
             val pkg = currentPackage ?: skipContext?.pkg ?: "unknown"
             val mode = skipRunner.currentMode.value.name
             val scene = skipRunner.probeScene()
+            val isNarrationScene = scene.sceneType == GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL ||
+                scene.sceneType == GenshinSkipEngine.SceneType.SPECIAL_NARRATION
             val result = GenshinSkipEngine.captureSceneSnapshotDetailed(
                 context = context,
                 screenWidth = skipRunner.screenWidth,
                 screenHeight = skipRunner.screenHeight,
                 packageName = pkg,
                 mode = mode,
-                matchingPixels = scene.dialogueMatches,
+                matchingPixels = if (isNarrationScene) scene.goldMatches else scene.dialogueMatches,
                 sceneClassification = scene
             )
             withContext(Dispatchers.Main) {

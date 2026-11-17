@@ -1,3 +1,28 @@
+# Lynx Universal [V4 Auto-Skip Vision & Lossless OpenGL ES / Vulkan GPU Pipeline] 7.0.0-RC411
+Released on: 2026-11-17
+> Lynx Kernel Manager v3.4.30
+
+### Graphics & Kernel GPU Pipeline (`lynxd`, `LynxGraphicsEngineRepository`, `GraphicsPipelineProbe`, `GpuCapabilityDetector`)
+- **Universal Wildcard Vulkan ICD & Runtime HWUI/EGL Pipeline Probing (`LynxGraphicsEngineRepository`, `GraphicsPipelineProbe`, `GpuCapabilityDetector`)**:
+  - Replaced rigid `vulkan.mali.so` / `vulkan.adreno.so` existence checks with universal wildcard ICD discovery (`vulkan.*.so` across `/vendor/lib*` / `/system/vendor/lib*` / `/odm/lib*`), eliminating false negatives on MediaTek (`vulkan.mt6781.so`), Exynos, Tensor, and emerging GPUs.
+  - Added genuine Android 13/14/15+ runtime ELF binary probing for lossless pipeline controls that replaced removed legacy HWUI properties: `debug.egl.blobcache.multifile` (`+ adaptive debug.egl.blobcache.multifile_limit`), `debug.hwui.use_hint_manager` (ADPF RenderThread scheduling hints), and `debug.hwui.skip_empty_damage`, surfacing validated toggles cleanly in `GraphicsMemoryPipelineSection` without compromising visual fidelity.
+- **Native Rust Lossless Graphics Pipeline & Zero-Hardcode Mali/GED Scaling (`system.rs`, `display.rs`, `gpu.rs`, `translator.rs`, `game.rs`, `apply_profile.sh`)**:
+  - Added bounded ELF byte scanning in `SystemController::apply_universal_graphics_pipeline()` to enable EGL multifile shader blobcache (RAM-tiered `4/8/16 MB`), HWUI ADPF hint manager, and `skip_empty_damage` only when supported and not explicitly opted out by the user.
+  - Replaced hardcoded `4166666` ns in `GameController::game_on()` with `DisplayController::ged_target_cpu_remained_ns()` dynamically derived from active panel refresh rate (`60–240 Hz`), snapshotting and cleanly restoring kernel defaults in `game_off()`.
+  - Added RAM-and-profile-aware `GpuController::compute_mali_pool_targets()` and group-count-safe sysfs synchronization across simplified `mempool/*` (`max_size`, `lp_max_size`) and `mem_pool_max_size` / `lp_mem_pool_max_size` / `js_ctx_scheduling_mode` for universal ARM Mali Kbase compatibility (`2MB` huge-page & `4KB` pools).
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`system/bin/lynxd` & APK assets) alongside `LynxKernelManager.apk` `v3.4.30`.
+
+### HUD & Auto-Skip Engine (`GenshinDialogueVision`, `GenshinBottomSceneVision`, `GenshinSkipEngine`, `GenshinSkipRunner`, `RootTapPipeClient`, `HudAutoSkipWindow`, `HudSceneDiagnostics`)
+- **Multi-Topology Dialogue Disc Recognition (`GenshinDialogueVision`, `GenshinSkipEngine`)**:
+  - Preserved existing adjacent bright-disc pairing (`alignedPairCount`) for full 4-button & Statue/Menu 3-button dialogues while adding **Split-Disc & Dimmed-Sibling Recognition (`splitPairCount`, `singleAnchoredConfirmed`)** across `2.55*D..11.5*D` horizontal spans, corroborated by `"Auto"`/`"Otomatis"` cream stroke density and dimmed sibling circular disc silhouettes (`[☰]`/`[🔊]` at ~25–35% opacity).
+  - Fixed all non-voiced, log-locked, and special speaker cutscene dialogue failures (including `Nukvah / Sang Penutur Abadi` and Archon Quest cutscenes where `[▶]` & `[👁]` remain bright while `[☰]` & `[🔊]` are dimmed).
+- **Special CG / Illustrated Cutscene Narration Detection (`GenshinBottomSceneVision`, `GenshinSkipRunner`)**:
+  - Removed the premature `blackRatio < 85%` abort so Stage 2 bottom-band vision (`85%..97.2%` height) runs seamlessly on non-black scenes and introduced **`SceneType.SPECIAL_NARRATION`**, accurately detecting colored illustrated/3D cutscenes with `"Tekan untuk melanjutkan"` / `"Tap anywhere to continue"` via multi-row amber-gold stroke texture + isolated centered gold diamond `◇`.
+  - Added **Active Open-World Green HP Bar Shield** (`x=42%..58%, y=90.5%..94.0%`), guaranteeing 0% false taps across all 17 non-dialogue open-world, Artifact menu, loading, and start screen captures (`30/30` = 100.0% classification accuracy across local + Infinix X698 datasets).
+- **Instant Arming, Choice-Free `safeAdvance` & Modularization (`GenshinSkipRunner`, `RootTapPipeClient`, `HudAutoSkipWindow`, `HudSceneDiagnostics`)**:
+  - Reduced click-to-arm release cooldown (`120ms` click vs `320ms` drag), shortened standby probe latency (`220ms`/`420ms`/`700ms`), and routed standard typewriter advance taps to choice-free `safeAdvance` (`0.34W, 0.72H`) to prevent accidental choice mis-taps and eliminate the need for manual initial trigger taps.
+  - Modularized `GenshinSkipEngine` into cohesive `<700`-line files (`GenshinDialogueVision.kt`, `GenshinBottomSceneVision.kt`, `RootTapPipeClient.kt`), updated `HudSceneDiagnostics` + `values`/`values-en`/`values-id` string catalogs, and synchronized `tools/train_scene_classifier.py`, `archive/scenes/`, `docs/16_HOYO_AUTOSKIP_SCENE_VISION_ARCHITECTURE.md`, and `docs/architecture/screens/19_HUD_AUTOMATION_CONTROLS.md`.
+
 # Lynx Universal [2D Dialogue Vision Shield, Zero-Backlog Tap Pipe & Dynamic Overlay Touch Immunity] 7.0.0-RC410
 Released on: 2026-11-17
 > Lynx Kernel Manager v3.4.29

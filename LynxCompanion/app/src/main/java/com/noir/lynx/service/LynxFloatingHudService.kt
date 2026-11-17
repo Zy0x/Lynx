@@ -422,6 +422,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         safeWidth = bounds.width; safeHeight = bounds.height
         screenWidth = safeLeft + safeWidth + safeRight
         screenHeight = safeTop + safeHeight
+        if (::controller.isInitialized && screenWidth > 0 && screenHeight > 0) {
+            controller.skipRunner.screenWidth = screenWidth
+            controller.skipRunner.screenHeight = screenHeight
+        }
         val rotated = viewport.value.landscape != (safeWidth > safeHeight)
         viewport.value = HudViewport(safeWidth / density, safeHeight / density)
         if (rotated && !open.value) params?.y = safeTop + (safeHeight * getSavedHandleYFraction()).roundToInt()
@@ -543,13 +547,16 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         val visible = combine(rendered, preferences.changes, interactive) { sample, prefs, isInteractive ->
             val pkg = resolveActivePackage(sample.packageName)
             if (pkg.isNotBlank() && controller.currentPackage != pkg) controller.currentPackage = pkg
+            if (pkg.isNotBlank() && controller.skipRunner.currentForegroundPackage != pkg) {
+                controller.skipRunner.currentForegroundPackage = pkg
+            }
             prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(pkg) && isInteractive
         }
         autoSkipWindow = HudAutoSkipWindow(
             this, scope, this, this, controller.isSkipping,
             controller.isPaused, visible, controller::toggleAutoSkip,
             mode = controller.autoSkipMode, executing = controller.autoSkipExecuting,
-            onTouchInteracting = controller.skipRunner::onOverlayTouchChanged,
+            onTouchInteracting = { touching, wasDrag -> controller.skipRunner.onOverlayTouchChanged(touching, wasDrag) },
             shouldRecoverCancelledTap = { controller.skipRunner.shouldRecoverCancelledTap() },
             onBoundsChanged = { rect -> controller.skipRunner.updateOverlayRect("autoskip_badge", rect) }
         )
@@ -730,7 +737,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                 }
             },
             onBoundsChanged = { view?.let { updateExclusionRects(it) }; clamp(); publishSidebarBounds() },
-            onTouchInteracting = controller.skipRunner::onOverlayTouchChanged,
+            onTouchInteracting = { touching -> controller.skipRunner.onOverlayTouchChanged(touching, wasDrag = false) },
             shouldCloseOnOutsideTouch = { !isDrawerDragging && !controller.skipRunner.isSyntheticTapWindow() }
         ).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)

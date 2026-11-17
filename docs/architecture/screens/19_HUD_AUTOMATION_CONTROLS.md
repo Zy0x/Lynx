@@ -23,3 +23,12 @@ All new labels and the floating token's status/gesture description exist in defa
 ## Compact detail follow-up
 
 The RC260 Tools Automation route uses Controls / Settings / Diagnostics tabs. `HudAutomationControls(showOptions)` renders either the master/status or speed/choice configuration; Diagnostics uses the existing explicit scene-capture action. This removes the settings disclosure from the master card and avoids stacking diagnostics below it. Existing preference bounds, runner guards and package behavior are unchanged.
+
+## V4 Multi-Topology Dialogue Vision & Special Cutscene Pipeline (RC411)
+
+- **Vision Modules (`GenshinDialogueVision`, `GenshinBottomSceneVision`, `GenshinSkipEngine`)**:
+  - Header recognition evaluates bright adjacent disc pairs (`alignedPairCount`), non-adjacent/partially dimmed disc pairs corroborated by `"Auto"`/`"Otomatis"` stroke density or dimmed sibling silhouettes (`splitPairCount`), and left-anchored single-disc + multi-sibling dimmed dialogues (`singleAnchoredConfirmed`).
+  - Bottom-screen deep probing (`85%..97.2%` height) enforces the Open-World green HP bar exclusion shield, validates `BLACK_INTERSTITIAL`, and detects non-black illustrated/3D CG cutscenes (`SPECIAL_NARRATION`) via multi-row amber-gold prompt text + isolated centered diamond.
+- **Zero-Lag Runner & Diagnostics (`GenshinSkipRunner`, `RootTapPipeClient`, `HudAutoSkipWindow`, `HudSceneDiagnostics`)**:
+  - Dedicated root tap pipe lives in `RootTapPipeClient`; standard dialogues cycle across choice-free `safeAdvance`, user-configured `choiceTarget`, and `narration`; click-only badge releases arm within `120ms` and standby polling adapts cleanly (`220ms`/`420ms`/`700ms`).
+  - `HudSceneDiagnostics` reports localized scene classification badges across all five scene states.

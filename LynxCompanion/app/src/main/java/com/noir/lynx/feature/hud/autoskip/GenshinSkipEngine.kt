@@ -15,7 +15,7 @@ import kotlin.math.min
 /**
  * Intelligent Target & Coordinate Calculator for Genshin Impact and Hoyo RPGs.
  * Adapts to any ultra-wide screen aspect ratio (16:9, 19.5:9, 20.5:9, 21:9) without hardcoded static resolution bias.
- * Completely free of screencap overhead to guarantee 0% frame drops during gameplay.
+ * Delegates multi-topology 2D vision primitives to [GenshinDialogueVision].
  */
 object GenshinSkipEngine {
 
@@ -41,9 +41,13 @@ object GenshinSkipEngine {
         UNKNOWN,
         STANDARD_DIALOGUE,
         BLACK_INTERSTITIAL,
+        SPECIAL_NARRATION,
         WHITE_LOADING,
         OPEN_WORLD,
-        START_SCREEN
+        START_SCREEN;
+
+        val isSkippableDialogue: Boolean
+            get() = this == STANDARD_DIALOGUE || this == BLACK_INTERSTITIAL || this == SPECIAL_NARRATION
     }
 
     data class SceneClassification(
@@ -64,7 +68,8 @@ object GenshinSkipEngine {
         val choice1: TapTarget = topChoice,
         val choice2: TapTarget = midChoice,
         val choice3: TapTarget = bottomChoice,
-        val choice4: TapTarget = bottomChoice
+        val choice4: TapTarget = bottomChoice,
+        val safeAdvance: TapTarget = advance
     )
 
     /**
@@ -75,9 +80,11 @@ object GenshinSkipEngine {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
         val height = min(screenWidth, screenHeight).coerceAtLeast(720)
 
-        // 1. Dialogue text typewriter fast-forward zone (center-right safe quadrant)
+        // 1. Legacy typewriter fast-forward zone & choice-free safe advance quadrant (center-left)
         val advanceX = (width * 0.68f).toInt()
         val advanceY = (height * 0.60f).toInt()
+        val safeAdvanceX = (width * 0.34f).toInt()
+        val safeAdvanceY = (height * 0.72f).toInt()
 
         // 2. Center-bottom story narration transition prompt ("Tekan untuk melanjutkan" / "Tap to continue")
         val narrationX = (width * 0.50f).toInt()
@@ -104,82 +111,9 @@ object GenshinSkipEngine {
             choice1 = TapTarget(choiceX, c1Y),
             choice2 = TapTarget(choiceX, c2Y),
             choice3 = TapTarget(choiceX, c3Y),
-            choice4 = TapTarget(choiceX, c4Y)
+            choice4 = TapTarget(choiceX, c4Y),
+            safeAdvance = TapTarget(safeAdvanceX, safeAdvanceY)
         )
-    }
-
-    /**
-     * Warm cream / beige background color of top-left dialogue controls in Genshin Impact:
-     * Standard color spans RGB ~(200..250, 195..245, 180..235).
-     */
-    fun isDialogueColor(r: Int, g: Int, b: Int): Boolean {
-        return r in 196..252 &&
-               g in 190..248 &&
-               b in 175..238 &&
-               (r >= g) && (g >= b) &&
-               ((r - b) in 6..40)
-    }
-
-    /**
-     * Low-saturation charcoal / dark slate ink color used for icons inside dialogue buttons.
-     */
-    fun isDialogueGlyphDark(r: Int, g: Int, b: Int): Boolean {
-        val mx = max(r, max(g, b))
-        val mn = min(r, min(g, b))
-        return mx <= 130 && (mx - mn) <= 55
-    }
-
-    data class ScreencapHeader(
-        val width: Int,
-        val height: Int,
-        val pixelFormat: Int
-    ) {
-        val isBgra: Boolean get() = pixelFormat == 5
-        val isLandscape: Boolean get() = width >= height
-    }
-
-    /**
-     * Parses Android's raw 16-byte screencap binary header [w, h, format, colorspace] in little-endian.
-     * Validates sensible display bounds to recover cleanly from truncated or unsupported streams.
-     */
-    fun parseScreencapHeader(header: ByteArray): ScreencapHeader? {
-        if (header.size < 12) return null
-        val w = readLeInt(header, 0)
-        val h = readLeInt(header, 4)
-        val fmt = readLeInt(header, 8)
-        if (w !in 320..8192 || h !in 320..8192 || fmt !in 1..64) return null
-        return ScreencapHeader(w, h, fmt)
-    }
-
-    private fun readLeInt(buf: ByteArray, offset: Int): Int {
-        return (buf[offset].toInt() and 0xFF) or
-            ((buf[offset + 1].toInt() and 0xFF) shl 8) or
-            ((buf[offset + 2].toInt() and 0xFF) shl 16) or
-            ((buf[offset + 3].toInt() and 0xFF) shl 24)
-    }
-
-    data class DialogueHeaderBandSpec(
-        val frameWidth: Int,
-        val frameHeight: Int,
-        val xMin: Int,
-        val xMax: Int,
-        val yMin: Int,
-        val yMax: Int,
-        val bandStartByte: Long,
-        val bandEndByte: Long
-    ) {
-        val headerStrideBytes: Int get() = frameWidth * 4
-        val bandBytes: Int get() = (bandEndByte - bandStartByte).toInt().coerceAtLeast(0)
-    }
-
-    data class DialogueHeaderMetrics(
-        val discCount: Int,
-        val alignedPairCount: Int,
-        val peakDiscCreamMatches: Int,
-        val blackRatio: Float,
-        val whiteRatio: Float
-    ) {
-        val isConfirmedDialogue: Boolean get() = alignedPairCount >= 1
     }
 
     data class OverlayRect(
@@ -238,259 +172,122 @@ object GenshinSkipEngine {
         return clamped
     }
 
-    /**
-     * Computes a compact upper-left header scan band spanning rows `yMin..yMax` across `X = 1.5%..40%` width.
-     * Adapts automatically to 16:9, 19.5:9, 20:9, 20.5:9, 21:9, tablet aspect ratios, notch insets, and UI languages.
-     */
-    fun calculateDialogueHeaderBand(frameWidth: Int, frameHeight: Int): DialogueHeaderBandSpec {
-        val w = max(frameWidth, frameHeight).coerceAtLeast(1280)
-        val h = min(frameWidth, frameHeight).coerceAtLeast(720)
-        val uiScaleH = min(h.toFloat(), w.toFloat() * 9f / 16f)
-        val yMin = ((uiScaleH * 28f) / 1080f).toInt().coerceIn(8, h - 4)
-        val yMax = ((uiScaleH * 88f) / 1080f).toInt().coerceIn(yMin + 12, h - 1)
-        val xMin = ((w * 15L) / 1000L).toInt().coerceIn(8, w - 2)
-        val xMax = ((w * 400L) / 1000L).toInt().coerceIn(xMin + 100, w)
-        val startByte = 16L + yMin.toLong() * w.toLong() * 4L
-        val endByte = 16L + (yMax.toLong() + 1L) * w.toLong() * 4L
-        return DialogueHeaderBandSpec(w, h, xMin, xMax, yMin, yMax, startByte, endByte)
+    data class ScreencapHeader(
+        val width: Int,
+        val height: Int,
+        val pixelFormat: Int
+    ) {
+        val isBgra: Boolean get() = pixelFormat == 5
+        val isLandscape: Boolean get() = width >= height
     }
 
-    private data class DiscCandidate(val score: Int, val cx: Int, val cy: Int, val creamHits: Int)
+    data class DialogueHeaderBandSpec(
+        val frameWidth: Int,
+        val frameHeight: Int,
+        val xMin: Int,
+        val xMax: Int,
+        val yMin: Int,
+        val yMax: Int,
+        val bandStartByte: Long,
+        val bandEndByte: Long
+    ) {
+        val headerStrideBytes: Int get() = frameWidth * 4
+        val bandBytes: Int get() = (bandEndByte - bandStartByte).toInt().coerceAtLeast(0)
+    }
 
-    /**
-     * Evaluates a multi-row RGBA/BGRA header band using 2D geometric + photometric invariants of
-     * circular dialogue control buttons (filled top/bottom cream caps, circular side rims, dark central glyphs,
-     * outside-circle corner isolation, periodic ~2.0*D horizontal spacing, and a non-cream inter-disc gap).
-     * Eliminates false positives from open-world Elemental Sight / Tutorial borders, bright clouds/cliffs, and menu tabs.
-     */
+    data class DialogueHeaderMetrics(
+        val discCount: Int,
+        val alignedPairCount: Int,
+        val peakDiscCreamMatches: Int,
+        val blackRatio: Float,
+        val whiteRatio: Float,
+        val splitPairCount: Int = 0,
+        val singleAnchoredConfirmed: Boolean = false
+    ) {
+        val isConfirmedDialogue: Boolean
+            get() = alignedPairCount >= 1 || splitPairCount >= 1 || singleAnchoredConfirmed
+
+        val needsOpenWorldHpCheck: Boolean
+            get() = alignedPairCount == 0 && (splitPairCount >= 1 || singleAnchoredConfirmed)
+    }
+
+    data class BottomSceneBandSpec(
+        val frameWidth: Int,
+        val frameHeight: Int,
+        val yMin: Int,
+        val yMax: Int,
+        val bandStartByte: Long,
+        val bandEndByte: Long
+    ) {
+        val strideBytes: Int get() = frameWidth * 4
+        val bandBytes: Int get() = (bandEndByte - bandStartByte).toInt().coerceAtLeast(0)
+    }
+
+    data class BottomSceneMetrics(
+        val hasOpenWorldHpBar: Boolean,
+        val hpBarPixels: Int,
+        val maxHpRun: Int,
+        val hasPromptText: Boolean,
+        val promptGoldPixels: Int,
+        val promptTextRows: Int,
+        val promptTextEdges: Int,
+        val hasCenteredDiamond: Boolean,
+        val diamondGoldPixels: Int,
+        val diamondRows: Int,
+        val marginBlackRatio: Float
+    ) {
+        val isConfirmedBlackInterstitial: Boolean
+            get() = !hasOpenWorldHpBar &&
+                marginBlackRatio >= 0.80f &&
+                (hasPromptText || (hasCenteredDiamond && promptGoldPixels >= 30))
+
+        val isConfirmedSpecialNarration: Boolean
+            get() = !hasOpenWorldHpBar && hasPromptText && hasCenteredDiamond
+    }
+
+    data class PromptScanMetrics(
+        val goldMatches: Int,
+        val marginBlackRatio: Float,
+        val isConfirmedNarration: Boolean
+    )
+
+    fun isDialogueColor(r: Int, g: Int, b: Int): Boolean = GenshinDialogueVision.isDialogueColor(r, g, b)
+    fun isDialogueGlyphDark(r: Int, g: Int, b: Int): Boolean = GenshinDialogueVision.isDialogueGlyphDark(r, g, b)
+    fun isPromptGoldColor(r: Int, g: Int, b: Int): Boolean = GenshinDialogueVision.isPromptGoldColor(r, g, b)
+
+    fun parseScreencapHeader(header: ByteArray): ScreencapHeader? =
+        GenshinDialogueVision.parseScreencapHeader(header)
+
+    fun calculateDialogueHeaderBand(frameWidth: Int, frameHeight: Int): DialogueHeaderBandSpec =
+        GenshinDialogueVision.calculateDialogueHeaderBand(frameWidth, frameHeight)
+
     fun evaluateDialogueHeaderBand(
         bandBytes: ByteArray,
         spec: DialogueHeaderBandSpec,
         isBgra: Boolean = false
-    ): DialogueHeaderMetrics {
-        val bandH = (spec.yMax - spec.yMin) + 1
-        val rowStride = spec.headerStrideBytes
-        if (bandBytes.size < bandH * rowStride || bandH <= 0) {
-            return DialogueHeaderMetrics(0, 0, 0, 0f, 0f)
-        }
+    ): DialogueHeaderMetrics = GenshinDialogueVision.evaluateDialogueHeaderBand(bandBytes, spec, isBgra)
 
-        val rOff = if (isBgra) 2 else 0
-        val gOff = 1
-        val bOff = if (isBgra) 0 else 2
+    fun calculateBottomSceneBand(frameWidth: Int, frameHeight: Int): BottomSceneBandSpec =
+        GenshinBottomSceneVision.calculateBottomSceneBand(frameWidth, frameHeight)
 
-        fun readPixel(x: Int, y: Int): Triple<Int, Int, Int>? {
-            if (x < 0 || x >= spec.frameWidth || y < spec.yMin || y > spec.yMax) return null
-            val idx = (y - spec.yMin) * rowStride + x * 4
-            if (idx < 0 || idx + 3 >= bandBytes.size) return null
-            return Triple(
-                bandBytes[idx + rOff].toInt() and 0xFF,
-                bandBytes[idx + gOff].toInt() and 0xFF,
-                bandBytes[idx + bOff].toInt() and 0xFF
-            )
-        }
+    fun evaluateBottomSceneBand(
+        bandBytes: ByteArray,
+        spec: BottomSceneBandSpec,
+        isBgra: Boolean = false
+    ): BottomSceneMetrics = GenshinBottomSceneVision.evaluateBottomSceneBand(bandBytes, spec, isBgra)
 
-        // Measure black/white header ratio across the canonical upper dialogue strip
-        val probeY = ((spec.yMin + spec.yMax) / 2).coerceIn(spec.yMin, spec.yMax)
-        var blackCount = 0
-        var whiteCount = 0
-        var rawCreamCount = 0
-        val sampleStepX = max(1, spec.frameWidth / 640)
-        var totalSampled = 0
-        var sx = spec.xMin
-        while (sx < spec.xMax) {
-            val rgb = readPixel(sx, probeY)
-            if (rgb != null) {
-                totalSampled++
-                if (rgb.first < 30 && rgb.second < 30 && rgb.third < 30) blackCount++
-                if (rgb.first > 230 && rgb.second > 230 && rgb.third > 230) whiteCount++
-                if (isDialogueColor(rgb.first, rgb.second, rgb.third)) rawCreamCount++
-            }
-            sx += sampleStepX
-        }
-        val blackRatio = if (totalSampled > 0) blackCount.toFloat() / totalSampled else 0f
-        val whiteRatio = if (totalSampled > 0) whiteCount.toFloat() / totalSampled else 0f
+    fun calculatePromptScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> =
+        GenshinBottomSceneVision.calculatePromptScanSlice(screenWidth, screenHeight)
 
-        val uiScaleH = min(spec.frameHeight.toFloat(), spec.frameWidth.toFloat() * 9f / 16f)
-        val diameter = max(22f, (uiScaleH * 46f) / 1080f)
-        val radius = diameter * 0.5f
-        val stepX = max(1, (diameter / 16f).toInt())
-        val stepY = max(1, (diameter / 14f).toInt())
-        val cyMin = ((uiScaleH * 42f) / 1080f).toInt().coerceIn(spec.yMin + 2, spec.yMax - 2)
-        val cyMax = ((uiScaleH * 70f) / 1080f).toInt().coerceIn(cyMin, spec.yMax - 2)
-        val cxMin = (spec.xMin + radius.toInt()).coerceAtLeast(16)
-        val cxMax = (spec.xMax - radius.toInt()).coerceAtMost(spec.frameWidth - 16)
+    fun evaluatePromptSliceWithMargins(
+        slice: ByteArray,
+        screenWidth: Int,
+        screenHeight: Int,
+        isBgra: Boolean = false
+    ): PromptScanMetrics = GenshinBottomSceneVision.evaluatePromptSliceWithMargins(slice, screenWidth, screenHeight, isBgra)
 
-        val capXOffsets = floatArrayOf(-0.35f, -0.15f, 0f, 0.15f, 0.35f)
-        val capYOffsets = floatArrayOf(-0.75f, -0.56f, 0.56f, 0.75f)
-        val rimXOffsets = floatArrayOf(-0.78f, -0.58f, 0.58f, 0.78f)
-        val rimYOffsets = floatArrayOf(-0.30f, 0f, 0.30f)
-        val coreOffsets = floatArrayOf(-0.38f, -0.19f, 0f, 0.19f, 0.38f)
+    fun containsDialogueColor(hexString: String): Boolean = countDialogueMatches(hexString) > 0
 
-        val candidates = ArrayList<DiscCandidate>()
-        var cx = cxMin
-        while (cx <= cxMax) {
-            var bestForX: DiscCandidate? = null
-            var cy = cyMin
-            while (cy <= cyMax) {
-                var capHits = 0
-                var capTot = 0
-                for (dxF in capXOffsets) {
-                    val px = (cx + dxF * radius).toInt()
-                    for (dyF in capYOffsets) {
-                        val rgb = readPixel(px, (cy + dyF * radius).toInt()) ?: continue
-                        capTot++
-                        if (isDialogueColor(rgb.first, rgb.second, rgb.third)) capHits++
-                    }
-                }
-                if (capTot == 0 || capHits.toFloat() / capTot < 0.65f) {
-                    cy += stepY
-                    continue
-                }
-
-                var ringHits = 0
-                var ringTot = 0
-                for (dxF in rimXOffsets) {
-                    val px = (cx + dxF * radius).toInt()
-                    for (dyF in rimYOffsets) {
-                        val rgb = readPixel(px, (cy + dyF * radius).toInt()) ?: continue
-                        ringTot++
-                        if (isDialogueColor(rgb.first, rgb.second, rgb.third)) ringHits++
-                    }
-                }
-                if (ringTot == 0 || ringHits.toFloat() / ringTot < 0.55f) {
-                    cy += stepY
-                    continue
-                }
-
-                var cornerCream = 0
-                for (dxF in floatArrayOf(-1.05f, 1.05f)) {
-                    for (dyF in floatArrayOf(-1.05f, 1.05f)) {
-                        val rgb = readPixel((cx + dxF * radius).toInt(), (cy + dyF * radius).toInt()) ?: continue
-                        if (isDialogueColor(rgb.first, rgb.second, rgb.third)) cornerCream++
-                    }
-                }
-                if (cornerCream > 1) {
-                    cy += stepY
-                    continue
-                }
-
-                var coreDark = 0
-                var coreCream = 0
-                var coreTot = 0
-                for (dyF in coreOffsets) {
-                    val py = (cy + dyF * radius).toInt()
-                    for (dxF in coreOffsets) {
-                        val rgb = readPixel((cx + dxF * radius).toInt(), py) ?: continue
-                        coreTot++
-                        if (isDialogueGlyphDark(rgb.first, rgb.second, rgb.third)) {
-                            coreDark++
-                        } else if (isDialogueColor(rgb.first, rgb.second, rgb.third)) {
-                            coreCream++
-                        }
-                    }
-                }
-                if (coreTot > 0) {
-                    val darkFrac = coreDark.toFloat() / coreTot
-                    val creamFrac = coreCream.toFloat() / coreTot
-                    if (darkFrac >= 0.08f && creamFrac >= 0.16f && (darkFrac + creamFrac) >= 0.50f) {
-                        val score = capHits + ringHits + coreDark
-                        val totalCream = capHits + ringHits + coreCream
-                        if (bestForX == null || score > bestForX.score) {
-                            bestForX = DiscCandidate(score, cx, cy, totalCream)
-                        }
-                    }
-                }
-                cy += stepY
-            }
-            if (bestForX != null) {
-                candidates.add(bestForX)
-            }
-            cx += stepX
-        }
-
-        // Non-maximum suppression across horizontally overlapping detections
-        val discs = ArrayList<DiscCandidate>()
-        val nmsDist = diameter * 0.85f
-        for (cand in candidates) {
-            val prev = discs.lastOrNull()
-            if (prev != null && kotlin.math.abs(cand.cx - prev.cx) < nmsDist) {
-                if (cand.score > prev.score) {
-                    discs[discs.lastIndex] = cand
-                }
-            } else {
-                discs.add(cand)
-            }
-        }
-
-        var pairCount = 0
-        val gapStep = max(1, stepX)
-        for (i in discs.indices) {
-            for (j in (i + 1) until discs.size) {
-                val c1 = discs[i]
-                val c2 = discs[j]
-                val dx = (c2.cx - c1.cx).toFloat()
-                val dy = kotlin.math.abs(c2.cy - c1.cy).toFloat()
-                if (dx in (1.55f * diameter)..(2.55f * diameter) && dy <= 0.30f * diameter) {
-                    val gapX1 = (c1.cx + radius * 1.15f).toInt()
-                    val gapX2 = (c2.cx - radius * 1.15f).toInt()
-                    val midY = (c1.cy + c2.cy) / 2
-                    val yHalf = max(2, (radius * 0.45f).toInt())
-                    var gapCream = 0
-                    var gapTot = 0
-                    var gy = (midY - yHalf).coerceAtLeast(spec.yMin)
-                    val gyEnd = (midY + yHalf).coerceAtMost(spec.yMax)
-                    while (gy <= gyEnd) {
-                        var gx = gapX1
-                        while (gx <= gapX2) {
-                            val rgb = readPixel(gx, gy)
-                            if (rgb != null) {
-                                gapTot++
-                                if (isDialogueColor(rgb.first, rgb.second, rgb.third)) gapCream++
-                            }
-                            gx += gapStep
-                        }
-                        gy += max(1, stepY)
-                    }
-                    if (gapTot > 0 && (gapCream.toFloat() / gapTot) < 0.25f) {
-                        pairCount++
-                    }
-                }
-            }
-        }
-
-        val peakCream = max(rawCreamCount, discs.maxOfOrNull { it.creamHits } ?: 0)
-        return DialogueHeaderMetrics(
-            discCount = discs.size,
-            alignedPairCount = pairCount,
-            peakDiscCreamMatches = peakCream,
-            blackRatio = blackRatio,
-            whiteRatio = whiteRatio
-        )
-    }
-
-    /**
-     * Gold / Amber UI signature of bottom story narration prompt ("Tekan untuk melanjutkan" / "Tap to continue"):
-     * Standard Hoyoverse gold diamond arrow has high red (170..255), medium-high green (130..215), and very low blue (0..35).
-     */
-    fun isPromptGoldColor(r: Int, g: Int, b: Int): Boolean {
-        return r in 170..255 &&
-               g in 130..215 &&
-               b in 0..35 &&
-               (r >= g)
-    }
-
-    /**
-     * Parses a raw hex dump string from screencap (RGBA8888) and checks if any pixel
-     * matches the warm cream/beige dialogue UI signature of Genshin Impact.
-     */
-    fun containsDialogueColor(hexString: String): Boolean {
-        return countDialogueMatches(hexString) > 0
-    }
-
-    /**
-     * Counts how many pixels in the raw hex dump match the warm cream/beige dialogue UI signature.
-     * Real dialogue controls provide between 60 and 120 matching pixels, whereas stray noise provides <= 4.
-     */
     fun countDialogueMatches(hexString: String): Int {
         if (hexString.isBlank()) return 0
         val clean = hexString.filter { (it in '0'..'9') || (it in 'a'..'f') || (it in 'A'..'F') }
@@ -501,170 +298,31 @@ object GenshinSkipEngine {
             val r = clean.substring(i, i + 2).toIntOrNull(16) ?: 0
             val g = clean.substring(i + 2, i + 4).toIntOrNull(16) ?: 0
             val b = clean.substring(i + 4, i + 6).toIntOrNull(16) ?: 0
-            if (isDialogueColor(r, g, b)) {
-                count++
-            }
+            if (isDialogueColor(r, g, b)) count++
             i += 8
         }
         return count
     }
 
-    /**
-     * Minimum dialogue font/icon matching pixels required to declare dialogue active.
-     * Scales dynamically with screen resolution (e.g. 12 pixels on 1080p, 8 on 720p, 16 on 1440p).
-     * Filters 100% of single-pixel noise from terrain textures, grass, rocks, snow, and clouds.
-     */
     fun calculateMinDialogueThreshold(screenHeight: Int): Int {
         val height = min(screenHeight, 4320).coerceAtLeast(720).toLong()
         return ((height * 18L) / 1080L).coerceAtLeast(10L).toInt()
     }
 
-    /**
-     * Calculates the raw screencap byte slice parameters for the dialogue controls across any screen resolution.
-     * Dynamically calculates the 16:9 safe-frame pillarbox padding for ultrawide displays (19.5:9, 20:9, 20.5:9, 21:9).
-     * Focuses strictly on the dialogue control button group ("▶ Otomatis", "☰", "👁", "🔊") at:
-     *   X in [pillarbox + 45 .. pillarbox + 280]
-     *   Y approx 5.2% of screen height (row 56 on 1080p).
-     *
-     * Eliminates 100% of false positives from:
-     * - Top-left map/quest text ("Hadiah Ekspedisi") residing in the left margin X in [0..pillarbox].
-     * - Top-right open-world icons (Wish, Battle Pass, Handbook, Bag) at X >= 0.75 * width.
-     * - Top-right map close 'X' button.
-     *
-     * Returns Pair(headBytes, sliceBytes).
-     */
     fun calculateDialogueScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
         val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
-
-        // Dynamic 16:9 inner safe frame calculation for ultrawide displays
         val safeWidth = (height * 16L) / 9L
         val pillarbox = if (width > safeWidth) (width - safeWidth) / 2L else 0L
-
-        // Exact horizontal bounds of the dialogue control buttons within 16:9 safe frame
         val xMin = pillarbox + ((safeWidth * 45L) / 1920L).coerceAtLeast(40L)
         val xMax = pillarbox + ((safeWidth * 280L) / 1920L).coerceAtLeast(250L)
         val y = ((height * 56L) / 1080L).coerceAtLeast(20L)
-
         val rowStart = 16L + (y * width * 4L)
         val byteStart = rowStart + (xMin * 4L)
         val byteEnd = rowStart + (xMax * 4L)
-        val sliceBytes = byteEnd - byteStart
-        val headBytes = byteEnd
-
-        return headBytes to sliceBytes
+        return byteEnd to (byteEnd - byteStart)
     }
 
-    /**
-     * Calculates the raw screencap byte slice parameters for the bottom narration prompt ("Tekan untuk melanjutkan"):
-     * Y is row 944 on 1080p (~87.4% height).
-     * X is centered at width / 2, spanning width of (height * 450) / 1080 (~450px wide).
-     * Returns Pair(headBytes, sliceBytes).
-     */
-    data class PromptScanMetrics(
-        val goldMatches: Int,
-        val marginBlackRatio: Float,
-        val isConfirmedNarration: Boolean
-    )
-
-    /**
-     * Calculates the raw screencap byte slice parameters for the bottom narration prompt ("Tekan untuk melanjutkan"):
-     * Y is row 944 on 1080p (~87.4% height).
-     * Spans 80% screen width (X in 10% .. 90% width) to verify BOTH center prompt gold AND left/right margin pitch-blackness.
-     * Prevents 100% of false positives from night gameplay, dark caves, or open-world terrain.
-     * Returns Pair(headBytes, sliceBytes).
-     */
-    fun calculatePromptScanSlice(screenWidth: Int, screenHeight: Int): Pair<Long, Long> {
-        val width = max(screenWidth, screenHeight).coerceAtLeast(1280).toLong()
-        val height = min(screenWidth, screenHeight).coerceAtLeast(720).toLong()
-
-        val y = ((height * 944L) / 1080L).coerceIn(0L, height - 1L)
-        val xMin = ((width * 10L) / 100L).coerceAtLeast(0L)
-        val xMax = ((width * 90L) / 100L).coerceAtMost(width)
-
-        val rowStart = 16L + (y * width * 4L)
-        val byteStart = rowStart + (xMin * 4L)
-        val byteEnd = rowStart + (xMax * 4L)
-        val sliceBytes = byteEnd - byteStart
-        val headBytes = byteEnd
-
-        return headBytes to sliceBytes
-    }
-
-    /**
-     * Dual-verification for Black Interstitial Narration Cutscenes:
-     * 1. Evaluates center prompt zone (width/2 +- 225px) for Hoyoverse amber-gold diamond icon.
-     * 2. Evaluates left and right margins across row 944 for pitch-blackness (RGB < 25, 25, 25).
-     * Guaranteed 0-tap safety shield: in an open-world cave or night gameplay, the margins contain terrain textures,
-     * so marginBlackRatio is < 80%, immediately rejecting the scene and keeping 100% player control intact.
-     */
-    fun evaluatePromptSliceWithMargins(
-        slice: ByteArray,
-        screenWidth: Int,
-        screenHeight: Int,
-        isBgra: Boolean = false
-    ): PromptScanMetrics {
-        val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
-        val height = min(screenWidth, screenHeight).coerceAtLeast(720)
-        val xMin = (width * 0.10f).toInt()
-        val promptW = ((height * 450) / 1080).coerceAtLeast(300)
-        val centerStart = ((width / 2) - (promptW / 2)) - xMin
-        val centerEnd = ((width / 2) + (promptW / 2)) - xMin
-
-        val rOff = if (isBgra) 2 else 0
-        val gOff = 1
-        val bOff = if (isBgra) 0 else 2
-
-        var goldMatches = 0
-        var goldRun = 0
-        var maxGoldRun = 0
-        var marginBlackCount = 0
-        var totalMarginPixels = 0
-
-        var px = 0
-        var byteIdx = 0
-        while (byteIdx <= slice.size - 4) {
-            val r = slice[byteIdx + rOff].toInt() and 0xFF
-            val g = slice[byteIdx + gOff].toInt() and 0xFF
-            val b = slice[byteIdx + bOff].toInt() and 0xFF
-
-            if (px in centerStart until centerEnd) {
-                if (isPromptGoldColor(r, g, b)) {
-                    goldMatches++
-                    goldRun++
-                    if (goldRun > maxGoldRun) maxGoldRun = goldRun
-                } else {
-                    goldRun = 0
-                }
-            } else {
-                goldRun = 0
-                totalMarginPixels++
-                if (r < 25 && g < 25 && b < 25) {
-                    marginBlackCount++
-                }
-            }
-            px++
-            byteIdx += 4
-        }
-
-        val marginBlackRatio = if (totalMarginPixels > 0) {
-            marginBlackCount.toFloat() / totalMarginPixels
-        } else {
-            0f
-        }
-        val minGoldRun = ((height * 3) / 1080).coerceAtLeast(2)
-        val isConfirmed = goldMatches >= 15 && maxGoldRun >= minGoldRun && marginBlackRatio >= 0.80f
-
-        return PromptScanMetrics(
-            goldMatches = goldMatches,
-            marginBlackRatio = marginBlackRatio,
-            isConfirmedNarration = isConfirmed
-        )
-    }
-
-    /**
-     * Calculates the raw byte offset for the Auto button pixel in screencap RGBA stream.
-     */
     fun calculateAutoButtonOffset(screenWidth: Int, screenHeight: Int): Long {
         val width = max(screenWidth, screenHeight).coerceAtLeast(1280)
         val height = min(screenWidth, screenHeight).coerceAtLeast(720)
@@ -737,13 +395,6 @@ object GenshinSkipEngine {
         val telemetry: SceneTelemetry
     )
 
-    /**
-     * Captures a complete diagnostic scene bundle for the Scene Vision learning pipeline:
-     * - Full resolution screencap (PNG)
-     * - 16:9 safe-zone cropped slice (PNG)
-     * - Telemetry metadata analysis (JSON)
-     * Saved to /sdcard/Lynx/scenes/ (fallback to external files dir).
-     */
     fun captureSceneSnapshotDetailed(
         context: Context,
         screenWidth: Int,
@@ -762,25 +413,20 @@ object GenshinSkipEngine {
         val y = ((height.toLong() * 56L) / 1080L).coerceAtLeast(20L)
         val sliceBytes = (xMax - xMin) * 4L
         val threshold = calculateMinDialogueThreshold(height)
-        val declared = sceneClassification?.let {
-            it.sceneType == SceneType.STANDARD_DIALOGUE || it.sceneType == SceneType.BLACK_INTERSTITIAL
-        } ?: (matchingPixels >= threshold)
+        val declared = sceneClassification?.sceneType?.isSkippableDialogue
+            ?: (matchingPixels >= threshold)
 
         val dir = File("/sdcard/Lynx/scenes").apply { if (!exists()) mkdirs() }
         val targetDir = if (dir.canWrite()) dir else context.getExternalFilesDir("scenes") ?: dir
         if (!targetDir.exists()) targetDir.mkdirs()
 
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-        val timeTag = sdf.format(Date())
-        val baseName = "scene_${timeTag}"
-
+        val baseName = "scene_${sdf.format(Date())}"
         val fullFile = File(targetDir, "${baseName}_full.png")
         val jsonFile = File(targetDir, "${baseName}_telemetry.json")
 
-        // 1. Full screenshot
         Shell.cmd("screencap -p '${fullFile.absolutePath}'").exec()
 
-        // 2. Telemetry metadata
         val sceneTypeStr = sceneClassification?.sceneType?.name
             ?: if (declared) SceneType.STANDARD_DIALOGUE.name else SceneType.UNKNOWN.name
         val goldMatches = sceneClassification?.goldMatches ?: 0
@@ -810,7 +456,6 @@ object GenshinSkipEngine {
         val jsonContent = telemetry.toJson().replace("'", "'\\''")
         Shell.cmd("echo '$jsonContent' > '${jsonFile.absolutePath}' && chmod 666 '${fullFile.absolutePath}' '${jsonFile.absolutePath}'").exec()
 
-        // 3. Crop slice image if full file exists
         var slicePath: String? = null
         if (fullFile.exists() && fullFile.length() > 1024L) {
             runCatching {

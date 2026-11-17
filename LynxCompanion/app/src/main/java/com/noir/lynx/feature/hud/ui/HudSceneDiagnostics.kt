@@ -72,9 +72,18 @@ internal fun HudSceneDiagnostics(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(Modifier.width(6.dp))
+                                val verdictLabel = when (sceneResult.telemetry.sceneType) {
+                                    GenshinSkipEngine.SceneType.STANDARD_DIALOGUE.name -> hudString(R.string.hud_autoskip_scene_type_standard)
+                                    GenshinSkipEngine.SceneType.BLACK_INTERSTITIAL.name -> hudString(R.string.hud_autoskip_scene_type_black)
+                                    GenshinSkipEngine.SceneType.SPECIAL_NARRATION.name -> hudString(R.string.hud_autoskip_scene_type_special)
+                                    GenshinSkipEngine.SceneType.WHITE_LOADING.name -> hudString(R.string.hud_autoskip_scene_type_loading)
+                                    GenshinSkipEngine.SceneType.OPEN_WORLD.name,
+                                    GenshinSkipEngine.SceneType.START_SCREEN.name -> hudString(R.string.hud_autoskip_scene_type_openworld)
+                                    else -> if (isDialog) hudString(R.string.hud_autoskip_scene_detected)
+                                            else hudString(R.string.hud_autoskip_scene_non_dialog)
+                                }
                                 Text(
-                                    text = if (isDialog) hudString(R.string.hud_autoskip_scene_detected)
-                                           else hudString(R.string.hud_autoskip_scene_non_dialog),
+                                    text = verdictLabel,
                                     color = verdictColor,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
