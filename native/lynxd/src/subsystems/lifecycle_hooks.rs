@@ -200,15 +200,12 @@ impl LifecycleHooks {
         let _ = crate::subsystems::NetworkController::apply_balance();
         Self::log_msg("[+] Core, network, and platform subsystems optimized natively via lynxd");
 
-        // 7. Apply Charging, ADB Keep-Alive & Storage Maintenance
+        // 7. Apply Charging, ADB Keep-Alive & VM Setup (never drop caches or run heavy maintenance on cold boot)
         ChargingRegulator::apply_from_config();
         crate::subsystems::AdbController::apply_from_config();
-        let _ = MaintenanceController::run(false);
         let _ = MemoryController::apply_ram();
-        let _ = MemoryController::clean_memory();
-        Self::log_msg("[+] Memory & VM optimizations, Charging, ADB Keep-Alive & storage maintenance executed natively via lynxd");
+        Self::log_msg("[+] Memory & VM optimizations, Charging & ADB Keep-Alive applied natively via lynxd");
 
-        // 8. Profile Action Execution
         // 8. Profile Action Execution & Autonomous Daemon Spawning
         let lynxd_bin = format!("{}/system/bin/lynxd", MODPATH);
         let normalized = if active_profile == "balanced" || active_profile == "auto" {
@@ -227,6 +224,20 @@ impl LifecycleHooks {
             "[+] Applied baseline profile '{}' via lynxd transactional pipeline",
             normalized
         ));
+
+        // Publish volatile boot-applied marker so Companion BootReceiver avoids redundant profile re-application
+        let boot_ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let boot_marker = Path::new("/dev/lynx_boot_applied");
+        if fs::write(boot_marker, format!("{}|{}\n", boot_ts, normalized)).is_ok() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(boot_marker, fs::Permissions::from_mode(0o644));
+            }
+        }
 
         // Always launch the native autonomous daemon (Per-App watcher, Charging Regulator, ADB keepalive)
         let lynxd_log = format!("{}/logs/lynxd.log", MODPATH);

@@ -25,6 +25,7 @@ pub mod swap;
 pub mod system;
 pub mod thermal;
 pub mod tui;
+pub mod wakeup;
 pub mod zram;
 
 pub use adb::AdbController;

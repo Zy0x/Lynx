@@ -1,3 +1,20 @@
+# Lynx Universal [Zero-Hardcode Cold-Boot & Post-Doze Anti-Lag Engine] 7.0.0-RC413
+Released on: 2026-11-18
+> Lynx Kernel Manager v3.4.32
+
+### Native Engine (`lynxd`) & Companion (`LynxApp`, `LynxBootReceiver`, `LynxAppAutomationService`, `LynxMemoryShield`)
+- **Cold-Boot Contention & Cache-Preservation Guard (`lifecycle_hooks.rs`, `maintenance.rs`, `runner.rs`, `LynxBootReceiver.kt`, `LynxApp.kt`)**:
+  - Removed cold-boot `MemoryController::clean_memory()` (`drop_caches` + synchronous `compact_memory` + cached-app eviction) and heavy `MaintenanceController::run(false)` from `run_boot()`, adding a universal `/proc/uptime` 1800s boot-grace guard in `MaintenanceController::run(false)`.
+  - Fixed `MaintenanceController::defrag_f2fs_segments()` leaving `/sys/fs/f2fs/*/gc_urgent` stuck at `1` permanently by bounding the urgent GC burst to 3s (aborting immediately on screen wake) and restoring original values afterwards.
+  - Added `/dev/lynx_boot_applied` volatile handoff & 20s state-recency check so `DaemonRunner` and `LynxBootReceiver` do not re-apply the baseline profile redundantly on boot, alongside `LynxApp` startup-sync deduplication.
+- **Debounced Thermal/Battery-Aware Wakeup Boost & Deep Sleep Shield (`wakeup.rs`, `runner.rs`, `LynxAppAutomationService.kt`)**:
+  - Removed the duplicate screen-on `wakeup_boost` inside `DaemonRunner`'s sleep loop, replaced `200ms` screen-off polling with `2500ms`/`5000ms` deep-sleep chunks, and skipped redundant Kotlin `triggerWakeupBoost()` calls whenever `lynxd daemon` is active (plus a 4s debounce in standalone mode).
+  - Extracted `subsystems/wakeup.rs` with a 3s cross-process cooldown (`/dev/lynx_last_wakeup_ms` + generation counter), thermal/low-battery/powersave OPP quantile scaling, dynamic `core_ctl/min_cpus` discovery & restoration, and cached-PID `elevate_ui_io_priority()` executed asynchronously.
+- **ZRAM & eMMC/FBE Anti-Thrash Calibration (`device_tier.rs`, `memory.rs`, `LynxMemoryShield.kt`)**:
+  - Calibrated `DeviceTier` balanced/powersave swappiness (`60`/`70` on `<= 4.5GB` RAM, capped `<= 10` when ZRAM is absent) and eMMC `vfs_cache_pressure` (`40`), plus `watermark_boost_factor=0` in `MemoryController::apply_ram()`.
+  - Updated `MemoryController::check_swap_pressure()` (`should_trigger_swap_relief`) to require genuine `MemAvailable` pressure (`< 12.5%` clamped `180..=400 MB`) alongside low `SwapFree` (or severe swap exhaustion `< 6.25%`), and eliminated synchronous `compact_memory` / `drop_caches` on eMMC, low-RAM (`<= 4.5GB`), and active gameplay paths.
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`system/bin/lynxd` & APK assets) alongside `LynxKernelManager.apk` `v3.4.32`.
+
 # Lynx Universal [Lossless OpenGL ES / Vulkan Pipeline, Wildcard ICD Probe & Dynamic Mali/GED Tuning] 7.0.0-RC412
 Released on: 2026-11-17
 > Lynx Kernel Manager v3.4.31

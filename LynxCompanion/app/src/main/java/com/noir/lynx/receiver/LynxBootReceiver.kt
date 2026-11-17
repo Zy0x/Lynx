@@ -17,6 +17,29 @@ import java.util.concurrent.atomic.AtomicBoolean
  * LynxBootReceiver — Automatically restores Lynx App Automation Daemon on device cold boot.
  */
 class LynxBootReceiver : BroadcastReceiver() {
+    companion object {
+        internal fun shouldApplyBootProfile(
+            bootMarkerRaw: String?,
+            daemonRunning: Boolean,
+            baseline: String,
+        ): Boolean {
+            if (!daemonRunning) return true
+            val appliedProf = bootMarkerRaw
+                ?.trim()
+                ?.substringAfter('|', "")
+                ?.trim()
+                ?.lowercase()
+                .orEmpty()
+            if (appliedProf.isBlank()) return true
+            val normBaseline = if (baseline.equals("balanced", ignoreCase = true) || baseline.equals("auto", ignoreCase = true)) {
+                "balance"
+            } else {
+                baseline.trim().lowercase()
+            }
+            return appliedProf != normBaseline
+        }
+    }
+
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return
         val action = intent.action ?: return
@@ -59,6 +82,7 @@ class LynxBootReceiver : BroadcastReceiver() {
         }
 
         val appCtx = context.applicationContext
+        com.noir.lynx.LynxApp.markStartupSyncCompleted()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Fast batched appops grant + daemon sync
@@ -68,27 +92,18 @@ class LynxBootReceiver : BroadcastReceiver() {
 
                 if (!isPackageReplaced) {
                     val baseline = LynxRepository.readBaselineProfile()
-                    Log.i("LynxBootReceiver", "Restoring baseline profile on boot: $baseline")
-                    LynxRepository.setProfile(baseline, "boot")
+                    val bootProbe = Shell.cmd(
+                        "cat /dev/lynx_boot_applied 2>/dev/null; echo '---'; pgrep -f 'lynxd daemon' >/dev/null 2>&1 && echo 1 || echo 0"
+                    ).exec().out.joinToString("\n")
+                    val markerRaw = bootProbe.substringBefore("---").trim()
+                    val daemonAlive = bootProbe.substringAfter("---", "").trim() == "1"
 
-                    // Low-RAM Anti-Lag Relief: check MemAvailable (not MemFree) and never flush pagecache on eMMC
-                    Shell.cmd("""
-                        mem_avail=${'$'}(awk '/^MemAvailable:/ {print ${'$'}2}' /proc/meminfo 2>/dev/null)
-                        if [ -n "${'$'}mem_avail" ] && [ "${'$'}mem_avail" -lt 150000 ] 2>/dev/null; then
-                            is_emmc=0
-                            for blk in /sys/block/mmcblk*; do
-                                [ -f "${'$'}blk/device/ext_csd" ] && is_emmc=1
-                                [ "${'$'}(cat ${'$'}blk/device/type 2>/dev/null)" = "MMC" ] && is_emmc=1
-                            done
-                            if [ "${'$'}is_emmc" = "1" ]; then
-                                echo 2 > /proc/sys/vm/drop_caches 2>/dev/null
-                            else
-                                echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
-                            fi
-                            echo 1 > /proc/sys/vm/compact_memory 2>/dev/null
-                            if [ -f /sys/block/zram0/compact ]; then echo 1 > /sys/block/zram0/compact 2>/dev/null; fi
-                        fi
-                    """.trimIndent()).exec()
+                    if (shouldApplyBootProfile(markerRaw, daemonAlive, baseline)) {
+                        Log.i("LynxBootReceiver", "Applying baseline profile on boot: $baseline")
+                        LynxRepository.setProfile(baseline, "boot")
+                    } else {
+                        Log.i("LynxBootReceiver", "Native lynxd already applied '$baseline' on boot; skipping duplicate apply.")
+                    }
 
                     // Restore custom kernel scheduler / HMP / EAS settings if apply_on_boot is enabled
                     LynxRepository.applySavedSchedulerConfig(appCtx)

@@ -59,25 +59,47 @@ impl DaemonRunner {
             format!("[DAEMON] Mesin keputusan diinisialisasi dengan profil dasar: '{}' (Histeresis keluar: {} dtk [{}])", initial_profile, initial_cooldown, dur_label)
         });
 
-        // Apply initial baseline profile immediately to hardware sysfs so CPU ceiling & limits are never stuck at boot values!
-        if let Some(base_prof) = get_profile_by_name(&initial_profile) {
-            let plan = ExecutionPlan::build(&base_prof);
-            match ProfileExecutor::execute(&plan, false) {
-                Ok(report) => {
-                    Logger::info(if is_english() {
-                        format!("[DAEMON] Initial baseline profile '{}' applied ({} nodes committed)", initial_profile, report.operations_committed)
-                    } else {
-                        format!("[DAEMON] Profil dasar awal '{}' berhasil diterapkan ({} node dikomit)", initial_profile, report.operations_committed)
-                    });
-                }
-                Err(e) => {
-                    Logger::error(if is_english() {
-                        format!("[DAEMON] Failed to apply initial baseline profile '{}': {}", initial_profile, e)
-                    } else {
-                        format!("[DAEMON] Gagal menerapkan profil dasar awal '{}': {}", initial_profile, e)
-                    });
+        // Apply initial baseline profile if it wasn't just applied cleanly (e.g. by `lynxd boot` moments ago)
+        let now_boot_ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let recently_applied = ProfileStateManager::load_active()
+            .ok()
+            .flatten()
+            .map(|s| {
+                !s.dirty
+                    && s.status == "applied"
+                    && s.active_profile.eq_ignore_ascii_case(&initial_profile)
+                    && now_boot_ts.saturating_sub(s.timestamp) <= 20
+            })
+            .unwrap_or(false);
+
+        if !recently_applied {
+            if let Some(base_prof) = get_profile_by_name(&initial_profile) {
+                let plan = ExecutionPlan::build(&base_prof);
+                match ProfileExecutor::execute(&plan, false) {
+                    Ok(report) => {
+                        Logger::info(if is_english() {
+                            format!("[DAEMON] Initial baseline profile '{}' applied ({} nodes committed)", initial_profile, report.operations_committed)
+                        } else {
+                            format!("[DAEMON] Profil dasar awal '{}' berhasil diterapkan ({} node dikomit)", initial_profile, report.operations_committed)
+                        });
+                    }
+                    Err(e) => {
+                        Logger::error(if is_english() {
+                            format!("[DAEMON] Failed to apply initial baseline profile '{}': {}", initial_profile, e)
+                        } else {
+                            format!("[DAEMON] Gagal menerapkan profil dasar awal '{}': {}", initial_profile, e)
+                        });
+                    }
                 }
             }
+        } else {
+            Logger::info(ui(
+                "[DAEMON] Profil dasar baru saja diterapkan saat boot; melewati eksekusi ganda.",
+                "[DAEMON] Baseline profile already applied during boot; skipping duplicate commit.",
+            ));
         }
 
         // Optimize SystemUI priority & disable expensive window blurs on boot
@@ -243,7 +265,9 @@ impl DaemonRunner {
                     ScreenState::On => {
                         Logger::info(ui("[DAEMON] Layar MENYALA terdeteksi. Pemantauan aktif dilanjutkan (interval: 5 dtk).", "[DAEMON] Screen ON detected. Resuming active monitoring (interval: 5s)."));
                         ChargingRegulator::apply_from_config();
-                        crate::subsystems::SystemController::wakeup_boost(3500);
+                        std::thread::spawn(|| {
+                            crate::subsystems::SystemController::wakeup_boost(3000);
+                        });
                     }
                     ScreenState::Unknown => {}
                 }
@@ -569,22 +593,17 @@ impl DaemonRunner {
                     sleep(Duration::from_millis(500));
                 }
             } else if current_screen == ScreenState::Off {
-                // Deep Sleep Shield: When unplugged and screen is off, sleep in 200ms intervals
-                // checking for instant screen ON edge trigger to break out immediately (sub-200ms latency).
-                let total_chunks = (sleep_duration.as_millis() / 200).max(1);
+                // Deep Sleep Shield: Unplugged & screen OFF sleeps in >= 2500ms intervals (5000ms if using
+                // dumpsys fallback) to avoid waking CPU 5x/sec while still catching screen-ON promptly
+                // and dispatching Wakeup Boost once via `daemon_state.update_screen`.
+                let chunk_ms: u64 = if screen.active_node.is_some() { 2500 } else { 5000 };
+                let total_chunks = ((sleep_duration.as_millis() as u64) / chunk_ms).max(1);
                 for _ in 0..total_chunks {
                     if !DaemonLifecycle::is_running() {
                         break;
                     }
-                    sleep(Duration::from_millis(200));
+                    sleep(Duration::from_millis(chunk_ms));
                     if screen.detect() == ScreenState::On {
-                        // Instant wakeup: Screen turned on! Trigger native wakeup boost and resume immediately!
-                        Logger::info(if is_english() {
-                            "[DAEMON] Screen turned ON from sleep! Aborting deep sleep wait and triggering Wakeup Boost..."
-                        } else {
-                            "[DAEMON] Layar menyala dari tidur! Menghentikan sleep deep-sleep dan memicu Wakeup Boost..."
-                        });
-                        crate::subsystems::SystemController::wakeup_boost(3500);
                         break;
                     }
                 }

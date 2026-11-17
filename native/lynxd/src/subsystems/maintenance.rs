@@ -8,6 +8,21 @@ use crate::sysfs::{SysfsWriter, WriteMode};
 pub struct MaintenanceController;
 
 impl MaintenanceController {
+    const BOOT_GRACE_SECS: f64 = 1800.0;
+
+    /// Parses `/proc/uptime` to detect whether the system is still in the cold-boot window.
+    pub(crate) fn parse_uptime_secs(raw: &str) -> Option<f64> {
+        raw.split_whitespace().next()?.parse::<f64>().ok()
+    }
+
+    pub fn is_in_boot_grace_period() -> bool {
+        fs::read_to_string("/proc/uptime")
+            .ok()
+            .and_then(|s| Self::parse_uptime_secs(&s))
+            .map(|secs| secs < Self::BOOT_GRACE_SECS)
+            .unwrap_or(false)
+    }
+
     /// Determines whether the device is currently under user workload (active gaming or screen ON).
     pub fn is_device_busy() -> bool {
         if Path::new("/dev/lynx_active_game").exists() {
@@ -170,23 +185,43 @@ impl MaintenanceController {
         compiled
     }
 
-    /// Triggers aggressive F2FS background GC defragmentation during night maintenance.
+    /// Triggers bounded F2FS urgent GC defragmentation during idle maintenance and restores the node afterwards.
     pub fn defrag_f2fs_segments() -> bool {
-        let mut success = false;
+        let mut modified_nodes: Vec<(PathBuf, String)> = Vec::new();
         if let Ok(entries) = fs::read_dir("/sys/fs/f2fs") {
             for entry in entries.flatten() {
                 let gc_urgent_node = entry.path().join("gc_urgent");
                 if gc_urgent_node.exists() {
-                    let _ = SysfsWriter::write(&gc_urgent_node, "1", WriteMode::ForcePermission);
-                    success = true;
+                    let prev = fs::read_to_string(&gc_urgent_node)
+                        .unwrap_or_else(|_| "0".to_string())
+                        .trim()
+                        .to_string();
+                    if prev == "0" && SysfsWriter::write(&gc_urgent_node, "1", WriteMode::ForcePermission).is_ok() {
+                        modified_nodes.push((gc_urgent_node, prev));
+                    }
                 }
             }
         }
-        success
+        if modified_nodes.is_empty() {
+            return false;
+        }
+        for _ in 0..6 {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            if Self::is_device_busy() {
+                break;
+            }
+        }
+        for (node, prev) in modified_nodes {
+            let _ = SysfsWriter::write(&node, &prev, WriteMode::ForcePermission);
+        }
+        true
     }
 
     /// Executes complete system maintenance: clutter prune, flash storage TRIM, SQLite vacuum, RAM compaction, AOT dexopt, and F2FS GC.
     pub fn run(force: bool) -> String {
+        if !force && Self::is_in_boot_grace_period() {
+            return "{\"status\":\"skipped\",\"reason\":\"Cold boot grace period active.\"}".to_string();
+        }
         if !force && Self::is_device_busy() {
             return "{\"status\":\"skipped\",\"reason\":\"Device is currently busy (game active or screen is ON).\"}".to_string();
         }
@@ -194,9 +229,21 @@ impl MaintenanceController {
         let clutter_removed = Self::prune_system_clutter();
         let trim_reports = Self::trim_flash_storage();
         let ram_compacted = Self::compact_memory();
-        let dbs_vacuumed = Self::vacuum_sqlite_databases();
-        let aot_compiled = Self::compile_game_packages();
-        let f2fs_defragged = Self::defrag_f2fs_segments();
+        let dbs_vacuumed = if force || !Self::is_device_busy() {
+            Self::vacuum_sqlite_databases()
+        } else {
+            0
+        };
+        let aot_compiled = if force || !Self::is_device_busy() {
+            Self::compile_game_packages()
+        } else {
+            0
+        };
+        let f2fs_defragged = if force || !Self::is_device_busy() {
+            Self::defrag_f2fs_segments()
+        } else {
+            false
+        };
 
         format!(
             "{{\"status\":\"success\",\"clutter_removed\":{},\"trim_reports\":[{}],\"ram_compacted\":{},\"databases_vacuumed\":{},\"aot_compiled\":{},\"f2fs_defragged\":{}}}",
@@ -207,5 +254,17 @@ impl MaintenanceController {
             aot_compiled,
             f2fs_defragged
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_proc_uptime_seconds_cleanly() {
+        assert_eq!(MaintenanceController::parse_uptime_secs("362.45 1840.12"), Some(362.45));
+        assert_eq!(MaintenanceController::parse_uptime_secs("2400.00 8000.00"), Some(2400.0));
+        assert_eq!(MaintenanceController::parse_uptime_secs(""), None);
     }
 }

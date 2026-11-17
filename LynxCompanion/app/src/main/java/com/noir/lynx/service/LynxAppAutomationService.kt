@@ -99,7 +99,9 @@ class LynxAppAutomationService : Service() {
                         try {
                             LynxRepository.applySavedChargingConfig()
                         } catch (_: Exception) {}
-                        triggerWakeupBoost()
+                        if (!isNativeDaemonHandlingProfiles()) {
+                            triggerWakeupBoost()
+                        }
                         val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
                         withContext(Dispatchers.Main) {
                             notificationHelper.updateNotification(
@@ -114,7 +116,13 @@ class LynxAppAutomationService : Service() {
         }
     }
 
+    @Volatile
+    private var lastWakeupBoostMs = 0L
+
     private fun triggerWakeupBoost() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastWakeupBoostMs < 4000L) return
+        lastWakeupBoostMs = now
         try {
             val lynxdPath = LynxRepository.getLynxdPath()
             Shell.cmd("'$lynxdPath' system wakeup-boost 1500 2>/dev/null || (echo 1 > /proc/sys/kernel/sched_boost 2>/dev/null; echo 0-7 > /dev/cpuset/top-app/cpus 2>/dev/null; sleep 1; echo 0 > /proc/sys/kernel/sched_boost 2>/dev/null) &").submit()
@@ -132,8 +140,9 @@ class LynxAppAutomationService : Service() {
                     lastPowerConnectedTime = now
                     serviceScope.launch(Dispatchers.IO) {
                         try {
-                            // 1. Proactive Memory Shield: purge caches to accommodate Android's charging sync jobs
-                            LynxMemoryShield.checkAndProtectMemory()
+                            if (!isNativeDaemonHandlingProfiles()) {
+                                LynxMemoryShield.checkAndProtectMemory()
+                            }
 
                             // 2. Enforce fluid compositor latching during charging to prevent AC ripple touch jank
                             Shell.cmd("setprop debug.sf.latch_unsignaled 0; setprop debug.sf.auto_latch_unsignaled 0; setprop debug.sf.disable_backpressure 0; resetprop -d debug.hwui.render_thread 2>/dev/null; resetprop -d debug.hwui.use_buffer_age 2>/dev/null; setprop debug.sf.disable_client_composition_cache 0; setprop debug.hwui.target_cpu_time_percent 70").submit()
@@ -273,7 +282,9 @@ class LynxAppAutomationService : Service() {
         serviceScope.launch(Dispatchers.IO) {
             try {
                 Shell.cmd("pkill -f lynx_watcher.sh 2>/dev/null").exec()
-                LynxMemoryShield.applyOptimalVmParameters()
+                if (!isNativeDaemonHandlingProfiles()) {
+                    LynxMemoryShield.applyOptimalVmParameters()
+                }
             } catch (_: Exception) {}
 
             val initialProfile = LynxRepository.readBaselineProfile().ifBlank {
@@ -529,7 +540,9 @@ class LynxAppAutomationService : Service() {
                 delay(10000L)
                 if (!isScreenOn) continue
                 try {
-                    LynxMemoryShield.checkAndProtectMemory()
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        LynxMemoryShield.checkAndProtectMemory()
+                    }
 
                     val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
                     val tele = notificationHelper.formatTelemetry(pct, tempC)

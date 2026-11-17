@@ -19,6 +19,17 @@ class LynxApp : Application() {
             private set
         @Volatile
         var isAppForeground: Boolean = false
+        private val lastStartupSyncMs = java.util.concurrent.atomic.AtomicLong(0L)
+
+        fun markStartupSyncCompleted() {
+            lastStartupSyncMs.set(android.os.SystemClock.elapsedRealtime())
+        }
+
+        fun shouldRunStartupSync(windowMs: Long = 15_000L): Boolean {
+            val prev = lastStartupSyncMs.get()
+            if (prev == 0L) return true
+            return android.os.SystemClock.elapsedRealtime() - prev >= windowMs
+        }
     }
 
     override fun onCreate() {
@@ -46,6 +57,8 @@ class LynxApp : Application() {
         // (short yield avoids contending with LynxBootReceiver on BOOT_COMPLETED / MY_PACKAGE_REPLACED)
         CoroutineScope(Dispatchers.IO).launch {
             kotlinx.coroutines.delay(1500L)
+            if (!shouldRunStartupSync()) return@launch
+            markStartupSyncCompleted()
             runCatching {
                 com.noir.lynx.data.LynxRepository.grantOverlayPermission()
                 com.noir.lynx.data.LynxRepository.grantUsageStatsPermission()

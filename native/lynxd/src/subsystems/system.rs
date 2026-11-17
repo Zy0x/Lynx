@@ -384,134 +384,9 @@ impl SystemController {
         String::new()
     }
 
-    /// Triggers an instantaneous, hardware-level Wakeup Boost (3.5s) to eliminate deep sleep wakeup stutter / freeze.
+    /// Triggers an instantaneous, debounced, hardware-level Wakeup Boost to absorb deep sleep wakeup stutter.
     pub fn wakeup_boost(duration_ms: u64) -> String {
-        Logger::info(ui(
-            "[WAKEUP-BOOST] Memicu lonjakan CPU sementara untuk menyerap beban bangun tidur (thundering herd)...",
-            "[WAKEUP-BOOST] Triggering transient CPU boost to absorb wakeup thundering herd..."
-        ));
-
-        let dur = if duration_ms == 0 { 3500 } else { duration_ms };
-
-        // 1. Immediately ensure top-app and foreground have access to all cores
-        let (vendor, _) = crate::hardware::detector::ScoreBoard::evaluate();
-        let total_cores = std::fs::read_to_string("/sys/devices/system/cpu/online")
-            .unwrap_or_default()
-            .trim()
-            .split('-')
-            .last()
-            .and_then(|s| s.parse::<usize>().ok())
-            .map(|m| m + 1)
-            .unwrap_or(8);
-
-        let max_core_idx = total_cores.saturating_sub(1);
-        let all_cores_str = format!("0-{}", max_core_idx);
-
-        Self::write_opt("/dev/cpuset/top-app/cpus", &all_cores_str);
-        Self::write_opt("/dev/cpuset/foreground/cpus", &all_cores_str);
-        Self::write_opt("/sys/fs/cgroup/cpuset/top-app/cpus", &all_cores_str);
-        Self::write_opt("/sys/fs/cgroup/cpuset/foreground/cpus", &all_cores_str);
-
-        // 2. Universal EAS Schedtune & CFS CPU Shares Surge (for 4.9/4.14/4.19 EAS kernels like SDM660)
-        Self::write_opt("/dev/stune/top-app/schedtune.boost", "50");
-        Self::write_opt("/dev/stune/top-app/schedtune.prefer_idle", "1");
-        Self::write_opt("/dev/stune/top-app/schedtune.prefer_high_cap", "1");
-        Self::write_opt("/dev/stune/foreground/schedtune.boost", "35");
-        Self::write_opt("/dev/stune/foreground/schedtune.prefer_high_cap", "1");
-        Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "4096");
-        Self::write_opt("/dev/cpuctl/background/cpu.shares", "128");
-        Self::write_opt("/dev/cpuctl/system-background/cpu.shares", "256");
-        // Elevate dynamic OPP floor (~55% quartile) across non-efficiency clusters without hardcoding frequencies
-        let cpu = crate::hardware::capability::HardwareCapability::resolve_cpu();
-        let single_cluster = cpu.policies.len() <= 1;
-        for pol in &cpu.policies {
-            for gdir in &pol.gov_tunable_dirs {
-                Self::write_opt(gdir.join("up_rate_limit_us"), "0");
-            }
-            let is_big = single_cluster || pol.index > 0 || pol.role.contains("Big") || pol.role.contains("Prime");
-            if !is_big || pol.is_locked || pol.current_governor == "performance" {
-                continue;
-            }
-            let boost_hz = crate::subsystems::cluster::pick_opp_quantile_freq(
-                &pol.available_freqs,
-                pol.min_freq,
-                pol.max_freq,
-                55,
-                100,
-            );
-            if pol.current_min_freq < boost_hz {
-                let boost_str = boost_hz.to_string();
-                let _ = SysfsWriter::write(pol.path.join("scaling_min_freq"), &boost_str, WriteMode::ForcePermission);
-                if vendor == crate::hardware::detector::Vendor::MediaTek {
-                    Self::write_opt("/proc/ppm/policy/hard_userlimit_min_cpu_freq", format!("{} {}", pol.mtk_cluster_index, boost_hz));
-                }
-            }
-        }
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "0");
-
-        // 3. Dynamic I/O Priority Elevation (Anti-Lockscreen Freeze):
-        // Elevate I/O priority for UI critical processes (keystore2, system_server, surfaceflinger).
-        // Strictly ban drop_caches on eMMC to prevent I/O avalanche & SQLite lockups!
-        Self::elevate_ui_io_priority();
-
-        match vendor {
-            crate::hardware::detector::Vendor::Qualcomm => {
-                // Qualcomm WALT Sched Boost
-                Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "1");
-                // Unpark Big Cores (Core Control: at least 2 big cores active)
-                Self::write_opt(crate::hardware::QcomHardware::CORE_CTL_MIN_CPUS_CPU4, "2");
-                // Touch/Input Boost
-                Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "120");
-                Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "1");
-            }
-            crate::hardware::detector::Vendor::MediaTek => {
-                Self::write_opt("/proc/perfmgr/boost_ta/req_boost", "1");
-                Self::write_opt("/proc/perfmgr/syslimiter/syslimiter_force_disable", "1");
-            }
-            crate::hardware::detector::Vendor::Generic => {}
-        }
-
-        // Spawn background thread to gracefully decay boost back to baseline after duration_ms
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(dur));
-
-            let active_profile = std::fs::read_to_string("/data/adb/lynx/active_profile")
-                .or_else(|_| std::fs::read_to_string("/data/local/tmp/lynxd_profile"))
-                .unwrap_or_else(|_| "balance".to_string())
-                .trim()
-                .to_string();
-
-            let cpu = crate::hardware::capability::HardwareCapability::resolve_cpu();
-            crate::subsystems::ClusterController::restore_baseline_floor(&cpu, &active_profile);
-
-            Self::write_opt("/dev/cpuctl/top-app/cpu.shares", "2048");
-            let restored_up = if active_profile == "powersave" { "4000" } else { "500" };
-            for pol in &cpu.policies {
-                for gdir in &pol.gov_tunable_dirs {
-                    Self::write_opt(gdir.join("up_rate_limit_us"), restored_up);
-                }
-            }
-            Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", restored_up);
-
-            match vendor {
-                crate::hardware::detector::Vendor::Qualcomm => {
-                    Self::write_opt(crate::hardware::QcomHardware::SCHED_BOOST, "0");
-                    Self::write_opt(crate::hardware::QcomHardware::CORE_CTL_MIN_CPUS_CPU4, "1");
-                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_INPUT_MS, "60");
-                    Self::write_opt(crate::hardware::QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
-                }
-                crate::hardware::detector::Vendor::MediaTek => {
-                    Self::write_opt("/proc/perfmgr/boost_ta/req_boost", "0");
-                }
-                crate::hardware::detector::Vendor::Generic => {}
-            }
-            Logger::info(ui(
-                "[WAKEUP-BOOST] Lonjakan bangun tidur selesai, ritme seimbang normal dipulihkan.",
-                "[WAKEUP-BOOST] Wakeup surge completed, restored to normal balanced rhythm."
-            ));
-        });
-
-        format!("Wakeup boost triggered for {}ms (All cpus unparked, big cores floor 1.4GHz, schedtune.boost=50, sched_boost=1).", dur)
+        super::wakeup::run_wakeup_boost(duration_ms)
     }
 
     /// Bundles system diagnostics into a timestamped archive on /sdcard/Lynx/.
@@ -570,44 +445,9 @@ impl SystemController {
         final_out
     }
 
-    /// Dynamically elevates I/O priority for lockscreen & UI render critical processes
-    /// to Real-Time class (or High Best-Effort), eliminating lockscreen lag on eMMC half-duplex bus.
+    /// Dynamically elevates I/O priority for lockscreen & UI render critical processes.
     pub fn elevate_ui_io_priority() {
-        let ionice_bin = if Path::new("/system/bin/ionice").exists() {
-            "/system/bin/ionice"
-        } else if Path::new("/vendor/bin/ionice").exists() {
-            "/vendor/bin/ionice"
-        } else {
-            "ionice"
-        };
-
-        let target_procs = ["keystore2", "android.system.keystore2", "system_server", "surfaceflinger"];
-        if let Ok(entries) = std::fs::read_dir("/proc") {
-            for entry in entries.flatten() {
-                if let Ok(file_name) = entry.file_name().into_string() {
-                    if let Ok(pid) = file_name.parse::<i32>() {
-                        let cmd_path = entry.path().join("cmdline");
-                        if let Ok(cmd_bytes) = std::fs::read(&cmd_path) {
-                            let cmd = String::from_utf8_lossy(&cmd_bytes);
-                            for target in &target_procs {
-                                if cmd.contains(target) {
-                                    let pid_str = pid.to_string();
-                                    let rt_res = Command::new(ionice_bin)
-                                        .args(["-c", "1", "-n", "0", "-p", &pid_str])
-                                        .output();
-                                    if rt_res.is_err() || !rt_res.as_ref().map(|o| o.status.success()).unwrap_or(false) {
-                                        let _ = Command::new(ionice_bin)
-                                            .args(["-c", "2", "-n", "0", "-p", &pid_str])
-                                            .output();
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        super::wakeup::elevate_ui_io_priority();
     }
 }
 

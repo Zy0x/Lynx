@@ -2132,7 +2132,7 @@ impl ChargingRegulator {
         is_qcom: bool,
         has_qcom_cp: bool,
     ) -> u32 {
-        if cur_soc >= 100 {
+        if cur_soc >= 100 && (is_qcom || cell_mv >= 4450) {
             return 100; // Anti-Flapping Single-Path Float Floor
         }
 
@@ -2437,6 +2437,16 @@ impl ChargingRegulator {
     /// Mode: request the fastest charging mode supported by hardware without arbitrary limits.
     /// Supports up to 240W, dual-cell 2S, and un-caps third-party USB-PD / PPS chargers (Ugreen, Anker, etc.).
     pub fn apply_extreme_charging(target_soc: u32, _allow_lockout_bypass: bool, requested_ma: u32) {
+        let cfg_before = ConfigStore::load_charging_config();
+        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+        if cfg_before.auto_cut_enabled && cur_cap >= 99 && Self::is_lynx_kernel_full_bypass_latched() {
+            // Kernel 100% AutoCut is already latched cleanly: never clear bypass or force CHG_EN=1 back on.
+            Self::write_node("/proc/lynx/hyper_charge", "1");
+            Self::write_node(&format!("{}/input_current", MTK_DIR), "3200000");
+            Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
+            return;
+        }
+
         Self::capture_charging_session_baseline();
 
         // 1. Completely clear bypass hardware state & markers
@@ -2451,7 +2461,6 @@ impl ChargingRegulator {
         ]);
         let _ = fs::remove_file("/dev/lynx_standard_charging");
 
-        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
         let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
         let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
 
@@ -2491,15 +2500,25 @@ impl ChargingRegulator {
             )
         };
         let silicon_cap_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000) as u32;
-        let qcom_ma_cap = if is_qcom && !has_qcom_cp {
+        let platform_ma = if is_qcom && !has_qcom_cp {
             effective_ma.min(silicon_cap_ma)
+        } else if !is_qcom {
+            // On MediaTek before kernel AutoCut latches, never choke ICHG/hyper_charge below 1800mA:
+            // UI_SOC reaches 100% around ~92.6% physical SOC while RT9471 hardware CV (4450mV)
+            // safely tapers current down to IEOC (200mA) and triggers kernel AutoCut.
+            effective_ma.max(1800)
         } else {
             effective_ma
         };
-        let effective_ua_str = (qcom_ma_cap as u64 * 1000).to_string();
-        let effective_ma_str = qcom_ma_cap.to_string();
+        let mtk_aicr_ma = if Self::is_laptop_port() {
+            platform_ma.clamp(500, 1500)
+        } else {
+            platform_ma.max(3200).clamp(1800, 7000)
+        };
+        let effective_ua_str = (platform_ma as u64 * 1000).to_string();
+        let effective_ma_str = platform_ma.to_string();
 
-        let _ = fs::write("/dev/lynx_extreme_charging", format!("hyper-{}", effective_ma));
+        let _ = fs::write("/dev/lynx_extreme_charging", format!("hyper-{}", platform_ma));
 
         // 1. Clear input suspend and enable native charging rails
         Self::set_perm(&format!("{}/input_suspend", BATT_DIR), 0o666);
@@ -2511,7 +2530,7 @@ impl ChargingRegulator {
         Self::write_node(&format!("{}/boost_current", BATT_DIR), "1");
 
         // 1b. Proactively uncap USB Power Delivery (USB-PD / PPS) across all platforms & vendors
-        Self::uncap_usb_pd_protocol(effective_ma);
+        Self::uncap_usb_pd_protocol(platform_ma);
 
         // MediaTek PMIC Power Path: ensure battery charging is permitted without disturbing active DV2 pump!
         Self::ensure_mtk_power_path_enabled();
@@ -2519,7 +2538,7 @@ impl ChargingRegulator {
         // 2. MediaTek Platform Enforcements & Dual Pump (Thermal & JEITA completely bypassed!)
         Self::set_bcct_throttle(false);
 
-        let is_trickle = effective_ma < 1500;
+        let is_trickle = platform_ma < 1500;
         let pe_protocol = if is_trickle { "0" } else { "1" };
 
         let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
@@ -2551,12 +2570,13 @@ impl ChargingRegulator {
         Self::apply_charger_thermal_neutralization();
 
         // Active Maximum Push to MediaTek hardware registers:
-        // Kernel store_input_current / store_chg1_current / store_chg2_current parse base-16 uA!
-        let mtk_input_hex = Self::format_mtk_charger_hex_ua(effective_ma.clamp(500, 7000));
+        // Never choke adapter AICR (`input_current`) below `mtk_aicr_ma` so VSYS and CV saturation never starve.
+        let mtk_input_hex = Self::format_mtk_charger_hex_ua(mtk_aicr_ma);
+        let mtk_chg_hex = Self::format_mtk_charger_hex_ua(platform_ma.clamp(500, 7000));
         Self::write_node(&format!("{}/input_current", MTK_DIR), &mtk_input_hex);
         Self::write_node(&format!("{}/sc_ibat_limit", MTK_DIR), &effective_ma_str);
-        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_input_hex);
-        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_input_hex);
+        Self::write_node(&format!("{}/chg1_current", MTK_DIR), &mtk_chg_hex);
+        Self::write_node(&format!("{}/chg2_current", MTK_DIR), &mtk_chg_hex);
 
         // Dynamically uncap pdc_max_watt once per plug session on PD / high-voltage adapters (avoids 1Hz dmesg spam)
         if !Self::is_laptop_port() && (Self::is_usb_pd_active() || adpv_clean >= 6500) {
@@ -2617,7 +2637,7 @@ impl ChargingRegulator {
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
             Self::write_node_lock(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
             Self::write_node_lock(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
-            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &effective_ua_str);
+            Self::write_node_lock(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             if Path::new(&format!("{}/direct_charging", QC_DIR)).exists() {
                 Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
@@ -2640,8 +2660,7 @@ impl ChargingRegulator {
                     Self::write_node_lock(&node, val_to_write);
                 }
                 "input_current_limit" | "hw_current_max" => {
-                    let in_limit = if is_qcom { &usb_current_cap_ua } else { &effective_ua_str };
-                    Self::write_node_lock(&node, in_limit);
+                    Self::write_node_lock(&node, &usb_current_cap_ua);
                 }
                 "charge_control_limit" => {
                     Self::write_node_lock(&node, &effective_ua_str);
@@ -5819,6 +5838,8 @@ mod tests {
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 94, 4438, false, false), 2500);
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 95, 4440, false, false), 1800);
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 99, 4445, false, false), 1800);
+        // MTK UI_SOC=100 before reaching 4450mV CV still maintains 1800mA saturation headroom
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 100, 4410, false, false), 1800);
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 100, 4450, false, false), 100);
     }
 

@@ -15,6 +15,7 @@ pub struct DeviceTier {
     pub has_mountx_sd: bool,
     pub has_mglru: bool,
     pub has_extra_free_node: bool,
+    pub has_zram: bool,
 }
 
 /// Unified VM & filesystem checkpoint targets for a given profile and device tier.
@@ -84,7 +85,14 @@ impl DeviceTier {
             has_mountx_sd,
             has_mglru,
             has_extra_free_node,
+            has_zram: true,
         }
+    }
+
+    /// Overrides detected ZRAM presence for pure capability-matrix unit testing.
+    pub fn with_zram(mut self, has_zram: bool) -> Self {
+        self.has_zram = has_zram;
+        self
     }
 
     /// Detects device tier from already-probed hardware capabilities.
@@ -110,6 +118,7 @@ impl DeviceTier {
             cap.memory.mglru_supported,
             Path::new("/proc/sys/vm/extra_free_kbytes").exists(),
         )
+        .with_zram(cap.memory.zram_available)
     }
 
     /// Detects device tier directly from live memory & storage capabilities.
@@ -135,6 +144,7 @@ impl DeviceTier {
             mem.mglru_supported,
             Path::new("/proc/sys/vm/extra_free_kbytes").exists(),
         )
+        .with_zram(mem.zram_available)
     }
 
     /// Aligns a KB reserve to 4 MiB blocks within `[min_kb, max_kb]`.
@@ -241,7 +251,7 @@ impl DeviceTier {
             (8, 16, 200, 500)
         };
 
-        match profile.as_str() {
+        let targets = match profile.as_str() {
             "extreme" => VmProfileTargets {
                 swappiness: if self.has_mountx_sd || !self.is_low_end_ram { 10 } else { 35 },
                 vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 15 },
@@ -283,8 +293,8 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary && !self.is_low_end_ram && !self.has_mountx_sd,
             },
             "powersave" | "battery" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 100 } else { 60 },
-                vfs_cache_pressure: if self.is_emmc_primary { 50 } else { 80 },
+                swappiness: if self.is_low_end_ram { 70 } else { 50 },
+                vfs_cache_pressure: if self.is_emmc_primary { 40 } else { 80 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: if self.is_emmc_primary { 200 } else { 500 },
@@ -296,17 +306,19 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
             "balance" | "balanced" | _ => VmProfileTargets {
+                // Keep low-RAM ZRAM devices at moderate 60 swappiness so active UI/SystemUI pages
+                // are not aggressively compressed out to ZRAM and thawed on every Doze wakeup.
                 swappiness: if self.is_low_end_ram {
-                    80
+                    60
                 } else if self.is_mid_ram || self.is_emmc_primary {
                     50
                 } else {
                     40
                 },
                 vfs_cache_pressure: if self.is_emmc_primary {
-                    50
+                    40
                 } else if self.is_low_end_ram {
-                    100
+                    75
                 } else {
                     50
                 },
@@ -320,6 +332,14 @@ impl DeviceTier {
                 f2fs_cp_interval_secs: if self.is_emmc_primary { 90 } else { 300 },
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
+        };
+        if !self.has_zram {
+            VmProfileTargets {
+                swappiness: targets.swappiness.min(10),
+                ..targets
+            }
+        } else {
+            targets
         }
     }
 
@@ -418,8 +438,11 @@ mod tests {
         assert_eq!(rn7_bal.min_free_kbytes, 16384);
         assert_eq!(rn7_bal.watermark_scale_factor, 30);
         assert_eq!(rn7_bal.extra_free_kbytes, 12288);
-        assert_eq!(rn7_bal.swappiness, 80);
-        assert_eq!(rn7_bal.vfs_cache_pressure, 50);
+        assert_eq!(rn7_bal.swappiness, 60);
+        assert_eq!(rn7_bal.vfs_cache_pressure, 40);
+
+        let no_zram_bal = rn7.with_zram(false).vm_profile_targets("balance");
+        assert_eq!(no_zram_bal.swappiness, 10);
 
         let ram6g_perf = ram6g.vm_profile_targets("performance");
         assert_eq!(ram6g_perf.min_free_kbytes, 20480);

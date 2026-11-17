@@ -47,7 +47,6 @@ impl MemoryController {
         // We enforce frequent, small asynchronous writebacks (5% bg / 10% ratio) and keep dentry/inode caches in RAM (vfs=50).
         let tier = crate::hardware::DeviceTier::detect_live();
         let vm = tier.vm_profile_targets("balance");
-        let is_emmc = tier.is_emmc_primary;
         let dirty_bg = vm.dirty_background_ratio.to_string();
         let dirty_ratio = vm.dirty_ratio.to_string();
         let dirty_expire = vm.dirty_expire_cs.to_string();
@@ -66,6 +65,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/kernel/sched_schedstats", "0");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
         Self::write_opt("/proc/sys/vm/page-cluster", "0");
+        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };
         Self::write_opt("/proc/sys/vm/max_map_count", max_maps);
 
@@ -73,27 +73,21 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
 
-        // â”€â”€ Multitasking & ActivityManager / LMKD Tiering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Multitasking & ActivityManager / LMKD Tiering
         // Strictly guards <= 4GB and <= 6GB RAM devices from lag & OOM stuttering,
         // while unleashing true seamless multitasking & recent app retention on 8GB+ RAM devices.
-        let (max_cached, bg_limit, vfs_pressure, phantom, swap_low_pct, kill_heaviest, kill_timeout, default_swap) =
+        let (max_cached, bg_limit, phantom, swap_low_pct, kill_heaviest, kill_timeout) =
             if mem.total_ram_mb <= 4500 {
-                // Tier 1: <= 4GB RAM (Redmi Note 7, etc.) - Strict conservation to prevent lag & direct reclaim
-                // If storage is eMMC, preserve vfs_cache_pressure=50 to prevent SQLite page thrashing on slow flash!
-                let vfs = if is_emmc { "50" } else { "100" };
-                ("24", "24", vfs, "24", "20", "true", "100", "50")
+                ("24", "24", "24", "20", "true", "100")
             } else if mem.total_ram_mb <= 6500 {
-                // Tier 2: 6GB RAM - Moderate balanced multitasking headroom
-                ("32", "32", "80", "2147483647", "20", "true", "100", "50")
+                ("32", "32", "2147483647", "20", "true", "100")
             } else if mem.total_ram_mb <= 10500 {
-                // Tier 3: 8GB RAM (Infinix Note 11s, etc.) - Seamless multitasking, apps retained in memory safely
-                ("36", "36", "60", "2147483647", "20", "true", "100", "50")
+                ("36", "36", "2147483647", "20", "true", "100")
             } else {
-                // Tier 4: >= 12GB RAM - Desktop-grade retention
-                ("48", "48", "50", "2147483647", "20", "true", "100", "40")
+                ("48", "48", "2147483647", "20", "true", "100")
             };
 
-        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vfs_pressure);
+        Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
 
         // ActivityManager cached process headroom & phantom process protection
         let _ = Command::new("device_config")
@@ -131,10 +125,11 @@ impl MemoryController {
         let _ = Command::new("resetprop").args(["dalvik.vm.heapmaxfree", max_free]).output();
         let _ = Command::new("resetprop").args(["dalvik.vm.heaptargetutilization", "0.75"]).output();
 
+        let default_swap = vm.swappiness.to_string();
         let swap_val = ConfigStore::get("swappiness")
             .or_else(|| ConfigStore::get("memory.swappiness"))
             .filter(|v| !v.is_empty() && v != "0")
-            .unwrap_or_else(|| default_swap.to_string());
+            .unwrap_or(default_swap);
 
         Self::write_opt("/proc/sys/vm/swappiness", &swap_val);
         Self::write_opt("/dev/memcg/memory.swappiness", &swap_val);
@@ -434,29 +429,55 @@ impl MemoryController {
         Self::check_system_server_vma();
     }
 
+    /// Evaluates whether background swap/memory relief should run.
+    /// Avoids thrashing ZRAM/caches when `MemAvailable` is healthy.
+    pub(crate) fn should_trigger_swap_relief(
+        mem_total_kb: u64,
+        mem_avail_kb: u64,
+        swap_total_kb: u64,
+        swap_free_kb: u64,
+    ) -> (bool, bool, bool) {
+        if swap_total_kb <= 524_288 {
+            return (false, false, false);
+        }
+        let swap_low = swap_free_kb < swap_total_kb / 8 || swap_free_kb < 262_144;
+        let swap_emergency = swap_free_kb < swap_total_kb / 16;
+        let mem_pressure_ceiling = (mem_total_kb / 8).clamp(180_000, 400_000);
+        let mem_evict_ceiling = (mem_total_kb / 10).clamp(150_000, 320_000);
+        let mem_low = mem_avail_kb > 0 && mem_avail_kb < mem_pressure_ceiling;
+        let should_evict = swap_emergency || (mem_avail_kb > 0 && mem_avail_kb < mem_evict_ceiling);
+        ((swap_low && mem_low) || swap_emergency, swap_emergency, should_evict)
+    }
+
     fn check_swap_pressure(fg_app: Option<&ForegroundApp>) {
         if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+            let mut mem_total = 0u64;
+            let mut mem_avail = 0u64;
             let mut swap_total = 0u64;
             let mut swap_free = 0u64;
             for line in content.lines() {
-                if line.starts_with("SwapTotal:") {
-                    swap_total = line
-                        .split_whitespace()
+                let parse_kb = |l: &str| -> u64 {
+                    l.split_whitespace()
                         .nth(1)
                         .and_then(|s| s.parse().ok())
-                        .unwrap_or(0);
+                        .unwrap_or(0)
+                };
+                if line.starts_with("MemTotal:") {
+                    mem_total = parse_kb(line);
+                } else if line.starts_with("MemAvailable:") {
+                    mem_avail = parse_kb(line);
+                } else if line.starts_with("SwapTotal:") {
+                    swap_total = parse_kb(line);
                 } else if line.starts_with("SwapFree:") {
-                    swap_free = line
-                        .split_whitespace()
-                        .nth(1)
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0);
+                    swap_free = parse_kb(line);
                 }
             }
 
-            // If swap device is active (> 512 MB) and free swap drops below 20% or below 512 MB
-            if swap_total > 524_288 && (swap_free < swap_total / 5 || swap_free < 512_000) {
-                // Cooldown guard to avoid rapid repeated eviction (60s cooldown)
+            let (should_relief, swap_emergency, should_evict) =
+                Self::should_trigger_swap_relief(mem_total, mem_avail, swap_total, swap_free);
+
+            if should_relief {
+                // Cooldown guard to avoid rapid repeated eviction (120s cooldown)
                 static LAST_RECLAIM: std::sync::atomic::AtomicU64 =
                     std::sync::atomic::AtomicU64::new(0);
                 let now = std::time::SystemTime::now()
@@ -464,7 +485,7 @@ impl MemoryController {
                     .map(|d| d.as_secs())
                     .unwrap_or(0);
                 let last = LAST_RECLAIM.load(std::sync::atomic::Ordering::Relaxed);
-                if now.saturating_sub(last) >= 60 {
+                if now.saturating_sub(last) >= 120 {
                     LAST_RECLAIM.store(now, std::sync::atomic::Ordering::Relaxed);
 
                     let is_game = fg_app
@@ -472,36 +493,33 @@ impl MemoryController {
                         .unwrap_or(false);
                     let protected_pkg = fg_app.map(|a| a.package.as_str());
 
-                    // Hardware ZRAM compaction is always safe (merges fragmented zsmalloc chunks without stalling user processes)
+                    // Hardware ZRAM compaction is non-blocking and merges fragmented zsmalloc pages safely
                     let _ = super::zram::ZramController::compact();
 
-                    if !is_game {
+                    // Never trigger synchronous compact_memory or drop_caches on eMMC/low-end RAM or during gameplay,
+                    // as flushing slab dentries/inodes triggers severe FBE cold-read stalls on half-duplex flash.
+                    let tier = crate::hardware::DeviceTier::cached_live();
+                    if !is_game && !tier.is_emmc_primary && !tier.is_low_end_ram && (swap_emergency || mem_avail < 120_000) {
                         let _ = SysfsWriter::write("/proc/sys/vm/compact_memory", "1", WriteMode::ForcePermission);
-                        // Evict only unused dentries/inodes on eMMC/low-end RAM to avoid FBE pagecache cold-read stalls
-                        let tier = crate::hardware::DeviceTier::detect_live();
-                        let cache_level = if tier.is_emmc_primary || tier.is_low_end_ram { "2" } else { "3" };
-                        let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", cache_level, WriteMode::ForcePermission);
-                    } else {
-                        // Gaming Mode Active Protection (Anti-Game Freeze):
-                        // 1. Strictly DO NOT drop file pagecache (drop_caches 3) so textures, shaders, and .so binaries stay hot in RAM.
-                        // 2. Strictly DO NOT execute synchronous /proc/sys/vm/compact_memory which stalls CPU rendering pipeline.
-                        // 3. Drop only unreferenced dentries/inodes (level 2) safely to free slab metadata.
                         let _ = SysfsWriter::write("/proc/sys/vm/drop_caches", "2", WriteMode::ForcePermission);
                     }
 
-                    // Safely evict dead/idle cached background processes (oom_score_adj >= 900)
-                    // Guaranteeing the active game and companion app are 100% shielded
-                    let evicted = Self::evict_cached_processes_filtered(protected_pkg);
+                    // Safely evict idle cached background processes (oom_score_adj >= 900) only under real pressure
+                    let evicted = if should_evict {
+                        Self::evict_cached_processes_filtered(protected_pkg)
+                    } else {
+                        0
+                    };
 
                     Logger::warn(if is_english() {
                         format!(
-                            "[DAEMON] Swap Pressure Detected (Total: {} kB, Free: {} kB)! Executed ZRAM compaction & evicted {} cached processes natively (Zero Binder IPC) to shield system_server.",
-                            swap_total, swap_free, evicted
+                            "[DAEMON] Memory/Swap Pressure (MemAvail: {} kB, SwapFree: {}/{} kB)! ZRAM compacted & evicted {} cached processes natively.",
+                            mem_avail, swap_free, swap_total, evicted
                         )
                     } else {
                         format!(
-                            "[DAEMON] Tekanan Swap Terdeteksi (Total: {} kB, Bebas: {} kB)! Pemadatan ZRAM & eviksi {} proses cached native dijalankan (Tanpa Binder IPC) demi melindungi system_server.",
-                            swap_total, swap_free, evicted
+                            "[DAEMON] Tekanan Memori/Swap (MemAvail: {} kB, SwapFree: {}/{} kB)! ZRAM dipadatkan & eviksi {} proses cached native dijalankan.",
+                            mem_avail, swap_free, swap_total, evicted
                         )
                     });
                 }
@@ -539,5 +557,34 @@ impl MemoryController {
         } else {
             let _ = std::fs::remove_file("/dev/lynx_system_server_pid");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn swap_relief_ignores_healthy_mem_available_and_triggers_on_real_pressure() {
+        // 4GB RN7 with 1.15 GB MemAvailable and 2.5 GB/4.0 GB SwapFree -> must NOT trigger
+        assert_eq!(
+            MemoryController::should_trigger_swap_relief(3_751_688, 1_158_628, 4_194_300, 2_465_536),
+            (false, false, false)
+        );
+        // 4GB RN7 with low SwapFree (< 12.5%) AND healthy MemAvailable (800 MB) -> must NOT thrash
+        assert_eq!(
+            MemoryController::should_trigger_swap_relief(3_751_688, 800_000, 4_194_300, 400_000),
+            (false, false, false)
+        );
+        // 4GB RN7 with low SwapFree AND low MemAvailable (250 MB < 400 MB) -> triggers relief & eviction
+        assert_eq!(
+            MemoryController::should_trigger_swap_relief(3_751_688, 250_000, 4_194_300, 400_000),
+            (true, false, true)
+        );
+        // Severe swap exhaustion (< 6.25% SwapFree) -> emergency relief even if MemAvailable slightly higher
+        assert_eq!(
+            MemoryController::should_trigger_swap_relief(7_800_000, 600_000, 4_194_300, 200_000),
+            (true, true, true)
+        );
     }
 }

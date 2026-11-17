@@ -46,19 +46,25 @@ object LynxMemoryShield {
                 [ "${'$'}mfk_kb" -gt 32768 ] && mfk_kb=32768
 
                 if [ "${'$'}is_emmc" = "1" ]; then
-                    echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    echo 40 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
                     echo 10 > /proc/sys/vm/dirty_ratio 2>/dev/null
                     echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
                     echo 200 > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null
                     echo 100 > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null
                 else
-                    echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    if [ "${'$'}ram_mb" -le 4500 ]; then
+                        echo 75 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    else
+                        echo 50 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+                    fi
                     echo 16 > /proc/sys/vm/dirty_ratio 2>/dev/null
                     echo 8 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
                 fi
 
+                [ -e /proc/sys/vm/watermark_boost_factor ] && echo 0 > /proc/sys/vm/watermark_boost_factor 2>/dev/null
+
                 if [ "${'$'}ram_mb" -le 4500 ]; then
-                    echo 80 > /proc/sys/vm/swappiness 2>/dev/null
+                    echo 60 > /proc/sys/vm/swappiness 2>/dev/null
                     echo "${'$'}mfk_kb" > /proc/sys/vm/min_free_kbytes 2>/dev/null
                     echo 12288 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
                     echo 30 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
@@ -132,45 +138,53 @@ object LynxMemoryShield {
     }
 
     /**
-     * Checks available memory and performs intelligent, rate-limited memory reclamation
-     * if the system approaches the kswapd low-watermark panic threshold.
+     * Checks available memory and performs non-blocking ZRAM compaction (and cache drop only on
+     * high-RAM non-eMMC systems) if MemAvailable drops below a dynamic RAM-proportional threshold.
      */
     suspend fun checkAndProtectMemory() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        if (now - lastTrimTime < 30_000L) return@withContext // 30s cooldown
+        if (now - lastTrimTime < 120_000L) return@withContext // 120s cooldown
 
-        val memAvailKb = readMemAvailableKb()
-        if (memAvailKb in 1..CRITICAL_MEM_KB) {
+        val (memTotalKb, memAvailKb) = readMemInfoKb()
+        val dynamicThresholdKb = if (memTotalKb > 0) {
+            (memTotalKb / 16).coerceIn(120_000L, 260_000L)
+        } else {
+            CRITICAL_MEM_KB
+        }
+        if (memAvailKb in 1..dynamicThresholdKb) {
             lastTrimTime = now
-            Log.w(TAG, "Low RAM threshold detected (${memAvailKb / 1024} MB available). Triggering proactive cache drop & memory compaction.")
+            Log.w(TAG, "Low RAM threshold detected (${memAvailKb / 1024} MB available). Triggering non-blocking memory relief.")
             try {
                 Shell.cmd(
-                    "is_emmc=0; for blk in /sys/block/mmcblk*; do [ -f \"\${'$'}blk/device/ext_csd\" ] && is_emmc=1; done; if [ \"\${'$'}is_emmc\" = \"1\" ]; then echo 2 > /proc/sys/vm/drop_caches 2>/dev/null; else echo 3 > /proc/sys/vm/drop_caches 2>/dev/null; fi",
-                    "echo 1 > /proc/sys/vm/compact_memory 2>/dev/null",
-                    "[ -f /sys/block/zram0/compact ] && echo 1 > /sys/block/zram0/compact 2>/dev/null"
+                    "[ -f /sys/block/zram0/compact ] && echo 1 > /sys/block/zram0/compact 2>/dev/null",
+                    "ram_mb=$(awk '/^MemTotal:/ {printf \"%d\", \$2/1024}' /proc/meminfo 2>/dev/null); " +
+                        "is_emmc=0; for blk in /sys/block/mmcblk*; do [ -f \"\${'$'}blk/device/ext_csd\" ] && is_emmc=1; done; " +
+                        "if [ \"\${'$'}is_emmc\" = \"0\" ] && [ \"\${'$'}ram_mb\" -gt 4500 ] 2>/dev/null; then " +
+                        "echo 2 > /proc/sys/vm/drop_caches 2>/dev/null; echo 1 > /proc/sys/vm/compact_memory 2>/dev/null; fi"
                 ).submit()
             } catch (e: Exception) {
-                Log.w(TAG, "Error executing proactive memory compaction: ${e.message}")
+                Log.w(TAG, "Error executing proactive memory relief: ${e.message}")
             }
         }
     }
 
-    private fun readMemAvailableKb(): Long {
+    private fun readMemInfoKb(): Pair<Long, Long> {
         return try {
             val file = File("/proc/meminfo")
-            if (!file.exists()) return -1L
-            val lines = file.readLines()
-            for (line in lines) {
-                if (line.startsWith("MemAvailable:")) {
-                    val parts = line.split("\\s+".toRegex())
-                    if (parts.size >= 2) {
-                        return parts[1].toLongOrNull() ?: -1L
-                    }
+            if (!file.exists()) return -1L to -1L
+            var total = -1L
+            var avail = -1L
+            for (line in file.readLines()) {
+                if (line.startsWith("MemTotal:")) {
+                    total = line.split("\\s+".toRegex()).getOrNull(1)?.toLongOrNull() ?: -1L
+                } else if (line.startsWith("MemAvailable:")) {
+                    avail = line.split("\\s+".toRegex()).getOrNull(1)?.toLongOrNull() ?: -1L
                 }
+                if (total > 0 && avail > 0) break
             }
-            -1L
+            total to avail
         } catch (_: Exception) {
-            -1L
+            -1L to -1L
         }
     }
 }
