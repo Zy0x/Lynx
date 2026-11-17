@@ -64,7 +64,7 @@ impl GameController {
         Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "20000");
 
         // 3. Multi-Gen LRU (MGLRU)
-        Self::write_opt("/sys/kernel/mm/lru_gen/enabled", "y");
+        super::memory::MemoryController::enable_mglru();
 
         // 4. Kernel Game Library Priority Injection
         Self::write_opt("/proc/sys/kernel/sched_lib_name", GAME_LIBS);

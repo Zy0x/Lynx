@@ -23,12 +23,22 @@ impl MemoryController {
         }
     }
 
+    /// Enables Linux MGLRU across both upstream boolean (`y`) and bitmask (`7`) kernels.
+    pub fn enable_mglru() {
+        let p = Path::new("/sys/kernel/mm/lru_gen/enabled");
+        if p.exists()
+            && SysfsWriter::write(p, "y", WriteMode::ForcePermission).is_err()
+        {
+            let _ = SysfsWriter::write(p, "7", WriteMode::ForcePermission);
+        }
+    }
+
     /// Applies universal MGLRU and RAM-proportional VM parameters.
     pub fn apply_ram() -> String {
         let mem = HardwareCapability::resolve_memory();
 
         if mem.mglru_supported {
-            Self::write_opt("/sys/kernel/mm/lru_gen/enabled", "y");
+            Self::enable_mglru();
             Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "1000");
         }
 

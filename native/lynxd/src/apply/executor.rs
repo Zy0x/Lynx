@@ -150,7 +150,17 @@ impl ProfileExecutor {
                 }
             }
             let mode = if is_storage_prefetch { WriteMode::Direct } else { WriteMode::ForcePermission };
-            match SysfsWriter::write(&op.path, &op.target_value, mode) {
+            let write_res = match SysfsWriter::write(&op.path, &op.target_value, mode) {
+                Ok(_) => Ok(()),
+                Err(_)
+                    if op.target_value == "y"
+                        && op.path.to_str() == Some("/sys/kernel/mm/lru_gen/enabled") =>
+                {
+                    SysfsWriter::write(&op.path, "7", mode)
+                }
+                Err(e) => Err(e),
+            };
+            match write_res {
                 Ok(_) => {
                     committed_count += 1;
                 }

@@ -1,3 +1,12 @@
+# Lynx Universal [MGLRU Hex & Legacy Bitmask Compatibility Fix] 7.0.0-RC408
+Released on: 2026-11-17
+> Lynx Kernel Manager v3.4.27
+
+### Engine & Verification (`lynxd` + `apply_profile.sh`)
+- **MGLRU Hex Status Verifier Fix (`verifier.rs`)**: Replaced string equality check `actual != "0"` with `is_mglru_enabled_value()`, properly parsing hex bitmasks (`0x0000` -> `MISMATCH`, `0x0007` -> `VERIFIED`), decimal masks, and boolean values (`y`/`n`), accompanied by unit tests.
+- **Universal MGLRU Enable Fallback (`memory.rs`, `game.rs`, `executor.rs`, `apply_profile.sh`)**: Added automatic numeric bitmask fallback (`"7"`) whenever `/sys/kernel/mm/lru_gen/enabled` rejects upstream boolean `"y"` with `EINVAL`, ensuring compatibility across both Linux 6.1+ and legacy 4.14/4.19 MGLRU backport kernels.
+- **Companion Asset Sync**: Updated bundled `lynxd` binary (`1,293,568` B) in `system/bin/lynxd` and `LynxCompanion` assets.
+
 # Lynx Universal [Tier-Aware Smooth Scroll, Steady Social-Feed Refresh Rate & Low-RAM Safeguards] 7.0.0-RC407
 Released on: 2026-11-16
 > Lynx Kernel Manager v3.4.27

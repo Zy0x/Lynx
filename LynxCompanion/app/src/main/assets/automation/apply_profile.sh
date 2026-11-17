@@ -17,6 +17,11 @@ write_node() {
     echo "$1" > "$2" 2>/dev/null
 }
 
+enable_mglru() {
+    [ -e "/sys/kernel/mm/lru_gen/enabled" ] || return 0
+    write_node "y" "/sys/kernel/mm/lru_gen/enabled" || write_node "7" "/sys/kernel/mm/lru_gen/enabled"
+}
+
 pick_dynamic_gov() {
     avail=$(cat "$1/scaling_available_governors" 2>/dev/null)
     for g in walt sugov_ext schedutil energy_step interactive ondemand; do
@@ -501,7 +506,7 @@ case "$PROFILE" in
         write_node "980000" "/proc/sys/kernel/sched_rt_runtime_us"
         write_node "1000000" "/proc/sys/kernel/sched_rt_period_us"
         if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
-            write_node "y" "/sys/kernel/mm/lru_gen/enabled"
+            enable_mglru
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
         fi
         write_node "100" "/proc/sys/vm/extfrag_threshold"
@@ -1456,9 +1461,7 @@ case "$PROFILE" in
         write_node "1" "/proc/sys/kernel/sched_big_task_rotation"
         write_node "1" "/proc/sys/kernel/sched_sync_hint_enable"
 
-        if [ -e "/sys/kernel/mm/lru_gen/enabled" ]; then
-            write_node "y" "/sys/kernel/mm/lru_gen/enabled"
-        fi
+        enable_mglru
         write_node "20" "/proc/sys/vm/dirty_ratio"
         write_node "5" "/proc/sys/vm/dirty_background_ratio"
         write_node "80" "/proc/sys/vm/swappiness"

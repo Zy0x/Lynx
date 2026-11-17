@@ -254,7 +254,7 @@ impl ProfileVerifier {
 
         if cap.memory.mglru_supported {
             if let Ok(actual) = SysfsReader::read_trimmed("/sys/kernel/mm/lru_gen/enabled") {
-                let ok = !actual.is_empty() && actual != "0" && actual != "n";
+                let ok = is_mglru_enabled_value(&actual);
                 items.push(AuditItem {
                     subsystem: "Memory",
                     parameter: "Linux MGLRU Status".to_string(),
@@ -421,5 +421,42 @@ impl ProfileVerifier {
         }
         out.push_str("]}");
         out
+    }
+}
+
+/// Parses MGLRU `/sys/kernel/mm/lru_gen/enabled` values across both boolean (`y`/`n`)
+/// and bitmask (`0x0000`..`0x0007`, decimal `0`..`7`) sysfs formats.
+pub(crate) fn is_mglru_enabled_value(raw: &str) -> bool {
+    let s = raw.trim().to_ascii_lowercase();
+    if s.is_empty() || matches!(s.as_str(), "0" | "n" | "no" | "false" | "off") {
+        return false;
+    }
+    if matches!(s.as_str(), "y" | "yes" | "true" | "on") {
+        return true;
+    }
+    if let Some(hex) = s.strip_prefix("0x") {
+        return u64::from_str_radix(hex, 16).map(|v| v != 0).unwrap_or(false);
+    }
+    s.parse::<u64>().map(|v| v != 0).unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_mglru_enabled_value;
+
+    #[test]
+    fn parses_mglru_hex_decimal_and_boolean_values() {
+        assert!(!is_mglru_enabled_value(""));
+        assert!(!is_mglru_enabled_value("0"));
+        assert!(!is_mglru_enabled_value("n"));
+        assert!(!is_mglru_enabled_value("0x0000"));
+        assert!(!is_mglru_enabled_value("0x0\n"));
+
+        assert!(is_mglru_enabled_value("y"));
+        assert!(is_mglru_enabled_value("Y\n"));
+        assert!(is_mglru_enabled_value("1"));
+        assert!(is_mglru_enabled_value("7"));
+        assert!(is_mglru_enabled_value("0x0001"));
+        assert!(is_mglru_enabled_value("0x0007\n"));
     }
 }
