@@ -408,14 +408,15 @@ class HudController(private val context: Context, private val scope: CoroutineSc
         scope.launch(Dispatchers.IO) {
             val pkg = currentPackage ?: skipContext?.pkg ?: "unknown"
             val mode = skipRunner.currentMode.value.name
-            val matchingPixels = skipRunner.probeMatchingPixels()
+            val scene = skipRunner.probeScene()
             val result = GenshinSkipEngine.captureSceneSnapshotDetailed(
                 context = context,
                 screenWidth = skipRunner.screenWidth,
                 screenHeight = skipRunner.screenHeight,
                 packageName = pkg,
                 mode = mode,
-                matchingPixels = matchingPixels
+                matchingPixels = scene.dialogueMatches,
+                sceneClassification = scene
             )
             withContext(Dispatchers.Main) {
                 lastSceneSnapshot.value = result

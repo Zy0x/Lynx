@@ -26,7 +26,9 @@ internal class HudSidebarHostView(
     private val onDrawerRelease: (Float, Float) -> Unit,
     private val onDrawerCloseDrag: (Float) -> Unit,
     private val onDrawerCloseRelease: (Float, Float) -> Unit,
-    private val onBoundsChanged: () -> Unit
+    private val onBoundsChanged: () -> Unit,
+    private val onTouchInteracting: (Boolean) -> Unit = {},
+    private val shouldCloseOnOutsideTouch: () -> Boolean = { true }
 ) : FrameLayout(context) {
     private enum class Gesture { Pending, Forward, Drag, DrawerOpenDrag, DrawerCloseDrag }
     private var gesture = Gesture.Pending
@@ -59,6 +61,7 @@ internal class HudSidebarHostView(
     }
 
     override fun onDetachedFromWindow() {
+        onTouchInteracting(false)
         handler.removeCallbacks(hold)
         velocityTracker?.recycle()
         velocityTracker = null
@@ -67,8 +70,12 @@ internal class HudSidebarHostView(
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
-            if (expanded()) onOpen(false)
+            if (expanded() && shouldCloseOnOutsideTouch()) onOpen(false)
             return false
+        }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> onTouchInteracting(true)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> onTouchInteracting(false)
         }
         if (!sidebar()) return super.dispatchTouchEvent(event)
 

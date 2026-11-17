@@ -3,6 +3,7 @@ package com.noir.lynx.feature.hud.overlay
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.SystemClock
 import android.view.*
 import android.widget.FrameLayout
 import androidx.compose.runtime.*
@@ -12,6 +13,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.noir.lynx.feature.hud.autoskip.GenshinSkipEngine
 import com.noir.lynx.feature.hud.ui.HudSmartTriggerOverlay
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -25,7 +27,10 @@ internal class HudAutoSkipWindow(
     skipping: StateFlow<Boolean>, paused: StateFlow<Boolean>, visible: Flow<Boolean>,
     private val onToggle: () -> Unit,
     mode: StateFlow<com.noir.lynx.feature.hud.autoskip.GenshinSkipRunner.SkipMode>? = null,
-    executing: StateFlow<Boolean>? = null
+    executing: StateFlow<Boolean>? = null,
+    private val onTouchInteracting: (Boolean) -> Unit = {},
+    private val shouldRecoverCancelledTap: () -> Boolean = { false },
+    private val onBoundsChanged: (GenshinSkipEngine.OverlayRect?) -> Unit = {}
 ) {
     private val windows = context.getSystemService(WindowManager::class.java)
     private val preferences = context.getSharedPreferences("lynx_hud_prefs", Context.MODE_PRIVATE)
@@ -45,24 +50,40 @@ internal class HudAutoSkipWindow(
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         } else if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
     }
-    private var downX = 0f; private var downY = 0f
+    private var downX = 0f; private var downY = 0f; private var downUptimeMs = 0L
     private var startX = 0; private var startY = 0; private var dragging = false
     private val host: FrameLayout = object : FrameLayout(context) {
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            val density = resources.displayMetrics.density
+            val dragSlop = maxOf(ViewConfiguration.get(context).scaledTouchSlop * 1.6f, 14f * density)
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    downX = event.rawX; downY = event.rawY; startX = params.x; startY = params.y; dragging = false
+                    onTouchInteracting(true)
+                    downX = event.rawX; downY = event.rawY
+                    downUptimeMs = SystemClock.uptimeMillis()
+                    startX = params.x; startY = params.y; dragging = false
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX; val dy = event.rawY - downY
-                    if (!dragging && hypot(dx, dy) >= ViewConfiguration.get(context).scaledTouchSlop) dragging = true
+                    if (!dragging && hypot(dx, dy) >= dragSlop) dragging = true
                     if (dragging) move(bounds.place((startX + dx).roundToInt(), (startY + dy).roundToInt(), badgeWidth(), badgeHeight()))
                 }
                 MotionEvent.ACTION_UP -> {
+                    onTouchInteracting(false)
                     if (dragging) save() else performClick()
                     dragging = false
                 }
-                MotionEvent.ACTION_CANCEL -> { if (dragging) save(); dragging = false }
+                MotionEvent.ACTION_CANCEL -> {
+                    onTouchInteracting(false)
+                    val elapsed = SystemClock.uptimeMillis() - downUptimeMs
+                    if (dragging) {
+                        save()
+                    } else if (elapsed in 0L..350L && shouldRecoverCancelledTap()) {
+                        // Recover single-tap toggle if an in-flight synthetic tap caused InputDispatcher to cancel ACTION_DOWN
+                        performClick()
+                    }
+                    dragging = false
+                }
             }
             return true
         }
@@ -87,13 +108,14 @@ internal class HudAutoSkipWindow(
         host.visibility = View.GONE
         restore()
         host.addOnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
-            if (r - l != oldR - oldL || b - t != oldB - oldT) restore()
+            if (r - l != oldR - oldL || b - t != oldB - oldT) restore() else publishBounds()
         }
         host.setOnApplyWindowInsetsListener { _, insets -> updateBounds(); insets }
         runCatching { windows.addView(host, params) }
         visibilityJob = scope.launch { visible.distinctUntilChanged().collect {
             if (it) updateBounds()
             host.visibility = if (it) View.VISIBLE else View.GONE
+            if (!it) onBoundsChanged(null) else host.post { publishBounds() }
         } }
     }
 
@@ -107,10 +129,20 @@ internal class HudAutoSkipWindow(
         val (x, y) = bounds.fractions(params.x, params.y, badgeWidth(), badgeHeight())
         preferences.edit().putFloat(xKey(), x).putFloat(yKey(), y).apply()
     }
+    private fun publishBounds() {
+        if (host.visibility != View.VISIBLE || !host.isAttachedToWindow) {
+            onBoundsChanged(null)
+            return
+        }
+        val w = badgeWidth()
+        val h = badgeHeight()
+        onBoundsChanged(GenshinSkipEngine.OverlayRect(params.x, params.y, params.x + w, params.y + h))
+    }
     private fun move(point: HudBadgePoint) {
         val changed = params.x != point.x || params.y != point.y
         params.x = point.x; params.y = point.y; alignment.value = point
         if (changed && host.isAttachedToWindow) runCatching { windows.updateViewLayout(host, params) }
+        publishBounds()
     }
     fun updateBounds() {
         val next = readHudBadgeBounds(windows, host.rootWindowInsets)
@@ -120,6 +152,8 @@ internal class HudAutoSkipWindow(
         if (rotated) restore() else move(bounds.place(params.x, params.y, badgeWidth(), badgeHeight()))
     }
     fun close() {
+        onTouchInteracting(false)
+        onBoundsChanged(null)
         visibilityJob.cancel(); runCatching { windows.removeView(host) }; compose.disposeComposition()
     }
 }

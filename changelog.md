@@ -1,3 +1,17 @@
+# Lynx Universal [2D Dialogue Vision Shield, Zero-Backlog Tap Pipe & Dynamic Overlay Touch Immunity] 7.0.0-RC410
+Released on: 2026-11-17
+> Lynx Kernel Manager v3.4.29
+
+### HUD & Auto-Skip Engine (`GenshinSkipEngine`, `GenshinSkipRunner`, `HudAutoSkipWindow`, `HudSidebarHostView`, `LynxFloatingHudService`)
+- **Universal 2D Multi-Disc Dialogue Recognition (`GenshinSkipEngine`, `GenshinSkipRunner`, `HudController`)**:
+  - Replaced single-row cream pixel counting (`y=56`) with true 16-byte `screencap` header dimension/pixel-format parsing (`RGBA_8888`/`BGRA_8888`, portrait-safe skip) and a resolution-scaled multi-row upper-left header recognizer (`calculateDialogueHeaderBand`, `evaluateDialogueHeaderBand`) that verifies 2D circular disc geometry (filled cream top/bottom caps, dark central icon glyph core, outside-corner isolation, clean inter-disc gap, and periodic button pitch) across `16:9..21:9` aspect ratios and UI languages.
+  - Eliminated false `STANDARD_DIALOGUE` activations on open-world exploration (Elemental Sight / Tutorial borders, warm cliffs/skies/water) and menu screens (Artifact filter tabs) across 21/21 real captured frames, while preserving black-screen narration (`BLACK_INTERSTITIAL`) with contiguous gold-run validation and full `SceneClassification` snapshot telemetry.
+- **Zero-Backlog Dedicated Tap Pipe & Instant Touch Shield (`GenshinSkipRunner`, `HudAutoSkipWindow`, `HudSidebarHostView`, `LynxFloatingHudService`)**:
+  - Replaced fire-and-forget `Shell.cmd(...).submit()` queue flooding with a single synchronous dedicated root pipe enforcing guaranteed inter-tap quiet breather gaps (`>= 45ms`), eliminating trailing ghost taps and shared `libsu` shell starvation.
+  - Added immediate `ACTION_DOWN` overlay interaction quiescing (`onOverlayTouchChanged`), forgiving click-vs-drag threshold (`14dp` / `1.6x` slop), and collision-cancelled tap recovery (`shouldRecoverCancelledTap`) on `HudAutoSkipWindow` so toggling `PAUSED -> AUTO -> MANUAL` works effortlessly on the first press even mid-burst.
+  - Added synchronous `setHudOpenImmediate` synchronization and synthetic-tap outside-touch immunity (`shouldCloseOnOutsideTouch`, `650ms` grace + active-drag lock) in `HudSidebarHostView` & `LynxFloatingHudService` so swiping open or using the Sidebar/Classic HUD no longer cancels or slams shut during Auto-Skip.
+  - Added live on-screen overlay bounding-box reporting (`autoskip_badge`, `hud_sidebar`) and `resolveTapAvoidingOverlays()` so moving either the Auto-Skip shortcut badge or Sidebar anywhere on screen dynamically steers synthetic taps around them without self-tapping.
+
 # Lynx Universal [Zero-Hardcode Adaptive VM Headroom, F2FS Anti-Downgrade & Hybrid DVFS Peak Lock] 7.0.0-RC409
 Released on: 2026-11-17
 > Lynx Kernel Manager v3.4.28

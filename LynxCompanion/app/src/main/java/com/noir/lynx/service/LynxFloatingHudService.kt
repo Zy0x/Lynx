@@ -235,6 +235,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         scope.launch {
             open.collect { isOpen ->
+                if (::controller.isInitialized) {
+                    controller.skipRunner.setHudOpenImmediate(isOpen)
+                }
                 val p = params ?: return@collect
                 val v = view ?: return@collect
                 val dm = resources.displayMetrics
@@ -427,6 +430,21 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         autoSkipWindow?.updateBounds()
     }
 
+    private fun publishSidebarBounds() {
+        if (!::controller.isInitialized) return
+        val v = view
+        if (v == null || !v.isAttachedToWindow || v.visibility != View.VISIBLE || v.width <= 0 || v.height <= 0) {
+            controller.skipRunner.updateOverlayRect("hud_sidebar", null)
+            return
+        }
+        val loc = IntArray(2)
+        v.getLocationOnScreen(loc)
+        controller.skipRunner.updateOverlayRect(
+            "hud_sidebar",
+            GenshinSkipEngine.OverlayRect(loc[0], loc[1], loc[0] + v.width, loc[1] + v.height)
+        )
+    }
+
     private fun updateExclusionRects(v: View) {
         if (Build.VERSION.SDK_INT >= 29) {
             v.systemGestureExclusionRects = if (activeModeFlow.value == 0 && !open.value && v.width > 0 && v.height > 0) {
@@ -486,6 +504,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             runCatching { windows.updateViewLayout(v, p) }
         }
         updateExclusionRects(v)
+        publishSidebarBounds()
     }
 
     private fun dragClassic(dx: Float, dy: Float) {
@@ -498,6 +517,7 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         p.y = (p.y + dy.toInt()).coerceIn(safeTop, maxY)
         runCatching { windows.updateViewLayout(v, p) }
         savePositionPrefs()
+        publishSidebarBounds()
     }
 
     private fun savePositionPrefs() {
@@ -525,9 +545,14 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
             if (pkg.isNotBlank() && controller.currentPackage != pkg) controller.currentPackage = pkg
             prefs.autoSkipEnabled && GenshinSkipEngine.isGameSupported(pkg) && isInteractive
         }
-        autoSkipWindow = HudAutoSkipWindow(this, scope, this, this, controller.isSkipping,
+        autoSkipWindow = HudAutoSkipWindow(
+            this, scope, this, this, controller.isSkipping,
             controller.isPaused, visible, controller::toggleAutoSkip,
-            mode = controller.autoSkipMode, executing = controller.autoSkipExecuting)
+            mode = controller.autoSkipMode, executing = controller.autoSkipExecuting,
+            onTouchInteracting = controller.skipRunner::onOverlayTouchChanged,
+            shouldRecoverCancelledTap = { controller.skipRunner.shouldRecoverCancelledTap() },
+            onBoundsChanged = { rect -> controller.skipRunner.updateOverlayRect("autoskip_badge", rect) }
+        )
     }
 
     private fun createMagicPinOverlay() {
@@ -601,10 +626,11 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                     p.gravity = Gravity.TOP or if (nextRight) Gravity.RIGHT else Gravity.LEFT
                     p.x = if (nextRight) safeRight else safeLeft
                     p.y = (dragStartY + dy.toInt()).coerceIn(safeTop, (safeTop + safeHeight - (view?.height ?: 0)).coerceAtLeast(safeTop))
-                    view?.let { runCatching { windows.updateViewLayout(it, p) } }
+                    view?.let { runCatching { windows.updateViewLayout(it, p) }; publishSidebarBounds() }
                 }
             }, onDragEnd = { savePositionPrefs(); clamp() },
             onDrawerDragStart = {
+                controller.skipRunner.setHudOpenImmediate(true)
                 val p = params ?: return@HudSidebarHostView
                 val v = view ?: return@HudSidebarHostView
                 val dm = resources.displayMetrics
@@ -703,7 +729,9 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
                         .start()
                 }
             },
-            onBoundsChanged = { view?.let { updateExclusionRects(it) }; clamp() }
+            onBoundsChanged = { view?.let { updateExclusionRects(it) }; clamp(); publishSidebarBounds() },
+            onTouchInteracting = controller.skipRunner::onOverlayTouchChanged,
+            shouldCloseOnOutsideTouch = { !isDrawerDragging && !controller.skipRunner.isSyntheticTapWindow() }
         ).apply {
             setViewTreeLifecycleOwner(this@LynxFloatingHudService)
             setViewTreeSavedStateRegistryOwner(this@LynxFloatingHudService)
@@ -893,6 +921,10 @@ class LynxFloatingHudService : Service(), LifecycleOwner, SavedStateRegistryOwne
         }
         view = null
         composeView = null
+        if (::controller.isInitialized) {
+            controller.skipRunner.updateOverlayRect("hud_sidebar", null)
+            controller.skipRunner.onOverlayTouchChanged(false)
+        }
         autoSkipWindow?.close()
         autoSkipWindow = null
         magicPinWindow?.close()

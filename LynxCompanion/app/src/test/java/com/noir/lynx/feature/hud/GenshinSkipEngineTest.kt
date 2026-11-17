@@ -334,4 +334,136 @@ class GenshinSkipEngineTest {
         assertTrue(json.contains("\"gold_matches\": 182"))
         assertTrue(json.contains("\"black_ratio\": 0.985"))
     }
+
+    @Test
+    fun screencapHeaderParsingValidatesDimensionsAndBgraFormat() {
+        fun makeHeader(w: Int, h: Int, fmt: Int): ByteArray {
+            val out = ByteArray(16)
+            for (i in 0..3) {
+                out[i] = ((w ushr (i * 8)) and 0xFF).toByte()
+                out[4 + i] = ((h ushr (i * 8)) and 0xFF).toByte()
+                out[8 + i] = ((fmt ushr (i * 8)) and 0xFF).toByte()
+            }
+            return out
+        }
+
+        val h2460 = GenshinSkipEngine.parseScreencapHeader(makeHeader(2460, 1080, 1))
+        assertTrue(h2460 != null && h2460.width == 2460 && h2460.height == 1080 && !h2460.isBgra && h2460.isLandscape)
+
+        val hBgra = GenshinSkipEngine.parseScreencapHeader(makeHeader(1920, 1080, 5))
+        assertTrue(hBgra != null && hBgra.isBgra && hBgra.isLandscape)
+
+        val hPortrait = GenshinSkipEngine.parseScreencapHeader(makeHeader(1080, 2460, 1))
+        assertTrue(hPortrait != null && !hPortrait.isLandscape)
+
+        assertFalse(GenshinSkipEngine.parseScreencapHeader(ByteArray(4)) != null)
+        assertFalse(GenshinSkipEngine.parseScreencapHeader(makeHeader(0, 0, 1)) != null)
+    }
+
+    @Test
+    fun evaluateDialogueHeaderBandDetectsCircularDiscPairsAndRejectsOpenWorldOrMenus() {
+        val w = 2460
+        val h = 1080
+        val spec = GenshinSkipEngine.calculateDialogueHeaderBand(w, h)
+        val bandH = (spec.yMax - spec.yMin) + 1
+
+        fun fillBackground(buf: ByteArray, r: Int, g: Int, b: Int) {
+            var idx = 0
+            while (idx <= buf.size - 4) {
+                buf[idx] = r.toByte()
+                buf[idx + 1] = g.toByte()
+                buf[idx + 2] = b.toByte()
+                buf[idx + 3] = 255.toByte()
+                idx += 4
+            }
+        }
+
+        fun paintDisc(buf: ByteArray, cx: Int, cy: Int, diameter: Int = 46) {
+            val r = diameter / 2.0
+            for (y in (cy - 26)..(cy + 26)) {
+                if (y !in spec.yMin..spec.yMax) continue
+                for (x in (cx - 26)..(cx + 26)) {
+                    if (x !in 0 until w) continue
+                    val dx = x - cx
+                    val dy = y - cy
+                    val dist = kotlin.math.hypot(dx.toDouble(), dy.toDouble())
+                    if (dist <= r) {
+                        val isGlyph = kotlin.math.abs(dx) <= 9 && (kotlin.math.abs(dy + 5) <= 2 || kotlin.math.abs(dy - 5) <= 2 || kotlin.math.abs(dy) <= 1)
+                        val idx = (y - spec.yMin) * spec.headerStrideBytes + x * 4
+                        if (isGlyph) {
+                            buf[idx] = 59.toByte()
+                            buf[idx + 1] = 67.toByte()
+                            buf[idx + 2] = 84.toByte()
+                        } else {
+                            buf[idx] = 236.toByte()
+                            buf[idx + 1] = 229.toByte()
+                            buf[idx + 2] = 216.toByte()
+                        }
+                        buf[idx + 3] = 255.toByte()
+                    }
+                }
+            }
+        }
+
+        // 1. True dialogue over sunlit green foliage (controls at x=339, 432, 525)
+        val dialogBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBackground(dialogBand, 145, 138, 52)
+        paintDisc(dialogBand, 339, 59)
+        paintDisc(dialogBand, 432, 59)
+        paintDisc(dialogBand, 525, 59)
+        val dialogMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(dialogBand, spec)
+        assertTrue(dialogMetrics.isConfirmedDialogue)
+        assertTrue(dialogMetrics.alignedPairCount >= 2)
+
+        // 2. Language / shorter "Auto" shift (controls shifted left to x=250, 343, 436)
+        val shiftedBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBackground(shiftedBand, 28, 42, 65)
+        paintDisc(shiftedBand, 250, 58)
+        paintDisc(shiftedBand, 343, 58)
+        val shiftedMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(shiftedBand, spec)
+        assertTrue(shiftedMetrics.isConfirmedDialogue)
+        assertEquals(1, shiftedMetrics.alignedPairCount)
+
+        // 3. Open-world canyon / sunset warm sky + hollow Tutorial outline (previously false-triggered!)
+        val openWorldBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBackground(openWorldBand, 140, 95, 70)
+        for (y in (spec.yMin + 10)..(spec.yMax - 8)) {
+            val rowOff = (y - spec.yMin) * spec.headerStrideBytes
+            // Warm cream horizon pixels + hollow vertical outline borders at x=426..431 & x=474..479
+            for (x in 426..431) {
+                val idx = rowOff + x * 4
+                openWorldBand[idx] = 236.toByte(); openWorldBand[idx + 1] = 229.toByte(); openWorldBand[idx + 2] = 216.toByte()
+            }
+            for (x in 474..479) {
+                val idx = rowOff + x * 4
+                openWorldBand[idx] = 236.toByte(); openWorldBand[idx + 1] = 229.toByte(); openWorldBand[idx + 2] = 216.toByte()
+            }
+        }
+        val openWorldMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(openWorldBand, spec)
+        assertFalse(openWorldMetrics.isConfirmedDialogue)
+
+        // 4. Artifact / Menu tabs too closely spaced without circular spacing (~61px instead of ~93px)
+        val artifactBand = ByteArray(bandH * spec.headerStrideBytes)
+        fillBackground(artifactBand, 29, 111, 102)
+        paintDisc(artifactBand, 358, 56, diameter = 36)
+        paintDisc(artifactBand, 419, 56, diameter = 36)
+        val artifactMetrics = GenshinSkipEngine.evaluateDialogueHeaderBand(artifactBand, spec)
+        assertFalse(artifactMetrics.isConfirmedDialogue)
+    }
+
+    @Test
+    fun tapTargetAvoidanceSteersAroundMovedOverlays() {
+        val raw = GenshinSkipEngine.TapTarget(1672, 648)
+        val overlayOverAdvance = listOf(GenshinSkipEngine.OverlayRect(1600, 580, 1750, 720))
+        val safe = GenshinSkipEngine.resolveTapAvoidingOverlays(raw, overlayOverAdvance, 2460, 1080, paddingPx = 28)
+
+        // Must move cleanly outside the padded overlay bounding box and remain within screen bounds
+        assertFalse(overlayOverAdvance[0].containsPadded(safe.x, safe.y, 28))
+        assertTrue(safe.x in 24..(2460 - 24))
+        assertTrue(safe.y in 24..(1080 - 24))
+
+        // Unobstructed targets stay exact
+        val clear = GenshinSkipEngine.resolveTapAvoidingOverlays(raw, emptyList(), 2460, 1080)
+        assertEquals(raw, clear)
+    }
 }
