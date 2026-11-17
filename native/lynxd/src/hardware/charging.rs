@@ -2127,35 +2127,67 @@ impl ChargingRegulator {
         is_qcom: bool,
         has_qcom_cp: bool,
     ) -> u32 {
-        if Self::is_laptop_port() {
-            return 1500;
-        }
-
         if cur_soc >= 100 {
             return 100; // Anti-Flapping Single-Path Float Floor
         }
 
-        // --- Phase 2: Constant Voltage (CV) Saturation Curve ---
-        // When cell voltage is already elevated near float limit (4.380V - 4.400V) or SoC >= 78%
-        if cur_soc >= 78 || cell_mv >= 4380 {
-            if cur_soc >= 95 {
-                return 1500;
-            } else if cur_soc >= 90 {
-                return 1800;
-            } else if cur_soc >= 85 {
-                return 1400;
-            } else if cur_soc >= 80 {
-                return 1900;
+        #[cfg(not(test))]
+        let laptop_cap = if Self::is_laptop_port() { Some(1500u32) } else { None };
+        #[cfg(test)]
+        let laptop_cap: Option<u32> = None;
+
+        // --- Phase 2 & Phase 3: Constant Voltage (CV) & Step-Down Saturation Curve ---
+        let raw_target_ma = if is_qcom && !has_qcom_cp {
+            // Qualcomm Single-PMIC (PM660 / SD660): gentle CV taper starting at 78% or 4380mV
+            if cur_soc >= 78 || cell_mv >= 4380 {
+                if cur_soc >= 95 {
+                    600
+                } else if cur_soc >= 90 {
+                    1000
+                } else if cur_soc >= 85 {
+                    1400
+                } else if cur_soc >= 80 {
+                    1900
+                } else {
+                    2400
+                }
             } else {
-                return 2400;
+                0
             }
+        } else {
+            // MediaTek Direct Charge Pump (RT9759 + RT9471) & Dual Charge Pump 3-Phase Curve:
+            // - Phase 1 (0% - 84%): Full Hyper Boost (handled below with thermal pacing)
+            // - Phase 2 (85% - 94%): Fast Step-Down (85-89% -> 3500mA, 90-94% -> 2500mA)
+            // - Phase 3 (95% - 99%): Smooth Saturation Tapering (1800mA >= 1500mA so hyper_charge stays active)
+            if cur_soc >= 95 {
+                1800
+            } else if cur_soc >= 90 {
+                2500
+            } else if cur_soc >= 85 {
+                3500
+            } else {
+                0
+            }
+        };
+
+        if raw_target_ma > 0 {
+            return match laptop_cap {
+                Some(cap) => raw_target_ma.min(cap),
+                None => raw_target_ma,
+            };
         }
 
         // --- Phase 1: Constant Current (CC) with Intelligent Thermal Pacing ---
+        #[cfg(not(test))]
         let batt_temp = Self::read_authentic_battery_temp_c();
+        #[cfg(test)]
+        let batt_temp = 35.0f32;
+        #[cfg(not(test))]
         let pmic_temp = Self::read_pmic_or_quiet_therm_c().unwrap_or(batt_temp);
+        #[cfg(test)]
+        let pmic_temp = 35.0f32;
 
-        if is_qcom && !has_qcom_cp {
+        let cc_ma = if is_qcom && !has_qcom_cp {
             // Qualcomm Single-PMIC Architecture (PM660 / SD660 / SD845 / SM8150 single):
             // Hardware die safety limit is 54°C (quiet_therm).
             if batt_temp >= 51.5 || pmic_temp >= 52.5 {
@@ -2177,6 +2209,11 @@ impl ChargingRegulator {
             } else {
                 base_peak_ma
             }
+        };
+
+        match laptop_cap {
+            Some(cap) => cc_ma.min(cap),
+            None => cc_ma,
         }
     }
 
@@ -3314,8 +3351,13 @@ impl ChargingRegulator {
             }
         }
 
-        // 4. In Hyper Mode, bypass Battery_Temperature to 25°C across MTK & Qualcomm architectures
-        Self::apply_battery_temperature_bypass(25);
+        // 4. On kernels with native /proc/lynx/hyper_charge support, preserve authentic NTC
+        // battery temperature so fuelgauged uses the accurate thermal impedance & ZCV table.
+        if Path::new("/proc/lynx/hyper_charge").exists() {
+            Self::sync_authentic_battery_temp();
+        } else {
+            Self::apply_battery_temperature_bypass(25);
+        }
 
         // 5. MediaTek ABCCT PID & BCCT Thermal Derater Neutralization:
         // CRITICAL HARDWARE SAFETY GUARD:
@@ -5736,6 +5778,17 @@ mod tests {
 
         // Phase 1: On host without sysfs (defaults to 35°C nominal cool), returns base peak
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3500, 30, 4100, true, false), 3500);
+
+        // MediaTek Direct Charge Pump 3-Phase Curve (0-84% Hyper, 85-94% Step-Down, 95-99% Taper >= 1500mA)
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 75, 4410, false, false), 6500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 84, 4420, false, false), 6500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 85, 4420, false, false), 3500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 89, 4430, false, false), 3500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 90, 4435, false, false), 2500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 94, 4438, false, false), 2500);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 95, 4440, false, false), 1800);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 99, 4445, false, false), 1800);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 100, 4450, false, false), 100);
     }
 
     #[test]
