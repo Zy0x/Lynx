@@ -1423,7 +1423,10 @@ impl ChargingRegulator {
             return;
         }
 
-        if cfg.auto_cut_enabled && cur_cap >= 100 {
+        if cfg.auto_cut_enabled
+            && cur_cap >= 100
+            && (!Self::has_lynx_kernel_bypass() || Self::is_lynx_kernel_full_bypass_latched())
+        {
             Self::release_charging_wake_lock();
             return;
         }
@@ -4342,23 +4345,26 @@ impl ChargingRegulator {
                     Self::publish_bypass_telemetry();
                     return;
                 }
-            }
-            let prev_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
-            let bat_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
-            let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
-            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
-            let cur_now_ma = if volt_raw.abs() >= 100_000 || cur_now_raw.abs() > 10_000 {
-                cur_now_raw / 1000
+                // Kernel native AutoCut owns full-charge cutoff once physical CV saturation completes;
+                // do not run legacy userspace `cur_now_ma <= 250 -> Manual Bypass` while still topping off.
             } else {
-                cur_now_raw
-            };
-            let is_saturated = prev_state.contains("state=bypass_100")
-                || bat_status.trim().eq_ignore_ascii_case("Full")
-                || cur_now_ma <= 250;
-            if is_saturated {
-                let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
-                Self::apply_bypass_charging();
-                return;
+                let prev_state = Self::read_node("/dev/lynx_charging_state").unwrap_or_default();
+                let bat_status = Self::read_node(&format!("{}/status", BATT_DIR)).unwrap_or_default();
+                let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
+                let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0);
+                let cur_now_ma = if volt_raw.abs() >= 100_000 || cur_now_raw.abs() > 10_000 {
+                    cur_now_raw / 1000
+                } else {
+                    cur_now_raw
+                };
+                let is_saturated = prev_state.contains("state=bypass_100")
+                    || bat_status.trim().eq_ignore_ascii_case("Full")
+                    || cur_now_ma <= 250;
+                if is_saturated {
+                    let _ = fs::write("/dev/lynx_charging_state", format!("state=bypass_100 cap={}\n", cur_cap));
+                    Self::apply_bypass_charging();
+                    return;
+                }
             }
         }
 
@@ -4487,7 +4493,7 @@ impl ChargingRegulator {
                         && (in_cur >= min_exp_ua || in_cur == 4294967295)
                         && (chg1 >= min_exp_ua || chg1 == 4294967295)
                         && (chg2 >= min_exp_ua || chg2 == 4294967295 || chg2 == 0 || !Path::new(&format!("{}/chg2_current", MTK_DIR)).exists())
-                        && (!Path::new("/proc/lynx/hyper_charge").exists() || hyper_proc.trim() == "1" || is_laptop || cur_cap_i >= 100)
+                        && (!Path::new("/proc/lynx/hyper_charge").exists() || hyper_proc.trim() == "1" || is_laptop || Self::is_lynx_kernel_full_bypass_latched())
                         && (cur_cmd.trim() == "1 0" || cur_cmd.trim() == "0 0" || cur_cmd.is_empty())
                         && (pwr_path.trim() == "1" || pwr_path.trim().ends_with(" 1") || pwr_path.trim() == "0" || pwr_path.is_empty())
                         && (call_state.trim() == "0" || call_state.is_empty());
@@ -4505,7 +4511,7 @@ impl ChargingRegulator {
                                 Self::read_node(&format!("{}/pe20", MTK_DIR)).unwrap_or_default() == "1"
                                 && Self::read_node(&format!("{}/pe40", MTK_DIR)).unwrap_or_default() == "1"
                             );
-                            (sc_limit >= 1000 || cur_cap_i >= 100 || sc_limit == 0) && pe_ok
+                            (sc_limit >= 1000 || Self::is_lynx_kernel_full_bypass_latched() || sc_limit == 0) && pe_ok
                         } else {
                             true
                         }

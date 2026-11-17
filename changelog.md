@@ -1,3 +1,14 @@
+# Lynx Universal [Pre-AutoCut Charging Headroom & Kernel Coordination Fix] 7.0.0-RC414
+Released on: 2026-11-18
+> Lynx Kernel Manager v3.4.33
+
+### Native Charging Engine (`lynxd` — `charging.rs`)
+- **Unchoked Pre-AutoCut Saturation & `VSYS` Headroom (`calculate_adaptive_charge_current_ma`, `apply_extreme_charging`, `apply_from_config`)**:
+  - Fixed a regression where reaching `UI_SOC = 100%` before physical `CV` saturation (`4.45 V`) caused `apply_extreme_charging()` on MediaTek to drop `input_current` (`AICR`), `chg1_current`, `chg2_current`, and `input_current_limit` to `500 mA` and disable `/proc/lynx/hyper_charge`, starving `VSYS` and discharging the battery while plugged in.
+  - Preserved adapter `AICR >= 3200 mA` (wall charger) and pre-AutoCut `ICHG >= 1800 mA` headroom on MediaTek until hardware `AutoCut` actually latches (`/proc/lynx/bypass_active == 1`), and honored active kernel `AutoCut` latches in `apply_extreme_charging()` instead of clearing bypass state or re-enabling `CHG_EN`.
+  - Updated `enforce_live_charging_invariants()` and `apply_from_config()` Tier 3 & MTK invariant checks so kernel `/proc/lynx/full_bypass` retains sole authority over 100% EOC AutoCut without false `cur_now_ma <= 250` manual bypass triggers during transient loads, and without treating `cur_cap >= 100` as an excuse for `hyper_charge = 0` or `sc_ibat_limit = 100` before AutoCut latches.
+- **Asset & Binary Sync**: Updated bundled `lynxd` ARM64 release binary across `system/bin/lynxd` and `LynxCompanion` assets (`25/25` `charging` ARM64 unit tests verified on-device).
+
 # Lynx Universal [Zero-Hardcode Cold-Boot & Post-Doze Anti-Lag Engine] 7.0.0-RC413
 Released on: 2026-11-18
 > Lynx Kernel Manager v3.4.32
