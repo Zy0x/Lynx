@@ -1,3 +1,11 @@
+# Lynx Universal [Screen-Lock Hyper Charge Continuity] 7.0.0-RC422
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.41
+
+### Companion App (`LynxAppAutomationService`)
+- **No more charger re-handshake on lock/unlock**:
+  - Screen ON/OFF events no longer re-apply the full charging mode from the app when the native `lynxd` daemon is running (the daemon already re-evaluates charging on every screen transition). This removes the brief current dip that appeared each time the phone was locked or unlocked while Hyper Charge was active. The app-side re-apply is kept as a fallback only when the daemon is not running.
+
 # Lynx Universal [Precision Game Memory Guard Deadband] 7.0.0-RC421
 Released on: 2026-11-20
 > Lynx Kernel Manager v3.4.40

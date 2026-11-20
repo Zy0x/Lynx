@@ -84,7 +84,12 @@ class LynxAppAutomationService : Service() {
                     }
                     serviceScope.launch(Dispatchers.IO) {
                         try {
-                            LynxRepository.applySavedChargingConfig()
+                            // Native lynxd already re-evaluates charging on screen transitions.
+                            // Re-applying from the app here re-handshakes the charger (bypass/full-bypass
+                            // toggle + full hyper re-init), which drops current every time the phone is locked.
+                            if (!isNativeDaemonHandlingProfiles()) {
+                                LynxRepository.applySavedChargingConfig()
+                            }
                         } catch (_: Exception) {}
                     }
                 }
@@ -96,10 +101,14 @@ class LynxAppAutomationService : Service() {
                         if (LynxRepository.lastActiveProfile == "powersave") {
                             LynxRepository.setProfile(base, caller = "watcher")
                         }
+                        val nativeAlive = isNativeDaemonHandlingProfiles()
                         try {
-                            LynxRepository.applySavedChargingConfig()
+                            // Same as SCREEN_OFF: avoid re-handshaking the charger on every unlock.
+                            if (!nativeAlive) {
+                                LynxRepository.applySavedChargingConfig()
+                            }
                         } catch (_: Exception) {}
-                        if (!isNativeDaemonHandlingProfiles()) {
+                        if (!nativeAlive) {
                             triggerWakeupBoost()
                         }
                         val (pct, tempC) = notificationHelper.getLiveBatteryTelemetry()
