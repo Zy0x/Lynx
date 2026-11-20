@@ -35,6 +35,7 @@ $items = @(
     "webroot",
     "customize.sh",
     "module.prop",
+    "post-fs-data.sh",
     "service.sh",
     "action.sh",
     "sepolicy.rule",

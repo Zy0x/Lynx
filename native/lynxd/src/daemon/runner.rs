@@ -476,6 +476,9 @@ impl DaemonRunner {
             // Autonomous ADB Wireless Keep-Alive & Port Lock Watchdog tick
             crate::subsystems::AdbController::tick();
 
+            // Autonomous Zygote & USAP Pool Integrity Guard tick (Screen-on, throttled)
+            crate::subsystems::ZygoteGuard::tick(current_screen == ScreenState::On);
+
             // Autonomous VMA Shield Watchdog tick (Monitors system_server VMA every ~60 cycles)
             if daemon_state.cycle_count % 60 == 0 {
                 crate::subsystems::MemoryController::check_vma_health(fg_app.as_ref());

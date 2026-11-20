@@ -27,6 +27,7 @@ pub mod thermal;
 pub mod tui;
 pub mod wakeup;
 pub mod zram;
+pub mod zygote_guard;
 
 pub use adb::AdbController;
 pub use applist::ApplistController;
@@ -52,3 +53,4 @@ pub use swap::SwapController;
 pub use system::SystemController;
 pub use thermal::ThermalController;
 pub use tui::TuiController;
+pub use zygote_guard::ZygoteGuard;

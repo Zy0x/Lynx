@@ -1,3 +1,17 @@
+# Lynx Universal [Dynamic Zygote/USAP Guard & Atomic Module Metadata] 7.0.0-RC415
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.34
+
+### Dynamic Zygote & USAP Integrity Guard (`lynxd` — `zygote_guard.rs`, `post-fs-data.sh`, `lifecycle_hooks.rs`, `runner.rs`, `system.prop`)
+- **Zero-Hardcode Dynamic USAP Policy Reconciliation (`ZygoteGuard`)**:
+  - Removed the static `persist.device_config.runtime_native.usap_pool_enabled=true` override from `system.prop` and replaced it with dynamic runtime discovery across ROM build partitions (`/system`, `/system_ext`, `/product`, `/odm`, `/vendor`), live `dalvik.vm.usap_pool_enabled`, enabled module hook/script scanning under `/data/adb/modules/*`, and live `/proc` Zygote pipe/worker telemetry.
+  - Prevents AOSP `ZygoteServer.runSelectLoop()` `POLLHUP` busy-spin deadlocks whenever enabled modules mutate Zygote mount namespaces or terminate `usap32`/`usap64` workers, and automatically aligns stale persistent overrides against stock ROM defaults while preserving native USAP untouched on conflict-free compatible ROMs.
+  - Added early pre-Zygote reconciliation in `post-fs-data.sh` (and included `post-fs-data.sh` in `tools/pack_module.ps1` release packaging), boot reconciliation + uninstall baseline restoration in `lifecycle_hooks.rs` (`stock_state/usap_pool_enabled`), throttled live `/proc` spin circuit-breaker monitoring in `DaemonRunner::tick()`, and the `lynxd zygote-guard` CLI (`status`, `reconcile`, `reset`, `enable`, `disable`, `restore`).
+- **Atomic Cross-Process `module.prop` Serialization & Upgrade State Preservation (`utils/mod.rs`, `config_lock.rs`, `customize.sh`)**:
+  - Eliminated a concurrency race where unserialized async `std::fs::write` threads from `runner.rs` / `executor.rs` / `lifecycle_hooks.rs` could truncate `/data/adb/modules/Lynx/module.prop` to a 1-byte newline (`0x0a`).
+  - Replaced fire-and-forget writes with cross-process `ConfigLock` (`flock`), structural `id=`/`version=` validation, `fs::File::sync_all()`, and atomic temp-file `rename()`.
+  - Updated `customize.sh` to preserve existing `/data/adb/modules/Lynx/config.json` user settings and pre-Lynx `stock_state/usap_pool_enabled` across upgrades and trigger one-shot cleanup when upgrading from legacy `usap_pool_enabled=true` builds.
+
 # Lynx Universal [Pre-AutoCut Charging Headroom & Kernel Coordination Fix] 7.0.0-RC414
 Released on: 2026-11-18
 > Lynx Kernel Manager v3.4.33

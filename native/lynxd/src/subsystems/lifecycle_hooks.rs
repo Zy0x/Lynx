@@ -105,6 +105,10 @@ impl LifecycleHooks {
             Self::log_msg(&format!("media_boot_apply: {}", error));
         }
 
+        // Dynamic Zygote/USAP integrity guard (aligns ROM policy & blocks POLLHUP spin conflicts)
+        let zygote_status = crate::subsystems::ZygoteGuard::reconcile_boot();
+        Self::log_msg(&format!("zygote_guard: {}", zygote_status));
+
         let _ = fs::create_dir_all("/storage/emulated/0/Lynx");
         let _ = fs::create_dir_all(format!("{}/logs/archive", MODPATH));
 
@@ -174,19 +178,10 @@ impl LifecycleHooks {
         }
         Self::log_msg(&format!("Active profile: {}", active_profile));
 
-        let modprop = format!("{}/module.prop", MODPATH);
         if active_profile == "dormant" {
-            if let Ok(content) = fs::read_to_string(&modprop) {
-                let mut updated = Vec::new();
-                for line in content.lines() {
-                    if line.starts_with("description=") {
-                        updated.push("description=[ Dormant (Pending Setup) ] Universal Hybrid Performance Engine".to_string());
-                    } else {
-                        updated.push(line.to_string());
-                    }
-                }
-                let _ = fs::write(&modprop, updated.join("\n") + "\n");
-            }
+            crate::utils::update_module_prop_description(
+                "[ Dormant (Pending Setup) ] Universal Hybrid Performance Engine",
+            );
             Self::post_notification(
                 "Modul terpasang aman (Standby). Buka WebUI atau Aplikasi Lynx untuk konfigurasi awal.",
             );
@@ -289,6 +284,9 @@ impl LifecycleHooks {
         let _ = crate::subsystems::AdbController::disable();
         if let Err(error) = crate::subsystems::media::MediaController::restore_session() {
             Self::log_msg(&format!("media_uninstall_restore: {}", error));
+        }
+        if let Err(error) = crate::subsystems::ZygoteGuard::restore_uninstall() {
+            Self::log_msg(&format!("zygote_guard_restore: {}", error));
         }
 
         // 2. Unfreeze any OEM Throttler Processes

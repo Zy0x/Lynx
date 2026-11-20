@@ -96,6 +96,7 @@ fn print_usage() {
         println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
         println!("  io apply|info|set-scheduler");
         println!("  media status|set <mode> <true|false> [--restart-player]|restore  Preferensi decoder dan penerapan boot");
+        println!("  zygote-guard status|reconcile|reset|enable|disable|restore    Penjaga integritas Zygote & USAP anti-POLLHUP");
         println!("  network apply|game|balance|set-algo|info");
         println!("  adb status|enable|disable|set-port Kelola keep-alive ADB nirkabel dan port tetap");
         println!("  inspect scan|node <path>          Periksa parameter hardware sysfs/procfs");
@@ -141,6 +142,7 @@ fn print_usage() {
     println!("  memory apply|zram-info|zram-set|zram-disable|clean|vm-info|vm-set|vm-preset");
     println!("  io apply|info|set-scheduler");
     println!("  media status|set <mode> <true|false> [--restart-player]|restore  Decoder preferences and boot persistence");
+    println!("  zygote-guard status|reconcile|reset|enable|disable|restore    Dynamic Zygote & USAP POLLHUP integrity guard");
     println!("  network apply|game|balance|set-algo|info");
     println!("  adb status|enable|disable|set-port Manage wireless ADB keep-alive & persistent port lock");
     println!("  inspect scan|node <path>          Deep sysfs/procfs hardware tunable introspection (<40ms)");
@@ -989,6 +991,9 @@ fn handle_system(args: &[String]) {
                 let duration_ms = args.get(3).and_then(|s| s.parse::<u64>().ok()).unwrap_or(2000);
                 println!("{}", SystemController::wakeup_boost(duration_ms));
             }
+            "zygote-guard" | "usap-guard" => {
+                std::process::exit(crate::subsystems::ZygoteGuard::cli(&args[3..]));
+            }
             other => {
                 log_error!("Subcommand system tidak dikenal: '{}'", "Unknown system subcommand: '{}'", other);
                 print_usage();
@@ -1556,6 +1561,9 @@ fn main() {
         }
         "media" => {
             std::process::exit(crate::subsystems::media::MediaController::cli(&args[2..]));
+        }
+        "zygote-guard" | "usap-guard" => {
+            std::process::exit(crate::subsystems::ZygoteGuard::cli(&args[2..]));
         }
         "io" | "storage" => {
             let sub = args.get(2).map(|s| s.as_str()).unwrap_or("apply");

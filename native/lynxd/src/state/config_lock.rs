@@ -4,7 +4,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 /// Own the serialization primitive for the entire read-modify-rename transaction.
-pub(super) struct ConfigLock {
+pub(crate) struct ConfigLock {
     _file: File,
     #[cfg(not(unix))]
     path: std::path::PathBuf,

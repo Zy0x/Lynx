@@ -366,9 +366,17 @@ if [ ! -f /storage/emulated/0/Lynx/applist_perf.txt ]; then
     cp -af "$MODPATH/core/applist_perf.txt" /storage/emulated/0/Lynx/ 2>/dev/null
 fi
 
-# ── 7. State Engine (Dormant Mode First-Boot) ──────────────────────
+# ── 7. State Engine (Preserve User Config Across Upgrades) ─────────
 ui_print "$(lynx_t initialize_engine)"
 mkdir -p "$MODPATH/logs" 2>/dev/null
+
+LIVE_MODDIR="/data/adb/modules/Lynx"
+if [ -s "$LIVE_MODDIR/config.json" ] && [ ! -f /data/adb/lynx/reset_config ]; then
+    cp -af "$LIVE_MODDIR/config.json" "$MODPATH/config.json" 2>/dev/null
+fi
+if [ -f "$LIVE_MODDIR/system.prop" ] && grep -q '^persist\.device_config\.runtime_native\.usap_pool_enabled=true' "$LIVE_MODDIR/system.prop" 2>/dev/null; then
+    touch "$MODPATH/.migrate_clear_legacy_usap" 2>/dev/null
+fi
 
 if [ -f "$MODPATH/config.json" ]; then
     sed -i "s/\"target_soc\": \".*\"/\"target_soc\": \"$TARGET_SOC\"/" "$MODPATH/config.json" 2>/dev/null
@@ -381,6 +389,9 @@ fi
 # ── 7.5 Create Stock Baseline Restore Point ────────────────────────
 ui_print "$(lynx_t baseline_restore)"
 mkdir -p "$MODPATH/stock_state" 2>/dev/null
+if [ -f "$LIVE_MODDIR/stock_state/usap_pool_enabled" ]; then
+    cp -af "$LIVE_MODDIR/stock_state/usap_pool_enabled" "$MODPATH/stock_state/usap_pool_enabled" 2>/dev/null
+fi
 for n in /proc/sys/vm/dirty_ratio /proc/sys/vm/dirty_background_ratio /proc/sys/vm/vfs_cache_pressure /proc/sys/vm/swappiness /proc/sys/kernel/sched_util_clamp_min /proc/sys/kernel/sched_util_clamp_max; do
     if [ -f "$n" ]; then
         bname=$(basename "$n")
@@ -402,6 +413,12 @@ chmod 755 "$MODPATH/post-fs-data.sh" "$MODPATH/service.sh" "$MODPATH/uninstall.s
 # Enforce clean system_file SELinux context
 chcon -R u:object_r:system_file:s0 "$MODPATH/system" 2>/dev/null
 chcon -R u:object_r:system_file:s0 "$MODPATH/core" 2>/dev/null
+
+# Reconcile dynamic Zygote/USAP safety state on install/upgrade (graceful if host ABI differs)
+if [ -x "$MODPATH/system/bin/lynxd" ]; then
+    PATH="/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk:/system/bin:$PATH" \
+        "$MODPATH/system/bin/lynxd" zygote-guard reconcile --install >/dev/null 2>&1 || true
+fi
 chcon -R u:object_r:system_file:s0 "$MODPATH/platforms" 2>/dev/null
 
 # Clean non-runtime assets

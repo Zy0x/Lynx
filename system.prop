@@ -11,7 +11,7 @@ debug.sf.hw=1
 
 # ── 2. Universal Framework & Rendering Responsiveness ─────────────────────────
 ro.config.nocheckin=1
-persist.device_config.runtime_native.usap_pool_enabled=true
+# USAP pool policy is dynamically reconciled at boot by lynxd zygote-guard
 
 # ── 3. Universal Dalvik & ART Runtime Performance ─────────────────────────────
 dalvik.vm.dexopt-flags=m=y
