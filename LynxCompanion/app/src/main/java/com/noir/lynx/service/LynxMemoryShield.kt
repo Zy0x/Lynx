@@ -81,8 +81,14 @@ object LynxMemoryShield {
                     wsf=$(( (step_mb * 10000 + ram_mb / 2) / ram_mb ))
                     [ "${'$'}wsf" -gt 85 ] && wsf=85
                     echo "${'$'}mfk_kb" > /proc/sys/vm/min_free_kbytes 2>/dev/null
-                    echo "${'$'}efk_kb" > /proc/sys/vm/extra_free_kbytes 2>/dev/null
-                    echo "${'$'}wsf" > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                    echo 12288 > /proc/sys/vm/extra_free_kbytes 2>/dev/null
+                    echo 30 > /proc/sys/vm/watermark_scale_factor 2>/dev/null
+                fi
+                echo 850 > /proc/sys/vm/extfrag_threshold 2>/dev/null
+                cur_sw=$(cat /proc/sys/vm/swappiness 2>/dev/null)
+                if [ -n "${'$'}cur_sw" ] && [ "${'$'}cur_sw" -le 20 ] 2>/dev/null; then
+                    [ -e /proc/sys/vm/direct_swappiness ] && echo 5 > /proc/sys/vm/direct_swappiness 2>/dev/null
+                    [ -e /dev/memcg/apps/memory.swappiness ] && echo 10 > /dev/memcg/apps/memory.swappiness 2>/dev/null
                 fi
 
                 # 2. Dynamic Block Device Queue Tuning (Strict Separation: eMMC vs MicroSD vs UFS)

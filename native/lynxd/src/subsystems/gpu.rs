@@ -581,7 +581,7 @@ impl GpuController {
                 DynamicGpuState::Light
             } else if tier.is_low_end_ram
                 || tier.is_emmc_primary
-                || Self::is_soc_thermally_hot(temp_c, 16.0, 39.5)
+                || Self::is_soc_thermally_hot(temp_c, 12.0, 44.5)
             {
                 // Stationary reading/idle UI drops cleanly to Idle floor (0ms wake on touch)
                 DynamicGpuState::Idle
@@ -793,11 +793,11 @@ impl GpuController {
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", high.freq_khz.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", high.freq_khz.to_string());
                         }
-                        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "80");
+                        Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "100");
                         Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "100");
-                        Self::write_opt("/sys/kernel/ged/hal/loading_base_dvfs_step", "8");
+                        Self::write_opt("/sys/kernel/ged/hal/loading_base_dvfs_step", "10");
                         Self::write_opt("/sys/kernel/ged/hal/dvfs_loading_mode", "1");
-                        Self::write_opt("/sys/module/ged/parameters/boost_amp", "2");
+                        Self::write_opt("/sys/module/ged/parameters/boost_amp", "3");
                         Self::write_opt("/sys/module/ged/parameters/ged_boost_enable", "1");
                     }
                 }

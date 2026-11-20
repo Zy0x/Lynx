@@ -16,6 +16,8 @@ static LAST_HZ_CHANGE_MS: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Default)]
 pub struct DisplayModeTable {
+    pub width: u32,
+    pub height: u32,
     pub supported_rates: Vec<u32>,
     pub sf_modes: Vec<(u32, i32)>, // (Hz, SurfaceFlinger mode ID)
 }
@@ -45,9 +47,23 @@ impl DisplayController {
         Command::new(path).args(args).output()
     }
 
+    pub(crate) fn parse_resolution_token(token: &str) -> Option<(u32, u32)> {
+        let raw = token.strip_prefix("resolution=")?.trim();
+        let (w_s, h_s) = raw.split_once('x')?;
+        let w = w_s.trim().parse::<u32>().ok()?;
+        let h = h_s.trim().parse::<u32>().ok()?;
+        if (320..=8192).contains(&w) && (320..=8192).contains(&h) {
+            Some((w, h))
+        } else {
+            None
+        }
+    }
+
     /// Automatically probes physical display refresh rates and SurfaceFlinger mode IDs.
     /// Runs once at startup and caches the result with zero continuous shell overhead.
     pub fn probe_display_modes() -> DisplayModeTable {
+        let mut width = 0u32;
+        let mut height = 0u32;
         let mut supported_rates = Vec::new();
         let mut sf_modes = Vec::new();
 
@@ -64,6 +80,13 @@ impl DisplayController {
                         if token.starts_with("{id=") || token.starts_with("id=") {
                             if let Some(id_str) = token.split('=').nth(1) {
                                 sf_id = id_str.trim().parse::<i32>().ok();
+                            }
+                        } else if token.starts_with("resolution=") {
+                            if width == 0 || height == 0 {
+                                if let Some((w, h)) = Self::parse_resolution_token(token) {
+                                    width = w;
+                                    height = h;
+                                }
                             }
                         } else if token.starts_with("refreshRate=") {
                             if let Some(val_str) = token.split('=').nth(1) {
@@ -122,6 +145,8 @@ impl DisplayController {
         sf_modes.sort_by_key(|(hz, _)| *hz);
 
         DisplayModeTable {
+            width,
+            height,
             supported_rates,
             sf_modes,
         }
@@ -176,62 +201,85 @@ impl DisplayController {
         }
     }
 
+    fn write_panel_fps_nodes(target_str: &str) {
+        const PANEL_FPS_NODES: [&str; 4] = [
+            "/proc/driver/disp_fps",
+            "/sys/devices/virtual/graphics/fb0/mode",
+            "/sys/class/graphics/fb0/mode",
+            "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
+        ];
+        for node in PANEL_FPS_NODES {
+            Self::write_opt(node, target_str);
+        }
+    }
+
     /// Universally configures hardware composer, Android framework settings, and panel sysfs nodes.
     /// Used when a static fixed refresh rate is locked by the user.
     pub fn apply_hz_hardware(target_hz: u32, sf_id: Option<i32>) {
-        // 1. Direct SurfaceFlinger HWC mode switch (sub-ms instant physical mode change)
-        if let Some(id) = sf_id {
-            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
-        }
-
-        // 2. Universal Android settings provider
+        // 1. Universal Android settings provider & DisplayManager user-preferred mode alignment FIRST
+        // (Must execute before SurfaceFlinger 1035 so DisplayManager policy updates don't overwrite the HWC lock.)
         let hz_str = format!("{}.0", target_hz);
         let target_str = target_hz.to_string();
-        let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-        let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &target_str]);
-        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_str]);
+        let modes = Self::get_display_modes();
+        if modes.width > 0 && modes.height > 0 {
+            let _ = Self::run_cmd(
+                "cmd",
+                &[
+                    "display",
+                    "set-user-preferred-display-mode",
+                    &modes.width.to_string(),
+                    &modes.height.to_string(),
+                    &target_str,
+                    "0",
+                ],
+            );
+        }
+        Self::sync_android_refresh_settings(&hz_str, &target_str);
 
-        // 3. Kernel / Vendor Panel Sysfs Nodes
-        let nodes = [
-            "/sys/devices/virtual/graphics/fb0/mode",
-            "/sys/class/graphics/fb0/mode",
-            "/proc/driver/disp_fps",
-            "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
-        ];
-        for node in nodes {
-            Self::write_opt(node, &target_hz.to_string());
+        // 2. Kernel / Vendor Panel Sysfs Nodes
+        Self::write_panel_fps_nodes(&target_str);
+
+        // 3. Direct SurfaceFlinger HWC mode switch LAST so activeMode stays pinned post-boot
+        if let Some(id) = sf_id {
+            let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
         }
     }
 
     /// Smooth zero-jitter adaptive rate adjustment for Auto mode.
     /// Manages SurfaceFlinger HWC mode, Android framework min/peak refresh rate, and panel sysfs.
     pub fn apply_hz_auto(target_hz: u32, sf_id: Option<i32>) {
+        let target_str = target_hz.to_string();
+
         // 1. Direct SurfaceFlinger HWC mode switch (instant zero-latency mode change with locked early phases)
         if let Some(id) = sf_id {
             let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
         }
 
         // 2. Kernel / Vendor Panel Sysfs Nodes
-        let nodes = [
-            "/proc/driver/disp_fps",
-            "/sys/devices/virtual/graphics/fb0/mode",
-            "/sys/class/graphics/fb0/mode",
-            "/sys/devices/platform/soc/soc:qcom,dsi-display-primary/fps",
-        ];
-        for node in nodes {
-            Self::write_opt(node, &target_hz.to_string());
-        }
+        Self::write_panel_fps_nodes(&target_str);
 
         // 3. Android settings provider (spawn non-blocking async thread to avoid daemon loop stall)
         let hz_str = format!("{}.0", target_hz);
-        let target_str = target_hz.to_string();
         std::thread::spawn(move || {
-            let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-            let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-            let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &target_str]);
-            let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &target_str]);
+            Self::sync_android_refresh_settings(&hz_str, &target_str);
         });
+    }
+
+    fn sync_android_refresh_settings(hz_str: &str, target_str: &str) {
+        let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", target_str]);
+        let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", target_str]);
+        let _ = Self::run_cmd("settings", &["put", "global", "min_refresh_rate", hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "global", "peak_refresh_rate", hz_str]);
+        let _ = Self::run_cmd("settings", &["put", "global", "user_refresh_rate", target_str]);
+        if let Ok(out) = Self::run_cmd("settings", &["get", "system", "tran_refresh_mode"]) {
+            let cur = String::from_utf8_lossy(&out.stdout);
+            let cur_t = cur.trim();
+            if !cur_t.is_empty() && cur_t != "null" {
+                let _ = Self::run_cmd("settings", &["put", "system", "tran_refresh_mode", target_str]);
+            }
+        }
     }
 
     /// Immediate sub-1ms hardware touch boost notification triggered by TouchDetector thread.
@@ -280,10 +328,7 @@ impl DisplayController {
             let hz_str = format!("{}.0", high_hz);
             let high_str = high_hz.to_string();
             std::thread::spawn(move || {
-                let _ = Self::run_cmd("settings", &["put", "system", "min_refresh_rate", &hz_str]);
-                let _ = Self::run_cmd("settings", &["put", "system", "peak_refresh_rate", &hz_str]);
-                let _ = Self::run_cmd("settings", &["put", "system", "user_refresh_rate", &high_str]);
-                let _ = Self::run_cmd("settings", &["put", "secure", "user_refresh_rate", &high_str]);
+                Self::sync_android_refresh_settings(&hz_str, &high_str);
             });
         }
     }
@@ -500,5 +545,12 @@ mod tests {
         assert_eq!(DisplayController::ged_target_cpu_remained_ns(144, true), 3_472_222);
         assert_eq!(DisplayController::ged_target_cpu_remained_ns(120, false), 8_333_333);
         assert_eq!(DisplayController::ged_target_cpu_remained_ns(30, false), 16_666_666);
+    }
+
+    #[test]
+    fn parses_resolution_dimensions_and_rejects_invalid_tokens() {
+        assert_eq!(DisplayController::parse_resolution_token("resolution=1080x2460"), Some((1080, 2460)));
+        assert_eq!(DisplayController::parse_resolution_token("resolution=1440x3200"), Some((1440, 3200)));
+        assert_eq!(DisplayController::parse_resolution_token("resolution=bad"), None);
     }
 }

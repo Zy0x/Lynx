@@ -1,3 +1,70 @@
+# Lynx Universal [Precision Game Memory Guard Deadband] 7.0.0-RC421
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.40
+
+### Daemon (`lynxd` — `runner.rs`)
+- **Spurious `am kill-all` Deadband Tuning (`should_guard_game_memory`)**:
+  - Calibrated `MemFree` soft trigger from `< 4%` to `< 1.5%` (or `< 3%` when paired with `< 70%` free ZRAM) with a `45s` post-trim backoff, eliminating unnecessary mid-combat `am kill-all` Binder IPC when Linux naturally caches `150–260 MB` of file pages while keeping immediate cleanup on genuine `MemFree` / ZRAM bloat.
+
+# Lynx Universal [Proactive Free-RAM & ZRAM Game Memory Guard] 7.0.0-RC420
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.39
+
+### Daemon & Memory Guard (`lynxd` — `runner.rs`)
+- **Two-Tier Universal `game_mem_guard` (`should_guard_game_memory`)**:
+  - Updated active gaming memory guard thresholds across any RAM/ZRAM tier so post-boot background app wakeups cannot squeeze `MemFree` below `4%` or `SwapFree` below `55%` (preventing `kswapd` swap storms, `allocstall`, and `compact_stall` even when file-backed `Inactive(file)` keeps `MemAvailable` artificially high), while reserving `evict_cached_processes_filtered` strictly for critical exhaustion (`MemAvailable < 18%` or `SwapFree < 30%`) and keeping routine cleanup exclusively on graceful AMS `am kill-all` every `20s`.
+
+# Lynx Universal [Locked Display Mode HWC Order Hardening] 7.0.0-RC419
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.38
+
+### Display (`lynxd` — `display.rs`)
+- **Ordered HWC Lock Enforcement (`apply_hz_hardware`)**:
+  - Sequenced `cmd display set-user-preferred-display-mode`, framework refresh settings sync (`settings put`), and kernel/vendor panel sysfs writes cleanly **before** `service call SurfaceFlinger 1035` so post-boot `DisplayManager` policy updates never override locked `activeMode` (`120.00 Hz`) back down after applying the mode lock; extracted shared `write_panel_fps_nodes` helper across static and auto refresh-rate paths.
+
+# Lynx Universal [DisplayManager Preferred-Mode Lock, Graceful AMS Game Trim & Modifier-Aligned Guardian] 7.0.0-RC418
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.37
+
+### Display, Memory & Thermal Coordination (`lynxd` — `display.rs`, `runner.rs`, `game.rs`)
+- **Zero-Hardcode Dynamic Resolution `set-user-preferred-display-mode` Sync (`display.rs`)**:
+  - Extended `DisplayModeTable` to dynamically probe native panel `(width, height)` from `dumpsys SurfaceFlinger` `resolution=WxH` descriptors and execute `cmd display set-user-preferred-display-mode <w> <h> <hz> 0` during locked refresh-rate enforcement, preventing Android `DisplayManager` / SurfaceFlinger fullscreen surface transitions from reverting locked high-refresh panels back to `60 Hz`.
+- **Graceful AMS Game Cache Trim & `MemAvailable` Pressure Guard (`game.rs`, `runner.rs`)**:
+  - Replaced raw `SIGKILL` (`evict_cached_processes_filtered`) polling on low `MemFree` (`< 180 MB` while `MemAvailable` remained `3.8 GB+`) with graceful `am kill-all` on game entry, reserving selective `evict_cached_processes_filtered` strictly for genuine `MemAvailable` (`< 18%` / `< 40%` at launch) or low `SwapFree` (`< 35%`) pressure so Android `ProcessList` crash-restart storms cannot allocate heap mid-gameplay.
+- **Modifier-Aligned `SchedulerGuardian` (`runner.rs`)**:
+  - Coordinated `SchedulerGuardian::tick()` with active `ModifierLevel` (`ThermalCooling`, `ThermalThrottled`, `BatterySaver`) so the guardian never re-raises MTK `perfmgr` top-app floors back to `100%` while `ThermalCooling` is actively stepping down temperatures.
+
+# Lynx Universal [MTK Perfmgr UClamp Scale Fix, Passive Thermal Cooldown & Anti-Bloat In-Game Guard] 7.0.0-RC417
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.36
+
+### Engine, Thermal & Display Pipeline (`lynxd` — `translator.rs`, `cluster.rs`, `runner.rs`, `display.rs`)
+- **MTK Perfmgr `0..=100` UClamp Scale Alignment & `ThermalCooling` Little-Core Release (`translator.rs`)**:
+  - Fixed a silent scale bug where `translator.rs` passed `0..=1024` values (`102`, `640`, `1024`) to `/proc/perfmgr/boost_ctrl/eas_ctrl/perfserv_uclamp_min` (`CGROUP_ROOT`), which MediaTek's kernel `check_uclamp_value()` clamped to `100%` global CPU floor across all profiles (`Balanced`, `Performance`, `Extreme`).
+  - Now keeps `CGROUP_ROOT` (`PERFMGR_UCLAMP_MIN`) conservative (`0` in Balanced/Perf/throttled Extreme) while directing `0..=100` percentage floors cleanly to `PERFMGR_TA_UCLAMP_MIN` (`CGROUP_TA`), and releases efficiency/little clusters to `<= 35%` floor under `ThermalCooling` so passive gaming cools cleanly without sacrificing Big-cluster burst headroom.
+- **Upward-Only Touch Boost & Throttled In-Game Memory Guard (`cluster.rs`, `runner.rs`)**:
+  - Updated `ClusterController::on_hardware_touch()` so `/dev/stune/top-app/schedtune.boost` and uclamp floor writes never downgrade higher active profile floors (eliminating `50 -> 30` touch contention with `SchedulerGuardian`).
+  - Added a throttled 20s in-game `MemFree` / `SwapFree` guard in `DaemonRunner` to evict late-spawned `oom_score_adj >= 900` cached apps spawned during heavy game launches without touching active services.
+- **`Settings.Global` Refresh-Rate Synchronization (`display.rs`)**:
+  - Extended `DisplayController` (`apply_hz_hardware`, `apply_hz_auto`, `on_hardware_touch`) to align `global` (`min_refresh_rate`, `peak_refresh_rate`, `user_refresh_rate`) and OEM `tran_refresh_mode` alongside `system` and `secure` so stale global display locks no longer cap `DisplayManager` at `60 Hz`.
+
+# Lynx Universal [Zero-Stall Gaming VM Headroom, Big-Core Render Isolation & UFS Kyber Pipeline] 7.0.0-RC416
+Released on: 2026-11-20
+> Lynx Kernel Manager v3.4.35
+
+### Zero-Stutter Memory, Thread Scheduler & Storage Pipeline (`lynxd` — `device_tier.rs`, `memory.rs`, `translator.rs`, `storage.rs`, `game.rs`, `gpu.rs`, `LynxMemoryShield.kt`, `apply_profile.sh`)
+- **OPLUS/MGLRU `direct_swappiness` & Memcg Cgroup Alignment (`memory.rs`, `translator.rs`, `game.rs`, `LynxMemoryShield.kt`, `apply_profile.sh`)**:
+  - Raised `/proc/sys/vm/extfrag_threshold` from `100` to `850` so fragmented-zone compaction checks no longer cause unnecessary synchronous `compact_stall` hitches during burst allocations.
+  - Added pure `MemoryController::derived_swappiness_targets()` and `sync_swappiness_controls()` to clamp `/proc/sys/vm/direct_swappiness` (e.g. `<= 5` during low-swap gaming profiles), align discovered memcg `memory.swappiness` cgroups (`/dev/memcg/apps/memory.swappiness`, etc.) without collapsing `Inactive(file)` (`>= 10` on active non-zero profiles), and tune MGLRU `/sys/kernel/mm/lru_gen/min_ttl_ms` (`500` ms during active performance/gaming) across `MemoryController`, `HardwareTranslator`, `GameController`, and shell fallbacks.
+- **Anti-Kswapd Thrash Watermark & VFS Calibration (`device_tier.rs`)**:
+  - Recalibrated `compute_reclaim_headroom()` and `vm_profile_targets()` on `>= 6 GB` platforms (`wsf ~ 30–33`, `extra_free_kbytes = 12288–16384`, `swappiness = 8–10`, `vfs_cache_pressure = 85–100` on UFS) to eliminate continuous `kswapd` scanning and background ZRAM swap-out storms while holding `allocstall = 0` and preserving `Normal`-zone file cache headroom.
+- **Primary Render Big-Core Isolation, Cached-Bloat Eviction & CFS Latency (`game.rs`)**:
+  - Updated `optimize_pid()` and `classify_thread_role()` so secondary `RenderBackend`/`MainGameLoop` threads and asset/shader loaders (`ShaderLoad*`, `MHYLoad*`, `AsyncRead*`, `UnityMultiRende`, `NativeThread`, GPU driver workers) burst freely across `all_mask` at `-12..-14` while noisy thread pools (`IL2CPP Threadpo`, `Worker Thread`, `Telemetry`, `Okio`, `Firebase`) stay quarantined off small 1–2 core prime clusters (`worker_mask`), leaving active primary `UnityGfxDeviceW`/`UnityMain` uncontended at `-20`.
+  - Added guarded `/proc/sys/kernel/sched_lib_name` checks, game-session CFS scheduler tuning (`sched_latency_ns=6000000`, `sched_min_granularity_ns=1500000`, `sched_wakeup_granularity_ns=1000000`, cleanly restored in `game_off()`), `evict_cached_processes_filtered()` on game entry, and `prioritize_surfaceflinger(-10)` compositing priority elevation.
+- **UFS Kyber Scheduler & MTK GPU Peak Retention (`storage.rs`, `translator.rs`, `gpu.rs`)**:
+  - Upgraded `StoragePolicy` and `HardwareTranslator` on `Ufs`/`Nvme` to prioritize `kyber` with `512 KB` read-ahead and `256` queue depth in `performance`/`extreme` to prevent asset read starvation behind async/ZRAM writes.
+  - Updated `GpuController` `DynamicGpuState::Peak` to maintain `gpu_boost_level="100"`, `boost_amp="3"`, and `loading_base_dvfs_step="10"` while relaxing passive-gaming idle thermal fallback (`39.5°C` -> `44.5°C`).
+
 # Lynx Universal [Dynamic Zygote/USAP Guard & Atomic Module Metadata] 7.0.0-RC415
 Released on: 2026-11-20
 > Lynx Kernel Manager v3.4.34

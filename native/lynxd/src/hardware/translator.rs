@@ -153,9 +153,11 @@ impl HardwareTranslator {
             };
             (picked_gov, 100, 100)
         } else if is_extreme {
-            // Cooling/battery modifier reduced min_percent below 100: step down to dynamic EAS governor.
+            // Cooling/battery modifier reduced min_percent below 100: step down to dynamic EAS governor,
+            // and let efficiency/little cores scale coolly from low baseline instead of cooking all cores at high floor.
             let picked_gov = Self::pick_dynamic_governor(&pol.available_governors, "schedutil", false);
-            (picked_gov, profile.cpu.min_percent, profile.cpu.max_percent.min(100))
+            let adj_min = if is_little { profile.cpu.min_percent.min(35) } else { profile.cpu.min_percent };
+            (picked_gov, adj_min, profile.cpu.max_percent.min(100))
         } else {
             let picked_gov = Self::pick_dynamic_governor(
                 &pol.available_governors,
@@ -615,21 +617,28 @@ impl HardwareTranslator {
                     Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Restore", MtkHardware::PPM_POLICY_STATUS, "3 1", false);
                 }
 
-                // MediaTek Perfmgr EAS Boosting (Top-App & Foreground)
-                let (ta_boost, fg_boost, uclamp_min_perf, big_task_rot) = if is_extreme {
-                    ("100", "50", "1024", "1")
+                // MediaTek Perfmgr EAS Boosting (note: kernel check_uclamp_value clamps strictly 0..=100!)
+                // Keep CGROUP_ROOT (`perfserv_uclamp_min`) conservative so efficiency/idle cores scale coolly,
+                // while directing high uclamp floor specifically to CGROUP_TA (`perfserv_ta_uclamp_min`).
+                let unthrottled_extreme = is_extreme && profile.cpu.min_percent >= 100;
+                let (ta_boost, fg_boost, root_uclamp_pct, ta_uclamp_pct, big_task_rot) = if unthrottled_extreme {
+                    ("100", "50", "40", "100", "1")
+                } else if is_extreme && profile.cpu.min_percent >= 80 {
+                    ("65", "30", "0", "65", "1")
+                } else if is_extreme {
+                    ("30", "15", "0", "35", "1")
                 } else if is_perf_or_ext {
-                    ("60", "35", "640", "1")
+                    ("60", "25", "0", "55", "1")
                 } else if is_powersave {
-                    ("0", "0", "0", "0")
+                    ("0", "0", "0", "0", "0")
                 } else {
-                    // Balanced: 10% top-app, 5% foreground boost, 102 uclamp min, big task rotation
-                    // Keeps video/scrolling responsive without excessive idle power draw on MT6781
-                    ("10", "5", "102", "1")
+                    // Balanced: 10% top-app, 5% foreground, 0% global root min (never clamp 102->100!)
+                    ("10", "5", "0", "10", "1")
                 };
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app boost", MtkHardware::PERFMGR_TA_BOOST, ta_boost, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);
-                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr uclamp min", MtkHardware::PERFMGR_UCLAMP_MIN, uclamp_min_perf, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr global root uclamp min", MtkHardware::PERFMGR_UCLAMP_MIN, root_uclamp_pct, false);
+                Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app uclamp min", MtkHardware::PERFMGR_TA_UCLAMP_MIN, ta_uclamp_pct, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr big task rotation", MtkHardware::PERFMGR_BIG_TASK_ROTATION, big_task_rot, false);
 
                 // MediaTek Perfmgr EAS Task Migration Cost & Throttle Bounds (Anti-Jank & Frame Pacing)
@@ -1174,7 +1183,24 @@ impl HardwareTranslator {
         }
 
         // Unified Hardware-Tiered VM parameters (eMMC + <=4.5GB ZRAM Shield vs UFS High-End)
+        let (direct_swap, memcg_swap) = crate::subsystems::MemoryController::derived_swappiness_targets(vm_targets.swappiness);
         Self::push_op(&mut ops, "Memory", "VM swappiness (hardware-tiered)", "/proc/sys/vm/swappiness", vm_targets.swappiness.to_string(), false);
+        Self::push_op(&mut ops, "Memory", "VM direct_swappiness (OPLUS/MGLRU direct reclaim clamp)", "/proc/sys/vm/direct_swappiness", direct_swap.to_string(), false);
+        for memcg_path in &[
+            "/dev/memcg/apps/memory.swappiness",
+            "/dev/memcg/memory.swappiness",
+            "/sys/fs/cgroup/memory/apps/memory.swappiness",
+            "/sys/fs/cgroup/memory/memory.swappiness",
+        ] {
+            if Path::new(memcg_path).exists() {
+                Self::push_op(&mut ops, "Memory", "Memcg swappiness alignment", *memcg_path, memcg_swap.to_string(), false);
+            }
+        }
+        Self::push_op(&mut ops, "Memory", "VM extfrag_threshold (prevent compaction stalls)", "/proc/sys/vm/extfrag_threshold", "850", false);
+        if cap.memory.mglru_supported && Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
+            let ttl_ms = if is_perf_or_ext { "500" } else { "0" };
+            Self::push_op(&mut ops, "Memory", "MGLRU min_ttl_ms working-set shield", "/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms, false);
+        }
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure (media-aware)", "/proc/sys/vm/vfs_cache_pressure", vm_targets.vfs_cache_pressure.to_string(), false);
 
         let dirty_bg = vm_targets.dirty_background_ratio.to_string();
@@ -1276,7 +1302,11 @@ impl HardwareTranslator {
                     }
                     crate::hardware::capability::BlockDeviceType::Ufs
                     | crate::hardware::capability::BlockDeviceType::Nvme => {
-                        &["mq-deadline", "deadline", "bfq", "kyber", "none", "noop"]
+                        if is_perf_or_ext {
+                            &["kyber", "mq-deadline", "deadline", "bfq", "none", "noop"]
+                        } else {
+                            &["mq-deadline", "deadline", "bfq", "kyber", "none", "noop"]
+                        }
                     }
                     crate::hardware::capability::BlockDeviceType::Sd => {
                         &["mq-deadline", "deadline", "bfq", "noop", "none"]
@@ -1695,7 +1725,8 @@ mod tests {
         assert_eq!(min_hz, 2_050_000);
         assert_eq!(max_hz, 2_050_000);
 
-        // Cooling modifier relaxes extreme floor from 100% -> 85% and yields back to dynamic EAS governor.
+        // Cooling modifier relaxes extreme floor from 100% -> 85% and yields back to dynamic EAS governor,
+        // while releasing Little/Efficiency cluster down to <=35% floor to prevent passive heat saturation.
         let cooled = apply_modifier(&ext, ModifierLevel::ThermalCooling);
         let (c_gov, c_min_pct, c_max_pct, c_min_hz, c_max_hz) =
             HardwareTranslator::resolve_policy_cpu_targets(&cooled, &big_pol, &tier, true, 2);
@@ -1703,6 +1734,17 @@ mod tests {
         assert_eq!((c_min_pct, c_max_pct), (85, 100));
         assert_eq!(c_max_hz, 2_050_000);
         assert!(c_min_hz < c_max_hz);
+
+        let little_pol = sample_policy(
+            0,
+            "Efisiensi Little",
+            vec![500_000, 1_000_000, 1_500_000, 2_000_000],
+            vec!["schedutil", "performance"],
+        );
+        let (l_gov, l_min_pct, l_max_pct, _, _) =
+            HardwareTranslator::resolve_policy_cpu_targets(&cooled, &little_pol, &tier, true, 2);
+        assert_eq!(l_gov, "schedutil");
+        assert_eq!((l_min_pct, l_max_pct), (35, 100));
     }
 
     #[test]

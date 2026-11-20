@@ -58,7 +58,7 @@ impl MemoryController {
         Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_ratio);
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", &dirty_expire);
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", &dirty_writeback);
-        Self::write_opt("/proc/sys/vm/extfrag_threshold", "100");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "850");
         Self::write_opt("/proc/sys/vm/oom_kill_allocating_task", "0");
         Self::write_opt("/proc/sys/vm/oom_dump_tasks", "0");
         Self::write_opt("/proc/sys/vm/overcommit_ratio", "80");
@@ -88,6 +88,11 @@ impl MemoryController {
             };
 
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        Self::sync_swappiness_controls(vm.swappiness);
+        if std::path::Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
+            let ttl_ms = if vm.swappiness <= 20 { "500" } else { "0" };
+            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms);
+        }
 
         // ActivityManager cached process headroom & phantom process protection
         let _ = Command::new("device_config")
@@ -360,6 +365,42 @@ impl MemoryController {
         })
     }
 
+    /// Derives safe `(direct_swappiness, memcg_swappiness)` aligned with target `vm_swappiness`.
+    /// Prevents OPLUS/MGLRU `direct_vm_swappiness` (default 60) and memcg cgroups (default 50)
+    /// from causing swap stalls during foreground gaming while avoiding complete file-cache starvation.
+    pub fn derived_swappiness_targets(vm_swappiness: u32) -> (u32, u32) {
+        let direct = if vm_swappiness <= 20 {
+            vm_swappiness.min(5)
+        } else {
+            (vm_swappiness / 2).clamp(10, 40)
+        };
+        let memcg = if vm_swappiness == 0 {
+            0
+        } else {
+            vm_swappiness.clamp(10, 60)
+        };
+        (direct, memcg)
+    }
+
+    /// Synchronizes `/proc/sys/vm/swappiness`, `/proc/sys/vm/direct_swappiness`,
+    /// discovered memcg `memory.swappiness` nodes, and `/proc/sys/vm/extfrag_threshold`.
+    pub fn sync_swappiness_controls(vm_swappiness: u32) {
+        let (direct, memcg) = Self::derived_swappiness_targets(vm_swappiness);
+        Self::write_opt("/proc/sys/vm/swappiness", vm_swappiness.to_string());
+        Self::write_opt("/proc/sys/vm/direct_swappiness", direct.to_string());
+        for memcg_path in &[
+            "/dev/memcg/apps/memory.swappiness",
+            "/dev/memcg/memory.swappiness",
+            "/sys/fs/cgroup/memory/apps/memory.swappiness",
+            "/sys/fs/cgroup/memory/memory.swappiness",
+        ] {
+            if std::path::Path::new(memcg_path).exists() {
+                Self::write_opt(memcg_path, memcg.to_string());
+            }
+        }
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "850");
+    }
+
     fn apply_vm_targets(vm: &crate::hardware::VmProfileTargets, stat_interval: &str) {
         let dr = vm.dirty_ratio.to_string();
         let dbr = vm.dirty_background_ratio.to_string();
@@ -368,7 +409,11 @@ impl MemoryController {
         Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dr);
         Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &dbr);
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
-        Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+        Self::sync_swappiness_controls(vm.swappiness);
+        if std::path::Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
+            let ttl_ms = if vm.swappiness <= 20 { "500" } else { "0" };
+            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms);
+        }
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
@@ -586,5 +631,15 @@ mod tests {
             MemoryController::should_trigger_swap_relief(7_800_000, 600_000, 4_194_300, 200_000),
             (true, true, true)
         );
+    }
+
+    #[test]
+    fn swappiness_controls_sync_direct_and_memcg_without_starving_file_cache() {
+        assert_eq!(MemoryController::derived_swappiness_targets(8), (5, 10));
+        assert_eq!(MemoryController::derived_swappiness_targets(10), (5, 10));
+        assert_eq!(MemoryController::derived_swappiness_targets(15), (5, 15));
+        assert_eq!(MemoryController::derived_swappiness_targets(40), (20, 40));
+        assert_eq!(MemoryController::derived_swappiness_targets(60), (30, 60));
+        assert_eq!(MemoryController::derived_swappiness_targets(0), (0, 0));
     }
 }

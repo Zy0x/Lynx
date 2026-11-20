@@ -161,15 +161,15 @@ impl StoragePolicy {
 
         match effective_type {
             BlockDeviceType::Ufs => {
-                let (ra, nr) = match profile_name {
-                    "extreme" => (256, 256),
-                    "performance" => (128, 128),
-                    "powersave" => (128, 64),
-                    _ => (256, 128), // Balance
+                let (ra, nr, sched) = match profile_name {
+                    "extreme" => (512, 256, "kyber"),
+                    "performance" => (512, 256, "kyber"),
+                    "powersave" => (128, 64, "mq-deadline"),
+                    _ => (256, 128, "mq-deadline"), // Balance
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
-                    scheduler: "none",
+                    scheduler: sched,
                     nr_requests: Some(nr),
                     read_expire_ms: None,
                     writes_starved: None,
@@ -429,9 +429,9 @@ mod tests {
         assert_eq!(emmc_p.rq_affinity, 1);
         assert_eq!(emmc_p.wbt_lat_usec, Some(30000));
 
-        assert_eq!(ufs_p.read_ahead_kb, 128);
-        assert_eq!(ufs_p.nr_requests, Some(128));
-        assert_eq!(ufs_p.scheduler, "none");
+        assert_eq!(ufs_p.read_ahead_kb, 512);
+        assert_eq!(ufs_p.nr_requests, Some(256));
+        assert_eq!(ufs_p.scheduler, "kyber");
         assert_eq!(ufs_p.rq_affinity, 2);
         assert_eq!(ufs_p.wbt_lat_usec, None);
     }

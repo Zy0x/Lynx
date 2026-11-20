@@ -558,7 +558,16 @@ case "$PROFILE" in
             enable_mglru
             write_node "1000" "/sys/kernel/mm/lru_gen/min_ttl_ms"
         fi
-        write_node "100" "/proc/sys/vm/extfrag_threshold"
+        write_node "850" "/proc/sys/vm/extfrag_threshold"
+        local cur_swap_val=$(cat /proc/sys/vm/swappiness 2>/dev/null)
+        if [ -n "$cur_swap_val" ]; then
+            local direct_swap=$(( cur_swap_val <= 20 ? (cur_swap_val < 5 ? cur_swap_val : 5) : (cur_swap_val / 2) ))
+            write_node "$direct_swap" "/proc/sys/vm/direct_swappiness"
+            local memcg_swap=$(( cur_swap_val == 0 ? 0 : (cur_swap_val < 10 ? 10 : (cur_swap_val > 60 ? 60 : cur_swap_val)) ))
+            for cg_sw in /dev/memcg/apps/memory.swappiness /dev/memcg/memory.swappiness /sys/fs/cgroup/memory/apps/memory.swappiness; do
+                [ -e "$cg_sw" ] && write_node "$memcg_swap" "$cg_sw"
+            done
+        fi
         write_node "0" "/proc/sys/vm/oom_dump_tasks"
         write_node "80" "/proc/sys/vm/overcommit_ratio"
         write_node "1" "/proc/sys/vm/compact_unevictable_allowed"

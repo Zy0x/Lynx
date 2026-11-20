@@ -121,6 +121,7 @@ impl DaemonRunner {
         let mut game_boost_pkg: Option<String> = None;
         let mut game_boost_pid: Option<u32> = None;
         let mut game_boost_recheck_at: Option<u64> = None;
+        let mut game_mem_guard_at: Option<u64> = None;
         let mut last_maintenance_ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -392,6 +393,7 @@ impl DaemonRunner {
                     game_boost_pkg = fg_pkg;
                     game_boost_pid = game_pid;
                     game_boost_recheck_at = Some(now + 8);
+                    game_mem_guard_at = Some(now + 10);
                 } else if game_boost_pid.is_none() {
                     if let Some(pid) = fg_app.as_ref().and_then(|app| {
                         crate::subsystems::GameController::find_pid_for_package(&app.package)
@@ -408,12 +410,36 @@ impl DaemonRunner {
                     // dynamic worker/network threads never preempt prime render cores mid-session.
                     game_boost_recheck_at = Some(now + 10);
                 }
+                if game_mem_guard_at.map(|ts| now >= ts).unwrap_or(false) {
+                    let mut triggered = false;
+                    if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+                        let (soft_trim, hard_evict, mem_free_kb, mem_avail_kb, swap_free_kb) =
+                            Self::evaluate_game_mem_guard(&meminfo);
+                        if soft_trim {
+                            triggered = true;
+                            crate::utils::Logger::info(&format!(
+                                "[GAME-MEM-GUARD] MemFree={}MB MemAvail={}MB SwapFree={}MB -> graceful am kill-all (hard_evict={})",
+                                mem_free_kb / 1024,
+                                mem_avail_kb / 1024,
+                                swap_free_kb / 1024,
+                                hard_evict
+                            ));
+                            let _ = std::process::Command::new("am").arg("kill-all").output();
+                            if hard_evict {
+                                let _ = crate::subsystems::MemoryController::evict_cached_processes_filtered(game_boost_pkg.as_deref());
+                            }
+                        }
+                    }
+                    // Use 45s cooldown after cleanup to prevent Binder IPC mid-fight; 25s poll when healthy.
+                    game_mem_guard_at = Some(now + if triggered { 45 } else { 25 });
+                }
             } else if !in_exit_cooldown && game_boost_active {
                 crate::subsystems::GameController::game_off();
                 game_boost_active = false;
                 game_boost_pkg = None;
                 game_boost_pid = None;
                 game_boost_recheck_at = None;
+                game_mem_guard_at = None;
             }
             let current_mod = decision_engine.current_modifier();
             let profile_desc = if current_mod == ModifierLevel::None {
@@ -443,8 +469,14 @@ impl DaemonRunner {
             // Autonomous Charging Regulator & Safety Guard tick (Zero-fork native)
             ChargingRegulator::tick();
 
-            // Autonomous Scheduler & EAS Boost Priority Guardian tick (Anti-Notification Priority Inversion)
-            crate::subsystems::SchedulerGuardian::tick(active_prof, current_screen == ScreenState::On);
+            // Autonomous Scheduler & EAS Boost Priority Guardian tick (respecting active thermal/battery cooling modifiers)
+            let guardian_prof = match (active_prof, current_mod) {
+                (_, ModifierLevel::None) => active_prof,
+                ("extreme", ModifierLevel::ThermalCooling) => "performance",
+                (_, ModifierLevel::ThermalThrottled) | (_, ModifierLevel::BatterySaver) => "balance",
+                _ => active_prof,
+            };
+            crate::subsystems::SchedulerGuardian::tick(guardian_prof, current_screen == ScreenState::On);
 
             // Check if multitasking is active (Split-Screen / Freeform / PiP)
             let is_multitask = fg_detector.is_multitasking_active();
@@ -879,6 +911,65 @@ impl DaemonRunner {
         }
     }
 
+    /// Evaluates two-tier universal game memory guard thresholds from `/proc/meminfo`:
+    /// - `soft_trim`: invokes graceful AMS `am kill-all` only on genuine free/swap pressure
+    ///   (`MemFree < 1.5%`, or `< 3%` coupled with `< 70% SwapFree`, or `MemAvailable < 25%`,
+    ///   or `SwapFree < 55%`) so healthy Linux page-cache (`~150–260MB` free on 8GB) never
+    ///   triggers spurious mid-combat `am kill-all` Binder IPC storms.
+    /// - `hard_evict`: reserves selective native eviction strictly for critical exhaustion
+    ///   (`MemAvailable < 18%` or `SwapFree < 30%`).
+    pub fn should_guard_game_memory(
+        mem_total_kb: u64,
+        mem_free_kb: u64,
+        mem_avail_kb: u64,
+        swap_total_kb: u64,
+        swap_free_kb: u64,
+    ) -> (bool, bool) {
+        let free_critical_low = mem_total_kb > 0 && mem_free_kb.saturating_mul(200) < mem_total_kb.saturating_mul(3);
+        let free_with_swap_pressure = mem_total_kb > 0
+            && swap_total_kb > 0
+            && mem_free_kb.saturating_mul(100) < mem_total_kb.saturating_mul(3)
+            && swap_free_kb.saturating_mul(100) < swap_total_kb.saturating_mul(70);
+        let avail_soft_low = mem_total_kb > 0 && mem_avail_kb.saturating_mul(100) < mem_total_kb.saturating_mul(25);
+        let swap_soft_low = swap_total_kb > 0 && swap_free_kb.saturating_mul(100) < swap_total_kb.saturating_mul(55);
+        let soft_trim = free_critical_low || free_with_swap_pressure || avail_soft_low || swap_soft_low;
+
+        let avail_critical = mem_total_kb > 0 && mem_avail_kb.saturating_mul(100) < mem_total_kb.saturating_mul(18);
+        let swap_critical = swap_total_kb > 0 && swap_free_kb.saturating_mul(100) < swap_total_kb.saturating_mul(30);
+        let hard_evict = avail_critical || swap_critical;
+
+        (soft_trim, hard_evict)
+    }
+
+    fn evaluate_game_mem_guard(meminfo: &str) -> (bool, bool, u64, u64, u64) {
+        let mut mem_total_kb = 0u64;
+        let mut mem_free_kb = u64::MAX;
+        let mut mem_avail_kb = u64::MAX;
+        let mut swap_total_kb = 0u64;
+        let mut swap_free_kb = 0u64;
+        for line in meminfo.lines() {
+            let mut parts = line.split_whitespace();
+            let Some(key) = parts.next() else { continue };
+            let val = parts.next().and_then(|s| s.parse::<u64>().ok());
+            match (key, val) {
+                ("MemTotal:", Some(v)) => mem_total_kb = v,
+                ("MemFree:", Some(v)) => mem_free_kb = v,
+                ("MemAvailable:", Some(v)) => mem_avail_kb = v,
+                ("SwapTotal:", Some(v)) => swap_total_kb = v,
+                ("SwapFree:", Some(v)) => swap_free_kb = v,
+                _ => {}
+            }
+        }
+        let (soft_trim, hard_evict) = Self::should_guard_game_memory(
+            mem_total_kb,
+            mem_free_kb,
+            mem_avail_kb,
+            swap_total_kb,
+            swap_free_kb,
+        );
+        (soft_trim, hard_evict, mem_free_kb, mem_avail_kb, swap_free_kb)
+    }
+
     /// Protects SystemUI (com.android.systemui) and elevates its UI thread and RenderThread
     /// to eliminate notification shade and status bar stutter when many notifications are active.
     pub fn shield_systemui() {
@@ -961,6 +1052,35 @@ mod tests {
         assert!(content.contains("\"battery_pct\":78"));
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_game_mem_guard_catches_low_memfree_before_allocstall_without_over_evicting() {
+        // Real X698 8GB ZRAM storm case: MemFree fell to 92MB (1.1%) while Inactive(file) kept
+        // MemAvailable inflated at 3.25GB (40.6%) and SwapFree at 1.85GB/4.38GB (42.3%).
+        // Must trigger graceful `am kill-all` ONLY, never hard SIGKILL eviction.
+        assert_eq!(
+            DaemonRunner::should_guard_game_memory(8_003_720, 92_704, 3_249_100, 4_384_368, 1_855_088),
+            (true, false)
+        );
+
+        // Warm gaming steady-state (200MB Linux page-cache headroom + 73% free swap): no spurious trim.
+        assert_eq!(
+            DaemonRunner::should_guard_game_memory(8_003_720, 200_000, 3_300_000, 4_384_368, 3_200_000),
+            (false, false)
+        );
+
+        // Post-cleanup healthy state (663MB free, 3.49GB avail, 2.55GB/4.38GB swap free): no action.
+        assert_eq!(
+            DaemonRunner::should_guard_game_memory(8_003_720, 663_768, 3_490_732, 4_384_368, 2_550_896),
+            (false, false)
+        );
+
+        // Critical exhaustion (< 18% MemAvailable or < 30% SwapFree): escalates to hard eviction.
+        assert_eq!(
+            DaemonRunner::should_guard_game_memory(8_003_720, 48_000, 1_100_000, 4_384_368, 900_000),
+            (true, true)
+        );
     }
 }
 

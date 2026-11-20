@@ -393,25 +393,30 @@ impl ClusterController {
         let base_top_val: u32 = base_top.parse().unwrap_or(20);
         let touch_boost_val = base_top_val.max(if tier.is_low_end_ram { 25 } else { 30 });
 
-        // Exclusive top-app UI priority boost (never promote background foreground workers to Big cores)
-        let _ = SysfsWriter::write(
-            "/dev/stune/top-app/schedtune.boost",
-            touch_boost_val.to_string(),
-            WriteMode::Direct,
-        );
+        // Exclusive upward-only top-app UI priority boost (never downgrade higher active profiles like Extreme)
+        let cur_stune = SysfsReader::read_int::<u32>("/dev/stune/top-app/schedtune.boost").unwrap_or(0);
+        if touch_boost_val > cur_stune {
+            let _ = SysfsWriter::write(
+                "/dev/stune/top-app/schedtune.boost",
+                touch_boost_val.to_string(),
+                WriteMode::Direct,
+            );
+        }
         let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.prefer_high_cap", "1", WriteMode::Direct);
         if !tier.is_low_end_ram && !tier.is_emmc_primary {
             // Lift top-app UI & RenderThread minimum capacity above Little cluster ceiling
             // during active touch/scroll on UFS >=6GB+ multi-cluster platforms (skip on low-end/eMMC like RN7).
-            let (util_min, uclamp_pct) = if tier.is_mid_ram {
-                ("250", "25")
-            } else {
-                ("450", "45")
-            };
-            let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.util.min", util_min, WriteMode::Direct);
-            let _ = SysfsWriter::write("/dev/cpuctl/top-app/cpu.uclamp.min", uclamp_pct, WriteMode::Direct);
+            let (util_min, uclamp_pct) = if tier.is_mid_ram { (250u32, 25u32) } else { (450u32, 45u32) };
+            if SysfsReader::read_int::<u32>("/dev/stune/top-app/schedtune.util.min").unwrap_or(0) < util_min {
+                let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.util.min", util_min.to_string(), WriteMode::Direct);
+            }
+            if SysfsReader::read_int::<u32>("/dev/cpuctl/top-app/cpu.uclamp.min").unwrap_or(0) < uclamp_pct {
+                let _ = SysfsWriter::write("/dev/cpuctl/top-app/cpu.uclamp.min", uclamp_pct.to_string(), WriteMode::Direct);
+            }
         }
-        let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", base_fg, WriteMode::Direct);
+        if SysfsReader::read_int::<u32>("/dev/stune/foreground/schedtune.boost").unwrap_or(0) < base_fg.parse::<u32>().unwrap_or(0) {
+            let _ = SysfsWriter::write("/dev/stune/foreground/schedtune.boost", base_fg, WriteMode::Direct);
+        }
 
         // Elevate discovered Big/Performance clusters upward only (respecting locks and performance governor)
         let has_ppm_min = Path::new("/proc/ppm/policy/hard_userlimit_min_cpu_freq").exists();

@@ -66,9 +66,11 @@ impl GameController {
         // 3. Multi-Gen LRU (MGLRU)
         super::memory::MemoryController::enable_mglru();
 
-        // 4. Kernel Game Library Priority Injection
-        Self::write_opt("/proc/sys/kernel/sched_lib_name", GAME_LIBS);
-        Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "255");
+        // 4. Kernel Game Library Priority Injection (only on kernels exposing sched_lib_name)
+        if Path::new("/proc/sys/kernel/sched_lib_name").exists() {
+            Self::write_opt("/proc/sys/kernel/sched_lib_name", GAME_LIBS);
+            Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "255");
+        }
 
         // 5. Audio Pipeline Safety: Preserve OEM/user audio policies to prevent
         // audioserver watchdog crash loops with custom HALs / Dolby Atmos / AML mods.
@@ -274,7 +276,7 @@ impl GameController {
                 let sched_candidates: &[&str] = match effective_type {
                     crate::hardware::capability::BlockDeviceType::Emmc => &["bfq", "mq-deadline", "deadline", "none"],
                     crate::hardware::capability::BlockDeviceType::Ufs
-                    | crate::hardware::capability::BlockDeviceType::Nvme => &["mq-deadline", "deadline", "bfq", "kyber", "none", "noop"],
+                    | crate::hardware::capability::BlockDeviceType::Nvme => &["kyber", "mq-deadline", "deadline", "bfq", "none", "noop"],
                     crate::hardware::capability::BlockDeviceType::Sd => &["mq-deadline", "deadline", "bfq", "noop", "none"],
                     _ => &["mq-deadline", "deadline", "none"],
                 };
@@ -294,7 +296,13 @@ impl GameController {
         let vm = tier.vm_profile_targets("performance");
 
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
-        Self::write_opt("/proc/sys/vm/swappiness", vm.swappiness.to_string());
+        crate::subsystems::MemoryController::sync_swappiness_controls(vm.swappiness);
+        if Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
+            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "500");
+        }
+        Self::write_opt("/proc/sys/kernel/sched_latency_ns", "6000000");
+        Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
+        Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1000000");
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
@@ -361,7 +369,30 @@ impl GameController {
         // 10. Dynamic Low-Latency Network & Wi-Fi Silicon Engagement
         crate::subsystems::NetworkController::apply_game();
 
-        // 11. Process Optimization if PID provided
+        // 11. Graceful AMS background cache trim (avoids SIGKILL service crash-restarts unless RAM headroom is genuinely low)
+        let _ = Command::new("am").arg("kill-all").output();
+        if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
+            let mut mem_total = 0u64;
+            let mut mem_avail = u64::MAX;
+            for line in meminfo.lines() {
+                if let Some(rest) = line.strip_prefix("MemTotal:") {
+                    mem_total = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                } else if let Some(rest) = line.strip_prefix("MemAvailable:") {
+                    mem_avail = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(u64::MAX);
+                }
+            }
+            if mem_total > 0 && mem_avail.saturating_mul(100) < mem_total.saturating_mul(40) {
+                let protected_pkg = top_pid.and_then(|pid| {
+                    fs::read_to_string(format!("/proc/{}/cmdline", pid))
+                        .ok()
+                        .map(|raw| raw.split('\0').next().unwrap_or("").trim().to_string())
+                        .filter(|s| !s.is_empty())
+                });
+                let _ = crate::subsystems::MemoryController::evict_cached_processes_filtered(protected_pkg.as_deref());
+            }
+        }
+        Self::prioritize_surfaceflinger(-10);
+
         let pid_msg = if let Some(pid) = top_pid {
             Self::optimize_pid(pid);
             format!(" [PID {} optimized]", pid)
@@ -395,9 +426,15 @@ impl GameController {
         Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "1000");
         Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "10000");
 
-        // 3. Clear Sched Lib
-        Self::write_opt("/proc/sys/kernel/sched_lib_name", "");
-        Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "0");
+        // 3. Clear Sched Lib only on kernels exposing Qualcomm/WALT sched_lib_name
+        if Path::new("/proc/sys/kernel/sched_lib_name").exists() {
+            Self::write_opt("/proc/sys/kernel/sched_lib_name", "");
+            Self::write_opt("/proc/sys/kernel/sched_lib_mask_force", "0");
+        }
+        Self::write_opt("/proc/sys/kernel/sched_latency_ns", "10000000");
+        Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "3000000");
+        Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "2000000");
+        Self::prioritize_surfaceflinger(-8);
 
         // 4. Reset Audio Multiplier
         let _ = Command::new("setprop").args(&["af.fast_track_multiplier", "2"]).output();
@@ -521,6 +558,10 @@ impl GameController {
         let tier = crate::hardware::DeviceTier::detect_live();
         let vm = tier.vm_profile_targets("balance");
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
+        crate::subsystems::MemoryController::sync_swappiness_controls(vm.swappiness);
+        if Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
+            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "0");
+        }
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
@@ -566,6 +607,19 @@ impl GameController {
         crate::subsystems::NetworkController::apply_balance();
 
         "Game Mode disengaged (Restored Balanced EAS, Network, and Audio profiles).".to_string()
+    }
+
+    fn prioritize_surfaceflinger(nice: i32) {
+        if let Ok(entries) = fs::read_dir("/proc") {
+            for entry in entries.flatten() {
+                let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else { continue };
+                let Ok(comm) = fs::read_to_string(entry.path().join("comm")) else { continue };
+                if comm.trim() == "surfaceflinger" {
+                    Self::set_tid_nice(pid, nice);
+                    break;
+                }
+            }
+        }
     }
 
     /// Optimizes thread scheduling, CPU affinity, and I/O priority for a specific process ID
@@ -677,9 +731,14 @@ impl GameController {
 
             if !pinned_exclusive {
                 let (mask, nice) = match t.role {
-                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop | ThreadRole::EngineHeavyWorker => (worker_mask, -16),
-                    ThreadRole::GpuDriverWorker => (worker_mask, -12),
+                    // Extra render/engine threads & asset/shader loaders should be free to burst onto idle
+                    // performance cores without preempting the -20 primary RenderBackend/MainGameLoop threads.
+                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (topo.all_mask, -14),
+                    ThreadRole::EngineHeavyWorker => (topo.all_mask, -12),
+                    ThreadRole::GpuDriverWorker => (topo.all_mask, -12),
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
+                    // Quarantine non-critical workers & background pools off dual/single prime cores
+                    // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
                     ThreadRole::ActiveGeneric => (worker_mask, 0),
                     ThreadRole::BackgroundHelper => (worker_mask, 0),
                 };
@@ -1042,12 +1101,17 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
     if lower.contains("worker")
         || lower.starts_with("job")
         || lower.contains("network")
-        || lower.contains("asyncread")
-        || lower.contains("loadthread")
+        || lower.contains("il2cpp")
+        || lower.contains("telemetry")
+        || lower.contains("okio")
+        || lower.contains("firebase")
+        || lower.contains("nanohttpd")
+        || lower.contains("noelle")
         || lower.contains("deviceinfo")
         || lower.contains("choreograph")
         || lower.starts_with("binder:")
         || lower.starts_with("thread-")
+        || lower.starts_with("rx")
         || lower.contains("finalizer")
         || lower.contains("jit")
         || lower.contains("heap")
@@ -1056,8 +1120,13 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
         return ThreadRole::BackgroundHelper;
     }
 
-    // Engine multi-render / secondary heavy native threads run strongly on shared worker pool
-    if lower.contains("multirend") || lower.contains("nativethread") {
+    // Engine multi-render & active asset/shader decompress threads run strongly across shared pool
+    if lower.contains("multirend")
+        || lower.contains("nativethread")
+        || lower.contains("asyncread")
+        || lower.contains("loadthread")
+        || lower.contains("shaderload")
+    {
         return ThreadRole::EngineHeavyWorker;
     }
 
@@ -1150,7 +1219,11 @@ mod tests {
         assert_eq!(classify_thread_role("GameThread", 210, "ue4game"), ThreadRole::MainGameLoop);
         assert_eq!(classify_thread_role("UnityMultiRende", 150, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("NativeThread", 145, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("ShaderLoadManag", 90, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("mali-cmar-backe", 110, "game"), ThreadRole::GpuDriverWorker);
+        assert_eq!(classify_thread_role("IL2CPP Threadpo", 120, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("Thread-108", 20, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("MIHOYO_NETWORK", 25, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("CustomRenderX", 190, "custom"), ThreadRole::ActiveGeneric);
