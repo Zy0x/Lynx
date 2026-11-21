@@ -1,3 +1,13 @@
+# Lynx Universal [Zero-Redundancy Charging Tab & Single-Metric Isolation] 7.0.0-RC425
+Released on: 2026-11-21
+> Lynx Kernel Manager v3.4.44
+
+### Companion App (`feature/battery/ui` & `TuningTabSubscreenPagers`)
+- **Zero-Redundancy Charging Tab & Single-Metric Isolation**:
+  - Dedicated each electrical metric in `ChargingLiveTelemetryHeroCard` to a single non-overlapping slot: Top Status Bar for physical power source & charger protocol, Left Tile exclusively for Power (`W`) & efficiency, Right Tile exclusively for Cell Voltage (`V`) & Battery Capacity (`%`), and `ChargingSparklineWaveform` exclusively for real-time Current (`mA`) and waveform.
+  - Eliminated duplicate section headers (`BatterySectionHeader`) above `LynxCard` containers (`BatteryProtectionCard`, `BatteryRuntimeCard`, `RealDischargeStepHistoryCard`, and `BatteryHardwareCard`) that already carry their own card title and subtitle.
+  - Cleaned up redundant word repetition in the 2×2 Charging Mode Bento cards (`Limit Arus ~1.0A`, `Regulasi OEM`, `Daya Maksimal`, `Atur Manual (mA)`).
+
 # Lynx Universal [Zen Minimalist Charging Tab Redesign & Progressive Disclosure] 7.0.0-RC424
 Released on: 2026-11-21
 > Lynx Kernel Manager v3.4.43

@@ -26,62 +26,16 @@ fun BatteryInformationContent(
     modifier: Modifier = Modifier
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        BatterySectionHeader(
-            title = "Siklus Waktu & Laju Konsumsi",
-            subtitle = "Durasi layar aktif (SOT), proporsi deep sleep & estimasi sisa waktu",
-            accentColor = AccentGreen,
-            badge = "RUNTIME"
-        )
         BatteryRuntimeLiveCard(viewModel)
-
-        BatterySectionHeader(
-            title = "Riwayat Penurunan & Aplikasi",
-            subtitle = "Grafik kurva konsumsi per-1% & daftar aplikasi pemakai daya",
-            accentColor = AccentCyan,
-            badge = "TELEMETRI"
-        )
         BatteryHistoryLiveCard(viewModel)
-
-        BatterySectionHeader(
-            title = "Spesifikasi Fisik & Fuel Gauge",
-            subtitle = "Kapasitas desain vs aktual, siklus pengisian & kalibrasi BMS",
-            accentColor = AccentBlue,
-            badge = "HARDWARE"
-        )
         BatteryHardwareLiveCard(uiState, viewModel)
     }
 }
 
 // Stable card keys let the list skip off-screen draw trees and retain its anchor.
 fun LazyListScope.batteryInformationItems(uiState: LynxUiState, viewModel: LynxViewModel) {
-    item(key = "battery_section_runtime") {
-        BatterySectionHeader(
-            title = "Siklus Waktu & Laju Konsumsi",
-            subtitle = "Durasi layar aktif (SOT), proporsi deep sleep & estimasi sisa waktu",
-            accentColor = AccentGreen,
-            badge = "RUNTIME"
-        )
-    }
     item(key = "battery_runtime") { BatteryRuntimeLiveCard(viewModel) }
-
-    item(key = "battery_section_history") {
-        BatterySectionHeader(
-            title = "Riwayat Penurunan & Aplikasi",
-            subtitle = "Grafik kurva konsumsi per-1% & daftar aplikasi pemakai daya",
-            accentColor = AccentCyan,
-            badge = "TELEMETRI"
-        )
-    }
     item(key = "battery_history") { BatteryHistoryLiveCard(viewModel) }
-
-    item(key = "battery_section_hardware") {
-        BatterySectionHeader(
-            title = "Spesifikasi Fisik & Fuel Gauge",
-            subtitle = "Kapasitas desain vs aktual, siklus pengisian & kalibrasi BMS",
-            accentColor = AccentBlue,
-            badge = "HARDWARE"
-        )
-    }
     item(key = "battery_hardware") { BatteryHardwareLiveCard(uiState, viewModel) }
 }
 

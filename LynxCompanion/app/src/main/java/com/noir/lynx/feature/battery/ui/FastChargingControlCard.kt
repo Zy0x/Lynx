@@ -79,30 +79,26 @@ fun ChargingLiveTelemetryHeroCard(
     val isNightGentle = isPlugged && (battDetails?.isNightGentleActive == true ||
         (state.charging.nightSleepGuardEnabled && isCharging && Calendar.getInstance().get(Calendar.HOUR_OF_DAY).let { it >= 23 || it < 6 })) && !isManualBypass
 
+    val cleanProtocol = battDetails?.fastChargeProtocol.orEmpty().trim().takeIf {
+        it.isNotBlank() &&
+            !it.contains("battery", ignoreCase = true) &&
+            !it.contains("unknown", ignoreCase = true) &&
+            !it.contains("discharg", ignoreCase = true)
+    }
+
+    // Physical Power & Protocol Status (Does NOT repeat the 2x2 Mode Grid selection below)
     val statusLabel = when {
-        !isPlugged -> when (activeMode) {
-            "hyper" -> "Discharging • Mode Hyper Siaga"
-            "cool" -> "Discharging • Mode Sejuk Siaga"
-            "custom" -> "Discharging • Kustom ${state.charging.limitCurrentMa} mA"
-            else -> "Discharging • Mode Standar Siaga"
-        }
-        isOvernightLatched -> "Auto-Cut 100% Aktif • Arus Dihentikan"
-        isLimitLatched -> "Batas Cerdas $smartLimit% Tercapai • Bypass"
-        isManualBypass -> "Direct Bypass Aktif • 0 mA ke Sel"
-        isNightGentle -> "Night Guard Aktif • Regulasi ~1.5A"
-        activeMode == "hyper" -> "Mode Hyper Aktif • Arus Maksimal"
-        activeMode == "cool" -> "Mode Sejuk Aktif • Regulasi ~1.0A"
-        activeMode == "custom" -> "Mode Kustom Aktif • ${state.charging.limitCurrentMa} mA"
-        else -> "Mode Standar Aktif • Regulasi OEM"
+        !isPlugged -> "Menggunakan Daya Baterai"
+        isOvernightLatched -> "Auto-Cut 100% • Pengisian Dihentikan"
+        isLimitLatched -> "Auto-Cut $smartLimit% • Direct Bypass"
+        isManualBypass -> "Direct Bypass • Daya ke Motherboard"
+        isNightGentle -> "Night Sleep Guard • Regulasi ~1.5A"
+        cleanProtocol != null -> cleanProtocol
+        else -> "Pengisian Daya Terhubung"
     }
 
     val heroAccent = when {
-        !isPlugged -> when (activeMode) {
-            "hyper" -> AccentOrange
-            "cool" -> AccentCyan
-            "custom" -> AccentPurple
-            else -> AccentGreen
-        }
+        !isPlugged -> AccentCyan
         isOvernightLatched || isLimitLatched || isManualBypass -> AccentPurple
         isNightGentle -> AccentBlue
         activeMode == "hyper" -> AccentOrange
@@ -197,18 +193,20 @@ fun ChargingLiveTelemetryHeroCard(
                 }
             }
 
-            // 2. Compact 2-Column Live Electrical Tiles
+            // 2. Compact 2-Column Live Electrical Tiles (Zero Duplicate Metrics: Left = Watts, Right = Volts & SOC, Sparkline = Current mA)
             if (battDetails != null) {
                 val inputWatt = if (battDetails.adapterWatt > 0.05f) battDetails.adapterWatt else battDetails.chargerWatt
                 val netBattWatt = (battDetails.voltageMv.toFloat() * battDetails.currentMa.coerceAtLeast(0).toFloat()) / 1_000_000f
                 val netWattDisplay = if (netBattWatt > 0.05f) netBattWatt else battDetails.chargerWatt
+                val dischargingWatt = (battDetails.voltageMv.toFloat() * abs(battDetails.currentMa).toFloat()) / 1_000_000f
                 val efficiency = battDetails.chargingEfficiencyPercent.coerceIn(0, 100)
+                val isBypassState = isManualBypass || isOvernightLatched || isLimitLatched
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Left Tile: Power Source / Battery Level when unplugged
+                    // Left Tile: Power (Watts) & Conversion Efficiency
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = BgElevated,
@@ -217,32 +215,33 @@ fun ChargingLiveTelemetryHeroCard(
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
-                                text = if (isPlugged) "Pasokan Adaptor" else "Level & Tegangan Sel",
+                                text = if (isPlugged) "Daya Pengisian" else "Daya Konsumsi",
                                 fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1
                             )
                             Spacer(Modifier.height(2.dp))
+                            val wattColor = when {
+                                !isPlugged -> AccentCyan
+                                isBypassState -> AccentPurple
+                                battDetails.currentMa > 100 -> AccentGreen
+                                else -> TextPrimary
+                            }
+                            val displayedWatt = if (!isPlugged) dischargingWatt else netWattDisplay
                             Text(
-                                text = if (isPlugged) {
-                                    if (inputWatt > 0.05f) String.format(Locale.US, "%.1f W", inputWatt) else "Terhubung"
-                                } else {
-                                    "$curLevel%"
-                                },
+                                text = if (isBypassState) "0.0 W"
+                                else if (displayedWatt > 0.05f) String.format(Locale.US, "%.1f W", displayedWatt) else "--",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = if (isPlugged) AccentPurple else TextPrimary
+                                color = wattColor
                             )
-                            val subLeft = if (isPlugged) {
-                                val voltVal = when {
-                                    battDetails.adapterVoltageMv > 1000 -> battDetails.adapterVoltageMv / 1000f
-                                    battDetails.chargerVoltageMv > 1000 -> battDetails.chargerVoltageMv / 1000f
-                                    else -> battDetails.voltageMv / 1000f
-                                }
-                                val curVal = if (battDetails.adapterCurrentMa > 0) battDetails.adapterCurrentMa else battDetails.currentMa.coerceAtLeast(0)
-                                String.format(Locale.US, "%.1f V • %d mA", voltVal, curVal)
-                            } else {
-                                String.format(Locale.US, "%.2f V • Baterai", battDetails.voltageMv / 1000f)
+                            val subLeft = when {
+                                !isPlugged -> "Beban Sistem Real-Time"
+                                isBypassState -> "Direct Power (Bypass)"
+                                battDetails.isLaptopPort -> "Port USB (${battDetails.portType})"
+                                inputWatt > 0.05f && efficiency > 0 -> String.format(Locale.US, "Adaptor %.1f W • %d%%", inputWatt, efficiency)
+                                efficiency > 0 -> "Efisiensi Konversi $efficiency%"
+                                else -> "Pasokan Adaptor Aktif"
                             }
                             Text(
                                 text = subLeft,
@@ -254,7 +253,7 @@ fun ChargingLiveTelemetryHeroCard(
                         }
                     }
 
-                    // Right Tile: Battery Net Power & Current
+                    // Right Tile: Cell Voltage & Battery Level (%)
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = BgElevated,
@@ -263,31 +262,20 @@ fun ChargingLiveTelemetryHeroCard(
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text(
-                                text = if (isPlugged) "Daya Masuk Baterai" else "Konsumsi Berjalan",
+                                text = "Tegangan & Level Sel",
                                 fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1
                             )
                             Spacer(Modifier.height(2.dp))
-                            val curColor = when {
-                                !isPlugged -> AccentCyan
-                                battDetails.currentMa > 100 -> AccentGreen
-                                isManualBypass || isOvernightLatched || isLimitLatched -> AccentPurple
-                                else -> TextPrimary
-                            }
-                            val battWatt = if (!isPlugged) {
-                                (battDetails.voltageMv.toFloat() * abs(battDetails.currentMa).toFloat()) / 1_000_000f
-                            } else netWattDisplay
                             Text(
-                                text = if (isManualBypass || isOvernightLatched || isLimitLatched) "0.0 W"
-                                else if (battWatt > 0.05f) String.format(Locale.US, "%.1f W", battWatt) else "--",
+                                text = if (battDetails.voltageMv > 0) String.format(Locale.US, "%.2f V", battDetails.voltageMv / 1000f) else "--",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = curColor
+                                color = TextPrimary
                             )
-                            val bCurText = if (battDetails.currentMa > 0) "+${battDetails.currentMa} mA" else "${battDetails.currentMa} mA"
                             Text(
-                                text = String.format(Locale.US, "%.2f V • %s", battDetails.voltageMv / 1000f, bCurText),
+                                text = "Kapasitas $curLevel%",
                                 fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1,
@@ -296,35 +284,9 @@ fun ChargingLiveTelemetryHeroCard(
                         }
                     }
                 }
-
-                // Only display Efficiency / USB Port info when actually plugged in
-                if (isPlugged) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (battDetails.isLaptopPort) {
-                                "Port USB/PD (${battDetails.portType}) • Regulasi Aman"
-                            } else {
-                                stringResource(R.string.battery_charging_efficiency)
-                            },
-                            fontSize = 10.5.sp,
-                            color = TextSecondary
-                        )
-                        Text(
-                            text = if (isManualBypass || isOvernightLatched || isLimitLatched) "Direct Bypass (100%)"
-                            else if (efficiency > 0) "$efficiency%" else "Aktif",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentGreen
-                        )
-                    }
-                }
             }
 
-            // 3. Real-time Bezier Sparkline Waveform
+            // 3. Real-time Bezier Sparkline Waveform (Exclusively owns Current mA)
             ChargingSparklineWaveform(
                 samples = battDetails?.currentHistorySamples ?: emptyList(),
                 currentMa = battDetails?.currentMa ?: 0,
@@ -358,28 +320,28 @@ fun FastChargingControlCard(
         ChargingModeItem(
             id = "cool",
             title = stringResource(R.string.battery_mode_cool),
-            sub = "Sejuk • Limit ~1.0A",
+            sub = "Limit Arus ~1.0A",
             icon = Icons.Default.AcUnit,
             accent = AccentCyan
         ),
         ChargingModeItem(
             id = "standard",
             title = stringResource(R.string.battery_mode_standard),
-            sub = "Seimbang • Default OEM",
+            sub = "Regulasi OEM",
             icon = Icons.Default.Balance,
             accent = AccentGreen
         ),
         ChargingModeItem(
             id = "hyper",
             title = stringResource(R.string.battery_mode_hyper),
-            sub = "Daya Penuh • Max Speed",
+            sub = "Daya Maksimal",
             icon = Icons.Default.Bolt,
             accent = AccentOrange
         ),
         ChargingModeItem(
             id = "custom",
             title = stringResource(R.string.battery_mode_custom),
-            sub = if (activeMode == "custom") "Dikunci • ${state.charging.limitCurrentMa} mA" else "Atur Manual (mA)",
+            sub = if (activeMode == "custom") "${state.charging.limitCurrentMa} mA" else "Atur Manual (mA)",
             icon = Icons.Default.Tune,
             accent = AccentPurple
         )

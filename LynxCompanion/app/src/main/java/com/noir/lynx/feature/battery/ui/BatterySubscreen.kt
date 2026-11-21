@@ -37,14 +37,6 @@ fun LazyListScope.batterySubscreenItems(
         item(key = "charging_fast_control") {
             FastChargingControlCard(uiState, viewModel)
         }
-        item(key = "charging_section_protection") {
-            BatterySectionHeader(
-                title = "Proteksi Sel & Bypass Hardware",
-                subtitle = "Isolasi arus baterai, batas auto-cut & pengisian malam",
-                accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
-                badge = "SAFETY"
-            )
-        }
         item(key = "charging_protection") {
             BatteryProtectionCard(uiState, viewModel)
         }

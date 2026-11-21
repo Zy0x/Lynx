@@ -39,12 +39,6 @@ fun TuningChargingCategory(
                 badge = "4 MODE"
             )
             FastChargingControlCard(uiState, viewModel)
-            BatterySectionHeader(
-                title = "Proteksi Sel & Bypass Hardware",
-                subtitle = "Isolasi arus baterai, batas auto-cut & pengisian malam",
-                accentColor = AccentPurple,
-                badge = "SAFETY"
-            )
             BatteryProtectionCard(uiState, viewModel)
         } else {
             BatteryInformationContent(uiState, viewModel)
