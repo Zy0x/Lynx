@@ -180,101 +180,116 @@ fun LynxViewModel.dropCaches() {
     }
 }
 
-fun LynxViewModel.setDirtyRatio(ratio: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        dirtyRatio = ratio,
-        vmAdvanced = it.vmAdvanced.copy(dirtyRatio = ratio, activePreset = "custom")
-    ) }
+private fun LynxViewModel.applyVmTunable(
+    optimisticUpdate: (LynxUiState) -> LynxUiState,
+    persistWrite: suspend () -> Boolean,
+    successText: String,
+    errorText: String
+) {
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+    _uiState.update(optimisticUpdate)
     viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setDirtyRatio(ratio)
+        val ok = persistWrite()
         if (ok) {
-            _uiState.update { it.copy(successMessage = "VM Dirty Ratio diatur ke $ratio%") }
+            _uiState.update { it.copy(successMessage = successText) }
+        } else {
+            val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    vmAdvanced = freshVm,
+                    dirtyRatio = freshVm.dirtyRatio,
+                    vfsCachePressure = freshVm.vfsCachePressure,
+                    errorMessage = errorText
+                )
+            }
         }
     }
+}
+
+fun LynxViewModel.setDirtyRatio(ratio: Int) {
+    val safe = ratio.coerceIn(1, 95)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(dirtyRatio = safe, vmAdvanced = it.vmAdvanced.copy(dirtyRatio = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setDirtyRatio(safe) },
+        successText = "VM Dirty Ratio diatur ke $safe%",
+        errorText = "Kernel menolak perubahan VM Dirty Ratio ke $safe%"
+    )
 }
 
 fun LynxViewModel.setDirtyBackgroundRatio(ratio: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = ratio, activePreset = "custom")
-    ) }
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setDirtyBackgroundRatio(ratio)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "VM Dirty Background: $ratio%") }
-        }
-    }
+    val safe = ratio.coerceIn(1, 80)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(vmAdvanced = it.vmAdvanced.copy(dirtyBackgroundRatio = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setDirtyBackgroundRatio(safe) },
+        successText = "VM Dirty Background diatur ke $safe%",
+        errorText = "Kernel menolak perubahan Dirty Background ke $safe%"
+    )
 }
 
 fun LynxViewModel.setVfsCachePressure(pressure: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        vfsCachePressure = pressure,
-        vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = pressure, activePreset = "custom")
-    ) }
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setVfsCachePressure(pressure)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "VFS Cache Pressure diatur ke $pressure") }
-        }
-    }
+    val safe = pressure.coerceIn(1, 500)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(vfsCachePressure = safe, vmAdvanced = it.vmAdvanced.copy(vfsCachePressure = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setVfsCachePressure(safe) },
+        successText = "VFS Cache Pressure diatur ke $safe%",
+        errorText = "Kernel menolak perubahan VFS Cache Pressure ke $safe%"
+    )
 }
 
 fun LynxViewModel.setDirtyExpireCentisecs(cs: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = cs, activePreset = "custom")
-    ) }
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setDirtyExpireCentisecs(cs)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "VM Expire Time: ${cs / 100}s") }
-        }
-    }
+    val safe = cs.coerceIn(100, 60000)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(vmAdvanced = it.vmAdvanced.copy(dirtyExpireCentisecs = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setDirtyExpireCentisecs(safe) },
+        successText = "VM Dirty Expire diatur ke ${safe / 100} detik",
+        errorText = "Kernel menolak perubahan Dirty Expire"
+    )
 }
 
 fun LynxViewModel.setDirtyWritebackCentisecs(cs: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = cs, activePreset = "custom")
-    ) }
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setDirtyWritebackCentisecs(cs)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "VM Writeback Interval: ${cs / 100}s") }
-        }
-    }
+    val safe = cs.coerceIn(100, 30000)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(vmAdvanced = it.vmAdvanced.copy(dirtyWritebackCentisecs = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setDirtyWritebackCentisecs(safe) },
+        successText = "VM Writeback Interval diatur ke ${safe / 100} detik",
+        errorText = "Kernel menolak perubahan Writeback Interval"
+    )
 }
 
 fun LynxViewModel.setVmStatInterval(interval: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(
-        vmAdvanced = it.vmAdvanced.copy(statInterval = interval, activePreset = "custom")
-    ) }
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setVmStatInterval(interval)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = "VM Stat Interval: ${interval}s") }
-        }
-    }
+    val safe = interval.coerceIn(1, 60)
+    applyVmTunable(
+        optimisticUpdate = { it.copy(vmAdvanced = it.vmAdvanced.copy(statInterval = safe, activePreset = "custom")) },
+        persistWrite = { LynxRepository.setVmStatInterval(safe) },
+        successText = "VM Stat Interval diatur ke ${safe}s",
+        errorText = "Kernel menolak perubahan VM Stat Interval"
+    )
 }
 
 fun LynxViewModel.applyVmPreset(preset: String) {
-    recordStateMutation()
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
     _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(activePreset = preset)) }
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyVmPreset(preset)
+        val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = true)
         if (ok) {
-            val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig()
-            _uiState.update { it.copy(
-                vmAdvanced = freshVm,
-                dirtyRatio = freshVm.dirtyRatio,
-                vfsCachePressure = freshVm.vfsCachePressure,
-                successMessage = "Preset VM '$preset' berhasil diterapkan"
-            ) }
+            _uiState.update {
+                it.copy(
+                    vmAdvanced = freshVm,
+                    dirtyRatio = freshVm.dirtyRatio,
+                    vfsCachePressure = freshVm.vfsCachePressure,
+                    successMessage = "Preset VM '$preset' berhasil diterapkan"
+                )
+            }
         } else {
-            _uiState.update { it.copy(errorMessage = "Gagal menerapkan preset VM '$preset'") }
+            _uiState.update {
+                it.copy(
+                    vmAdvanced = freshVm,
+                    dirtyRatio = freshVm.dirtyRatio,
+                    vfsCachePressure = freshVm.vfsCachePressure,
+                    errorMessage = "Gagal menerapkan preset VM '$preset'"
+                )
+            }
         }
     }
 }

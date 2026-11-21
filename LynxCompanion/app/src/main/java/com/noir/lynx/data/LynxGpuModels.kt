@@ -665,6 +665,8 @@ data class VirtualMemoryAdvancedConfig(
     val dirtyWritebackCentisecs: Int = 500,
     val statInterval: Int = 1,
     val mglruSupported: Boolean = false,
+    val mglruEnabled: Boolean = false,
+    val mglruWritable: Boolean = false,
     val mglruMinTtlMs: Int = 0,
     val pageCluster: Int = -1,
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"

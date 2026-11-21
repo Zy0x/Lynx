@@ -44,23 +44,42 @@ fun LynxViewModel.refreshKsmStats() {
 }
 
 fun LynxViewModel.setKsmEnabled(enabled: Boolean) {
-    recordStateMutation()
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
     _uiState.update { it.copy(ksmStats = it.ksmStats.copy(enabled = enabled)) }
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setKsmEnabled(enabled)
         if (ok) {
             _uiState.update { it.copy(successMessage = "KSM ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
         } else {
-            _uiState.update { it.copy(errorMessage = "Fitur KSM tidak didukung oleh kernel ini") }
+            val freshKsm = LynxRepository.readKsmStats(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    ksmStats = freshKsm,
+                    errorMessage = "Kernel tidak mendukung/mengizinkan perubahan status KSM"
+                )
+            }
         }
     }
 }
 
 fun LynxViewModel.setKsmTunables(pagesToScan: Int, sleepMs: Int) {
-    recordStateMutation()
-    _uiState.update { it.copy(ksmStats = it.ksmStats.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)) }
+    val safeScan = pagesToScan.coerceIn(10, 10000)
+    val safeSleep = sleepMs.coerceIn(5, 10000)
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+    _uiState.update { it.copy(ksmStats = it.ksmStats.copy(pagesToScan = safeScan, sleepMs = safeSleep)) }
     viewModelScope.launch(Dispatchers.IO) {
-        LynxRepository.setKsmTunables(pagesToScan, sleepMs)
+        val ok = LynxRepository.setKsmTunables(safeScan, safeSleep)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = "Parameter KSM disimpan ($safeScan hal • $safeSleep ms)") }
+        } else {
+            val freshKsm = LynxRepository.readKsmStats(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    ksmStats = freshKsm,
+                    errorMessage = "Gagal menulis parameter KSM ke sysfs"
+                )
+            }
+        }
     }
 }
 

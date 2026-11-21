@@ -94,19 +94,37 @@ internal object LynxVmTuningRepository {
         }
     }
 
+    private fun writeSysctlInt(path: String, value: Int): Int? {
+        return try {
+            val res = Shell.cmd("[ -e '$path' ] && echo $value > '$path' 2>/dev/null && cat '$path' 2>/dev/null").exec()
+            val actual = res.out.firstOrNull()?.trim()?.toIntOrNull()
+            if (res.isSuccess && actual == value) actual else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseMglruEnabled(raw: String): Boolean {
+        val clean = raw.trim().lowercase()
+        if (clean.isBlank() || clean == "n" || clean == "0" || clean == "false") return false
+        if (clean == "y" || clean == "true") return true
+        val num = if (clean.startsWith("0x")) {
+            clean.removePrefix("0x").toIntOrNull(16)
+        } else {
+            clean.toIntOrNull()
+        }
+        return num != null && num != 0
+    }
+
     suspend fun readDirtyRatio(): Int = withContext(Dispatchers.IO) {
         cachedVmConfig?.dirtyRatio ?: readVmInt("/proc/sys/vm/dirty_ratio", 20)
     }
 
     suspend fun setDirtyRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val cmd = "echo $ratio > /proc/sys/vm/dirty_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
-            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyRatio = ratio)
-            }
-            ok
-        } catch (e: Exception) { false }
+        val safe = ratio.coerceIn(1, 95)
+        val actual = writeSysctlInt("/proc/sys/vm/dirty_ratio", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyRatio = actual, activePreset = "custom")
+        true
     }
 
     suspend fun readVfsCachePressure(): Int = withContext(Dispatchers.IO) {
@@ -114,14 +132,10 @@ internal object LynxVmTuningRepository {
     }
 
     suspend fun setVfsCachePressure(pressure: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val cmd = "echo $pressure > /proc/sys/vm/vfs_cache_pressure 2>/dev/null && [ \"$(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null)\" = \"$pressure\" ] && echo ok"
-            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(vfsCachePressure = pressure)
-            }
-            ok
-        } catch (e: Exception) { false }
+        val safe = pressure.coerceIn(1, 500)
+        val actual = writeSysctlInt("/proc/sys/vm/vfs_cache_pressure", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(vfsCachePressure = actual, activePreset = "custom")
+        true
     }
 
     suspend fun readDirtyBackgroundRatio(): Int = withContext(Dispatchers.IO) {
@@ -129,14 +143,10 @@ internal object LynxVmTuningRepository {
     }
 
     suspend fun setDirtyBackgroundRatio(ratio: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val cmd = "echo $ratio > /proc/sys/vm/dirty_background_ratio 2>/dev/null && [ \"$(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null)\" = \"$ratio\" ] && echo ok"
-            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyBackgroundRatio = ratio)
-            }
-            ok
-        } catch (_: Exception) { false }
+        val safe = ratio.coerceIn(1, 80)
+        val actual = writeSysctlInt("/proc/sys/vm/dirty_background_ratio", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyBackgroundRatio = actual, activePreset = "custom")
+        true
     }
 
     suspend fun readDirtyExpireCentisecs(): Int = withContext(Dispatchers.IO) {
@@ -144,14 +154,10 @@ internal object LynxVmTuningRepository {
     }
 
     suspend fun setDirtyExpireCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val ok = Shell.cmd("echo $cs > /proc/sys/vm/dirty_expire_centisecs 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyExpireCentisecs = cs)
-            }
-            ok
-        } catch (_: Exception) { false }
+        val safe = cs.coerceIn(100, 60000)
+        val actual = writeSysctlInt("/proc/sys/vm/dirty_expire_centisecs", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyExpireCentisecs = actual, activePreset = "custom")
+        true
     }
 
     suspend fun readDirtyWritebackCentisecs(): Int = withContext(Dispatchers.IO) {
@@ -159,14 +165,10 @@ internal object LynxVmTuningRepository {
     }
 
     suspend fun setDirtyWritebackCentisecs(cs: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val ok = Shell.cmd("echo $cs > /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyWritebackCentisecs = cs)
-            }
-            ok
-        } catch (_: Exception) { false }
+        val safe = cs.coerceIn(100, 30000)
+        val actual = writeSysctlInt("/proc/sys/vm/dirty_writeback_centisecs", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(dirtyWritebackCentisecs = actual, activePreset = "custom")
+        true
     }
 
     suspend fun readVmStatInterval(): Int = withContext(Dispatchers.IO) {
@@ -174,39 +176,51 @@ internal object LynxVmTuningRepository {
     }
 
     suspend fun setVmStatInterval(interval: Int): Boolean = withContext(Dispatchers.IO) {
+        val safe = interval.coerceIn(1, 60)
+        val actual = writeSysctlInt("/proc/sys/vm/stat_interval", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(statInterval = actual, activePreset = "custom")
+        true
+    }
+
+    suspend fun setMglruEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val ok = Shell.cmd("echo $interval > /proc/sys/vm/stat_interval 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(statInterval = interval)
+            val cmd = if (enabled) {
+                """
+                p=/sys/kernel/mm/lru_gen/enabled
+                [ -e "${'$'}p" ] || exit 1
+                (echo y > "${'$'}p" 2>/dev/null || echo 7 > "${'$'}p" 2>/dev/null || echo 1 > "${'$'}p" 2>/dev/null) && cat "${'$'}p" 2>/dev/null
+                """.trimIndent()
+            } else {
+                """
+                p=/sys/kernel/mm/lru_gen/enabled
+                [ -e "${'$'}p" ] || exit 1
+                (echo n > "${'$'}p" 2>/dev/null || echo 0 > "${'$'}p" 2>/dev/null) && cat "${'$'}p" 2>/dev/null
+                """.trimIndent()
             }
-            ok
-        } catch (_: Exception) { false }
+            val res = Shell.cmd(cmd).exec()
+            val raw = res.out.firstOrNull()?.trim().orEmpty()
+            if (!res.isSuccess || raw.isBlank()) return@withContext false
+            val actualEnabled = parseMglruEnabled(raw)
+            if (actualEnabled != enabled) return@withContext false
+            cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(mglruEnabled = actualEnabled)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     suspend fun setMglruMinTtlMs(ttlMs: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val safe = ttlMs.coerceIn(0, 5000)
-            val cmd = "if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then echo $safe > /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null && echo ok; fi"
-            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                val actual = readVmInt("/sys/kernel/mm/lru_gen/min_ttl_ms", safe)
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(mglruMinTtlMs = actual, activePreset = "custom")
-            }
-            ok
-        } catch (_: Exception) { false }
+        val safe = ttlMs.coerceIn(0, 5000)
+        val actual = writeSysctlInt("/sys/kernel/mm/lru_gen/min_ttl_ms", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(mglruMinTtlMs = actual, activePreset = "custom")
+        true
     }
 
     suspend fun setPageCluster(cluster: Int): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val safe = cluster.coerceIn(0, 8)
-            val cmd = "if [ -w /proc/sys/vm/page-cluster ]; then echo $safe > /proc/sys/vm/page-cluster 2>/dev/null && [ \"$(cat /proc/sys/vm/page-cluster 2>/dev/null)\" = \"$safe\" ] && echo ok; fi"
-            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-            if (ok) {
-                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(pageCluster = safe, activePreset = "custom")
-            }
-            ok
-        } catch (_: Exception) { false }
+        val safe = cluster.coerceIn(0, 8)
+        val actual = writeSysctlInt("/proc/sys/vm/page-cluster", safe) ?: return@withContext false
+        cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(pageCluster = actual, activePreset = "custom")
+        true
     }
 
     suspend fun setSwappinessUnified(value: Int): Boolean = withContext(Dispatchers.IO) {
@@ -254,6 +268,13 @@ internal object LynxVmTuningRepository {
                 st=${'$'}(cat /proc/sys/vm/stat_interval 2>/dev/null)
                 mglru=0
                 ttl=0
+                mglru_en=""
+                mglru_w=0
+                if [ -e /sys/kernel/mm/lru_gen/enabled ]; then
+                    mglru=1
+                    mglru_en=${'$'}(cat /sys/kernel/mm/lru_gen/enabled 2>/dev/null)
+                    [ -w /sys/kernel/mm/lru_gen/enabled ] && mglru_w=1
+                fi
                 if [ -e /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
                     mglru=1
                     ttl=${'$'}(cat /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null)
@@ -267,7 +288,7 @@ internal object LynxVmTuningRepository {
                 kmin=${'$'}(echo "${'$'}kver" | cut -d. -f2 | tr -dc '0-9')
                 [ "${'$'}kmaj" -gt 5 ] 2>/dev/null && max_s=200
                 [ "${'$'}kmaj" -eq 5 ] && [ "${'$'}kmin" -ge 8 ] 2>/dev/null && max_s=200
-                echo "${'$'}sw|${'$'}dr|${'$'}db|${'$'}vf|${'$'}ex|${'$'}wb|${'$'}st|${'$'}mglru|${'$'}ttl|${'$'}pc|${'$'}max_s"
+                echo "${'$'}sw|${'$'}dr|${'$'}db|${'$'}vf|${'$'}ex|${'$'}wb|${'$'}st|${'$'}mglru|${'$'}ttl|${'$'}pc|${'$'}max_s|${'$'}mglru_en|${'$'}mglru_w"
             """.trimIndent()).exec()
             val p = probe.out.firstOrNull()?.trim()?.split("|") ?: emptyList()
 
@@ -282,6 +303,9 @@ internal object LynxVmTuningRepository {
             val mglruTtl = p.getOrNull(8)?.trim()?.toIntOrNull() ?: 0
             val pageCluster = p.getOrNull(9)?.trim()?.toIntOrNull() ?: -1
             val swappinessMax = p.getOrNull(10)?.trim()?.toIntOrNull()?.coerceIn(100, 200) ?: 100
+            val mglruEnabledRaw = p.getOrNull(11)?.trim().orEmpty()
+            val mglruEnabled = if (mglruEnabledRaw.isNotEmpty()) parseMglruEnabled(mglruEnabledRaw) else mglruSupported
+            val mglruWritable = p.getOrNull(12)?.trim() == "1"
 
             val preset = when {
                 (dirtyRatio == 10 && dirtyBackground == 5 && (vfsPressure == 50 || vfsPressure == 150)) ||
@@ -301,6 +325,8 @@ internal object LynxVmTuningRepository {
                 dirtyWritebackCentisecs = writeback,
                 statInterval = stat,
                 mglruSupported = mglruSupported,
+                mglruEnabled = mglruEnabled,
+                mglruWritable = mglruWritable,
                 mglruMinTtlMs = mglruTtl,
                 pageCluster = pageCluster,
                 activePreset = preset
@@ -322,7 +348,7 @@ internal object LynxVmTuningRepository {
                     return@withContext true
                 }
             }
-            when (preset.lowercase()) {
+            val ok = when (preset.lowercase()) {
                 "gaming" -> {
                     Shell.cmd("""
                         is_emmc=0
@@ -371,6 +397,8 @@ internal object LynxVmTuningRepository {
                 }
                 else -> false
             }
+            if (ok) cachedVmConfig = null
+            ok
         } catch (_: Exception) { false }
     }
 

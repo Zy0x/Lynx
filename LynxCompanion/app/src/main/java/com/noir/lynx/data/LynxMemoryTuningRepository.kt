@@ -99,14 +99,18 @@ object LynxMemoryTuningRepository {
     suspend fun setEntropyThresholds(readThresh: Int, writeThresh: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val cmd = """
-                ok=0
+                r_ok=1
+                w_ok=1
+                wrote=0
                 if [ -w /proc/sys/kernel/random/read_wakeup_threshold ]; then
-                    echo "$readThresh" > /proc/sys/kernel/random/read_wakeup_threshold 2>/dev/null && ok=1
+                    wrote=1
+                    (echo "$readThresh" > /proc/sys/kernel/random/read_wakeup_threshold 2>/dev/null && [ "${'$'}(cat /proc/sys/kernel/random/read_wakeup_threshold 2>/dev/null)" = "$readThresh" ]) || r_ok=0
                 fi
                 if [ -w /proc/sys/kernel/random/write_wakeup_threshold ]; then
-                    echo "$writeThresh" > /proc/sys/kernel/random/write_wakeup_threshold 2>/dev/null && ok=1
+                    wrote=1
+                    (echo "$writeThresh" > /proc/sys/kernel/random/write_wakeup_threshold 2>/dev/null && [ "${'$'}(cat /proc/sys/kernel/random/write_wakeup_threshold 2>/dev/null)" = "$writeThresh" ]) || w_ok=0
                 fi
-                [ "${'$'}ok" = "1" ] && echo ok
+                [ "${'$'}wrote" = "1" ] && [ "${'$'}r_ok" = "1" ] && [ "${'$'}w_ok" = "1" ] && echo ok
             """.trimIndent()
             Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }
         } catch (e: Exception) {
@@ -122,7 +126,9 @@ object LynxMemoryTuningRepository {
             }
             val cmd = """
                 if [ -w /sys/module/lowmemorykiller/parameters/minfree ]; then
-                    echo "$pagesStr" > /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null && echo ok
+                    echo "$pagesStr" > /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null &&
+                    [ "${'$'}(cat /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null)" = "$pagesStr" ] &&
+                    echo ok
                 fi
             """.trimIndent()
             Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }

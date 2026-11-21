@@ -65,15 +65,23 @@ internal object LynxSystemTuningRepository {
 
     suspend fun setKsmTunables(pagesToScan: Int, sleepMs: Int): Boolean = withContext(Dispatchers.IO) {
         try {
+            val safeScan = pagesToScan.coerceIn(10, 10000)
+            val safeSleep = sleepMs.coerceIn(5, 10000)
             val ok = Shell.cmd("""
-                chmod 644 /sys/kernel/mm/ksm/pages_to_scan 2>/dev/null
-                echo $pagesToScan > /sys/kernel/mm/ksm/pages_to_scan 2>/dev/null
-                chmod 644 /sys/kernel/mm/ksm/sleep_millisecs 2>/dev/null
-                echo $sleepMs > /sys/kernel/mm/ksm/sleep_millisecs 2>/dev/null
+                K=/sys/kernel/mm/ksm
+                [ -e "${'$'}K/pages_to_scan" ] && [ -e "${'$'}K/sleep_millisecs" ] || exit 1
+                chmod 644 "${'$'}K/pages_to_scan" "${'$'}K/sleep_millisecs" 2>/dev/null
+                echo $safeScan > "${'$'}K/pages_to_scan" 2>/dev/null &&
+                echo $safeSleep > "${'$'}K/sleep_millisecs" 2>/dev/null &&
+                [ "${'$'}(cat ${'$'}K/pages_to_scan 2>/dev/null)" = "$safeScan" ] &&
+                [ "${'$'}(cat ${'$'}K/sleep_millisecs 2>/dev/null)" = "$safeSleep" ] &&
                 echo ok
             """.trimIndent()).exec().out.firstOrNull()?.trim() == "ok"
             if (ok) {
-                cachedKsmStats = cachedKsmStats?.copy(pagesToScan = pagesToScan, sleepMs = sleepMs)
+                cachedKsmStats = (cachedKsmStats ?: readKsmStats(forceRefresh = true)).copy(
+                    pagesToScan = safeScan,
+                    sleepMs = safeSleep
+                )
             }
             ok
         } catch (e: Exception) { false }

@@ -19,7 +19,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +37,7 @@ import com.noir.lynx.ui.setDirtyRatio
 import com.noir.lynx.ui.setDirtyWritebackCentisecs
 import com.noir.lynx.ui.setKsmEnabled
 import com.noir.lynx.ui.setKsmTunables
+import com.noir.lynx.ui.setMglruEnabled
 import com.noir.lynx.ui.setMglruMinTtlMs
 import com.noir.lynx.ui.setPageCluster
 import com.noir.lynx.ui.setVfsCachePressure
@@ -45,8 +45,9 @@ import java.util.Locale
 
 /**
  * MemoryVmAdvancedCard — Sub-tab 1 (VM & Entropi).
- * Uses Progressive Disclosure to show concise VM telemetry up front, keeping the 5 writeback
- * sliders and KSM scan tunables neatly collapsed until explicitly expanded by the user.
+ * Zero duplicate summary tiles: surfaces core VM controls (VFS Cache, MGLRU status/TTL, Page-Cluster)
+ * cleanly up front, groups disk writeback parameters inside one compact expandable accordion,
+ * and shows KSM/UKSM strictly when supported by the running kernel.
  */
 @Composable
 fun MemoryVmAdvancedCard(
@@ -57,61 +58,122 @@ fun MemoryVmAdvancedCard(
     val vm = uiState.vmAdvanced
     val ksm = uiState.ksmStats
     var isWritebackExpanded by remember { mutableStateOf(false) }
-    var showCustomPageClusterDialog by remember { mutableStateOf(false) }
-
-    if (showCustomPageClusterDialog && vm.pageCluster >= 0) {
-        CustomNumericInputDialog(
-            title = "VM Page-Cluster Kustom",
-            unit = "order (2^N halaman)",
-            currentValue = vm.pageCluster.coerceIn(0, 8),
-            min = 0,
-            max = 8,
-            hint = "0 = 1 halaman (ideal ZRAM acak), 3 = 8 halaman (baca berurutan). Maksimal 8 (256 halaman).",
-            accentColor = AccentBlue,
-            onDismiss = { showCustomPageClusterDialog = false },
-            onConfirm = { value ->
-                showCustomPageClusterDialog = false
-                viewModel.setPageCluster(value)
-            }
-        )
-    }
 
     LynxCard(
-        title = "Tuning VM & Ekstensi Kernel",
-        subtitle = "Writeback cache, VFS pressure" +
-            (if (vm.mglruSupported) ", MGLRU" else "") +
-            (if (vm.pageCluster >= 0) ", Page-Cluster" else "") +
-            (if (ksm.supported) " & KSM" else ""),
+        title = "Manajemen VM & Ekstensi Kernel",
+        subtitle = buildString {
+            append("VFS cache, writeback")
+            if (vm.mglruSupported) append(", MGLRU")
+            if (vm.pageCluster >= 0) append(", Page-Cluster")
+            if (ksm.supported) append(" & KSM")
+        },
         icon = Icons.Default.Tune,
         accentColor = AccentPurple,
+        action = {
+            if (vm.mglruSupported) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (vm.mglruEnabled) AccentCyanDim else BgElevated,
+                    border = BorderStroke(
+                        0.6.dp,
+                        if (vm.mglruEnabled) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
+                    )
+                ) {
+                    Text(
+                        text = if (vm.mglruEnabled) "MGLRU AKTIF" else "MGLRU OFF",
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = if (vm.mglruEnabled) AccentCyan else TextSecondary,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+        },
         modifier = modifier
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // ── 1. Compact Live VM Summary + Collapsible Writeback & VFS Sliders ──
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                VmSummaryTile(
-                    label = "Dirty Ratio",
-                    value = "${vm.dirtyRatio}% / ${vm.dirtyBackgroundRatio}%",
-                    accent = AccentPurple,
-                    modifier = Modifier.weight(1f)
-                )
-                VmSummaryTile(
-                    label = "VFS Cache",
-                    value = "${vm.vfsCachePressure}%",
-                    accent = AccentBlue,
-                    modifier = Modifier.weight(1f)
-                )
-                VmSummaryTile(
-                    label = "Writeback",
-                    value = "${vm.dirtyExpireCentisecs / 100}s / ${vm.dirtyWritebackCentisecs / 100}s",
-                    accent = AccentCyan,
-                    modifier = Modifier.weight(1f)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // ── 1. Core Memory Reclaim & Paging Tunables ──
+            LynxNumericPresetRow(
+                label = "VFS Cache Pressure",
+                subtitle = "Agresivitas reclaim cache metadata dentry & inode",
+                value = vm.vfsCachePressure,
+                displayValue = "${vm.vfsCachePressure}%",
+                min = 1,
+                max = 500,
+                unit = "%",
+                dialogHint = "Kontrol agresivitas reclaim cache dentry/inode (<100 menahan metadata file di RAM).",
+                presets = listOf(
+                    "25% • Tahan" to 25,
+                    "50% • Hemat I/O" to 50,
+                    "100% • Default" to 100,
+                    "150% • Bebas" to 150
+                ),
+                accentColor = AccentBlue,
+                onCommitValue = { viewModel.setVfsCachePressure(it) }
+            )
+
+            if (vm.mglruSupported) {
+                if (vm.mglruWritable) {
+                    LynxSwitch(
+                        label = "MGLRU (Multi-Gen LRU)",
+                        subLabel = if (vm.mglruEnabled) {
+                            "Generasi paging adaptif aktif (/sys/kernel/mm/lru_gen)"
+                        } else {
+                            "Nonaktif — menggunakan LRU standar kernel"
+                        },
+                        checked = vm.mglruEnabled,
+                        onCheckedChange = { enabled -> viewModel.setMglruEnabled(enabled) }
+                    )
+                }
+
+                LynxNumericPresetRow(
+                    label = "MGLRU Anti-Thrash (min_ttl_ms)",
+                    subtitle = "Lindungi working-set aktif dari swap prematur",
+                    value = vm.mglruMinTtlMs,
+                    displayValue = "${vm.mglruMinTtlMs} ms",
+                    min = 0,
+                    max = 5000,
+                    unit = "ms",
+                    dialogHint = "Mencegah Multi-Gen LRU menukar working-set aktif lebih cepat dari TTL ini (0–5000 ms).",
+                    presets = listOf(
+                        "0 ms • Off" to 0,
+                        "250 ms • Cepat" to 250,
+                        "500 ms • Moderat" to 500,
+                        "1000 ms • Optimal" to 1000,
+                        "2000 ms • Proteksi" to 2000
+                    ),
+                    accentColor = AccentCyan,
+                    onCommitValue = { viewModel.setMglruMinTtlMs(it) }
                 )
             }
 
+            if (vm.pageCluster >= 0) {
+                val pagesCount = 1 shl vm.pageCluster.coerceIn(0, 10)
+                LynxNumericPresetRow(
+                    label = "VM Page-Cluster",
+                    subtitle = "Jumlah halaman dibaca sekaligus saat swap-in",
+                    value = vm.pageCluster,
+                    displayValue = "${vm.pageCluster} ($pagesCount hal)",
+                    min = 0,
+                    max = 8,
+                    unit = "order",
+                    dialogTitle = "Atur VM Page-Cluster",
+                    dialogHint = "0 = 1 halaman (ideal ZRAM acak), 3 = 8 halaman (baca berurutan). Maksimal order 8 (256 halaman).",
+                    presets = listOf(
+                        "0 • 1 hal (ZRAM)" to 0,
+                        "1 • 2 hal" to 1,
+                        "2 • 4 hal" to 2,
+                        "3 • 8 hal" to 3
+                    ),
+                    accentColor = AccentBlue,
+                    onCommitValue = { viewModel.setPageCluster(it) }
+                )
+            }
+
+            HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+
+            // ── 2. Disk Writeback Collapsible Group (inline live summary inside header) ──
             Surface(
                 onClick = { isWritebackExpanded = !isWritebackExpanded },
                 shape = RoundedCornerShape(10.dp),
@@ -122,7 +184,7 @@ fun MemoryVmAdvancedCard(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 48.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -131,12 +193,27 @@ fun MemoryVmAdvancedCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isWritebackExpanded) "Sembunyikan Parameter Writeback & VFS" else "Sesuaikan Writeback & VFS Lanjutan",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isWritebackExpanded) TextPrimary else TextSecondary
-                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = if (isWritebackExpanded) "Sembunyikan Writeback Disk" else "Parameter Writeback Disk",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isWritebackExpanded) TextPrimary else TextSecondary
+                        )
+                        Text(
+                            text = "Dirty ${vm.dirtyRatio}% / ${vm.dirtyBackgroundRatio}% • ${formatCentisecs(vm.dirtyExpireCentisecs)} / ${formatCentisecs(vm.dirtyWritebackCentisecs)}",
+                            fontSize = 10.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextTertiary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Icon(
                         imageVector = if (isWritebackExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
@@ -152,9 +229,7 @@ fun MemoryVmAdvancedCard(
                 exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LynxNumericPresetRow(
@@ -193,25 +268,6 @@ fun MemoryVmAdvancedCard(
                         ),
                         accentColor = AccentPurple,
                         onCommitValue = { viewModel.setDirtyBackgroundRatio(it) }
-                    )
-
-                    LynxNumericPresetRow(
-                        label = "VFS Cache Pressure",
-                        subtitle = "Agresivitas reclaim cache metadata dentry & inode",
-                        value = vm.vfsCachePressure,
-                        displayValue = "${vm.vfsCachePressure}%",
-                        min = 1,
-                        max = 500,
-                        unit = "%",
-                        dialogHint = "Kontrol agresivitas reclaim cache dentry/inode (<100 menahan metadata file di RAM).",
-                        presets = listOf(
-                            "25% • Tahan" to 25,
-                            "50% • Hemat I/O" to 50,
-                            "100% • Default" to 100,
-                            "150% • Bebas" to 150
-                        ),
-                        accentColor = AccentBlue,
-                        onCommitValue = { viewModel.setVfsCachePressure(it) }
                     )
 
                     val expireSec = (vm.dirtyExpireCentisecs / 100).coerceAtLeast(1)
@@ -256,78 +312,7 @@ fun MemoryVmAdvancedCard(
                 }
             }
 
-            // ── 2. Conditional Kernel Extensions (MGLRU & Page-Cluster) ──
-            if (vm.mglruSupported || vm.pageCluster >= 0) {
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
-
-                if (vm.mglruSupported) {
-                    LynxNumericPresetRow(
-                        label = "MGLRU Anti-Thrash (min_ttl_ms)",
-                        subtitle = "Lindungi working-set aktif dari swap prematur",
-                        value = vm.mglruMinTtlMs,
-                        displayValue = "${vm.mglruMinTtlMs} ms",
-                        min = 0,
-                        max = 5000,
-                        unit = "ms",
-                        dialogHint = "Mencegah Multi-Gen LRU menukar working-set aktif lebih cepat dari TTL ini (0–5000 ms).",
-                        presets = listOf(
-                            "0 ms • Off" to 0,
-                            "500 ms • Cepat" to 500,
-                            "1000 ms • Optimal" to 1000,
-                            "2000 ms • Proteksi" to 2000
-                        ),
-                        accentColor = AccentCyan,
-                        onCommitValue = { viewModel.setMglruMinTtlMs(it) }
-                    )
-                }
-
-                if (vm.pageCluster >= 0) {
-                    val pagesCount = 1 shl vm.pageCluster.coerceIn(0, 10)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "VM Page-Cluster (Readahead Swap)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "${vm.pageCluster} ($pagesCount hal)",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = AccentBlue
-                        )
-                    }
-
-                    val clusterPresets = listOf(0, 1, 2, 3)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        clusterPresets.forEach { order ->
-                            MemoryOptionChip(
-                                label = "$order (${1 shl order}p)",
-                                selected = vm.pageCluster == order,
-                                accentColor = AccentBlue,
-                                onClick = { viewModel.setPageCluster(order) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        MemoryOptionChip(
-                            label = if (vm.pageCluster !in clusterPresets) "${vm.pageCluster}*" else "Kustom",
-                            selected = vm.pageCluster !in clusterPresets,
-                            accentColor = AccentPurple,
-                            onClick = { showCustomPageClusterDialog = true },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            // ── 3. Conditional KSM (Kernel Samepage Merging) with Progressive Disclosure ──
+            // ── 3. Conditional KSM (Kernel Samepage Merging) ──
             if (ksm.supported) {
                 HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
 
@@ -392,36 +377,13 @@ fun MemoryVmAdvancedCard(
     }
 }
 
-@Composable
-private fun VmSummaryTile(
-    label: String,
-    value: String,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = BgElevated,
-        border = BorderStroke(0.6.dp, BorderSubtle),
-        modifier = modifier
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
-            Text(
-                text = label,
-                fontSize = 9.5.sp,
-                color = TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = value,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+private fun formatCentisecs(cs: Int): String {
+    val safeCs = cs.coerceAtLeast(0)
+    return if (safeCs >= 100 && safeCs % 100 == 0) {
+        "${safeCs / 100}s"
+    } else if (safeCs > 0 && safeCs < 100) {
+        String.format(Locale.US, "%.1fs", safeCs / 100f)
+    } else {
+        "${safeCs / 100}s"
     }
 }

@@ -84,27 +84,68 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.setEntropyThresholds(readThresh: Int, writeThresh: Int) {
-        recordStateMutation()
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
         _uiState.update { it.copy(memoryEntropy = it.memoryEntropy.copy(readThreshold = readThresh, writeThreshold = writeThresh)) }
         viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.setEntropyThresholds(readThresh, writeThresh)
+            val fresh = LynxRepository.readMemoryEntropy()
             if (ok) {
-                _uiState.update { it.copy(successMessage = "Threshold entropi disimpan ($readThresh / $writeThresh)") }
+                _uiState.update {
+                    it.copy(
+                        memoryEntropy = fresh,
+                        successMessage = "Ambang entropi disimpan (${fresh.readThreshold} / ${fresh.writeThreshold} bit)"
+                    )
+                }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal mengubah threshold entropi") }
+                _uiState.update {
+                    it.copy(
+                        memoryEntropy = fresh,
+                        errorMessage = "Kernel menolak perubahan ambang entropi"
+                    )
+                }
             }
         }
     }
 
     fun LynxViewModel.setCustomLmkMinfreeMb(tiersMb: List<Int>) {
-        recordStateMutation()
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
         _uiState.update { it.copy(memoryEntropy = it.memoryEntropy.copy(minfreeMb = tiersMb)) }
         viewModelScope.launch(Dispatchers.IO) {
             val ok = LynxRepository.setCustomLmkMinfreeMb(tiersMb)
+            val fresh = LynxRepository.readMemoryEntropy()
             if (ok) {
-                _uiState.update { it.copy(successMessage = "Minfree LMK kustom diterapkan") }
+                _uiState.update {
+                    it.copy(
+                        memoryEntropy = fresh,
+                        successMessage = "Minfree LMK kustom diterapkan"
+                    )
+                }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal menulis minfree LMK") }
+                _uiState.update {
+                    it.copy(
+                        memoryEntropy = fresh,
+                        errorMessage = "Gagal menulis minfree LMK ke sysfs"
+                    )
+                }
+            }
+        }
+    }
+
+    fun LynxViewModel.setMglruEnabled(enabled: Boolean) {
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+        _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(mglruEnabled = enabled)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.setMglruEnabled(enabled)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "MGLRU ${if (enabled) "diaktifkan" else "dinonaktifkan"}") }
+            } else {
+                val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = true)
+                _uiState.update {
+                    it.copy(
+                        vmAdvanced = freshVm,
+                        errorMessage = "Kernel mengunci status MGLRU"
+                    )
+                }
             }
         }
     }
@@ -118,7 +159,13 @@ import kotlinx.coroutines.flow.update
             if (ok) {
                 _uiState.update { it.copy(successMessage = "MGLRU min_ttl_ms diatur ke ${clamped} ms") }
             } else {
-                _uiState.update { it.copy(errorMessage = "Kernel tidak mendukung/mengizinkan penulisan MGLRU min_ttl_ms") }
+                val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = true)
+                _uiState.update {
+                    it.copy(
+                        vmAdvanced = freshVm,
+                        errorMessage = "Kernel tidak mendukung/mengizinkan penulisan MGLRU min_ttl_ms"
+                    )
+                }
             }
         }
     }
@@ -132,7 +179,13 @@ import kotlinx.coroutines.flow.update
             if (ok) {
                 _uiState.update { it.copy(successMessage = "VM page-cluster diatur ke $clamped") }
             } else {
-                _uiState.update { it.copy(errorMessage = "Gagal mengubah VM page-cluster") }
+                val freshVm = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = true)
+                _uiState.update {
+                    it.copy(
+                        vmAdvanced = freshVm,
+                        errorMessage = "Kernel menolak perubahan VM page-cluster"
+                    )
+                }
             }
         }
     }

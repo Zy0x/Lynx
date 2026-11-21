@@ -1,19 +1,13 @@
 package com.noir.lynx.feature.memory.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,15 +22,15 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.MemoryEntropyInfo
 import com.noir.lynx.designsystem.card.LynxCard
-import com.noir.lynx.designsystem.card.UnsupportedBadge
-import com.noir.lynx.designsystem.controls.LynxActionButton
 import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.theme.*
 
 /**
  * MemoryEntropyCard — Sub-tab 1 (VM & Entropi).
- * Dynamically handles legacy LMK sysfs minfree (synchronized 4 presets + 6-tier custom MB)
- * OR modern userspace lmkd + /proc/pressure/memory (PSI), plus poolsize-aware Entropy monitoring.
+ * Cleanly separates two distinct domains:
+ * 1. Tekanan Memori & LMK Engine (PSI Memory Stall + Userspace LMKD status OR Legacy minfree presets)
+ *    without frightening users with false "Unsupported" banners on modern LMKD kernels.
+ * 2. Kernel Entropy Pool (RNG meter + immediate 1-tap overlay controls for Read/Write wakeup thresholds).
  */
 @Composable
 fun MemoryEntropyCard(
@@ -53,12 +47,6 @@ fun MemoryEntropyCard(
     val readMax = maxOf(64, (poolSize / 2).coerceAtLeast(memoryEntropy.readThreshold)).coerceAtMost(poolSize)
     val writeMax = maxOf(128, poolSize)
 
-    var stagedReadThresh by remember(memoryEntropy.readThreshold, readMax) {
-        mutableIntStateOf(memoryEntropy.readThreshold.coerceIn(8, readMax))
-    }
-    var stagedWriteThresh by remember(memoryEntropy.writeThreshold, writeMax) {
-        mutableIntStateOf(memoryEntropy.writeThreshold.coerceIn(16, writeMax))
-    }
     var showCustomLmkDialog by remember { mutableStateOf(false) }
 
     if (showCustomLmkDialog) {
@@ -72,84 +60,113 @@ fun MemoryEntropyCard(
         )
     }
 
-    LynxCard(
-        title = "LMK, PSI & Entropi Kernel",
-        subtitle = buildString {
-            append(if (memoryEntropy.isLmkLegacySupported) "LMK Legacy Sysfs" else "Userspace lmkd / PSI")
-            append(" • RNG Pool $poolSize bit")
-        },
-        icon = Icons.Default.Security,
-        accentColor = AccentCyan,
-        modifier = modifier
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // ── 1. PSI Memory Pressure Telemetry (/proc/pressure/memory) ──
-            if (memoryEntropy.psiMemorySomeAvg10.isNotBlank() || memoryEntropy.psiMemoryFullAvg10.isNotBlank()) {
+        // ── Card 1: Memory Pressure & Process Kill Engine (PSI / LMK) ──
+        LynxCard(
+            title = "Tekanan Memori & LMK",
+            subtitle = if (memoryEntropy.isLmkLegacySupported) {
+                "Sysfs LMK Legacy (/sys/module/lowmemorykiller)"
+            } else {
+                "Userspace LMKD • PSI Memory Stall"
+            },
+            icon = Icons.Default.Security,
+            accentColor = AccentCyan,
+            action = {
+                val badgeText = when {
+                    !memoryEntropy.isLmkLegacySupported -> "MODERN"
+                    memoryEntropy.isLmkWritable -> "LEGACY R/W"
+                    else -> "READ-ONLY"
+                }
+                val badgeColor = when {
+                    !memoryEntropy.isLmkLegacySupported -> AccentBlue
+                    memoryEntropy.isLmkWritable -> AccentCyan
+                    else -> TextTertiary
+                }
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.6.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(6.dp),
+                    color = badgeColor.copy(alpha = 0.14f),
+                    border = BorderStroke(0.6.dp, badgeColor.copy(alpha = 0.35f))
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Text(
+                        text = badgeText,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeColor,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (memoryEntropy.psiMemorySomeAvg10.isNotBlank() || memoryEntropy.psiMemoryFullAvg10.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = "PSI Memory Stall (10 dtk)",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "/proc/pressure/memory",
-                                fontSize = 10.sp,
-                                color = TextTertiary
-                            )
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if (memoryEntropy.psiMemorySomeAvg10.isNotBlank()) {
-                                PsiPill("some ${memoryEntropy.psiMemorySomeAvg10}%", AccentBlue)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "PSI Memory Stall (10 dtk)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = "Antrean tugas saat memori tertekan",
+                                    fontSize = 10.sp,
+                                    color = TextTertiary
+                                )
                             }
-                            if (memoryEntropy.psiMemoryFullAvg10.isNotBlank()) {
-                                PsiPill("full ${memoryEntropy.psiMemoryFullAvg10}%", AccentOrange)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (memoryEntropy.psiMemorySomeAvg10.isNotBlank()) {
+                                    PsiPill("some ${memoryEntropy.psiMemorySomeAvg10}%", AccentBlue)
+                                }
+                                if (memoryEntropy.psiMemoryFullAvg10.isNotBlank()) {
+                                    PsiPill("full ${memoryEntropy.psiMemoryFullAvg10}%", AccentOrange)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // ── 2. Low Memory Killer (Legacy Sysfs vs Userspace lmkd) ──
-            if (!memoryEntropy.isLmkLegacySupported) {
-                UnsupportedBadge(reason = memoryEntropy.lmkReason)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                if (!memoryEntropy.isLmkLegacySupported) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AccentBlueDim.copy(alpha = 0.45f),
+                        border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.30f)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "Low Memory Killer (minfree)",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        if (!memoryEntropy.isLmkWritable) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
                             Text(
-                                text = "READ-ONLY",
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
+                                text = "Engine: Userspace LMKD (Berbasis PSI)",
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TextTertiary
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Kernel ini mengelola penghentian proses latar secara adaptif lewat daemon lmkd Android modern, bukan tabel minfree statis.",
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                lineHeight = 15.sp
                             )
                         }
                     }
-
+                } else {
                     if (memoryEntropy.minfreeMb.isNotEmpty()) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -162,7 +179,7 @@ fun MemoryEntropyCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "Ambang Saat Ini (FG • VIS • SEC • HID • CNT • EMP)",
+                                    text = "Ambang Minfree Aktif (FG • VIS • SEC • HID • CNT • EMP)",
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
@@ -223,121 +240,104 @@ fun MemoryEntropyCard(
                         }
                     } else {
                         Text(
-                            text = "Node sysfs minfree hanya-baca di kernel ini.",
+                            text = "Node sysfs minfree hanya-baca pada kernel ini.",
                             fontSize = 11.sp,
                             color = TextTertiary
                         )
                     }
                 }
             }
+        }
 
-            // ── 3. Entropy Pool & Dynamic Kernel RNG Adaptation ──
-            if (memoryEntropy.isEntropySupported) {
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.6.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+        // ── Card 2: Kernel Entropy Pool (RNG) ──
+        if (memoryEntropy.isEntropySupported) {
+            LynxCard(
+                title = "Kernel Entropy Pool (RNG)",
+                subtitle = if (!memoryEntropy.isEntropyThresholdWritable) {
+                    "CSPRNG otomatis • Pool $poolSize bit"
+                } else {
+                    "Ketersediaan acak & ambang bangun RNG"
+                },
+                icon = Icons.Default.Tune,
+                accentColor = AccentBlue,
+                action = {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyanDim,
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Kernel Entropy Pool",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "$entropyAvail / $poolSize bits",
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentCyan
-                            )
-                        }
-
-                        LinearProgressIndicator(
-                            progress = { entropyRatio },
+                        Text(
+                            text = "$entropyAvail / $poolSize bit",
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
                             color = AccentCyan,
-                            trackColor = BgSurfaceLowest,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                         )
-
-                        if (!memoryEntropy.isEntropyThresholdWritable) {
-                            Text(
-                                text = "CSPRNG modern ($poolSize-bit) — manajemen entropi otomatis.",
-                                fontSize = 10.5.sp,
-                                color = TextSecondary
-                            )
-                        }
                     }
                 }
-
-                if (memoryEntropy.isEntropyThresholdWritable) {
-                    val readPresets = remember(readMax) {
-                        listOf(32, 64, 128, 256, 512, 1024)
-                            .filter { it in 8..readMax }
-                            .takeLast(4)
-                            .map { "$it bit" to it }
-                    }
-                    LynxNumericPresetRow(
-                        label = "Read Wakeup Threshold",
-                        subtitle = "Batas bawah entropi pembacaan /dev/random",
-                        value = stagedReadThresh,
-                        displayValue = "$stagedReadThresh bit",
-                        min = 8,
-                        max = readMax,
-                        unit = "bit",
-                        dialogHint = "Batas bawah entropi untuk pembacaan /dev/random (pool: $poolSize bit).",
-                        presets = readPresets,
-                        accentColor = AccentCyan,
-                        onCommitValue = { stagedReadThresh = it }
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LinearProgressIndicator(
+                        progress = { entropyRatio },
+                        color = AccentCyan,
+                        trackColor = BgSurfaceLowest,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
                     )
 
-                    val writePresets = remember(writeMax) {
-                        listOf(64, 128, 256, 512, 1024, 2048)
-                            .filter { it in 16..writeMax }
-                            .takeLast(4)
-                            .map { "$it bit" to it }
-                    }
-                    LynxNumericPresetRow(
-                        label = "Write Wakeup Threshold",
-                        subtitle = "Ambang pengisian ulang pool RNG kernel",
-                        value = stagedWriteThresh,
-                        displayValue = "$stagedWriteThresh bit",
-                        min = 16,
-                        max = writeMax,
-                        unit = "bit",
-                        dialogHint = "Ambang pengisian entropi (/proc/sys/kernel/random/write_wakeup_threshold).",
-                        presets = writePresets,
-                        accentColor = AccentBlue,
-                        onCommitValue = { stagedWriteThresh = it }
-                    )
-
-                    val entropyDirty = stagedReadThresh != memoryEntropy.readThreshold ||
-                        stagedWriteThresh != memoryEntropy.writeThreshold
-                    AnimatedVisibility(
-                        visible = entropyDirty,
-                        enter = expandVertically(animationSpec = tween(200)) + fadeIn(animationSpec = tween(200)),
-                        exit = shrinkVertically(animationSpec = tween(160)) + fadeOut(animationSpec = tween(160))
-                    ) {
-                        LynxActionButton(
-                            text = "Terapkan Ambang ($stagedReadThresh / $stagedWriteThresh bit)",
-                            icon = Icons.Default.Bolt,
+                    if (!memoryEntropy.isEntropyThresholdWritable) {
+                        Text(
+                            text = "CSPRNG kernel modern ($poolSize-bit) — ambang entropi dikelola otomatis tanpa tuning manual.",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp
+                        )
+                    } else {
+                        val readPresets = remember(readMax) {
+                            listOf(32, 64, 128, 256, 512, 1024)
+                                .filter { it in 8..readMax }
+                                .takeLast(4)
+                                .map { "$it bit" to it }
+                        }
+                        LynxNumericPresetRow(
+                            label = "Read Wakeup Threshold",
+                            subtitle = "Batas bawah entropi untuk pembacaan /dev/random",
+                            value = memoryEntropy.readThreshold,
+                            displayValue = "${memoryEntropy.readThreshold} bit",
+                            min = 8,
+                            max = readMax,
+                            unit = "bit",
+                            dialogHint = "Ambang entropi minimum pembacaan acak (pool: $poolSize bit).",
+                            presets = readPresets,
                             accentColor = AccentCyan,
-                            onClick = { onApplyEntropy(stagedReadThresh, stagedWriteThresh) }
+                            onCommitValue = { newRead ->
+                                onApplyEntropy(newRead, memoryEntropy.writeThreshold)
+                            }
+                        )
+
+                        val writePresets = remember(writeMax) {
+                            listOf(64, 128, 256, 512, 1024, 2048)
+                                .filter { it in 16..writeMax }
+                                .takeLast(4)
+                                .map { "$it bit" to it }
+                        }
+                        LynxNumericPresetRow(
+                            label = "Write Wakeup Threshold",
+                            subtitle = "Ambang pengisian ulang pool RNG kernel",
+                            value = memoryEntropy.writeThreshold,
+                            displayValue = "${memoryEntropy.writeThreshold} bit",
+                            min = 16,
+                            max = writeMax,
+                            unit = "bit",
+                            dialogHint = "Ambang pengisian entropi (/proc/sys/kernel/random/write_wakeup_threshold).",
+                            presets = writePresets,
+                            accentColor = AccentBlue,
+                            onCommitValue = { newWrite ->
+                                onApplyEntropy(memoryEntropy.readThreshold, newWrite)
+                            }
                         )
                     }
                 }

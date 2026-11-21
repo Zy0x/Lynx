@@ -542,7 +542,7 @@ object LynxRepository {
     suspend fun setDisplayRenderScale(preset: String): Boolean = LynxGpuControlRepository.setDisplayRenderScale(preset)
     suspend fun readNativeResolution(): Triple<String, String, Int> = LynxGpuControlRepository.readNativeResolution()
     suspend fun applyGpuProfile(profile: String, gpu: GpuInfo): Boolean = LynxGpuControlRepository.applyGpuProfile(profile, gpu)
-    suspend fun readKsmStats(): KsmStats = LynxSystemTuningRepository.readKsmStats()
+    suspend fun readKsmStats(forceRefresh: Boolean = false): KsmStats = LynxSystemTuningRepository.readKsmStats(forceRefresh)
 
     suspend fun setKsmEnabled(enabled: Boolean): Boolean = LynxSystemTuningRepository.setKsmEnabled(enabled)
 
@@ -767,6 +767,7 @@ object LynxRepository {
     suspend fun setVmStatInterval(interval: Int): Boolean = LynxVmTuningRepository.setVmStatInterval(interval)
     suspend fun readVirtualMemoryAdvancedConfig(forceRefresh: Boolean = false): VirtualMemoryAdvancedConfig = LynxVmTuningRepository.readVirtualMemoryAdvancedConfig(forceRefresh)
     suspend fun applyVmPreset(preset: String): Boolean = LynxVmTuningRepository.applyVmPreset(preset)
+    suspend fun setMglruEnabled(enabled: Boolean): Boolean = LynxVmTuningRepository.setMglruEnabled(enabled)
     suspend fun setMglruMinTtlMs(ttlMs: Int): Boolean = LynxVmTuningRepository.setMglruMinTtlMs(ttlMs)
     suspend fun setPageCluster(cluster: Int): Boolean = LynxVmTuningRepository.setPageCluster(cluster)
     suspend fun setSwappinessUnified(value: Int): Boolean = LynxVmTuningRepository.setSwappinessUnified(value)

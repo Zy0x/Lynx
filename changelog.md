@@ -1,3 +1,15 @@
+# Lynx Universal [VM & Entropy Overhaul, Verified Sysfs Rollback & Clean PSI/LMK Separation] 7.0.0-RC435
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.54
+
+### Companion App (`MemoryVmAdvancedCard`, `MemoryEntropyCard`, `LynxVmTuningRepository`, `LynxMemoryTuningRepository`, `LynxSystemTuningRepository` & ViewModels)
+- **Strict Kernel Write Verification & ViewModel Rollback**:
+  - Replaced unverified `; echo ok` sysfs writes in `dirty_expire_centisecs`, `dirty_writeback_centisecs`, `stat_interval`, `ksm/pages_to_scan`, `ksm/sleep_millisecs`, `random/*_wakeup_threshold`, and `lowmemorykiller/minfree` with shared `writeSysctlInt` read-back verification (`&& cat`).
+  - Added failure rollback and user-facing error reporting across all VM, MGLRU, KSM, Entropy, and LMK ViewModel actions, and cleared `cachedVmConfig` across all `applyVmPreset` paths with `forceRefresh = true`.
+- **Clean Redesign of Tab `VM & Entropi` (`MemoryVmAdvancedCard` & `MemoryEntropyCard`)**:
+  - Removed duplicate `VmSummaryTile` blocks in `MemoryVmAdvancedCard`, surfaced live `MGLRU AKTIF/OFF` status + writable toggle, unified `VM Page-Cluster` into `LynxNumericPresetRow`, and moved live Dirty/Writeback summary inline inside the collapsible header.
+  - Split `MemoryEntropyCard` into two focused cards (`Tekanan Memori & LMK` and `Kernel Entropy Pool (RNG)`), replaced false `UnsupportedBadge` warnings on modern userspace `lmkd` + PSI devices with an informative `Userspace LMKD` status panel, and migrated writable RNG Read/Write thresholds to immediate 1-tap `LynxNumericPresetRow` overlays.
+
 # Lynx Universal [Integrated Kernel Touch Micro-Sense, Big-Core IRQ Sync & Presets] 7.0.0-RC434
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.53
