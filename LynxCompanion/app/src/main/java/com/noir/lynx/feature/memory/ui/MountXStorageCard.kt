@@ -8,21 +8,25 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.SdStorage
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -42,12 +46,214 @@ import com.noir.lynx.ui.setIoQueueTunable
 import com.noir.lynx.ui.setIoScheduler
 import com.noir.lynx.ui.setReadAheadKb
 import com.noir.lynx.ui.triggerMountXBoost
+import java.util.Locale
+import kotlin.math.roundToInt
+
+/**
+ * StorageHeroCard — Always-visible overview of internal `/data` storage capacity, bus type (UFS/eMMC),
+ * filesystem, JEDEC flash wear (human-translated), and primary block I/O status.
+ */
+@Composable
+internal fun StorageHeroCard(
+    uiState: LynxUiState,
+    modifier: Modifier = Modifier
+) {
+    val storage = uiState.mountXStorageInfo
+    val primaryDev = remember(uiState.ioDevices) {
+        uiState.ioDevices.firstOrNull { it.isPrimary }
+    }
+    val totalBytes = storage.internalTotalBytes.coerceAtLeast(0L)
+    val availBytes = storage.internalAvailableBytes.coerceIn(0L, totalBytes)
+    val usedBytes = (totalBytes - availBytes).coerceAtLeast(0L)
+    val usedRatio = if (totalBytes > 0L) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
+    val usedPercent = (usedRatio * 100f).roundToInt()
+
+    val healthColor = when {
+        usedPercent >= 90 -> AccentRed
+        usedPercent >= 75 -> AccentOrange
+        else -> AccentCyan
+    }
+
+    val busLabel = storage.primaryStorageType
+        .ifBlank { primaryDev?.deviceType?.uppercase().orEmpty() }
+        .ifBlank { "Flash Internal" }
+    val fsLabel = storage.internalFsType
+        .ifBlank { if (!storage.isDetected) storage.fsType else "" }
+        .uppercase()
+    val wearInfo = remember(storage.emmcLifeTime) {
+        formatEmmcWearLabel(storage.emmcLifeTime)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    AccentCyan.copy(alpha = 0.28f),
+                    Color(0x15FFFFFF)
+                )
+            )
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = healthColor.copy(alpha = 0.20f),
+                        modifier = Modifier.size(12.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Surface(
+                                shape = CircleShape,
+                                color = healthColor,
+                                modifier = Modifier.size(6.dp)
+                            ) {}
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "PENYIMPANAN INTERNAL (/data)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (storage.emmcName.isNotBlank()) {
+                            Text(
+                                text = "Chip ${storage.emmcName}",
+                                fontSize = 10.sp,
+                                color = TextSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
+                ) {
+                    Text(
+                        text = if (fsLabel.isNotBlank()) "$busLabel • $fsLabel" else busLabel,
+                        color = AccentCyan,
+                        fontSize = 9.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            if (totalBytes > 0L) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            text = "${formatStorageGb(usedBytes, includeUnit = false)} / ${formatStorageGb(totalBytes)}",
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "$usedPercent% • Sisa ${formatStorageGb(availBytes)}",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { usedRatio },
+                        color = healthColor,
+                        trackColor = BgSurfaceLowest,
+                        strokeCap = StrokeCap.Round,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                }
+            } else {
+                Text(
+                    text = "Kapasitas partisi /data sedang dimuat...",
+                    fontSize = 11.5.sp,
+                    color = TextSecondary
+                )
+            }
+
+            if (wearInfo != null || primaryDev != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    wearInfo?.let { (wearLabel, wearColor) ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = wearColor.copy(alpha = 0.10f),
+                            border = BorderStroke(0.6.dp, wearColor.copy(alpha = 0.32f)),
+                            modifier = if (primaryDev != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Wear: $wearLabel",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = wearColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    primaryDev?.let { dev ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = if (wearInfo != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "${dev.device}: ${dev.currentScheduler.ifBlank { "default" }} • ${dev.readAheadKb} KB",
+                                fontSize = 10.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 /**
  * MountXStorageCard — Sub-tab 2 (Storage & I/O).
  * Clean direct controls without lock-bar friction:
- * - MountX Flash Shield + 1-tap Boost/Restore
- * - External MicroSD summary if detected
+ * - External MicroSD policy & MountX Boost/Restore (shown strictly when an external SD card is mounted)
  * - Primary physical block device expanded by default; secondary/virtual nodes collapsible
  */
 @Composable
@@ -117,172 +323,173 @@ fun MountXStorageCard(
         )
     }
 
+    val externalSdDevices = remember(uiState.ioDevices) {
+        uiState.ioDevices.filter {
+            val t = it.deviceType.uppercase()
+            (t == "SD" || (it.device.startsWith("mmcblk") && !it.isPrimary &&
+                !it.device.contains("boot") && !it.device.contains("rpmb")))
+        }
+    }
+    val hasExternalSd = storage.isDetected || externalSdDevices.isNotEmpty()
+    val primaryBusLabel = storage.primaryStorageType.ifBlank {
+        displayedDevices.firstOrNull { it.isPrimary }?.deviceType?.uppercase().orEmpty()
+    }.ifBlank { "Deteksi Otomatis" }
+    val primaryFsLabel = storage.internalFsType
+        .ifBlank { if (!storage.isDetected) storage.fsType else "" }
+        .uppercase()
+
     LynxCard(
         title = "Storage & I/O Scheduler",
         subtitle = buildString {
-            append(storage.primaryStorageType.ifBlank { "Deteksi Otomatis" })
-            if (storage.fsType.isNotBlank()) append(" (${storage.fsType.uppercase()})")
+            append(primaryBusLabel)
+            if (primaryFsLabel.isNotBlank()) append(" ($primaryFsLabel)")
             append(" • ${displayedDevices.size} perangkat")
         },
         icon = Icons.Default.Storage,
         accentColor = AccentCyan,
-        action = {
-            if (storage.isDetected) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (storage.isOptimized) AccentGreenDim else BgElevated,
-                    border = BorderStroke(
-                        0.6.dp,
-                        if (storage.isOptimized) AccentGreen.copy(alpha = 0.4f) else BorderSubtle
-                    )
-                ) {
-                    Text(
-                        text = if (storage.isOptimized) "OPTIMAL" else "STANDAR",
-                        fontSize = 9.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        color = if (storage.isOptimized) AccentGreen else TextSecondary,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                    )
-                }
-            }
-        },
         modifier = modifier
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // ── 1. MountX Physical Flash Shield & Anti-Thrashing ──
-            if (storage.isDetected) {
+            // ── 1. MountX External MicroSD Policy (shown strictly when an external SD card is mounted) ──
+            if (hasExternalSd) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = if (storage.isOptimized) AccentGreen else AccentBlue,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = "MountX Flash Shield (${storage.mountPoint.ifBlank { "/data" }})",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-
-                    val metaPairs = buildList {
-                        if (storage.parentDevice.isNotBlank()) add("Disk" to storage.parentDevice)
-                        if (storage.primaryStorageType.isNotBlank()) add("Bus" to storage.primaryStorageType)
-                        if (storage.fsType.isNotBlank()) add("FS" to storage.fsType.uppercase())
-                        if (storage.emmcName.isNotBlank()) add("Chip" to storage.emmcName)
-                        if (storage.emmcLifeTime.isNotBlank()) add("Wear" to storage.emmcLifeTime)
-                        if (storage.targetReadAheadKb != null) add("Target RA" to "${storage.targetReadAheadKb} KB")
-                    }
-                    if (metaPairs.isNotEmpty()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            metaPairs.chunked(2).forEach { rowPairs ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    rowPairs.forEach { (k, v) ->
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = BgElevated,
-                                            border = BorderStroke(0.6.dp, BorderSubtle),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(k, fontSize = 10.5.sp, color = TextSecondary)
-                                                Text(
-                                                    v,
-                                                    fontSize = 11.sp,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = TextPrimary,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (rowPairs.size == 1) Spacer(Modifier.weight(1f))
-                                }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SdStorage,
+                                contentDescription = null,
+                                tint = if (storage.isOptimized) AccentGreen else AccentBlue,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = "Kebijakan I/O Kartu SD (${storage.mountPoint.ifBlank { "/storage" }})",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (storage.isDetected) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (storage.isOptimized) AccentGreenDim else BgElevated,
+                                border = BorderStroke(
+                                    0.6.dp,
+                                    if (storage.isOptimized) AccentGreen.copy(alpha = 0.4f) else BorderSubtle
+                                )
+                            ) {
+                                Text(
+                                    text = if (storage.isOptimized) "OPTIMAL" else "STANDAR",
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (storage.isOptimized) AccentGreen else TextSecondary,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
                             }
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        LynxActionButton(
-                            text = "MountX Boost",
-                            icon = Icons.Default.Bolt,
-                            accentColor = AccentCyan,
-                            onClick = { viewModel.triggerMountXBoost(context, true) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        LynxActionButton(
-                            text = "Pulihkan Standar",
-                            accentColor = AccentBlue,
-                            onClick = { viewModel.triggerMountXBoost(context, false) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
-            }
+                    Text(
+                        text = "Membatasi read_ahead_kb kartu SD eksternal (<= 256 KB) agar baca-tulis stabil tanpa membebani antrean I/O.",
+                        fontSize = 10.5.sp,
+                        color = TextSecondary,
+                        lineHeight = 14.sp
+                    )
 
-            // ── 2. External MicroSD Card Quick Summary (if detected by kernel) ──
-            val externalSdDevices = remember(uiState.ioDevices) {
-                uiState.ioDevices.filter {
-                    val t = it.deviceType.uppercase()
-                    (t == "SD" || (it.device.startsWith("mmcblk") && !it.isPrimary &&
-                        !it.device.contains("boot") && !it.device.contains("rpmb")))
-                }
-            }
-            if (externalSdDevices.isNotEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AccentBlueDim,
-                    border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SdStorage,
-                            contentDescription = null,
-                            tint = AccentBlue,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "MicroSD Eksternal Terdeteksi",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
+                    if (storage.isDetected) {
+                        val sdMetaPairs = buildList {
+                            if (storage.parentDevice.isNotBlank()) add("Disk" to storage.parentDevice)
+                            if (storage.fsType.isNotBlank()) add("FS" to storage.fsType.uppercase())
+                            if (storage.currentReadAheadKb > 0) add("Read-Ahead" to "${storage.currentReadAheadKb} KB")
+                            if (storage.targetReadAheadKb != null) add("Target RA" to "${storage.targetReadAheadKb} KB")
+                            if (storage.currentScheduler.isNotBlank()) add("Scheduler" to storage.currentScheduler)
+                        }
+                        if (sdMetaPairs.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                sdMetaPairs.chunked(2).forEach { rowPairs ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        rowPairs.forEach { (k, v) ->
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = BgElevated,
+                                                border = BorderStroke(0.6.dp, BorderSubtle),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(k, fontSize = 10.5.sp, color = TextSecondary)
+                                                    Text(
+                                                        v,
+                                                        fontSize = 11.sp,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = TextPrimary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        if (rowPairs.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            LynxActionButton(
+                                text = "MountX Boost",
+                                icon = Icons.Default.Bolt,
+                                accentColor = AccentCyan,
+                                onClick = { viewModel.triggerMountXBoost(context, true) },
+                                modifier = Modifier.weight(1f)
                             )
+                            LynxActionButton(
+                                text = "Pulihkan Standar",
+                                accentColor = AccentBlue,
+                                onClick = { viewModel.triggerMountXBoost(context, false) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else if (externalSdDevices.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = AccentBlueDim,
+                            border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
                                 text = externalSdDevices.joinToString(", ") {
                                     "${it.device} (${it.currentScheduler.ifBlank { "default" }} • ${it.readAheadKb} KB)"
                                 },
                                 fontSize = 10.5.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = AccentBlue
+                                color = AccentBlue,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                             )
                         }
                     }
                 }
+                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
             }
 
             // ── 3. Dynamic Block Device Toggle (Virtual / Boot Partition visibility) ──
@@ -384,14 +591,6 @@ private fun IoBlockDevicePanel(
                                 fontSize = 10.5.sp,
                                 color = TextSecondary
                             )
-                        } else if (dev.policy.isNotBlank()) {
-                            Text(
-                                text = dev.policy,
-                                fontSize = 10.5.sp,
-                                color = TextTertiary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
                         }
                     }
                     Row(
@@ -433,8 +632,9 @@ private fun IoBlockDevicePanel(
                             fontWeight = FontWeight.SemiBold,
                             color = TextSecondary
                         )
+                        val schedCols = if (dev.availableSchedulers.size == 4) 2 else 3
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            dev.availableSchedulers.chunked(3).forEach { rowScheds ->
+                            dev.availableSchedulers.chunked(schedCols).forEach { rowScheds ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -448,7 +648,7 @@ private fun IoBlockDevicePanel(
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
-                                    repeat(3 - rowScheds.size) { Spacer(Modifier.weight(1f)) }
+                                    repeat(schedCols - rowScheds.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         }
@@ -548,7 +748,7 @@ private fun IoBlockDevicePanel(
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextSecondary
                             )
-                            val rqOptions = listOf(0 to "0 (Off)", 1 to "1 (Sibling)", 2 to "2 (Strict)")
+                            val rqOptions = listOf(0 to "0 • Off", 1 to "1 • Sibling", 2 to "2 • Strict")
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -629,4 +829,29 @@ private fun buildDynamicReadAheadOptions(deviceType: String, targetKb: Int?): Li
         .distinct()
         .sorted()
         .take(5)
+}
+
+private fun formatStorageGb(bytes: Long, includeUnit: Boolean = true): String {
+    if (bytes <= 0L) return if (includeUnit) "0.0 GB" else "0.0"
+    val gb = bytes / 1_000_000_000.0
+    val formatted = "%.1f".format(Locale.US, gb)
+    return if (includeUnit) "$formatted GB" else formatted
+}
+
+private fun formatEmmcWearLabel(raw: String): Pair<String, Color>? {
+    if (raw.isBlank()) return null
+    val worst = raw.trim()
+        .split(Regex("\\s+"))
+        .mapNotNull { token -> token.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
+        .filter { it > 0 }
+        .maxOrNull() ?: return null
+    return when {
+        worst == 0x01 -> "Sehat (0–10%)" to AccentGreen
+        worst in 0x02..0x03 -> "Baik (${(worst - 1) * 10}–${worst * 10}%)" to AccentGreen
+        worst in 0x04..0x06 -> "Normal (${(worst - 1) * 10}–${worst * 10}%)" to AccentCyan
+        worst in 0x07..0x09 -> "Menua (${(worst - 1) * 10}–${worst * 10}%)" to AccentOrange
+        worst == 0x0A -> "Kritis (90–100%)" to AccentRed
+        worst >= 0x0B -> "Maksimal (>100%)" to AccentRed
+        else -> null
+    }
 }

@@ -68,6 +68,7 @@ fun MemorySubscreen(
         }
 
         if (targetTab == null || targetTab == 2) {
+            StorageHeroCard(uiState = uiState)
             MountXStorageCard(
                 uiState = uiState,
                 viewModel = viewModel

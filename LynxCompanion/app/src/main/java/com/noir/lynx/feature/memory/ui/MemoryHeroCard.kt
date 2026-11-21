@@ -111,7 +111,11 @@ internal fun MemoryHeroCard(
                     border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
                 ) {
                     Text(
-                        text = if (zramTotalMb > 0) "Swap $zramUsedMb / $zramTotalMb MB" else "ZRAM Off",
+                        text = if (zramTotalMb > 0) {
+                            "Swap ${formatZramGb(zramUsedMb, includeUnit = false)} / ${formatZramGb(zramTotalMb)}"
+                        } else {
+                            "ZRAM Off"
+                        },
                         color = AccentCyan,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,

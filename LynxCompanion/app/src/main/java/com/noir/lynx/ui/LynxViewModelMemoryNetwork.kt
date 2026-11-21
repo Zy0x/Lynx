@@ -68,10 +68,10 @@ fun LynxViewModel.setKsmTunables(pagesToScan: Int, sleepMs: Int) {
 //  Phase 1 Quick Wins: I/O Scheduler
 // ----------------------------------------------------------------
 
-fun LynxViewModel.refreshIoDevices() {
+fun LynxViewModel.refreshIoDevices(forceRefresh: Boolean = false) {
     viewModelScope.launch(Dispatchers.IO) {
         try {
-            val raw = LynxRepository.readIoDevices()
+            val raw = LynxRepository.readIoDevices(forceRefresh = forceRefresh)
             val devices = mergeIoDevicesWithIntents(raw)
             _uiState.update { it.copy(ioDevices = devices) }
         } catch (_: Exception) {}
@@ -87,7 +87,19 @@ fun LynxViewModel.setIoScheduler(device: String, scheduler: String) {
         })
     }
     viewModelScope.launch(Dispatchers.IO) {
-        LynxRepository.setIoScheduler(device, scheduler)
+        val ok = LynxRepository.setIoScheduler(device, scheduler)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = "Scheduler $device diubah ke $scheduler") }
+        } else {
+            activeIoSchedulerIntents.remove(device)
+            val fresh = LynxRepository.readIoDevices(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    ioDevices = mergeIoDevicesWithIntents(fresh),
+                    errorMessage = "Kernel menolak perubahan scheduler '$scheduler' pada $device"
+                )
+            }
+        }
     }
 }
 
@@ -100,7 +112,19 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
         })
     }
     viewModelScope.launch(Dispatchers.IO) {
-        LynxRepository.setReadAheadKb(device, kb)
+        val ok = LynxRepository.setReadAheadKb(device, kb)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = "Read-Ahead $device diatur ke $kb KB") }
+        } else {
+            activeReadAheadIntents.remove(device)
+            val fresh = LynxRepository.readIoDevices(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    ioDevices = mergeIoDevicesWithIntents(fresh),
+                    errorMessage = "Gagal mengubah Read-Ahead $device ke $kb KB"
+                )
+            }
+        }
     }
 }
 

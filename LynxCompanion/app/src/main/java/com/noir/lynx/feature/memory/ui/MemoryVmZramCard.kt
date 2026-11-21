@@ -64,15 +64,21 @@ fun MemoryVmZramCard(
     val liveAlgo = uiState.zramCompAlgorithm.ifBlank { kernelAlgos.firstOrNull().orEmpty() }
     val swappinessMax = uiState.vmAdvanced.swappinessMax.coerceAtLeast(100)
 
-    // Dynamic RAM-proportional ZRAM chips strictly within 50% RAM kernel safety cap
+    // Standard GB capacity presets filtered strictly within the kernel's 50% RAM safety cap
     val dynamicZramSizes = remember(ramTotalMb, maxSafeZramMb) {
-        listOf(12, 25, 38, 50)
-            .map { pct ->
-                (((ramTotalMb * pct) / 100f) / 128f).roundToInt().coerceAtLeast(1) * 128
-            }
+        val standardSteps = listOf(0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0)
+            .map { (it * 1024.0).roundToInt() }
             .filter { it in 128..maxSafeZramMb }
-            .distinct()
-            .sorted()
+            .toMutableList()
+        val maxQuarterAlignedMb = ((maxSafeZramMb / 256) * 256).takeIf { it >= 256 }
+            ?: ((maxSafeZramMb / 128) * 128)
+        if (maxQuarterAlignedMb >= 128 &&
+            maxQuarterAlignedMb !in standardSteps &&
+            (standardSteps.isEmpty() || maxQuarterAlignedMb - standardSteps.last() >= 256)
+        ) {
+            standardSteps.add(maxQuarterAlignedMb)
+        }
+        standardSteps.distinct().sorted().takeLast(4)
     }
 
     var stagedAlgo by remember(liveAlgo) { mutableStateOf(liveAlgo) }
@@ -83,16 +89,13 @@ fun MemoryVmZramCard(
     val sliderMaxZramMb = maxOf(maxSafeZramMb, stagedZramMb, 512)
 
     if (showCustomZramDialog) {
-        CustomNumericInputDialog(
-            title = "Ukuran ZRAM Kustom",
-            unit = "MB",
-            currentValue = stagedZramMb.coerceIn(128, maxSafeZramMb),
-            min = 128,
-            max = maxSafeZramMb,
-            hint = "Total RAM fisik: $ramTotalMb MB. Batas aman kernel maksimal 50% RAM ($maxSafeZramMb MB).",
+        CustomZramGbDialog(
+            currentMb = stagedZramMb.coerceIn(128, maxSafeZramMb),
+            maxSafeMb = maxSafeZramMb,
+            ramTotalMb = ramTotalMb,
             accentColor = AccentCyan,
             onDismiss = { showCustomZramDialog = false },
-            onConfirm = { customMb ->
+            onConfirmMb = { customMb ->
                 stagedZramMb = customMb
                 showCustomZramDialog = false
             }
@@ -130,10 +133,11 @@ fun MemoryVmZramCard(
                 )
             },
             text = {
+                val stagedGbText = formatZramGb(stagedZramMb)
                 val desc = if (liveSwapUsedMb > 0) {
-                    "ZRAM saat ini masih menampung $liveSwapUsedMb MB halaman aktif. Perubahan ukuran atau algoritma ke ${stagedAlgo.uppercase()} • $stagedZramMb MB hanya dapat diterapkan langsung saat ZRAM kosong (0 MB)."
+                    "ZRAM saat ini masih menampung ${formatZramGb(liveSwapUsedMb)} halaman aktif. Perubahan ukuran atau algoritma ke ${stagedAlgo.uppercase()} • $stagedGbText hanya dapat diterapkan langsung saat ZRAM kosong (0 GB)."
                 } else {
-                    "Mengatur ZRAM ke ${stagedAlgo.uppercase()} • $stagedZramMb MB."
+                    "Mengatur ZRAM ke ${stagedAlgo.uppercase()} • $stagedGbText."
                 }
                 Text(
                     text = desc,
@@ -187,7 +191,7 @@ fun MemoryVmZramCard(
                         border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
                     ) {
                         Text(
-                            text = "${liveAlgo.ifBlank { "-" }.uppercase()} • $liveZramMb MB",
+                            text = "${liveAlgo.ifBlank { "-" }.uppercase()} • ${formatZramGb(liveZramMb)}",
                             fontSize = 9.5.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -242,7 +246,7 @@ fun MemoryVmZramCard(
                             color = TextSecondary
                         )
                         val sizeChipItems: List<Pair<String, Int?>> =
-                            dynamicZramSizes.map { "${it} MB" to it } + ("Kustom" to null)
+                            dynamicZramSizes.map { formatZramGb(it) to it } + ("Kustom" to null)
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             sizeChipItems.chunked(3).forEach { rowItems ->
                                 Row(
@@ -257,7 +261,7 @@ fun MemoryVmZramCard(
                                             stagedZramMb == mbOpt
                                         }
                                         MemoryOptionChip(
-                                            label = if (isCustomBtn && isSelected) "${stagedZramMb}M*" else label,
+                                            label = if (isCustomBtn && isSelected) "${formatZramGb(stagedZramMb)}*" else label,
                                             selected = isSelected,
                                             accentColor = if (isCustomBtn) AccentPurple else AccentCyan,
                                             onClick = {
@@ -278,12 +282,10 @@ fun MemoryVmZramCard(
                         value = stagedZramMb.toFloat(),
                         valueRange = 128f..sliderMaxZramMb.toFloat(),
                         stepSize = 128f,
-                        displayValue = { "${it.roundToInt()} MB" },
+                        displayValue = { formatZramGb(it.roundToInt()) },
                         accentColor = AccentCyan,
-                        unit = "MB",
-                        customDialogMin = 128,
-                        customDialogMax = maxSafeZramMb,
-                        customDialogHint = "Kelipatan 128 MB disarankan (batas aman maksimal 50% RAM: $maxSafeZramMb MB).",
+                        allowCustomInput = false,
+                        onCustomClick = { showCustomZramDialog = true },
                         onCommitValue = { stagedZramMb = it.roundToInt() }
                     )
 
@@ -296,14 +298,14 @@ fun MemoryVmZramCard(
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (liveSwapUsedMb > 0) {
                                 Text(
-                                    text = "ZRAM saat ini menampung $liveSwapUsedMb MB data aktif; resize live membutuhkan swap 0 MB.",
+                                    text = "ZRAM saat ini menampung ${formatZramGb(liveSwapUsedMb)} data aktif; resize live membutuhkan swap 0 GB.",
                                     fontSize = 10.5.sp,
                                     color = AccentOrange,
                                     lineHeight = 14.sp
                                 )
                             }
                             LynxActionButton(
-                                text = "Terapkan ZRAM (${stagedAlgo.uppercase()} • $stagedZramMb MB)",
+                                text = "Terapkan ZRAM (${stagedAlgo.uppercase()} • ${formatZramGb(stagedZramMb)})",
                                 icon = Icons.Default.Bolt,
                                 accentColor = AccentCyan,
                                 onClick = {

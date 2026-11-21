@@ -40,6 +40,7 @@ fun LynxViewModel.setZramCompAlgorithm(algo: String) {
 
 fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
     val safeMb = mb.coerceAtLeast(128)
+    val gbText = com.noir.lynx.feature.memory.ui.formatZramGb(safeMb)
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setZramCompAlgorithm(algo, safeMb)
@@ -53,7 +54,7 @@ fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
                     zramCompAlgorithm = zramComp.first.ifBlank { algo },
                     availZramCompAlgorithms = zramComp.second.ifEmpty { current.availZramCompAlgorithms },
                     state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = safeMb)),
-                    successMessage = "ZRAM dikonfigurasi: ${safeMb} MB (${algo.uppercase()})"
+                    successMessage = "ZRAM dikonfigurasi: $gbText (${algo.uppercase()})"
                 )
             }
             refreshState()
@@ -61,9 +62,9 @@ fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
             val usedSwap = _uiState.value.telemetry?.zramUsedMb?.takeIf { it > 0 }
                 ?: (_uiState.value.telemetry?.swapUsedMb ?: 0)
             val reason = if (usedSwap > 0) {
-                "ZRAM sedang menampung $usedSwap MB halaman aktif; ubah saat ZRAM kosong (0 MB)."
+                "ZRAM sedang menampung ${com.noir.lynx.feature.memory.ui.formatZramGb(usedSwap)} data aktif; ubah saat ZRAM kosong."
             } else {
-                "Gagal menerapkan ZRAM (${safeMb} MB • ${algo.uppercase()}). Pastikan ukuran ≤ 50% RAM."
+                "Gagal menerapkan ZRAM ($gbText • ${algo.uppercase()}). Pastikan ukuran ≤ 50% RAM."
             }
             _uiState.update { it.copy(errorMessage = reason) }
         }

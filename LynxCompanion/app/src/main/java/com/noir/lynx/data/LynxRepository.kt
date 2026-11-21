@@ -548,7 +548,7 @@ object LynxRepository {
 
     suspend fun setKsmTunables(pagesToScan: Int, sleepMs: Int): Boolean = LynxSystemTuningRepository.setKsmTunables(pagesToScan, sleepMs)
 
-    suspend fun readIoDevices(): List<IoDeviceInfo> = LynxSystemTuningRepository.readIoDevices()
+    suspend fun readIoDevices(forceRefresh: Boolean = false): List<IoDeviceInfo> = LynxSystemTuningRepository.readIoDevices(forceRefresh)
 
     suspend fun setIoScheduler(device: String, scheduler: String): Boolean = LynxSystemTuningRepository.setIoScheduler(device, scheduler)
 

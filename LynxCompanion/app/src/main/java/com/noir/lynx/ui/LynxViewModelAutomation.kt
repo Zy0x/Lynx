@@ -305,8 +305,28 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.refreshMountXStorageInfo() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val (dataTotalBytes, dataAvailBytes) = runCatching {
+                val stat = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+                stat.totalBytes to stat.availableBytes
+            }.getOrDefault(0L to 0L)
+
+            val dataFsType = runCatching {
+                java.io.File("/proc/mounts").useLines { lines ->
+                    lines.firstNotNullOfOrNull { line ->
+                        val parts = line.trim().split(Regex("\\s+"))
+                        if (parts.size >= 3 && parts[1] == "/data") parts[2] else null
+                    }
+                }.orEmpty()
+            }.getOrDefault("")
+
+            var baseInfo = MountXStorageInfo(
+                internalFsType = dataFsType,
+                internalTotalBytes = dataTotalBytes,
+                internalAvailableBytes = dataAvailBytes
+            )
+
             val path = LynxRepository.getLynxdPath()
-            val result = com.topjohnwu.superuser.Shell.cmd("'$path' io mountx-info").exec()
+            val result = com.topjohnwu.superuser.Shell.cmd("'$path' io mountx-info 2>/dev/null").exec()
             val out = result.out.joinToString("\n").trim()
             if (out.startsWith("{") && out.endsWith("}")) {
                 try {
@@ -318,7 +338,7 @@ import kotlinx.coroutines.flow.update
                             pidsList.add(pidsArray.getInt(i))
                         }
                     }
-                    val info = MountXStorageInfo(
+                    baseInfo = MountXStorageInfo(
                         isDetected = json.optBoolean("is_detected", false),
                         mountPoint = json.optString("mount_point", ""),
                         partitionName = json.optString("partition_name", ""),
@@ -335,13 +355,38 @@ import kotlinx.coroutines.flow.update
                         isPrimaryEmmc = json.optBoolean("is_primary_emmc", false),
                         primaryStorageType = json.optString("primary_storage_type", ""),
                         emmcName = json.optString("emmc_name", ""),
-                        emmcLifeTime = json.optString("emmc_life_time", "")
+                        emmcLifeTime = json.optString("emmc_life_time", ""),
+                        internalFsType = dataFsType,
+                        internalTotalBytes = dataTotalBytes,
+                        internalAvailableBytes = dataAvailBytes
                     )
-                    _uiState.update { it.copy(mountXStorageInfo = info) }
                 } catch (e: Exception) {
                     android.util.Log.e("LynxAutomation", "Error parsing mountx info: ${e.message}")
                 }
+            } else {
+                // Standalone fallback without lynxd: probe primary eMMC / UFS details safely
+                val fallback = com.topjohnwu.superuser.Shell.cmd("""
+                    chip=""
+                    life=""
+                    ptype=""
+                    if [ -d /sys/block/mmcblk0/device ] && [ -f /sys/block/mmcblk0/device/ext_csd ]; then
+                        ptype="eMMC 5.1 Flash"
+                        chip=${'$'}(cat /sys/block/mmcblk0/device/name 2>/dev/null)
+                        life=${'$'}(cat /sys/block/mmcblk0/device/life_time 2>/dev/null)
+                    elif [ -d /sys/block/sda/device ]; then
+                        ptype="UFS High-Throughput"
+                    fi
+                    echo "${'$'}ptype|${'$'}chip|${'$'}life"
+                """.trimIndent()).exec().out.firstOrNull()?.split("|")
+                baseInfo = baseInfo.copy(
+                    primaryStorageType = fallback?.getOrNull(0)?.trim().orEmpty(),
+                    emmcName = fallback?.getOrNull(1)?.trim().orEmpty(),
+                    emmcLifeTime = fallback?.getOrNull(2)?.trim().orEmpty(),
+                    isPrimaryEmmc = fallback?.getOrNull(0)?.contains("eMMC", ignoreCase = true) == true
+                )
             }
+
+            _uiState.update { it.copy(mountXStorageInfo = baseInfo) }
         }
     }
 
@@ -363,6 +408,7 @@ import kotlinx.coroutines.flow.update
                 else -> AppLocale.getString(context, R.string.storage_policy_applied)
             }
             refreshMountXStorageInfo()
+            refreshIoDevices(forceRefresh = true)
             _uiState.update { if (ok) it.copy(successMessage = message) else it.copy(errorMessage = message) }
         }
     }

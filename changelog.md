@@ -1,3 +1,16 @@
+# Lynx Universal [Storage Hero Overview, SD-Scoped MountX, I/O Sync Fixes & GB ZRAM UX] 7.0.0-RC431
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.50
+
+### Companion App (`feature/memory/ui`, `LynxGpuModels` & Storage/Memory ViewModels/Repositories)
+- **Internal Storage Hero Overview & Clean Storage Tab (`StorageHeroCard`, `MountXStorageCard`, `MemorySubscreen`)**:
+  - Added always-visible `StorageHeroCard` on the Storage & I/O tab showing real-time `/data` storage usage (`StatFs` used / total GB + progress bar), `/data` filesystem (`EXT4` / `F2FS`), bus type (`UFS` / `eMMC`), chip identifier, primary block I/O state, and human-readable JEDEC eMMC flash wear status (`0x01 0x01` -> `Sehat (0–10%)`, etc.) with standalone sysfs fallback when `lynxd` JSON is unavailable.
+  - Scoped MountX policy controls strictly to mounted external MicroSD cards (`storage.isDetected || externalSdDevices.isNotEmpty()`), removing the duplicate MicroSD banner and clarifying that MountX governs external SD `read_ahead_kb` (`<= 256 KB`) rather than internal `/data`.
+  - Removed raw `dev.policy` technical tokens (`preserve_kernel`, `sd_prefetch_cap`) from block device headers, rendered 4-scheduler grids cleanly in 2×2 rows (`chunked(2)`), and shortened `RQ Affinity` chip labels (`0 • Off`, `1 • Sibling`, `2 • Strict`) to prevent ellipsis truncation on narrow displays.
+- **ZRAM Capacity Standardized in GB & Storage Sync Verification (`MemoryTuningControls`, `MemoryHeroCard`, `MemoryVmZramCard`, `LynxRepository`, `LynxViewModel`)**:
+  - Converted all ZRAM capacity displays, dynamic RAM-capped preset chips, slider readouts, confirmation dialogs, ViewModel status messages, and `MemoryHeroCard` Swap badge (`Swap X.XX / Y.Y GB`) from MB to GB via shared `formatZramGb(...)` and a new decimal `CustomZramGbDialog` (enforcing the kernel's 50% RAM safety cap).
+  - Added `forceRefresh` cache bypass on `LynxRepository.readIoDevices` / `loadMemorySubsystemData` after `MountX Boost` / restore, plus return-value verification, rollback, and user feedback messages on `setIoScheduler` and `setReadAheadKb`.
+
 # Lynx Universal [Clean Memory & Storage UX, Layout Alignment & LMK/ZRAM Fixes] 7.0.0-RC430
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.49

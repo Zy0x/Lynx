@@ -95,7 +95,7 @@ fun LynxViewModel.loadThermalSubsystemData() {
 fun LynxViewModel.loadMemorySubsystemData(forceRefresh: Boolean = false) {
     viewModelScope.launch(Dispatchers.IO) {
         val ksmStats = LynxRepository.readKsmStats()
-        val ioDevices = LynxRepository.readIoDevices()
+        val ioDevices = LynxRepository.readIoDevices(forceRefresh = forceRefresh)
         val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = forceRefresh)
         val zramComp = LynxRepository.readZramCompAlgorithms()
         val memoryEntropy = LynxRepository.readMemoryEntropy()

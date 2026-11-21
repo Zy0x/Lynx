@@ -242,7 +242,10 @@ data class MountXStorageInfo(
     val isPrimaryEmmc: Boolean = false,
     val primaryStorageType: String = "",
     val emmcName: String = "",
-    val emmcLifeTime: String = ""
+    val emmcLifeTime: String = "",
+    val internalFsType: String = "",
+    val internalTotalBytes: Long = 0L,
+    val internalAvailableBytes: Long = 0L
 )
 
 // ============================================================

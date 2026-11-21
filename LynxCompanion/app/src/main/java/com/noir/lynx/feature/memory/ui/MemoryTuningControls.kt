@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.designsystem.controls.SafeSlider
 import com.noir.lynx.designsystem.theme.*
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -65,7 +66,7 @@ internal fun MemoryOptionChip(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
         ) {
             Text(
                 text = label,
@@ -222,6 +223,7 @@ internal fun MemoryValueSlider(
     customDialogMin: Int = valueRange.start.roundToInt(),
     customDialogMax: Int = valueRange.endInclusive.roundToInt(),
     customDialogHint: String = "",
+    onCustomClick: (() -> Unit)? = null,
     onCommitValue: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -279,10 +281,16 @@ internal fun MemoryValueSlider(
                 shape = RoundedCornerShape(8.dp),
                 color = accentColor.copy(alpha = 0.14f),
                 border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f)),
-                modifier = if (allowCustomInput) {
+                modifier = if (allowCustomInput || onCustomClick != null) {
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { showCustomDialog = true }
+                        .clickable {
+                            if (onCustomClick != null) {
+                                onCustomClick()
+                            } else {
+                                showCustomDialog = true
+                            }
+                        }
                 } else Modifier
             ) {
                 Row(
@@ -296,7 +304,7 @@ internal fun MemoryValueSlider(
                         fontWeight = FontWeight.Bold,
                         color = accentColor
                     )
-                    if (allowCustomInput) {
+                    if (allowCustomInput || onCustomClick != null) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Ubah $label",
@@ -341,4 +349,139 @@ internal fun MemoryValueSlider(
             )
         }
     }
+}
+
+/**
+ * Formats a ZRAM capacity in megabytes into human-friendly gigabytes (base-2 MiB -> GiB).
+ */
+internal fun formatZramGb(
+    mb: Int,
+    includeUnit: Boolean = true,
+    includeZeroDecimal: Boolean = false
+): String {
+    val suffix = if (includeUnit) " GB" else ""
+    if (mb <= 0) {
+        return (if (includeZeroDecimal) "0.0" else "0") + suffix
+    }
+    val gb = mb / 1024.0
+    val formatted = when {
+        mb % 1024 == 0 -> "${mb / 1024}.0"
+        mb % 512 == 0 -> "%.1f".format(Locale.US, gb)
+        else -> "%.2f".format(Locale.US, gb.coerceAtLeast(0.01))
+    }
+    return formatted + suffix
+}
+
+/**
+ * Decimal GB input dialog for custom ZRAM sizing, validating safely against the kernel's 50% RAM cap.
+ */
+@Composable
+internal fun CustomZramGbDialog(
+    currentMb: Int,
+    maxSafeMb: Int,
+    ramTotalMb: Int,
+    accentColor: Color = AccentCyan,
+    onDismiss: () -> Unit,
+    onConfirmMb: (Int) -> Unit
+) {
+    val safeMaxMb = maxSafeMb.coerceAtLeast(128)
+    var text by remember(currentMb) {
+        mutableStateOf(formatZramGb(currentMb.coerceIn(128, safeMaxMb), includeUnit = false))
+    }
+    val parsedGb = text.trim().replace(',', '.').toDoubleOrNull()
+    val computedMb = parsedGb?.let { (it * 1024.0).roundToInt() }
+    val isValid = parsedGb != null && parsedGb > 0.0 && computedMb != null && computedMb in 128..safeMaxMb
+    val maxGbText = formatZramGb(safeMaxMb)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF10141F),
+        shape = RoundedCornerShape(18.dp),
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "Ukuran ZRAM Kustom (GB)",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { input ->
+                        val cleaned = input.filter { it.isDigit() || it == '.' || it == ',' }
+                        val sepCount = cleaned.count { it == '.' || it == ',' }
+                        if (sepCount <= 1 && cleaned.length <= 6) {
+                            text = cleaned
+                        }
+                    },
+                    singleLine = true,
+                    label = { Text("Kapasitas ZRAM", fontSize = 12.sp) },
+                    suffix = {
+                        Text(
+                            text = "GB",
+                            fontSize = 12.sp,
+                            color = accentColor,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    isError = text.isNotEmpty() && !isValid,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = BorderSubtle,
+                        errorBorderColor = AccentRed,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        cursorColor = accentColor
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = if (isValid && computedMb != null) {
+                        "Setara $computedMb MB (${formatZramGb(computedMb)}). Batas aman 50% RAM: maks $maxGbText."
+                    } else {
+                        "RAM total ${formatZramGb(ramTotalMb)}. Masukkan 0.13 – ${formatZramGb(safeMaxMb, includeUnit = false)} GB (maks $maxGbText)."
+                    },
+                    fontSize = 11.sp,
+                    color = if (!isValid && text.isNotEmpty()) AccentRed else TextSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { computedMb?.let { onConfirmMb(it.coerceIn(128, safeMaxMb)) } },
+                enabled = isValid,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor,
+                    contentColor = BgDeepOled
+                ),
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Terapkan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Batal", color = TextSecondary, fontSize = 13.sp)
+            }
+        }
+    )
 }
