@@ -21,15 +21,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.designsystem.controls.LynxActionButton
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
 import com.noir.lynx.ui.cleanRam
 
 /**
- * MemoryHeroCard — Real-time RAM & ZRAM telemetry summary + quick safe background cleanup.
+ * MemoryHeroCard — Clean real-time RAM & Swap summary + safe background cleanup.
+ * Properly padded at 16.dp horizontal margin to align seamlessly with all LynxCard containers.
  */
 @Composable
-internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
+internal fun MemoryHeroCard(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    modifier: Modifier = Modifier
+) {
     val telemetry = uiState.telemetry
     val ramTotalMb = telemetry?.ramTotalMb?.takeIf { it > 0 } ?: 4096
     val ramUsedMb = (telemetry?.ramUsedMb ?: 0).coerceIn(0, ramTotalMb)
@@ -50,20 +56,25 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
     }
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color(0xFF10141F),
         border = BorderStroke(
             0.8.dp,
             Brush.verticalGradient(
                 listOf(
-                    AccentBlue.copy(alpha = 0.28f),
+                    AccentCyan.copy(alpha = 0.28f),
                     Color(0x15FFFFFF)
                 )
             )
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Top Status Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -77,17 +88,17 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
                             shape = CircleShape,
-                            color = AccentBlue.copy(alpha = 0.18f),
+                            color = healthColor.copy(alpha = 0.20f),
                             modifier = Modifier.size(12.dp)
                         ) {}
                         Surface(
                             shape = CircleShape,
-                            color = AccentBlue,
+                            color = healthColor,
                             modifier = Modifier.size(6.dp)
                         ) {}
                     }
                     Text(
-                        text = "Ringkasan Memori & ZRAM",
+                        text = "Status Memori & Swap",
                         color = TextSecondary.copy(alpha = 0.85f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
@@ -96,20 +107,18 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
 
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = AccentBlue.copy(alpha = 0.12f),
-                    border = BorderStroke(0.5.dp, AccentBlue.copy(alpha = 0.35f))
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
                 ) {
                     Text(
                         text = if (zramTotalMb > 0) "Swap $zramUsedMb / $zramTotalMb MB" else "ZRAM Off",
-                        color = AccentBlue,
+                        color = AccentCyan,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
-
-            Spacer(Modifier.height(12.dp))
 
             // Main RAM Metric Row
             Row(
@@ -118,15 +127,15 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = AccentBlue.copy(alpha = 0.10f),
-                    border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.25f)),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Storage,
                             contentDescription = null,
-                            tint = AccentBlue,
+                            tint = AccentCyan,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -136,14 +145,14 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
                     Text(
                         text = if (ramUsedMb > 0) "$ramUsedMb / $ramTotalMb MB" else "$ramTotalMb MB Total RAM",
                         color = TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.2).sp
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = if (ramUsedMb > 0) "Sisa bebas ~$ramAvailMb MB • Swap ${activeAlgo.uppercase()}" else "Manajemen RAM & komposisi ZRAM",
-                        color = TextSecondary.copy(alpha = 0.80f),
+                        text = if (ramUsedMb > 0) "Tersedia ~$ramAvailMb MB" else "Memantau penggunaan RAM",
+                        color = TextSecondary,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -168,7 +177,6 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
             }
 
             // Live RAM Utilization Progress Bar
-            Spacer(Modifier.height(10.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -185,81 +193,50 @@ internal fun MemoryHeroCard(uiState: LynxUiState, viewModel: LynxViewModel) {
                 )
             }
 
-            // Unified Telemetry Ribbon
-            Spacer(Modifier.height(11.dp))
+            // Concise Non-Redundant Telemetry Ribbon
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF0C0F17),
-                border = BorderStroke(0.5.dp, Color(0x15FFFFFF)),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Target", color = TextSecondary.copy(alpha = 0.55f), fontSize = 10.sp)
-                        Text("${zramConfiguredMb} MB", color = AccentBlue, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Kompresi", color = TextSecondary, fontSize = 10.5.sp)
+                        Text(activeAlgo.uppercase(), color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Algo", color = TextSecondary.copy(alpha = 0.55f), fontSize = 10.sp)
-                        Text(activeAlgo.uppercase(), color = TextPrimary, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Swappiness", color = TextSecondary.copy(alpha = 0.55f), fontSize = 10.sp)
-                        Text("$swappiness", color = AccentCyan, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Swappiness", color = TextSecondary, fontSize = 10.5.sp)
+                        Text("$swappiness", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                     if (uiState.ksmStats.supported) {
-                        Text("•", color = TextSecondary.copy(alpha = 0.3f), fontSize = 9.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("KSM", color = TextSecondary.copy(alpha = 0.55f), fontSize = 10.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("KSM", color = TextSecondary, fontSize = 10.5.sp)
                             Text(
                                 text = if (uiState.ksmStats.enabled) "Aktif" else "Off",
                                 color = if (uiState.ksmStats.enabled) AccentGreen else TextSecondary,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            // Safe Background RAM Cleanup Button (48.dp)
-            Surface(
-                onClick = { if (!uiState.isCleaningRam) viewModel.cleanRam() },
-                enabled = !uiState.isCleaningRam,
-                shape = RoundedCornerShape(10.dp),
-                color = AccentCyan.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.42f)),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (uiState.isCleaningRam) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = AccentCyan,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Membersihkan Cache Latar...", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.CleaningServices, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Bersihkan Proses Latar & Buffer RAM", color = AccentCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            // Safe Background RAM Cleanup Button
+            LynxActionButton(
+                text = if (uiState.isCleaningRam) "Membersihkan Cache Latar..." else "Bersihkan Cache & Buffer RAM",
+                icon = Icons.Default.CleaningServices,
+                isLoading = uiState.isCleaningRam,
+                accentColor = AccentCyan,
+                onClick = { viewModel.cleanRam() }
+            )
         }
     }
 }

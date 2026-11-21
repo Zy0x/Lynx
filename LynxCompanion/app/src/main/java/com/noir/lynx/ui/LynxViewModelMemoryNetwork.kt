@@ -104,6 +104,26 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
     }
 }
 
+fun LynxViewModel.setIoQueueTunable(device: String, key: String, value: Int) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(ioDevices = current.ioDevices.map { info ->
+            if (info.device != device) info else when (key) {
+                "nr_requests" -> info.copy(nrRequests = value)
+                "iostats" -> info.copy(iostats = value)
+                "rq_affinity" -> info.copy(rqAffinity = value)
+                else -> info
+            }
+        })
+    }
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.setIoQueueTunable(device, key, value)
+        if (!ok) {
+            _uiState.update { it.copy(errorMessage = "Gagal mengubah parameter I/O $key pada $device") }
+        }
+    }
+}
+
 // ----------------------------------------------------------------
 //  Phase 1 Quick Wins: TCP Congestion Control
 // ----------------------------------------------------------------
@@ -254,9 +274,18 @@ fun LynxViewModel.applyLmkPreset(preset: String) {
     recordStateMutation()
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyLmkPreset(preset)
-        _uiState.update {
-            if (ok) it.copy(successMessage = "LMK preset '$preset' diterapkan")
-            else it.copy(errorMessage = "LMK tidak didukung — kernel ini menggunakan LMKD userspace")
+        if (ok) {
+            val freshEntropy = LynxRepository.readMemoryEntropy()
+            _uiState.update {
+                it.copy(
+                    memoryEntropy = freshEntropy,
+                    successMessage = "Preset LMK '$preset' diterapkan"
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(errorMessage = "LMK tidak didukung — kernel ini menggunakan LMKD userspace")
+            }
         }
     }
 }

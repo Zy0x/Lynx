@@ -554,6 +554,8 @@ object LynxRepository {
 
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = LynxSystemTuningRepository.setReadAheadKb(device, kb)
 
+    suspend fun setIoQueueTunable(device: String, key: String, value: Int): Boolean = LynxSystemTuningRepository.setIoQueueTunable(device, key, value)
+
     suspend fun readAvailableTcpAlgorithms(): List<String> = LynxSystemTuningRepository.readAvailableTcpAlgorithms()
 
     suspend fun readCurrentTcpCongestion(): String = LynxSystemTuningRepository.readCurrentTcpCongestion()
@@ -761,8 +763,12 @@ object LynxRepository {
     suspend fun setDirtyWritebackCentisecs(cs: Int): Boolean = LynxVmTuningRepository.setDirtyWritebackCentisecs(cs)
     suspend fun readVmStatInterval(): Int = LynxVmTuningRepository.readVmStatInterval()
     suspend fun setVmStatInterval(interval: Int): Boolean = LynxVmTuningRepository.setVmStatInterval(interval)
-    suspend fun readVirtualMemoryAdvancedConfig(): VirtualMemoryAdvancedConfig = LynxVmTuningRepository.readVirtualMemoryAdvancedConfig()
+    suspend fun readVirtualMemoryAdvancedConfig(forceRefresh: Boolean = false): VirtualMemoryAdvancedConfig = LynxVmTuningRepository.readVirtualMemoryAdvancedConfig(forceRefresh)
     suspend fun applyVmPreset(preset: String): Boolean = LynxVmTuningRepository.applyVmPreset(preset)
+    suspend fun setMglruMinTtlMs(ttlMs: Int): Boolean = LynxVmTuningRepository.setMglruMinTtlMs(ttlMs)
+    suspend fun setPageCluster(cluster: Int): Boolean = LynxVmTuningRepository.setPageCluster(cluster)
+    suspend fun setSwappinessUnified(value: Int): Boolean = LynxVmTuningRepository.setSwappinessUnified(value)
+    suspend fun setCustomLmkMinfreeMb(tiersMb: List<Int>): Boolean = LynxMemoryTuningRepository.setCustomLmkMinfreeMb(tiersMb)
     suspend fun readWakelockBlockerInfo(): WakelockBlockerInfo = LynxWakelockRepository.readWakelockBlockerInfo()
 
     suspend fun setWakelockBlocked(name: String, blocked: Boolean): Boolean = LynxWakelockRepository.setWakelockBlocked(name, blocked)

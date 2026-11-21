@@ -95,3 +95,44 @@ import kotlinx.coroutines.flow.update
             }
         }
     }
+
+    fun LynxViewModel.setCustomLmkMinfreeMb(tiersMb: List<Int>) {
+        recordStateMutation()
+        _uiState.update { it.copy(memoryEntropy = it.memoryEntropy.copy(minfreeMb = tiersMb)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.setCustomLmkMinfreeMb(tiersMb)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Minfree LMK kustom diterapkan") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal menulis minfree LMK") }
+            }
+        }
+    }
+
+    fun LynxViewModel.setMglruMinTtlMs(ttlMs: Int) {
+        val clamped = ttlMs.coerceIn(0, 5000)
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+        _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(mglruMinTtlMs = clamped, activePreset = "custom")) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.setMglruMinTtlMs(clamped)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "MGLRU min_ttl_ms diatur ke ${clamped} ms") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Kernel tidak mendukung/mengizinkan penulisan MGLRU min_ttl_ms") }
+            }
+        }
+    }
+
+    fun LynxViewModel.setPageCluster(cluster: Int) {
+        val clamped = cluster.coerceIn(0, 8)
+        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+        _uiState.update { it.copy(vmAdvanced = it.vmAdvanced.copy(pageCluster = clamped, activePreset = "custom")) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.setPageCluster(clamped)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "VM page-cluster diatur ke $clamped") }
+            } else {
+                _uiState.update { it.copy(errorMessage = "Gagal mengubah VM page-cluster") }
+            }
+        }
+    }

@@ -153,7 +153,7 @@ import kotlinx.coroutines.flow.update
         }
         setKey("memory.swappiness", value.toString(), "val")
         viewModelScope.launch(Dispatchers.IO) {
-            com.topjohnwu.superuser.Shell.cmd("echo $value > /proc/sys/vm/swappiness 2>/dev/null").exec()
+            LynxRepository.setSwappinessUnified(value)
         }
     }
 

@@ -1,233 +1,344 @@
 package com.noir.lynx.feature.memory.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noir.lynx.designsystem.controls.LynxSlider
+import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.designsystem.controls.SafeSlider
 import com.noir.lynx.designsystem.theme.*
 import kotlin.math.roundToInt
 
 /**
- * GuardedTuningBar — Safety lock switch for Memory & Storage cards so scrolling or horizontal
- * pager swipes cannot accidentally drag sliders or mutate kernel tunables.
+ * MemoryOptionChip — Touch-first >= 48dp option chip used across Memory & Storage sections.
  */
 @Composable
-internal fun GuardedTuningBar(
-    isUnlocked: Boolean,
-    onToggleUnlock: (Boolean) -> Unit,
-    accentColor: Color,
-    lockedText: String = "Mode Aman • Kontrol Terkunci",
-    unlockedText: String = "Mode Edit Terbuka • Aman Digeser",
+internal fun MemoryOptionChip(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean = true,
+    accentColor: Color = AccentCyan,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val barColor = if (isUnlocked) accentColor else TextSecondary
+    val haptic = LocalHapticFeedback.current
+    val bgColor = when {
+        selected -> accentColor.copy(alpha = 0.16f)
+        enabled -> BgElevated
+        else -> BgElevated.copy(alpha = 0.55f)
+    }
+    val borderColor = if (selected) accentColor.copy(alpha = 0.70f) else BorderSubtle
+    val textColor = when {
+        selected -> accentColor
+        enabled -> TextPrimary
+        else -> TextTertiary
+    }
+
     Surface(
-        onClick = { onToggleUnlock(!isUnlocked) },
-        shape = RoundedCornerShape(10.dp),
-        color = if (isUnlocked) accentColor.copy(alpha = 0.12f) else BgSurfaceLowest,
-        border = BorderStroke(0.7.dp, if (isUnlocked) accentColor.copy(alpha = 0.45f) else BorderSubtle),
         modifier = modifier
-            .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .padding(bottom = 10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
+        shape = RoundedCornerShape(12.dp),
+        color = bgColor,
+        border = BorderStroke(if (selected) 1.dp else 0.6.dp, borderColor)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(
-                    imageVector = if (isUnlocked) Icons.Default.LockOpen else Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = barColor,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (isUnlocked) unlockedText else lockedText,
-                    fontSize = 11.sp,
-                    fontWeight = if (isUnlocked) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isUnlocked) TextPrimary else TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isUnlocked) accentColor.copy(alpha = 0.20f) else BgElevated,
-                border = BorderStroke(0.6.dp, if (isUnlocked) accentColor else BorderSubtle)
-            ) {
-                Text(
-                    text = if (isUnlocked) "Kunci" else "Buka Edit",
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isUnlocked) accentColor else TextSecondary,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                )
-            }
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 /**
- * GuardedStepperSlider — Wraps [LynxSlider] with lock shielding, external state syncing,
- * and 48.dp +/- fine adjustment buttons when unlocked for zero-slip touch ergonomics.
+ * CustomNumericInputDialog — Standardized Obsidian modal allowing custom integers within safe hardware bounds.
  */
 @Composable
-internal fun GuardedStepperSlider(
+internal fun CustomNumericInputDialog(
+    title: String,
+    unit: String,
+    currentValue: Int,
+    min: Int,
+    max: Int,
+    hint: String = "",
+    accentColor: Color = AccentCyan,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    val safeMin = minOf(min, max)
+    val safeMax = maxOf(min, max)
+    var inputText by remember(currentValue) { mutableStateOf(currentValue.coerceIn(safeMin, safeMax).toString()) }
+    val parsed = inputText.trim().toIntOrNull()
+    val isValid = parsed != null && parsed in safeMin..safeMax
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF10141F),
+        shape = RoundedCornerShape(18.dp),
+        icon = {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = accentColor.copy(alpha = 0.14f),
+                border = BorderStroke(0.8.dp, accentColor.copy(alpha = 0.35f)),
+                modifier = Modifier.size(46.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        },
+        title = {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (hint.isNotBlank()) {
+                    Text(
+                        text = hint,
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        lineHeight = 17.sp
+                    )
+                }
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { raw ->
+                        inputText = raw.filter { it.isDigit() || (safeMin < 0 && it == '-') }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = {
+                        Text(
+                            text = if (unit.isNotBlank()) "Nilai kustom ($unit)" else "Nilai kustom",
+                            fontSize = 12.sp
+                        )
+                    },
+                    supportingText = {
+                        val unitSuffix = if (unit.isNotBlank()) " $unit" else ""
+                        Text(
+                            text = if (isValid) {
+                                "Rentang aman: $safeMin – $safeMax$unitSuffix"
+                            } else {
+                                "Masukkan angka valid antara $safeMin – $safeMax$unitSuffix"
+                            },
+                            fontSize = 11.sp,
+                            color = if (isValid) TextTertiary else AccentRed
+                        )
+                    },
+                    isError = !isValid,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accentColor,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = accentColor,
+                        unfocusedLabelColor = TextSecondary,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        cursorColor = accentColor
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { parsed?.let(onConfirm) },
+                enabled = isValid,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor,
+                    contentColor = BgDeepOled
+                ),
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Terapkan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.heightIn(min = 44.dp)
+            ) {
+                Text("Batal", color = TextSecondary, fontSize = 13.sp)
+            }
+        }
+    )
+}
+
+/**
+ * MemoryValueSlider — Clean minimalist slider using [SafeSlider] (zero swipe conflict with pager)
+ * with a subtle tap-to-edit custom value badge instead of bulky +/- boxes or lock walls.
+ */
+@Composable
+internal fun MemoryValueSlider(
     label: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    stepDelta: Float,
+    stepSize: Float = 1f,
     displayValue: (Float) -> String,
-    isUnlocked: Boolean,
-    accentColor: Color,
+    accentColor: Color = AccentCyan,
+    helperText: String? = null,
+    unit: String = "",
+    allowCustomInput: Boolean = true,
+    customDialogMin: Int = valueRange.start.roundToInt(),
+    customDialogMax: Int = valueRange.endInclusive.roundToInt(),
+    customDialogHint: String = "",
     onCommitValue: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var localValue by remember { mutableFloatStateOf(value.coerceIn(valueRange)) }
+    val safeStart = valueRange.start
+    val safeEnd = maxOf(valueRange.start + 1f, valueRange.endInclusive)
+    val clampedExternal = value.coerceIn(safeStart, safeEnd)
+    var staged by remember { mutableFloatStateOf(clampedExternal) }
     var isDragging by remember { mutableStateOf(false) }
-    var lastTouchMs by remember { mutableLongStateOf(0L) }
+    var showCustomDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(value) {
-        if (!isDragging && (System.currentTimeMillis() - lastTouchMs > 2500L)) {
-            localValue = value.coerceIn(valueRange)
+    LaunchedEffect(clampedExternal) {
+        if (!isDragging) {
+            staged = clampedExternal
         }
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        LynxSlider(
-            label = label,
-            value = localValue,
-            onValueChange = {
-                if (isUnlocked) {
-                    isDragging = true
-                    lastTouchMs = System.currentTimeMillis()
-                    localValue = it.coerceIn(valueRange)
-                }
-            },
-            onValueChangeFinished = {
-                if (isUnlocked) {
-                    isDragging = false
-                    lastTouchMs = System.currentTimeMillis()
-                    onCommitValue(localValue.coerceIn(valueRange))
-                }
-            },
-            valueRange = valueRange,
-            steps = steps,
-            displayValue = displayValue(localValue),
+    if (showCustomDialog) {
+        CustomNumericInputDialog(
+            title = "Atur $label",
+            unit = unit,
+            currentValue = staged.roundToInt(),
+            min = customDialogMin,
+            max = customDialogMax,
+            hint = customDialogHint,
             accentColor = accentColor,
-            enabled = isUnlocked
+            onDismiss = { showCustomDialog = false },
+            onConfirm = { customVal ->
+                val clamped = customVal.toFloat().coerceIn(safeStart, safeEnd)
+                staged = clamped
+                showCustomDialog = false
+                onCommitValue(clamped)
+            }
         )
+    }
 
-        if (isUnlocked) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = accentColor.copy(alpha = 0.14f),
+                border = BorderStroke(0.6.dp, accentColor.copy(alpha = 0.35f)),
+                modifier = if (allowCustomInput) {
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showCustomDialog = true }
+                } else Modifier
             ) {
-                val canDec = localValue - 0.001f > valueRange.start
-                val canInc = localValue + 0.001f < valueRange.endInclusive
-                val decTarget = (localValue - stepDelta).coerceIn(valueRange)
-                val incTarget = (localValue + stepDelta).coerceIn(valueRange)
-
-                Surface(
-                    onClick = {
-                        if (canDec) {
-                            lastTouchMs = System.currentTimeMillis()
-                            localValue = decTarget
-                            onCommitValue(decTarget)
-                        }
-                    },
-                    enabled = canDec,
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(0.6.dp, if (canDec) accentColor.copy(alpha = 0.35f) else BorderSubtle),
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Text(
+                        text = displayValue(staged),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor
+                    )
+                    if (allowCustomInput) {
                         Icon(
-                            Icons.Default.Remove,
-                            contentDescription = "Kurangi",
-                            tint = if (canDec) accentColor else TextTertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "-${formatStepDelta(stepDelta)}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (canDec) TextPrimary else TextTertiary
-                        )
-                    }
-                }
-
-                Surface(
-                    onClick = {
-                        if (canInc) {
-                            lastTouchMs = System.currentTimeMillis()
-                            localValue = incTarget
-                            onCommitValue(incTarget)
-                        }
-                    },
-                    enabled = canInc,
-                    shape = RoundedCornerShape(8.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(0.6.dp, if (canInc) accentColor.copy(alpha = 0.35f) else BorderSubtle),
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Tambah",
-                            tint = if (canInc) accentColor else TextTertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "+${formatStepDelta(stepDelta)}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (canInc) TextPrimary else TextTertiary
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Ubah $label",
+                            tint = accentColor.copy(alpha = 0.85f),
+                            modifier = Modifier.size(11.dp)
                         )
                     }
                 }
             }
         }
-    }
-}
 
-private fun formatStepDelta(delta: Float): String {
-    val rounded = delta.roundToInt()
-    return if (kotlin.math.abs(delta - rounded) < 0.01f) rounded.toString() else delta.toString()
+        SafeSlider(
+            value = staged.coerceIn(safeStart, safeEnd),
+            onValueChange = { raw ->
+                isDragging = true
+                val snapped = if (stepSize > 1f) {
+                    ((raw - safeStart) / stepSize).roundToInt() * stepSize + safeStart
+                } else {
+                    raw.roundToInt().toFloat()
+                }
+                staged = snapped.coerceIn(safeStart, safeEnd)
+            },
+            onValueChangeFinished = {
+                isDragging = false
+                onCommitValue(staged)
+            },
+            valueRange = safeStart..safeEnd,
+            colors = SliderDefaults.colors(
+                thumbColor = accentColor,
+                activeTrackColor = accentColor,
+                inactiveTrackColor = BgSurfaceLowest
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (!helperText.isNullOrBlank()) {
+            Text(
+                text = helperText,
+                fontSize = 10.5.sp,
+                color = TextTertiary,
+                lineHeight = 14.sp
+            )
+        }
+    }
 }

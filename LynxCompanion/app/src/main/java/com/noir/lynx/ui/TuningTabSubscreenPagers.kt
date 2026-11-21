@@ -21,8 +21,65 @@ import com.noir.lynx.feature.cpu.ui.CpuTabRow
 import com.noir.lynx.feature.cpu.ui.tuningCpuCategoryItems
 import com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems
+import com.noir.lynx.feature.memory.ui.MemoryStorageTabRow
+import com.noir.lynx.feature.memory.ui.MemorySubscreen
 import com.noir.lynx.feature.network.ui.NetworkAudioTabRow
 import com.noir.lynx.feature.network.ui.TuningNetworkCategory
+
+@Composable
+fun MemoryStorageSwipeableSubscreen(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    subscreenFling: FlingBehavior,
+    modifier: Modifier = Modifier
+) {
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadMemorySubsystemData(forceRefresh = true)
+        viewModel.refreshMountXStorageInfo()
+    }
+
+    LynxTabPager(
+        pageCount = 3,
+        selectedPage = uiState.selectedMemoryTab,
+        onPageSelected = { viewModel.setSelectedMemoryTab(it) },
+        tabRow = { curPage, onSelect ->
+            MemoryStorageTabRow(
+                selectedTab = curPage,
+                onSelectTab = onSelect,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        },
+        modifier = modifier
+    ) { page ->
+        val listState = when (page) {
+            0 -> page0State
+            1 -> page1State
+            else -> page2State
+        }
+        LazyColumn(
+            state = listState,
+            flingBehavior = subscreenFling,
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item(key = "memory_spacer_$page") { Spacer(Modifier.height(4.dp)) }
+            item(key = "memory_content_$page") {
+                MemorySubscreen(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    targetTab = page
+                )
+            }
+            item(key = "memory_bottom_spacer_$page") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
+        }
+    }
+}
 
 @Composable
 fun CpuSwipeableSubscreen(

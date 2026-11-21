@@ -88,57 +88,129 @@ internal object LynxSystemTuningRepository {
             return@withContext cachedIoDevices!!
         }
         try {
-            if (LynxRepository.isModuleInstalled()) {
-                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io info 2>/dev/null; fi").exec()
+            val baseList = mutableListOf<IoDeviceInfo>()
+            if (LynxRepository.isLynxdAvailable()) {
+                val lynxRes = Shell.cmd("'$LYNXD_PATH' io info 2>/dev/null").exec()
                 if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
                     val raw = lynxRes.out.joinToString("").trim()
                     if (raw.startsWith("{")) {
                         val root = JSONObject(raw)
                         val arr = root.optJSONArray("devices")
                         if (arr != null && arr.length() > 0) {
-                            val list = mutableListOf<IoDeviceInfo>()
                             for (i in 0 until arr.length()) {
                                 val d = arr.getJSONObject(i)
                                 val name = d.optString("name")
+                                if (name.isBlank()) continue
                                 val cur = d.optString("current_scheduler", "none")
                                 val availJson = d.optJSONArray("available_schedulers")
                                 val avail = mutableListOf<String>()
                                 if (availJson != null) {
-                                    for (j in 0 until availJson.length()) avail.add(availJson.optString(j))
+                                    for (j in 0 until availJson.length()) {
+                                        val s = availJson.optString(j)
+                                        if (s.isNotBlank()) avail.add(s)
+                                    }
                                 }
-                                list.add(IoDeviceInfo(device = name, currentScheduler = cur, availableSchedulers = avail,
-                                    readAheadKb = d.optInt("current_read_ahead_kb", 0)))
+                                val targetRa = if (d.has("target_read_ahead_kb") && !d.isNull("target_read_ahead_kb")) {
+                                    d.optInt("target_read_ahead_kb", 0).takeIf { it > 0 }
+                                } else null
+                                baseList.add(
+                                    IoDeviceInfo(
+                                        device = name,
+                                        deviceType = d.optString("type", ""),
+                                        isPrimary = d.optBoolean("is_primary", false),
+                                        currentScheduler = cur,
+                                        availableSchedulers = avail,
+                                        readAheadKb = d.optInt("current_read_ahead_kb", 0),
+                                        targetReadAheadKb = targetRa,
+                                        policy = d.optString("policy", "")
+                                    )
+                                )
                             }
-                            cachedIoDevices = list
-                            return@withContext list
                         }
                     }
                 }
             }
-            val r = Shell.cmd("""
-                for block in /sys/block/*; do
-                  [ -d "${'$'}block" ] || continue
-                  dev=${'$'}{block##*/}
-                  q=${'$'}block/queue
-                  [ -f "${'$'}q/scheduler" ] || continue
-                  sched=$(cat "${'$'}q/scheduler" 2>/dev/null)
-                  ra=$(cat "${'$'}q/read_ahead_kb" 2>/dev/null)
-                  echo "dev:${'$'}dev|sched:${'$'}sched|ra:${'$'}ra"
+
+            if (baseList.isEmpty()) {
+                val r = Shell.cmd("""
+                    for block in /sys/block/*; do
+                      [ -d "${'$'}block" ] || continue
+                      dev=${'$'}{block##*/}
+                      q=${'$'}block/queue
+                      [ -f "${'$'}q/scheduler" ] || continue
+                      sched=${'$'}(cat "${'$'}q/scheduler" 2>/dev/null)
+                      ra=${'$'}(cat "${'$'}q/read_ahead_kb" 2>/dev/null)
+                      nr=${'$'}(cat "${'$'}q/nr_requests" 2>/dev/null)
+                      ios=${'$'}(cat "${'$'}q/iostats" 2>/dev/null)
+                      rqa=${'$'}(cat "${'$'}q/rq_affinity" 2>/dev/null)
+                      dtype="unknown"
+                      if [ -f "${'$'}block/device/ext_csd" ] || [ "${'$'}(cat "${'$'}block/device/type" 2>/dev/null)" = "MMC" ]; then dtype="eMMC"
+                      elif echo "${'$'}dev" | grep -qE '^sd[a-z]+$'; then dtype="UFS"
+                      elif [ "${'$'}(cat "${'$'}block/removable" 2>/dev/null)" = "1" ]; then dtype="SDCard"
+                      elif echo "${'$'}dev" | grep -qE '^(loop|ram|zram|dm-|nbd)'; then dtype="Virtual"
+                      fi
+                      echo "dev:${'$'}dev|type:${'$'}dtype|sched:${'$'}sched|ra:${'$'}ra|nr:${'$'}nr|ios:${'$'}ios|rqa:${'$'}rqa"
+                    done
+                """.trimIndent()).exec()
+                for (line in r.out) {
+                    val t = line.trim(); if (!t.startsWith("dev:")) continue
+                    val parts = t.split("|")
+                    val dev = parts.getOrNull(0)?.removePrefix("dev:") ?: continue
+                    val dtype = parts.getOrNull(1)?.removePrefix("type:") ?: ""
+                    val schedRaw = parts.getOrNull(2)?.removePrefix("sched:") ?: ""
+                    val ra = parts.getOrNull(3)?.removePrefix("ra:")?.toIntOrNull() ?: 0
+                    val nr = parts.getOrNull(4)?.removePrefix("nr:")?.toIntOrNull()
+                    val ios = parts.getOrNull(5)?.removePrefix("ios:")?.toIntOrNull()
+                    val rqa = parts.getOrNull(6)?.removePrefix("rqa:")?.toIntOrNull()
+                    val avail = schedRaw.replace("[", "").replace("]", "").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+                    val cur = Regex("\\[([^]]+)]").find(schedRaw)?.groupValues?.getOrNull(1) ?: avail.firstOrNull() ?: "none"
+                    baseList.add(
+                        IoDeviceInfo(
+                            device = dev,
+                            deviceType = dtype,
+                            isPrimary = dtype == "eMMC" || (dtype == "UFS" && dev == "sda"),
+                            currentScheduler = cur,
+                            availableSchedulers = avail,
+                            readAheadKb = ra,
+                            nrRequests = nr,
+                            iostats = ios,
+                            rqAffinity = rqa
+                        )
+                    )
+                }
+                cachedIoDevices = baseList
+                return@withContext baseList
+            }
+
+            // Hydrate queue parameters dynamically for lynxd-discovered devices
+            val devNames = baseList.joinToString(" ") { it.device.replace(Regex("[^a-zA-Z0-9_-]"), "") }
+            val qRes = Shell.cmd("""
+                for d in $devNames; do
+                  q="/sys/block/${'$'}d/queue"
+                  [ -d "${'$'}q" ] || continue
+                  nr=${'$'}(cat "${'$'}q/nr_requests" 2>/dev/null)
+                  ios=${'$'}(cat "${'$'}q/iostats" 2>/dev/null)
+                  rqa=${'$'}(cat "${'$'}q/rq_affinity" 2>/dev/null)
+                  echo "q:${'$'}d|${'$'}nr|${'$'}ios|${'$'}rqa"
                 done
             """.trimIndent()).exec()
-            val list = mutableListOf<IoDeviceInfo>()
-            for (line in r.out) {
-                val t = line.trim(); if (!t.startsWith("dev:")) continue
-                val parts = t.split("|")
-                val dev = parts.getOrNull(0)?.removePrefix("dev:") ?: continue
-                val schedRaw = parts.getOrNull(1)?.removePrefix("sched:") ?: ""
-                val ra = parts.getOrNull(2)?.removePrefix("ra:")?.toIntOrNull() ?: 0
-                val avail = schedRaw.replace("[", "").replace("]", "").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-                val cur = Regex("\\[([^]]+)]").find(schedRaw)?.groupValues?.getOrNull(1) ?: avail.firstOrNull() ?: "none"
-                list.add(IoDeviceInfo(device = dev, currentScheduler = cur, availableSchedulers = avail, readAheadKb = ra))
+            val qMap = mutableMapOf<String, Triple<Int?, Int?, Int?>>()
+            for (line in qRes.out) {
+                val t = line.trim(); if (!t.startsWith("q:")) continue
+                val parts = t.removePrefix("q:").split("|")
+                val d = parts.getOrNull(0) ?: continue
+                qMap[d] = Triple(
+                    parts.getOrNull(1)?.toIntOrNull(),
+                    parts.getOrNull(2)?.toIntOrNull(),
+                    parts.getOrNull(3)?.toIntOrNull()
+                )
             }
-            cachedIoDevices = list
-            list
+            val finalList = baseList.map { info ->
+                val q = qMap[info.device]
+                if (q != null) info.copy(nrRequests = q.first, iostats = q.second, rqAffinity = q.third) else info
+            }
+            cachedIoDevices = finalList
+            finalList
         } catch (e: Exception) { Log.e("LynxRepository", "readIoDevices: ${e.message}"); emptyList() }
     }
 
@@ -147,8 +219,8 @@ internal object LynxSystemTuningRepository {
             val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
             val s = scheduler.replace(Regex("[^a-zA-Z0-9\\-]"), "")
             var ok = false
-            if (LynxRepository.isModuleInstalled()) {
-                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' io set-scheduler '$d' '$s' && echo ok; fi"
+            if (LynxRepository.isLynxdAvailable()) {
+                val cmd = "'$LYNXD_PATH' io set-scheduler '$d' '$s' 2>/dev/null"
                 val res = Shell.cmd(cmd).exec()
                 val json = res.out.firstOrNull { it.trim().startsWith("{") }
                     ?.let { runCatching { JSONObject(it) }.getOrNull() }
@@ -169,7 +241,6 @@ internal object LynxSystemTuningRepository {
         } catch (e: Exception) { false }
     }
 
-
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
@@ -182,6 +253,29 @@ internal object LynxSystemTuningRepository {
             }
             ok
         } catch (e: Exception) { false }
+    }
+
+    suspend fun setIoQueueTunable(device: String, key: String, value: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val d = device.replace(Regex("[^a-zA-Z0-9_-]"), "")
+            val k = when (key) {
+                "nr_requests", "iostats", "rq_affinity" -> key
+                else -> return@withContext false
+            }
+            val cmd = "if [ -w '/sys/block/$d/queue/$k' ]; then echo $value > '/sys/block/$d/queue/$k' 2>/dev/null && [ \"$(cat /sys/block/$d/queue/$k 2>/dev/null)\" = \"$value\" ] && echo ok; fi"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedIoDevices = cachedIoDevices?.map { info ->
+                    if (info.device != d) info else when (k) {
+                        "nr_requests" -> info.copy(nrRequests = value)
+                        "iostats" -> info.copy(iostats = value)
+                        "rq_affinity" -> info.copy(rqAffinity = value)
+                        else -> info
+                    }
+                }
+            }
+            ok
+        } catch (_: Exception) { false }
     }
 
     // ----------------------------------------------------------------
@@ -536,15 +630,16 @@ internal object LynxSystemTuningRepository {
 
     suspend fun applyLmkPreset(preset: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val minfree = when (preset) {
-                "conservative" -> "18432,23040,27648,32256,55296,80640"
+            val minfree = when (preset.lowercase()) {
+                "conservative", "multitasking" -> "18432,23040,27648,32256,55296,80640"
                 "balanced"     -> "18432,23040,27648,36864,65536,92160"
                 "gaming"       -> "18432,23040,27648,43008,71680,100352"
                 "aggressive"   -> "18432,23040,32256,49152,80640,116736"
                 else -> return@withContext false
             }
-            Shell.cmd("echo '$minfree' > /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null; echo ok")
-                .exec().out.firstOrNull()?.trim() == "ok"
+            Shell.cmd(
+                "[ -w /sys/module/lowmemorykiller/parameters/minfree ] && echo '$minfree' > /sys/module/lowmemorykiller/parameters/minfree 2>/dev/null && echo ok"
+            ).exec().out.any { it.trim() == "ok" }
         } catch (e: Exception) { false }
     }
 
@@ -576,13 +671,33 @@ internal object LynxSystemTuningRepository {
 
     suspend fun readZramCompAlgorithms(): Pair<String, List<String>> = withContext(Dispatchers.IO) {
         try {
-            val r = Shell.cmd("cat /sys/block/zram0/comp_algorithm 2>/dev/null").exec()
-            val raw = r.out.firstOrNull()?.trim() ?: return@withContext Pair("lz4", listOf("lz4"))
-            val active = Regex("\\[([^]]+)]").find(raw)?.groupValues?.getOrNull(1) ?: "lz4"
+            if (LynxRepository.isLynxdAvailable()) {
+                val res = Shell.cmd("'$LYNXD_PATH' memory zram-info 2>/dev/null").exec()
+                val rawJson = res.out.joinToString("").trim()
+                if (rawJson.startsWith("{")) {
+                    val obj = JSONObject(rawJson)
+                    val available = obj.optBoolean("available", false)
+                    val active = obj.optString("active_algo", "")
+                    val arr = obj.optJSONArray("supported_algos")
+                    val algos = mutableListOf<String>()
+                    if (arr != null) {
+                        for (i in 0 until arr.length()) {
+                            val a = arr.optString(i).trim()
+                            if (a.isNotBlank()) algos.add(a)
+                        }
+                    }
+                    if (!available) return@withContext Pair("", emptyList())
+                    if (algos.isNotEmpty()) return@withContext Pair(active.ifBlank { algos.first() }, algos)
+                }
+            }
+            val r = Shell.cmd("[ -e /sys/block/zram0/comp_algorithm ] && cat /sys/block/zram0/comp_algorithm 2>/dev/null").exec()
+            val raw = r.out.firstOrNull()?.trim().orEmpty()
+            if (raw.isBlank()) return@withContext Pair("", emptyList())
+            val active = Regex("\\[([^]]+)]").find(raw)?.groupValues?.getOrNull(1) ?: ""
             val avail = raw.replace("[", "").replace("]", "").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-            Pair(active, if (avail.isNotEmpty()) avail else listOf("lz4"))
+            if (avail.isEmpty()) Pair("", emptyList()) else Pair(active.ifBlank { avail.first() }, avail)
         } catch (e: Exception) {
-            Pair("lz4", listOf("lz4"))
+            Pair("", emptyList())
         }
     }
 

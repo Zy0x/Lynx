@@ -482,6 +482,12 @@ fun TuningTabContent(
                                         subscreenFling = subscreenFling,
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
+                                    "memory" -> MemoryStorageSwipeableSubscreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        subscreenFling = subscreenFling,
+                                        modifier = Modifier.weight(1f).fillMaxWidth()
+                                    )
                                     else -> {
                                         LazyColumn(
                                             state = subscreenLazyState,
@@ -501,7 +507,6 @@ fun TuningTabContent(
                                                         viewModel = viewModel
                                                     )
                                                 }
-                                                "memory" -> item(key = "subscreen_memory") { TuningMemoryCategory(uiState = uiState, viewModel = viewModel) }
                                                 "system" -> item(key = "subscreen_system") {
                                                     TuningSystemCategory(
                                                         uiState = uiState,

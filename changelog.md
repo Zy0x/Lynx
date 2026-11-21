@@ -1,3 +1,30 @@
+# Lynx Universal [Clean Memory & Storage UX, Layout Alignment & LMK/ZRAM Fixes] 7.0.0-RC430
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.49
+
+### Companion App (`feature/memory/ui`, `LynxActionButton`, `TuningTabSubscreenPagers` & Repositories)
+- **Unified Clean Memory & Storage UI/UX**:
+  - Aligned `MemoryHeroCard` with standard `16.dp` horizontal margins, unified `MemoryStorageTabRow` (`46.dp`, `AccentCyan`, subtle vertical gradient active pill), restored `130.dp` + `navigationBarsPadding()` bottom dock clearance across all 3 Memory & Storage tabs, and fixed `LynxActionButton` icon sizing bug (`padding` after `size(18.dp)`).
+  - Removed lock-bar (`GuardedTuningBar`) friction and stacked `Kustom:` / `-` / `+` slider clutter in favor of direct 1-tap controls and clean `MemoryValueSlider` (`SafeSlider` swipe-isolated + tap-on-badge custom numeric dialog).
+  - Split `MemoryVmZramCard` into focused `Konfigurasi ZRAM` (with `AnimatedVisibility` Apply button only on staged edits and capacity presets strictly bounded to kernel `50%` RAM cap) and `Profil VM & Swappiness` cards without duplicate stats or navigation hints.
+  - Added Progressive Disclosure across `MemoryVmAdvancedCard` (compact 3-tile VM summary + collapsible Writeback & VFS sliders, conditional MGLRU/Page-Cluster, and KSM scan sliders expanded only while KSM is enabled) and `MountXStorageCard` (primary block device expanded by default; secondary/virtual block nodes collapsible).
+- **Functional & Sync Fixes**:
+  - Synchronized LMK `minfree` preset keys and 6-tier MB definitions across `MemoryEntropyCard`, `LynxSystemTuningRepository.applyLmkPreset` (now verifying `-w` sysfs writability), and `LynxViewModel.applyLmkPreset` (refreshing `memoryEntropy` state after applying).
+  - Fixed MGLRU `min_ttl_ms` custom upper bound (`0..5000 ms`), ZRAM `128 MB` minimum floor alignment, non-optimistic ZRAM state persistence on failure, and eliminated 4× duplicate `loadMemorySubsystemData()` calls on screen entry/swipe.
+
+# Lynx Universal [3-Domain Memory & Storage Sub-Tabs, Dynamic Kernel Capabilities & Full User Customization] 7.0.0-RC429
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.48
+
+### Companion App (`feature/memory/ui`, `LynxSystemTuningRepository`, `LynxVmTuningRepository` & `LynxMemoryTuningRepository`)
+- **3-Tab Memory & Storage Pager (`MemoryStorageSwipeableSubscreen`, `MemoryStorageTabRow`)**:
+  - Segmented Memory & Storage into 3 focused swipeable domains matching CPU & Battery (`0: RAM & ZRAM`, `1: VM & Entropi`, `2: Storage & I/O`) via `LynxTabPager`, with `userScrollEnabled = !isEditorUnlocked` so unlocking any slider/option bar automatically prevents accidental horizontal tab swipes.
+- **Zero-Hardcoding Dynamic Kernel Discovery & Full Custom Numeric Inputs**:
+  - Added shared `CustomNumericInputDialog` and interactive `"Kustom"` triggers across ZRAM size, VM Swappiness, Dirty Writeback/VFS, MGLRU `min_ttl_ms`, VM `page-cluster`, KSM scan/sleep, Entropy wakeup thresholds, 6-tier legacy LMK `minfree` (`CustomLmkMinfreeDialog`), Storage Read-Ahead KB, and `nr_requests` queue depth.
+  - Eliminated hardcoded ZRAM algorithm fallbacks (queries `lynxd memory zram-info` and renders honest unsupported state if absent), calculates proportional ZRAM capacity presets (`25%–100%` RAM) at runtime, and dynamically scales Swappiness range (`0–100` vs `0–200` on MGLRU / Linux 5.8+ kernels).
+  - Updated `LynxMemoryTuningRepository` & `MemoryEntropyCard` to probe actual `/proc/sys/kernel/random/poolsize` (`256`-bit CSPRNG vs `4096`-bit legacy), node writability, and `/proc/pressure/memory` (PSI `some`/`full avg10`).
+  - Updated `LynxSystemTuningRepository` & `MountXStorageCard` to filter block devices via kernel-detected `deviceType` & `isPrimary` (plus `"Tampilkan Virtual / Boot"` toggle), derive Read-Ahead options per flash bus (`UFS`/`NVMe` vs `eMMC`/`SD`), and expose `nr_requests`, `rq_affinity`, and `iostats` conditionally when supported by the block driver.
+
 # Lynx Universal [Anti-Slip Memory & Storage Overhaul, Safety Locks & Staged ZRAM] 7.0.0-RC428
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.47

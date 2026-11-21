@@ -10,467 +10,378 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.noir.lynx.R
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.card.UnsupportedBadge
+import com.noir.lynx.designsystem.controls.LynxActionButton
 import com.noir.lynx.designsystem.theme.*
-import com.noir.lynx.ui.*
-import java.util.Locale
+import com.noir.lynx.ui.LynxViewModel
+import com.noir.lynx.ui.applyVmPreset
+import com.noir.lynx.ui.applyZramConfiguration
+import com.noir.lynx.ui.setSwappiness
 import kotlin.math.roundToInt
 
 /**
- * MemoryVmZramCard — Guarded Virtual Memory, ZRAM Staging, and Kernel KSM controls.
- * All sliders & ZRAM reconfiguration require explicit edit-unlock + commit to prevent accidental
- * horizontal drag mutations or unexpected swapoff stalls while scrolling.
+ * MemoryVmZramCard — Sub-tab 0 (RAM & ZRAM).
+ * Split cleanly into two minimalist cards:
+ * 1. ZRAM Configuration (Algorithm + proportional size chips <= 50% RAM + clean slider + conditional Apply).
+ * 2. Quick VM Profile & Swappiness (3-option preset + single Swappiness slider).
  */
 @Composable
-internal fun MemoryVmZramCard(
+fun MemoryVmZramCard(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
-    val state = uiState.state
-    var isUnlocked by remember { mutableStateOf(false) }
-    var showAdvancedVm by remember { mutableStateOf(false) }
-    var showZramConfirmDialog by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val ramTotalMb = uiState.telemetry?.ramTotalMb?.takeIf { it > 0 } ?: 4096
+    val maxSafeZramMb = (ramTotalMb / 2).coerceAtLeast(128)
+    val liveZramMb = (uiState.telemetry?.zramTotalMb?.takeIf { it > 0 }
+        ?: uiState.state.memory.zramSizeMb).coerceAtLeast(128)
+    val liveSwapUsedMb = uiState.telemetry?.zramUsedMb?.takeIf { it > 0 }
+        ?: (uiState.telemetry?.swapUsedMb ?: 0)
 
-    val ramTotal = (uiState.telemetry?.ramTotalMb?.takeIf { it > 0 } ?: 4096).toFloat()
-    val minZram = 512f
-    val maxZram = maxOf(4096f, ramTotal)
-    val zramSteps = (((maxZram - minZram) / 512f).toInt() - 1).coerceAtLeast(0)
+    val kernelAlgos = uiState.availZramCompAlgorithms
+    val zramSupported = kernelAlgos.isNotEmpty() ||
+        (uiState.telemetry?.zramTotalMb ?: 0) > 0 ||
+        uiState.zramCompAlgorithm.isNotBlank()
+    val liveAlgo = uiState.zramCompAlgorithm.ifBlank { kernelAlgos.firstOrNull().orEmpty() }
+    val swappinessMax = uiState.vmAdvanced.swappinessMax.coerceAtLeast(100)
 
-    val currentZramMb = state.memory.zramSizeMb.toFloat().coerceIn(minZram, maxZram).roundToInt()
-    val activeAlgo = uiState.zramCompAlgorithm.ifBlank { "lz4" }
-    val algos = uiState.availZramCompAlgorithms.ifEmpty { listOf("lz4", "lzo", "zstd") }
-
-    var stagedZramMb by remember { mutableIntStateOf(currentZramMb) }
-    var stagedAlgo by remember { mutableStateOf(activeAlgo) }
-    var isStagingZram by remember { mutableStateOf(false) }
-
-    LaunchedEffect(currentZramMb, activeAlgo) {
-        if (!isStagingZram) {
-            stagedZramMb = currentZramMb
-            stagedAlgo = activeAlgo
-        }
+    // Dynamic RAM-proportional ZRAM chips strictly within 50% RAM kernel safety cap
+    val dynamicZramSizes = remember(ramTotalMb, maxSafeZramMb) {
+        listOf(12, 25, 38, 50)
+            .map { pct ->
+                (((ramTotalMb * pct) / 100f) / 128f).roundToInt().coerceAtLeast(1) * 128
+            }
+            .filter { it in 128..maxSafeZramMb }
+            .distinct()
+            .sorted()
     }
 
-    val zramChanged = stagedZramMb != currentZramMb || stagedAlgo != activeAlgo
-    val liveSwapUsedMb = uiState.telemetry?.zramUsedMb?.takeIf { it > 0 } ?: (uiState.telemetry?.swapUsedMb ?: 0)
+    var stagedAlgo by remember(liveAlgo) { mutableStateOf(liveAlgo) }
+    var stagedZramMb by remember(liveZramMb) { mutableIntStateOf(liveZramMb) }
+    var showZramConfirmDialog by remember { mutableStateOf(false) }
+    var showCustomZramDialog by remember { mutableStateOf(false) }
 
-    LynxCard(
-        title = "Virtual Memory, ZRAM & Cache",
-        subtitle = "Staging aman sebelum reset ZRAM & kontrol VM kernel",
-        icon = Icons.Default.Memory,
-        accentColor = AccentBlue,
-        modifier = modifier
-    ) {
-        GuardedTuningBar(
-            isUnlocked = isUnlocked,
-            onToggleUnlock = { isUnlocked = it },
-            accentColor = AccentBlue,
-            lockedText = "Mode Aman • ZRAM & Slider VM Terkunci",
-            unlockedText = "Mode Edit Aktif • Siap Sesuaikan VM & ZRAM"
-        )
+    val sliderMaxZramMb = maxOf(maxSafeZramMb, stagedZramMb, 512)
 
-        // ── 1. ZRAM Compression Algorithm & Staged Size ────────
-        Text(
-            text = "Algoritma Kompresi ZRAM",
-            color = TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            algos.forEach { algo ->
-                val isSelected = algo == stagedAlgo
-                Surface(
-                    onClick = {
-                        if (isUnlocked) {
-                            isStagingZram = true
-                            stagedAlgo = algo
-                        }
-                    },
-                    enabled = isUnlocked,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                    border = BorderStroke(
-                        if (isSelected) 1.2.dp else 0.7.dp,
-                        if (isSelected) AccentBlue else BorderSubtle
-                    )
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
-                    ) {
-                        Text(
-                            text = algo.uppercase(),
-                            color = if (isSelected) AccentBlue else if (isUnlocked) TextPrimary else TextSecondary,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                        Text(
-                            text = when (algo) {
-                                "zstd" -> "Rasio Max"
-                                "lz4" -> "Cepat"
-                                "lz4hc" -> "Optimal"
-                                "lzo-rle", "lzo" -> "Hemat CPU"
-                                else -> "Kompresi"
-                            },
-                            color = if (isSelected) AccentBlue.copy(alpha = 0.85f) else TextSecondary,
-                            fontSize = 9.5.sp,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-
-        GuardedStepperSlider(
-            label = "Ukuran ZRAM Target (RAM Fisik: ${ramTotal.toInt()} MB)",
-            value = stagedZramMb.toFloat(),
-            valueRange = minZram..maxZram,
-            steps = zramSteps,
-            stepDelta = 512f,
-            displayValue = { v -> "${v.roundToInt()} MB" },
-            isUnlocked = isUnlocked,
-            accentColor = AccentBlue,
-            onCommitValue = { nextVal ->
-                isStagingZram = true
-                stagedZramMb = nextVal.roundToInt()
+    if (showCustomZramDialog) {
+        CustomNumericInputDialog(
+            title = "Ukuran ZRAM Kustom",
+            unit = "MB",
+            currentValue = stagedZramMb.coerceIn(128, maxSafeZramMb),
+            min = 128,
+            max = maxSafeZramMb,
+            hint = "Total RAM fisik: $ramTotalMb MB. Batas aman kernel maksimal 50% RAM ($maxSafeZramMb MB).",
+            accentColor = AccentCyan,
+            onDismiss = { showCustomZramDialog = false },
+            onConfirm = { customMb ->
+                stagedZramMb = customMb
+                showCustomZramDialog = false
             }
         )
-
-        AnimatedVisibility(visible = zramChanged) {
-            Column(modifier = Modifier.padding(top = 6.dp, bottom = 10.dp)) {
-                Surface(
-                    onClick = {
-                        if (liveSwapUsedMb > 64) {
-                            showZramConfirmDialog = true
-                        } else {
-                            isStagingZram = false
-                            viewModel.applyZramConfiguration(stagedAlgo, stagedZramMb)
-                        }
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentBlue.copy(alpha = 0.16f),
-                    border = BorderStroke(0.9.dp, AccentBlue.copy(alpha = 0.55f)),
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Terapkan ZRAM: $stagedZramMb MB (${stagedAlgo.uppercase()})",
-                            color = AccentBlue,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(vertical = 8.dp))
-
-        // ── 2. Virtual Memory Presets & Swappiness ────────────
-        Text(
-            text = "Preset Virtual Memory",
-            color = TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        val vmPresets = listOf(
-            Triple("gaming", "Gaming", "Zero-stutter I/O"),
-            Triple("balanced", "Balanced", "Standar Harian"),
-            Triple("battery", "Battery", "Hemat Writeback")
-        )
-        val activeVmPreset = uiState.vmAdvanced.activePreset
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            vmPresets.forEach { (presetKey, title, subtitle) ->
-                val isSelected = activeVmPreset == presetKey
-                Surface(
-                    onClick = { if (isUnlocked) viewModel.applyVmPreset(presetKey) },
-                    enabled = isUnlocked,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                    border = BorderStroke(
-                        if (isSelected) 1.2.dp else 0.7.dp,
-                        if (isSelected) AccentBlue else BorderSubtle
-                    )
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
-                    ) {
-                        Text(
-                            text = title,
-                            color = if (isSelected) AccentBlue else if (isUnlocked) TextPrimary else TextSecondary,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                        Text(
-                            text = subtitle,
-                            color = if (isSelected) AccentBlue.copy(alpha = 0.85f) else TextSecondary,
-                            fontSize = 9.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-
-        GuardedStepperSlider(
-            label = "VM Swappiness (Prioritas Swap)",
-            value = uiState.vmAdvanced.swappiness.toFloat(),
-            valueRange = 0f..200f,
-            steps = 39,
-            stepDelta = 5f,
-            displayValue = { v -> "${v.roundToInt()}" },
-            isUnlocked = isUnlocked,
-            accentColor = AccentBlue,
-            onCommitValue = { viewModel.setSwappiness(it.roundToInt()) }
-        )
-
-        Spacer(Modifier.height(6.dp))
-
-        // ── 3. Progressive Disclosure: Advanced Writeback & KSM ──
-        Surface(
-            onClick = { showAdvancedVm = !showAdvancedVm },
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated,
-            border = BorderStroke(0.7.dp, if (showAdvancedVm) AccentCyan.copy(alpha = 0.45f) else BorderSubtle),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
-                    Column {
-                        Text(
-                            text = "Parameter Writeback, VFS & KSM",
-                            color = TextPrimary,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = if (showAdvancedVm) "Sembunyikan parameter lanjutan" else "Dirty Ratio ${uiState.vmAdvanced.dirtyRatio}% • VFS ${uiState.vmAdvanced.vfsCachePressure}",
-                            color = TextSecondary,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = if (showAdvancedVm) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        AnimatedVisibility(
-            visible = showAdvancedVm,
-            enter = expandVertically(tween(220)) + fadeIn(tween(220)),
-            exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
-        ) {
-            Column(
-                modifier = Modifier.padding(top = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                GuardedStepperSlider(
-                    label = "VM Dirty Ratio (Batas Writeback)",
-                    value = uiState.vmAdvanced.dirtyRatio.toFloat(),
-                    valueRange = 5f..60f,
-                    steps = 10,
-                    stepDelta = 5f,
-                    displayValue = { v -> "${v.roundToInt()}%" },
-                    isUnlocked = isUnlocked,
-                    accentColor = AccentBlue,
-                    onCommitValue = { viewModel.setDirtyRatio(it.roundToInt()) }
-                )
-
-                GuardedStepperSlider(
-                    label = "VM Dirty Background Ratio",
-                    value = uiState.vmAdvanced.dirtyBackgroundRatio.toFloat(),
-                    valueRange = 1f..30f,
-                    steps = 28,
-                    stepDelta = 1f,
-                    displayValue = { v -> "${v.roundToInt()}%" },
-                    isUnlocked = isUnlocked,
-                    accentColor = AccentBlue,
-                    onCommitValue = { viewModel.setDirtyBackgroundRatio(it.roundToInt()) }
-                )
-
-                GuardedStepperSlider(
-                    label = "VFS Cache Pressure",
-                    value = uiState.vmAdvanced.vfsCachePressure.toFloat(),
-                    valueRange = 50f..200f,
-                    steps = 14,
-                    stepDelta = 10f,
-                    displayValue = { v -> "${v.roundToInt()}" },
-                    isUnlocked = isUnlocked,
-                    accentColor = AccentBlue,
-                    onCommitValue = { viewModel.setVfsCachePressure(it.roundToInt()) }
-                )
-
-                GuardedStepperSlider(
-                    label = "VM Dirty Expire Time",
-                    value = (uiState.vmAdvanced.dirtyExpireCentisecs / 100).toFloat(),
-                    valueRange = 10f..60f,
-                    steps = 9,
-                    stepDelta = 5f,
-                    displayValue = { v -> "${v.roundToInt()}s" },
-                    isUnlocked = isUnlocked,
-                    accentColor = AccentBlue,
-                    onCommitValue = { viewModel.setDirtyExpireCentisecs(it.roundToInt() * 100) }
-                )
-
-                GuardedStepperSlider(
-                    label = "VM Dirty Writeback Interval",
-                    value = (uiState.vmAdvanced.dirtyWritebackCentisecs / 100).toFloat(),
-                    valueRange = 1f..15f,
-                    steps = 13,
-                    stepDelta = 1f,
-                    displayValue = { v -> "${v.roundToInt()}s" },
-                    isUnlocked = isUnlocked,
-                    accentColor = AccentBlue,
-                    onCommitValue = { viewModel.setDirtyWritebackCentisecs(it.roundToInt() * 100) }
-                )
-
-                // Conditional KSM Block (only shown when supported by kernel)
-                val ksm = uiState.ksmStats
-                if (ksm.supported) {
-                    HorizontalDivider(color = BorderSubtle, modifier = Modifier.padding(vertical = 4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = BgElevated,
-                        border = BorderStroke(0.6.dp, BorderSubtle),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "KSM — Kernel Same-page Merging",
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.ksm_saved_memory, String.format(Locale.US, "%.1f", ksm.savedMb)),
-                                        color = TextSecondary,
-                                        fontSize = 10.5.sp
-                                    )
-                                }
-                                Switch(
-                                    checked = ksm.enabled,
-                                    enabled = isUnlocked,
-                                    onCheckedChange = { if (isUnlocked) viewModel.setKsmEnabled(it) },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = AccentBlue,
-                                        checkedTrackColor = AccentBlue.copy(alpha = 0.4f)
-                                    )
-                                )
-                            }
-
-                            if (ksm.enabled) {
-                                Spacer(Modifier.height(8.dp))
-                                GuardedStepperSlider(
-                                    label = "Pages to Scan per Cycle",
-                                    value = ksm.pagesToScan.toFloat(),
-                                    valueRange = 50f..500f,
-                                    steps = 8,
-                                    stepDelta = 50f,
-                                    displayValue = { v -> "${v.roundToInt()} pages" },
-                                    isUnlocked = isUnlocked,
-                                    accentColor = AccentBlue,
-                                    onCommitValue = { viewModel.setKsmTunables(it.roundToInt(), ksm.sleepMs) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     if (showZramConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showZramConfirmDialog = false },
-            containerColor = BgCard,
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
+            containerColor = Color(0xFF10141F),
+            shape = RoundedCornerShape(18.dp),
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AccentOrange,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            },
             title = {
                 Text(
-                    text = "Terapkan Ulang ZRAM (${stagedZramMb} MB • ${stagedAlgo.uppercase()})?",
-                    fontSize = 15.sp,
+                    text = "Terapkan Konfigurasi ZRAM?",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
             },
             text = {
+                val desc = if (liveSwapUsedMb > 0) {
+                    "ZRAM saat ini masih menampung $liveSwapUsedMb MB halaman aktif. Perubahan ukuran atau algoritma ke ${stagedAlgo.uppercase()} • $stagedZramMb MB hanya dapat diterapkan langsung saat ZRAM kosong (0 MB)."
+                } else {
+                    "Mengatur ZRAM ke ${stagedAlgo.uppercase()} • $stagedZramMb MB."
+                }
                 Text(
-                    text = "Saat ini ZRAM sedang menampung ~$liveSwapUsedMb MB data swap. Mengubah ukuran/algoritma akan mengosongkan ZRAM sementara (swapoff) dan dapat menimbulkan jeda singkat.",
-                    fontSize = 12.sp,
-                    color = TextSecondary
+                    text = desc,
+                    fontSize = 12.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showZramConfirmDialog = false
-                        isStagingZram = false
                         viewModel.applyZramConfiguration(stagedAlgo, stagedZramMb)
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentCyan,
+                        contentColor = BgDeepOled
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.heightIn(min = 44.dp)
                 ) {
-                    Text("Tetap Terapkan", color = AccentBlue, fontWeight = FontWeight.Bold)
+                    Text("Ya, Terapkan", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showZramConfirmDialog = false }) {
+                TextButton(
+                    onClick = { showZramConfirmDialog = false },
+                    modifier = Modifier.heightIn(min = 44.dp)
+                ) {
                     Text("Batal", color = TextSecondary)
                 }
             }
         )
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // ── Card 1: ZRAM Configuration ──
+        LynxCard(
+            title = "Konfigurasi ZRAM",
+            subtitle = "Algoritma kompresi & ukuran swap RAM",
+            icon = Icons.Default.Memory,
+            accentColor = AccentCyan,
+            action = {
+                if (zramSupported) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyanDim,
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "${liveAlgo.ifBlank { "-" }.uppercase()} • $liveZramMb MB",
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        ) {
+            if (!zramSupported) {
+                UnsupportedBadge(
+                    reason = "Node /sys/block/zram0/comp_algorithm tidak ditemukan pada kernel ini."
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (kernelAlgos.isNotEmpty()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Algoritma Kompresi",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextSecondary
+                            )
+                            kernelAlgos.chunked(3).forEach { rowAlgos ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowAlgos.forEach { algo ->
+                                        MemoryOptionChip(
+                                            label = algo.uppercase(),
+                                            selected = stagedAlgo == algo,
+                                            accentColor = AccentCyan,
+                                            onClick = { stagedAlgo = algo },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    repeat(3 - rowAlgos.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Kapasitas Target (Maks 50% RAM)",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                        val sizeChipItems: List<Pair<String, Int?>> =
+                            dynamicZramSizes.map { "${it} MB" to it } + ("Kustom" to null)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            sizeChipItems.chunked(3).forEach { rowItems ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowItems.forEach { (label, mbOpt) ->
+                                        val isCustomBtn = mbOpt == null
+                                        val isSelected = if (isCustomBtn) {
+                                            stagedZramMb !in dynamicZramSizes
+                                        } else {
+                                            stagedZramMb == mbOpt
+                                        }
+                                        MemoryOptionChip(
+                                            label = if (isCustomBtn && isSelected) "${stagedZramMb}M*" else label,
+                                            selected = isSelected,
+                                            accentColor = if (isCustomBtn) AccentPurple else AccentCyan,
+                                            onClick = {
+                                                if (mbOpt != null) stagedZramMb = mbOpt
+                                                else showCustomZramDialog = true
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+                        }
+                    }
+
+                    MemoryValueSlider(
+                        label = "Ukuran ZRAM",
+                        value = stagedZramMb.toFloat(),
+                        valueRange = 128f..sliderMaxZramMb.toFloat(),
+                        stepSize = 128f,
+                        displayValue = { "${it.roundToInt()} MB" },
+                        accentColor = AccentCyan,
+                        unit = "MB",
+                        customDialogMin = 128,
+                        customDialogMax = maxSafeZramMb,
+                        customDialogHint = "Kelipatan 128 MB disarankan (batas aman maksimal 50% RAM: $maxSafeZramMb MB).",
+                        onCommitValue = { stagedZramMb = it.roundToInt() }
+                    )
+
+                    val isDirty = stagedAlgo != liveAlgo || stagedZramMb != liveZramMb
+                    AnimatedVisibility(
+                        visible = isDirty,
+                        enter = expandVertically(animationSpec = tween(200)) + fadeIn(animationSpec = tween(200)),
+                        exit = shrinkVertically(animationSpec = tween(160)) + fadeOut(animationSpec = tween(160))
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (liveSwapUsedMb > 0) {
+                                Text(
+                                    text = "ZRAM saat ini menampung $liveSwapUsedMb MB data aktif; resize live membutuhkan swap 0 MB.",
+                                    fontSize = 10.5.sp,
+                                    color = AccentOrange,
+                                    lineHeight = 14.sp
+                                )
+                            }
+                            LynxActionButton(
+                                text = "Terapkan ZRAM (${stagedAlgo.uppercase()} • $stagedZramMb MB)",
+                                icon = Icons.Default.Bolt,
+                                accentColor = AccentCyan,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val targetAlgo = stagedAlgo.ifBlank { liveAlgo.ifBlank { "lz4" } }
+                                    if (liveSwapUsedMb > 0) {
+                                        showZramConfirmDialog = true
+                                    } else {
+                                        viewModel.applyZramConfiguration(targetAlgo, stagedZramMb)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Card 2: Quick VM Profile & Swappiness ──
+        LynxCard(
+            title = "Profil VM & Swappiness",
+            subtitle = "Prioritas RAM fisik vs swap kompresi",
+            icon = Icons.Default.Speed,
+            accentColor = AccentBlue,
+            action = {
+                if (uiState.vmAdvanced.activePreset == "custom") {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentPurple.copy(alpha = 0.14f),
+                        border = BorderStroke(0.6.dp, AccentPurple.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "KUSTOM",
+                            fontSize = 9.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentPurple,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val vmPresets = listOf(
+                    Triple("gaming", "Gaming", AccentOrange),
+                    Triple("balanced", "Balanced", AccentBlue),
+                    Triple("battery", "Battery", AccentGreen)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    vmPresets.forEach { (presetKey, label, color) ->
+                        MemoryOptionChip(
+                            label = label,
+                            selected = uiState.vmAdvanced.activePreset == presetKey,
+                            accentColor = color,
+                            onClick = { viewModel.applyVmPreset(presetKey) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                MemoryValueSlider(
+                    label = "VM Swappiness",
+                    value = uiState.vmAdvanced.swappiness.toFloat(),
+                    valueRange = 0f..swappinessMax.toFloat(),
+                    stepSize = 5f,
+                    displayValue = { "${it.roundToInt()} / $swappinessMax" },
+                    accentColor = AccentBlue,
+                    unit = "",
+                    customDialogMin = 0,
+                    customDialogMax = swappinessMax,
+                    customDialogHint = "Nilai kecil mempertahankan aplikasi lebih lama di RAM fisik; tinggi lebih agresif memakai ZRAM.",
+                    onCommitValue = { viewModel.setSwappiness(it.roundToInt()) }
+                )
+            }
+        }
     }
 }

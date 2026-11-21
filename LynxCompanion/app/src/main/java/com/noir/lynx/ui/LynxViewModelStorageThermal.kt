@@ -39,22 +39,33 @@ fun LynxViewModel.setZramCompAlgorithm(algo: String) {
 }
 
 fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
-    val safeMb = mb.coerceAtLeast(256)
+    val safeMb = mb.coerceAtLeast(128)
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
-    _uiState.update { current ->
-        current.copy(
-            zramCompAlgorithm = algo,
-            state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = safeMb))
-        )
-    }
     viewModelScope.launch(Dispatchers.IO) {
-        LynxRepository.writeStateKey("memory.zram_size_mb", safeMb.toString(), "val")
         val ok = LynxRepository.setZramCompAlgorithm(algo, safeMb)
         if (ok) {
-            _uiState.update { it.copy(successMessage = "ZRAM dikonfigurasi: ${safeMb} MB (${algo.uppercase()})") }
+            LynxRepository.writeStateKey("memory.zram_size_mb", safeMb.toString(), "val")
+            val tel = LynxRepository.readTelemetry()
+            val zramComp = LynxRepository.readZramCompAlgorithms()
+            _uiState.update { current ->
+                current.copy(
+                    telemetry = tel,
+                    zramCompAlgorithm = zramComp.first.ifBlank { algo },
+                    availZramCompAlgorithms = zramComp.second.ifEmpty { current.availZramCompAlgorithms },
+                    state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = safeMb)),
+                    successMessage = "ZRAM dikonfigurasi: ${safeMb} MB (${algo.uppercase()})"
+                )
+            }
             refreshState()
         } else {
-            _uiState.update { it.copy(errorMessage = "Gagal menerapkan konfigurasi ZRAM (${safeMb} MB • $algo)") }
+            val usedSwap = _uiState.value.telemetry?.zramUsedMb?.takeIf { it > 0 }
+                ?: (_uiState.value.telemetry?.swapUsedMb ?: 0)
+            val reason = if (usedSwap > 0) {
+                "ZRAM sedang menampung $usedSwap MB halaman aktif; ubah saat ZRAM kosong (0 MB)."
+            } else {
+                "Gagal menerapkan ZRAM (${safeMb} MB • ${algo.uppercase()}). Pastikan ukuran ≤ 50% RAM."
+            }
+            _uiState.update { it.copy(errorMessage = reason) }
         }
     }
 }

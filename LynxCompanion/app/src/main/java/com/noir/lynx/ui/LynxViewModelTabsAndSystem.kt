@@ -32,6 +32,15 @@ fun LynxViewModel.selectThermalTab(tab: Int) = setSelectedThermalTab(tab)
 
 fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
 
+    fun LynxViewModel.setSelectedMemoryTab(tab: Int) {
+        _uiState.update { it.copy(selectedMemoryTab = tab) }
+        if (tab == 2 && !_uiState.value.mountXStorageInfo.isDetected) {
+            refreshMountXStorageInfo()
+        }
+    }
+
+    fun LynxViewModel.selectMemoryTab(tab: Int) = setSelectedMemoryTab(tab)
+
     fun LynxViewModel.setSelectedNetworkTab(tab: Int) {
         _uiState.update { it.copy(selectedNetworkTab = tab) }
         viewModelScope.launch(Dispatchers.IO) {

@@ -184,21 +184,108 @@ internal object LynxVmTuningRepository {
         } catch (_: Exception) { false }
     }
 
+    suspend fun setMglruMinTtlMs(ttlMs: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val safe = ttlMs.coerceIn(0, 5000)
+            val cmd = "if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then echo $safe > /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null && echo ok; fi"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                val actual = readVmInt("/sys/kernel/mm/lru_gen/min_ttl_ms", safe)
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(mglruMinTtlMs = actual, activePreset = "custom")
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setPageCluster(cluster: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val safe = cluster.coerceIn(0, 8)
+            val cmd = "if [ -w /proc/sys/vm/page-cluster ]; then echo $safe > /proc/sys/vm/page-cluster 2>/dev/null && [ \"$(cat /proc/sys/vm/page-cluster 2>/dev/null)\" = \"$safe\" ] && echo ok; fi"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            if (ok) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(pageCluster = safe, activePreset = "custom")
+            }
+            ok
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun setSwappinessUnified(value: Int): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val res = Shell.cmd("""
+                max_s=100
+                kver=${'$'}(uname -r 2>/dev/null)
+                kmaj=${'$'}(echo "${'$'}kver" | cut -d. -f1)
+                kmin=${'$'}(echo "${'$'}kver" | cut -d. -f2 | tr -dc '0-9')
+                [ -f /sys/kernel/mm/lru_gen/enabled ] && max_s=200
+                [ "${'$'}kmaj" -gt 5 ] 2>/dev/null && max_s=200
+                [ "${'$'}kmaj" -eq 5 ] && [ "${'$'}kmin" -ge 8 ] 2>/dev/null && max_s=200
+                target=$value
+                [ "${'$'}target" -lt 0 ] && target=0
+                [ "${'$'}target" -gt "${'$'}max_s" ] && target=${'$'}max_s
+                echo "${'$'}target" > /proc/sys/vm/swappiness 2>/dev/null
+                direct=$((target / 2))
+                [ "${'$'}target" -gt 0 ] && [ "${'$'}target" -le 20 ] && direct=5
+                [ -w /proc/sys/vm/direct_swappiness ] && echo "${'$'}direct" > /proc/sys/vm/direct_swappiness 2>/dev/null
+                for mc in /dev/memcg/apps/memory.swappiness /dev/memcg/memory.swappiness /sys/fs/cgroup/memory/apps/memory.swappiness /sys/fs/cgroup/memory/memory.swappiness; do
+                    [ -w "${'$'}mc" ] && echo "${'$'}target" > "${'$'}mc" 2>/dev/null
+                done
+                cat /proc/sys/vm/swappiness 2>/dev/null
+            """.trimIndent()).exec()
+            val actual = res.out.firstOrNull()?.trim()?.toIntOrNull()
+            if (actual != null) {
+                cachedVmConfig = (cachedVmConfig ?: VirtualMemoryAdvancedConfig()).copy(swappiness = actual)
+                true
+            } else false
+        } catch (_: Exception) { false }
+    }
+
     suspend fun readVirtualMemoryAdvancedConfig(forceRefresh: Boolean = false): VirtualMemoryAdvancedConfig = withContext(Dispatchers.IO) {
         if (!forceRefresh && cachedVmConfig != null) {
             return@withContext cachedVmConfig!!
         }
         try {
-            val swappiness = readVmInt("/proc/sys/vm/swappiness", 100)
-            val dirtyRatio = readVmInt("/proc/sys/vm/dirty_ratio", 20)
-            val dirtyBackground = readVmInt("/proc/sys/vm/dirty_background_ratio", 5)
-            val vfsPressure = readVmInt("/proc/sys/vm/vfs_cache_pressure", 100)
-            val expire = readVmInt("/proc/sys/vm/dirty_expire_centisecs", 3000)
-            val writeback = readVmInt("/proc/sys/vm/dirty_writeback_centisecs", 500)
-            val stat = readVmInt("/proc/sys/vm/stat_interval", 1)
+            val probe = Shell.cmd("""
+                sw=${'$'}(cat /proc/sys/vm/swappiness 2>/dev/null)
+                dr=${'$'}(cat /proc/sys/vm/dirty_ratio 2>/dev/null)
+                db=${'$'}(cat /proc/sys/vm/dirty_background_ratio 2>/dev/null)
+                vf=${'$'}(cat /proc/sys/vm/vfs_cache_pressure 2>/dev/null)
+                ex=${'$'}(cat /proc/sys/vm/dirty_expire_centisecs 2>/dev/null)
+                wb=${'$'}(cat /proc/sys/vm/dirty_writeback_centisecs 2>/dev/null)
+                st=${'$'}(cat /proc/sys/vm/stat_interval 2>/dev/null)
+                mglru=0
+                ttl=0
+                if [ -e /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
+                    mglru=1
+                    ttl=${'$'}(cat /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null)
+                fi
+                pc=-1
+                [ -r /proc/sys/vm/page-cluster ] && pc=${'$'}(cat /proc/sys/vm/page-cluster 2>/dev/null)
+                max_s=100
+                [ "${'$'}mglru" = "1" ] && max_s=200
+                kver=${'$'}(uname -r 2>/dev/null)
+                kmaj=${'$'}(echo "${'$'}kver" | cut -d. -f1)
+                kmin=${'$'}(echo "${'$'}kver" | cut -d. -f2 | tr -dc '0-9')
+                [ "${'$'}kmaj" -gt 5 ] 2>/dev/null && max_s=200
+                [ "${'$'}kmaj" -eq 5 ] && [ "${'$'}kmin" -ge 8 ] 2>/dev/null && max_s=200
+                echo "${'$'}sw|${'$'}dr|${'$'}db|${'$'}vf|${'$'}ex|${'$'}wb|${'$'}st|${'$'}mglru|${'$'}ttl|${'$'}pc|${'$'}max_s"
+            """.trimIndent()).exec()
+            val p = probe.out.firstOrNull()?.trim()?.split("|") ?: emptyList()
+
+            val swappiness = p.getOrNull(0)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/swappiness", 60)
+            val dirtyRatio = p.getOrNull(1)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/dirty_ratio", 20)
+            val dirtyBackground = p.getOrNull(2)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/dirty_background_ratio", 5)
+            val vfsPressure = p.getOrNull(3)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/vfs_cache_pressure", 100)
+            val expire = p.getOrNull(4)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/dirty_expire_centisecs", 3000)
+            val writeback = p.getOrNull(5)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/dirty_writeback_centisecs", 500)
+            val stat = p.getOrNull(6)?.trim()?.toIntOrNull() ?: readVmInt("/proc/sys/vm/stat_interval", 1)
+            val mglruSupported = p.getOrNull(7)?.trim() == "1"
+            val mglruTtl = p.getOrNull(8)?.trim()?.toIntOrNull() ?: 0
+            val pageCluster = p.getOrNull(9)?.trim()?.toIntOrNull() ?: -1
+            val swappinessMax = p.getOrNull(10)?.trim()?.toIntOrNull()?.coerceIn(100, 200) ?: 100
 
             val preset = when {
-                dirtyRatio == 10 && dirtyBackground == 5 && vfsPressure == 150 -> "gaming"
+                (dirtyRatio == 10 && dirtyBackground == 5 && (vfsPressure == 50 || vfsPressure == 150)) ||
+                    (dirtyRatio == 20 && dirtyBackground == 10 && vfsPressure == 60) -> "gaming"
                 dirtyRatio == 30 && dirtyBackground == 15 && vfsPressure == 80 -> "battery"
                 dirtyRatio == 20 && dirtyBackground == 5 && vfsPressure == 100 -> "balanced"
                 else -> "custom"
@@ -206,12 +293,16 @@ internal object LynxVmTuningRepository {
 
             val cfg = VirtualMemoryAdvancedConfig(
                 swappiness = swappiness,
+                swappinessMax = swappinessMax,
                 dirtyRatio = dirtyRatio,
                 dirtyBackgroundRatio = dirtyBackground,
                 vfsCachePressure = vfsPressure,
                 dirtyExpireCentisecs = expire,
                 dirtyWritebackCentisecs = writeback,
                 statInterval = stat,
+                mglruSupported = mglruSupported,
+                mglruMinTtlMs = mglruTtl,
+                pageCluster = pageCluster,
                 activePreset = preset
             )
             cachedVmConfig = cfg

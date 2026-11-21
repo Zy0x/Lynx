@@ -213,9 +213,16 @@ data class KsmStats(
 
 data class IoDeviceInfo(
     val device: String = "",
+    val deviceType: String = "",
+    val isPrimary: Boolean = false,
     val currentScheduler: String = "",
     val availableSchedulers: List<String> = emptyList(),
     val readAheadKb: Int = 0,
+    val targetReadAheadKb: Int? = null,
+    val policy: String = "",
+    val nrRequests: Int? = null,
+    val iostats: Int? = null,
+    val rqAffinity: Int? = null,
 )
 
 data class MountXStorageInfo(
@@ -351,12 +358,17 @@ data class SoundControlInfo(
 
 data class MemoryEntropyInfo(
     val isLmkLegacySupported: Boolean = false,
-    val lmkReason: String = "Kernel menggunakan userspace lmkd / PSI (Pressure Stall Information) modern (minfree sysfs di-deprecate)",
+    val isLmkWritable: Boolean = false,
+    val lmkReason: String = "Kernel menggunakan userspace lmkd / PSI (Pressure Stall Information) modern (sysfs minfree legacy tidak tersedia)",
     val minfreeMb: List<Int> = emptyList(),
     val isEntropySupported: Boolean = true,
+    val isEntropyThresholdWritable: Boolean = false,
+    val poolSizeBits: Int = 4096,
     val entropyAvail: Int = 0,
     val readThreshold: Int = 64,
     val writeThreshold: Int = 896,
+    val psiMemorySomeAvg10: String = "",
+    val psiMemoryFullAvg10: String = "",
 )
 
 data class CustomScriptItem(
@@ -475,6 +487,7 @@ data class LynxUiState(
     val selectedProfileTab: Int = 0,
     val selectedNetworkTab: Int = 0,
     val selectedThermalTab: Int = 0,
+    val selectedMemoryTab: Int = 0,
     val cpuHealthScore: Int = 100,
     val cpuRecommendation: String? = null,
     val isCpuRecommendationDismissed: Boolean = false,
@@ -632,12 +645,16 @@ data class LynxBenchmarkResult(
 )
 
 data class VirtualMemoryAdvancedConfig(
-    val swappiness: Int = 100,
+    val swappiness: Int = 60,
+    val swappinessMax: Int = 100,
     val dirtyRatio: Int = 20,
     val dirtyBackgroundRatio: Int = 5,
     val vfsCachePressure: Int = 100,
     val dirtyExpireCentisecs: Int = 3000,
     val dirtyWritebackCentisecs: Int = 500,
     val statInterval: Int = 1,
+    val mglruSupported: Boolean = false,
+    val mglruMinTtlMs: Int = 0,
+    val pageCluster: Int = -1,
     val activePreset: String = "balanced", // "gaming", "balanced", "battery", "custom"
 )

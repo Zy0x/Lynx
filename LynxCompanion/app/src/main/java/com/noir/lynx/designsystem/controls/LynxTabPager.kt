@@ -32,6 +32,7 @@ fun LynxTabPager(
     selectedPage: Int,
     onPageSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    userScrollEnabled: Boolean = true,
     tabRow: @Composable ((selectedPage: Int, onSelectPage: (Int) -> Unit) -> Unit)? = null,
     content: @Composable (page: Int) -> Unit
 ) {
@@ -81,6 +82,7 @@ fun LynxTabPager(
 
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = userScrollEnabled,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),

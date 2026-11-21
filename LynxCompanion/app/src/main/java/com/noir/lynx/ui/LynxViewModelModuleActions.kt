@@ -62,7 +62,7 @@ fun LynxViewModel.setSelectedTuningCategory(category: String?) {
         viewModelScope.launch(Dispatchers.IO) {
             when (category) {
                 "thermal" -> loadThermalSubsystemData()
-                "memory" -> loadMemorySubsystemData()
+                "memory" -> loadMemorySubsystemData(forceRefresh = true)
                 "network" -> {
                     refreshWifiTelemetry()
                     refreshTcpAlgorithms()
@@ -92,11 +92,11 @@ fun LynxViewModel.loadThermalSubsystemData() {
     }
 }
 
-fun LynxViewModel.loadMemorySubsystemData() {
+fun LynxViewModel.loadMemorySubsystemData(forceRefresh: Boolean = false) {
     viewModelScope.launch(Dispatchers.IO) {
         val ksmStats = LynxRepository.readKsmStats()
         val ioDevices = LynxRepository.readIoDevices()
-        val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig()
+        val vmAdvanced = LynxRepository.readVirtualMemoryAdvancedConfig(forceRefresh = forceRefresh)
         val zramComp = LynxRepository.readZramCompAlgorithms()
         val memoryEntropy = LynxRepository.readMemoryEntropy()
         _uiState.update {
