@@ -701,24 +701,222 @@ internal object LynxSystemTuningRepository {
         }
     }
 
-    suspend fun setZramCompAlgorithm(algo: String, zramSizeMb: Int): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setZramCompAlgorithm(algo: String, zramSizeMb: Int): Boolean =
+        applyZramConfiguration(algo, zramSizeMb).success
+
+    suspend fun applyZramConfiguration(algo: String, zramSizeMb: Int): ZramApplyResult = withContext(Dispatchers.IO) {
         try {
-            val safe = algo.replace(Regex("[^a-zA-Z0-9_-]"), "")
-            if (safe.isEmpty() || zramSizeMb <= 0) return@withContext false
-            val capability = Shell.cmd("[ -x '$LYNXD_PATH' ] && '$LYNXD_PATH' memory zram-info").exec()
-            val guarded = runCatching { JSONObject(capability.out.joinToString("\n"))
-                .optBoolean("live_reconfigure_requires_unused", false) }.getOrDefault(false)
-            if (!capability.isSuccess || !guarded) return@withContext false
-            // Keep live-page checks and reset sequencing inside the native controller.
-            val result = Shell.cmd("""
-                [ -x '$LYNXD_PATH' ] || exit 1
-                '$LYNXD_PATH' memory zram-set 'size=${zramSizeMb}M' 'algo=$safe'
-            """.trimIndent()).exec()
-            if (result.isSuccess) {
-                LynxRepository.writeStateKey("memory.comp_algorithm", safe, "str")
+            val safeAlgo = algo.trim().replace(Regex("[^a-zA-Z0-9_-]"), "")
+            if (zramSizeMb < 0) {
+                return@withContext ZramApplyResult(false, "Ukuran ZRAM tidak valid.")
             }
-            result.isSuccess
-        } catch (e: Exception) { false }
+            if (zramSizeMb in 1..127) {
+                return@withContext ZramApplyResult(
+                    false,
+                    "Ukuran ZRAM minimal 128 MB (0.13 GB), atau pilih 0 GB untuk menonaktifkan."
+                )
+            }
+
+            // 1. Inspect live RAM & swap state via kernel sysfs/procfs
+            val probe = Shell.cmd("""
+                [ -e /sys/block/zram0/disksize ] || { echo "PROBE_ERR:no_zram"; exit 2; }
+                awk '/^MemTotal:/{t=${'$'}2} /^MemAvailable:/{a=${'$'}2} /^MemFree:/{f=${'$'}2} /^Cached:/{c=${'$'}2} END{if(a=="") a=f+c; printf "MEM|%d|%d\n", t+0, a+0}' /proc/meminfo 2>/dev/null
+                awk '/zram0/{printf "SWAP|%d|%d\n", ${'$'}3+0, ${'$'}4+0; found=1} END{if(!found) print "SWAP|0|0"}' /proc/swaps 2>/dev/null
+                DISK_BYTES=${'$'}(cat /sys/block/zram0/disksize 2>/dev/null || echo 0)
+                echo "DISK|${'$'}DISK_BYTES"
+            """.trimIndent()).exec()
+
+            val probeLines = probe.out.map { it.trim() }
+            if (probeLines.any { it.startsWith("PROBE_ERR:no_zram") } || !probe.isSuccess) {
+                return@withContext ZramApplyResult(false, "Perangkat /sys/block/zram0 tidak tersedia pada kernel ini.")
+            }
+
+            var memTotKb = 0L
+            var memAvailKb = 0L
+            var swapUsedKb = 0L
+            var curDiskBytes = 0L
+            for (line in probeLines) {
+                val p = line.split('|')
+                when (p.firstOrNull()) {
+                    "MEM" -> {
+                        memTotKb = p.getOrNull(1)?.toLongOrNull() ?: 0L
+                        memAvailKb = p.getOrNull(2)?.toLongOrNull() ?: 0L
+                    }
+                    "SWAP" -> {
+                        swapUsedKb = p.getOrNull(2)?.toLongOrNull() ?: 0L
+                    }
+                    "DISK" -> {
+                        curDiskBytes = p.getOrNull(1)?.toLongOrNull() ?: 0L
+                    }
+                }
+            }
+
+            val totalRamMb = (memTotKb / 1024L).toInt().coerceAtLeast(1024)
+            val currentDiskMb = (curDiskBytes / 1048576L).toInt()
+            val maxAllowedMb = maxOf((totalRamMb * 3) / 4, currentDiskMb, 128)
+            if (zramSizeMb > maxAllowedMb) {
+                val maxGb = com.noir.lynx.feature.memory.ui.formatZramGb(maxAllowedMb)
+                return@withContext ZramApplyResult(
+                    false,
+                    "Ukuran melebihi batas aman perangkat (maks $maxGb)."
+                )
+            }
+
+            // Guard against OOM crash before paging compressed ZRAM back into physical RAM
+            val safetyHeadroomKb = 524_288L // 512 MB buffer
+            if (swapUsedKb > 0L && memAvailKb > 0L && memAvailKb < swapUsedKb + safetyHeadroomKb) {
+                val usedMb = (swapUsedKb / 1024L).toInt().coerceAtLeast(1)
+                val availMb = (memAvailKb / 1024L).toInt()
+                return@withContext ZramApplyResult(
+                    false,
+                    "RAM tersedia (${com.noir.lynx.feature.memory.ui.formatZramGb(availMb)}) belum cukup untuk membongkar ${com.noir.lynx.feature.memory.ui.formatZramGb(usedMb)} swap ZRAM (butuh cadangan ~0.5 GB). Bersihkan cache RAM dahulu."
+                )
+            }
+
+            // 2. Try lynxd first when swap is empty (or updated lynxd binary handles MemAvailable guard)
+            val lynxdCmd = if (zramSizeMb == 0) {
+                "'$LYNXD_PATH' memory zram-disable"
+            } else {
+                val algoArg = if (safeAlgo.isNotEmpty()) "'algo=$safeAlgo'" else ""
+                "'$LYNXD_PATH' memory zram-set 'size=${zramSizeMb}M' $algoArg"
+            }
+            val lynxdAttempt = Shell.cmd("[ -x '$LYNXD_PATH' ] && $lynxdCmd").exec()
+            if (lynxdAttempt.isSuccess) {
+                val live = verifyZramLiveState(zramSizeMb, safeAlgo)
+                if (live != null) {
+                    val (verifiedMb, verifiedAlgo, isSwapped) = live
+                    if ((zramSizeMb == 0 && verifiedMb == 0 && !isSwapped) || (zramSizeMb > 0 && verifiedMb > 0 && isSwapped)) {
+                        LynxRepository.writeStateKey("memory.zram_size_mb", verifiedMb.toString(), "val")
+                        val resolvedAlgo = verifiedAlgo.ifBlank { safeAlgo }
+                        if (resolvedAlgo.isNotEmpty()) {
+                            LynxRepository.writeStateKey("memory.comp_algorithm", resolvedAlgo, "str")
+                        }
+                        val sizeLockedByKernel = zramSizeMb > 0 && verifiedMb != zramSizeMb
+                        val msg = when {
+                            verifiedMb == 0 -> "ZRAM dinonaktifkan (0 GB)"
+                            sizeLockedByKernel ->
+                                "Kernel mengunci ukuran ZRAM di ${com.noir.lynx.feature.memory.ui.formatZramGb(verifiedMb)}; algoritma aktif: ${resolvedAlgo.uppercase()}."
+                            else ->
+                                "ZRAM aktif: ${com.noir.lynx.feature.memory.ui.formatZramGb(verifiedMb)} (${resolvedAlgo.uppercase()})"
+                        }
+                        return@withContext ZramApplyResult(
+                            success = !sizeLockedByKernel || (safeAlgo.isNotEmpty() && resolvedAlgo == safeAlgo),
+                            message = msg,
+                            appliedSizeMb = verifiedMb,
+                            appliedAlgo = resolvedAlgo
+                        )
+                    }
+                }
+            }
+
+            // 3. Direct verified root kernel transaction (always re-enables mkswap/swapon even if kernel clamps disksize)
+            val targetBytes = zramSizeMb.toLong() * 1048576L
+            val applyScript = if (zramSizeMb == 0) {
+                """
+                if grep -q 'zram0' /proc/swaps 2>/dev/null; then
+                    swapoff /dev/block/zram0 2>/dev/null || { echo "ZRAM_ERR:swapoff"; exit 11; }
+                fi
+                reset_ok=0
+                for i in 1 2 3 4 5 6; do
+                    if echo 1 > /sys/block/zram0/reset 2>/dev/null; then reset_ok=1; break; fi
+                    sleep 0.1 2>/dev/null || usleep 100000 2>/dev/null || sleep 1
+                done
+                [ "${'$'}reset_ok" = "1" ] || { echo "ZRAM_ERR:reset"; exit 12; }
+                echo "ZRAM_OK|0|"
+                """.trimIndent()
+            } else {
+                """
+                if grep -q 'zram0' /proc/swaps 2>/dev/null; then
+                    swapoff /dev/block/zram0 2>/dev/null || { echo "ZRAM_ERR:swapoff"; exit 11; }
+                fi
+                reset_ok=0
+                for i in 1 2 3 4 5 6; do
+                    if echo 1 > /sys/block/zram0/reset 2>/dev/null; then reset_ok=1; break; fi
+                    sleep 0.1 2>/dev/null || usleep 100000 2>/dev/null || sleep 1
+                done
+                [ "${'$'}reset_ok" = "1" ] || { echo "ZRAM_ERR:reset"; exit 12; }
+                if [ -n "$safeAlgo" ] && [ -e /sys/block/zram0/comp_algorithm ]; then
+                    if grep -qw "$safeAlgo" /sys/block/zram0/comp_algorithm 2>/dev/null; then
+                        echo "$safeAlgo" > /sys/block/zram0/comp_algorithm 2>/dev/null || { echo "ZRAM_ERR:algo"; exit 13; }
+                    fi
+                fi
+                echo "$targetBytes" > /sys/block/zram0/disksize 2>/dev/null || true
+                actual_bytes=${'$'}(cat /sys/block/zram0/disksize 2>/dev/null || echo 0)
+                if [ "${'$'}actual_bytes" = "0" ] || [ -z "${'$'}actual_bytes" ]; then
+                    echo "ZRAM_ERR:disksize"; exit 14
+                fi
+                mkswap /dev/block/zram0 >/dev/null 2>&1 || { echo "ZRAM_ERR:mkswap"; exit 16; }
+                swapon /dev/block/zram0 >/dev/null 2>&1 || swapon -p 32758 /dev/block/zram0 >/dev/null 2>&1 || { echo "ZRAM_ERR:swapon"; exit 17; }
+                active_a=${'$'}(sed -n 's/.*\[\([^]]*\)\].*/\1/p' /sys/block/zram0/comp_algorithm 2>/dev/null | head -n1)
+                echo "ZRAM_OK|${'$'}actual_bytes|${'$'}active_a"
+                """.trimIndent()
+            }
+
+            val directRes = Shell.cmd(applyScript).exec()
+            val okLine = directRes.out.firstOrNull { it.trim().startsWith("ZRAM_OK|") }?.trim()
+            if (directRes.isSuccess && okLine != null) {
+                val parts = okLine.split('|')
+                val verifiedBytes = parts.getOrNull(1)?.toLongOrNull() ?: targetBytes
+                val verifiedMb = (verifiedBytes / 1048576L).toInt()
+                val verifiedAlgo = parts.getOrNull(2).orEmpty().ifBlank { safeAlgo }
+                LynxRepository.writeStateKey("memory.zram_size_mb", verifiedMb.toString(), "val")
+                if (verifiedAlgo.isNotEmpty()) {
+                    LynxRepository.writeStateKey("memory.comp_algorithm", verifiedAlgo, "str")
+                }
+                val sizeLockedByKernel = zramSizeMb > 0 && verifiedMb != zramSizeMb
+                val msg = when {
+                    verifiedMb == 0 -> "ZRAM dinonaktifkan (0 GB)"
+                    sizeLockedByKernel ->
+                        "Kernel mengunci ukuran ZRAM di ${com.noir.lynx.feature.memory.ui.formatZramGb(verifiedMb)}; algoritma aktif: ${verifiedAlgo.uppercase()}."
+                    else ->
+                        "ZRAM aktif: ${com.noir.lynx.feature.memory.ui.formatZramGb(verifiedMb)} (${verifiedAlgo.uppercase()})"
+                }
+                return@withContext ZramApplyResult(
+                    success = !sizeLockedByKernel || (safeAlgo.isNotEmpty() && verifiedAlgo == safeAlgo),
+                    message = msg,
+                    appliedSizeMb = verifiedMb,
+                    appliedAlgo = verifiedAlgo
+                )
+            }
+
+            val errTag = (directRes.out + directRes.err)
+                .firstOrNull { it.contains("ZRAM_ERR:") }
+                ?.substringAfter("ZRAM_ERR:")
+                ?.trim()
+            val errReason = when {
+                errTag == "swapoff" -> "swapoff gagal memindahkan halaman ZRAM kembali ke RAM (memori sistem sedang sibuk)."
+                errTag == "reset" -> "Kernel masih mengunci perangkat ZRAM (/sys/block/zram0/reset sibuk)."
+                errTag == "algo" -> "Kernel menolak algoritma kompresi ${safeAlgo.uppercase()}."
+                errTag?.startsWith("disksize") == true || errTag?.startsWith("verify") == true ->
+                    "Kernel gagal menetapkan ukuran disksize ${com.noir.lynx.feature.memory.ui.formatZramGb(zramSizeMb)}."
+                errTag == "mkswap" -> "Format swap (mkswap /dev/block/zram0) gagal."
+                errTag == "swapon" -> "Aktivasi swap (swapon /dev/block/zram0) ditolak kernel."
+                else -> "Gagal mengubah konfigurasi ZRAM (${com.noir.lynx.feature.memory.ui.formatZramGb(zramSizeMb)})."
+            }
+            ZramApplyResult(false, errReason)
+        } catch (e: Exception) {
+            ZramApplyResult(false, e.message ?: "Gagal menerapkan konfigurasi ZRAM.")
+        }
+    }
+
+    private fun verifyZramLiveState(expectedMb: Int, fallbackAlgo: String): Triple<Int, String, Boolean>? {
+        val check = Shell.cmd("""
+            disk=${'$'}(cat /sys/block/zram0/disksize 2>/dev/null || echo -1)
+            active=${'$'}(sed -n 's/.*\[\([^]]*\)\].*/\1/p' /sys/block/zram0/comp_algorithm 2>/dev/null | head -n1)
+            if grep -q 'zram0' /proc/swaps 2>/dev/null; then swapped=1; else swapped=0; fi
+            echo "${'$'}disk|${'$'}active|${'$'}swapped"
+        """.trimIndent()).exec()
+        val line = check.out.firstOrNull()?.trim() ?: return null
+        val parts = line.split('|')
+        val diskBytes = parts.getOrNull(0)?.toLongOrNull()?.takeIf { it >= 0L } ?: return null
+        val actualAlgo = parts.getOrNull(1).orEmpty().ifBlank { fallbackAlgo }
+        val isSwapped = parts.getOrNull(2) == "1"
+        val actualMb = (diskBytes / 1048576L).toInt()
+        return if ((expectedMb == 0 && !isSwapped) || (expectedMb > 0 && isSwapped && actualMb > 0)) {
+            Triple(actualMb, actualAlgo, isSwapped)
+        } else {
+            null
+        }
     }
 
     // ----------------------------------------------------------------

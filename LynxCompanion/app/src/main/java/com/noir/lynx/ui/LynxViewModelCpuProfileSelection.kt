@@ -131,15 +131,7 @@ import kotlinx.coroutines.flow.update
 
 
     fun LynxViewModel.setZramSizeMb(mb: Int) {
-        recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
-        _uiState.update { current ->
-            current.copy(state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = mb)))
-        }
-        setKey("memory.zram_size_mb", mb.toString(), "val")
-        viewModelScope.launch(Dispatchers.IO) {
-            val algo = _uiState.value.zramCompAlgorithm
-            LynxRepository.setZramCompAlgorithm(algo, mb)
-        }
+        applyZramConfiguration(_uiState.value.zramCompAlgorithm, mb)
     }
 
 

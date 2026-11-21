@@ -135,35 +135,57 @@ internal fun formatZramGb(
 }
 
 /**
- * Decimal GB input overlay for custom ZRAM sizing with 1-tap safe ratio presets and 50% RAM guard.
+ * Decimal GB input overlay for ZRAM target sizing with 1-tap GB presets (including Off / 0 GB)
+ * and safe RAM-aware validation.
  */
 @Composable
 internal fun CustomZramGbDialog(
     currentMb: Int,
     maxSafeMb: Int,
     ramTotalMb: Int,
+    recommendedMaxMb: Int = (ramTotalMb / 2).coerceAtLeast(128),
     accentColor: Color = AccentCyan,
     onDismiss: () -> Unit,
     onConfirmMb: (Int) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val safeMaxMb = maxSafeMb.coerceAtLeast(128)
+    val safeMaxMb = maxOf(maxSafeMb, currentMb, 128)
     var text by remember(currentMb) {
-        mutableStateOf(formatZramGb(currentMb.coerceIn(128, safeMaxMb), includeUnit = false))
+        mutableStateOf(
+            if (currentMb <= 0) "0" else formatZramGb(currentMb.coerceIn(128, safeMaxMb), includeUnit = false)
+        )
     }
     val parsedGb = text.trim().replace(',', '.').toDoubleOrNull()
     val computedMb = parsedGb?.let { (it * 1024.0).roundToInt() }
-    val isValid = parsedGb != null && parsedGb > 0.0 && computedMb != null && computedMb in 128..safeMaxMb
+    val isValid = parsedGb != null && computedMb != null && (computedMb == 0 || computedMb in 128..safeMaxMb)
     val maxGbText = formatZramGb(safeMaxMb)
+    val recGbText = formatZramGb(recommendedMaxMb)
 
-    val quickGbPresets = remember(ramTotalMb, safeMaxMb) {
-        val quarterAlignedMax = ((safeMaxMb / 256) * 256).takeIf { it >= 256 }
-            ?: ((safeMaxMb / 128) * 128)
-        listOf(
-            "Hemat" to (((ramTotalMb * 20) / 100f) / 128f).roundToInt().coerceAtLeast(1) * 128,
-            "Seimbang" to (((ramTotalMb * 33) / 100f) / 128f).roundToInt().coerceAtLeast(1) * 128,
-            "Maks 50%" to quarterAlignedMax
-        ).filter { it.second in 128..safeMaxMb }.distinctBy { it.second }
+    val quickGbPresets = remember(ramTotalMb, safeMaxMb, recommendedMaxMb) {
+        val stdSteps = listOf(0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0)
+            .map { (it * 1024.0).roundToInt() }
+            .filter { it in 128..safeMaxMb }
+        val maxQuarterMb = ((safeMaxMb / 256) * 256).takeIf { it >= 256 } ?: ((safeMaxMb / 128) * 128)
+        val pool = (stdSteps + listOfNotNull(maxQuarterMb.takeIf { it >= 128 }))
+            .distinct()
+            .sorted()
+        val chosen = if (pool.size <= 5) {
+            pool
+        } else {
+            val mid = pool.filter { it <= recommendedMaxMb }
+            val high = pool.filter { it > recommendedMaxMb }
+            (mid.takeLast(3) + high.takeLast(2)).distinct().sorted().take(5)
+        }
+        val items = mutableListOf("Nonaktif" to 0)
+        chosen.forEach { mbOpt ->
+            val tag = when {
+                mbOpt == recommendedMaxMb || (mbOpt <= recommendedMaxMb && mbOpt == chosen.lastOrNull { it <= recommendedMaxMb }) -> "Standar"
+                mbOpt > recommendedMaxMb -> "Ekstra"
+                else -> "Hemat"
+            }
+            items.add(tag to mbOpt)
+        }
+        items
     }
 
     AlertDialog(
@@ -189,7 +211,7 @@ internal fun CustomZramGbDialog(
         },
         title = {
             Text(
-                text = "Ukuran ZRAM Kustom (GB)",
+                text = "Kapasitas Target ZRAM (GB)",
                 fontSize = 15.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -197,59 +219,64 @@ internal fun CustomZramGbDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (quickGbPresets.isNotEmpty()) {
-                    Text(
-                        text = "Preset Cepat (1-Tap)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSecondary
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        quickGbPresets.forEach { (presetTag, presetMb) ->
-                            val selected = computedMb == presetMb
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (selected) accentColor.copy(alpha = 0.18f) else BgElevated,
-                                border = BorderStroke(
-                                    if (selected) 1.dp else 0.6.dp,
-                                    if (selected) accentColor.copy(alpha = 0.65f) else BorderSubtle
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 44.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onConfirmMb(presetMb)
-                                    }
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
+                Text(
+                    text = "Preset Cepat (1-Tap)",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    quickGbPresets.chunked(3).forEach { rowPresets ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            rowPresets.forEach { (presetTag, presetMb) ->
+                                val selected = computedMb == presetMb
+                                val chipAccent = if (presetMb == 0) AccentOrange else accentColor
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (selected) chipAccent.copy(alpha = 0.18f) else BgElevated,
+                                    border = BorderStroke(
+                                        if (selected) 1.dp else 0.6.dp,
+                                        if (selected) chipAccent.copy(alpha = 0.65f) else BorderSubtle
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 46.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            onConfirmMb(presetMb)
+                                        }
                                 ) {
-                                    Text(
-                                        text = formatZramGb(presetMb),
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (selected) accentColor else TextPrimary,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = presetTag,
-                                        fontSize = 9.5.sp,
-                                        color = if (selected) accentColor.copy(alpha = 0.85f) else TextTertiary,
-                                        maxLines = 1
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = if (presetMb == 0) "0 GB" else formatZramGb(presetMb),
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (selected) chipAccent else TextPrimary,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = presetTag,
+                                            fontSize = 9.5.sp,
+                                            color = if (selected) chipAccent.copy(alpha = 0.85f) else TextTertiary,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                             }
+                            repeat(3 - rowPresets.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
-                    HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
                 }
+
+                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
 
                 OutlinedTextField(
                     value = text,
@@ -262,7 +289,7 @@ internal fun CustomZramGbDialog(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
-                    label = { Text("Kapasitas ZRAM", fontSize = 12.sp) },
+                    label = { Text("Atau Ketik Ukuran Kustom", fontSize = 12.sp) },
                     suffix = {
                         Text(
                             text = "GB",
@@ -286,20 +313,31 @@ internal fun CustomZramGbDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = if (isValid && computedMb != null) {
-                        "Setara $computedMb MB (${formatZramGb(computedMb)}). Batas aman 50% RAM: maks $maxGbText."
-                    } else {
-                        "RAM total ${formatZramGb(ramTotalMb)}. Masukkan 0.13 – ${formatZramGb(safeMaxMb, includeUnit = false)} GB (maks $maxGbText)."
+                    text = when {
+                        !isValid && text.isNotEmpty() ->
+                            "Masukkan 0 (Off) atau 0.13 – ${formatZramGb(safeMaxMb, includeUnit = false)} GB (maks $maxGbText)."
+                        computedMb == 0 ->
+                            "Swap ZRAM dimatikan (0 GB); halaman swap aktif akan dipindahkan ke RAM."
+                        computedMb != null && computedMb > recommendedMaxMb ->
+                            "Setara $computedMb MB (${formatZramGb(computedMb)}). Di atas 50% RAM ($recGbText) — disarankan memakai kompresi cepat."
+                        computedMb != null ->
+                            "Setara $computedMb MB (${formatZramGb(computedMb)}). Rekomendasi ≤ $recGbText, maks aman $maxGbText."
+                        else ->
+                            "RAM total ${formatZramGb(ramTotalMb)}. Rekomendasi ≤ $recGbText, maks $maxGbText."
                     },
                     fontSize = 11.sp,
-                    color = if (!isValid && text.isNotEmpty()) AccentRed else TextSecondary,
+                    color = when {
+                        !isValid && text.isNotEmpty() -> AccentRed
+                        computedMb != null && (computedMb == 0 || computedMb > recommendedMaxMb) -> AccentOrange
+                        else -> TextSecondary
+                    },
                     lineHeight = 15.sp
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { computedMb?.let { onConfirmMb(it.coerceIn(128, safeMaxMb)) } },
+                onClick = { computedMb?.let { onConfirmMb(if (it == 0) 0 else it.coerceIn(128, safeMaxMb)) } },
                 enabled = isValid,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -308,7 +346,7 @@ internal fun CustomZramGbDialog(
                 ),
                 modifier = Modifier.heightIn(min = 44.dp)
             ) {
-                Text("Terapkan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Pilih Ukuran", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         },
         dismissButton = {

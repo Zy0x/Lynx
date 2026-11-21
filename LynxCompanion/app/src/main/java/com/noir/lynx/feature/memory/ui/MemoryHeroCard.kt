@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,8 +29,8 @@ import com.noir.lynx.ui.LynxViewModel
 import com.noir.lynx.ui.cleanRam
 
 /**
- * MemoryHeroCard — Clean real-time RAM & Swap summary + safe background cleanup.
- * Properly padded at 16.dp horizontal margin to align seamlessly with all LynxCard containers.
+ * MemoryHeroCard — Clearly separated live telemetry panels for Physical RAM (MB) and ZRAM Swap (GB),
+ * each with dedicated utilization meters, status badges, and safe background cleanup action.
  */
 @Composable
 internal fun MemoryHeroCard(
@@ -37,22 +39,33 @@ internal fun MemoryHeroCard(
     modifier: Modifier = Modifier
 ) {
     val telemetry = uiState.telemetry
+
+    // ── Physical RAM (kept in MB as requested) ──
     val ramTotalMb = telemetry?.ramTotalMb?.takeIf { it > 0 } ?: 4096
     val ramUsedMb = (telemetry?.ramUsedMb ?: 0).coerceIn(0, ramTotalMb)
     val ramAvailMb = (ramTotalMb - ramUsedMb).coerceAtLeast(0)
     val ramRatio = if (ramTotalMb > 0) (ramUsedMb.toFloat() / ramTotalMb.toFloat()).coerceIn(0f, 1f) else 0f
     val ramPercent = (ramRatio * 100f).toInt()
-
-    val zramConfiguredMb = uiState.state.memory.zramSizeMb
-    val zramTotalMb = (telemetry?.zramTotalMb?.takeIf { it > 0 } ?: telemetry?.swapTotalMb?.takeIf { it > 0 } ?: zramConfiguredMb)
-    val zramUsedMb = (telemetry?.zramUsedMb?.takeIf { it > 0 } ?: telemetry?.swapUsedMb ?: 0).coerceAtLeast(0)
-    val activeAlgo = uiState.zramCompAlgorithm.ifBlank { "lz4" }
-    val swappiness = uiState.vmAdvanced.swappiness
-
-    val healthColor = when {
+    val ramHealthColor = when {
         ramPercent >= 85 -> AccentOrange
         ramPercent >= 70 -> AccentCyan
         else -> AccentGreen
+    }
+
+    // ── ZRAM Swap (strictly isolated section in GB) ──
+    val zramTotalMb = (telemetry?.zramTotalMb ?: uiState.state.memory.zramSizeMb).coerceAtLeast(0)
+    val zramUsedMb = if (zramTotalMb > 0) {
+        (telemetry?.zramUsedMb?.takeIf { it >= 0 } ?: telemetry?.swapUsedMb ?: 0).coerceIn(0, zramTotalMb)
+    } else 0
+    val zramAvailMb = (zramTotalMb - zramUsedMb).coerceAtLeast(0)
+    val zramRatio = if (zramTotalMb > 0) (zramUsedMb.toFloat() / zramTotalMb.toFloat()).coerceIn(0f, 1f) else 0f
+    val zramPercent = (zramRatio * 100f).toInt()
+    val activeAlgo = uiState.zramCompAlgorithm.ifBlank { "lz4" }
+    val swappiness = uiState.vmAdvanced.swappiness
+    val zramColor = when {
+        zramTotalMb <= 0 -> TextTertiary
+        zramPercent >= 85 -> AccentOrange
+        else -> AccentPurple
     }
 
     Surface(
@@ -75,165 +88,206 @@ internal fun MemoryHeroCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Top Status Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // ── Block 1: Physical RAM ──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(
-                            shape = CircleShape,
-                            color = healthColor.copy(alpha = 0.20f),
-                            modifier = Modifier.size(12.dp)
-                        ) {}
-                        Surface(
-                            shape = CircleShape,
-                            color = healthColor,
-                            modifier = Modifier.size(6.dp)
-                        ) {}
-                    }
-                    Text(
-                        text = "Status Memori & Swap",
-                        color = TextSecondary.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = AccentCyan.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = if (zramTotalMb > 0) {
-                            "Swap ${formatZramGb(zramUsedMb, includeUnit = false)} / ${formatZramGb(zramTotalMb)}"
-                        } else {
-                            "ZRAM Off"
-                        },
-                        color = AccentCyan,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            // Main RAM Metric Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.6.dp, BorderSubtle),
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Storage,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (ramUsedMb > 0) "$ramUsedMb / $ramTotalMb MB" else "$ramTotalMb MB Total RAM",
-                        color = TextPrimary,
-                        fontSize = 15.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = if (ramUsedMb > 0) "Tersedia ~$ramAvailMb MB" else "Memantau penggunaan RAM",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = healthColor.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, healthColor.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = "$ramPercent% Terpakai",
-                        color = healthColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
-                    )
-                }
-            }
-
-            // Live RAM Utilization Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(BgSurfaceLowest)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(ramRatio.coerceAtLeast(0.02f))
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Brush.horizontalGradient(listOf(AccentBlue, healthColor)))
-                )
-            }
-
-            // Concise Non-Redundant Telemetry Ribbon
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgElevated,
-                border = BorderStroke(0.6.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("Kompresi", color = TextSecondary, fontSize = 10.5.sp)
-                        Text(activeAlgo.uppercase(), color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        StatusDot(color = ramHealthColor)
+                        Text(
+                            text = "RAM FISIK",
+                            color = TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp
+                        )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("Swappiness", color = TextSecondary, fontSize = 10.5.sp)
-                        Text("$swappiness", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = ramHealthColor.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, ramHealthColor.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = "$ramPercent% Terpakai",
+                            color = ramHealthColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
-                    if (uiState.ksmStats.supported) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text("KSM", color = TextSecondary, fontSize = 10.5.sp)
-                            Text(
-                                text = if (uiState.ksmStats.enabled) "Aktif" else "Off",
-                                color = if (uiState.ksmStats.enabled) AccentGreen else TextSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Memory,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (ramUsedMb > 0) "$ramUsedMb / $ramTotalMb MB" else "$ramTotalMb MB Total",
+                            color = TextPrimary,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.2).sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = if (ramUsedMb > 0) "Tersedia ~$ramAvailMb MB" else "Memantau penggunaan RAM",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(BgSurfaceLowest)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(ramRatio.coerceAtLeast(0.02f))
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Brush.horizontalGradient(listOf(AccentBlue, ramHealthColor)))
+                    )
+                }
+            }
+
+            HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+
+            // ── Block 2: ZRAM Swap ──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        StatusDot(color = zramColor)
+                        Text(
+                            text = "ZRAM SWAP",
+                            color = TextPrimary,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = zramColor.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, zramColor.copy(alpha = 0.35f))
+                    ) {
+                        Text(
+                            text = if (zramTotalMb > 0) {
+                                "${activeAlgo.uppercase()} • $zramPercent% Terpakai"
+                            } else {
+                                "NONAKTIF"
+                            },
+                            color = zramColor,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Storage,
+                                contentDescription = null,
+                                tint = zramColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (zramTotalMb > 0) {
+                                "${formatZramGb(zramUsedMb, includeUnit = false)} / ${formatZramGb(zramTotalMb)}"
+                            } else {
+                                "0.0 GB (Nonaktif)"
+                            },
+                            color = if (zramTotalMb > 0) TextPrimary else TextSecondary,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.2).sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = if (zramTotalMb > 0) {
+                                "Tersedia ${formatZramGb(zramAvailMb)} • Swappiness $swappiness"
+                            } else {
+                                "ZRAM swap dimatikan • Swappiness $swappiness"
+                            },
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(BgSurfaceLowest)
+                ) {
+                    if (zramTotalMb > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(zramRatio.coerceAtLeast(0.02f))
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Brush.horizontalGradient(listOf(AccentCyan, zramColor)))
+                        )
                     }
                 }
             }
 
-            // Safe Background RAM Cleanup Button
+            // ── Safe Background RAM Cleanup Button ──
             LynxActionButton(
                 text = if (uiState.isCleaningRam) "Membersihkan Cache Latar..." else "Bersihkan Cache & Buffer RAM",
                 icon = Icons.Default.CleaningServices,
@@ -241,6 +295,23 @@ internal fun MemoryHeroCard(
                 accentColor = AccentCyan,
                 onClick = { viewModel.cleanRam() }
             )
+        }
+    }
+}
+
+@Composable
+private fun StatusDot(color: Color) {
+    Surface(
+        shape = CircleShape,
+        color = color.copy(alpha = 0.20f),
+        modifier = Modifier.size(12.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Surface(
+                shape = CircleShape,
+                color = color,
+                modifier = Modifier.size(6.dp)
+            ) {}
         }
     }
 }

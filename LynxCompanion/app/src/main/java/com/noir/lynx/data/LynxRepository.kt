@@ -718,6 +718,8 @@ object LynxRepository {
 
     suspend fun setZramCompAlgorithm(algo: String, zramSizeMb: Int): Boolean = LynxSystemTuningRepository.setZramCompAlgorithm(algo, zramSizeMb)
 
+    suspend fun applyZramConfiguration(algo: String, zramSizeMb: Int): ZramApplyResult = LynxSystemTuningRepository.applyZramConfiguration(algo, zramSizeMb)
+
     suspend fun readSupportedRefreshRates(): List<Int> = LynxDisplayRepository.readSupportedRefreshRates()
 
     suspend fun readDisplayCapabilityInfo(): DisplayCapabilityInfo = LynxDisplayRepository.readDisplayCapabilityInfo()

@@ -1,3 +1,16 @@
+# Lynx Universal [Separated RAM/ZRAM Hero Cards, Live Safe ZRAM Engine & Custom Capacity Overlay] 7.0.0-RC433
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.52
+
+### Native Core & Companion App (`zram.rs`, `LynxSystemTuningRepository`, `LynxTelemetryReader`, `MemoryHeroCard`, `MemoryVmZramCard`)
+- **Reliable Live ZRAM Reconfiguration (`zram.rs`, `LynxSystemTuningRepository`, `LynxViewModelStorageThermal`)**:
+  - Replaced the strict `used > 0` abort with an explicit `MemAvailable` safety margin check (`>= zramUsed + 512 MB`), running verified `swapoff` → retried `reset` → `comp_algorithm` → `disksize` verification → `mkswap` → `swapon` (with root transaction fallback on devices without an updated `lynxd` binary) and supporting safe `0 GB` ZRAM disable.
+  - Raised the kernel ZRAM ceiling consistently across `zram.rs`, `memory.rs`, and the UI to 75% of physical kernel RAM (preserving OEM 4.0 GB ZRAM configs on 8 GB phones where `50%` of 7816 MB previously locked out 4.0 GB).
+  - Fixed `/proc/swaps` 4 KB swap-header rounding (`4095 MB` → exact `4096 MB`) in both `device_state.rs` and `LynxTelemetryReader.kt`, unified `setZramSizeMb` with `applyZramConfiguration`, and added live `isApplyingZram` loading feedback.
+- **Separated RAM vs ZRAM Hero Telemetry & Custom Capacity Overlay (`MemoryHeroCard`, `MemoryVmZramCard`, `CustomZramGbDialog`)**:
+  - Split `MemoryHeroCard` into two distinct, dedicated panels with independent headers, status badges, and progress bars: `RAM FISIK` (kept in MB) and `ZRAM SWAP` (in GB with active algorithm and swappiness), removing cross-tab KSM clutter and duplicate headers.
+  - Converted ZRAM Target Capacity into a touch-first interactive row opening `CustomZramGbDialog` (with 1-tap `Nonaktif / 0 GB` + ascending GB presets + free decimal GB input), added compression algorithm character hints, and fixed `liveZramMb` coercion so `0 GB` displays honestly.
+
 # Lynx Universal [Precision Preset+Text Input Overlays Across Memory & Deep Sysfs Tunables] 7.0.0-RC432
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.51

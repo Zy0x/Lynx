@@ -35,38 +35,46 @@ import kotlinx.coroutines.launch
  */
 
 fun LynxViewModel.setZramCompAlgorithm(algo: String) {
-    applyZramConfiguration(algo, _uiState.value.state.memory.zramSizeMb)
+    val liveOrConfigMb = _uiState.value.telemetry?.zramTotalMb?.takeIf { it > 0 }
+        ?: _uiState.value.state.memory.zramSizeMb
+    applyZramConfiguration(algo, liveOrConfigMb)
 }
 
 fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
-    val safeMb = mb.coerceAtLeast(128)
-    val gbText = com.noir.lynx.feature.memory.ui.formatZramGb(safeMb)
+    if (_uiState.value.isApplyingZram) return
+    val targetMb = if (mb <= 0) 0 else mb.coerceAtLeast(128)
+    _uiState.update { it.copy(isApplyingZram = true, errorMessage = null) }
     recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
     viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.setZramCompAlgorithm(algo, safeMb)
-        if (ok) {
-            LynxRepository.writeStateKey("memory.zram_size_mb", safeMb.toString(), "val")
-            val tel = LynxRepository.readTelemetry()
-            val zramComp = LynxRepository.readZramCompAlgorithms()
+        val result = LynxRepository.applyZramConfiguration(algo, targetMb)
+        val tel = LynxRepository.readTelemetry()
+        val zramComp = LynxRepository.readZramCompAlgorithms()
+        if (result.success) {
             _uiState.update { current ->
                 current.copy(
+                    isApplyingZram = false,
                     telemetry = tel,
-                    zramCompAlgorithm = zramComp.first.ifBlank { algo },
+                    zramCompAlgorithm = result.appliedAlgo.ifBlank { zramComp.first.ifBlank { algo } },
                     availZramCompAlgorithms = zramComp.second.ifEmpty { current.availZramCompAlgorithms },
-                    state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = safeMb)),
-                    successMessage = "ZRAM dikonfigurasi: $gbText (${algo.uppercase()})"
+                    state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = result.appliedSizeMb)),
+                    successMessage = result.message
                 )
             }
             refreshState()
         } else {
-            val usedSwap = _uiState.value.telemetry?.zramUsedMb?.takeIf { it > 0 }
-                ?: (_uiState.value.telemetry?.swapUsedMb ?: 0)
-            val reason = if (usedSwap > 0) {
-                "ZRAM sedang menampung ${com.noir.lynx.feature.memory.ui.formatZramGb(usedSwap)} data aktif; ubah saat ZRAM kosong."
-            } else {
-                "Gagal menerapkan ZRAM ($gbText • ${algo.uppercase()}). Pastikan ukuran ≤ 50% RAM."
+            _uiState.update { current ->
+                current.copy(
+                    isApplyingZram = false,
+                    telemetry = tel,
+                    zramCompAlgorithm = result.appliedAlgo.ifBlank { zramComp.first.ifBlank { current.zramCompAlgorithm } },
+                    state = if (result.appliedSizeMb > 0) {
+                        current.state.copy(memory = current.state.memory.copy(zramSizeMb = result.appliedSizeMb))
+                    } else {
+                        current.state
+                    },
+                    errorMessage = result.message
+                )
             }
-            _uiState.update { it.copy(errorMessage = reason) }
         }
     }
 }

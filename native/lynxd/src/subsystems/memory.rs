@@ -160,7 +160,7 @@ impl MemoryController {
             .iter()
             .map(|a| format!("\"{}\"", a))
             .collect();
-        let max_safe_bytes = (mem.total_ram_mb * 1024 * 1024) / 2;
+        let max_safe_bytes = ((mem.total_ram_mb * 1024 * 1024 * 3) / 4).max(mem.zram_disksize_bytes);
 
         let mut out = String::new();
         let _ = write!(

@@ -220,7 +220,7 @@ internal object LynxTelemetryReader {
                             val rawZ = trimmed.removePrefix("zram_swap:").trim()
                             val parts = rawZ.split(Regex("\\s+")).mapNotNull { it.toLongOrNull() }
                             if (parts.size >= 2) {
-                                zramTotalMb = (parts[0] / 1024L).toInt()
+                                zramTotalMb = ((parts[0] + 512L) / 1024L).toInt()
                                 zramUsedMb = (parts[1] / 1024L).toInt()
                             }
                         }
@@ -238,12 +238,12 @@ internal object LynxTelemetryReader {
                 var swapTotalMb = 0
                 var swapUsedMb = 0
                 if (rawSwapTotKb != null && rawSwapTotKb > 0) {
-                    swapTotalMb = (rawSwapTotKb / 1024L).toInt()
+                    swapTotalMb = ((rawSwapTotKb + 512L) / 1024L).toInt()
                     val freeKb = rawSwapFreeKb ?: 0L
                     swapUsedMb = ((rawSwapTotKb - freeKb) / 1024L).toInt().coerceIn(0, swapTotalMb)
                 }
 
-                if (zramTotalMb == 0 && rawZramSysfsBytes != null && rawZramSysfsBytes > 0) {
+                if (rawZramSysfsBytes != null && rawZramSysfsBytes > 0) {
                     zramTotalMb = (rawZramSysfsBytes / 1048576L).toInt()
                 }
 
@@ -396,7 +396,7 @@ internal object LynxTelemetryReader {
                     ramUsedMb = ((totKb - effAvail) / 1024L).toInt().coerceIn(0, ramTotalMb)
                 }
                 if (swapTotKb > 0L) {
-                    swapTotalMb = (swapTotKb / 1024L).toInt()
+                    swapTotalMb = ((swapTotKb + 512L) / 1024L).toInt()
                     swapUsedMb = ((swapTotKb - swapFreeKb) / 1024L).toInt().coerceIn(0, swapTotalMb)
                 }
             } catch (_: Exception) {}

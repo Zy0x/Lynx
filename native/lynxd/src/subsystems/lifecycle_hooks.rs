@@ -195,8 +195,10 @@ impl LifecycleHooks {
         let _ = crate::subsystems::NetworkController::apply_balance();
         Self::log_msg("[+] Core, network, and platform subsystems optimized natively via lynxd");
 
-        // 7. Apply Charging, ADB Keep-Alive & VM Setup (never drop caches or run heavy maintenance on cold boot)
+        // 7. Apply Charging, Touch Micro-Sense Hardware, ADB Keep-Alive & VM Setup
         ChargingRegulator::apply_from_config();
+        let touch_boot = crate::subsystems::TouchPrecisionController::apply_boot();
+        Self::log_msg(&format!("[+] Touch precision boot: {}", touch_boot));
         crate::subsystems::AdbController::apply_from_config();
         let _ = MemoryController::apply_ram();
         Self::log_msg("[+] Memory & VM optimizations, Charging & ADB Keep-Alive applied natively via lynxd");

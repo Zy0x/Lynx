@@ -248,6 +248,13 @@ data class MountXStorageInfo(
     val internalAvailableBytes: Long = 0L
 )
 
+data class ZramApplyResult(
+    val success: Boolean,
+    val message: String,
+    val appliedSizeMb: Int = 0,
+    val appliedAlgo: String = ""
+)
+
 // ============================================================
 //  GOVERNOR TUNABLES (dynamic, governor-specific)
 // ============================================================
@@ -457,6 +464,7 @@ data class LynxUiState(
     val maintenanceRunning: Boolean = false,
     val exportRunning: Boolean = false,
     val isCleaningRam: Boolean = false,
+    val isApplyingZram: Boolean = false,
     // Phase 1 & 2 Feature Additions
     val gpuInfo: GpuInfo = GpuInfo(),
     val gpuSilicon: GpuSiliconInfo = GpuSiliconInfo(),

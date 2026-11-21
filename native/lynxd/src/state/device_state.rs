@@ -543,9 +543,11 @@ impl DeviceState {
             }
         }
 
-        if zram_total_kb == 0 {
-            if let Ok(disksize_bytes) = SysfsReader::read_int::<u64>("/sys/block/zram0/disksize") {
+        if let Ok(disksize_bytes) = SysfsReader::read_int::<u64>("/sys/block/zram0/disksize") {
+            if disksize_bytes > 0 {
                 zram_total_kb = disksize_bytes / 1024;
+            }
+            if zram_used_kb == 0 && disksize_bytes > 0 {
                 if let Ok(used_bytes) = SysfsReader::read_int::<u64>("/sys/block/zram0/mem_used_total") {
                     zram_used_kb = used_bytes / 1024;
                 }
