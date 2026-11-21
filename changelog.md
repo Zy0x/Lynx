@@ -1,3 +1,15 @@
+# Lynx Universal [Integrated Kernel Touch Micro-Sense, Big-Core IRQ Sync & Presets] 7.0.0-RC434
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.53
+
+### Native Engine (`touch_precision.rs`, `lifecycle_hooks.rs`, `main.rs`), Companion App (`feature/gpu/ui`, `TouchPrecisionCalibrationCard`, `HudTouchPage`) & WebUI
+- **Pure-Kernel Touch Micro-Sense & Big-Core IRQ Synchronization (`touch_precision.rs`, `TouchIrqShellBuilder`, `LynxTouchPrecisionRepository`)**:
+  - Restored the capability-gated `TouchPrecisionController` subsystem (`lynxd touch-precision status|apply|apply-hardware|apply-edge|apply-boot`) with native `/proc/nvt_irq_big_cores` support alongside `IrqTopology` multi-SoC touch controller affinity discovery.
+  - Aligned default touch calibration with Sol-Kernel-Arise R1.100 (`nvt_micro_gain=1` / `1.5x`, `nvt_edge_guard_px=48`, `nvt_spi_speed_hz=15MHz`, `nvt_game_mode=true`, `nvt_hop_fix=true`, `touch_irq_big_cores=true`) and isolated Android SystemUI Edge Back gesture overlays behind an explicit `edge_gesture_custom_enabled` opt-in so boot restoration never blocks or flickers SystemUI.
+- **Touch-First Preset Overlays & Gaming HUD Quick Controls (`TouchPrecisionCalibrationCard`, `TouchPrecisionSections`, `HudTouchPage`, `webroot/`)**:
+  - Upgraded Touch Micro-Sense (`0–12`), Hardware Bezel Guard (`0–240 px`), and MTK KTCH (`tb_duration_ms` / `tb_eas_boost`) controls to `LynxNumericPresetRow` (`RC432` overlay style) paired with `48.dp` 1-tap quick preset chips (`1.0x`, `1.5x Arise`, `2.0x Presisi`, `3.0x Esports`) and compact 4-level IC Anti-Jitter / Smoothing selectors inside GPU & Display Tab 1.
+  - Added a compact live **Novatek Micro-Sense** quick-strip directly inside the Gaming HUD Touch Lab (`HudTouchPage`) when `/proc/nvt_micro_gain` is present, and synchronized a fallback **Touch Micro-Sense & Presisi** control card in `webroot/`.
+
 # Lynx Universal [Separated RAM/ZRAM Hero Cards, Live Safe ZRAM Engine & Custom Capacity Overlay] 7.0.0-RC433
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.52

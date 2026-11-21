@@ -60,9 +60,9 @@ Sub-halaman GPU & Display mengontrol subsistem grafis dan panel output visual. H
 | **Touch Precision & IRQ Affinity** | Dynamic `TouchIrqShellBuilder` (deteksi `/sys/devices/system/cpu/cpufreq/policy*` cluster tertinggi + `/proc/interrupts` touch/SPI/I2C + Edge Back Guard & `resetprop ro.input.resampling`) | Dinamis Multi-OEM (`TouchIrqShellBuilder` + node panel sentuh vendor yang terverifikasi & `/proc/perfmgr/tchbst/kernel/tb_*` jika tersedia) |
 
 - **6. Kalibrasi Presisi Sentuh & Pelindung Tepian (`TouchPrecisionCalibrationCard.kt`, `TouchPrecisionSections.kt`, `LynxTouchPrecisionRepository.kt`, `TouchIrqShellBuilder.kt`)**:
-  - Kontrol sepenuhnya *capability-gated*: slider `micro_gain`, `edge_guard`, dan `SPI` hanya aktif bila node kernel driver panel sentuh terverifikasi ada; pada perangkat lain tetap menyediakan **Edge Back Guard**, `resetprop ro.input.resampling`, dan penyematan **IRQ + kthread Sentuh Dinamis** ke cluster core performa tertinggi secara universal across Qualcomm/MediaTek/Exynos/Tensor.
-  - Properti mati tanpa efek AOSP (`view.touch_slop`, `debug.touch.frequency.boost`, `windowsmgr.max_events_per_second`, `persist.sys.touch.latency`, `debug.hwui.blob_cache_size_mb`, `debug.hwui.compiler_threads`, `debug.sf.max_acquired_buffers`) telah dihapus bersih.
-  - Terintegrasi ke `native/lynxd` (`TouchPrecisionController` + `irq_topology.rs`) serta `LynxBootReceiver` standalone.
+  - Kontrol sepenuhnya *capability-gated*: chip cepat + `LynxNumericPresetRow` (`micro_gain` `0–12` dengan default Arise `Lv 1 / 1.5x`, `edge_guard` `0–240 px`, dan chip `SPI` `4.8–24 MHz`) hanya aktif bila node kernel driver panel sentuh terverifikasi ada; pada perangkat lain tetap menyediakan **Edge Back Guard** (opt-in via `edge_gesture_custom_enabled`), `resetprop ro.input.resampling`, dan penyematan **IRQ + kthread Sentuh Dinamis** (`/proc/nvt_irq_big_cores` & `IrqTopology`) secara universal.
+  - Properti mati tanpa efek AOSP (`view.touch_slop`, `debug.touch.frequency.boost`, `windowsmgr.max_events_per_second`, `persist.sys.touch.latency`, `debug.hwui.blob_cache_size_mb`, `debug.hwui.compiler_threads`, `debug.sf.max_acquired_buffers`) tetap dihapus bersih.
+  - Terintegrasi ke `native/lynxd` (`TouchPrecisionController` + `irq_topology.rs`) serta dijalankan secara asinkron di `lynxd boot` (`LifecycleHooks`) agar bebas ANR saat boot.
 
 ---
 

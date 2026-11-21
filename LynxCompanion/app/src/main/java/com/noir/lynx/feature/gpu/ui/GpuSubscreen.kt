@@ -242,6 +242,19 @@ fun LazyListScope.tuningGpuCategoryItems(
                 )
             }
 
+            item(key = "section_header_touch_precision") {
+                GpuSectionHeader(
+                    title = "Touch Micro-Sense & Presisi",
+                    subtitle = "Sensitivitas mikro Novatek, pelindung bezel, SPI clock & IRQ Big-Core",
+                    accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
+                    badge = "TOUCH HAL"
+                )
+            }
+
+            item(key = "gpu_touch_precision") {
+                TouchPrecisionCalibrationCard(context = context)
+            }
+
             // Kernel KCAL Hardware Card (If supported by kernel)
             if (uiState.displayCalibration.isKcalSupported) {
                 item(key = "gpu_kcal_hardware") {

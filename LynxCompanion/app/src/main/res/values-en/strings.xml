@@ -2472,8 +2472,13 @@
     <string name="touch_precision_hw_generic_badge">ANDROID INPUT</string>
     <string name="touch_precision_refresh_cd">Refresh live touch telemetry</string>
     <string name="touch_precision_live_stats_line">Active: Gain %1$s | Bezel %2$d px | SPI %3$s MHz | Err %4$d | Frame %5$d us</string>
+    <string name="touch_precision_live_hw_line">IRQ: %1$s | FW %2$s | Micro-Move %3$d</string>
+    <string name="touch_precision_irq_big_active">Big Cores (CPU 6-7)</string>
+    <string name="touch_precision_irq_default_active">Dynamic / All Cores</string>
     <string name="touch_precision_live_edge_line">Back Edge: Left %1$d px / Right %2$d px | ML %3$s</string>
     <string name="touch_precision_sec_edge_guard">Edge Protection &amp; Back Gesture</string>
+    <string name="touch_precision_edge_opt_in_label">Customize Android Edge Gestures</string>
+    <string name="touch_precision_edge_opt_in_sub">Enable to customize SystemUI Back overlay width and ML filter (safe opt-in)</string>
     <string name="touch_precision_sec_novatek_micro">Novatek Micro-Sensitivity &amp; Bus</string>
     <string name="touch_precision_sec_pipeline_ktch">Input Pipeline &amp; Kernel TouchBoost</string>
     <string name="touch_precision_edge_overlay_label">Back Gesture Overlay Base Width</string>
@@ -2493,10 +2498,12 @@
     <string name="touch_precision_ml_threshold_label">Back Gesture ML Threshold</string>
     <string name="touch_precision_ml_threshold_val">%1$s</string>
     <string name="touch_precision_nvt_edge_guard_label">Hardware Bezel Edge Lock</string>
+    <string name="touch_precision_nvt_edge_guard_sub">Holds 1:1 bezel input ratio so edge taps never inflate into swipes</string>
     <string name="touch_precision_nvt_edge_guard_val">%1$d px</string>
-    <string name="touch_precision_nvt_micro_gain_label">Micro-Movement Gain (Touch DPI)</string>
-    <string name="touch_precision_nvt_micro_gain_val">Lv %1$d (%2$s, max +-%3$d px)</string>
-    <string name="touch_precision_nvt_micro_gain_off_val">Lv 0 (1.0x Raw)</string>
+    <string name="touch_precision_nvt_micro_gain_label">Touch Micro-Gain</string>
+    <string name="touch_precision_nvt_micro_gain_sub">Amplifies 1-14 px micro deltas per frame (0=1.0x, 1=1.5x Arise)</string>
+    <string name="touch_precision_nvt_micro_gain_val">Lv %1$d • %2$s</string>
+    <string name="touch_precision_nvt_micro_gain_off_val">Lv 0 • 1.0x</string>
     <string name="touch_precision_nvt_spi_label">Touchscreen SPI Bus Clock</string>
     <string name="touch_precision_nvt_spi_mhz">%1$s MHz</string>
     <string name="touch_precision_nvt_spi_warning">18–24 MHz exceeds verified default (15 MHz clean). Watch the SPI error counter above while testing.</string>
@@ -2523,7 +2530,7 @@
     <string name="touch_precision_apply_save_btn">Apply &amp; Save Default</string>
     <string name="touch_precision_restore_default_btn">Validated Default</string>
     <string name="touch_precision_status_saved">Touch &amp; edge calibration applied and saved as boot default.</string>
-    <string name="touch_precision_status_restored">Restored validated default profile (Gain Lv4 / 3.0x, Bezel 48 px, SPI 15 MHz, Scale 0.18, ML 0.96).</string>
+    <string name="touch_precision_status_restored">Restored Arise R1.100 kernel default profile (Gain Lv1 / 1.5x, Bezel 48 px, SPI 15 MHz, IRQ Big-Cores ON).</string>
     <string name="color_preset_accurate">Accurate</string>
     <string name="color_preset_ips_d65">D65 Natural IPS</string>
     <string name="color_preset_ips_vivid">IPS Vivid</string>

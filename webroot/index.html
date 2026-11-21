@@ -261,6 +261,48 @@
                 </div>
             </div>
 
+            <!-- Touch Micro-Sense & Kernel IRQ Card -->
+            <div class="card" id="card-touch-precision">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
+                    <div class="card-title" style="margin-bottom:0;">Touch Micro-Sense &amp; Presisi</div>
+                    <span id="web-touch-badge" style="font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(0,255,170,0.12); color:var(--accent-cyan);">KERNEL HAL</span>
+                </div>
+                <div id="web-touch-status" style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                    Memuat status panel sentuh Novatek &amp; IRQ...
+                </div>
+                <div style="font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:6px;">Micro-Gain Sentuh (Lv 0–12)</div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;" id="web-touch-gain-chips">
+                    <button class="btn btn-primary" onclick="setTouchMicroGain(0)" id="nvt-gain-0" style="flex:1; min-width:68px;">1.0x (0)</button>
+                    <button class="btn btn-primary" onclick="setTouchMicroGain(1)" id="nvt-gain-1" style="flex:1; min-width:68px;">1.5x (1)</button>
+                    <button class="btn btn-primary" onclick="setTouchMicroGain(2)" id="nvt-gain-2" style="flex:1; min-width:68px;">2.0x (2)</button>
+                    <button class="btn btn-primary" onclick="setTouchMicroGain(4)" id="nvt-gain-4" style="flex:1; min-width:68px;">3.0x (4)</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                    <div>
+                        <label style="font-size:11px; color:var(--text-secondary); display:block; margin-bottom:4px;">Gain Kustom (0–12)</label>
+                        <input type="number" id="web-touch-gain-input" class="input-text" min="0" max="12" value="1" style="margin-bottom:0;">
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:var(--text-secondary); display:block; margin-bottom:4px;">Bezel Guard (0–240 px)</label>
+                        <input type="number" id="web-touch-eg-input" class="input-text" min="0" max="240" value="48" style="margin-bottom:0;">
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:12px; min-height:44px;">
+                        <span>Novatek Game Mode (0x7D)</span>
+                        <input type="checkbox" id="web-touch-game-mode" checked>
+                    </label>
+                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:12px; min-height:44px;">
+                        <span>Sematkan IRQ Sentuh ke Big Cores</span>
+                        <input type="checkbox" id="web-touch-irq-big" checked>
+                    </label>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-accent" onclick="applyWebTouchPrecision()" style="flex:1;">Terapkan Touch HAL</button>
+                    <button class="btn btn-primary" onclick="restoreWebTouchDefaults()" style="width:auto; padding:0 14px;">Default</button>
+                </div>
+            </div>
+
             <!-- Game Mode & Per-App Profiles Card -->
             <div class="card">
                 <div class="card-title">Game Mode & Per-App Profiles</div>

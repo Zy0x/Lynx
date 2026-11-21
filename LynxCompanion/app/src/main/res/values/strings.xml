@@ -2496,8 +2496,13 @@
     <string name="touch_precision_hw_generic_badge">ANDROID INPUT</string>
     <string name="touch_precision_refresh_cd">Muat ulang telemetri sentuh</string>
     <string name="touch_precision_live_stats_line">Aktif: Gain %1$s | Bezel %2$d px | SPI %3$s MHz | Error %4$d | Frame %5$d us</string>
+    <string name="touch_precision_live_hw_line">IRQ: %1$s | FW %2$s | Micro-Move %3$d</string>
+    <string name="touch_precision_irq_big_active">Big Cores (CPU 6-7)</string>
+    <string name="touch_precision_irq_default_active">Dinamis / Semua Core</string>
     <string name="touch_precision_live_edge_line">Back Edge: Kiri %1$d px / Kanan %2$d px | ML %3$s</string>
     <string name="touch_precision_sec_edge_guard">Pelindung Tepian &amp; Back Gesture</string>
+    <string name="touch_precision_edge_opt_in_label">Kustomisasi Gestur Tepi Android</string>
+    <string name="touch_precision_edge_opt_in_sub">Aktifkan untuk menyesuaikan lebar overlay SystemUI Back dan filter AI (opt-in aman)</string>
     <string name="touch_precision_sec_novatek_micro">Sensitivitas Mikro &amp; Bus Novatek</string>
     <string name="touch_precision_sec_pipeline_ktch">Pipeline Input &amp; TouchBoost Kernel</string>
     <string name="touch_precision_edge_overlay_label">Lebar Dasar Overlay Back</string>
@@ -2517,10 +2522,12 @@
     <string name="touch_precision_ml_threshold_label">Ambang Keyakinan ML Back</string>
     <string name="touch_precision_ml_threshold_val">%1$s</string>
     <string name="touch_precision_nvt_edge_guard_label">Kunci Tepian Bezel Hardware</string>
+    <string name="touch_precision_nvt_edge_guard_sub">Menjaga tepi bezel tetap rasio 1:1 agar tap pinggir tidak membesar</string>
     <string name="touch_precision_nvt_edge_guard_val">%1$d px</string>
-    <string name="touch_precision_nvt_micro_gain_label">Penguatan Gerakan Mikro (DPI Sentuh)</string>
-    <string name="touch_precision_nvt_micro_gain_val">Lv %1$d (%2$s, maks +-%3$d px)</string>
-    <string name="touch_precision_nvt_micro_gain_off_val">Lv 0 (1.0x Mentah)</string>
+    <string name="touch_precision_nvt_micro_gain_label">Micro-Gain Sentuh</string>
+    <string name="touch_precision_nvt_micro_gain_sub">Perhalus gerakan mikro 1-14 px per frame (0=1.0x, 1=1.5x Arise)</string>
+    <string name="touch_precision_nvt_micro_gain_val">Lv %1$d • %2$s</string>
+    <string name="touch_precision_nvt_micro_gain_off_val">Lv 0 • 1.0x</string>
     <string name="touch_precision_nvt_spi_label">Clock Bus SPI Touchscreen</string>
     <string name="touch_precision_nvt_spi_mhz">%1$s MHz</string>
     <string name="touch_precision_nvt_spi_warning">Clock 18–24 MHz melewati spesifikasi bawaan (15 MHz default bersih). Pantau metrik error SPI di atas saat pengujian.</string>
@@ -2547,7 +2554,7 @@
     <string name="touch_precision_apply_save_btn">Terapkan &amp; Simpan Default</string>
     <string name="touch_precision_restore_default_btn">Default Tervalidasi</string>
     <string name="touch_precision_status_saved">Kalibrasi sentuh &amp; tepian berhasil diterapkan dan disimpan sebagai default boot.</string>
-    <string name="touch_precision_status_restored">Dipulihkan ke profil default tervalidasi (Gain Lv4 / 3.0x, Bezel 48 px, SPI 15 MHz, Scale 0.18, ML 0.96).</string>
+    <string name="touch_precision_status_restored">Dipulihkan ke profil default Arise R1.100 (Gain Lv1 / 1.5x, Bezel 48 px, SPI 15 MHz, IRQ Big-Cores ON).</string>
     <string name="color_preset_accurate">Akurat</string>
     <string name="color_preset_ips_d65">D65 Natural IPS</string>
     <string name="color_preset_ips_vivid">IPS Vivid</string>

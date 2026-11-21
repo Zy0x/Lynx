@@ -68,6 +68,9 @@ internal fun HudTouchPage(
     var touchSample by remember { mutableStateOf(HudTouchSample()) }
     var activeTouchPoints by remember { mutableStateOf<List<TouchPointVisual>>(emptyList()) }
     var showTouchesEnabled by remember { mutableStateOf(false) }
+    var nvtPresent by remember { mutableStateOf(false) }
+    var nvtGain by remember { mutableIntStateOf(1) }
+    var nvtEdgeGuard by remember { mutableIntStateOf(48) }
     var isScrollLocked by rememberSaveable { mutableStateOf(true) }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -83,8 +86,16 @@ internal fun HudTouchPage(
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            val out = Shell.cmd("settings get system show_touches").exec().out.firstOrNull()?.trim()
-            showTouchesEnabled = out == "1"
+            val out = Shell.cmd(
+                "settings get system show_touches; echo '---'; [ -e /proc/nvt_micro_gain ] && echo 1 || echo 0; cat /proc/nvt_micro_gain 2>/dev/null; cat /proc/nvt_edge_guard 2>/dev/null"
+            ).exec().out
+            val splitIdx = out.indexOf("---")
+            showTouchesEnabled = out.firstOrNull()?.trim() == "1"
+            if (splitIdx >= 0) {
+                nvtPresent = out.getOrNull(splitIdx + 1)?.trim() == "1"
+                out.getOrNull(splitIdx + 2)?.trim()?.toIntOrNull()?.let { nvtGain = it.coerceIn(0, 12) }
+                out.getOrNull(splitIdx + 3)?.trim()?.toIntOrNull()?.let { nvtEdgeGuard = it.coerceIn(0, 240) }
+            }
         }
     }
 
@@ -196,6 +207,56 @@ internal fun HudTouchPage(
                             }
                         }
                     )
+
+                    // 4. Novatek Micro-Sense Live Quick Presets (hardware /proc/nvt_micro_gain)
+                    if (nvtPresent) {
+                        val hudCtx = androidx.compose.ui.platform.LocalContext.current
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Novatek Micro-Sense (${com.noir.lynx.data.TouchPrecisionConfig.gainMultiplierText(nvtGain)} • Guard ${nvtEdgeGuard}px)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = HudCyan
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    "1.0x" to 0,
+                                    "1.5x" to 1,
+                                    "2.0x" to 2,
+                                    "3.0x" to 4
+                                ).forEach { (label, lv) ->
+                                    val sel = nvtGain == lv
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (sel) HudCyan.copy(alpha = 0.2f) else HudElevated,
+                                        border = BorderStroke(1.dp, if (sel) HudCyan else HudBorder),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 48.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                nvtGain = lv
+                                                coroutineScope.launch(Dispatchers.IO) {
+                                                    com.noir.lynx.data.LynxTouchPrecisionRepository.quickSetNovatekMicroSense(hudCtx, lv)
+                                                }
+                                            }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = label,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (sel) HudCyan else Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } else {

@@ -834,6 +834,72 @@ async function setRefreshRate(hz) {
     if (btn) btn.classList.add('active');
 }
 
+async function loadWebTouchPrecision() {
+    try {
+        const res = await execCmd(`${LYNXD} touch-precision status`);
+        if (res.errno !== 0 || !res.stdout) return;
+        const d = JSON.parse(res.stdout);
+        const card = document.getElementById('card-touch-precision');
+        if (card) card.style.display = (d.nvt_present || d.touch_irq_supported || d.ktch_present) ? 'block' : 'none';
+        const badge = document.getElementById('web-touch-badge');
+        if (badge) badge.textContent = d.nvt_present ? 'NVT HARDWARE' : 'TOUCH IRQ';
+        const statusEl = document.getElementById('web-touch-status');
+        if (statusEl) {
+            const gain = d.micro_gain ?? 1;
+            const mult = (1.0 + gain * 0.5).toFixed(1);
+            const irqStr = d.nvt_irq_big_cores ? 'Big Cores' : 'Semua Core';
+            const spiMhz = ((d.spi_speed_hz || 15000000) / 1000000).toFixed(1);
+            statusEl.textContent = `Aktif: Gain Lv ${gain} (${mult}x) • Bezel ${d.edge_guard_px ?? 48} px • SPI ${spiMhz} MHz • IRQ ${irqStr}`;
+        }
+        const gainInput = document.getElementById('web-touch-gain-input');
+        const egInput = document.getElementById('web-touch-eg-input');
+        const gmChk = document.getElementById('web-touch-game-mode');
+        const irqChk = document.getElementById('web-touch-irq-big');
+        if (gainInput) gainInput.value = d.micro_gain ?? 1;
+        if (egInput) egInput.value = d.edge_guard_px ?? 48;
+        if (gmChk) gmChk.checked = d.game_mode !== false;
+        if (irqChk) irqChk.checked = d.nvt_irq_big_cores !== false;
+        document.querySelectorAll('#web-touch-gain-chips button').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.getElementById(`nvt-gain-${d.micro_gain}`);
+        if (activeBtn) activeBtn.classList.add('active');
+    } catch (e) {
+        console.error("loadWebTouchPrecision error:", e);
+    }
+}
+
+async function setTouchMicroGain(lv) {
+    const clamped = Math.max(0, Math.min(12, parseInt(lv, 10) || 0));
+    const gainInput = document.getElementById('web-touch-gain-input');
+    if (gainInput) gainInput.value = clamped;
+    await applyWebTouchPrecision();
+}
+
+async function applyWebTouchPrecision() {
+    const gainInput = document.getElementById('web-touch-gain-input');
+    const egInput = document.getElementById('web-touch-eg-input');
+    const gmChk = document.getElementById('web-touch-game-mode');
+    const irqChk = document.getElementById('web-touch-irq-big');
+    const gain = Math.max(0, Math.min(12, parseInt(gainInput ? gainInput.value : '1', 10) || 0));
+    const eg = Math.max(0, Math.min(240, parseInt(egInput ? egInput.value : '48', 10) || 0));
+    const gameMode = gmChk ? gmChk.checked : true;
+    const irqBig = irqChk ? irqChk.checked : true;
+    await execCmd(
+        `${LYNXD} state set display_touch.nvt_micro_gain=${gain} display_touch.nvt_edge_guard_px=${eg} display_touch.nvt_game_mode=${gameMode} display_touch.touch_irq_big_cores=${irqBig}`
+    );
+    const res = await execCmd(`${LYNXD} touch-precision apply-hardware`);
+    logToConsole(res.stdout || "Touch Micro-Sense diterapkan", 'success');
+    await loadWebTouchPrecision();
+}
+
+async function restoreWebTouchDefaults() {
+    await execCmd(
+        `${LYNXD} state set display_touch.nvt_micro_gain=1 display_touch.nvt_edge_guard_px=48 display_touch.nvt_spi_speed_hz=15000000 display_touch.nvt_game_mode=true display_touch.nvt_hop_fix=true display_touch.touch_irq_big_cores=true`
+    );
+    const res = await execCmd(`${LYNXD} touch-precision apply-hardware`);
+    logToConsole(res.stdout || "Touch Micro-Sense dipulihkan ke Arise default (Lv 1 / 1.5x)", 'success');
+    await loadWebTouchPrecision();
+}
+
 async function dropCaches() {
     logToConsole("Membebaskan Cache RAM (Drop Caches)...", "warn");
     const res = await execCmd(`${LYNXD} memory clean`);
@@ -1497,6 +1563,7 @@ window.addEventListener('DOMContentLoaded', () => {
     loadTcpCongestion();
     loadWebVmTunables();
     loadWebBoefflaAndDoze();
+    loadWebTouchPrecision();
 
     setInterval(syncState, 3000);
     setInterval(pollTelemetry, 1500);

@@ -84,6 +84,7 @@ fn print_usage() {
         println!("  thermal status|mode|set-limit|restore");
         println!("  game on [pid]|off|optimize-pid|status");
         println!("  display set-refresh-rate|restore|auto|info");
+        println!("  touch-precision status|apply|apply-hardware|apply-edge|apply-boot");
         println!("  oem freeze|unfreeze");
         println!("  cpuset info|apply|set");
         println!("  cpuidle info|apply|set-state");
@@ -130,6 +131,7 @@ fn print_usage() {
     println!("  thermal status|mode|set-limit|restore");
     println!("  game on [pid]|off|optimize-pid|status");
     println!("  display set-refresh-rate|restore|auto|info");
+    println!("  touch-precision status|apply|apply-hardware|apply-edge|apply-boot");
     println!("  oem freeze|unfreeze");
     println!("  cpuset info|apply|set");
     println!("  cpuidle info|apply|set-state");
@@ -1294,6 +1296,9 @@ fn main() {
         }
         "display" => {
             handle_display(&args);
+        }
+        "touch-precision" | "touch" => {
+            std::process::exit(crate::subsystems::TouchPrecisionController::cli(&args[2..]));
         }
         "oem" => {
             let sub = args.get(2).map(|s| s.as_str()).unwrap_or("freeze");
