@@ -58,6 +58,7 @@ fun FastChargingControlCard(
 
     LynxCard(
         title = stringResource(R.string.battery_super_fast_charging),
+        subtitle = "Kontrol batas arus charger, wattmeter ganda & gelombang arus",
         icon = Icons.Default.Bolt,
         accentColor = AccentCyan,
         modifier = modifier
@@ -68,9 +69,10 @@ fun FastChargingControlCard(
             style = MaterialTheme.typography.labelSmall,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
+            letterSpacing = 0.6.sp,
             color = TextSecondary
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
         val modes = listOf(
             ChargingModeItem(
@@ -78,28 +80,28 @@ fun FastChargingControlCard(
                 title = stringResource(R.string.battery_mode_cool),
                 sub = stringResource(R.string.battery_mode_cool_sub),
                 icon = Icons.Default.AcUnit,
-                accent = Color(0xFF00E5FF)
+                accent = AccentCyan
             ),
             ChargingModeItem(
                 id = "standard",
                 title = stringResource(R.string.battery_mode_standard),
                 sub = stringResource(R.string.battery_mode_standard_sub),
                 icon = Icons.Default.Balance,
-                accent = Color(0xFF00E676)
+                accent = AccentGreen
             ),
             ChargingModeItem(
                 id = "hyper",
                 title = stringResource(R.string.battery_mode_hyper),
                 sub = stringResource(R.string.battery_mode_hyper_sub),
                 icon = Icons.Default.Bolt,
-                accent = Color(0xFFFF9100)
+                accent = AccentOrange
             ),
             ChargingModeItem(
                 id = "custom",
                 title = stringResource(R.string.battery_mode_custom),
                 sub = if (activeMode == "custom") "${state.charging.limitCurrentMa} mA" else stringResource(R.string.battery_mode_custom_sub),
                 icon = Icons.Default.Tune,
-                accent = Color(0xFFFF4081)
+                accent = AccentPurple
             )
         )
 
@@ -149,7 +151,7 @@ fun FastChargingControlCard(
             )
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
         // Contextual Mode Description Card
         val modeDesc = when (activeMode) {
@@ -161,17 +163,18 @@ fun FastChargingControlCard(
         }
 
         Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = BgElevated.copy(alpha = 0.35f),
-            border = BorderStroke(0.8.dp, BorderSubtle),
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         ) {
             Text(
                 text = modeDesc,
                 style = MaterialTheme.typography.bodySmall,
                 fontSize = 11.sp,
+                lineHeight = 15.sp,
                 color = TextSecondary,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
 
@@ -309,17 +312,17 @@ fun FastChargingControlCard(
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = BgElevated.copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, BorderSubtle),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Column A: Adapter Input
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgCard,
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
@@ -329,13 +332,14 @@ fun FastChargingControlCard(
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
-                                Spacer(Modifier.height(2.dp))
+                                Spacer(Modifier.height(3.dp))
                                 Text(
                                     text = if (isPlugged && inputWatt > 0.05f) String.format(Locale.US, "%.1f W", inputWatt) else (if (isPlugged) "--" else stringResource(R.string.battery_status_disconnected)),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isPlugged) AccentPurple else TextSecondary
                                 )
+                                Spacer(Modifier.height(1.dp))
                                 Text(
                                     text = if (isPlugged) {
                                         val voltVal = if (battDetails.adapterVoltageMv > 1000) battDetails.adapterVoltageMv / 1000f else (if (battDetails.chargerVoltageMv > 1000) battDetails.chargerVoltageMv / 1000f else battDetails.voltageMv / 1000f)
@@ -353,9 +357,9 @@ fun FastChargingControlCard(
 
                         // Column B: Battery Net Power
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgCard,
-                            border = BorderStroke(0.8.dp, BorderGlass),
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
                             modifier = Modifier.weight(1f)
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
@@ -365,7 +369,7 @@ fun FastChargingControlCard(
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
-                                Spacer(Modifier.height(2.dp))
+                                Spacer(Modifier.height(3.dp))
                                 val curColor = if (!isPlugged) AccentCyan else if (battDetails.currentMa > 100) AccentGreen else if (state.charging.bypassEnabled || isOvernightLatched) AccentCyan else TextPrimary
                                 val battWatt = if (!isPlugged) {
                                     (battDetails.voltageMv.toFloat() * abs(battDetails.currentMa).toFloat()) / 1_000_000f
@@ -376,6 +380,7 @@ fun FastChargingControlCard(
                                     fontWeight = FontWeight.Bold,
                                     color = curColor
                                 )
+                                Spacer(Modifier.height(1.dp))
                                 val bCurText = if (battDetails.currentMa > 0) "+${battDetails.currentMa} mA" else "${battDetails.currentMa} mA"
                                 Text(
                                     text = String.format(Locale.US, "%.1f V • %s", battDetails.voltageMv / 1000f, bCurText),
@@ -407,12 +412,12 @@ fun FastChargingControlCard(
                                 color = if (isPlugged) AccentGreen else AccentCyan
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(5.dp))
                         LinearProgressIndicator(
                             progress = { if (!isPlugged) 0f else if (efficiency > 0) (efficiency / 100f).coerceIn(0f, 1f) else if (state.charging.bypassEnabled || isOvernightLatched) 1f else 0.5f },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
                             color = if (isPlugged) AccentGreen else AccentCyan,
-                            trackColor = BgElevated
+                            trackColor = BgSurfaceLowest
                         )
                     }
                 }
@@ -424,7 +429,7 @@ fun FastChargingControlCard(
             samples = battDetails?.currentHistorySamples ?: emptyList(),
             currentMa = battDetails?.currentMa ?: 0,
             accentColor = if (battDetails?.isCharging == true) AccentGreen else AccentCyan,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier.padding(bottom = 2.dp)
         )
     }
 
@@ -437,23 +442,34 @@ fun FastChargingControlCard(
         }
         AlertDialog(
             onDismissRequest = { showHyperConfirmDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.battery_hyper_dialog_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+            containerColor = Color(0xFF10141F),
+            shape = RoundedCornerShape(18.dp),
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                    }
                 }
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.battery_hyper_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
             },
             text = {
                 Text(
                     text = stringResource(R.string.battery_hyper_dialog_desc, maxWattStr),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    lineHeight = 18.sp
                 )
             },
             confirmButton = {
@@ -462,6 +478,7 @@ fun FastChargingControlCard(
                         showHyperConfirmDialog = false
                         viewModel.setChargingMode("hyper")
                     },
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
                 ) {
                     Text(stringResource(R.string.action_apply), fontWeight = FontWeight.Bold)
@@ -472,7 +489,6 @@ fun FastChargingControlCard(
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
-            containerColor = BgCard,
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary
         )

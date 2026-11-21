@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentGreen
-import com.noir.lynx.designsystem.theme.BgCard
-import com.noir.lynx.designsystem.theme.BorderGlass
+import com.noir.lynx.designsystem.theme.BgElevated
+import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextSecondary
 
 /**
@@ -48,12 +48,12 @@ fun ChargingSparklineWaveform(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = BgCard,
-        border = BorderStroke(0.8.dp, BorderGlass),
+        shape = RoundedCornerShape(12.dp),
+        color = BgElevated,
+        border = BorderStroke(0.6.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

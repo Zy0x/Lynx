@@ -1,3 +1,13 @@
+# Lynx Universal [Battery & Charging UI Design System Unification] 7.0.0-RC423
+Released on: 2026-11-21
+> Lynx Kernel Manager v3.4.42
+
+### Companion App (`feature/battery/ui` & `TuningTabSubscreenPagers`)
+- **100% Unified Battery & Charging Design System**:
+  - Eliminated double horizontal padding (`32.dp` vs `16.dp`) on Tab 0 (`FastChargingControlCard` & `BatteryProtectionCard`) in `BatterySwipeableSubscreen` so card widths are 100% identical across all tabs and subscreens.
+  - Upgraded `BatterySubscreenTabRow` to the standardized `46.dp` Obsidian Segmented Pill Row (`Color(0xFF10141E)`, active pill `Color(0xFF1E2638)`, subtle vertical gradient border, `180ms` color transition, and haptic feedback) and added `BatterySectionHeader` with vertical accent bars across both Charging and Battery Information tabs.
+  - Unified all card subtitles, inner surface layering (`BgElevated` / `BgSurfaceLowest` with `BorderSubtle`), official `LynxThemeTokens` colors, and Obsidian confirmation dialogs (`FastChargingControlCard`, `BatteryProtectionCard`, `BatteryRuntimeCard`, `RealDischargeStepHistoryCard`, `BatteryHistoryPanels`, `AppDrainRow`, `BatteryHardwareCard`, `CustomCurrentLimitDialog`, and `BatteryDetailBottomSheet`).
+
 # Lynx Universal [Screen-Lock Hyper Charge Continuity] 7.0.0-RC422
 Released on: 2026-11-20
 > Lynx Kernel Manager v3.4.41

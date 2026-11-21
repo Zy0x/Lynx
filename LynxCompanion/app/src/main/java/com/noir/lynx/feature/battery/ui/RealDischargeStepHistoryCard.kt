@@ -48,6 +48,7 @@ fun RealDischargeStepHistoryCard(
 
     LynxCard(
         title = if (historyTab == 0) stringResource(R.string.battery_drain_history_time) else stringResource(R.string.battery_app_drain),
+        subtitle = if (historyTab == 0) "Visualisasi langkah penurunan daya per-1% dari kernel" else "Rincian konsumsi daya baterai per-aplikasi & komponen",
         icon = if (historyTab == 0) Icons.Default.Timeline else Icons.Default.Apps,
         accentColor = AccentCyan,
         modifier = modifier

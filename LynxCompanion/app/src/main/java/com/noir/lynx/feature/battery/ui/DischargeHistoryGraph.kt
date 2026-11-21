@@ -1,7 +1,7 @@
 package com.noir.lynx.feature.battery.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import com.noir.lynx.data.DischargeStepItem
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentGreen
 import com.noir.lynx.designsystem.theme.BgElevated
+import com.noir.lynx.designsystem.theme.BorderSubtle
 
 /** Immutable boundary lets the graph skip battery-only updates when its history is unchanged. */
 @Immutable
@@ -44,13 +46,19 @@ fun DischargeHistoryGraph(
     modifier: Modifier = Modifier
 ) {
     val points = series.points
-    Box(
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = BgElevated,
+        border = BorderStroke(0.6.dp, BorderSubtle),
         modifier = modifier
             .fillMaxWidth()
             .height(155.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(BgElevated.copy(alpha = 0.4f))
-            .pointerInput(series) {
+            .clip(RoundedCornerShape(12.dp))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(series) {
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
                         val n = series.points.size
@@ -166,6 +174,7 @@ fun DischargeHistoryGraph(
             )
             drawCircle(activeColor.copy(alpha = 0.25f), 7.dp.toPx(), activeCoord)
             drawCircle(activeColor, 3.5.dp.toPx(), activeCoord)
+        }
         }
     }
 }

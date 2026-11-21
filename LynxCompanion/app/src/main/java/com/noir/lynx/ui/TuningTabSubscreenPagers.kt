@@ -166,17 +166,29 @@ fun BatterySwipeableSubscreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item(key = "charging_p${page}_top") { Spacer(Modifier.height(8.dp)) }
+            item(key = "charging_p${page}_top") { Spacer(Modifier.height(4.dp)) }
             if (page == 0) {
+                item(key = "charging_section_fast") {
+                    com.noir.lynx.feature.battery.ui.BatterySectionHeader(
+                        title = "Regulasi Arus & Pengisian Cepat",
+                        subtitle = "Preset arus charger, wattmeter ganda & telemetri gelombang",
+                        accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
+                        badge = "4 MODE"
+                    )
+                }
                 item(key = "charging_fast_control") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        FastChargingControlCard(uiState, viewModel)
-                    }
+                    FastChargingControlCard(uiState, viewModel)
+                }
+                item(key = "charging_section_protection") {
+                    com.noir.lynx.feature.battery.ui.BatterySectionHeader(
+                        title = "Proteksi Sel & Bypass Hardware",
+                        subtitle = "Isolasi arus baterai, batas auto-cut & pengisian malam",
+                        accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
+                        badge = "SAFETY"
+                    )
                 }
                 item(key = "charging_protection") {
-                    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        BatteryProtectionCard(uiState, viewModel)
-                    }
+                    BatteryProtectionCard(uiState, viewModel)
                 }
             } else {
                 batteryInformationItems(uiState, viewModel)

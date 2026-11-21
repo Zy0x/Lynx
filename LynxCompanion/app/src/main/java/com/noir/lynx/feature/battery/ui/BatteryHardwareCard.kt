@@ -54,6 +54,7 @@ fun BatteryHardwareCard(
 ) {
     LynxCard(
         title = stringResource(R.string.battery_hardware_card_title),
+        subtitle = "Kapasitas sel, telemetri elektrik BMS & kalibrasi fuel gauge",
         icon = Icons.Default.Memory,
         accentColor = AccentBlue,
         modifier = modifier
@@ -64,19 +65,19 @@ fun BatteryHardwareCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.weight(1f)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(11.dp)) {
                     Text(
                         text = stringResource(R.string.battery_design_capacity),
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
                         color = TextSecondary
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = if (stats.designCapacityMah > 0) "${stats.designCapacityMah} mAh" else "-",
                         style = MaterialTheme.typography.titleMedium,
@@ -87,19 +88,19 @@ fun BatteryHardwareCard(
             }
 
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.weight(1f)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(11.dp)) {
                     Text(
                         text = stringResource(R.string.battery_full_charge_capacity),
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
                         color = TextSecondary
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = if (stats.fullChargeCapacityMah > 0) {
                             if (stats.stateOfHealthPercent > 0) "${stats.fullChargeCapacityMah} mAh (${stats.stateOfHealthPercent}%)"
@@ -120,19 +121,19 @@ fun BatteryHardwareCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.weight(1f)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(11.dp)) {
                     Text(
                         text = stringResource(R.string.battery_remaining_charge),
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
                         color = TextSecondary
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = if (stats.remainingChargeMah > 0) "${stats.remainingChargeMah} mAh ($currentLevel%)" else "$currentLevel%",
                         style = MaterialTheme.typography.titleMedium,
@@ -143,19 +144,19 @@ fun BatteryHardwareCard(
             }
 
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, BorderGlass),
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.weight(1f)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(11.dp)) {
                     Text(
                         text = stringResource(R.string.battery_cycle_count),
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.sp,
                         color = TextSecondary
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = if (stats.cycleCount >= 0) stringResource(R.string.battery_cycles_suffix, stats.cycleCount) else stringResource(R.string.battery_not_available),
                         style = MaterialTheme.typography.titleMedium,
@@ -166,16 +167,16 @@ fun BatteryHardwareCard(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
 
         // Real-time Electrical & Thermal Telemetry
         Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, BorderGlass),
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(stringResource(R.string.battery_status_power_source), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
                     Text("${stats.batteryStatusText} • ${stats.powerSourceText}", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -236,42 +237,54 @@ fun BatteryHardwareCard(
         Spacer(Modifier.height(10.dp))
 
         // 1-Click Battery Stats & Fuel Gauge Calibration
-        OutlinedButton(
-            onClick = onCalibrate,
+        Surface(
+            onClick = { if (!isCalibrating) onCalibrate() },
             enabled = !isCalibrating,
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.6f)),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentBlue),
+            shape = RoundedCornerShape(12.dp),
+            color = AccentBlue.copy(alpha = 0.12f),
+            border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.45f)),
             modifier = Modifier.fillMaxWidth().height(46.dp)
         ) {
-            if (isCalibrating) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = AccentBlue,
-                    strokeWidth = 2.dp
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.battery_calibrating), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            } else {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.battery_calibrate_btn), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isCalibrating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = AccentBlue,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.battery_calibrating), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+                } else {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.battery_calibrate_btn), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
+                }
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
         // Button: View complete raw ADC details.
-        OutlinedButton(
+        Surface(
             onClick = onOpenDetail,
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.5f)),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentCyan),
+            shape = RoundedCornerShape(12.dp),
+            color = AccentCyan.copy(alpha = 0.10f),
+            border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.40f)),
             modifier = Modifier.fillMaxWidth().height(46.dp)
         ) {
-            Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.battery_open_adc_matrix), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Analytics, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.battery_open_adc_matrix), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AccentCyan)
+            }
         }
     }
 }

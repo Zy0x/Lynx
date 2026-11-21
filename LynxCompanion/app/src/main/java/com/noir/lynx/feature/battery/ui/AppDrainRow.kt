@@ -32,8 +32,8 @@ fun AppDrainRow(
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = BgCard,
-        border = BorderStroke(0.7.dp, BorderGlass),
+        color = BgElevated,
+        border = BorderStroke(0.6.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(
@@ -98,7 +98,7 @@ fun AppDrainRow(
                         .fillMaxWidth()
                         .height(3.dp)
                         .clip(RoundedCornerShape(1.5.dp))
-                        .background(BgElevated)
+                        .background(BgSurfaceLowest)
                 ) {
                     Box(
                         modifier = Modifier

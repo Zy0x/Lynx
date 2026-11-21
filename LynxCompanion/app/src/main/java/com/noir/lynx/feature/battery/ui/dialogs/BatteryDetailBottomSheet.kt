@@ -40,6 +40,7 @@ import com.noir.lynx.designsystem.theme.AccentGreen
 import com.noir.lynx.designsystem.theme.AccentOrange
 import com.noir.lynx.designsystem.theme.AccentRed
 import com.noir.lynx.designsystem.theme.BgCard
+import com.noir.lynx.designsystem.theme.BgElevated
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextPrimary
 import com.noir.lynx.designsystem.theme.TextSecondary
@@ -57,7 +58,7 @@ fun BatteryDetailBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFA0D1017),
+        containerColor = BgCard,
         scrimColor = Color.Black.copy(alpha = 0.65f),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
@@ -74,7 +75,7 @@ fun BatteryDetailBottomSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -82,8 +83,19 @@ fun BatteryDetailBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Analytics, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier.padding(end = 10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Analytics,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.padding(6.dp).size(16.dp)
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.battery_raw_telemetry_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -104,8 +116,8 @@ fun BatteryDetailBottomSheet(
             Text(androidx.compose.ui.res.stringResource(com.noir.lynx.R.string.audit_soc_ground_truth), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentGreen)
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = BgCard,
-                border = BorderStroke(0.8.dp, if (battDetails.isPropsSpoofed) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, if (battDetails.isPropsSpoofed) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,8 +159,8 @@ fun BatteryDetailBottomSheet(
             if (battDetails.rawAdcDetails.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = BgCard,
-                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -173,8 +185,8 @@ fun BatteryDetailBottomSheet(
             if (battDetails.thermalZoneMatrix.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = BgCard,
-                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

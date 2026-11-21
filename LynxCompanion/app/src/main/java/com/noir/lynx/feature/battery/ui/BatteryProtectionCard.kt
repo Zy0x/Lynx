@@ -51,8 +51,9 @@ fun BatteryProtectionCard(
 
     LynxCard(
         title = stringResource(R.string.battery_protection_bypass_title),
+        subtitle = "Isolasi arus baterai, batas auto-cut cerdas & pengisian malam",
         icon = Icons.Default.Shield,
-        accentColor = Color(0xFFA855F7),
+        accentColor = AccentPurple,
         modifier = modifier
     ) {
         // 1. Motherboard Bypass Switch
@@ -83,7 +84,7 @@ fun BatteryProtectionCard(
             }
         )
 
-        Spacer(Modifier.height(4.dp))
+        androidx.compose.material3.HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
 
         // 2. Batas Pengisian Cerdas Toggle Switch (Default: ALWAYS OFF)
         LynxSwitch(
@@ -112,7 +113,6 @@ fun BatteryProtectionCard(
             }
         }
 
-        val context = LocalContext.current
         val smartLimitFull = stringResource(R.string.battery_smart_limit_full)
         val isSmartLimitOn = state.charging.autoCutEnabled
         val disabledNote = stringResource(R.string.battery_smart_limit_disabled_note)
@@ -162,8 +162,10 @@ fun BatteryProtectionCard(
             fontSize = 11.sp,
             color = if (isSmartLimitOn) TextSecondary else TextSecondary.copy(alpha = 0.5f),
             lineHeight = 15.sp,
-            modifier = Modifier.padding(bottom = 6.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         )
+
+        androidx.compose.material3.HorizontalDivider(color = BorderGlass, modifier = Modifier.padding(vertical = 4.dp))
 
         // 4. Overnight Gentle Charging Switch (Slow 1.5A)
         LynxSwitch(
@@ -175,13 +177,13 @@ fun BatteryProtectionCard(
 
         // 5. Silent Emergency Guard Status Banner
         Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, BorderGlass),
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            shape = RoundedCornerShape(10.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle),
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
         ) {
             Row(
-                modifier = Modifier.padding(10.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.Default.Security, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(16.dp))
@@ -190,6 +192,7 @@ fun BatteryProtectionCard(
                     text = stringResource(R.string.battery_thermal_protection_banner),
                     style = MaterialTheme.typography.bodySmall,
                     fontSize = 11.sp,
+                    lineHeight = 15.sp,
                     color = TextPrimary.copy(alpha = 0.85f)
                 )
             }
@@ -200,7 +203,20 @@ fun BatteryProtectionCard(
     if (showSmartLimitWarningDialog) {
         AlertDialog(
             onDismissRequest = { showSmartLimitWarningDialog = false },
-            icon = { Icon(Icons.Default.Shield, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            containerColor = Color(0xFF10141F),
+            shape = RoundedCornerShape(18.dp),
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Shield, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                    }
+                }
+            },
             title = {
                 Text(
                     text = stringResource(R.string.battery_smart_limit_dialog_title),
@@ -230,6 +246,7 @@ fun BatteryProtectionCard(
                         showSmartLimitWarningDialog = false
                         viewModel.setAutoCutEnabled(true)
                     },
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
                 ) {
                     Text(stringResource(R.string.action_understand_activate), fontWeight = FontWeight.Bold)
@@ -240,7 +257,6 @@ fun BatteryProtectionCard(
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
-            containerColor = BgCard,
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary
         )
@@ -250,7 +266,20 @@ fun BatteryProtectionCard(
     if (showBypassWarningDialog) {
         AlertDialog(
             onDismissRequest = { showBypassWarningDialog = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            containerColor = Color(0xFF10141F),
+            shape = RoundedCornerShape(18.dp),
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                    }
+                }
+            },
             title = {
                 Text(
                     text = stringResource(R.string.battery_bypass_dialog_title),
@@ -280,6 +309,7 @@ fun BatteryProtectionCard(
                         showBypassWarningDialog = false
                         viewModel.setBypassCharging(true)
                     },
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
                 ) {
                     Text(stringResource(R.string.action_understand_activate), fontWeight = FontWeight.Bold)
@@ -290,7 +320,6 @@ fun BatteryProtectionCard(
                     Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
             },
-            containerColor = BgCard,
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary
         )
@@ -300,7 +329,20 @@ fun BatteryProtectionCard(
     if (showBypassRequiresChargerDialog) {
         AlertDialog(
             onDismissRequest = { showBypassRequiresChargerDialog = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(28.dp)) },
+            containerColor = Color(0xFF10141F),
+            shape = RoundedCornerShape(18.dp),
+            icon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = AccentOrange, modifier = Modifier.size(22.dp))
+                    }
+                }
+            },
             title = {
                 Text(
                     text = "Charger Belum Terhubung",
@@ -320,12 +362,12 @@ fun BatteryProtectionCard(
             confirmButton = {
                 Button(
                     onClick = { showBypassRequiresChargerDialog = false },
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.Black)
                 ) {
                     Text("Mengerti", fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = BgCard,
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary
         )

@@ -33,84 +33,84 @@ import com.noir.lynx.designsystem.theme.*
 
 @Composable
 internal fun BatteryHistoryTabSelector(selectedTab: Int, onSelectTab: (Int) -> Unit) {
-    // 2-Segment Switcher: Minimalis & Touch-Friendly
-        Surface(
+    // 2-Segment Switcher: Standardized Obsidian Pill Container
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = BgSurfaceLowest,
+        border = BorderStroke(0.6.dp, BorderSubtle)
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated.copy(alpha = 0.5f),
-            border = BorderStroke(0.8.dp, BorderSubtle)
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(
+            // Segment 0: Timeline chart.
+            Surface(
+                onClick = { onSelectTab(0) },
+                shape = RoundedCornerShape(8.dp),
+                color = if (selectedTab == 0) Color(0xFF1E2638) else Color.Transparent,
+                border = if (selectedTab == 0) BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f)) else null,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .weight(1f)
+                    .height(36.dp)
             ) {
-                // Segment 0: Timeline chart.
-                Surface(
-                    onClick = { onSelectTab(0) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (selectedTab == 0) AccentCyan.copy(alpha = 0.18f) else Color.Transparent,
-                    border = if (selectedTab == 0) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Timeline,
-                            contentDescription = null,
-                            tint = if (selectedTab == 0) AccentCyan else TextSecondary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.battery_graph_time_tab),
-                            fontSize = 11.5.sp,
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedTab == 0) TextPrimary else TextSecondary
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Timeline,
+                        contentDescription = null,
+                        tint = if (selectedTab == 0) AccentCyan else TextSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.battery_graph_time_tab),
+                        fontSize = 11.5.sp,
+                        fontWeight = if (selectedTab == 0) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selectedTab == 0) TextPrimary else TextSecondary.copy(alpha = 0.7f)
+                    )
                 }
+            }
 
-                // Segment 1: App usage.
-                Surface(
-                    onClick = { onSelectTab(1) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (selectedTab == 1) AccentCyan.copy(alpha = 0.18f) else Color.Transparent,
-                    border = if (selectedTab == 1) BorderStroke(1.dp, AccentCyan.copy(alpha = 0.6f)) else null,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(34.dp)
+            // Segment 1: App usage.
+            Surface(
+                onClick = { onSelectTab(1) },
+                shape = RoundedCornerShape(8.dp),
+                color = if (selectedTab == 1) Color(0xFF1E2638) else Color.Transparent,
+                border = if (selectedTab == 1) BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f)) else null,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Apps,
-                            contentDescription = null,
-                            tint = if (selectedTab == 1) AccentCyan else TextSecondary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.battery_app_usage_tab),
-                            fontSize = 11.5.sp,
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selectedTab == 1) TextPrimary else TextSecondary
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Apps,
+                        contentDescription = null,
+                        tint = if (selectedTab == 1) AccentCyan else TextSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.battery_app_usage_tab),
+                        fontSize = 11.5.sp,
+                        fontWeight = if (selectedTab == 1) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selectedTab == 1) TextPrimary else TextSecondary.copy(alpha = 0.7f)
+                    )
                 }
             }
         }
+    }
 }
 @Composable
 internal fun BatteryHistoryTimePanel(
@@ -129,12 +129,12 @@ internal fun BatteryHistoryTimePanel(
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = BgCard,
-                    border = BorderStroke(0.8.dp, if (scrubbedIndex != null) AccentCyan.copy(alpha = 0.8f) else BorderGlass),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, if (scrubbedIndex != null) AccentCyan.copy(alpha = 0.7f) else BorderSubtle),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -165,7 +165,7 @@ internal fun BatteryHistoryTimePanel(
                         Surface(
                             shape = RoundedCornerShape(6.dp),
                             color = if (activePoint?.isScreenOn == true) AccentGreen.copy(alpha = 0.15f) else AccentCyan.copy(alpha = 0.15f),
-                            border = BorderStroke(0.6.dp, if (activePoint?.isScreenOn == true) AccentGreen else AccentCyan)
+                            border = BorderStroke(0.6.dp, if (activePoint?.isScreenOn == true) AccentGreen.copy(alpha = 0.5f) else AccentCyan.copy(alpha = 0.5f))
                         ) {
                             Text(
                                 text = if (activePoint?.isScreenOn == true) stringResource(R.string.battery_screen_on_tag) else stringResource(R.string.battery_screen_off_tag),
@@ -190,8 +190,8 @@ internal fun BatteryHistoryTimePanel(
             if (steps.isEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = BgCard,
-                    border = BorderStroke(0.8.dp, BorderGlass),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
@@ -206,8 +206,8 @@ internal fun BatteryHistoryTimePanel(
                 Surface(
                     onClick = { onToggleStepsExpanded(!isStepsExpanded) },
                     shape = RoundedCornerShape(10.dp),
-                    color = BgElevated.copy(alpha = 0.5f),
-                    border = BorderStroke(0.8.dp, if (isStepsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, if (isStepsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderSubtle),
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 44.dp)
@@ -265,13 +265,13 @@ internal fun BatteryHistoryTimePanel(
                     ) {
                         steps.take(15).forEach { step ->
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = BgCard,
-                                border = BorderStroke(0.7.dp, BorderGlass),
+                                shape = RoundedCornerShape(10.dp),
+                                color = BgSurfaceLowest,
+                                border = BorderStroke(0.6.dp, BorderSubtle),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -323,8 +323,8 @@ internal fun BatteryHistoryAppPanel(
             if (apps.isEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = BgCard,
-                    border = BorderStroke(0.8.dp, BorderGlass),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
@@ -363,9 +363,9 @@ internal fun BatteryHistoryAppPanel(
 
                         Surface(
                             onClick = { onToggleAppsExpanded(!isAppsExpanded) },
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgElevated.copy(alpha = 0.45f),
-                            border = BorderStroke(0.8.dp, if (isAppsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderGlass),
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, if (isAppsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderSubtle),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 44.dp)

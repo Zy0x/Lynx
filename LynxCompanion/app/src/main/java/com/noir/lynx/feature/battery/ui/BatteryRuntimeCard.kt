@@ -36,9 +36,8 @@ import com.noir.lynx.designsystem.theme.AccentBlue
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentGreen
 import com.noir.lynx.designsystem.theme.AccentOrange
-import com.noir.lynx.designsystem.theme.BgCard
 import com.noir.lynx.designsystem.theme.BgElevated
-import com.noir.lynx.designsystem.theme.BorderGlass
+import com.noir.lynx.designsystem.theme.BgSurfaceLowest
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextPrimary
 import com.noir.lynx.designsystem.theme.TextSecondary
@@ -61,14 +60,15 @@ fun BatteryRuntimeCard(
     val startLevel = stats.unplugStartLevel.takeIf { it > 0 } ?: currentLevel
     LynxCard(
         title = stringResource(R.string.battery_runtime_card_title),
+        subtitle = "Proporsi SOT, deep sleep & estimasi sisa pemakaian",
         icon = Icons.Default.Timer,
         accentColor = AccentGreen
     ) {
         // Hero Banner: Start% -> Current% & Combined Total Time
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = BgElevated.copy(alpha = 0.65f),
-            border = BorderStroke(1.dp, AccentGreen.copy(alpha = 0.45f)),
+            color = BgElevated,
+            border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.40f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -121,7 +121,7 @@ fun BatteryRuntimeCard(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = AccentGreen.copy(alpha = 0.14f),
-                    border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.55f))
+                    border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.50f))
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -149,12 +149,12 @@ fun BatteryRuntimeCard(
 
         // 3-Segment Combined Proportion Bar (SOT + Deep Sleep + Screen-Off Awake = 100%)
         Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, BorderGlass),
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(10.dp)) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -171,6 +171,7 @@ fun BatteryRuntimeCard(
                         text = "100% Akurat Kernel",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = AccentCyan
                     )
                 }
@@ -187,7 +188,7 @@ fun BatteryRuntimeCard(
                         .fillMaxWidth()
                         .height(10.dp)
                         .clip(RoundedCornerShape(5.dp))
-                        .background(BorderSubtle)
+                        .background(BgSurfaceLowest)
                 ) {
                     if (sotWeight > 0f) {
                         Box(
@@ -224,9 +225,9 @@ fun BatteryRuntimeCard(
                 ) {
                     // 1. Screen on (SOT).
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgElevated.copy(alpha = 0.55f),
-                        border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.6.dp, AccentGreen.copy(alpha = 0.35f)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
@@ -254,9 +255,9 @@ fun BatteryRuntimeCard(
 
                     // 2. Tidur Lelap (Deep Sleep)
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgElevated.copy(alpha = 0.55f),
-                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
@@ -284,9 +285,9 @@ fun BatteryRuntimeCard(
 
                     // 3. Siaga Bangun (Screen-Off Awake / Wakelock)
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BgElevated.copy(alpha = 0.55f),
-                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.6.dp, AccentOrange.copy(alpha = 0.35f)),
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
@@ -315,16 +316,16 @@ fun BatteryRuntimeCard(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(10.dp))
 
         // Real Drain Rate & Remaining Time Summary Table
         Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = BgElevated.copy(alpha = 0.5f),
-            border = BorderStroke(0.8.dp, BorderSubtle),
+            shape = RoundedCornerShape(12.dp),
+            color = BgElevated,
+            border = BorderStroke(0.6.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total Waktu Layar Mati (Deep Sleep + Bangun)", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
                     Text(stats.screenOffTimeText, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)

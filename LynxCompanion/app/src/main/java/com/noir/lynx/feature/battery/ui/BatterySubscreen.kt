@@ -23,8 +23,27 @@ fun LazyListScope.batterySubscreenItems(
     if (uiState.batterySubTab == 1) {
         batteryInformationItems(uiState, viewModel)
     } else {
-        item(key = "subscreen_charging") {
-            TuningChargingCategory(uiState, viewModel, manageLifecycle = false)
+        item(key = "charging_section_fast") {
+            BatterySectionHeader(
+                title = "Regulasi Arus & Pengisian Cepat",
+                subtitle = "Preset arus charger, wattmeter ganda & telemetri gelombang",
+                accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
+                badge = "4 MODE"
+            )
+        }
+        item(key = "charging_fast_control") {
+            FastChargingControlCard(uiState, viewModel)
+        }
+        item(key = "charging_section_protection") {
+            BatterySectionHeader(
+                title = "Proteksi Sel & Bypass Hardware",
+                subtitle = "Isolasi arus baterai, batas auto-cut & pengisian malam",
+                accentColor = com.noir.lynx.designsystem.theme.AccentPurple,
+                badge = "SAFETY"
+            )
+        }
+        item(key = "charging_protection") {
+            BatteryProtectionCard(uiState, viewModel)
         }
     }
 }
