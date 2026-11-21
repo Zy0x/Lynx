@@ -30,6 +30,7 @@ import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.card.UnsupportedBadge
 import com.noir.lynx.designsystem.controls.LynxActionButton
+import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
 import com.noir.lynx.ui.applyVmPreset
@@ -85,8 +86,6 @@ fun MemoryVmZramCard(
     var stagedZramMb by remember(liveZramMb) { mutableIntStateOf(liveZramMb) }
     var showZramConfirmDialog by remember { mutableStateOf(false) }
     var showCustomZramDialog by remember { mutableStateOf(false) }
-
-    val sliderMaxZramMb = maxOf(maxSafeZramMb, stagedZramMb, 512)
 
     if (showCustomZramDialog) {
         CustomZramGbDialog(
@@ -277,18 +276,6 @@ fun MemoryVmZramCard(
                         }
                     }
 
-                    MemoryValueSlider(
-                        label = "Ukuran ZRAM",
-                        value = stagedZramMb.toFloat(),
-                        valueRange = 128f..sliderMaxZramMb.toFloat(),
-                        stepSize = 128f,
-                        displayValue = { formatZramGb(it.roundToInt()) },
-                        accentColor = AccentCyan,
-                        allowCustomInput = false,
-                        onCustomClick = { showCustomZramDialog = true },
-                        onCommitValue = { stagedZramMb = it.roundToInt() }
-                    )
-
                     val isDirty = stagedAlgo != liveAlgo || stagedZramMb != liveZramMb
                     AnimatedVisibility(
                         visible = isDirty,
@@ -370,18 +357,28 @@ fun MemoryVmZramCard(
                     }
                 }
 
-                MemoryValueSlider(
+                val swappinessPresets = remember(swappinessMax) {
+                    listOf(
+                        "10 • RAM" to 10,
+                        "30 • Responsif" to 30,
+                        "60 • Standar" to 60,
+                        "100 • Aktif" to 100,
+                        "130 • MGLRU" to 130,
+                        "160 • Agresif" to 160
+                    ).filter { it.second <= swappinessMax }
+                }
+                LynxNumericPresetRow(
                     label = "VM Swappiness",
-                    value = uiState.vmAdvanced.swappiness.toFloat(),
-                    valueRange = 0f..swappinessMax.toFloat(),
-                    stepSize = 5f,
-                    displayValue = { "${it.roundToInt()} / $swappinessMax" },
+                    subtitle = "Kecil menahan app di RAM fisik • Besar aktif memakai ZRAM",
+                    value = uiState.vmAdvanced.swappiness,
+                    displayValue = "${uiState.vmAdvanced.swappiness} / $swappinessMax",
+                    min = 0,
+                    max = swappinessMax,
+                    dialogTitle = "Atur VM Swappiness",
+                    dialogHint = "Nilai kecil mempertahankan aplikasi lebih lama di RAM fisik; tinggi lebih agresif memakai ZRAM (0 – $swappinessMax).",
+                    presets = swappinessPresets,
                     accentColor = AccentBlue,
-                    unit = "",
-                    customDialogMin = 0,
-                    customDialogMax = swappinessMax,
-                    customDialogHint = "Nilai kecil mempertahankan aplikasi lebih lama di RAM fisik; tinggi lebih agresif memakai ZRAM.",
-                    onCommitValue = { viewModel.setSwappiness(it.roundToInt()) }
+                    onCommitValue = { viewModel.setSwappiness(it) }
                 )
             }
         }

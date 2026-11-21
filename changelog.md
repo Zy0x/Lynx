@@ -1,3 +1,15 @@
+# Lynx Universal [Precision Preset+Text Input Overlays Across Memory & Deep Sysfs Tunables] 7.0.0-RC432
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.51
+
+### Companion App (`designsystem/controls`, `feature/memory/ui` & `feature/system/ui`)
+- **Shared Preset + Numeric Input Overlay (`LynxPresetNumericOverlay`)**:
+  - Added `LynxNumericPresetRow` (>= `52.dp` touch row with editable value pill) and `LynxNumericInputOverlay` (1-tap quick preset chips + validated integer text entry) in `designsystem/controls/LynxPresetNumericOverlay.kt` so precision and large-range parameters never suffer from imprecise tiny thumb sliders.
+- **Memory & System UX Modernization**:
+  - Removed the duplicate ZRAM MB/GB slider in `MemoryVmZramCard`, leaving the clean GB preset chips + `Kustom` (`CustomZramGbDialog` enhanced with 1-tap `Hemat`/`Seimbang`/`Maks 50%` quick presets alongside decimal GB entry).
+  - Migrated `VM Swappiness` (`0–100/200`), all 5 Writeback & VFS tunables (`Dirty Ratio`, `Dirty Background Ratio`, `VFS Cache Pressure`, `Dirty Expire`, `Dirty Writeback Interval`), `MGLRU min_ttl_ms` (`0–5000 ms`), `KSM` scan/sleep parameters, and `Entropy` read/write wakeup thresholds to `LynxNumericPresetRow` + tailored 1-tap overlay presets.
+  - Enhanced `MountXStorageCard` custom `Read-Ahead KB` & `nr_requests` overlays with quick preset chips, and upgraded wide-range `DeepTunableItemCard` sliders (`> 50` steps or `> 100` span) to use `LynxNumericPresetRow` automatically while keeping compact sliders tactile with optional tap-to-type badge.
+
 # Lynx Universal [Storage Hero Overview, SD-Scoped MountX, I/O Sync Fixes & GB ZRAM UX] 7.0.0-RC431
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.50

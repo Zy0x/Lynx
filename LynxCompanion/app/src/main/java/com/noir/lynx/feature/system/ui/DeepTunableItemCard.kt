@@ -9,8 +9,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
+import com.noir.lynx.designsystem.controls.LynxNumericInputOverlay
+import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
 import androidx.compose.runtime.*
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -355,89 +358,152 @@ fun DeepTunableItemCard(
                     }
 
                     TunableType.SLIDER -> {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Nilai Parameter:", color = TextSecondary, fontSize = 11.sp)
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = AccentCyan.copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
-                                ) {
-                                    val displayVal = if (tunable.unit.isNotEmpty()) {
-                                        "${sliderValue.toInt()} ${tunable.unit}"
-                                    } else {
-                                        "${sliderValue.toInt()}"
-                                    }
-                                    Text(
-                                        displayVal,
-                                        color = AccentCyan,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
+                        val safeStep = tunable.step.takeIf { it > 0f } ?: 1f
+                        val totalSteps = ((tunable.max - tunable.min) / safeStep).roundToInt().coerceAtLeast(1)
+                        val usePresetOverlay = totalSteps > 50 || (tunable.max - tunable.min) > 100f
+                        val minInt = tunable.min.roundToInt()
+                        val maxInt = maxOf(minInt + 1, tunable.max.roundToInt())
+                        val curInt = sliderValue.roundToInt().coerceIn(minInt, maxInt)
+                        val autoPresets = remember(minInt, maxInt, tunable.unit) {
+                            val span = maxInt - minInt
+                            val unitSuffix = if (tunable.unit.isNotEmpty()) " ${tunable.unit}" else ""
+                            listOf(minInt, minInt + span / 4, minInt + span / 2, maxInt)
+                                .distinct()
+                                .map { v -> "$v$unitSuffix" to v }
+                        }
+                        val displayVal = if (tunable.unit.isNotEmpty()) {
+                            "$curInt ${tunable.unit}"
+                        } else {
+                            "$curInt"
+                        }
 
-                            Slider(
-                                value = sliderValue,
-                                onValueChange = {
-                                    isDraggingSlider = true
-                                    lastSliderInteraction = System.currentTimeMillis()
-                                    sliderValue = it
+                        if (usePresetOverlay) {
+                            LynxNumericPresetRow(
+                                label = "Nilai Parameter",
+                                subtitle = "Rentang $minInt – $maxInt${if (tunable.unit.isNotEmpty()) " ${tunable.unit}" else ""}",
+                                value = curInt,
+                                displayValue = displayVal,
+                                min = minInt,
+                                max = maxInt,
+                                unit = tunable.unit,
+                                dialogTitle = localizedUiText(tunable.name),
+                                dialogHint = localizedUiText(tunable.desc).ifBlank {
+                                    "Pilih preset cepat atau ketik angka antara $minInt – $maxInt."
                                 },
-                                onValueChangeFinished = {
+                                presets = autoPresets,
+                                accentColor = AccentCyan,
+                                onCommitValue = { newVal ->
                                     isDraggingSlider = false
                                     lastSliderInteraction = System.currentTimeMillis()
-                                },
-                                valueRange = tunable.min..tunable.max,
-                                steps = if (tunable.step > 0 && (tunable.max - tunable.min) / tunable.step > 1) {
-                                    ((tunable.max - tunable.min) / tunable.step).toInt() - 1
-                                } else 0,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = AccentCyan,
-                                    activeTrackColor = AccentCyan,
-                                    inactiveTrackColor = Color(0xFF161A24)
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                                    sliderValue = newVal.toFloat()
+                                    onApply(tunable.path, newVal.toString())
+                                }
                             )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Min: ${tunable.min.toInt()}${tunable.unit}",
-                                    color = TextTertiary,
-                                    fontSize = 9.5.sp
-                                )
-
-                                Button(
-                                    onClick = {
+                        } else {
+                            var showCompactOverlay by remember { mutableStateOf(false) }
+                            if (showCompactOverlay) {
+                                LynxNumericInputOverlay(
+                                    title = localizedUiText(tunable.name),
+                                    currentValue = curInt,
+                                    min = minInt,
+                                    max = maxInt,
+                                    unit = tunable.unit,
+                                    hint = localizedUiText(tunable.desc).ifBlank {
+                                        "Pilih preset cepat atau ketik angka antara $minInt – $maxInt."
+                                    },
+                                    presets = autoPresets,
+                                    accentColor = AccentCyan,
+                                    onDismiss = { showCompactOverlay = false },
+                                    onConfirm = { newVal ->
+                                        showCompactOverlay = false
                                         isDraggingSlider = false
                                         lastSliderInteraction = System.currentTimeMillis()
-                                        onApply(tunable.path, sliderValue.toInt().toString())
-                                    },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = AccentCyan.copy(alpha = 0.2f),
-                                        contentColor = AccentCyan
-                                    ),
-                                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        sliderValue = newVal.toFloat()
+                                        onApply(tunable.path, newVal.toString())
+                                    }
+                                )
+                            }
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Terapkan (${sliderValue.toInt()})", fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                                    Text("Nilai Parameter:", color = TextSecondary, fontSize = 11.sp)
+                                    Surface(
+                                        onClick = { showCompactOverlay = true },
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentCyan.copy(alpha = 0.2f),
+                                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            displayVal,
+                                            color = AccentCyan,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
                                 }
 
-                                Text(
-                                    "Max: ${tunable.max.toInt()}${tunable.unit}",
-                                    color = TextTertiary,
-                                    fontSize = 9.5.sp
+                                Slider(
+                                    value = sliderValue,
+                                    onValueChange = {
+                                        isDraggingSlider = true
+                                        lastSliderInteraction = System.currentTimeMillis()
+                                        sliderValue = it
+                                    },
+                                    onValueChangeFinished = {
+                                        isDraggingSlider = false
+                                        lastSliderInteraction = System.currentTimeMillis()
+                                    },
+                                    valueRange = tunable.min..tunable.max,
+                                    steps = if (tunable.step > 0 && (tunable.max - tunable.min) / tunable.step > 1) {
+                                        ((tunable.max - tunable.min) / tunable.step).toInt() - 1
+                                    } else 0,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = AccentCyan,
+                                        activeTrackColor = AccentCyan,
+                                        inactiveTrackColor = Color(0xFF161A24)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Min: ${tunable.min.toInt()}${tunable.unit}",
+                                        color = TextTertiary,
+                                        fontSize = 9.5.sp
+                                    )
+
+                                    Button(
+                                        onClick = {
+                                            isDraggingSlider = false
+                                            lastSliderInteraction = System.currentTimeMillis()
+                                            onApply(tunable.path, sliderValue.toInt().toString())
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AccentCyan.copy(alpha = 0.2f),
+                                            contentColor = AccentCyan
+                                        ),
+                                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Terapkan (${sliderValue.toInt()})", fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Text(
+                                        "Max: ${tunable.max.toInt()}${tunable.unit}",
+                                        color = TextTertiary,
+                                        fontSize = 9.5.sp
+                                    )
+                                }
                             }
                         }
                     }

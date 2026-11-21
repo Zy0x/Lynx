@@ -295,6 +295,12 @@ fun MountXStorageCard(
                     append("Nilai kecil cocok untuk random I/O, besar untuk baca berurutan.")
                 }
             },
+            presets = listOf(
+                "64 KB • Acak" to 64,
+                "128 KB • Standar" to 128,
+                "256 KB • Seimbang" to 256,
+                "512 KB • Sekuensial" to 512
+            ),
             accentColor = AccentCyan,
             onDismiss = { customRaDevice = null },
             onConfirm = { kb ->
@@ -313,6 +319,12 @@ fun MountXStorageCard(
             min = 8,
             max = 2048,
             hint = "Kedalaman antrean permintaan blok (/sys/block/${dev.device}/queue/nr_requests).",
+            presets = listOf(
+                "32 req • Rendah" to 32,
+                "64 req • Responsif" to 64,
+                "128 req • Standar" to 128,
+                "256 req • Besar" to 256
+            ),
             accentColor = AccentBlue,
             onDismiss = { customNrDevice = null },
             onConfirm = { value ->

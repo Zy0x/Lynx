@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
@@ -41,7 +42,6 @@ import com.noir.lynx.ui.setMglruMinTtlMs
 import com.noir.lynx.ui.setPageCluster
 import com.noir.lynx.ui.setVfsCachePressure
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * MemoryVmAdvancedCard — Sub-tab 1 (VM & Entropi).
@@ -155,76 +155,103 @@ fun MemoryVmAdvancedCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    MemoryValueSlider(
+                    LynxNumericPresetRow(
                         label = "Dirty Ratio",
-                        value = vm.dirtyRatio.toFloat(),
-                        valueRange = 1f..90f,
-                        displayValue = { "${it.roundToInt()}%" },
-                        accentColor = AccentPurple,
+                        subtitle = "Batas RAM kotor sebelum I/O menunggu writeback",
+                        value = vm.dirtyRatio,
+                        displayValue = "${vm.dirtyRatio}%",
+                        min = 1,
+                        max = 95,
                         unit = "%",
-                        customDialogMin = 1,
-                        customDialogMax = 95,
-                        customDialogHint = "Batas persen RAM kotor sebelum proses I/O dipaksa menunggu writeback ke flash.",
-                        onCommitValue = { viewModel.setDirtyRatio(it.roundToInt()) }
+                        dialogHint = "Batas persen RAM kotor sebelum proses I/O dipaksa menunggu writeback ke flash.",
+                        presets = listOf(
+                            "10% • Rendah" to 10,
+                            "20% • Standar" to 20,
+                            "30% • Seimbang" to 30,
+                            "40% • Cache" to 40
+                        ),
+                        accentColor = AccentPurple,
+                        onCommitValue = { viewModel.setDirtyRatio(it) }
                     )
 
-                    MemoryValueSlider(
+                    LynxNumericPresetRow(
                         label = "Dirty Background Ratio",
-                        value = vm.dirtyBackgroundRatio.toFloat(),
-                        valueRange = 1f..60f,
-                        displayValue = { "${it.roundToInt()}%" },
+                        subtitle = "Ambang awal flush thread menulis ke flash",
+                        value = vm.dirtyBackgroundRatio,
+                        displayValue = "${vm.dirtyBackgroundRatio}%",
+                        min = 1,
+                        max = 80,
+                        unit = "%",
+                        dialogHint = "Ambang saat flush thread mulai menulis data kotor di latar belakang.",
+                        presets = listOf(
+                            "5% • Cepat" to 5,
+                            "10% • Standar" to 10,
+                            "15% • Cache" to 15,
+                            "20% • Besar" to 20
+                        ),
                         accentColor = AccentPurple,
-                        unit = "%",
-                        customDialogMin = 1,
-                        customDialogMax = 80,
-                        customDialogHint = "Ambang saat flush thread mulai menulis data kotor di latar belakang.",
-                        onCommitValue = { viewModel.setDirtyBackgroundRatio(it.roundToInt()) }
+                        onCommitValue = { viewModel.setDirtyBackgroundRatio(it) }
                     )
 
-                    val vfsSliderMax = maxOf(250, vm.vfsCachePressure)
-                    MemoryValueSlider(
+                    LynxNumericPresetRow(
                         label = "VFS Cache Pressure",
-                        value = vm.vfsCachePressure.toFloat(),
-                        valueRange = 10f..vfsSliderMax.toFloat(),
-                        stepSize = 5f,
-                        displayValue = { "${it.roundToInt()}%" },
-                        accentColor = AccentBlue,
+                        subtitle = "Agresivitas reclaim cache metadata dentry & inode",
+                        value = vm.vfsCachePressure,
+                        displayValue = "${vm.vfsCachePressure}%",
+                        min = 1,
+                        max = 500,
                         unit = "%",
-                        customDialogMin = 1,
-                        customDialogMax = 500,
-                        customDialogHint = "Kontrol agresivitas reclaim cache dentry/inode (<100 menahan metadata file di RAM).",
-                        onCommitValue = { viewModel.setVfsCachePressure(it.roundToInt()) }
+                        dialogHint = "Kontrol agresivitas reclaim cache dentry/inode (<100 menahan metadata file di RAM).",
+                        presets = listOf(
+                            "25% • Tahan" to 25,
+                            "50% • Hemat I/O" to 50,
+                            "100% • Default" to 100,
+                            "150% • Bebas" to 150
+                        ),
+                        accentColor = AccentBlue,
+                        onCommitValue = { viewModel.setVfsCachePressure(it) }
                     )
 
-                    val expireSecMax = maxOf(120, vm.dirtyExpireCentisecs / 100)
-                    MemoryValueSlider(
+                    val expireSec = (vm.dirtyExpireCentisecs / 100).coerceAtLeast(1)
+                    LynxNumericPresetRow(
                         label = "Dirty Expire",
-                        value = (vm.dirtyExpireCentisecs / 100f).coerceAtLeast(1f),
-                        valueRange = 1f..expireSecMax.toFloat(),
-                        stepSize = 2f,
-                        displayValue = { "${it.roundToInt()} dtk" },
-                        accentColor = AccentCyan,
+                        subtitle = "Usia maksimal data kotor sebelum wajib ditulis",
+                        value = expireSec,
+                        displayValue = "$expireSec dtk",
+                        min = 1,
+                        max = 600,
                         unit = "detik",
-                        customDialogMin = 1,
-                        customDialogMax = 600,
-                        customDialogHint = "Usia maksimal halaman kotor di RAM sebelum wajib ditulis ke storage.",
-                        onCommitValue = { viewModel.setDirtyExpireCentisecs(it.roundToInt() * 100) }
+                        dialogHint = "Usia maksimal halaman kotor di RAM sebelum wajib ditulis ke storage.",
+                        presets = listOf(
+                            "10 dtk • Aman" to 10,
+                            "30 dtk • Standar" to 30,
+                            "60 dtk • Moderat" to 60,
+                            "120 dtk • Panjang" to 120
+                        ),
+                        accentColor = AccentCyan,
+                        onCommitValue = { viewModel.setDirtyExpireCentisecs(it * 100) }
                     )
 
-                    val wbSecMax = maxOf(60, vm.dirtyWritebackCentisecs / 100)
-                    MemoryValueSlider(
+                    val wbSec = (vm.dirtyWritebackCentisecs / 100).coerceAtLeast(1)
+                    LynxNumericPresetRow(
                         label = "Dirty Writeback Interval",
-                        value = (vm.dirtyWritebackCentisecs / 100f).coerceAtLeast(1f),
-                        valueRange = 1f..wbSecMax.toFloat(),
-                        displayValue = { "${it.roundToInt()} dtk" },
-                        accentColor = AccentCyan,
+                        subtitle = "Interval bangun thread writeback latar belakang",
+                        value = wbSec,
+                        displayValue = "$wbSec dtk",
+                        min = 1,
+                        max = 300,
                         unit = "detik",
-                        customDialogMin = 1,
-                        customDialogMax = 300,
-                        customDialogHint = "Interval bangun thread writeback kernel (nilai lebih tinggi menghemat wakeup I/O).",
-                        onCommitValue = { viewModel.setDirtyWritebackCentisecs(it.roundToInt() * 100) }
+                        dialogHint = "Interval bangun thread writeback kernel (nilai lebih tinggi menghemat wakeup I/O).",
+                        presets = listOf(
+                            "3 dtk • Responsif" to 3,
+                            "5 dtk • Standar" to 5,
+                            "15 dtk • Hemat" to 15,
+                            "30 dtk • Santai" to 30
+                        ),
+                        accentColor = AccentCyan,
+                        onCommitValue = { viewModel.setDirtyWritebackCentisecs(it * 100) }
                     )
                 }
             }
@@ -234,18 +261,23 @@ fun MemoryVmAdvancedCard(
                 HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
 
                 if (vm.mglruSupported) {
-                    MemoryValueSlider(
+                    LynxNumericPresetRow(
                         label = "MGLRU Anti-Thrash (min_ttl_ms)",
-                        value = vm.mglruMinTtlMs.toFloat(),
-                        valueRange = 0f..5000f,
-                        stepSize = 100f,
-                        displayValue = { "${it.roundToInt()} ms" },
-                        accentColor = AccentCyan,
+                        subtitle = "Lindungi working-set aktif dari swap prematur",
+                        value = vm.mglruMinTtlMs,
+                        displayValue = "${vm.mglruMinTtlMs} ms",
+                        min = 0,
+                        max = 5000,
                         unit = "ms",
-                        customDialogMin = 0,
-                        customDialogMax = 5000,
-                        customDialogHint = "Mencegah Multi-Gen LRU menukar working-set aktif lebih cepat dari TTL ini (0–5000 ms).",
-                        onCommitValue = { viewModel.setMglruMinTtlMs(it.roundToInt()) }
+                        dialogHint = "Mencegah Multi-Gen LRU menukar working-set aktif lebih cepat dari TTL ini (0–5000 ms).",
+                        presets = listOf(
+                            "0 ms • Off" to 0,
+                            "500 ms • Cepat" to 500,
+                            "1000 ms • Optimal" to 1000,
+                            "2000 ms • Proteksi" to 2000
+                        ),
+                        accentColor = AccentCyan,
+                        onCommitValue = { viewModel.setMglruMinTtlMs(it) }
                     )
                 }
 
@@ -315,35 +347,43 @@ fun MemoryVmAdvancedCard(
                     enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
                     exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val maxPages = maxOf(2000, ksm.pagesToScan)
-                        MemoryValueSlider(
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LynxNumericPresetRow(
                             label = "KSM Pages to Scan",
-                            value = ksm.pagesToScan.toFloat(),
-                            valueRange = 10f..maxPages.toFloat(),
-                            stepSize = 50f,
-                            displayValue = { "${it.roundToInt()} hal" },
-                            accentColor = AccentGreen,
+                            subtitle = "Jumlah halaman per siklus pemindaian ksmd",
+                            value = ksm.pagesToScan,
+                            displayValue = "${ksm.pagesToScan} hal",
+                            min = 10,
+                            max = 10000,
                             unit = "halaman",
-                            customDialogMin = 10,
-                            customDialogMax = 10000,
-                            customDialogHint = "Jumlah halaman yang dipindai ksmd per siklus bangun.",
-                            onCommitValue = { viewModel.setKsmTunables(it.roundToInt(), ksm.sleepMs) }
+                            dialogHint = "Jumlah halaman yang dipindai ksmd per siklus bangun.",
+                            presets = listOf(
+                                "100 hal • Ringan" to 100,
+                                "256 hal • Standar" to 256,
+                                "500 hal • Aktif" to 500,
+                                "1000 hal • Kuat" to 1000
+                            ),
+                            accentColor = AccentGreen,
+                            onCommitValue = { viewModel.setKsmTunables(it, ksm.sleepMs) }
                         )
 
-                        val maxSleep = maxOf(2000, ksm.sleepMs)
-                        MemoryValueSlider(
+                        LynxNumericPresetRow(
                             label = "KSM Sleep Interval",
-                            value = ksm.sleepMs.toFloat(),
-                            valueRange = 5f..maxSleep.toFloat(),
-                            stepSize = 25f,
-                            displayValue = { "${it.roundToInt()} ms" },
-                            accentColor = AccentGreen,
+                            subtitle = "Jeda tidur ksmd antar pemindaian",
+                            value = ksm.sleepMs,
+                            displayValue = "${ksm.sleepMs} ms",
+                            min = 5,
+                            max = 10000,
                             unit = "ms",
-                            customDialogMin = 5,
-                            customDialogMax = 10000,
-                            customDialogHint = "Jeda tidur ksmd antar pemindaian (nilai lebih besar menekan pemakaian CPU).",
-                            onCommitValue = { viewModel.setKsmTunables(ksm.pagesToScan, it.roundToInt()) }
+                            dialogHint = "Jeda tidur ksmd antar pemindaian (nilai lebih besar menekan pemakaian CPU).",
+                            presets = listOf(
+                                "20 ms • Cepat" to 20,
+                                "100 ms • Standar" to 100,
+                                "250 ms • Hemat" to 250,
+                                "500 ms • Santai" to 500
+                            ),
+                            accentColor = AccentGreen,
+                            onCommitValue = { viewModel.setKsmTunables(ksm.pagesToScan, it) }
                         )
                     }
                 }

@@ -30,8 +30,8 @@ import com.noir.lynx.data.MemoryEntropyInfo
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.card.UnsupportedBadge
 import com.noir.lynx.designsystem.controls.LynxActionButton
+import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.theme.*
-import kotlin.math.roundToInt
 
 /**
  * MemoryEntropyCard — Sub-tab 1 (VM & Entropi).
@@ -286,32 +286,44 @@ fun MemoryEntropyCard(
                 }
 
                 if (memoryEntropy.isEntropyThresholdWritable) {
-                    MemoryValueSlider(
+                    val readPresets = remember(readMax) {
+                        listOf(32, 64, 128, 256, 512, 1024)
+                            .filter { it in 8..readMax }
+                            .takeLast(4)
+                            .map { "$it bit" to it }
+                    }
+                    LynxNumericPresetRow(
                         label = "Read Wakeup Threshold",
-                        value = stagedReadThresh.toFloat(),
-                        valueRange = 8f..readMax.toFloat(),
-                        stepSize = maxOf(8f, (readMax / 16).toFloat()),
-                        displayValue = { "${it.roundToInt()} bit" },
-                        accentColor = AccentCyan,
+                        subtitle = "Batas bawah entropi pembacaan /dev/random",
+                        value = stagedReadThresh,
+                        displayValue = "$stagedReadThresh bit",
+                        min = 8,
+                        max = readMax,
                         unit = "bit",
-                        customDialogMin = 8,
-                        customDialogMax = poolSize,
-                        customDialogHint = "Batas bawah entropi untuk pembacaan /dev/random (pool: $poolSize bit).",
-                        onCommitValue = { stagedReadThresh = it.roundToInt() }
+                        dialogHint = "Batas bawah entropi untuk pembacaan /dev/random (pool: $poolSize bit).",
+                        presets = readPresets,
+                        accentColor = AccentCyan,
+                        onCommitValue = { stagedReadThresh = it }
                     )
 
-                    MemoryValueSlider(
+                    val writePresets = remember(writeMax) {
+                        listOf(64, 128, 256, 512, 1024, 2048)
+                            .filter { it in 16..writeMax }
+                            .takeLast(4)
+                            .map { "$it bit" to it }
+                    }
+                    LynxNumericPresetRow(
                         label = "Write Wakeup Threshold",
-                        value = stagedWriteThresh.toFloat(),
-                        valueRange = 16f..writeMax.toFloat(),
-                        stepSize = maxOf(16f, (writeMax / 16).toFloat()),
-                        displayValue = { "${it.roundToInt()} bit" },
-                        accentColor = AccentBlue,
+                        subtitle = "Ambang pengisian ulang pool RNG kernel",
+                        value = stagedWriteThresh,
+                        displayValue = "$stagedWriteThresh bit",
+                        min = 16,
+                        max = writeMax,
                         unit = "bit",
-                        customDialogMin = 16,
-                        customDialogMax = poolSize,
-                        customDialogHint = "Ambang pengisian entropi (/proc/sys/kernel/random/write_wakeup_threshold).",
-                        onCommitValue = { stagedWriteThresh = it.roundToInt() }
+                        dialogHint = "Ambang pengisian entropi (/proc/sys/kernel/random/write_wakeup_threshold).",
+                        presets = writePresets,
+                        accentColor = AccentBlue,
+                        onCommitValue = { stagedWriteThresh = it }
                     )
 
                     val entropyDirty = stagedReadThresh != memoryEntropy.readThreshold ||
