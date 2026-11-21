@@ -28,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -36,6 +37,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +54,7 @@ import com.noir.lynx.data.ChargingConfig
 import com.noir.lynx.data.TelemetryData
 import com.noir.lynx.designsystem.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -126,7 +132,19 @@ fun ChargingHeroDisplayCard(
     var liveChargingStateMode by remember { mutableStateOf("") }
     var liveBypassActive by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isLifecycleResumed by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, _ ->
+            isLifecycleResumed = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(lifecycleOwner) {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         val currentNodes = listOf(
             File("/sys/class/power_supply/battery/current_now"),
@@ -163,8 +181,9 @@ fun ChargingHeroDisplayCard(
             File("/sys/class/power_supply/bms/status")
         )
 
-        withContext(Dispatchers.IO) {
-            while (true) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            withContext(Dispatchers.IO) {
+                while (isActive) {
             var sampledCurrentUa = liveHardwareCurrentUa
             var sampledCurrentMa = liveHardwareCurrentMa
             var sampledVoltageMv = liveHardwareVoltageMv
@@ -392,7 +411,8 @@ fun ChargingHeroDisplayCard(
                 }
             } catch (_: Exception) {}
 
-                delay(2000L) // Calm 2.0s hardware tick on IO dispatcher
+                    delay(2000L) // Calm 2.0s hardware tick on IO dispatcher
+                }
             }
         }
     }
@@ -441,63 +461,68 @@ fun ChargingHeroDisplayCard(
 
     // Coulomb counting: ΔQ(µAh) = I(µA) × Δt(seconds) / 3600.
     // Anchored strictly to baseLevel: fractional tenths advance from .0 to .9 as current flows.
-    LaunchedEffect(isCharging, isBypass, baseLevel) {
+    LaunchedEffect(lifecycleOwner, isCharging, isBypass, baseLevel) {
         hasIntegratedCharge = false
         integratedChargeUah = 0.0
         currentCalibrationGain = 1.0
         if (!isCharging || isBypass) return@LaunchedEffect
 
-        var lastTickNs = System.nanoTime()
-        var counterAnchorUah = 0L
-        var uncalibratedChargeSinceAnchorUah = 0.0
-        while (true) {
-            delay(1000L) // 1.0s tick prevents 4x/sec recompositions on low-end devices
-            val nowNs = System.nanoTime()
-            val fullUah = fullChargeUahState.value
-            val measuredUah = counterUahState.value
-            val effectiveFullUah = if (fullUah in 100_000L..30_000_000L) fullUah else 3_000_000L
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            hasIntegratedCharge = false
+            integratedChargeUah = 0.0
+            currentCalibrationGain = 1.0
+            var lastTickNs = System.nanoTime()
+            var counterAnchorUah = 0L
+            var uncalibratedChargeSinceAnchorUah = 0.0
+            while (isActive) {
+                delay(1000L) // 1.0s tick prevents 4x/sec recompositions on low-end devices
+                val nowNs = System.nanoTime()
+                val fullUah = fullChargeUahState.value
+                val measuredUah = counterUahState.value
+                val effectiveFullUah = if (fullUah in 100_000L..30_000_000L) fullUah else 3_000_000L
 
-            if (!hasIntegratedCharge) {
-                // If fuel-gauge remainder is within current baseLevel, use it; otherwise anchor to baseLevel
-                val directPercent = if (measuredUah > 0L) (measuredUah.toDouble() / effectiveFullUah.toDouble() * 100.0) else -1.0
-                val validOffset = if (directPercent >= baseLevel.toDouble() && directPercent < (baseLevel + 1).toDouble()) {
-                    measuredUah.toDouble()
-                } else {
-                    effectiveFullUah.toDouble() * baseLevel / 100.0
+                if (!hasIntegratedCharge) {
+                    // If fuel-gauge remainder is within current baseLevel, use it; otherwise anchor to baseLevel
+                    val directPercent = if (measuredUah > 0L) (measuredUah.toDouble() / effectiveFullUah.toDouble() * 100.0) else -1.0
+                    val validOffset = if (directPercent >= baseLevel.toDouble() && directPercent < (baseLevel + 1).toDouble()) {
+                        measuredUah.toDouble()
+                    } else {
+                        effectiveFullUah.toDouble() * baseLevel / 100.0
+                    }
+                    integratedChargeUah = validOffset
+                    counterAnchorUah = if (measuredUah > 0L) measuredUah else 0L
+                    hasIntegratedCharge = true
+                    lastTickNs = nowNs
+                    continue
                 }
-                integratedChargeUah = validOffset
-                counterAnchorUah = if (measuredUah > 0L) measuredUah else 0L
-                hasIntegratedCharge = true
+
+                val elapsedSeconds = ((nowNs - lastTickNs).coerceAtLeast(0L) / 1_000_000_000.0)
+                    .coerceAtMost(1.0)
                 lastTickNs = nowNs
-                continue
-            }
+                val measuredCurrentUa = kotlin.math.abs(cellCurrentUaState.value)
+                var uncalibratedDeltaUah = 0.0
+                if (measuredCurrentUa in 10_000L..30_000_000L && elapsedSeconds > 0.0) {
+                    uncalibratedDeltaUah = measuredCurrentUa.toDouble() * elapsedSeconds / 3600.0
+                    uncalibratedChargeSinceAnchorUah += uncalibratedDeltaUah
+                    val calibratedDelta = uncalibratedDeltaUah * currentCalibrationGain
+                    integratedChargeUah += calibratedDelta
+                }
 
-            val elapsedSeconds = ((nowNs - lastTickNs).coerceAtLeast(0L) / 1_000_000_000.0)
-                .coerceAtMost(1.0)
-            lastTickNs = nowNs
-            val measuredCurrentUa = kotlin.math.abs(cellCurrentUaState.value)
-            var uncalibratedDeltaUah = 0.0
-            if (measuredCurrentUa in 10_000L..30_000_000L && elapsedSeconds > 0.0) {
-                uncalibratedDeltaUah = measuredCurrentUa.toDouble() * elapsedSeconds / 3600.0
-                uncalibratedChargeSinceAnchorUah += uncalibratedDeltaUah
-                val calibratedDelta = uncalibratedDeltaUah * currentCalibrationGain
-                integratedChargeUah += calibratedDelta
-            }
-
-            if (counterAnchorUah <= 0L && measuredUah in 1L..(effectiveFullUah * 1.05).toLong()) {
-                counterAnchorUah = measuredUah
-                uncalibratedChargeSinceAnchorUah = 0.0
-            }
-            val counterDeltaUah = measuredUah - counterAnchorUah
-            if (counterAnchorUah > 0L && measuredUah > 0L && measuredUah <= effectiveFullUah * 1.05 &&
-                counterDeltaUah > 0L && counterDeltaUah >= (effectiveFullUah * 0.0025).toLong() &&
-                uncalibratedChargeSinceAnchorUah >= effectiveFullUah * 0.0025
-            ) {
-                val sampledGain = (counterDeltaUah.toDouble() /
-                    uncalibratedChargeSinceAnchorUah).coerceIn(0.20, 1.50)
-                currentCalibrationGain = sampledGain
-                counterAnchorUah = measuredUah
-                uncalibratedChargeSinceAnchorUah = 0.0
+                if (counterAnchorUah <= 0L && measuredUah in 1L..(effectiveFullUah * 1.05).toLong()) {
+                    counterAnchorUah = measuredUah
+                    uncalibratedChargeSinceAnchorUah = 0.0
+                }
+                val counterDeltaUah = measuredUah - counterAnchorUah
+                if (counterAnchorUah > 0L && measuredUah > 0L && measuredUah <= effectiveFullUah * 1.05 &&
+                    counterDeltaUah > 0L && counterDeltaUah >= (effectiveFullUah * 0.0025).toLong() &&
+                    uncalibratedChargeSinceAnchorUah >= effectiveFullUah * 0.0025
+                ) {
+                    val sampledGain = (counterDeltaUah.toDouble() /
+                        uncalibratedChargeSinceAnchorUah).coerceIn(0.20, 1.50)
+                    currentCalibrationGain = sampledGain
+                    counterAnchorUah = measuredUah
+                    uncalibratedChargeSinceAnchorUah = 0.0
+                }
             }
         }
     }
@@ -776,7 +801,7 @@ fun ChargingHeroDisplayCard(
         }
     }
 
-    val (ringAlphaState, orbitAngleState) = if (isCharging || isBypass) {
+    val (ringAlphaState, orbitAngleState) = if (isLifecycleResumed && (isCharging || isBypass)) {
         val infiniteTransition = rememberInfiniteTransition(label = "charging_glow_ring")
         val alpha = infiniteTransition.animateFloat(
             initialValue = 0.70f,
@@ -850,151 +875,175 @@ fun ChargingHeroDisplayCard(
                     modifier = Modifier.size(114.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Precision EV / Cyberpunk Ring Canvas
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val ringAlpha = ringAlphaState.value
-                        val orbitAngle = orbitAngleState.value
-                        val animatedSoc = animatedSocState.value
-                        val canvasSize = size.minDimension
-                        val strokeW = 5.5.dp.toPx()
-                        val glowW = 10.dp.toPx()
-                        val radius = (canvasSize - glowW) / 2f
-                        val orbitRadius = radius + 3.dp.toPx()
-                        val centerOffset = Offset(size.width / 2f, size.height / 2f)
+                    // Layer 1: Cached recessed bezel, notches, and energy gradient arc (redraws only on SOC change)
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .drawWithCache {
+                                val canvasSize = size.minDimension
+                                val strokeW = 5.5.dp.toPx()
+                                val glowW = 10.dp.toPx()
+                                val radius = (canvasSize - glowW) / 2f
+                                val orbitRadius = radius + 3.dp.toPx()
+                                val centerOffset = Offset(size.width / 2f, size.height / 2f)
+                                val trackStroke = Stroke(width = strokeW)
+                                val guideStroke = Stroke(width = 0.75.dp.toPx())
+                                val orbitRailStroke = Stroke(width = 0.8.dp.toPx())
+                                val arcStroke = Stroke(width = strokeW, cap = StrokeCap.Round)
+                                val outerGuideRadius = radius + (strokeW / 2f) + 1.dp.toPx()
+                                val innerGuideRadius = radius - (strokeW / 2f) - 1.dp.toPx()
+                                val notchRadius = 1.2.dp.toPx()
+                                val notchOffsets = listOf(-90f, 0f, 90f, 180f).map { na ->
+                                    val nRad = Math.toRadians(na.toDouble()).toFloat()
+                                    Offset(
+                                        centerOffset.x + radius * cos(nRad),
+                                        centerOffset.y + radius * sin(nRad)
+                                    )
+                                }
+                                val primaryColor = modeInfo.badgeColor
+                                val orbitRailColor = primaryColor.copy(alpha = 0.12f)
+                                val startColor = when {
+                                    isBypass -> Color(0xFF8B5CF6)
+                                    isCharging -> when (activeChargingMode) {
+                                        "hyper" -> Color(0xFFFF5E00)
+                                        "cool" -> Color(0xFF0284C7)
+                                        "custom" -> Color(0xFFE11D48)
+                                        else -> Color(0xFF00B0FF)
+                                    }
+                                    else -> Color(0xFF475569)
+                                }
+                                val arcBrush = Brush.linearGradient(
+                                    colors = listOf(startColor, primaryColor),
+                                    start = Offset(centerOffset.x, centerOffset.y - radius),
+                                    end = Offset(centerOffset.x, centerOffset.y + radius)
+                                )
 
-                        // 1. Sleek Recessed Dark Metallic Track Groove
-                        drawCircle(
-                            color = Color(0xFF0F141D),
-                            radius = radius,
-                            center = centerOffset,
-                            style = Stroke(width = strokeW)
-                        )
-                        // Outer track guide hairline
-                        drawCircle(
-                            color = Color(0x18FFFFFF),
-                            radius = radius + (strokeW / 2f) + 1.dp.toPx(),
-                            center = centerOffset,
-                            style = Stroke(width = 0.75.dp.toPx())
-                        )
-                        // Inner track guide hairline
-                        drawCircle(
-                            color = Color(0x10FFFFFF),
-                            radius = radius - (strokeW / 2f) - 1.dp.toPx(),
-                            center = centerOffset,
-                            style = Stroke(width = 0.75.dp.toPx())
-                        )
-                        drawCircle(
-                            color = modeInfo.badgeColor.copy(alpha = 0.12f),
-                            radius = orbitRadius,
-                            center = centerOffset,
-                            style = Stroke(width = 0.8.dp.toPx())
-                        )
+                                onDrawBehind {
+                                    val sweepAngle = (animatedSocState.value * 3.6f).coerceIn(1.5f, 360f)
 
-                        // 2. Quadrant Accent Notches (12, 3, 6, 9 o'clock)
-                        val notchAngles = floatArrayOf(-90f, 0f, 90f, 180f)
-                        for (na in notchAngles) {
-                            val nRad = Math.toRadians(na.toDouble()).toFloat()
-                            val nx = centerOffset.x + radius * cos(nRad)
-                            val ny = centerOffset.y + radius * sin(nRad)
-                            drawCircle(
-                                color = Color(0x33FFFFFF),
-                                radius = 1.2.dp.toPx(),
-                                center = Offset(nx, ny)
-                            )
-                        }
-
-                        // 3. Dynamic Battery Energy Arc
-                        val sweepAngle = (animatedSoc * 3.6f).coerceIn(1.5f, 360f)
-                        val startAngle = -90f
-
-                        // Soft Breathing Glow Halo (underneath the active arc)
-                        if (isCharging || isBypass) {
-                            drawArc(
-                                color = modeInfo.badgeColor.copy(alpha = 0.22f * ringAlpha),
-                                startAngle = startAngle,
-                                sweepAngle = sweepAngle,
-                                useCenter = false,
-                                style = Stroke(width = glowW, cap = StrokeCap.Round)
-                            )
-                        }
-
-                        // High-Precision Energy Arc
-                        val primaryColor = modeInfo.badgeColor
-                        val startColor = when {
-                            isBypass -> Color(0xFF8B5CF6)
-                            isCharging -> when (activeChargingMode) {
-                                "hyper" -> Color(0xFFFF5E00)
-                                "cool" -> Color(0xFF0284C7)
-                                "custom" -> Color(0xFFE11D48)
-                                else -> Color(0xFF00B0FF)
+                                    drawCircle(
+                                        color = Color(0xFF0F141D),
+                                        radius = radius,
+                                        center = centerOffset,
+                                        style = trackStroke
+                                    )
+                                    drawCircle(
+                                        color = Color(0x18FFFFFF),
+                                        radius = outerGuideRadius,
+                                        center = centerOffset,
+                                        style = guideStroke
+                                    )
+                                    drawCircle(
+                                        color = Color(0x10FFFFFF),
+                                        radius = innerGuideRadius,
+                                        center = centerOffset,
+                                        style = guideStroke
+                                    )
+                                    drawCircle(
+                                        color = orbitRailColor,
+                                        radius = orbitRadius,
+                                        center = centerOffset,
+                                        style = orbitRailStroke
+                                    )
+                                    for (notchOffset in notchOffsets) {
+                                        drawCircle(
+                                            color = Color(0x33FFFFFF),
+                                            radius = notchRadius,
+                                            center = notchOffset
+                                        )
+                                    }
+                                    drawArc(
+                                        brush = arcBrush,
+                                        startAngle = -90f,
+                                        sweepAngle = sweepAngle,
+                                        useCenter = false,
+                                        style = arcStroke
+                                    )
+                                }
                             }
-                            else -> Color(0xFF475569)
-                        }
+                    )
 
-                        val arcBrush = Brush.linearGradient(
-                            colors = listOf(startColor, primaryColor),
-                            start = Offset(centerOffset.x, centerOffset.y - radius),
-                            end = Offset(centerOffset.x, centerOffset.y + radius)
-                        )
+                    // Layer 2: Zero-alloc animated halo, orbiting energy sparks, bypass comet & tip bead
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .drawWithCache {
+                                val canvasSize = size.minDimension
+                                val glowW = 10.dp.toPx()
+                                val radius = (canvasSize - glowW) / 2f
+                                val orbitRadius = radius + 3.dp.toPx()
+                                val centerOffset = Offset(size.width / 2f, size.height / 2f)
+                                val glowStroke = Stroke(width = glowW, cap = StrokeCap.Round)
+                                val cometStroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                                val primaryColor = modeInfo.badgeColor
+                                val bypassCometBaseColor = Color(0xFFA855F7)
+                                val tipAuraBaseRadius = 4.5.dp.toPx()
+                                val tipCoreRadius = 2.2.dp.toPx()
+                                val sparkOuterRadii = FloatArray(3) { t -> (5.5f - t * 0.7f).dp.toPx() }
+                                val sparkInnerRadii = FloatArray(3) { t -> (2.1f - t * 0.35f).dp.toPx() }
 
-                        drawArc(
-                            brush = arcBrush,
-                            startAngle = startAngle,
-                            sweepAngle = sweepAngle,
-                            useCenter = false,
-                            style = Stroke(width = strokeW, cap = StrokeCap.Round)
-                        )
+                                onDrawBehind {
+                                    val ringAlpha = ringAlphaState.value
+                                    val orbitAngle = orbitAngleState.value
+                                    val sweepAngle = (animatedSocState.value * 3.6f).coerceIn(1.5f, 360f)
 
-                        // Moving sparks make active charging feel like energy is flowing around the dial.
-                        if (isCharging) {
-                            for (trail in 0..2) {
-                                val angle = Math.toRadians((orbitAngle - 90f - trail * 9f).toDouble())
-                                val sparkCenter = Offset(
-                                    centerOffset.x + orbitRadius * cos(angle).toFloat(),
-                                    centerOffset.y + orbitRadius * sin(angle).toFloat()
-                                )
-                                val fade = (1f - trail * 0.27f) * ringAlpha
-                                drawCircle(
-                                    color = modeInfo.badgeColor.copy(alpha = 0.24f * fade),
-                                    radius = (5.5f - trail * 0.7f).dp.toPx(),
-                                    center = sparkCenter
-                                )
-                                drawCircle(
-                                    color = if (trail == 0) Color.White.copy(alpha = fade) else modeInfo.badgeColor.copy(alpha = fade),
-                                    radius = (2.1f - trail * 0.35f).dp.toPx(),
-                                    center = sparkCenter
-                                )
+                                    if (isCharging || isBypass) {
+                                        drawArc(
+                                            color = primaryColor.copy(alpha = 0.16f * ringAlpha),
+                                            startAngle = -90f,
+                                            sweepAngle = sweepAngle,
+                                            useCenter = false,
+                                            style = glowStroke
+                                        )
+                                    }
+
+                                    if (isCharging) {
+                                        for (trail in 0..2) {
+                                            val angle = Math.toRadians((orbitAngle - 90f - trail * 9f).toDouble())
+                                            val sparkCenter = Offset(
+                                                centerOffset.x + orbitRadius * cos(angle).toFloat(),
+                                                centerOffset.y + orbitRadius * sin(angle).toFloat()
+                                            )
+                                            val fade = (1f - trail * 0.27f) * ringAlpha
+                                            drawCircle(
+                                                color = primaryColor.copy(alpha = 0.24f * fade),
+                                                radius = sparkOuterRadii[trail],
+                                                center = sparkCenter
+                                            )
+                                            drawCircle(
+                                                color = if (trail == 0) Color.White.copy(alpha = fade) else primaryColor.copy(alpha = fade),
+                                                radius = sparkInnerRadii[trail],
+                                                center = sparkCenter
+                                            )
+                                        }
+                                    } else if (isBypass) {
+                                        drawArc(
+                                            color = bypassCometBaseColor.copy(alpha = 0.35f + 0.25f * ringAlpha),
+                                            startAngle = orbitAngle - 90f,
+                                            sweepAngle = 54f,
+                                            useCenter = false,
+                                            style = cometStroke
+                                        )
+                                    }
+
+                                    val tipAngleRad = Math.toRadians((-90f + sweepAngle).toDouble()).toFloat()
+                                    val tipOffset = Offset(
+                                        centerOffset.x + radius * cos(tipAngleRad),
+                                        centerOffset.y + radius * sin(tipAngleRad)
+                                    )
+                                    drawCircle(
+                                        color = primaryColor.copy(alpha = if (isCharging) 0.50f * ringAlpha else 0.40f),
+                                        radius = tipAuraBaseRadius * (if (isCharging) ringAlpha else 1.0f),
+                                        center = tipOffset
+                                    )
+                                    drawCircle(
+                                        color = Color.White,
+                                        radius = tipCoreRadius,
+                                        center = tipOffset
+                                    )
+                                }
                             }
-                        } else if (isBypass) {
-                            // A short electric violet comet around the outer rail represents power routed around the battery.
-                            drawArc(
-                                color = Color(0xFFA855F7).copy(alpha = 0.35f + 0.25f * ringAlpha),
-                                startAngle = orbitAngle - 90f,
-                                sweepAngle = 54f,
-                                useCenter = false,
-                                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                            )
-                        }
-
-                        // 4. Glowing Energy Bead / Tip Indicator at leading edge
-                        val tipAngleRad = Math.toRadians((startAngle + sweepAngle).toDouble()).toFloat()
-                        val tipX = centerOffset.x + radius * cos(tipAngleRad)
-                        val tipY = centerOffset.y + radius * sin(tipAngleRad)
-                        val tipOffset = Offset(tipX, tipY)
-
-                        // Soft tip aura
-                        drawCircle(
-                            color = primaryColor.copy(alpha = if (isCharging) 0.50f * ringAlpha else 0.40f),
-                            radius = (4.5.dp.toPx() * (if (isCharging) ringAlpha else 1.0f)),
-                            center = tipOffset
-                        )
-                        // Bright white-hot energy core
-                        drawCircle(
-                            color = Color.White,
-                            radius = 2.2.dp.toPx(),
-                            center = tipOffset
-                        )
-                    }
+                    )
 
                     // Inner Dial Face (Clickable for Quick Mode Selector)
                     Box(

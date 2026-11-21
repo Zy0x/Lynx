@@ -20,9 +20,147 @@ impl ThermalController {
         SysfsReader::read_trimmed(path.as_ref()).ok().filter(|s| !s.is_empty())
     }
 
+    const SAFE_SILICON_TRIP_FLOOR_MC: i64 = 90_000;
+    const SILICON_RECOVERY_CEILING_MC: i64 = 80_000;
+
     pub fn is_battery_zone(zone_type: &str) -> bool {
         let t = zone_type.to_lowercase();
         t.contains("batt") || t.contains("chg") || t.contains("charger") || t.contains("bms") || t.contains("battery")
+    }
+
+    /// Identifies SoC silicon, CPU cluster/core, GPU, PMIC, DSP, modem, and board-ADC zones
+    /// whose normal operating temperature sits between 55°C and 80°C (never clamp to skin limits).
+    pub fn is_silicon_compute_zone(zone_type: &str) -> bool {
+        let t = zone_type.to_lowercase();
+        !Self::is_battery_zone(&t)
+            && (t.contains("cpu")
+                || t.contains("cpuss")
+                || t.contains("gpu")
+                || t.contains("tsens")
+                || t.contains("soc")
+                || t.contains("mpm")
+                || t.contains("cdsp")
+                || t.contains("mdm")
+                || t.contains("video")
+                || t.contains("camera")
+                || t.contains("npu")
+                || t.contains("ddr")
+                || t.contains("pm660")
+                || t.contains("pm8")
+                || t.contains("pm7")
+                || t.contains("pmic")
+                || t.contains("xo-therm")
+                || t.contains("msm-therm")
+                || t.contains("backlight")
+                || t.contains("little")
+                || t.contains("big")
+                || t.contains("prime"))
+    }
+
+    /// Decides what millidegree Celsius trip point (if any) should be written for a zone trip node.
+    /// Protects battery zones and hardware critical/hot shutdown trips, prevents clamping silicon
+    /// compute/core-isolate zones down to skin comfort limits (e.g. 52°C), and heals any
+    /// previously poisoned silicon trip points back up to `90000` (90.0°C).
+    pub(crate) fn resolve_zone_trip_write(
+        zone_type: &str,
+        trip_type: &str,
+        current_trip_mc: Option<i64>,
+        requested_mc: i64,
+    ) -> Option<i64> {
+        if Self::is_battery_zone(zone_type) {
+            return None;
+        }
+        let tp_lower = trip_type.trim().to_lowercase();
+        if tp_lower == "critical" || tp_lower == "hot" {
+            return None;
+        }
+        if Self::is_silicon_compute_zone(zone_type) && requested_mc < Self::SAFE_SILICON_TRIP_FLOOR_MC {
+            // Never clamp silicon/cpu-isolate zones below 90°C (accounting for 10°C step_wise hysteresis);
+            // if a prior profile poisoned this trip point below 90°C, heal it back to 90000.
+            return match current_trip_mc {
+                Some(cur) if cur > 0 && cur < Self::SAFE_SILICON_TRIP_FLOOR_MC => {
+                    Some(Self::SAFE_SILICON_TRIP_FLOOR_MC)
+                }
+                _ => None,
+            };
+        }
+        Some(requested_mc)
+    }
+
+    /// Restores any silicon/CPU/GPU zone trip points that were previously clamped below 90°C
+    /// (such as legacy `stable` mode writing 52000 to `cpuss-0-step` / `cpu-1-*-step`),
+    /// preventing kernel `step_wise` hysteresis from trapping CPU cores in `isolate=1`.
+    pub fn heal_silicon_trip_points() -> usize {
+        let mut healed = 0usize;
+        for id in 0..128 {
+            let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
+            if !Path::new(&tz_dir).exists() {
+                continue;
+            }
+            let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) else {
+                continue;
+            };
+            if !Self::is_silicon_compute_zone(&t_type) {
+                continue;
+            }
+            for tid in 0..16 {
+                let tp_path = format!("{}/trip_point_{}_temp", tz_dir, tid);
+                let Some(cur_tp) = Self::read_trimmed(&tp_path).and_then(|s| s.parse::<i64>().ok()) else {
+                    continue;
+                };
+                let tp_type = Self::read_trimmed(format!("{}/trip_point_{}_type", tz_dir, tid))
+                    .unwrap_or_default();
+                if let Some(target_mc) = Self::resolve_zone_trip_write(
+                    &t_type,
+                    &tp_type,
+                    Some(cur_tp),
+                    Self::SAFE_SILICON_TRIP_FLOOR_MC,
+                ) {
+                    if target_mc != cur_tp && Self::write_opt(&tp_path, target_mc.to_string()) {
+                        healed += 1;
+                    }
+                }
+            }
+        }
+        healed
+    }
+
+    /// Recovers stale thermal core isolation (e.g., multiple cores left at `isolate=1`)
+    /// whenever no silicon thermal zone is genuinely overheating (`< 78°C`).
+    pub fn recover_stale_cpu_isolation() {
+        let mut isolated_count = 0usize;
+        for i in 0..16 {
+            let iso_path = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
+            if let Some(val) = Self::read_trimmed(&iso_path) {
+                if val == "1" {
+                    isolated_count += 1;
+                }
+            }
+        }
+        if isolated_count < 2 {
+            return;
+        }
+        let mut max_silicon_mc = 0i64;
+        for id in 0..64 {
+            let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
+            if !Path::new(&tz_dir).exists() {
+                continue;
+            }
+            if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
+                if Self::is_silicon_compute_zone(&t_type) {
+                    if let Some(temp_mc) = Self::read_trimmed(format!("{}/temp", tz_dir))
+                        .and_then(|s| s.parse::<i64>().ok())
+                    {
+                        if temp_mc > max_silicon_mc && temp_mc < 120_000 {
+                            max_silicon_mc = temp_mc;
+                        }
+                    }
+                }
+            }
+        }
+        if max_silicon_mc < Self::SILICON_RECOVERY_CEILING_MC {
+            Self::un_isolate_all_cpus();
+        }
     }
 
     /// Scans all thermal zones and cooling devices in /sys/class/thermal, returning a detailed JSON string.
@@ -98,8 +236,39 @@ impl ThermalController {
         out
     }
 
-    /// Un-isolates any thermal-isolated CPU cores, restores physical Fmax, and resets core cooling devices.
+    /// Un-isolates any thermal-isolated CPU cores, heals silicon trip floors, resets core cooling devices,
+    /// and restores physical Fmax.
     pub fn un_isolate_all_cpus() {
+        // 1. Heal poisoned silicon zone trip floors (>= 90°C) first so step_wise drops cooling targets cleanly
+        Self::heal_silicon_trip_points();
+
+        // 2. Clear cooling device min_state / cur_state clamps before clearing cpu/isolate sysfs
+        for id in 0..128 {
+            let cdev_type_path = format!("/sys/class/thermal/cooling_device{}/type", id);
+            if let Some(c_type) = Self::read_trimmed(&cdev_type_path) {
+                let lower = c_type.to_lowercase();
+                // CRITICAL SAFETY GUARD: NEVER touch sysrst, shutdown, or reset cooling devices!
+                if lower.contains("sysrst") || lower.contains("shutdown") || lower.contains("rst") {
+                    continue;
+                }
+                if lower.contains("isolate")
+                    || lower.contains("thermal-cpufreq")
+                    || lower.contains("battery")
+                    || lower.contains("cpu_adaptive")
+                    || lower.contains("adaptive")
+                    || lower.contains("abcct")
+                    || (lower.starts_with("cpu") && lower[3..].chars().all(|c| c.is_ascii_digit()))
+                {
+                    let min_state_path = format!("/sys/class/thermal/cooling_device{}/min_state", id);
+                    if Path::new(&min_state_path).exists() {
+                        Self::write_opt(&min_state_path, "0");
+                    }
+                    Self::write_opt(format!("/sys/class/thermal/cooling_device{}/cur_state", id), "0");
+                }
+            }
+        }
+
+        // 3. Un-isolate CPUs, ensure online=1, and restore physical hardware Fmax
         for i in 0..16 {
             let cpu_isolate = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
             let cpu_online = format!("/sys/devices/system/cpu/cpu{}/online", i);
@@ -119,26 +288,6 @@ impl ThermalController {
                     if cur_scaling_max != info_max {
                         Self::write_opt(&scaling_max_path, &info_max);
                     }
-                }
-            }
-        }
-        for id in 0..128 {
-            let cdev_type_path = format!("/sys/class/thermal/cooling_device{}/type", id);
-            if let Some(c_type) = Self::read_trimmed(&cdev_type_path) {
-                let lower = c_type.to_lowercase();
-                // CRITICAL SAFETY GUARD: NEVER touch sysrst, shutdown, or reset cooling devices!
-                if lower.contains("sysrst") || lower.contains("shutdown") || lower.contains("rst") {
-                    continue;
-                }
-                if lower.contains("isolate")
-                    || lower.contains("thermal-cpufreq")
-                    || lower.contains("battery")
-                    || lower.contains("cpu_adaptive")
-                    || lower.contains("adaptive")
-                    || lower.contains("abcct")
-                    || (lower.starts_with("cpu") && lower[3..].chars().all(|c| c.is_ascii_digit()))
-                {
-                    Self::write_opt(format!("/sys/class/thermal/cooling_device{}/cur_state", id), "0");
                 }
             }
         }
@@ -270,6 +419,7 @@ impl ThermalController {
                         Self::write_opt(format!("{}/cur_state", cdev_dir), "0");
                     }
                 }
+                Self::un_isolate_all_cpus();
 
                 "Thermal mode restored to OEM Baseline / Balanced.".to_string()
             }
@@ -307,6 +457,7 @@ impl ThermalController {
                     .unwrap_or(50)
                     .clamp(40, 95);
                 Self::set_limit(custom_limit);
+                Self::un_isolate_all_cpus();
 
                 // FPSGO margins
                 Self::write_opt("/sys/kernel/fpsgo/fbt/thrm_limit_cpu", "0");
@@ -420,13 +571,21 @@ impl ThermalController {
     }
 
     fn set_limit_raw(milli_c: i64) -> usize {
-        let val_str = milli_c.to_string();
         let mut modified = 0;
 
         for id in 0..128 {
             let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
             if !Path::new(&tz_dir).exists() {
                 continue;
+            }
+
+            // Skip disabled/dummy zones reporting uninitialized negative readings (e.g. -273000)
+            if let Some(cur_temp) = Self::read_trimmed(format!("{}/temp", tz_dir))
+                .and_then(|s| s.parse::<i64>().ok())
+            {
+                if cur_temp < 0 {
+                    continue;
+                }
             }
 
             let t_type = Self::read_trimmed(format!("{}/type", tz_dir)).unwrap_or_default();
@@ -437,8 +596,16 @@ impl ThermalController {
 
             for tid in 0..16 {
                 let tp_path = format!("{}/trip_point_{}_temp", tz_dir, tid);
-                if Path::new(&tp_path).exists() {
-                    if Self::write_opt(&tp_path, &val_str) {
+                if !Path::new(&tp_path).exists() {
+                    continue;
+                }
+                let cur_tp = Self::read_trimmed(&tp_path).and_then(|s| s.parse::<i64>().ok());
+                let tp_type = Self::read_trimmed(format!("{}/trip_point_{}_type", tz_dir, tid))
+                    .unwrap_or_default();
+                if let Some(target_mc) =
+                    Self::resolve_zone_trip_write(&t_type, &tp_type, cur_tp, milli_c)
+                {
+                    if cur_tp != Some(target_mc) && Self::write_opt(&tp_path, target_mc.to_string()) {
                         modified += 1;
                     }
                 }
@@ -447,11 +614,78 @@ impl ThermalController {
         modified
     }
 
-    /// Sets custom trip point temperature limit on all non-battery SoC zones.
+    /// Sets custom trip point temperature limit on eligible non-silicon skin zones
+    /// while shielding silicon CPU/GPU trip floors and recovering stale core isolation.
     pub fn set_limit(temp_c: i32) -> String {
         let clamped = temp_c.clamp(40, 95);
         let milli_c = (clamped as i64) * 1000;
         let count = Self::set_limit_raw(milli_c);
+        Self::recover_stale_cpu_isolation();
         format!("Successfully updated {} trip points to {}°C across active SoC thermal zones.", count, clamped)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn silicon_zone_classifier_protects_cpu_gpu_pmic_and_allows_skin_zones() {
+        for z in [
+            "cpuss-0-step",
+            "cpu-1-0-step",
+            "cpu-1-3-step",
+            "gpu-step",
+            "pm660-tz",
+            "mpm-lowf",
+            "camera-lowf",
+            "msm-therm-step",
+            "xo-therm-step",
+        ] {
+            assert!(ThermalController::is_silicon_compute_zone(z), "expected silicon zone: {}", z);
+        }
+        for z in ["quiet-therm-step", "quiet-therm-adc", "pa-therm0-step", "battery", "bms"] {
+            assert!(!ThermalController::is_silicon_compute_zone(z), "unexpected silicon classification: {}", z);
+        }
+    }
+
+    #[test]
+    fn resolve_zone_trip_write_protects_silicon_from_stable_52c_and_heals_poisoned_trips() {
+        // Skin passive zone accepts 52°C
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("quiet-therm-step", "passive", Some(46_000), 52_000),
+            Some(52_000)
+        );
+        // Healthy silicon zone at 95°C must NOT be lowered to 52°C
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("cpu-1-0-step", "passive", Some(95_000), 52_000),
+            None
+        );
+        // Poisoned silicon zone stuck at 52°C or 75°C must heal to 90°C floor
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("cpuss-0-step", "passive", Some(52_000), 52_000),
+            Some(90_000)
+        );
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("cpu-1-1-step", "passive", Some(75_000), 52_000),
+            Some(90_000)
+        );
+        // Critical / hot shutdown trips and battery zones are strictly untouchable
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("cpu-1-0-step", "critical", Some(52_000), 90_000),
+            None
+        );
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("quiet-therm-step", "hot", Some(60_000), 52_000),
+            None
+        );
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("battery", "passive", Some(45_000), 80_000),
+            None
+        );
+        assert_eq!(
+            ThermalController::resolve_zone_trip_write("bms", "passive", Some(45_000), 52_000),
+            None
+        );
     }
 }

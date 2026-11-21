@@ -401,6 +401,12 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/extfrag_threshold", "850");
     }
 
+    /// Returns a non-zero MGLRU working-set protection TTL (in ms) so kswapd does not
+    /// continuously evict active foreground/SystemUI anonymous & file pages on low-RAM devices.
+    pub fn mglru_min_ttl_ms(vm_swappiness: u32) -> &'static str {
+        if vm_swappiness <= 20 { "500" } else { "250" }
+    }
+
     fn apply_vm_targets(vm: &crate::hardware::VmProfileTargets, stat_interval: &str) {
         let dr = vm.dirty_ratio.to_string();
         let dbr = vm.dirty_background_ratio.to_string();
@@ -411,8 +417,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
         Self::sync_swappiness_controls(vm.swappiness);
         if std::path::Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
-            let ttl_ms = if vm.swappiness <= 20 { "500" } else { "0" };
-            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms);
+            Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", Self::mglru_min_ttl_ms(vm.swappiness));
         }
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
@@ -641,5 +646,13 @@ mod tests {
         assert_eq!(MemoryController::derived_swappiness_targets(40), (20, 40));
         assert_eq!(MemoryController::derived_swappiness_targets(60), (30, 60));
         assert_eq!(MemoryController::derived_swappiness_targets(0), (0, 0));
+    }
+
+    #[test]
+    fn mglru_min_ttl_ms_protects_working_set_across_tiers() {
+        assert_eq!(MemoryController::mglru_min_ttl_ms(10), "500");
+        assert_eq!(MemoryController::mglru_min_ttl_ms(20), "500");
+        assert_eq!(MemoryController::mglru_min_ttl_ms(60), "250");
+        assert_eq!(MemoryController::mglru_min_ttl_ms(100), "250");
     }
 }

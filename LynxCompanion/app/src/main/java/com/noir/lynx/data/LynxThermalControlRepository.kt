@@ -43,6 +43,88 @@ internal object LynxThermalControlRepository {
         } catch (_: Exception) { false }
     }
 
+    private const val SAFE_SILICON_TRIP_FLOOR_MC = 90_000L
+
+    private fun isBatteryZone(zoneType: String): Boolean {
+        val t = zoneType.lowercase()
+        return t.contains("batt") || t.contains("chg") || t.contains("charger") || t.contains("bms") || t.contains("battery")
+    }
+
+    private fun isSiliconComputeZone(zoneType: String): Boolean {
+        val t = zoneType.lowercase()
+        return !isBatteryZone(t) && (
+            t.contains("cpu") || t.contains("cpuss") || t.contains("gpu") ||
+                t.contains("tsens") || t.contains("soc") || t.contains("mpm") ||
+                t.contains("cdsp") || t.contains("mdm") || t.contains("video") ||
+                t.contains("camera") || t.contains("npu") || t.contains("ddr") ||
+                t.contains("pm660") || t.contains("pm8") || t.contains("pm7") ||
+                t.contains("pmic") || t.contains("xo-therm") || t.contains("msm-therm") ||
+                t.contains("backlight") || t.contains("little") || t.contains("big") ||
+                t.contains("prime")
+            )
+    }
+
+    private fun resolveFallbackTripMilliC(
+        zoneType: String,
+        currentMilliC: Long,
+        requestedMilliC: Long
+    ): Long? {
+        if (isBatteryZone(zoneType)) return null
+        if (currentMilliC >= 95_000L) return null // Never alter hardware hot/critical shutdown trips
+        if (isSiliconComputeZone(zoneType) && requestedMilliC < SAFE_SILICON_TRIP_FLOOR_MC) {
+            return if (currentMilliC in 1L until SAFE_SILICON_TRIP_FLOOR_MC) {
+                SAFE_SILICON_TRIP_FLOOR_MC
+            } else {
+                null
+            }
+        }
+        return requestedMilliC
+    }
+
+    private fun collectSafeTripWrites(
+        zones: List<com.noir.lynx.hardware.DetailedThermalZone>,
+        requestedMilliC: Long,
+        enableModes: Boolean,
+        outWrites: MutableList<Pair<String, String>>
+    ) {
+        for (z in zones) {
+            if (z.tempC < 0f || isBatteryZone(z.type)) continue
+            if (enableModes && z.isModeWritable) {
+                outWrites.add("/sys/class/thermal/thermal_zone${z.id}/mode" to "enabled")
+            }
+            for (tp in z.tripPoints) {
+                if (!tp.isWritable) continue
+                val targetMc = resolveFallbackTripMilliC(z.type, tp.tempMilliC, requestedMilliC) ?: continue
+                if (targetMc != tp.tempMilliC) {
+                    outWrites.add(tp.path to targetMc.toString())
+                }
+            }
+        }
+    }
+
+    private fun unIsolateCpuCoresFallback() {
+        Shell.cmd(
+            """
+            for c in /sys/class/thermal/cooling_device*; do
+                [ -d "${'$'}c" ] || continue
+                ct=${'$'}(cat "${'$'}c/type" 2>/dev/null)
+                case "${'$'}ct" in
+                    *isolate*|*thermal-cpufreq*)
+                        [ -e "${'$'}c/min_state" ] && echo 0 > "${'$'}c/min_state" 2>/dev/null
+                        [ -e "${'$'}c/cur_state" ] && echo 0 > "${'$'}c/cur_state" 2>/dev/null
+                        ;;
+                esac
+            done
+            for i in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+                p=/sys/devices/system/cpu/cpu${'$'}{i}/isolate
+                [ -e "${'$'}p" ] && echo 0 > "${'$'}p" 2>/dev/null
+                o=/sys/devices/system/cpu/cpu${'$'}{i}/online
+                [ -e "${'$'}o" ] && echo 1 > "${'$'}o" 2>/dev/null
+            done
+            """.trimIndent()
+        ).exec()
+    }
+
     private suspend fun applyThermalStableEngine(customTempLimit: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val targetWrites = mutableListOf<Pair<String, String>>()
@@ -71,18 +153,9 @@ internal object LynxThermalControlRepository {
                 }
             }
 
-            // 2. Calibrate Writable Trip Points to 52°C - 55°C
-            val targetTripMilliC = (customTempLimit * 1000).toString()
-            for (z in caps.zones) {
-                if (z.isModeWritable) {
-                    targetWrites.add("/sys/class/thermal/thermal_zone${z.id}/mode" to "enabled")
-                }
-                for (tp in z.tripPoints) {
-                    if (tp.isWritable) {
-                        targetWrites.add(tp.path to targetTripMilliC)
-                    }
-                }
-            }
+            // 2. Calibrate eligible skin zones while protecting silicon CPU/GPU trip floors (>= 75°C)
+            val requestedMilliC = (customTempLimit * 1000L)
+            collectSafeTripWrites(caps.zones, requestedMilliC, enableModes = true, outWrites = targetWrites)
 
             // 3. Vendor Optimizations for Thermal Stable
             if (caps.socVendor == "qcom") {
@@ -99,6 +172,7 @@ internal object LynxThermalControlRepository {
 
             // Execute Transaction
             val txRes = com.noir.lynx.safety.ThermalTransaction.execute("THERMAL_STABLE", targetWrites)
+            unIsolateCpuCoresFallback()
             
             // Framework and Daemon neutralizing (safe in background)
             Shell.cmd("cmd thermalservice override-status 0 2>/dev/null").exec()
@@ -198,21 +272,16 @@ internal object LynxThermalControlRepository {
                 val res = Shell.cmd("'$lynxdPath' thermal set-limit $tempC").exec()
                 if (res.isSuccess) return@withContext true
             }
-            val milliC = (tempC * 1000).toString()
             val writes = mutableListOf<Pair<String, String>>()
             val caps = com.noir.lynx.hardware.ThermalCapabilityDetector.detect()
-            for (z in caps.zones) {
-                for (tp in z.tripPoints) {
-                    if (tp.isWritable) {
-                        writes.add(tp.path to milliC)
-                    }
-                }
-            }
+            collectSafeTripWrites(caps.zones, tempC * 1000L, enableModes = false, outWrites = writes)
             if (writes.isNotEmpty()) {
                 val res = com.noir.lynx.safety.ThermalTransaction.execute("CUSTOM_TEMP_LIMIT", writes)
+                unIsolateCpuCoresFallback()
                 res is com.noir.lynx.safety.ThermalTransactionResult.Success
             } else {
-                false
+                unIsolateCpuCoresFallback()
+                true
             }
         } catch (_: Exception) { false }
     }

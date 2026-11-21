@@ -1,3 +1,19 @@
+# Lynx Universal [Anti-Poisoning Thermal Shield, MGLRU Thrash Reduction & Zero-Alloc Charging UI] 7.0.0-RC426
+Released on: 2026-11-21
+> Lynx Kernel Manager v3.4.45
+
+### Native Daemon (`lynxd`) & Thermal Safety (`ThermalController`, `DaemonRunner`)
+- **Silicon Thermal Zone Shielding & Self-Healing Core Isolation**:
+  - Updated `ThermalController` (`resolve_zone_trip_write`, `is_silicon_compute_zone`, `heal_silicon_trip_points`) and `LynxThermalControlRepository` so `stable` / custom temperature calibration (`52°C`) only adjusts non-silicon skin/board thermal zones while protecting CPU, GPU, PMIC, and battery thermal zones from being lowered below `90°C` (ensuring `step_wise` hysteresis clears cleanly above normal `70–75°C` charging loads).
+  - Prevents kernel `step_wise` throttling from trapping CPU cores in `isolate=1` during fast charging; added startup un-isolation, `heal_silicon_trip_points()` recovery with `min_state`/`cur_state` reset, and periodic `recover_stale_cpu_isolation()` when silicon temperatures remain below `80°C`.
+- **MGLRU Working-Set Protection (`MemoryController`, `translator.rs`)**:
+  - Updated `mglru_min_ttl_ms` so devices using higher-swappiness low-RAM/ZRAM balanced profiles retain a `250 ms` MGLRU working-set TTL instead of `0 ms`, reducing continuous `kswapd0` page thrashing between ZRAM and UI working sets.
+
+### Companion App (`ChargingHeroDisplayCard`, `BatteryRoute`, `LynxThermalControlRepository`)
+- **Lifecycle-Gated Polling & Zero-Allocation Dial Rendering**:
+  - Gated hardware sysfs telemetry polling, Coulomb tick integration, `BatteryRoute` refresh loops, and infinite ring/orbit transitions on `Lifecycle.State.RESUMED` so backgrounded/screen-off states produce zero UI VSync or polling overhead.
+  - Refactored the charging dial in `ChargingHeroDisplayCard` using `Modifier.drawWithCache` across separated static bezel/arc and lightweight animated glow/spark layers to eliminate per-frame `Brush.linearGradient` and `Stroke` allocations during `RenderThread` draws.
+
 # Lynx Universal [Zero-Redundancy Charging Tab & Single-Metric Isolation] 7.0.0-RC425
 Released on: 2026-11-21
 > Lynx Kernel Manager v3.4.44

@@ -1198,7 +1198,11 @@ impl HardwareTranslator {
         }
         Self::push_op(&mut ops, "Memory", "VM extfrag_threshold (prevent compaction stalls)", "/proc/sys/vm/extfrag_threshold", "850", false);
         if cap.memory.mglru_supported && Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
-            let ttl_ms = if is_perf_or_ext { "500" } else { "0" };
+            let ttl_ms = if is_perf_or_ext {
+                "500"
+            } else {
+                crate::subsystems::MemoryController::mglru_min_ttl_ms(vm_targets.swappiness)
+            };
             Self::push_op(&mut ops, "Memory", "MGLRU min_ttl_ms working-set shield", "/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms, false);
         }
         Self::push_op(&mut ops, "Memory", "VM vfs_cache_pressure (media-aware)", "/proc/sys/vm/vfs_cache_pressure", vm_targets.vfs_cache_pressure.to_string(), false);

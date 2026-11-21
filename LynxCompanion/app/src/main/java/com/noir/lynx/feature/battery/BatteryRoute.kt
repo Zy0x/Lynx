@@ -6,6 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.noir.lynx.feature.battery.ui.TuningChargingCategory
 import com.noir.lynx.feature.battery.ui.dialogs.BatteryDetailBottomSheet
 import com.noir.lynx.feature.battery.ui.dialogs.CustomCurrentLimitDialog
@@ -22,20 +25,23 @@ fun ChargingScreenLifecycle(
 ) {
     val state = uiState.state
     val battDetails = uiState.batteryDetails
+    val lifecycleOwner = LocalLifecycleOwner.current
     SideEffect {
         viewModel.updateBatteryInformationScreenVisibility(uiState.batterySubTab == 1)
     }
-    LaunchedEffect(Unit) {
-        viewModel.isBatteryScreenActive = true
-        try {
-            viewModel.refreshBatteryDetails(forceDeepStats = true)
-            while (isActive) {
-                delay(1000L)
-                viewModel.refreshBatteryDetails(forceDeepStats = false)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.isBatteryScreenActive = true
+            try {
+                viewModel.refreshBatteryDetails(forceDeepStats = true)
+                while (isActive) {
+                    delay(1000L)
+                    viewModel.refreshBatteryDetails(forceDeepStats = false)
+                }
+            } finally {
+                viewModel.updateBatteryInformationScreenVisibility(false)
+                viewModel.isBatteryScreenActive = false
             }
-        } finally {
-            viewModel.updateBatteryInformationScreenVisibility(false)
-            viewModel.isBatteryScreenActive = false
         }
     }
 
