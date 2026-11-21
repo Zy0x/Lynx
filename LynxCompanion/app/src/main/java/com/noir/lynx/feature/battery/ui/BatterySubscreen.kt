@@ -23,10 +23,13 @@ fun LazyListScope.batterySubscreenItems(
     if (uiState.batterySubTab == 1) {
         batteryInformationItems(uiState, viewModel)
     } else {
+        item(key = "charging_live_hero") {
+            ChargingLiveTelemetryHeroCard(uiState)
+        }
         item(key = "charging_section_fast") {
             BatterySectionHeader(
-                title = "Regulasi Arus & Pengisian Cepat",
-                subtitle = "Preset arus charger, wattmeter ganda & telemetri gelombang",
+                title = "Pilihan Mode Pengisian Daya",
+                subtitle = "Preset regulasi arus charger & batas panas pengisian",
                 accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
                 badge = "4 MODE"
             )

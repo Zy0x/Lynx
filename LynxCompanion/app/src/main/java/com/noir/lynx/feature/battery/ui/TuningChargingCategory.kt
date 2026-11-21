@@ -31,9 +31,10 @@ fun TuningChargingCategory(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (selectedTab == 0) {
+            ChargingLiveTelemetryHeroCard(uiState)
             BatterySectionHeader(
-                title = "Regulasi Arus & Pengisian Cepat",
-                subtitle = "Preset arus charger, wattmeter ganda & telemetri gelombang",
+                title = "Pilihan Mode Pengisian Daya",
+                subtitle = "Preset regulasi arus charger & batas panas pengisian",
                 accentColor = AccentCyan,
                 badge = "4 MODE"
             )

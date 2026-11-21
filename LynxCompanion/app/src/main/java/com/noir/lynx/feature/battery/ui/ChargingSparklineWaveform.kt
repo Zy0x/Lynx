@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.R
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentGreen
-import com.noir.lynx.designsystem.theme.BgElevated
+import com.noir.lynx.designsystem.theme.BgSurfaceLowest
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextSecondary
 
@@ -49,11 +49,11 @@ fun ChargingSparklineWaveform(
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = BgElevated,
+        color = BgSurfaceLowest,
         border = BorderStroke(0.6.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -84,7 +84,7 @@ fun ChargingSparklineWaveform(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
+                    .height(48.dp)
             ) {
                 if (samples.size < 2) {
                     drawLine(

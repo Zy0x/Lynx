@@ -168,10 +168,13 @@ fun BatterySwipeableSubscreen(
         ) {
             item(key = "charging_p${page}_top") { Spacer(Modifier.height(4.dp)) }
             if (page == 0) {
+                item(key = "charging_live_hero") {
+                    com.noir.lynx.feature.battery.ui.ChargingLiveTelemetryHeroCard(uiState)
+                }
                 item(key = "charging_section_fast") {
                     com.noir.lynx.feature.battery.ui.BatterySectionHeader(
-                        title = "Regulasi Arus & Pengisian Cepat",
-                        subtitle = "Preset arus charger, wattmeter ganda & telemetri gelombang",
+                        title = "Pilihan Mode Pengisian Daya",
+                        subtitle = "Preset regulasi arus charger & batas panas pengisian",
                         accentColor = com.noir.lynx.designsystem.theme.AccentCyan,
                         badge = "4 MODE"
                     )

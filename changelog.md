@@ -1,3 +1,13 @@
+# Lynx Universal [Zen Minimalist Charging Tab Redesign & Progressive Disclosure] 7.0.0-RC424
+Released on: 2026-11-21
+> Lynx Kernel Manager v3.4.43
+
+### Companion App (`feature/battery/ui`)
+- **Zen Minimalist Charging Tab (`ChargingLiveTelemetryHeroCard`, `FastChargingControlCard` & `BatteryProtectionCard`)**:
+  - Separated live electrical telemetry and waveform into a dedicated compact `ChargingLiveTelemetryHeroCard` at the top of Tab 0 (with live status dot, temperature badge, 2-column electrical metrics without redundant unplugged clutter, and `ChargingSparklineWaveform`).
+  - Streamlined `FastChargingControlCard` into a pure 2×2 Bento Mode Grid (*Sejuk ~1.0A*, *Standar OEM*, *Hyper Max Speed*, *Kustom mA*), eliminating redundant multi-line description boxes and duplicate status pills underneath.
+  - Applied *Progressive Disclosure* (`AnimatedVisibility`) to **Batas Pengisian Cerdas (Auto-Cut)** in `BatteryProtectionCard`: the target slider and new 1-tap quick preset chips (`75%`, `80% Optimal`, `85%`, `90%`, `95%`) remain hidden while Auto-Cut is OFF and expand smoothly when enabled; replaced the bulky 3-line thermal banner with a compact `Guard ≥41°C` header badge and concise 1-line switch sub-labels.
+
 # Lynx Universal [Battery & Charging UI Design System Unification] 7.0.0-RC423
 Released on: 2026-11-21
 > Lynx Kernel Manager v3.4.42
