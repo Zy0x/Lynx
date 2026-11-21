@@ -58,17 +58,21 @@ fun BatteryRuntimeCard(
     currentLevel: Int
 ) {
     val startLevel = stats.unplugStartLevel.takeIf { it > 0 } ?: currentLevel
+    val isSingleCleanCycle = !stats.isCharging &&
+        startLevel > currentLevel &&
+        stats.dischargedPercent in 1..(startLevel - currentLevel + 2)
+
     LynxCard(
         title = stringResource(R.string.battery_runtime_card_title),
         subtitle = "Proporsi SOT, deep sleep & estimasi sisa pemakaian",
         icon = Icons.Default.Timer,
         accentColor = AccentGreen
     ) {
-        // Hero Banner: Start% -> Current% & Combined Total Time
+        // Hero Banner: Context-Aware Cycle Progress & Active Runtime
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = BgElevated,
-            border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.40f)),
+            border = BorderStroke(0.8.dp, (if (stats.isCharging) AccentCyan else AccentGreen).copy(alpha = 0.40f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -86,10 +90,11 @@ fun BatteryRuntimeCard(
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = if (stats.isCharging) {
-                                stringResource(R.string.battery_charging_from_source, stats.powerSourceText)
-                            } else {
-                                stringResource(R.string.battery_unplug_cycle_range)
+                            text = when {
+                                stats.isBypassMode -> "Bypass Daya Aktif (${stats.powerSourceText})"
+                                stats.isCharging -> stringResource(R.string.battery_charging_from_source, stats.powerSourceText)
+                                isSingleCleanCycle -> stringResource(R.string.battery_unplug_cycle_range)
+                                else -> "Akumulasi Siklus Sejak Reset Penuh"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 10.sp,
@@ -98,10 +103,10 @@ fun BatteryRuntimeCard(
                     }
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = if (startLevel > currentLevel) {
-                            "${startLevel}% ➔ ${currentLevel}% (-${stats.dischargedPercent}%)"
-                        } else {
-                            stringResource(R.string.battery_current_level_display, currentLevel)
+                        text = when {
+                            isSingleCleanCycle -> "${startLevel}% ➔ ${currentLevel}% (-${stats.dischargedPercent}%)"
+                            stats.dischargedPercent > 0 -> "Baterai ${currentLevel}% • Terkuras ${stats.dischargedPercent}%"
+                            else -> stringResource(R.string.battery_current_level_display, currentLevel)
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
@@ -109,7 +114,14 @@ fun BatteryRuntimeCard(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = stringResource(R.string.battery_unplug_details, stats.startClockTimeText, stats.dischargedMah),
+                        text = when {
+                            stats.isCharging && stats.timeToFullEstimatedText != "-" ->
+                                "Estimasi penuh: ${stats.timeToFullEstimatedText} • Terkuras siklus: ${stats.dischargedMah} mAh"
+                            stats.startClockTimeText != "-" ->
+                                "Awal siklus: ${stats.startClockTimeText} • Terkuras: ${stats.dischargedMah} mAh"
+                            else ->
+                                stringResource(R.string.battery_unplug_details, stats.startClockTimeText, stats.dischargedMah)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         fontSize = 10.5.sp,
                         color = TextSecondary
@@ -128,7 +140,7 @@ fun BatteryRuntimeCard(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = stringResource(R.string.battery_total_time),
+                            text = "Waktu Baterai",
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 9.5.sp,
                             color = TextSecondary
@@ -161,16 +173,16 @@ fun BatteryRuntimeCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Proporsi Gabungan Waktu Berjalan",
+                        text = "Proporsi Waktu Siklus Berjalan",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
                     Text(
-                        text = "100% Akurat Kernel",
+                        text = if (stats.deepSleepPercentage > 0) "Efisiensi Idle ${stats.deepSleepPercentage}%" else "Siklus Aktif",
                         style = MaterialTheme.typography.labelSmall,
-                        fontSize = 9.5.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = AccentCyan
                     )
@@ -234,18 +246,18 @@ fun BatteryRuntimeCard(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(AccentGreen))
                                 Spacer(Modifier.width(5.dp))
-                                Text("Layar Aktif", fontSize = 9.5.sp, color = TextSecondary, maxLines = 1)
+                                Text("Layar Aktif", fontSize = 10.sp, color = TextSecondary, maxLines = 1)
                             }
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = stats.screenOnTimeText,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp,
+                                fontSize = 13.sp,
                                 color = AccentGreen
                             )
                             Text(
                                 text = "${String.format(java.util.Locale.US, "%.1f", stats.screenOnRatioPercent)}% • -${stats.screenOnDischargedPercent}% (${stats.screenOnDischargedMah}mAh)",
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -264,18 +276,18 @@ fun BatteryRuntimeCard(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(AccentCyan))
                                 Spacer(Modifier.width(5.dp))
-                                Text("Deep Sleep", fontSize = 9.5.sp, color = TextSecondary, maxLines = 1)
+                                Text("Deep Sleep", fontSize = 10.sp, color = TextSecondary, maxLines = 1)
                             }
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = stats.deepSleepTimeText,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp,
+                                fontSize = 13.sp,
                                 color = AccentCyan
                             )
                             Text(
                                 text = "${String.format(java.util.Locale.US, "%.1f", stats.deepSleepRatioPercent)}% (${stats.deepSleepPercentage}% idle)",
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -294,18 +306,18 @@ fun BatteryRuntimeCard(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(AccentOrange))
                                 Spacer(Modifier.width(5.dp))
-                                Text("Siaga Bangun", fontSize = 9.5.sp, color = TextSecondary, maxLines = 1)
+                                Text("Siaga Bangun", fontSize = 10.sp, color = TextSecondary, maxLines = 1)
                             }
                             Spacer(Modifier.height(3.dp))
                             Text(
                                 text = stats.screenOffAwakeTimeText,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 12.5.sp,
+                                fontSize = 13.sp,
                                 color = AccentOrange
                             )
                             Text(
                                 text = "${String.format(java.util.Locale.US, "%.1f", stats.screenOffAwakeRatioPercent)}% • -${stats.screenOffDischargedPercent}% (${stats.screenOffDischargedMah}mAh)",
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 color = TextSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -318,34 +330,111 @@ fun BatteryRuntimeCard(
 
         Spacer(Modifier.height(10.dp))
 
-        // Real Drain Rate & Remaining Time Summary Table
+        // 2x2 Bento Grid: Real Drain Rates & Remaining Runtime Estimates
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(11.dp)) {
+                    Text("Laju Drain Layar Aktif", fontSize = 10.sp, color = TextSecondary, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stats.activeDrainRatePerHour,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentGreen,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(11.dp)) {
+                    Text(stringResource(R.string.battery_idle_drain_rate), fontSize = 10.sp, color = TextSecondary, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stats.idleDrainRatePerHour,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentCyan,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(11.dp)) {
+                    Text(stringResource(R.string.battery_estimated_screen_remaining), fontSize = 10.sp, color = TextSecondary, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stats.estimatedScreenRemainingText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = AccentOrange,
+                        maxLines = 1
+                    )
+                }
+            }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.weight(1f)
+            ) {
+                Column(modifier = Modifier.padding(11.dp)) {
+                    Text(stringResource(R.string.battery_estimated_standby_remaining), fontSize = 10.sp, color = TextSecondary, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = stats.estimatedStandbyRemainingText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = AccentBlue,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Screen-Off Total Summary Strip
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             color = BgElevated,
             border = BorderStroke(0.6.dp, BorderSubtle),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Total Waktu Layar Mati (Deep Sleep + Bangun)", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                    Text(stats.screenOffTimeText, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Laju Konsumsi Saat Layar Aktif", style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                    Text(stats.activeDrainRatePerHour, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentGreen)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.battery_idle_drain_rate), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                    Text(stats.idleDrainRatePerHour, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.battery_estimated_screen_remaining), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                    Text(stats.estimatedScreenRemainingText, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentOrange)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.battery_estimated_standby_remaining), style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = TextSecondary)
-                    Text(stats.estimatedStandbyRemainingText, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentBlue)
-                }
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Total Waktu Layar Mati (Deep Sleep + Siaga)", fontSize = 10.5.sp, color = TextSecondary)
+                Text(stats.screenOffTimeText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             }
         }
     }

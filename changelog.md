@@ -1,3 +1,17 @@
+# Lynx Universal [Complete Battery Information Tab Overhaul & Accurate Batterystats Analytics] 7.0.0-RC427
+Released on: 2026-11-21
+> Lynx Kernel Manager v3.4.46
+
+### Companion App (`feature/battery/ui` & `LynxBatteryInfoStatsRepository`)
+- **Battery Information Tab Overhaul (`BatteryRuntimeCard`, `BatteryHardwareCard`, `BatteryHistoryPanels`, `BatteryDetailBottomSheet`)**:
+  - Added a dedicated **State of Health (SoH) & Cell Degradation Hero** at the top of `BatteryHardwareCard` displaying real capacity health percentage, verdict badge (*Prima* / *Normal* / *Terdegradasi*), capacity progress bar, cell wear (`%` and lost `mAh`), and `Wh` energy equivalents (`3.85V` nominal), while removing redundant real-time voltage/current/status rows already shown on the Charging tab.
+  - Added a **Multi-Point Thermal Sensor Strip** (*Suhu Sel BMS*, *Charger IC*, *Port USB*), non-redundant BMS architecture specs (*Chip Fuel Gauge*, *Teknologi & Kesehatan Kernel*, *Resistansi Internal ESR*, *Arus Rata-rata BMS*), `48.dp` action buttons, and an Obsidian confirmation dialog before **Kalibrasi Indikator Baterai & Fuel Gauge** so users do not accidentally wipe cycle statistics.
+  - Rebuilt `BatteryRuntimeCard` with a context-aware cycle header (handling active charging ETA and partial top-up cycles cleanly without contradictory `100% ➔ 90% (-95%)` text), replaced the `"100% Akurat Kernel"` claim with actual idle sleep efficiency, enlarged sub-card typography to `10–13.sp`, and upgraded the drain/estimate table into a 2×2 Bento Grid.
+  - Added a 2-column **Rata-rata / 1% (Layar Aktif vs Layar Mati)** summary strip and `48.dp` touch targets in `BatteryHistoryPanels`, and filtered out invalid negative/dummy thermal zones (`<= 0°C`) from `LynxBatteryTelemetryRepository` and `BatteryDetailBottomSheet`.
+- **Batterystats Parser & Estimation Fixes (`LynxBatteryInfoStatsRepository`)**:
+  - Fixed global hardware component double/triple-counting in `Estimated power use (mAh)` by ignoring `(on battery, ...)` / `(not on battery, ...)` sub-breakdowns and subtracting `apps:` power already attributed to individual UIDs.
+  - Parsed `Time on battery screen off:` `uptime` for kernel screen-off awake vs deep sleep calculation, parsed `Charge time remaining:` for charging ETA fallback, and added real drain-rate fallback calculation for `estimatedScreenRemainingText` and `estimatedStandbyRemainingText`.
+
 # Lynx Universal [Anti-Poisoning Thermal Shield, MGLRU Thrash Reduction & Zero-Alloc Charging UI] 7.0.0-RC426
 Released on: 2026-11-21
 > Lynx Kernel Manager v3.4.45

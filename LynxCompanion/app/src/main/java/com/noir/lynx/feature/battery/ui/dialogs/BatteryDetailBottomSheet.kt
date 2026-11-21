@@ -155,7 +155,7 @@ fun BatteryDetailBottomSheet(
             }
 
             // Section 1: Raw ADC Registers
-            Text("REGISTER CHARGER & ADC PHYSICAL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentCyan)
+            Text("REGISTER CHARGER & ADC FISIK", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentCyan)
             if (battDetails.rawAdcDetails.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -181,8 +181,9 @@ fun BatteryDetailBottomSheet(
             }
 
             // Section 2: Thermal Zone Matrix
-            Text("MATRIKS SENSOR THERMAL ZONE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentOrange)
-            if (battDetails.thermalZoneMatrix.isNotEmpty()) {
+            val validThermalZones = battDetails.thermalZoneMatrix.filter { it.second in 1.0f..125.0f }
+            Text("MATRIKS SENSOR ZONA TERMAL (${validThermalZones.size})", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = AccentOrange)
+            if (validThermalZones.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = BgElevated,
@@ -190,7 +191,7 @@ fun BatteryDetailBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        battDetails.thermalZoneMatrix.forEach { (name, temp) ->
+                        validThermalZones.forEach { (name, temp) ->
                             val tColor = if (temp >= 46f) AccentRed else if (temp >= 42f) AccentOrange else AccentGreen
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -204,7 +205,7 @@ fun BatteryDetailBottomSheet(
                     }
                 }
             } else {
-                Text("Tidak ada data thermal zone.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Text("Tidak ada data sensor zona termal aktif.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
         }
     }

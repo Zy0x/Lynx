@@ -56,7 +56,7 @@ internal fun BatteryHistoryTabSelector(selectedTab: Int, onSelectTab: (Int) -> U
                 border = if (selectedTab == 0) BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f)) else null,
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(42.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -87,7 +87,7 @@ internal fun BatteryHistoryTabSelector(selectedTab: Int, onSelectTab: (Int) -> U
                 border = if (selectedTab == 1) BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.45f)) else null,
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(42.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -203,6 +203,53 @@ internal fun BatteryHistoryTimePanel(
                     )
                 }
             } else {
+                val activeSteps = steps.filter { it.isScreenOn && it.durationMs > 0L }
+                val idleSteps = steps.filter { !it.isScreenOn && it.durationMs > 0L }
+                val avgActiveStepMs = if (activeSteps.isNotEmpty()) activeSteps.sumOf { it.durationMs } / activeSteps.size else 0L
+                val avgIdleStepMs = if (idleSteps.isNotEmpty()) idleSteps.sumOf { it.durationMs } / idleSteps.size else 0L
+
+                if (avgActiveStepMs > 0L || avgIdleStepMs > 0L) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                Text("Rata-rata / 1% (Layar Aktif)", fontSize = 9.5.sp, color = TextSecondary, maxLines = 1)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = formatStepAvgDuration(avgActiveStepMs),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentGreen
+                                )
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                Text("Rata-rata / 1% (Layar Mati)", fontSize = 9.5.sp, color = TextSecondary, maxLines = 1)
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = formatStepAvgDuration(avgIdleStepMs),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentCyan
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Surface(
                     onClick = { onToggleStepsExpanded(!isStepsExpanded) },
                     shape = RoundedCornerShape(10.dp),
@@ -210,7 +257,7 @@ internal fun BatteryHistoryTimePanel(
                     border = BorderStroke(0.6.dp, if (isStepsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderSubtle),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 44.dp)
+                        .heightIn(min = 48.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -312,6 +359,19 @@ internal fun BatteryHistoryTimePanel(
 }
 }
 
+private fun formatStepAvgDuration(ms: Long): String {
+    if (ms <= 0L) return "-"
+    val totalSec = ms / 1000L
+    val hours = totalSec / 3600L
+    val mins = (totalSec % 3600L) / 60L
+    val secs = totalSec % 60L
+    return when {
+        hours > 0L -> "${hours}j ${mins}m"
+        mins > 0L -> if (secs > 0L) "${mins}m ${secs}d" else "${mins}m"
+        else -> "${secs}d"
+    }
+}
+
 @Composable
 internal fun BatteryHistoryAppPanel(
     stats: BatteryInfoStats,
@@ -368,7 +428,7 @@ internal fun BatteryHistoryAppPanel(
                             border = BorderStroke(0.6.dp, if (isAppsExpanded) AccentCyan.copy(alpha = 0.5f) else BorderSubtle),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 44.dp)
+                                .heightIn(min = 48.dp)
                         ) {
                             Row(
                                 modifier = Modifier

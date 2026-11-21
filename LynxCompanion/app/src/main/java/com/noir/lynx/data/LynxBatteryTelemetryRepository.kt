@@ -273,7 +273,9 @@ internal object LynxBatteryTelemetryRepository {
                                 val rawTzTemp = tzParts[2].toFloatOrNull() ?: 0f
                                 val absTemp = kotlin.math.abs(rawTzTemp)
                                 val normTemp = if (absTemp > 1000f) rawTzTemp / 1000f else if (absTemp > 100f) rawTzTemp / 10f else rawTzTemp
-                                tzList.add(Pair(zName, normTemp))
+                                if (normTemp in 1.0f..125.0f) {
+                                    tzList.add(Pair(zName, normTemp))
+                                }
                             }
                         }
                     }

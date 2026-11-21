@@ -57,6 +57,10 @@ internal object LynxBatteryInfoStatsRepository {
                     "idle" -> Pair("Mode Siaga (Standby)", "idle")
                     "wakelock" -> Pair("Sistem Wakelock", "wakelock")
                     "audio" -> Pair("Pemutar Audio", "audio")
+                    "video" -> Pair("Pemutar Video", "video")
+                    "sensors" -> Pair("Sensor Perangkat", "sensors")
+                    "gnss" -> Pair("GPS / Lokasi", "gnss")
+                    "flashlight" -> Pair("Senter / Flashlight", "flashlight")
                     "system_services" -> Pair("Layanan Sistem", "system_services")
                     "wifi" -> Pair("Wi-Fi", "wifi")
                     "cell", "cellular" -> Pair("Sinyal Seluler", "cellular")
@@ -158,7 +162,7 @@ internal object LynxBatteryInfoStatsRepository {
 
                     echo "LYNX_SYS|${'$'}tech|${'$'}hlth_sys|${'$'}lvl_sys|${'$'}d_cap|${'$'}max_cap|${'$'}chg_pol|${'$'}ac_pwr|${'$'}usb_pwr|${'$'}wls_pwr|${'$'}qmax|${'$'}cfd|${'$'}chg_full|${'$'}chg_cnt|${'$'}v_now|${'$'}i_now|${'$'}i_avg|${'$'}t_now|${'$'}ttf_sec|${'$'}cyc_sys|${'$'}esr_sys|${'$'}chip"
                     echo "===BATSTATS_START==="
-                    dumpsys batterystats --charged 2>/dev/null | head -n 350
+                    dumpsys batterystats --charged 2>/dev/null | head -n 550
                 """.trimIndent()
                 val r = Shell.cmd(script).exec()
                 val lines = r.out
@@ -191,13 +195,16 @@ internal object LynxBatteryInfoStatsRepository {
                 var inBatStats = false
                 var inDischargeSteps = false
                 var inEstimatedPower = false
+                var inGlobalPowerSubSection = false
                 val dischargeSteps = mutableListOf<DischargeStepItem>()
                 val rawDrainList = mutableListOf<Triple<String, String, Float>>()
                 var estDisRemainingRaw = ""
                 var estScreenOnRaw = ""
+                var estChgRemainingRaw = ""
                 var startClockRaw = ""
                 var timeOnBatteryRaw = ""
                 var timeOnBatteryScreenOffRaw = ""
+                var timeOnBatteryScreenOffUptimeRaw = ""
                 var screenOnRaw = ""
                 var partialWakelockRaw = ""
                 var totalDischargedMah = 0
@@ -224,11 +231,13 @@ internal object LynxBatteryInfoStatsRepository {
                     if (line.startsWith("Discharge step durations:")) {
                         inDischargeSteps = true
                         inEstimatedPower = false
+                        inGlobalPowerSubSection = false
                         continue
                     }
                     if (line.startsWith("Estimated power use (mAh):")) {
                         inEstimatedPower = true
                         inDischargeSteps = false
+                        inGlobalPowerSubSection = false
                         continue
                     }
                     if (inDischargeSteps) {
@@ -259,9 +268,18 @@ internal object LynxBatteryInfoStatsRepository {
                         }
                     }
                     if (inEstimatedPower) {
-                        if (line.startsWith("Wake lock") || line.startsWith("All packages:") || line.startsWith("All UIDs:") || line.startsWith("Per process")) {
+                        if (line.startsWith("Wake lock") || line.startsWith("All packages:") || line.startsWith("All UIDs:") || line.startsWith("Per process") || line.startsWith("All kernel wake locks") || line.startsWith("All partial wake locks")) {
                             inEstimatedPower = false
+                            inGlobalPowerSubSection = false
                         } else {
+                            if (line.equals("Global", ignoreCase = true)) {
+                                inGlobalPowerSubSection = false
+                                continue
+                            }
+                            if (line.startsWith("(on battery") || line.startsWith("(not on battery")) {
+                                inGlobalPowerSubSection = true
+                                continue
+                            }
                             val uidMatch = Regex("""^(?i)UID\s+([a-zA-Z0-9_-]+):\s*([0-9.]+)""").find(line)
                             if (uidMatch != null) {
                                 val uidStr = uidMatch.groupValues[1]
@@ -272,14 +290,18 @@ internal object LynxBatteryInfoStatsRepository {
                                 continue
                             }
 
-                            val globalMatch = Regex("""^(screen|idle|wakelock|audio|wifi|bluetooth|cell|cellular|system_services):\s*([0-9.]+)""").find(line)
-                            if (globalMatch != null) {
-                                val compName = globalMatch.groupValues[1].lowercase()
-                                val mah = globalMatch.groupValues[2].toFloatOrNull() ?: 0f
-                                if (mah > 0.05f) {
-                                    rawDrainList.add(Triple("global", compName, mah))
+                            if (!inGlobalPowerSubSection) {
+                                val globalMatch = Regex("""^(screen|idle|wakelock|audio|video|sensors|gnss|flashlight|wifi|bluetooth|cell|cellular|system_services):\s*([0-9.]+)(?:.*?\bapps:\s*([0-9.]+))?""").find(line)
+                                if (globalMatch != null) {
+                                    val compName = globalMatch.groupValues[1].lowercase()
+                                    val totalMah = globalMatch.groupValues[2].toFloatOrNull() ?: 0f
+                                    val appsMah = globalMatch.groupValues.getOrNull(3)?.toFloatOrNull()
+                                    val unattributedMah = if (appsMah != null) (totalMah - appsMah).coerceAtLeast(0f) else totalMah
+                                    if (unattributedMah > 0.25f) {
+                                        rawDrainList.add(Triple("global", compName, unattributedMah))
+                                    }
+                                    continue
                                 }
-                                continue
                             }
                         }
                     }
@@ -294,14 +316,24 @@ internal object LynxBatteryInfoStatsRepository {
                         line.startsWith("Estimated screen on time:") -> {
                             estScreenOnRaw = line.substringAfter("Estimated screen on time:").trim()
                         }
+                        line.startsWith("Estimated charge time remaining:") && estChgRemainingRaw.isBlank() -> {
+                            estChgRemainingRaw = line.substringAfter("Estimated charge time remaining:").trim()
+                        }
+                        line.startsWith("Charge time remaining:") -> {
+                            estChgRemainingRaw = line.substringAfter("Charge time remaining:").trim()
+                        }
                         line.startsWith("Start clock time:") -> {
                             startClockRaw = line.substringAfter("Start clock time:").trim()
                         }
                         line.startsWith("Time on battery:") -> {
-                            timeOnBatteryRaw = line.substringAfter("Time on battery:").trim()
+                            timeOnBatteryRaw = line.substringAfter("Time on battery:").substringBefore("realtime").trim()
                         }
                         line.startsWith("Time on battery screen off:") -> {
-                            timeOnBatteryScreenOffRaw = line.substringAfter("Time on battery screen off:").trim()
+                            val fullOff = line.substringAfter("Time on battery screen off:").trim()
+                            timeOnBatteryScreenOffRaw = fullOff.substringBefore("realtime").trim()
+                            if (fullOff.contains("realtime,") && fullOff.contains("uptime")) {
+                                timeOnBatteryScreenOffUptimeRaw = fullOff.substringAfter("realtime,").substringBefore("uptime").trim()
+                            }
                         }
                         line.startsWith("Screen on:") -> {
                             screenOnRaw = line.substringAfter("Screen on:").trim()
@@ -444,8 +476,10 @@ internal object LynxBatteryInfoStatsRepository {
                     if (it > 0L) it else (totalRuntimeMs - screenOnMs).coerceAtLeast(0L)
                 }
                 val effectiveTotalMs = if (totalRuntimeMs > 0L) totalRuntimeMs else (screenOnMs + screenOffTotalMs)
+                val screenOffUptimeMs = parseBatteryStatsDurationMs(timeOnBatteryScreenOffUptimeRaw)
                 val partialWakelockMs = parseBatteryStatsDurationMs(partialWakelockRaw)
-                val screenOffAwakeMs = partialWakelockMs.coerceIn(0L, screenOffTotalMs)
+                val rawScreenOffAwakeMs = if (screenOffUptimeMs > 0L) maxOf(screenOffUptimeMs, partialWakelockMs) else partialWakelockMs
+                val screenOffAwakeMs = rawScreenOffAwakeMs.coerceIn(0L, screenOffTotalMs)
                 val deepSleepMs = (screenOffTotalMs - screenOffAwakeMs).coerceAtLeast(0L)
 
                 val screenOnRatioPct = if (effectiveTotalMs > 0L) {
@@ -488,28 +522,49 @@ internal object LynxBatteryInfoStatsRepository {
 
                 // 4. Real Active & Idle Drain Rates (Zero Hardcoding)
                 val screenOnHours = screenOnMs.toDouble() / 3_600_000.0
+                val activePctPerHour = if (screenOnHours >= 0.02 && amtDischargedScreenOn > 0) {
+                    amtDischargedScreenOn.toDouble() / screenOnHours
+                } else 0.0
+                val activeMaPerHour = if (screenOnHours >= 0.02 && screenOnDischargedMah > 0) {
+                    (screenOnDischargedMah.toDouble() / screenOnHours).toInt()
+                } else 0
                 val activeDrainRate = if (screenOnHours >= 0.02) {
-                    val pctHr = if (amtDischargedScreenOn > 0) amtDischargedScreenOn.toDouble() / screenOnHours else 0.0
-                    val maHr = if (screenOnDischargedMah > 0) (screenOnDischargedMah.toDouble() / screenOnHours).toInt() else 0
                     when {
-                        pctHr > 0.0 && maHr > 0 -> String.format(java.util.Locale.US, "%.1f%% / jam (%d mA)", pctHr, maHr)
-                        pctHr > 0.0 -> String.format(java.util.Locale.US, "%.1f%% / jam", pctHr)
-                        maHr > 0 -> "$maHr mA"
+                        activePctPerHour > 0.0 && activeMaPerHour > 0 -> String.format(java.util.Locale.US, "%.1f%% / jam (%d mA)", activePctPerHour, activeMaPerHour)
+                        activePctPerHour > 0.0 -> String.format(java.util.Locale.US, "%.1f%% / jam", activePctPerHour)
+                        activeMaPerHour > 0 -> "$activeMaPerHour mA"
                         else -> "< 1% terkuras"
                     }
                 } else "-"
 
                 val screenOffHours = screenOffTotalMs.toDouble() / 3_600_000.0
+                val idlePctPerHour = if (screenOffHours >= 0.02 && amtDischargedScreenOff > 0) {
+                    amtDischargedScreenOff.toDouble() / screenOffHours
+                } else 0.0
+                val idleMaPerHour = if (screenOffHours >= 0.02 && screenOffDischargedMah > 0) {
+                    (screenOffDischargedMah.toDouble() / screenOffHours).toInt()
+                } else 0
                 val idleDrainRate = if (screenOffHours >= 0.02) {
-                    val pctHr = if (amtDischargedScreenOff > 0) amtDischargedScreenOff.toDouble() / screenOffHours else 0.0
-                    val maHr = if (screenOffDischargedMah > 0) (screenOffDischargedMah.toDouble() / screenOffHours).toInt() else 0
                     when {
-                        pctHr > 0.0 && maHr > 0 -> String.format(java.util.Locale.US, "%.1f%% / jam (%d mA)", pctHr, maHr)
-                        pctHr > 0.0 -> String.format(java.util.Locale.US, "%.1f%% / jam", pctHr)
-                        maHr > 0 -> "$maHr mA"
-                        else -> "0.0% / jam (0 mAh terkuras)"
+                        idlePctPerHour > 0.0 && idleMaPerHour > 0 -> String.format(java.util.Locale.US, "%.1f%% / jam (%d mA)", idlePctPerHour, idleMaPerHour)
+                        idlePctPerHour > 0.0 -> String.format(java.util.Locale.US, "%.1f%% / jam", idlePctPerHour)
+                        idleMaPerHour > 0 -> "$idleMaPerHour mA"
+                        else -> "0.0% / jam (0 mAh)"
                     }
                 } else "-"
+
+                val computedScreenRemMs = when {
+                    parseBatteryStatsDurationMs(estScreenOnRaw) > 0L -> parseBatteryStatsDurationMs(estScreenOnRaw)
+                    curLvl > 0 && activePctPerHour >= 0.5 -> ((curLvl.toDouble() / activePctPerHour) * 3_600_000.0).toLong()
+                    remainingChargeMah > 0 && activeMaPerHour >= 20 -> ((remainingChargeMah.toDouble() / activeMaPerHour.toDouble()) * 3_600_000.0).toLong()
+                    else -> 0L
+                }
+                val computedStandbyRemMs = when {
+                    parseBatteryStatsDurationMs(estDisRemainingRaw) > 0L -> parseBatteryStatsDurationMs(estDisRemainingRaw)
+                    curLvl > 0 && idlePctPerHour >= 0.1 -> ((curLvl.toDouble() / idlePctPerHour) * 3_600_000.0).toLong().coerceAtMost(14L * 86_400_000L)
+                    remainingChargeMah > 0 && idleMaPerHour >= 5 -> ((remainingChargeMah.toDouble() / idleMaPerHour.toDouble()) * 3_600_000.0).toLong().coerceAtMost(14L * 86_400_000L)
+                    else -> 0L
+                }
 
                 // 5. Real Drain History Points from Discharge Steps
                 val nowMs = System.currentTimeMillis()
@@ -567,9 +622,11 @@ internal object LynxBatteryInfoStatsRepository {
                     else -> "Penggunaan Daya"
                 }
 
+                val bsChargeEtaMs = parseBatteryStatsDurationMs(estChgRemainingRaw)
                 val etaText = when {
-                    !isCharging -> "-"
+                    !isCharging || isBypass -> "-"
                     ttfSec > 0 -> formatDurationMs(ttfSec * 1000L, "-")
+                    bsChargeEtaMs > 0L -> formatDurationMs(bsChargeEtaMs, "-")
                     currentDetails != null && currentDetails.currentMa > 200 && curLvl < 100 && fullChargeMah > 0 -> {
                         val remMah = ((100 - curLvl).toFloat() / 100f) * fullChargeMah.toFloat()
                         val estMs = ((remMah / currentDetails.currentMa.toFloat()) * 3_600_000f).toLong().coerceAtLeast(60_000L)
@@ -646,7 +703,7 @@ internal object LynxBatteryInfoStatsRepository {
                     remainingChargeMah = remainingChargeMah,
                     stateOfHealthPercent = soh,
                     wearLevelPercent = wear,
-                    nominalVoltageMv = 0,
+                    nominalVoltageMv = 3850,
                     voltageNowMv = voltageMv,
                     realTimeCurrentMa = currentNowMa,
                     averageCurrentMa = currentAvgMa,
@@ -664,8 +721,8 @@ internal object LynxBatteryInfoStatsRepository {
                     screenOffTimeText = formatDurationMs(screenOffTotalMs, "0d"),
                     activeDrainRatePerHour = activeDrainRate,
                     idleDrainRatePerHour = idleDrainRate,
-                    estimatedScreenRemainingText = formatCleanDuration(estScreenOnRaw, "-"),
-                    estimatedStandbyRemainingText = formatCleanDuration(estDisRemainingRaw, "-"),
+                    estimatedScreenRemainingText = formatDurationMs(computedScreenRemMs, "-"),
+                    estimatedStandbyRemainingText = formatDurationMs(computedStandbyRemMs, "-"),
                     deepSleepPercentage = sleepPctOfScreenOff,
                     awakeWakelockPercentage = awakePctOfScreenOff,
                     bmsTempC = bmsTemp,
