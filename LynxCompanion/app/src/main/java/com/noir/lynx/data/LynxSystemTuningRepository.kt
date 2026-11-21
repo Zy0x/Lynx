@@ -21,16 +21,18 @@ internal object LynxSystemTuningRepository {
         try {
             val r = Shell.cmd("""
                 K=/sys/kernel/mm/ksm
+                [ -f "${'$'}K/run" ] && echo "supp:1" || echo "supp:0"
                 echo "run:$(cat ${'$'}K/run 2>/dev/null)"
                 echo "shared:$(cat ${'$'}K/pages_shared 2>/dev/null)"
                 echo "sharing:$(cat ${'$'}K/pages_sharing 2>/dev/null)"
                 echo "scan:$(cat ${'$'}K/pages_to_scan 2>/dev/null)"
                 echo "sleep:$(cat ${'$'}K/sleep_millisecs 2>/dev/null)"
             """.trimIndent()).exec()
-            var enabled = false; var shared = 0L; var sharing = 0L; var scan = 100; var sleep = 200
+            var supported = false; var enabled = false; var shared = 0L; var sharing = 0L; var scan = 100; var sleep = 200
             for (line in r.out) {
                 val t = line.trim()
                 when {
+                    t.startsWith("supp:") -> supported = t.removePrefix("supp:").trim() == "1"
                     t.startsWith("run:") -> enabled = t.removePrefix("run:").trim() == "1"
                     t.startsWith("shared:") -> shared = t.removePrefix("shared:").toLongOrNull() ?: 0L
                     t.startsWith("sharing:") -> sharing = t.removePrefix("sharing:").toLongOrNull() ?: 0L
@@ -39,8 +41,8 @@ internal object LynxSystemTuningRepository {
                 }
             }
             val savedMb = ((sharing - shared).coerceAtLeast(0L) * 4096L / 1024f / 1024f)
-            val stats = KsmStats(enabled = enabled, pagesShared = shared, pagesSharing = sharing,
-                savedMb = savedMb, pagesToScan = scan, sleepMs = sleep)
+            val stats = KsmStats(supported = supported, enabled = enabled, pagesShared = shared,
+                pagesSharing = sharing, savedMb = savedMb, pagesToScan = scan, sleepMs = sleep)
             cachedKsmStats = stats
             stats
         } catch (e: Exception) { Log.e("LynxRepository", "readKsmStats: ${e.message}"); KsmStats() }

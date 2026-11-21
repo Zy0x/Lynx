@@ -1,3 +1,16 @@
+# Lynx Universal [Anti-Slip Memory & Storage Overhaul, Safety Locks & Staged ZRAM] 7.0.0-RC428
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.47
+
+### Companion App (`feature/memory/ui` & `LynxSystemTuningRepository`)
+- **Guarded Memory & Storage Controls (`MemoryTuningControls`, `MemoryVmZramCard`, `MemoryEntropyCard`)**:
+  - Consolidated the 7 overlapping Memory & Storage cards into a clean 4-card architecture (`MemoryHeroCard`, `MemoryVmZramCard`, `MemoryEntropyCard`, `MountXStorageCard`) with minimum `48.dp` touch targets across all chips and action buttons.
+  - Added `GuardedTuningBar` (defaulting to safe locked state during normal scrolling/tab swipes) and `GuardedStepperSlider` (`-/+` precision step buttons synced cleanly with external VM preset changes) to eliminate accidental horizontal drags on Swappiness, Writeback, ZRAM, and Entropy thresholds.
+  - Replaced instant live `swapoff` on ZRAM slider release with **Staged ZRAM Apply + Warning Dialog** (`applyZramConfiguration`) when active swap exceeds `64 MB`, and only renders KSM controls on kernels with `/sys/kernel/mm/ksm/run` support (`KsmStats.supported`).
+  - Removed the redundant/non-functional legacy LMK preset card on modern PSI `lmkd` kernels (preserving legacy `minfree` presets cleanly inside `MemoryEntropyCard` only when `isLmkLegacySupported` is true).
+- **Unified Storage & Discrete Read-Ahead (`MountXStorageCard`)**:
+  - Merged Physical Storage Shield, MicroSD, and I/O Scheduler Manager into one card, filtering virtual/noise block nodes (`loop*`, `ram*`, `zram*`, `dm-*`, `boot`, `rpmb`) and replacing the continuous Read-Ahead slider with locked discrete `48.dp` chips (`128K`, `256K`, `512K`, `1M`, `2M`).
+
 # Lynx Universal [Complete Battery Information Tab Overhaul & Accurate Batterystats Analytics] 7.0.0-RC427
 Released on: 2026-11-21
 > Lynx Kernel Manager v3.4.46

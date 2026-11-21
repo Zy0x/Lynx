@@ -198,6 +198,7 @@ data class WakelockItem(
 // ============================================================
 
 data class KsmStats(
+    val supported: Boolean = false,
     val enabled: Boolean = false,
     val pagesShared: Long = 0L,
     val pagesSharing: Long = 0L,

@@ -35,16 +35,26 @@ import kotlinx.coroutines.launch
  */
 
 fun LynxViewModel.setZramCompAlgorithm(algo: String) {
-    recordStateMutation()
-    _uiState.update { it.copy(zramCompAlgorithm = algo) }
+    applyZramConfiguration(algo, _uiState.value.state.memory.zramSizeMb)
+}
+
+fun LynxViewModel.applyZramConfiguration(algo: String, mb: Int) {
+    val safeMb = mb.coerceAtLeast(256)
+    recordStateMutation(com.noir.lynx.profiles.ProfileDomain.MEMORY)
+    _uiState.update { current ->
+        current.copy(
+            zramCompAlgorithm = algo,
+            state = current.state.copy(memory = current.state.memory.copy(zramSizeMb = safeMb))
+        )
+    }
     viewModelScope.launch(Dispatchers.IO) {
-        val zramMb = _uiState.value.state.memory.zramSizeMb
-        val ok = LynxRepository.setZramCompAlgorithm(algo, zramMb)
+        LynxRepository.writeStateKey("memory.zram_size_mb", safeMb.toString(), "val")
+        val ok = LynxRepository.setZramCompAlgorithm(algo, safeMb)
         if (ok) {
-            _uiState.update { it.copy(successMessage = "Algoritma ZRAM berhasil diubah ke $algo") }
+            _uiState.update { it.copy(successMessage = "ZRAM dikonfigurasi: ${safeMb} MB (${algo.uppercase()})") }
             refreshState()
         } else {
-            _uiState.update { it.copy(errorMessage = "Gagal mengubah algoritma ZRAM ke $algo") }
+            _uiState.update { it.copy(errorMessage = "Gagal menerapkan konfigurasi ZRAM (${safeMb} MB • $algo)") }
         }
     }
 }
