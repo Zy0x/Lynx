@@ -504,6 +504,12 @@ fun TuningTabContent(
                                         subscreenFling = subscreenFling,
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
+                                    "system" -> SystemSwipeableSubscreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        subscreenFling = subscreenFling,
+                                        modifier = Modifier.weight(1f).fillMaxWidth()
+                                    )
                                     else -> {
                                         LazyColumn(
                                             state = subscreenLazyState,

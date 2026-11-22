@@ -1,3 +1,48 @@
+# Lynx Universal [Purifikasi Deep Sysfs: Eliminasi Duplikasi Lintas Halaman Tuning & Pemindaian Kernel Mendalam] 7.0.0-RC458
+Released on: 2026-11-23
+> Lynx Kernel Manager v3.4.77
+
+### Companion App & Native Core (`LynxDeepTunableRepository`, `LynxDeepTunableMetadata`, `native/lynxd/src/inspector/scanner.rs`, `SystemSubscreen`)
+- **Purifikasi Total Deep Tunables & Pencegahan Duplikasi Lintas Halaman Tuning**:
+  - Menerapkan mekanisme penyaringan ketat `isDuplicateOrCoveredInOtherPages` yang memvalidasi setiap path node sysfs/procfs baik saat pemindaian runtime (`scanDeepTunables`), pemuatan berkas cache (`loadCachedDeepTunables`), maupun pemeriksaan tunggal (`inspectNode`).
+  - Menghapus seluruh duplikasi parameter yang telah dihadirkan pada halaman-halaman tuning khusus lainnya:
+    - **CPU Subscreen**: Dihilangkan duplikasi `scaling_governor`, `scaling_min_freq`, `scaling_max_freq`, `scaling_cur_freq`, parameter `schedutil` (`rate_limit_us`, `hispeed_freq`), CPU core `online`, serta matriks MediaTek PPM (`/proc/ppm/policy_status*`, `mode`, `enabled`).
+    - **GPU & Layar Subscreen**: Dihilangkan duplikasi Qualcomm Adreno KGSL (`default_pwrlevel`, `max_pwrlevel`, `min_pwrlevel`, `max_gpuclk`, `adrenoboost`, `adreno_idler`), MediaTek GED/gpufreq (`gpufreq_power_mode`, `dvfs_enable`), KCAL color calibration, refresh rate, dan driver panel sentuh.
+    - **Baterai Subscreen**: Dihilangkan duplikasi batas arus pengisian (`current_max`, `constant_charge_current_max`), sakelar proteksi charging (`charging_enabled`, `input_suspend`, `step_charging_enabled`, `bypass_charger`, `Pump_Express`).
+    - **Memori & RAM Subscreen**: Dihilangkan duplikasi `swappiness`, `dirty_ratio`, `dirty_background_ratio`, `vfs_cache_pressure`, `compact_memory`, `zram` comp/streams, dan LMK `minfree`.
+    - **Jaringan Subscreen**: Dihilangkan duplikasi `tcp_congestion_control`, `tcp_fastopen`, `rmem_max`, `wmem_max`.
+    - **Termal Subscreen**: Dihilangkan duplikasi zona termal (`thermal_zone*/trip_point_*`) dan `sconfig`.
+    - **Sistem & GSI Tab 0**: Dihilangkan duplikasi `printk`, `selinux/enforce`, dan `adb_keepalive`.
+- **Katalog Pemindaian Murni Kernel, VFS & Hardware Low-Level**:
+  - Mengarahkan Deep Tunables secara murni ke parameter-parameter tingkat rendah yang tidak terjangkau halaman dasar:
+    - **Kernel CFS & RT Scheduler**: `sched_latency_ns`, `sched_min_granularity_ns`, `sched_wakeup_granularity_ns`, `sched_migration_cost_ns`, `sched_nr_migrate`, `sched_rr_timeslice_ms`, `sched_cfs_bandwidth_slice_us`, `sched_child_runs_first`, `sched_tunable_scaling`, `timer_migration`, `randomize_va_space` (ASLR), `perf_cpu_time_max_percent`, `pid_max`, `threads-max`, `panic`, `panic_on_oops`.
+    - **Virtual Memory & VFS Lanjutan**: `file-max`, `overcommit_memory`, `overcommit_ratio`, `page-cluster` (transfer swap 4KB vs 32KB), `drop_caches`, `extra_free_kbytes`, `watermark_scale_factor`, `zone_reclaim_mode`, `oom_kill_allocating_task`, `panic_on_oom`, `stat_interval`.
+    - **Penyimpanan & Antrean Blok Storage**: `read_ahead_kb`, `nr_requests`, `rq_affinity` (core locality L1/L2), `nomerges`, `add_random`, `rotational`, `io_poll`, `wbt_lat_usec`.
+    - **Deep TCP Stack**: `tcp_syncookies`, `tcp_tw_reuse`, `tcp_fin_timeout`, `tcp_keepalive_time`, `tcp_keepalive_probes`, `tcp_keepalive_intvl`, `tcp_sack`, `tcp_window_scaling`, `tcp_timestamps`, `tcp_autocorking`, `ip_forward`.
+    - **Vendor Hardware (HPS / FPSGO / GED / MSM)**: `proc/hps/*` (up/down threshold, rush boost, heavy task), `fpsgo_enable`, `fstb_self_ctrl`, `boost_gpu_enable`, `ged_smart_boost`, `gpu_dvfs_enable`, Qualcomm `core_ctl` thresholds & offline delay.
+- **Penyempurnaan Input Parameter Cerdas & Deskripsi Edukatif Komunikatif**:
+  - Setiap parameter deep sysfs dilengkapi deskripsi mendalam dalam bahasa Indonesia komunikatif yang menjelaskan tujuan teknis, pengaruh terhadap performa vs konsumsi baterai, serta rekomendasi nilai aman.
+  - Penentuan tipe kontrol input secara dinamis: Sakelar `BOOL`, Dropdown/Grid `CHOICE`, Penggeser `SLIDER` dengan batas dan satuan fisik, `STEPPER` bertahap, dan `INT` dengan validasi aman.
+
+# Lynx Universal [Perombakan 3 Tab Subsystem & Deep Tunables, Tuning GSI Treble & Progressive Disclosure] 7.0.0-RC457
+Released on: 2026-11-23
+> Lynx Kernel Manager v3.4.76
+
+### Companion App (`SystemSubscreen`, `DeepTunableItemCard`, `LynxDeepTunableRepository`, `LynxDeepTunableMetadata`)
+- **Arsitektur 3 Tab Terpadu Subsystem & Deep Tunables (`LynxTabPager`)**:
+  - Merefaktor `SystemSubscreen` yang sebelumnya berupa kolom vertikal tunggal yang menumpuk menjadi **3 Tab Mandiri** dengan retensi scroll state yang terisolasi:
+    - **Tab 1 (`⚙️ Sistem & GSI`)**: Kontrol sakelar mode SELinux (*Enforcing* vs *Permissive* dengan peringatan keamanan), Peredam Log Konsol Kernel (*Printk Silent* `0 0 0 0` untuk mencegah CPU sering terbangun dari *Deep Sleep*), Tuning Cerdas Android GSI & Treble (*System Bluetooth Audio HAL*, *Bypass A2DP Hardware Offload*, *Disable Absolute Volume*, *SBC HD Dual Channel*), serta Opsi Pengembang (*Wireless Debugging TCP 5555* & *Doze Trigger*).
+    - **Tab 2 (`🔍 Deep Sysfs`)**: Katalog pemindai adaptif universal untuk seluruh parameter kernel, sistem, OEM (MediaTek PPM/GED/FPSGO, Qualcomm Devfreq/KGSL), dan vendor yang tidak dihadirkan di halaman tuning khusus lainnya.
+    - **Tab 3 (`🛠️ Alat Kernel`)**: Integrasi langsung pengelola skrip shell boot (`CustomScriptManagerCard`) dan penampil log ring buffer kernel (`DmesgViewerCard`).
+- **Pola Progressive Disclosure & Eliminasi Beban Kognitif (`DeepTunableItemCard`)**:
+  - Menyederhanakan tampilan kartu sysfs secara drastis: hanya menampilkan nama ramah pengguna, kategori, deskripsi manfaat 1–2 kalimat, dan widget kontrol interaktif langsung.
+  - Memindahkan path mentah Linux (`/proc/sys/...`), nama asli node, rekomendasi vendor, dan komentar `#` ke dalam lipatan tersembunyi `ℹ️ Info Teknis & Path` dengan tombol sekali sentuh salin ke clipboard.
+- **Deteksi Bentuk Tunable Cerdas & Dinamis**:
+  - Penentuan otomatis widget kontrol: Sakelar (`BOOL`), Grid non-scrollable proporsional untuk opsi $\le 3$ atau Dropdown Selector Box untuk opsi $> 3$ (`CHOICE`), Penggeser rentang presisi (`SLIDER`), Tombol bertingkat (`STEPPER`), serta Input Teks/Angka validasi aman (`INT` / `TEXT`).
+  - Mengeliminasi seluruh `LazyRow` pada kartu tunable untuk mencegah konflik geser dengan swipe pager.
+- **Ekspansi Cakupan Pemindaian Kernel & Vendor**:
+  - Menambahkan jangkauan node schedutil, CPU EAS, Uclamp, wakelock, VM memory knobs, devfreq, dan file-max pada `LynxDeepTunableRepository`.
+
 # Lynx Universal [Eliminasi Konflik Horizontal Scroll vs Swipe Pager & Refaktor Grid Pilihan Layar] 7.0.0-RC456
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.75

@@ -31,7 +31,10 @@ object LynxDeepTunableRepository {
             val list = mutableListOf<DeepTunable>()
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
-                list.add(parseDeepTunableObject(obj))
+                val item = parseDeepTunableObject(obj)
+                if (!isDuplicateOrCoveredInOtherPages(item.path)) {
+                    list.add(item)
+                }
             }
             list.map { resolveFriendlyMetadata(it) }
         } catch (e: Exception) {
@@ -83,6 +86,125 @@ object LynxDeepTunableRepository {
         }
     }
 
+    /**
+     * Memeriksa apakah path parameter sysfs/procfs sudah ditangani di halaman tuning khusus lainnya
+     * (CPU, GPU & Layar, Baterai & Daya, RAM & VM, Jaringan, Termal, Audio, Sistem & GSI).
+     * Jika sudah ada di halaman lain, kembalikan true agar Deep Tunables benar-benar PURE dan bebas duplikasi.
+     */
+    fun isDuplicateOrCoveredInOtherPages(path: String): Boolean {
+        val p = path.lowercase().trim()
+
+        // 1. CPU & PPM & Gov & Core Online & Cpusets (Covered in CPU Subscreen)
+        if (p.startsWith("/proc/ppm") ||
+            (p.contains("/cpufreq/policy") && (
+                p.endsWith("/scaling_governor") ||
+                p.endsWith("/scaling_min_freq") ||
+                p.endsWith("/scaling_max_freq") ||
+                p.endsWith("/scaling_cur_freq") ||
+                p.endsWith("/scaling_setspeed") ||
+                p.endsWith("/scaling_available_governors") ||
+                p.endsWith("/scaling_available_frequencies")
+            )) ||
+            p.contains("/cpufreq/schedutil/") ||
+            p.contains("cpuinfo_") ||
+            p.contains("time_in_state") ||
+            p.contains("trans_table") ||
+            (p.contains("/cpu") && p.endsWith("/online")) ||
+            p.startsWith("/dev/cpuset")
+        ) return true
+
+        // 2. GPU & Graphics & KCAL & Display & Touch (Covered in GPU & Display Subscreen)
+        if (p.contains("kgsl-3d0/default_pwrlevel") ||
+            p.contains("kgsl-3d0/max_pwrlevel") ||
+            p.contains("kgsl-3d0/min_pwrlevel") ||
+            p.contains("kgsl-3d0/thermal_pwrlevel") ||
+            p.contains("kgsl-3d0/max_gpuclk") ||
+            p.contains("kgsl-3d0/gpuclk") ||
+            p.contains("kgsl-3d0/min_clock_mhz") ||
+            p.contains("kgsl-3d0/max_clock_mhz") ||
+            p.contains("kgsl-3d0/force_bus_on") ||
+            p.contains("kgsl-3d0/force_clk_on") ||
+            p.contains("kgsl-3d0/force_rail_on") ||
+            p.contains("kgsl-3d0/force_no_nap") ||
+            p.contains("kgsl-3d0/adrenoboost") ||
+            p.contains("kgsl-3d0/throttling") ||
+            p.contains("kgsl-3d0/pwrscale") ||
+            p == "/proc/gpufreq/gpufreq_power_mode" ||
+            p == "/proc/gpufreq/gpufreq_fixed_freq_volt" ||
+            p == "/proc/mali/dvfs_enable" ||
+            p.contains(".mali/power_policy") ||
+            p.contains("kcal_ctrl.0") ||
+            p.contains("display_hz") ||
+            p.contains("display_mode") ||
+            p.contains("/touchpanel/") ||
+            p.contains("/sys/class/touch/") ||
+            p.contains("/sys/devices/virtual/touch/")
+        ) return true
+
+        // 3. Battery & Charger & Protection (Covered in Battery Subscreen)
+        if (p.contains("power_supply/battery/current_max") ||
+            p.contains("power_supply/battery/constant_charge_current_max") ||
+            p.contains("power_supply/battery/input_current_limit") ||
+            p.contains("power_supply/battery/charging_enabled") ||
+            p.contains("power_supply/battery/input_suspend") ||
+            p.contains("power_supply/battery/step_charging_enabled") ||
+            p.contains("power_supply/battery/charge_control_limit") ||
+            p.contains("power_supply/battery/smart_charging") ||
+            p.contains("power_supply/battery/store_mode") ||
+            p.contains("power_supply/battery/batt_slate_mode") ||
+            p.contains("power_supply/battery/mmi_charging_enable") ||
+            p.contains("power_supply/battery/fastcharge_mode") ||
+            p.contains("power_supply/battery/fast_charge") ||
+            p.contains("power_supply/battery/thermal_limit") ||
+            p.contains("power_supply/battery/system_temp_level") ||
+            p.contains("power_supply/usb/current_max") ||
+            p.contains("power_supply/main/") ||
+            p.contains("power_supply/bms/") ||
+            p.contains("qcom-battery/direct_charging") ||
+            p.contains("qcom-battery/restricted_charging") ||
+            p.contains("charger/bypass_charger") ||
+            p.contains("charger/enable_sc") ||
+            p.contains("charger/pump_express") ||
+            p.contains("charger/input_current") ||
+            p.contains("devices/platform/mt_charger/")
+        ) return true
+
+        // 4. Memory & Storage (VM, Swap, ZRAM) (Covered in Memory & Storage Subscreen)
+        if (p == "/proc/sys/vm/swappiness" ||
+            p == "/proc/sys/vm/dirty_ratio" ||
+            p == "/proc/sys/vm/dirty_background_ratio" ||
+            p == "/proc/sys/vm/vfs_cache_pressure" ||
+            p == "/proc/sys/vm/compact_memory" ||
+            (p.contains("zram") && (p.endsWith("/comp_algorithm") || p.endsWith("/max_comp_streams") || p.endsWith("/disksize"))) ||
+            p.contains("lowmemorykiller/parameters/minfree")
+        ) return true
+
+        // 5. Network & TCP Basic (Covered in Network Subscreen)
+        if (p == "/proc/sys/net/ipv4/tcp_congestion_control" ||
+            p == "/proc/sys/net/ipv4/tcp_fastopen" ||
+            p == "/proc/sys/net/core/rmem_max" ||
+            p == "/proc/sys/net/core/wmem_max" ||
+            p == "/proc/sys/net/core/default_qdisc"
+        ) return true
+
+        // 6. Thermal Subscreen (Covered in Thermal Subscreen)
+        if (p.contains("/thermal/thermal_zone") ||
+            p == "/sys/devices/virtual/thermal/thermal_message/sconfig" ||
+            p.contains("msm_thermal")
+        ) return true
+
+        // 7. Audio & Sound Control (Covered in Audio Subscreen)
+        if (p.contains("sound_control") || p.contains("soundcontrol") || p.contains("klapse")) return true
+
+        // 8. System & GSI / SELinux / ADB (Covered in System Subscreen Tab 0)
+        if (p == "/proc/sys/kernel/printk" ||
+            p == "/sys/fs/selinux/enforce" ||
+            p.contains("adb_keepalive")
+        ) return true
+
+        return false
+    }
+
     fun isTunableSafe(path: String, value: String): Boolean {
         val lowerPath = path.lowercase().trim()
         val lowerVal = value.lowercase().trim()
@@ -125,14 +247,12 @@ object LynxDeepTunableRepository {
             val list = mutableListOf<DeepTunable>()
             if (result.isSuccess && result.out.isNotEmpty()) {
                 val raw = result.out.joinToString("\n").trim()
-                list.addAll(parseDeepTunablesJson(raw))
-            }
-
-            // Unpack /proc/ppm/policy_status into individual policy toggles if present
-            val ppmPolicies = readPpmPolicies()
-            if (ppmPolicies.isNotEmpty()) {
-                list.removeAll { it.path.startsWith("/proc/ppm/policy_status") }
-                list.addAll(0, ppmPolicies)
+                val parsed = parseDeepTunablesJson(raw)
+                for (item in parsed) {
+                    if (!isDuplicateOrCoveredInOtherPages(item.path)) {
+                        list.add(item)
+                    }
+                }
             }
 
             val resolved = list.map { resolveFriendlyMetadata(it) }
@@ -319,77 +439,82 @@ object LynxDeepTunableRepository {
             first=1
 
             for n in \
-                /sys/devices/system/cpu/cpufreq/policy*/scaling_governor \
-                /sys/devices/system/cpu/cpufreq/policy*/*/* \
-                /sys/devices/system/cpu/cpufreq/*/* \
-                /sys/devices/system/cpu/sched/* \
-                /sys/devices/system/cpu/cpu*/core_ctl/* \
-                /sys/devices/system/cpu/core_ctl/* \
-                /sys/devices/system/cpu/eas/* \
-                /sys/devices/system/cpu/perf/* \
-                /proc/sys/kernel/sched_* \
-                /proc/sys/kernel/uclamp_* \
+                /proc/sys/kernel/sched_latency_ns \
+                /proc/sys/kernel/sched_min_granularity_ns \
+                /proc/sys/kernel/sched_wakeup_granularity_ns \
+                /proc/sys/kernel/sched_migration_cost_ns \
+                /proc/sys/kernel/sched_nr_migrate \
+                /proc/sys/kernel/sched_rr_timeslice_ms \
+                /proc/sys/kernel/sched_cfs_bandwidth_slice_us \
+                /proc/sys/kernel/sched_child_runs_first \
+                /proc/sys/kernel/sched_tunable_scaling \
+                /proc/sys/kernel/sched_rt_runtime_us \
+                /proc/sys/kernel/sched_rt_period_us \
                 /proc/sys/kernel/timer_migration \
                 /proc/sys/kernel/randomize_va_space \
                 /proc/sys/kernel/perf_cpu_time_max_percent \
                 /proc/sys/kernel/pid_max \
-                /proc/cpufreq/* \
-                /proc/hps/* \
-                /proc/ppm/enabled \
-                /proc/ppm/mode \
-                /proc/perfmgr/boost_ctrl/*/* \
+                /proc/sys/kernel/threads-max \
+                /proc/sys/kernel/panic \
+                /proc/sys/kernel/panic_on_oops \
+                /proc/sys/kernel/random/read_wakeup_threshold \
+                /proc/sys/kernel/random/write_wakeup_threshold \
+                /sys/module/workqueue/parameters/power_efficient \
+                /sys/devices/system/cpu/cpu*/core_ctl/busy_up_thresh \
+                /sys/devices/system/cpu/cpu*/core_ctl/busy_down_thresh \
+                /sys/devices/system/cpu/cpu*/core_ctl/offline_delay_ms \
+                /sys/devices/system/cpu/cpu*/core_ctl/min_cpus \
+                /sys/devices/system/cpu/cpu*/core_ctl/max_cpus \
+                /sys/devices/system/cpu/eas/* \
+                /sys/devices/system/cpu/perf/* \
+                /proc/sys/kernel/uclamp_* \
                 /proc/perfmgr/tchbst \
                 /proc/vendor_sched/* \
-                /sys/module/ged/parameters/* \
-                /sys/kernel/ged/hal/* \
-                /sys/kernel/fpsgo/common/* \
-                /sys/kernel/fpsgo/fbt/* \
-                /sys/kernel/fpsgo/fstb/* \
-                /sys/module/fbt_cpu/parameters/* \
-                /sys/class/misc/mali*/device/power_policy \
-                /sys/class/misc/mali*/device/dvfs_period \
-                /sys/devices/platform/*.mali/power_policy \
-                /sys/devices/platform/*.mali/dvfs_period \
-                /sys/devices/platform/*.mali/dvfs \
-                /proc/mali/dvfs_enable \
-                /proc/gpufreq/gpufreq_power_mode \
-                /proc/gpufreq/gpufreq_fixed_freq_volt \
-                /sys/kernel/gpu/* \
-                /sys/devices/system/cpu/cpufreq/mp-cpufreq/* \
-                /sys/devices/system/cpu/cpuhotplug/* \
-                /sys/power/cpuhotplug/* \
-                /sys/devices/system/cpu/sprd_governor/* \
-                /sys/class/kgsl/kgsl-3d0/devfreq/* \
-                /sys/class/kgsl/kgsl-3d0/adrenoboost \
-                /sys/class/kgsl/kgsl-3d0/idle_timer \
-                /sys/class/kgsl/kgsl-3d0/force_bus_on \
-                /sys/class/kgsl/kgsl-3d0/force_clk_on \
-                /sys/class/kgsl/kgsl-3d0/force_rail_on \
-                /sys/class/kgsl/kgsl-3d0/force_no_nap \
-                /sys/class/kgsl/kgsl-3d0/default_pwrlevel \
-                /sys/class/kgsl/kgsl-3d0/max_pwrlevel \
-                /sys/class/kgsl/kgsl-3d0/min_pwrlevel \
-                /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel \
-                /sys/class/kgsl/kgsl-3d0/throttling \
-                /sys/class/kgsl/kgsl-3d0/bus_split \
-                /sys/class/kgsl/kgsl-3d0/max_gpuclk \
-                /sys/class/kgsl/kgsl-3d0/gpuclk \
-                /sys/class/kgsl/kgsl-3d0/min_clock_mhz \
-                /sys/class/kgsl/kgsl-3d0/max_clock_mhz \
-                /sys/class/kgsl/kgsl-3d0/pwrscale \
-                /sys/module/cpu_boost/parameters/* \
-                /sys/module/msm_performance/parameters/* \
-                /sys/module/lpm_levels/parameters/* \
-                /sys/power/cpufreq_*_limit \
-                /proc/sys/vm/* \
-                /sys/kernel/mm/lru_gen/* \
-                /sys/kernel/mm/ksm/* \
-                /sys/kernel/mm/transparent_hugepage/* \
-                /sys/kernel/mm/swap/* \
-                /sys/module/lowmemorykiller/parameters/* \
-                /sys/module/process_reclaim/parameters/* \
-                /sys/block/zram*/comp_algorithm \
-                /sys/block/zram*/max_comp_streams \
+                /proc/hps/up_threshold \
+                /proc/hps/down_threshold \
+                /proc/hps/rush_boost_enabled \
+                /proc/hps/heavy_task_enabled \
+                /proc/hps/power_mode \
+                /sys/kernel/fpsgo/common/fpsgo_enable \
+                /sys/kernel/fpsgo/fstb/fstb_self_ctrl \
+                /sys/module/ged/parameters/boost_gpu_enable \
+                /sys/module/ged/parameters/ged_smart_boost \
+                /sys/module/ged/parameters/gpu_dvfs_enable \
+                /proc/sys/vm/stat_interval \
+                /proc/sys/vm/laptop_mode \
+                /proc/sys/vm/block_dump \
+                /proc/sys/vm/drop_caches \
+                /proc/sys/vm/overcommit_memory \
+                /proc/sys/vm/overcommit_ratio \
+                /proc/sys/vm/page-cluster \
+                /proc/sys/vm/extra_free_kbytes \
+                /proc/sys/vm/watermark_scale_factor \
+                /proc/sys/vm/zone_reclaim_mode \
+                /proc/sys/vm/oom_kill_allocating_task \
+                /proc/sys/vm/panic_on_oom \
+                /proc/sys/vm/compaction_proactiveness \
+                /sys/kernel/mm/ksm/run \
+                /sys/kernel/mm/ksm/pages_to_scan \
+                /sys/kernel/mm/ksm/sleep_millisecs \
+                /sys/kernel/mm/transparent_hugepage/enabled \
+                /sys/kernel/mm/transparent_hugepage/defrag \
+                /proc/sys/fs/file-max \
+                /proc/sys/fs/dir-notify-enable \
+                /proc/sys/fs/inotify/max_user_watches \
+                /proc/sys/fs/inotify/max_user_instances \
+                /proc/sys/fs/pipe-max-size \
+                /proc/sys/fs/lease-break-time \
+                /proc/sys/net/ipv4/tcp_syncookies \
+                /proc/sys/net/ipv4/tcp_tw_reuse \
+                /proc/sys/net/ipv4/tcp_fin_timeout \
+                /proc/sys/net/ipv4/tcp_keepalive_time \
+                /proc/sys/net/ipv4/tcp_keepalive_probes \
+                /proc/sys/net/ipv4/tcp_keepalive_intvl \
+                /proc/sys/net/ipv4/tcp_sack \
+                /proc/sys/net/ipv4/tcp_window_scaling \
+                /proc/sys/net/ipv4/tcp_timestamps \
+                /proc/sys/net/ipv4/tcp_autocorking \
+                /proc/sys/net/ipv4/ip_forward \
                 /sys/block/sd*/queue/scheduler \
                 /sys/block/sd*/queue/read_ahead_kb \
                 /sys/block/sd*/queue/nr_requests \
@@ -399,7 +524,6 @@ object LynxDeepTunableRepository {
                 /sys/block/sd*/queue/add_random \
                 /sys/block/sd*/queue/rotational \
                 /sys/block/sd*/queue/io_poll \
-                /sys/block/sd*/queue/io_poll_delay \
                 /sys/block/sd*/queue/wbt_lat_usec \
                 /sys/block/mmcblk*/queue/scheduler \
                 /sys/block/mmcblk*/queue/read_ahead_kb \
@@ -409,14 +533,6 @@ object LynxDeepTunableRepository {
                 /sys/block/mmcblk*/queue/rq_affinity \
                 /sys/block/mmcblk*/queue/add_random \
                 /sys/block/mmcblk*/queue/rotational \
-                /sys/block/dm-*/queue/scheduler \
-                /sys/block/dm-*/queue/read_ahead_kb \
-                /sys/block/dm-*/queue/nr_requests \
-                /sys/block/dm-*/queue/iostats \
-                /sys/block/dm-*/queue/nomerges \
-                /sys/block/dm-*/queue/rq_affinity \
-                /sys/block/dm-*/queue/add_random \
-                /sys/block/dm-*/queue/rotational \
                 /sys/block/nvme*/queue/scheduler \
                 /sys/block/nvme*/queue/read_ahead_kb \
                 /sys/block/nvme*/queue/nr_requests \
@@ -426,78 +542,9 @@ object LynxDeepTunableRepository {
                 /sys/block/nvme*/queue/add_random \
                 /sys/block/nvme*/queue/rotational \
                 /sys/block/*/queue/iosched/* \
-                /sys/devices/platform/charger/enable_sc \
-                /sys/devices/platform/charger/input_current \
-                /sys/devices/platform/charger/chg1_current \
-                /sys/devices/platform/charger/chg2_current \
-                /sys/devices/platform/charger/pdc_max_watt \
-                /sys/devices/platform/charger/sc_ibat_limit \
-                /sys/devices/platform/charger/sw_jeita \
-                /sys/devices/platform/charger/Pump_Express \
-                /sys/devices/platform/charger/bypass_charger \
-                /sys/devices/platform/mt_charger/* \
-                /sys/class/power_supply/battery/device/smart_charging \
-                /sys/class/power_supply/battery/smart_charging_activation \
-                /sys/class/power_supply/battery/charging_enabled \
-                /sys/class/power_supply/battery/input_suspend \
-                /sys/class/power_supply/battery/charge_control_limit \
-                /sys/class/power_supply/battery/current_max \
-                /sys/class/power_supply/battery/store_mode \
-                /sys/class/power_supply/battery/batt_slate_mode \
-                /sys/class/power_supply/battery/mmi_charging_enable \
-                /sys/class/power_supply/battery/input_current_limit \
-                /sys/class/power_supply/battery/constant_charge_current_max \
-                /sys/class/power_supply/battery/step_charging_enabled \
-                /sys/class/power_supply/battery/fastcharge_mode \
-                /sys/class/power_supply/battery/fast_charge \
-                /sys/class/power_supply/battery/thermal_limit \
-                /sys/class/power_supply/battery/system_temp_level \
-                /sys/class/power_supply/battery/wireless_boost \
-                /sys/class/power_supply/battery/charge_full_design \
-                /sys/class/power_supply/usb/current_max \
-                /sys/class/power_supply/main/* \
-                /sys/class/power_supply/bms/* \
-                /sys/class/qcom-battery/direct_charging \
-                /sys/class/qcom-battery/restricted_charging \
-                /sys/class/thermal/thermal_zone*/mode \
-                /sys/class/thermal/thermal_zone*/policy \
-                /sys/devices/virtual/thermal/thermal_message/sconfig \
-                /sys/module/msm_thermal/parameters/* \
-                /sys/module/msm_thermal/core_control/* \
-                /proc/touchpanel/* \
-                /sys/class/touch/*/* \
-                /sys/devices/virtual/touch/*/* \
-                /sys/devices/platform/kcal_ctrl.0/* \
-                /sys/module/klapse/parameters/* \
-                /sys/class/timed_output/vibrator/enable \
-                /sys/class/leds/vibrator/vmax \
-                /sys/devices/virtual/timed_output/vibrator/amp \
-                /sys/kernel/sound_control/* \
-                /sys/class/misc/soundcontrol/* \
-                /proc/sys/net/ipv4/tcp_congestion_control \
-                /proc/sys/net/ipv4/tcp_fastopen \
-                /proc/sys/net/ipv4/tcp_ecn \
-                /proc/sys/net/ipv4/tcp_sack \
-                /proc/sys/net/ipv4/tcp_tw_reuse \
-                /proc/sys/net/ipv4/tcp_low_latency \
-                /proc/sys/net/ipv4/tcp_fin_timeout \
-                /proc/sys/net/ipv4/tcp_window_scaling \
-                /proc/sys/net/ipv4/tcp_timestamps \
-                /proc/sys/net/ipv4/tcp_syncookies \
-                /proc/sys/net/ipv4/tcp_autocorking \
-                /proc/sys/net/ipv4/tcp_max_syn_backlog \
-                /proc/sys/net/ipv4/tcp_keepalive_time \
-                /proc/sys/net/ipv4/tcp_keepalive_intvl \
-                /proc/sys/net/ipv4/tcp_keepalive_probes \
-                /proc/sys/net/core/default_qdisc \
-                /proc/sys/net/core/netdev_max_backlog \
-                /proc/sys/net/core/rmem_max \
-                /proc/sys/net/core/wmem_max \
-                /proc/sys/kernel/random/read_wakeup_threshold \
-                /proc/sys/kernel/random/write_wakeup_threshold \
-                /proc/sys/kernel/printk \
-                /proc/sys/kernel/printk_devkmsg \
-                /sys/module/workqueue/parameters/power_efficient; do
+                /sys/module/qcom_rx_wakelock/parameters/* \
+                /sys/module/wakeup/parameters/* \
+                /sys/class/devfreq/*/polling_interval; do
 
                 [ -f "${'$'}n" ] || continue
 

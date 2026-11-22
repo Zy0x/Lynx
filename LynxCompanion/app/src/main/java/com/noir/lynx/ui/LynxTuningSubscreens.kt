@@ -114,15 +114,14 @@ fun TuningAudioCategory(
 fun TuningSystemCategory(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
-    onAddAppClick: () -> Unit,
-    onEditRuleClick: (AppProfileRule) -> Unit,
+    onAddAppClick: () -> Unit = {},
+    onEditRuleClick: (AppProfileRule) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     SystemSubscreen(
         uiState = uiState,
         viewModel = viewModel,
-        onAddAppClick = onAddAppClick,
-        onEditRuleClick = onEditRuleClick,
+        targetTab = 0,
         modifier = modifier
     )
 }

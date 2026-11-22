@@ -347,10 +347,6 @@ impl TunableScanner {
             "/sys/module/msm_thermal/parameters",
             "/sys/module/msm_thermal/core_control",
             "/proc/touchpanel",
-            "/sys/devices/platform/kcal_ctrl.0",
-            "/sys/module/klapse/parameters",
-            "/sys/kernel/sound_control",
-            "/sys/class/misc/soundcontrol",
             "/proc/perfmgr/boost_ctrl/eas_ctrl",
             "/proc/perfmgr/syslimiter",
         ] {
@@ -359,11 +355,12 @@ impl TunableScanner {
             }
         }
 
-        // Devfreq Interconnect Buses (Qualcomm & MediaTek)
+        // Devfreq Interconnect Buses (DDR, CCI, L3 - excluding kgsl GPU handled by GPU tab)
         if let Ok(entries) = fs::read_dir("/sys/class/devfreq") {
             for entry in entries.flatten() {
                 let p = entry.path();
-                if p.is_dir() {
+                let p_str = p.to_string_lossy();
+                if p.is_dir() && !p_str.contains("kgsl") {
                     for node in &["governor", "min_freq", "max_freq", "polling_interval"] {
                         let np = p.join(node);
                         if np.is_file() {
@@ -374,7 +371,7 @@ impl TunableScanner {
             }
         }
 
-        // 3. /proc/sys/kernel selected tunables
+        // 3. /proc/sys/kernel selected pure deep tunables (excluding printk handled by System tab)
         if let Ok(entries) = fs::read_dir("/proc/sys/kernel") {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
@@ -386,7 +383,9 @@ impl TunableScanner {
                             | "randomize_va_space"
                             | "perf_cpu_time_max_percent"
                             | "pid_max"
-                            | "printk"
+                            | "threads-max"
+                            | "panic"
+                            | "panic_on_oops"
                     )
                 {
                     candidates.insert(entry.path().to_string_lossy().to_string());
@@ -394,18 +393,14 @@ impl TunableScanner {
             }
         }
 
-        // 4. Block Storage Devices (/sys/block/*)
+        // 4. Block Storage Devices (/sys/block/*) queue tunables
         if let Ok(entries) = fs::read_dir("/sys/block") {
             for entry in entries.flatten() {
                 let bname = entry.file_name().to_string_lossy().to_string();
-                if bname.starts_with("loop") || bname.starts_with("ram") {
+                if bname.starts_with("loop") || bname.starts_with("ram") || bname.starts_with("zram") {
                     continue;
                 }
                 let bpath = entry.path();
-                if bname.starts_with("zram") {
-                    candidates.insert(bpath.join("comp_algorithm").to_string_lossy().to_string());
-                    candidates.insert(bpath.join("max_comp_streams").to_string_lossy().to_string());
-                }
                 let qpath = bpath.join("queue");
                 if qpath.is_dir() {
                     for qnode in &[
@@ -431,36 +426,42 @@ impl TunableScanner {
             }
         }
 
-        // 5. Explicit standalone nodes across battery, network, and thermal
+        // 5. Explicit pure deep nodes (FS, Network, VM, Vendor HPS/FPSGO)
         for explicit in &[
-            "/proc/ppm/enabled",
-            "/proc/ppm/mode",
+            "/proc/sys/fs/file-max",
+            "/proc/sys/fs/dir-notify-enable",
+            "/proc/sys/fs/inotify/max_user_watches",
+            "/proc/sys/fs/inotify/max_user_instances",
+            "/proc/sys/fs/pipe-max-size",
+            "/proc/sys/vm/stat_interval",
+            "/proc/sys/vm/laptop_mode",
+            "/proc/sys/vm/block_dump",
+            "/proc/sys/vm/drop_caches",
+            "/proc/sys/vm/overcommit_memory",
+            "/proc/sys/vm/overcommit_ratio",
+            "/proc/sys/vm/page-cluster",
+            "/proc/sys/vm/extra_free_kbytes",
+            "/proc/sys/vm/watermark_scale_factor",
+            "/proc/sys/vm/zone_reclaim_mode",
+            "/proc/sys/vm/oom_kill_allocating_task",
+            "/proc/sys/vm/panic_on_oom",
+            "/proc/sys/vm/compaction_proactiveness",
+            "/sys/kernel/mm/ksm/run",
+            "/sys/kernel/mm/ksm/pages_to_scan",
+            "/sys/kernel/mm/ksm/sleep_millisecs",
+            "/sys/kernel/mm/transparent_hugepage/enabled",
+            "/sys/kernel/mm/transparent_hugepage/defrag",
             "/proc/perfmgr/tchbst",
-            "/proc/mali/dvfs_enable",
-            "/proc/gpufreq/gpufreq_power_mode",
-            "/proc/gpufreq/gpufreq_fixed_freq_volt",
-            "/sys/class/power_supply/battery/device/smart_charging",
-            "/sys/class/power_supply/battery/smart_charging_activation",
-            "/sys/class/power_supply/battery/charging_enabled",
-            "/sys/class/power_supply/battery/input_suspend",
-            "/sys/class/power_supply/battery/charge_control_limit",
-            "/sys/class/power_supply/battery/current_max",
-            "/sys/class/power_supply/battery/store_mode",
-            "/sys/class/power_supply/battery/batt_slate_mode",
-            "/sys/class/power_supply/battery/mmi_charging_enable",
-            "/sys/class/power_supply/battery/input_current_limit",
-            "/sys/class/power_supply/battery/constant_charge_current_max",
-            "/sys/class/power_supply/battery/step_charging_enabled",
-            "/sys/class/power_supply/battery/fastcharge_mode",
-            "/sys/class/power_supply/battery/fast_charge",
-            "/sys/class/power_supply/battery/thermal_limit",
-            "/sys/class/power_supply/battery/system_temp_level",
-            "/sys/class/power_supply/usb/current_max",
-            "/sys/class/qcom-battery/direct_charging",
-            "/sys/class/qcom-battery/restricted_charging",
-            "/sys/devices/virtual/thermal/thermal_message/sconfig",
-            "/proc/sys/net/ipv4/tcp_congestion_control",
-            "/proc/sys/net/ipv4/tcp_fastopen",
+            "/proc/hps/up_threshold",
+            "/proc/hps/down_threshold",
+            "/proc/hps/rush_boost_enabled",
+            "/proc/hps/heavy_task_enabled",
+            "/proc/hps/power_mode",
+            "/sys/kernel/fpsgo/common/fpsgo_enable",
+            "/sys/kernel/fpsgo/fstb/fstb_self_ctrl",
+            "/sys/module/ged/parameters/boost_gpu_enable",
+            "/sys/module/ged/parameters/ged_smart_boost",
+            "/sys/module/ged/parameters/gpu_dvfs_enable",
             "/proc/sys/net/ipv4/tcp_ecn",
             "/proc/sys/net/ipv4/tcp_sack",
             "/proc/sys/net/ipv4/tcp_tw_reuse",
@@ -474,10 +475,7 @@ impl TunableScanner {
             "/proc/sys/net/ipv4/tcp_keepalive_time",
             "/proc/sys/net/ipv4/tcp_keepalive_intvl",
             "/proc/sys/net/ipv4/tcp_keepalive_probes",
-            "/proc/sys/net/core/default_qdisc",
-            "/proc/sys/net/core/netdev_max_backlog",
-            "/proc/sys/net/core/rmem_max",
-            "/proc/sys/net/core/wmem_max",
+            "/proc/sys/net/ipv4/ip_forward",
             "/proc/sys/kernel/random/read_wakeup_threshold",
             "/proc/sys/kernel/random/write_wakeup_threshold",
             "/sys/module/workqueue/parameters/power_efficient",
@@ -487,27 +485,6 @@ impl TunableScanner {
 
         let mut out = String::from("[\n");
         let mut first = true;
-
-        // Unpack MediaTek PPM Policies first so they appear prominently under CPU & Scheduler
-        if let Ok(content) = fs::read_to_string("/proc/ppm/policy_status") {
-            for line in content.lines() {
-                if let (Some(open_b), Some(close_b)) = (line.find('['), line.find(']')) {
-                    if close_b > open_b {
-                        let idx = line[open_b + 1..close_b].trim();
-                        if idx.chars().all(|c| c.is_ascii_digit()) {
-                            let ppm_path = format!("/proc/ppm/policy_status:{}", idx);
-                            if let Some(item_json) = Self::inspect_node_json(&ppm_path) {
-                                if !first {
-                                    out.push_str(",\n");
-                                }
-                                first = false;
-                                out.push_str(&item_json);
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         for cand in &candidates {
             if let Some(item_json) = Self::inspect_node_json(cand) {

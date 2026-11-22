@@ -646,26 +646,182 @@ internal object LynxDeepTunableMetadata {
                 rec = "Aktifkan (1) untuk sensitivitas sentuhan kompetitif"
             }
 
-            // Fallbacks based on value
-            type == TunableType.TEXT -> {
+            // File Descriptors & Filesystem (VFS)
+            base == "file-max" -> {
+                name = "Batas File Deskriptor Sistem (file-max)"
+                category = "Penyimpanan & I/O"
+                desc = "Batas maksimum file descriptor yang dapat dibuka secara bersamaan oleh seluruh proses di sistem Android. Mencegah error 'Too many open files' pada game besar atau multi-tasking berat."
+                type = TunableType.INT
+                unit = "files"
+                rec = "Rekomendasi: 524288 s/d 2097152 untuk stabilitas game berat"
+            }
+            base == "threads-max" -> {
+                name = "Batas Thread Sistem (threads-max)"
+                category = "CPU & Penjadwal"
+                desc = "Batas total thread eksekusi yang dapat dibuat kernel di seluruh sistem Android."
+                type = TunableType.INT
+                unit = "threads"
+                rec = "Rekomendasi: 65536 s/d 131072"
+            }
+            base == "pid_max" -> {
+                name = "Batas Maksimum PID Proses"
+                category = "CPU & Penjadwal"
+                desc = "Batas nilai ID proses unik yang dapat dialokasikan kernel Linux sebelum melakukan daur ulang angka PID."
+                type = TunableType.INT
+                unit = "PIDs"
+                rec = "Default: 32768, Power user: 65536"
+            }
+            base == "overcommit_memory" -> {
+                name = "Kebijakan Overcommit Memori"
+                category = "Memori & RAM (VM)"
+                desc = "Aturan alokasi virtual memory kernel saat proses meminta RAM lebih besar dari fisik yang tersedia."
+                type = TunableType.CHOICE
+                options = listOf(
+                    TunableOption("0", "0 - Heuristik Aman (Default OEM)"),
+                    TunableOption("1", "1 - Selalu Izinkan (Anti-OOM Game Berat)"),
+                    TunableOption("2", "2 - Larang Ketat (Anti Crash)")
+                )
+                rec = "0 (Standar Aman) atau 1 (Emulator / Game Besar)"
+            }
+            base == "overcommit_ratio" -> {
+                name = "Persentase Rasio Overcommit"
+                category = "Memori & RAM (VM)"
+                desc = "Persentase memori fisik yang diizinkan untuk overcommit saat overcommit_memory diset ke mode 2."
+                type = TunableType.SLIDER
+                min = 0f; max = 100f; step = 5f; unit = "%"
+                rec = "Optimal: 50%"
+            }
+            base == "page-cluster" -> {
+                name = "Ukuran Cluster Swap Page (2^N)"
+                category = "Memori & RAM (VM)"
+                desc = "Jumlah halaman memori yang ditransfer sekaligus saat swapping (2 pangkat N). Nilai 0 membaca 1 page (4KB) memangkas latensi, nilai 3 membaca 8 pages (32KB) meningkatkan throughput sequential."
+                type = TunableType.STEPPER
+                min = 0f; max = 4f; step = 1f; unit = "exp"
+                rec = "0 = 4KB per transfer (Latensi Terendah), 3 = 32KB per transfer"
+            }
+            base == "drop_caches" -> {
+                name = "Pembersih Cache Memori Kernel"
+                category = "Memori & RAM (VM)"
+                desc = "Melepaskan pagecache, dentries, dan inodes bersih dari RAM untuk mengosongkan memori secara instan."
+                type = TunableType.CHOICE
+                options = listOf(
+                    TunableOption("1", "1 - Bebaskan Pagecache Bersih"),
+                    TunableOption("2", "2 - Bebaskan Dentries & Inodes"),
+                    TunableOption("3", "3 - Bebaskan Keduanya (Pagecache + Inodes)")
+                )
+                rec = "Pilih 3 untuk mengosongkan RAM sebelum membuka game berat"
+            }
+            base == "panic" -> {
+                name = "Jeda Waktu Reboot Kernel Panic"
+                category = "Sistem & Keamanan"
+                desc = "Waktu tunggu (dalam detik) sebelum perangkat reboot otomatis saat kernel mengalami panic fatal (0 = jangan reboot)."
+                type = TunableType.STEPPER
+                min = 0f; max = 30f; step = 1f; unit = "s"
+                rec = "5 detik"
+            }
+            base == "panic_on_oops" -> {
+                name = "Panic Saat Kernel Oops Terjadi"
+                category = "Sistem & Keamanan"
+                desc = "Memaksa sistem reboot saat driver atau modul kernel mengalami error oops ringan."
+                type = TunableType.BOOL
+                rec = "1 = Aktif"
+            }
+            base == "tcp_syncookies" -> {
+                name = "Proteksi TCP SYN Cookies"
+                category = "Jaringan & TCP"
+                desc = "Mengaktifkan mekanisme SYN cookies untuk mencegah server socket kehabisan antrian akibat serangan SYN flood atau koneksi gantung."
+                type = TunableType.BOOL
+                rec = "1 = Aktif (Proteksi Aman)"
+            }
+            base == "tcp_keepalive_time" -> {
+                name = "Waktu Jeda TCP Keepalive"
+                category = "Jaringan & TCP"
+                desc = "Durasi waktu tunggu (detik) koneksi idle sebelum kernel mengirimkan paket probe keepalive pertama untuk menjaga soket tetap hidup."
+                type = TunableType.SLIDER
+                min = 60f; max = 7200f; step = 60f; unit = "s"
+                rec = "300 s/d 600 detik untuk mencegah koneksi game online terputus tiba-tiba"
+            }
+            base == "tcp_fin_timeout" -> {
+                name = "Waktu Timeout Soket FIN"
+                category = "Jaringan & TCP"
+                desc = "Durasi tunggu pelepasan soket TCP yang ditutup oleh aplikasi sebelum kernel membersihkan port dari memori."
+                type = TunableType.STEPPER
+                min = 5f; max = 60f; step = 5f; unit = "s"
+                rec = "15-30 detik untuk mempercepat daur ulang port jaringan"
+            }
+            base == "rq_affinity" -> {
+                name = "Afinitas Core I/O (rq_affinity)"
+                category = "Penyimpanan & I/O"
+                desc = "Mengarahkan penanganan interupsi penyelesaian I/O storage ke core CPU yang meminta data (mempertahankan L1/L2 cache locality)."
+                type = TunableType.CHOICE
+                options = listOf(
+                    TunableOption("0", "0 - CPU Mana Saja"),
+                    TunableOption("1", "1 - Core Pemanggil"),
+                    TunableOption("2", "2 - Core Pemanggil Ketat (Strict)")
+                )
+                rec = "2 = Performa I/O tertinggi & bebas cache-miss"
+            }
+
+            // Dynamic Universal Heuristic Fallbacks for Kernel, System, OEM & Vendor Nodes
+            else -> {
                 val v = tunable.value.trim()
-                if (v == "0" || v == "1" || v.equals("enabled", true) || v.equals("disabled", true) || v.equals("y", true) || v.equals("n", true)) {
+                if (options.isNotEmpty() && options.size > 1) {
+                    if (type != TunableType.BOOL) {
+                        type = TunableType.CHOICE
+                    }
+                } else if (v.startsWith("[") && v.contains("]")) {
+                    type = TunableType.CHOICE
+                } else if (v == "0" || v == "1" || v.equals("enabled", true) || v.equals("disabled", true) ||
+                    v.equals("y", true) || v.equals("n", true) || v.equals("true", true) || v.equals("false", true) ||
+                    v.equals("on", true) || v.equals("off", true)) {
                     type = TunableType.BOOL
                     if (desc.isBlank()) desc = "Pengaturan sakelar status kernel (1=Aktif, 0=Nonaktif)."
                 } else if (v.matches(Regex("^-?\\d+$"))) {
                     val num = v.toLongOrNull() ?: 0L
-                    if (num in 0..5 && (path.contains("boost") || path.contains("mode") || path.contains("level"))) {
+                    if (num in 0..6 && (path.contains("boost") || path.contains("mode") || path.contains("level") || path.contains("state") || path.contains("pwrlevel"))) {
                         type = TunableType.STEPPER
-                        min = 0f; max = 5f; step = 1f; unit = "lvl"
-                    } else if (path.contains("ratio") || path.contains("percent") || path.contains("pct")) {
+                        min = 0f; max = 6f; step = 1f; unit = "lvl"
+                    } else if (path.contains("ratio") || path.contains("percent") || path.contains("pct") || path.contains("pressure")) {
                         type = TunableType.SLIDER
                         min = 0f; max = 100f; step = 1f; unit = "%"
-                    } else if (path.contains("rate_limit") || path.contains("latency")) {
+                    } else if (path.contains("rate_limit") || path.contains("latency") || path.contains("timeout") || path.contains("delay") || path.contains("usec")) {
                         type = TunableType.SLIDER
-                        min = 0f; max = 20000f; step = 100f; unit = "µs"
+                        val maxBound = maxOf(num.toFloat() * 2f, 20000f)
+                        min = 0f; max = maxBound; step = 100f; unit = "µs"
                     } else {
                         type = TunableType.INT
                     }
+                } else {
+                    type = TunableType.TEXT
+                }
+
+                // Dynamic Category Attribution if still General
+                if (category == "General" || category == "Lainnya") {
+                    category = when {
+                        path.contains("cpu") || path.contains("sched") || path.contains("ppm") || path.contains("perfmgr") || path.contains("hps") -> "CPU & Penjadwal"
+                        path.contains("gpu") || path.contains("kgsl") || path.contains("mali") || path.contains("ged") || path.contains("fpsgo") || path.contains("gpufreq") -> "GPU & Grafis"
+                        path.contains("vm") || path.contains("memory") || path.contains("zram") || path.contains("compaction") || path.contains("ksm") || path.contains("swap") || path.contains("lmk") -> "Memori & RAM (VM)"
+                        path.contains("block") || path.contains("queue") || path.contains("sd") || path.contains("mmc") || path.contains("nvme") || path.contains("fs") || path.contains("io") -> "Penyimpanan & I/O"
+                        path.contains("net") || path.contains("tcp") || path.contains("wlan") || path.contains("wifi") || path.contains("qdisc") -> "Jaringan & TCP"
+                        path.contains("battery") || path.contains("charger") || path.contains("power") || path.contains("thermal") || path.contains("sleep") || path.contains("wakelock") -> "Daya & Baterai"
+                        path.contains("touch") || path.contains("panel") || path.contains("display") || path.contains("kcal") || path.contains("klapse") -> "Layar & Sentuh"
+                        path.contains("sound") || path.contains("audio") || path.contains("bluetooth") || path.contains("a2dp") -> "Audio & Suara"
+                        path.contains("kernel") || path.contains("printk") || path.contains("random") || path.contains("security") || path.contains("selinux") -> "Sistem & Keamanan"
+                        else -> "Sistem & Hardware"
+                    }
+                }
+
+                // Generate Clean Human-Centric Name if unassigned
+                if (name.isBlank() || name == tunable.rawName || name == tunable.path) {
+                    val rawClean = base.replace("_", " ").replace("-", " ")
+                        .split(" ")
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                    name = rawClean
+                }
+
+                if (desc.isBlank()) {
+                    desc = "Parameter konfigurasi hardware tingkat rendah pada direktori kernel $category."
                 }
             }
         }
