@@ -196,17 +196,17 @@ fun LynxViewModel.tuneBlockGroup(
     value: String
 ) {
     val mountx = _uiState.value.mountXStorageInfo
-    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked }
+    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked && !it.isReadOnly }
     if (unlocked.isEmpty()) {
         _uiState.update {
-            it.copy(errorMessage = "Kelompok blok ini dilindungi oleh MountX. Buka Override terlebih dahulu untuk mengubahnya.")
+            it.copy(errorMessage = "Tidak ada blok writable yang dapat diubah (terkunci MountX atau Read-Only).")
         }
         return
     }
     recordStateMutation()
     val memberNames = unlocked.map { it.device }
     val allUnlockedInGroup = unlocked.size == devicesInGroup.size
-    val targetArg = if (allUnlockedInGroup && groupId in listOf("internal", "sd", "usb", "virtual")) {
+    val targetArg = if (allUnlockedInGroup && groupId in listOf("internal", "sd", "usb", "dm", "loop", "zram", "ram")) {
         groupId
     } else {
         memberNames.joinToString(",")
@@ -246,6 +246,10 @@ fun LynxViewModel.tuneBlockGroup(
             "internal" -> "Internal"
             "sd" -> "MicroSD"
             "usb" -> "USB OTG"
+            "dm" -> "DM Mapper"
+            "loop" -> "Loopback"
+            "zram" -> "ZRAM"
+            "ram" -> "RAMDisk"
             else -> groupId
         }
         val paramLabel = when (param) {
@@ -279,10 +283,10 @@ fun LynxViewModel.applyBlockGroupPreset(
     preset: String
 ) {
     val mountx = _uiState.value.mountXStorageInfo
-    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked }
+    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked && !it.isReadOnly }
     if (unlocked.isEmpty()) {
         _uiState.update {
-            it.copy(errorMessage = "Kelompok ini dilindungi oleh MountX. Aktifkan Override jika ingin mengubah dari Lynx.")
+            it.copy(errorMessage = "Tidak ada blok writable di kelompok ini (terkunci MountX atau Read-Only).")
         }
         return
     }

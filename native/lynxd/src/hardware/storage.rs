@@ -60,7 +60,7 @@ impl StoragePolicy {
                 .as_ref()
                 .and_then(|p| p.file_name())
                 .and_then(|n| n.to_str());
-            if subsystem == Some("usb") {
+            if subsystem == Some("usb") || real.to_string_lossy().contains("/usb") {
                 return BlockDeviceType::Usb;
             }
             if subsystem == Some("nvme") {
@@ -312,7 +312,30 @@ impl StoragePolicy {
             BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme => "internal",
             BlockDeviceType::Sd => "sd",
             BlockDeviceType::Usb => "usb",
-            BlockDeviceType::Loop | BlockDeviceType::Virtual | BlockDeviceType::Unknown => "virtual",
+            BlockDeviceType::Loop => "loop",
+            BlockDeviceType::Virtual | BlockDeviceType::Unknown => "dm",
+        }
+    }
+
+    pub fn block_group_for_device(name: &str, device_type: BlockDeviceType) -> &'static str {
+        let lower = name.to_ascii_lowercase();
+        if lower.contains("boot") || lower.contains("rpmb") || lower.starts_with("ram") || lower.starts_with("nbd") {
+            return "ram";
+        }
+        if lower.starts_with("zram") {
+            return "zram";
+        }
+        if lower.starts_with("dm-") {
+            return "dm";
+        }
+        if lower.starts_with("loop") || device_type == BlockDeviceType::Loop {
+            return "loop";
+        }
+        match device_type {
+            BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme => "internal",
+            BlockDeviceType::Sd => "sd",
+            BlockDeviceType::Usb => "usb",
+            _ => "ram",
         }
     }
 
@@ -434,27 +457,29 @@ impl StoragePolicy {
                 .map(|d| d.device_type)
                 .unwrap_or_else(|| Self::classify(&Path::new("/sys/block").join(&parent_disk)));
 
-            // Skip static firmware/metadata/boot/system partitions on internal flash unless it is `/data`.
+            // HeroCard & Storage volumes strictly track real storage media ONLY:
+            // - Internal `/data`
+            // - External physical disks (`sd` MicroSD, `usb` OTG)
+            // Non-storage blocks (`loop*`, `dm-*` except `/data`, `zram*`, `ram*`, boot/apex) are NEVER user volumes.
+            if parent_disk.starts_with("loop")
+                || parent_disk.starts_with("zram")
+                || parent_disk.starts_with("ram")
+                || parent_disk.starts_with("nbd")
+                || matches!(dev_type, BlockDeviceType::Loop | BlockDeviceType::Virtual)
+            {
+                if mount_point != "/data" {
+                    continue;
+                }
+            }
+            if partition.starts_with("dm-") && mount_point != "/data" {
+                continue;
+            }
             if matches!(dev_type, BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme)
                 && mount_point != "/data"
             {
                 continue;
             }
-            if dev_type == BlockDeviceType::Loop {
-                let is_ro = SysfsReader::read_trimmed(
-                    Path::new("/sys/class/block").join(&parent_disk).join("ro"),
-                )
-                .ok()
-                .as_deref()
-                    == Some("1");
-                if is_ro || mount_point.contains("apex") {
-                    continue;
-                }
-            }
-            if matches!(dev_type, BlockDeviceType::Virtual) && !partition.starts_with("dm-") {
-                continue;
-            }
-            if partition.starts_with("dm-") && mount_point != "/data" {
+            if mount_point != "/data" && !matches!(dev_type, BlockDeviceType::Sd | BlockDeviceType::Usb) {
                 continue;
             }
 

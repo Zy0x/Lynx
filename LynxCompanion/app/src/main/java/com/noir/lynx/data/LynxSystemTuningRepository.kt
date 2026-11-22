@@ -136,6 +136,7 @@ internal object LynxSystemTuningRepository {
                                         deviceType = d.optString("type", ""),
                                         group = d.optString("group", ""),
                                         isPrimary = d.optBoolean("is_primary", false),
+                                        isReadOnly = d.optBoolean("is_read_only", false),
                                         sizeBytes = d.optLong("size_bytes", 0L),
                                         removable = d.optBoolean("removable", false),
                                         currentScheduler = cur,
@@ -212,12 +213,13 @@ internal object LynxSystemTuningRepository {
                       arnd=${'$'}(cat "${'$'}q/add_random" 2>/dev/null)
                       rot=${'$'}(cat "${'$'}q/rotational" 2>/dev/null)
                       sz=${'$'}(cat "${'$'}block/size" 2>/dev/null)
+                      ro=${'$'}(cat "${'$'}block/ro" 2>/dev/null)
                       rem=${'$'}(cat "${'$'}block/removable" 2>/dev/null)
                       real=${'$'}(readlink -f "${'$'}block/device" 2>/dev/null)
                       dtype="unknown"
                       if echo "${'$'}dev" | grep -qE '^(loop|ram|zram|dm-|nbd)'; then
                         dtype="Virtual"
-                      elif echo "${'$'}real" | grep -qE '/usb[0-9]*/'; then
+                      elif echo "${'$'}real" | grep -q '/usb'; then
                         dtype="usb"
                       elif [ -e "${'$'}block/device/ext_csd" ] || [ -e "${'$'}block/device/life_time" ] || [ "${'$'}(cat "${'$'}block/device/type" 2>/dev/null)" = "MMC" ]; then
                         dtype="emmc"
@@ -236,7 +238,7 @@ internal object LynxSystemTuningRepository {
                       elif [ "${'$'}dtype" = "emmc" ]; then
                         is_prim=1
                       fi
-                      echo "dev:${'$'}dev|type:${'$'}dtype|prim:${'$'}is_prim|sz:${'$'}sz|rem:${'$'}rem|sched:${'$'}sched|ra:${'$'}ra|nr:${'$'}nr|ios:${'$'}ios|rqa:${'$'}rqa|arnd:${'$'}arnd|rot:${'$'}rot"
+                      echo "dev:${'$'}dev|type:${'$'}dtype|prim:${'$'}is_prim|ro:${'$'}ro|sz:${'$'}sz|rem:${'$'}rem|sched:${'$'}sched|ra:${'$'}ra|nr:${'$'}nr|ios:${'$'}ios|rqa:${'$'}rqa|arnd:${'$'}arnd|rot:${'$'}rot"
                     done
                 """.trimIndent()).exec()
                 for (line in r.out) {
@@ -245,15 +247,16 @@ internal object LynxSystemTuningRepository {
                     val dev = parts.getOrNull(0)?.removePrefix("dev:") ?: continue
                     val dtype = parts.getOrNull(1)?.removePrefix("type:") ?: ""
                     val isPrim = parts.getOrNull(2)?.removePrefix("prim:") == "1"
-                    val sz = (parts.getOrNull(3)?.removePrefix("sz:")?.toLongOrNull() ?: 0L) * 512L
-                    val rem = parts.getOrNull(4)?.removePrefix("rem:") == "1"
-                    val schedRaw = parts.getOrNull(5)?.removePrefix("sched:") ?: ""
-                    val ra = parts.getOrNull(6)?.removePrefix("ra:")?.toIntOrNull() ?: 0
-                    val nr = parts.getOrNull(7)?.removePrefix("nr:")?.toIntOrNull()
-                    val ios = parts.getOrNull(8)?.removePrefix("ios:")?.toIntOrNull()
-                    val rqa = parts.getOrNull(9)?.removePrefix("rqa:")?.toIntOrNull()
-                    val arnd = parts.getOrNull(10)?.removePrefix("arnd:")?.toIntOrNull()
-                    val rot = parts.getOrNull(11)?.removePrefix("rot:")?.toIntOrNull()
+                    val isRo = parts.getOrNull(3)?.removePrefix("ro:") == "1"
+                    val sz = (parts.getOrNull(4)?.removePrefix("sz:")?.toLongOrNull() ?: 0L) * 512L
+                    val rem = parts.getOrNull(5)?.removePrefix("rem:") == "1"
+                    val schedRaw = parts.getOrNull(6)?.removePrefix("sched:") ?: ""
+                    val ra = parts.getOrNull(7)?.removePrefix("ra:")?.toIntOrNull() ?: 0
+                    val nr = parts.getOrNull(8)?.removePrefix("nr:")?.toIntOrNull()
+                    val ios = parts.getOrNull(9)?.removePrefix("ios:")?.toIntOrNull()
+                    val rqa = parts.getOrNull(10)?.removePrefix("rqa:")?.toIntOrNull()
+                    val arnd = parts.getOrNull(11)?.removePrefix("arnd:")?.toIntOrNull()
+                    val rot = parts.getOrNull(12)?.removePrefix("rot:")?.toIntOrNull()
                     val avail = schedRaw.replace("[", "").replace("]", "").trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                     val cur = Regex("\\[([^]]+)]").find(schedRaw)?.groupValues?.getOrNull(1) ?: avail.firstOrNull() ?: "none"
                     baseList.add(
@@ -261,6 +264,7 @@ internal object LynxSystemTuningRepository {
                             device = dev,
                             deviceType = dtype,
                             isPrimary = isPrim,
+                            isReadOnly = isRo,
                             sizeBytes = sz,
                             removable = rem,
                             currentScheduler = cur,
@@ -376,7 +380,7 @@ internal object LynxSystemTuningRepository {
             val res = Shell.cmd("""
                 awk -F' - ' '{
                   split($1, m, " "); split($2, f, " ");
-                  if (m[4] == "/" && (m[5] == "/data" || m[5] ~ /^\/mnt\/media_rw\// || m[5] ~ /^\/data\/sdext/ || m[5] ~ /^\/dev\/mountx\//) && m[5] !~ /apex/) {
+                  if (m[4] == "/" && (m[5] == "/data" || m[5] ~ /^\/mnt\/media_rw\// || (m[5] ~ /^\/storage\// && m[5] !~ /^\/storage\/emulated/) || m[5] ~ /^\/data\/sdext/ || m[5] ~ /^\/dev\/mountx\//) && m[5] !~ /apex/) {
                     print m[3] "|" m[5] "|" f[1] "|" f[2]
                   }
                 }' /proc/self/mountinfo 2>/dev/null | while IFS='|' read -r mm mnt fst src; do
@@ -398,6 +402,7 @@ internal object LynxSystemTuningRepository {
                       disk=${'$'}(basename "${'$'}snode")
                     else disk=${'$'}(basename "${'$'}pnode"); fi
                   else disk=${'$'}(basename "${'$'}pnode"); fi
+                  echo "${'$'}disk" | grep -qE '^(loop|zram|ram|nbd)' && continue
                   psz=${'$'}(cat "/sys/class/block/${'$'}part/size" 2>/dev/null)
                   f2fs=0; [ -d "/sys/fs/f2fs/${'$'}part" ] && f2fs=1
                   echo "vol:${'$'}part|${'$'}disk|${'$'}mnt|${'$'}fst|${'$'}psz|${'$'}f2fs"
@@ -413,12 +418,14 @@ internal object LynxSystemTuningRepository {
                 val psz = (p.getOrNull(4)?.toLongOrNull() ?: 0L) * 512L
                 val f2fs = p.getOrNull(5) == "1"
                 val devInfo = devices.firstOrNull { it.device == disk }
+                val grp = devInfo?.resolvedGroup().orEmpty()
+                if (mnt != "/data" && grp !in listOf("sd", "usb")) continue
                 raw.add(
                     StorageVolumeInfo(
                         partition = part,
                         parentDisk = disk,
                         deviceType = devInfo?.deviceType.orEmpty(),
-                        group = devInfo?.resolvedGroup().orEmpty(),
+                        group = grp,
                         mountPoint = mnt,
                         fsType = fst,
                         partitionSizeBytes = psz,
@@ -568,10 +575,10 @@ internal object LynxSystemTuningRepository {
         devices: List<IoDeviceInfo>,
         preset: String
     ): Pair<Boolean, Int> = withContext(Dispatchers.IO) {
-        val unlocked = devices.filter { !it.mountxLocked }
+        val unlocked = devices.filter { !it.mountxLocked && !it.isReadOnly }
         if (unlocked.isEmpty()) return@withContext false to 0
         val names = unlocked.map { it.device }
-        val target = if (groupId in listOf("internal", "sd", "usb", "virtual") && unlocked.size == devices.size) {
+        val target = if (groupId in listOf("internal", "sd", "usb", "dm", "loop", "zram", "ram") && unlocked.size == devices.size) {
             groupId
         } else {
             names.joinToString(",")
@@ -604,7 +611,18 @@ internal object LynxSystemTuningRepository {
                 "performance" -> listOf(1024, 128, 2, listOf("none", "mq-deadline", "deadline"))
                 else -> listOf(512, 128, 2, listOf("mq-deadline", "deadline", "none"))
             }
-            else -> listOf(128, 64, 1, listOf("none", "mq-deadline"))
+            "dm" -> when (preset) {
+                "powersave" -> listOf(128, 64, 1, listOf("none"))
+                "performance" -> listOf(512, 128, 2, listOf("none"))
+                else -> listOf(256, 128, 1, listOf("none"))
+            }
+            "loop" -> when (preset) {
+                "powersave" -> listOf(128, 64, 1, listOf("mq-deadline", "none"))
+                "performance" -> listOf(512, 128, 2, listOf("none", "mq-deadline"))
+                else -> listOf(256, 128, 1, listOf("mq-deadline", "none"))
+            }
+            "zram" -> listOf(0, 64, 1, listOf("none"))
+            else -> listOf(64, 64, 1, listOf("none"))
         }
 
         val raInt = ra as Int

@@ -80,7 +80,23 @@ internal fun StorageHeroCard(
     }
 
     val externalVolumes = remember(uiState.storageVolumes) {
-        uiState.storageVolumes.filter { !it.isPrimaryInternal }
+        uiState.storageVolumes.filter { vol ->
+            if (vol.isPrimaryInternal) return@filter false
+            val p = vol.partition.lowercase()
+            val d = vol.parentDisk.lowercase()
+            val m = vol.mountPoint.lowercase()
+            if (p.startsWith("loop") || p.startsWith("zram") || p.startsWith("dm-") || p.startsWith("ram") || p.startsWith("nbd")) {
+                return@filter false
+            }
+            if (d.startsWith("loop") || d.startsWith("zram") || d.startsWith("dm-") || d.startsWith("ram") || d.startsWith("nbd")) {
+                return@filter false
+            }
+            if (m.contains("apex") || m.startsWith("/system") || m.startsWith("/vendor")) {
+                return@filter false
+            }
+            val grp = vol.group.lowercase()
+            grp.isBlank() || grp in listOf("sd", "usb", "external")
+        }
     }
 
     Surface(

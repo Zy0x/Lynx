@@ -217,6 +217,7 @@ data class IoDeviceInfo(
     val deviceType: String = "",
     val group: String = "",
     val isPrimary: Boolean = false,
+    val isReadOnly: Boolean = false,
     val sizeBytes: Long = 0L,
     val removable: Boolean = false,
     val currentScheduler: String = "",
@@ -233,20 +234,31 @@ data class IoDeviceInfo(
     val mountxLocked: Boolean = false,
 ) {
     fun resolvedGroup(): String {
-        if (group.isNotBlank()) return group.lowercase()
-        val t = deviceType.uppercase()
         val d = device.lowercase()
+        if (d.contains("boot") || d.contains("rpmb") || d.startsWith("ram") || d.startsWith("nbd")) {
+            return "ram"
+        }
+        if (d.startsWith("zram")) return "zram"
+        if (d.startsWith("dm-")) return "dm"
+        if (d.startsWith("loop")) return "loop"
+
+        val g = group.lowercase()
+        if (g in listOf("internal", "sd", "usb", "dm", "loop", "zram", "ram")) {
+            return g
+        }
+        val t = deviceType.uppercase()
         return when {
             t == "USB" -> "usb"
             t == "SD" || t == "SDCARD" -> "sd"
             t in listOf("UFS", "EMMC", "NVME") -> "internal"
-            d.startsWith("mmcblk") && !isPrimary && !d.contains("boot") && !d.contains("rpmb") -> "sd"
-            d.startsWith("zram") || d.startsWith("loop") || d.startsWith("ram") || d.startsWith("dm-") ||
-                d.contains("boot") || d.contains("rpmb") -> "virtual"
+            t == "LOOP" -> "loop"
+            d.startsWith("mmcblk") && !isPrimary -> "sd"
             d.startsWith("sd") -> if (removable) "usb" else "internal"
-            else -> "virtual"
+            else -> "ram"
         }
     }
+
+    fun isPhysicalStorageGroup(): Boolean = resolvedGroup() in listOf("internal", "sd", "usb")
 }
 
 @androidx.compose.runtime.Immutable

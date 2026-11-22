@@ -1,3 +1,14 @@
+# Lynx Universal [Separated Loop/DM/ZRAM Block Categories & Strict Physical Storage Hero Filter] 7.0.0-RC437
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.56
+
+### Native Engine (`storage.rs`, `io.rs`) & Companion App (`LynxGpuModels`, `LynxSystemTuningRepository`, `StorageOverviewCards`, `MountXStorageCard`)
+- **Strict Physical Storage Filtering on Hero Overview (`StoragePolicy::mounted_volumes`, `StorageHeroCard`)**:
+  - Restricted `StorageHeroCard` and `mounted_volumes()` strictly to physical internal `/data` and removable external storage buses (`sd`, `usb`, plus USB OTG `/usb` path detection), eliminating `loop0/1/2` (`/bootstrap-apex`), `dm-*` mappers, `zram*`, and `ram*` non-storage blocks from the storage capacity overview.
+- **Per-Category Separation for Non-Storage Kernel Blocks (`dm`, `loop`, `zram`, `ram`)**:
+  - Separated non-storage block devices into distinct group categories (`DM Mapper`, `Loopback`, `ZRAM`, `RAMDisk`) cleanly isolated from **Media Penyimpanan** (`Internal`, `MicroSD`, `USB OTG`) in `BlockGroupMasterCard`, `lynxd io group-tune`, and `AdvancedPerBlockInspectorCard`.
+  - Added `is_read_only` (`ro=1`) filtering on group batch tuning, enabled `0 KB` Read-Ahead presets tailored for `ZRAM`, and paginated >12-node expert lists for smooth 120 FPS rendering.
+
 # Lynx Universal [Tab Penyimpanan Multi-Volume, Tuning Induk Kelompok Blok & Proteksi Override MountX] 7.0.0-RC436
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.55

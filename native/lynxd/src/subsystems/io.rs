@@ -428,6 +428,10 @@ impl IoController {
                 .and_then(|p| SysfsReader::read_int::<u32>(p.join("removable")).ok())
                 .map(|r| r != 0)
                 .unwrap_or(dev.device_type == BlockDeviceType::Sd || dev.device_type == BlockDeviceType::Usb);
+            let is_read_only = block_root
+                .and_then(|p| SysfsReader::read_trimmed(p.join("ro")).ok())
+                .as_deref()
+                == Some("1");
 
             let mountx_managed = mountx.is_disk_managed(&dev.name);
             let mountx_locked = mountx.is_disk_protected(&dev.name);
@@ -439,11 +443,12 @@ impl IoController {
 
             let _ = write!(
                 out,
-                "{{\"name\":{},\"type\":{},\"group\":{},\"is_primary\":{},\"size_bytes\":{},\"removable\":{},\"current_scheduler\":{},\"available_schedulers\":[{}],\"current_read_ahead_kb\":{},\"nr_requests\":{},\"iostats\":{},\"rq_affinity\":{},\"add_random\":{},\"rotational\":{},\"mountx_managed\":{},\"mountx_locked\":{},\"target_read_ahead_kb\":{},\"policy\":{}}}",
+                "{{\"name\":{},\"type\":{},\"group\":{},\"is_primary\":{},\"is_read_only\":{},\"size_bytes\":{},\"removable\":{},\"current_scheduler\":{},\"available_schedulers\":[{}],\"current_read_ahead_kb\":{},\"nr_requests\":{},\"iostats\":{},\"rq_affinity\":{},\"add_random\":{},\"rotational\":{},\"mountx_managed\":{},\"mountx_locked\":{},\"target_read_ahead_kb\":{},\"policy\":{}}}",
                 json_string(&dev.name),
                 json_string(dev.device_type.as_str()),
-                json_string(StoragePolicy::block_group(dev.device_type)),
+                json_string(StoragePolicy::block_group_for_device(&dev.name, dev.device_type)),
                 is_primary,
+                is_read_only,
                 size_bytes,
                 removable,
                 json_string(&dev.current_scheduler),
@@ -601,7 +606,10 @@ impl IoController {
 
         let target_trimmed = target.trim();
         let target_tokens: Vec<&str> = target_trimmed.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-        let is_group = matches!(target_trimmed, "internal" | "sd" | "usb" | "virtual");
+        let is_group = matches!(
+            target_trimmed,
+            "internal" | "sd" | "usb" | "dm" | "loop" | "zram" | "ram"
+        );
         let exact_single = !is_group
             && target_tokens.len() == 1
             && storage.devices.iter().any(|dev| dev.name == target_trimmed);
@@ -614,7 +622,7 @@ impl IoController {
 
         for dev in &storage.devices {
             let matches = if is_group {
-                StoragePolicy::block_group(dev.device_type) == target_trimmed
+                StoragePolicy::block_group_for_device(&dev.name, dev.device_type) == target_trimmed
             } else if target_tokens.len() > 1 {
                 target_tokens.iter().any(|t| dev.name == *t)
             } else if exact_single {
@@ -629,6 +637,17 @@ impl IoController {
             if mountx.is_disk_protected(&dev.name) {
                 skipped_protected += 1;
                 continue;
+            }
+            if is_group {
+                let is_ro = dev
+                    .queue_path
+                    .parent()
+                    .and_then(|p| SysfsReader::read_trimmed(p.join("ro")).ok())
+                    .as_deref()
+                    == Some("1");
+                if is_ro {
+                    continue;
+                }
             }
 
             match write_and_verify_queue(dev, param, value.trim()) {
@@ -1009,5 +1028,18 @@ mod tests {
 
         info.override_unlocked = true;
         assert!(!info.is_disk_protected("mmcblk0"));
+    }
+
+    #[test]
+    fn block_groups_separate_storage_and_kernel_virtual_categories() {
+        assert_eq!(StoragePolicy::block_group_for_device("sdc", BlockDeviceType::Ufs), "internal");
+        assert_eq!(StoragePolicy::block_group_for_device("mmcblk0", BlockDeviceType::Emmc), "internal");
+        assert_eq!(StoragePolicy::block_group_for_device("mmcblk1", BlockDeviceType::Sd), "sd");
+        assert_eq!(StoragePolicy::block_group_for_device("sda", BlockDeviceType::Usb), "usb");
+        assert_eq!(StoragePolicy::block_group_for_device("dm-2", BlockDeviceType::Virtual), "dm");
+        assert_eq!(StoragePolicy::block_group_for_device("loop0", BlockDeviceType::Loop), "loop");
+        assert_eq!(StoragePolicy::block_group_for_device("zram0", BlockDeviceType::Virtual), "zram");
+        assert_eq!(StoragePolicy::block_group_for_device("ram0", BlockDeviceType::Virtual), "ram");
+        assert_eq!(StoragePolicy::block_group_for_device("mmcblk0boot0", BlockDeviceType::Emmc), "ram");
     }
 }
