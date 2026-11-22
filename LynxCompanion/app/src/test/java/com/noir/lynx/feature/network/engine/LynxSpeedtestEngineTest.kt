@@ -69,6 +69,6 @@ class LynxSpeedtestEngineTest {
             SocketTimeoutException("connect timed out"),
             "Cloudflare Edge"
         )
-        assertTrue(timeoutErr.contains("timeout"))
+        assertTrue(timeoutErr.contains("Waktu koneksi", ignoreCase = true) || timeoutErr.contains("habis", ignoreCase = true))
     }
 }

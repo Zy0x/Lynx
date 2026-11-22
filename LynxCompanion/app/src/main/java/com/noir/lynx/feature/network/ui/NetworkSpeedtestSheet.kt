@@ -117,7 +117,7 @@ internal fun NetworkSpeedtestBottomSheet(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Speedtest & Bufferbloat",
+                            text = "Uji Kecepatan & Kestabilan",
                             fontSize = 15.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -136,7 +136,7 @@ internal fun NetworkSpeedtestBottomSheet(
                             if (isNotEmpty()) append(" • ")
                             append(st.qdiscSnapshot)
                         }
-                    }.ifBlank { "Multi-Stream Throughput + Loaded Latency" }
+                    }.ifBlank { "Kecepatan Unduh, Unggah & Kestabilan Ping" }
                     Text(
                         text = metaLine,
                         fontSize = 10.5.sp,
@@ -250,7 +250,7 @@ internal fun NetworkSpeedtestBottomSheet(
                                 sub = if (st.downloadPeakMbps > 0f) {
                                     "Puncak ${"%.1f".format(Locale.US, st.downloadPeakMbps)} Mbps"
                                 } else {
-                                    "Multi-stream HTTP/TLS"
+                                    "Kecepatan Unduh"
                                 },
                                 accentColor = AccentCyan,
                                 active = st.phase == SpeedtestPhase.DOWNLOAD,
@@ -262,7 +262,7 @@ internal fun NetworkSpeedtestBottomSheet(
                                 sub = if (st.uploadPeakMbps > 0f) {
                                     "Puncak ${"%.1f".format(Locale.US, st.uploadPeakMbps)} Mbps"
                                 } else {
-                                    "Adaptive Stream POST"
+                                    "Kecepatan Unggah"
                                 },
                                 accentColor = AccentGreen,
                                 active = st.phase == SpeedtestPhase.UPLOAD,
@@ -372,21 +372,21 @@ internal fun NetworkSpeedtestBottomSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LatencyDetailTile(
-                        label = "IDLE PING",
+                        label = "PING NORMAL",
                         value = if (st.idleLatencyMs > 0f) "${"%.1f".format(Locale.US, st.idleLatencyMs)} ms" else "—",
-                        sub = if (st.idleJitterMs > 0f) "Jitter ${"%.1f".format(Locale.US, st.idleJitterMs)} ms" else "Sebelum beban",
+                        sub = if (st.idleJitterMs > 0f) "Jitter ${"%.1f".format(Locale.US, st.idleJitterMs)} ms" else "Saat tenang",
                         accent = AccentBlue,
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     LatencyDetailTile(
-                        label = "SAAT UNDUH",
+                        label = "PING UNDUH",
                         value = if (st.downloadLoadedLatencyMs > 0f) "${"%.0f".format(Locale.US, st.downloadLoadedLatencyMs)} ms" else "—",
                         sub = formatLoadedDelta(st.idleLatencyMs, st.downloadLoadedLatencyMs),
                         accent = AccentCyan,
                         modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     LatencyDetailTile(
-                        label = "SAAT UNGGAH",
+                        label = "PING UNGGAH",
                         value = if (st.uploadLoadedLatencyMs > 0f) "${"%.0f".format(Locale.US, st.uploadLoadedLatencyMs)} ms" else "—",
                         sub = formatLoadedDelta(st.idleLatencyMs, st.uploadLoadedLatencyMs),
                         accent = AccentPurple,
@@ -413,7 +413,7 @@ internal fun NetworkSpeedtestBottomSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            LynxCapabilityBadge("BUFFERBLOAT ${st.bufferbloatGrade}", gradeColor)
+                            LynxCapabilityBadge("KESTABILAN ${st.bufferbloatGrade}", gradeColor)
                             Text(
                                 text = st.bufferbloatSummary,
                                 fontSize = 11.sp,

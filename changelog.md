@@ -1,3 +1,13 @@
+# Lynx Universal [Penyederhanaan Bahasa & Pemangkasan Istilah Teknis Jaringan] 7.0.0-RC448
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.67
+
+### Companion App (`NetworkOverviewCards`, `NetworkTuningCards`, `NetworkSpeedtestSheet`, `SpeedtestModels`, `LynxSpeedtestEngine`)
+- **Penyederhanaan Teks, Deskripsi & Penghapusan Redundansi**:
+  - Memangkas deretan badge teknis (`TC AKTIF`, `HAL/WEXT`, `BASELINE ADA`) dan sub-judul ganda (`Kontrol Radio OS & Antarmuka`, `Mode Sistem & Favorit Cepat`) pada tab `Monitor` serta `DNS & ADB`.
+  - Mengubah nama sakelar & penjelasan pada `Mode Jaringan Cepat`, `Optimasi Sinyal & Radio Wi-Fi`, `Optimasi Protokol & Jalur Data` (`Kernel & TCP`), dan `Kunci Koneksi ADB Nirkabel` menjadi bahasa manfaat sehari-hari yang mudah dipahami.
+  - Mengganti kotak peringatan `TIDAK DIDUKUNG` yang panjang pada perangkat `HAL ONLY` menjadi satu baris status ringkas **`OTOMATIS`**, serta menyederhanakan istilah & pesan diagnostik pada `Uji Kecepatan & Kestabilan`.
+
 # Lynx Universal [Diagnostik Penyebab Kegagalan Speedtest & Pintasan Izin Aplikasi] 7.0.0-RC447
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.66

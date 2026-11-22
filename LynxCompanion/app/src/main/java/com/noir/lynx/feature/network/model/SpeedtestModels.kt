@@ -25,19 +25,19 @@ val SPEEDTEST_SERVER_PRESETS: List<SpeedtestServerSpec> = listOf(
         id = "cloudflare",
         name = "Cloudflare Edge",
         provider = "speed.cloudflare.com",
-        description = "Uji multi-stream penuh (~5 dtk/fase) + Loaded Latency (Bufferbloat)"
+        description = "Uji kecepatan unduh, unggah & kestabilan ping secara menyeluruh"
     ),
     SpeedtestServerSpec(
         id = "cloudflare_lite",
         name = "Hemat Kuota",
         provider = "speed.cloudflare.com",
-        description = "Mode cepat ~3 dtk/fase (~10–20 MB), ramah paket data seluler"
+        description = "Uji cepat hemat data (~10–20 MB), cocok untuk jaringan seluler"
     ),
     SpeedtestServerSpec(
         id = "custom",
         name = "Server Kustom",
         provider = "LibreSpeed / HTTPS",
-        description = "Gunakan URL server speedtest lokal/ISP HTTPS milik Anda",
+        description = "Gunakan alamat server uji kecepatan HTTPS pilihan Anda",
         isCustom = true
     )
 )
@@ -64,7 +64,7 @@ data class SpeedtestUiState(
     val customBaseUrl: String = "",
     val phase: SpeedtestPhase = SpeedtestPhase.IDLE,
     val progress: Float = 0f,
-    val statusText: String = "Siap mengukur Download, Upload & Bufferbloat",
+    val statusText: String = "Siap menguji kecepatan & kestabilan ping",
     val serverEdgeLabel: String = "",
     val idleLatencyMs: Float = 0f,
     val idleJitterMs: Float = 0f,

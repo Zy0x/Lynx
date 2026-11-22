@@ -47,17 +47,17 @@ internal fun RadioEngineCard(
         else -> "Optimasi Driver Radio Hardware"
     }
     val radioDesc = when (engine.radioVendor) {
-        "mediatek_proc" -> "Aktifkan setCAM, autoPerfCfg & agregasi AMPDU lewat /proc/net/wlan"
-        "qualcomm_cnss" -> "Matikan dynamic_ps / power_save & packet filter di modul WCNSS/CNSS"
-        "broadcom_dhd" -> "Nonaktifkan dhd_slpauto & aktifkan op_mode performa radio Broadcom"
-        "exynos_scsc" -> "Nonaktifkan slp_enable & prioritaskan thread SCSC WLAN"
-        "unisoc_sprd" -> "Nonaktifkan auto_power / dynamic_ps pada driver sprdwl"
-        else -> "Parameter sysfs vendor driver tidak tersedia secara langsung di kernel ini"
+        "mediatek_proc" -> "Tingkatkan daya tangkap & kecepatan paket Wi-Fi pada chip MediaTek"
+        "qualcomm_cnss" -> "Matikan mode tidur driver Wi-Fi Qualcomm agar respon lebih instan"
+        "broadcom_dhd" -> "Aktifkan mode performa tinggi pada chip Wi-Fi Broadcom"
+        "exynos_scsc" -> "Kurangi jeda tidur radio Wi-Fi pada chip Exynos / Tensor"
+        "unisoc_sprd" -> "Matikan penghemat daya radio pada chip Wi-Fi Unisoc"
+        else -> "Optimasi radio sudah dikelola otomatis oleh sistem Android"
     }
 
     LynxCard(
-        title = "Radio & Wi-Fi Engine",
-        subtitle = "Kontrol Android HAL, coexistence scan, failover seluler & driver fisik",
+        title = "Optimasi Sinyal & Radio Wi-Fi",
+        subtitle = "Stabilkan respon sinyal, redam gangguan scan & siaga seluler",
         icon = Icons.Default.Router,
         accentColor = AccentBlue,
         modifier = modifier
@@ -65,61 +65,64 @@ internal fun RadioEngineCard(
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
-            LynxSectionHeader(
-                title = "Kontrol Radio OS & Antarmuka",
-                subtitle = "Bekerja di semua OEM via Android Wi-Fi HAL, iw / wpa_cli & Settings",
-                badgeText = if (engine.supportsHalLowLatency) "HAL API ${engine.androidSdk}" else "LEGACY",
-                accentColor = AccentBlue
-            )
-
             LynxSwitch(
-                label = "Wi-Fi Low-Latency & Power Save Off",
-                subLabel = buildString {
-                    append("Paksa mode latensi rendah HAL + matikan radio DTIM power save")
-                    if (engine.supportsTcpLowLatency) append(" + tcp_low_latency")
-                },
+                label = "Respons Wi-Fi Cepat (Anti-Delay)",
+                subLabel = "Cegah chip Wi-Fi masuk mode tidur agar ping tetap stabil saat layar aktif",
                 checked = state.network.wifiPingStabilizer,
                 onCheckedChange = { viewModel.setWifiPingStabilizer(it) }
             )
 
             LynxSwitch(
-                label = "Penjaga Scan Latar & Coexistence",
-                subLabel = "Cegah ping spike periodik akibat background Wi-Fi/BLE scan lokasi",
+                label = "Redam Gangguan Pemindaian Latar",
+                subLabel = "Cegah lonjakan ping akibat scan Wi-Fi & Bluetooth otomatis di latar belakang",
                 checked = state.network.antiJitterScan,
                 onCheckedChange = { viewModel.setAntiJitterScan(it) }
             )
 
             LynxSwitch(
-                label = "Cellular Hot-Standby (Failover Cepat)",
-                subLabel = "Pertahankan koneksi seluler siap pakai agar transisi dari Wi-Fi minim putus",
+                label = "Siaga Data Seluler Cepat",
+                subLabel = "Peralihan ke data seluler lebih mulus saat sinyal Wi-Fi melemah",
                 checked = state.network.cellularHotStandby,
                 onCheckedChange = { viewModel.setCellularHotStandby(it) }
             )
 
-            LynxSectionDivider()
-
-            LynxSectionHeader(
-                title = radioTitle,
-                subtitle = engine.radioLabel,
-                badgeText = when {
-                    engine.supportsHwRadio -> "VERIFIED"
-                    engine.supportsHalLowLatency -> "HAL ONLY"
-                    else -> "UNSUPPORTED"
-                },
-                accentColor = if (engine.supportsHwRadio) AccentOrange else TextSecondary
-            )
-
             if (engine.supportsHwRadio) {
+                LynxSectionDivider()
+
+                LynxSectionHeader(
+                    title = radioTitle,
+                    subtitle = engine.radioLabel,
+                    badgeText = "TERSEDIA",
+                    accentColor = AccentOrange
+                )
+
                 LynxSwitch(
-                    label = "Hardware CAM & Optimasi Driver",
+                    label = "Akselerasi Driver Radio Hardware",
                     subLabel = radioDesc,
                     checked = state.network.mtkHardwareAggregation,
                     onCheckedChange = { viewModel.setMtkHardwareAggregation(it) }
                 )
             } else {
-                UnsupportedBadge(
-                    reason = "Driver kernel tidak mengekspor parameter CAM/power-save sysfs yang dapat ditulis langsung; kontrol radio ditangani penuh via Android Wi-Fi HAL di atas."
-                )
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Driver radio (${engine.radioLabel.ifBlank { "Wi-Fi HAL" }}) dikelola otomatis oleh Android",
+                            fontSize = 10.5.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp)
+                        )
+                        LynxCapabilityBadge("OTOMATIS", AccentBlue)
+                    }
+                }
             }
         }
     }
@@ -141,8 +144,8 @@ internal fun KernelNetworkStackCard(
     val qdiscs = engine.availableQdiscs
 
     LynxCard(
-        title = "Kernel Network Stack & Anti-Bufferbloat",
-        subtitle = "Kongesti TCP, antrean paket qdisc, buffer RAM & pengarah IRQ",
+        title = "Optimasi Protokol & Jalur Data",
+        subtitle = "Atur algoritma kecepatan, antrean paket & kapasitas memori jaringan",
         icon = Icons.Default.NetworkCheck,
         accentColor = AccentCyan,
         modifier = modifier
@@ -151,8 +154,8 @@ internal fun KernelNetworkStackCard(
             HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
             LynxSectionHeader(
-                title = "Algoritma Kongesti TCP",
-                subtitle = "Mengontrol kecepatan pengiriman & pemulihan paket saat jaringan padat",
+                title = "Algoritma Transmisi (TCP)",
+                subtitle = "Mengatur cara pengiriman data agar cepat dan tahan gangguan sinyal",
                 badgeText = if (currentAlg.isNotBlank()) currentAlg.uppercase() else null,
                 accentColor = AccentCyan
             )
@@ -250,12 +253,8 @@ internal fun KernelNetworkStackCard(
             LynxSectionDivider()
 
             LynxSectionHeader(
-                title = "Queue Discipline (Antrean Paket)",
-                subtitle = if (engine.hasTc) {
-                    "Dukungan kernel default_qdisc + Live interface via tc"
-                } else {
-                    "Binary tc tidak tersedia di ROM; menggunakan kernel default_qdisc"
-                },
+                title = "Pengatur Antrean Paket (Anti-Lag)",
+                subtitle = "Mencegah ping melonjak saat jaringan sedang dipakai mengunduh atau mengunggah",
                 badgeText = currentQdisc.ifBlank { null }?.uppercase(),
                 accentColor = AccentPurple
             )
@@ -297,45 +296,41 @@ internal fun KernelNetworkStackCard(
             LynxSectionDivider()
 
             LynxSectionHeader(
-                title = "Parameter Soket, RPS & IPv6",
-                subtitle = "Optimasi ukuran buffer RAM, Fast Open & prioritas jalur paket",
+                title = "Memori & Jalur Koneksi Lanjutan",
+                subtitle = "Pemerataan beban prosesor, kapasitas buffer & prioritas koneksi",
                 badgeText = engine.ramTierLabel.ifBlank { null },
                 accentColor = AccentBlue
             )
 
             LynxSwitch(
-                label = "Multi-Queue RPS/XPS & Anti-Bufferbloat",
-                subLabel = if (engine.supportsRpsXps) {
-                    "Sebarkan IRQ paket jaringan antar-inti CPU + qdisc anti-bufferbloat"
-                } else {
-                    "RPS/XPS per-queue tidak diekspos driver; mengatur qdisc default saja"
-                },
+                label = "Pemerataan Beban Jaringan CPU",
+                subLabel = "Sebarkan pemrosesan paket data ke seluruh inti prosesor agar lebih lancar",
                 checked = state.network.fqCodelEnabled,
                 onCheckedChange = { viewModel.setFqCodelEnabled(it) }
             )
 
             val bufDesc = if (engine.effectiveRmemMaxMb > 0f) {
-                "Batas soket kernel saat ini ${"%.0f".format(Locale.US, engine.effectiveRmemMaxMb)} MB (skala ${engine.ramTierLabel.ifBlank { "otomatis" }})"
+                "Sesuaikan kapasitas tampung data otomatis (saat ini ${"%.0f".format(Locale.US, engine.effectiveRmemMaxMb)} MB)"
             } else {
-                "Sesuaikan rmem_max/wmem_max proporsional kapasitas RAM & pulihkan baseline saat off"
+                "Sesuaikan kapasitas memori transfer data otomatis mengikuti ukuran RAM"
             }
             LynxSwitch(
-                label = "Buffer Soket Adaptif RAM",
+                label = "Optimasi Buffer Memori Jaringan",
                 subLabel = bufDesc,
                 checked = state.network.tcpBuffers16m,
                 onCheckedChange = { viewModel.setTcpBuffers16m(it) }
             )
 
             LynxSwitch(
-                label = "TCP Fast Open & Anti-Stall (${engine.fastopenNodesPresent}/5 node)",
-                subLabel = "Aktifkan tcp_fastopen=3, matikan slow_start_after_idle & percepat koneksi",
+                label = "Percepat Koneksi Awal (Fast Open)",
+                subLabel = "Kurangi jeda saat pertama membuka web, aplikasi, atau berpindah server",
                 checked = state.network.tcpFastOpen,
                 onCheckedChange = { viewModel.setTcpFastOpen(it) }
             )
 
             LynxSwitch(
-                label = "Prioritas IPv4 (Matikan IPv6 Bermasalah)",
-                subLabel = "Atasi jeda timeout/lag di ISP atau hotspot yang rute IPv6-nya setengah putus",
+                label = "Prioritaskan Jalur IPv4 Stabil",
+                subLabel = "Atasi jeda loading pada Wi-Fi atau operator yang jaringan IPv6-nya kurang stabil",
                 checked = state.network.ipv6Disabled,
                 onCheckedChange = { viewModel.setIpv6Disabled(it) }
             )
@@ -371,8 +366,8 @@ internal fun PrivateDnsCard(
     }
 
     LynxCard(
-        title = "Private DNS (DoT)",
-        subtitle = "Enkripsi query DNS & akses ${PRIVATE_DNS_CATALOG.size} resolver lewat katalog sheet",
+        title = "Private DNS & Pemblokir Iklan",
+        subtitle = "Amankan koneksi DNS, saring iklan, atau pilih server tercepat",
         icon = Icons.Default.Dns,
         accentColor = AccentCyan,
         action = {
@@ -446,20 +441,14 @@ internal fun PrivateDnsCard(
                 }
             }
 
-            LynxSectionHeader(
-                title = "Mode Sistem & Favorit Cepat",
-                subtitle = "Ganti mode cepat atau buka katalog penuh untuk kategori & tes ping",
-                accentColor = AccentCyan
-            )
-
             // 2 System mode chips
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
-                    "off" to "Off (ISP)",
-                    "opportunistic" to "Otomatis (DoT)"
+                    "off" to "Off (Bawaan ISP)",
+                    "opportunistic" to "Otomatis"
                 ).forEach { (modeKey, modeLabel) ->
                     val selected = uiState.privateDnsMode == modeKey
                     val clr = if (modeKey == "opportunistic") AccentBlue else TextSecondary
@@ -562,8 +551,8 @@ internal fun AdbKeepAliveCard(
     }
 
     LynxCard(
-        title = "ADB Wireless Keep-Alive & Port Lock",
-        subtitle = "Kunci port TCP adbd + Doze whitelist agar tetap terhubung saat layar mati",
+        title = "Kunci Koneksi ADB Nirkabel",
+        subtitle = "Jaga sambungan ADB Wi-Fi tetap aktif meski layar ponsel mati",
         icon = Icons.Default.Terminal,
         accentColor = AccentGreen,
         action = { LynxCapabilityBadge(text = badgeText, color = badgeColor) },
@@ -573,8 +562,8 @@ internal fun AdbKeepAliveCard(
             HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
             LynxSwitch(
-                label = "Pertahankan Port ADB Saat Layar Mati",
-                subLabel = "Auto-heal oleh daemon lynxd jika sistem Android mereset port saat sleep",
+                label = "Pertahankan ADB Saat Layar Mati",
+                subLabel = "Pulihkan otomatis jika sistem Android memutus port ADB saat ponsel terkunci",
                 checked = uiState.adbKeepAliveEnabled,
                 onCheckedChange = { viewModel.setAdbKeepAlive(it) }
             )
@@ -582,8 +571,8 @@ internal fun AdbKeepAliveCard(
             LynxSectionDivider()
 
             LynxSectionHeader(
-                title = "Konfigurasi Port TCP (1024 – 65535)",
-                subtitle = "Pilih preset cepat atau masukkan port ADB wireless manual",
+                title = "Pilihan Port ADB (1024 – 65535)",
+                subtitle = "Pilih port standar atau masukkan nomor port khusus",
                 accentColor = AccentGreen
             )
 

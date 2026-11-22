@@ -108,7 +108,7 @@ internal fun NetworkHeroCard(
 
     LynxCard(
         title = "Monitor Tautan & Radio",
-        subtitle = "Telemetri Wi-Fi, seluler, rute aktif & driver",
+        subtitle = "Status sinyal, kecepatan tautan & uji performa jaringan",
         icon = heroIcon,
         accentColor = heroAccent,
         action = {
@@ -243,35 +243,29 @@ internal fun NetworkHeroCard(
                 }
             }
 
-            LynxSectionDivider()
-
-            LynxSectionHeader(
-                title = "Lingkungan Radio & Kernel Terdeteksi",
-                subtitle = engine.radioLabel,
-                badgeText = "API ${if (engine.androidSdk > 0) engine.androidSdk else android.os.Build.VERSION.SDK_INT}",
-                accentColor = AccentBlue
-            )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                LynxCapabilityBadge(
-                    text = "TCP: ${engine.currentAlgo.ifBlank { uiState.currentTcpCongestion.ifBlank { "?" } }.uppercase()}",
-                    color = AccentCyan
+                Text(
+                    text = engine.radioLabel.ifBlank { "Wi-Fi & Jaringan Sistem" },
+                    fontSize = 10.5.sp,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 )
-                LynxCapabilityBadge(
-                    text = "QDISC: ${engine.currentQdisc.ifBlank { "?" }}",
-                    color = AccentPurple
-                )
-                LynxCapabilityBadge(
-                    text = if (engine.hasTc) "TC AKTIF" else "NO TC BIN",
-                    color = if (engine.hasTc) AccentGreen else AccentOrange
-                )
-                LynxCapabilityBadge(
-                    text = if (engine.hasIw) "IW OK" else "HAL/WEXT",
-                    color = if (engine.hasIw) AccentBlue else TextSecondary
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LynxCapabilityBadge(
+                        text = "TCP: ${engine.currentAlgo.ifBlank { uiState.currentTcpCongestion.ifBlank { "?" } }.uppercase()}",
+                        color = AccentCyan
+                    )
+                    LynxCapabilityBadge(
+                        text = "Antrean: ${engine.currentQdisc.ifBlank { "?" }}",
+                        color = AccentPurple
+                    )
+                }
             }
 
             if (st.hasResult || st.isRunning) {
@@ -500,22 +494,19 @@ internal fun NetworkPresetCard(
     val engine = uiState.networkEngineInfo
 
     LynxCard(
-        title = "Profil Jaringan Cepat (1-Tap)",
-        subtitle = "Terapkan kombinasi HAL, driver radio, TCP, Qdisc & buffer secara instan",
+        title = "Mode Jaringan Cepat",
+        subtitle = "Pilih profil optimasi instan sesuai aktivitas Anda",
         icon = Icons.Default.Tune,
         accentColor = AccentCyan,
-        action = if (engine.hasBaseline) {
-            { LynxCapabilityBadge(text = "BASELINE ADA", color = AccentGreen) }
-        } else null,
         modifier = modifier
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
             val presets = listOf(
-                Triple("oem", "Standar OEM", "Pulihkan nilai asli perangkat & mode hemat daya radio"),
-                Triple("gaming", "Gaming Low-Latency", "HAL+CAM aktif, scan guard, NAPI responsif & minim jitter"),
-                Triple("throughput", "Throughput Maks", "Buffer adaptif RAM (${engine.ramTierLabel.ifBlank { "Auto" }}), pacing FQ & roaming bebas")
+                Triple("oem", "Standar Bawaan", "Kembalikan setelan pabrik & hemat baterai"),
+                Triple("gaming", "Mode Gaming", "Utamakan ping stabil & kurangi jeda saat bermain"),
+                Triple("throughput", "Unduh Cepat", "Maksimalkan kecepatan unduh & streaming")
             )
 
             Row(

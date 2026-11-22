@@ -82,11 +82,11 @@ internal object LynxSpeedtestEngine {
         val delta = max(0f, peakLoaded - idleLatencyMs)
         val deltaInt = delta.roundToInt()
         return when {
-            delta <= 15f -> "A+" to "Anti-bufferbloat optimal (+${deltaInt} ms di bawah beban)"
-            delta <= 35f -> "A" to "Sangat stabil untuk gaming (+${deltaInt} ms di bawah beban)"
-            delta <= 75f -> "B" to "Lonjakan antrean ringan (+${deltaInt} ms saat beban penuh)"
-            delta <= 140f -> "C" to "Antrean padat (+${deltaInt} ms) — coba aktifkan fq_codel / BBR"
-            else -> "D" to "Bufferbloat tinggi (+${deltaInt} ms) — qdisc & pacing sangat disarankan"
+            delta <= 15f -> "A+" to "Ping sangat stabil (+${deltaInt} ms saat jaringan sibuk)"
+            delta <= 35f -> "A" to "Ping stabil untuk game online (+${deltaInt} ms saat jaringan sibuk)"
+            delta <= 75f -> "B" to "Ada sedikit kenaikan ping (+${deltaInt} ms saat jaringan penuh)"
+            delta <= 140f -> "C" to "Ping naik cukup tinggi (+${deltaInt} ms) — disarankan aktifkan Anti-Lag (fq_codel)"
+            else -> "D" to "Ping melonjak tajam (+${deltaInt} ms) — aktifkan Mode Gaming atau pengatur antrean paket"
         }
     }
 
@@ -118,25 +118,25 @@ internal object LynxSpeedtestEngine {
                 lower.contains("operation not permitted") ||
                 lower.contains("eacces") ||
                 lower.contains("permission denied") ->
-                "Akses socket diblokir oleh OS / Restricted Networking Mode ($rawMsg). Aktifkan 'Izinkan akses jaringan' untuk Lynx di Setelan Aplikasi."
+                "Akses internet aplikasi Lynx diblokir oleh pengaturan sistem. Aktifkan 'Izinkan akses jaringan' di Setelan Aplikasi."
 
             t is UnknownHostException ->
-                "Gagal resolusi DNS ke $serverLabel ($rawMsg). Periksa koneksi internet, Private DNS, atau izin akses jaringan Lynx di Setelan Aplikasi."
+                "Tidak dapat terhubung ke $serverLabel (DNS tidak merespons). Periksa koneksi internet, Private DNS, atau aktifkan izin jaringan Lynx di Setelan Aplikasi."
 
             t is SSLException ->
-                "Handshake TLS/SSL gagal ke $serverLabel ($rawMsg). Periksa jam/tanggal sistem atau filter sertifikat jaringan."
+                "Koneksi aman (TLS/SSL) ke $serverLabel gagal. Periksa pengaturan tanggal & waktu perangkat."
 
             t is SocketTimeoutException ->
-                "Koneksi ke $serverLabel timeout (${rawMsg.ifBlank { "Timeout" }})."
+                "Waktu koneksi ke $serverLabel habis (sinyal lemah atau server sibuk)."
 
             t is ConnectException ->
-                "Koneksi ditolak oleh $serverLabel (${rawMsg.ifBlank { "ConnectException" }})."
+                "Koneksi ditolak oleh $serverLabel."
 
             lower.contains("cleartext") ->
-                "Android memblokir URL http:// non-terenkripsi ($rawMsg). Gunakan endpoint https://."
+                "Server menggunakan http:// tanpa enkripsi. Gunakan alamat https://."
 
             else ->
-                "Tidak dapat menjangkau $serverLabel (${rawMsg.ifBlank { t.javaClass.simpleName }})."
+                "Tidak dapat menjangkau $serverLabel. Periksa sambungan internet Anda."
         }
     }
 
