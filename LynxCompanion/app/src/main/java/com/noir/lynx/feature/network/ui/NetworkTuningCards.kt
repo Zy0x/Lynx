@@ -345,35 +345,30 @@ internal fun PrivateDnsCard(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
-    val dnsOptions = listOf(
-        Triple("off", "", "Off (Bawaan ISP / DHCP)"),
-        Triple("opportunistic", "", "Otomatis (Opportunistic DoT)"),
-        Triple("hostname", "1dot1dot1dot1.cloudflare-dns.com", "Cloudflare (1.1.1.1)"),
-        Triple("hostname", "dns.google", "Google DNS (dns.google)"),
-        Triple("hostname", "dns.adguard-dns.com", "AdGuard DNS (Anti-Iklan)"),
-        Triple("hostname", "dns.quad9.net", "Quad9 (Keamanan)")
-    )
+    var showDnsCatalogSheet by remember { mutableStateOf(false) }
 
-    var customDnsInput by remember(uiState.privateDnsSpecifier) {
-        mutableStateOf(
-            if (uiState.privateDnsMode == "hostname" &&
-                dnsOptions.none { it.first == "hostname" && it.second == uiState.privateDnsSpecifier }
-            ) {
-                uiState.privateDnsSpecifier
-            } else ""
+    if (showDnsCatalogSheet) {
+        PrivateDnsCatalogBottomSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            onDismiss = { showDnsCatalogSheet = false }
         )
     }
 
-    val hostTargetsToTest = remember(customDnsInput, uiState.privateDnsSpecifier) {
-        (dnsOptions.mapNotNull { it.second.takeIf { h -> h.isNotBlank() } } +
-            listOf(customDnsInput.trim(), uiState.privateDnsSpecifier.trim()))
-            .filter { it.isNotBlank() }
-            .distinct()
+    val activeCatalogItem = remember(uiState.privateDnsMode, uiState.privateDnsSpecifier) {
+        if (uiState.privateDnsMode == "hostname") findDnsCatalogEntry(uiState.privateDnsSpecifier) else null
+    }
+    val quickFavorites = remember {
+        listOf(
+            Triple("Cloudflare", "1dot1dot1dot1.cloudflare-dns.com", AccentCyan),
+            Triple("Google", "dns.google", AccentBlue),
+            Triple("AdGuard", "dns.adguard-dns.com", AccentGreen)
+        )
     }
 
     LynxCard(
-        title = "Private DNS (DoT) & Uji Latensi",
-        subtitle = "Pilih resolver DNS terenkripsi tercepat pada jaringan saat ini",
+        title = "Private DNS (DoT)",
+        subtitle = "Enkripsi query DNS & akses ${PRIVATE_DNS_CATALOG.size} resolver lewat katalog sheet",
         icon = Icons.Default.Dns,
         accentColor = AccentCyan,
         action = {
@@ -397,154 +392,146 @@ internal fun PrivateDnsCard(
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Active status summary box
+            val activeRtt = if (uiState.privateDnsMode == "hostname" && uiState.privateDnsSpecifier.isNotBlank()) {
+                uiState.dnsLatencyMs[uiState.privateDnsSpecifier]
+            } else null
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(0.7.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "Resolver Aktif Sistem",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = when (uiState.privateDnsMode) {
-                            "hostname" -> uiState.privateDnsSpecifier.ifBlank { "Hostname Kosong" }
-                            "opportunistic" -> "Otomatis (DoT jika didukung server DNS)"
-                            else -> "Nonaktif — menggunakan DNS bawaan DHCP/ISP"
-                        },
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        fontFamily = if (uiState.privateDnsMode == "hostname") FontFamily.Monospace else FontFamily.Default,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Surface(
-                    onClick = { viewModel.benchmarkDnsLatency(hostTargetsToTest) },
-                    enabled = !uiState.isTestingDns,
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.14f),
-                    border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
-                    modifier = Modifier.heightIn(min = 44.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = if (uiState.isTestingDns) "Menguji..." else "Uji Latensi DoT",
-                            color = AccentCyan,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            text = when (uiState.privateDnsMode) {
+                                "hostname" -> activeCatalogItem?.name ?: "Custom Private DNS"
+                                "opportunistic" -> "Mode Otomatis (Opportunistic)"
+                                else -> "Nonaktif (DNS Bawaan ISP / DHCP)"
+                            },
+                            color = TextPrimary,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Text(
+                            text = when (uiState.privateDnsMode) {
+                                "hostname" -> uiState.privateDnsSpecifier.ifBlank { "Hostname Kosong" }
+                                "opportunistic" -> "Enkripsi DoT aktif otomatis bila server mendukung"
+                                else -> "Menggunakan resolver standar Wi-Fi atau operator"
+                            },
+                            color = TextSecondary,
+                            fontSize = 10.5.sp,
+                            fontFamily = if (uiState.privateDnsMode == "hostname") FontFamily.Monospace else FontFamily.Default,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (activeRtt != null) {
+                        val txt = if (activeRtt > 0f) "${"%.0f".format(Locale.US, activeRtt)} ms" else "Timeout"
+                        val clr = if (activeRtt > 0f && activeRtt <= 45f) AccentGreen else if (activeRtt > 0f) AccentOrange else AccentRed
+                        LynxCapabilityBadge(txt, clr)
                     }
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                dnsOptions.forEach { (mode, spec, label) ->
-                    val isSelected = when (mode) {
-                        "hostname" -> uiState.privateDnsMode == "hostname" && uiState.privateDnsSpecifier == spec
-                        "opportunistic" -> uiState.privateDnsMode == "opportunistic"
-                        else -> uiState.privateDnsMode == "off"
-                    }
-                    val rtt = if (spec.isNotBlank()) uiState.dnsLatencyMs[spec] else null
+            LynxSectionHeader(
+                title = "Mode Sistem & Favorit Cepat",
+                subtitle = "Ganti mode cepat atau buka katalog penuh untuk kategori & tes ping",
+                accentColor = AccentCyan
+            )
+
+            // 2 System mode chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "off" to "Off (ISP)",
+                    "opportunistic" to "Otomatis (DoT)"
+                ).forEach { (modeKey, modeLabel) ->
+                    val selected = uiState.privateDnsMode == modeKey
+                    val clr = if (modeKey == "opportunistic") AccentBlue else TextSecondary
                     Surface(
-                        onClick = { viewModel.setPrivateDns(mode, spec) },
+                        onClick = { viewModel.setPrivateDns(modeKey, "") },
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) AccentCyan.copy(alpha = 0.16f) else BgSurfaceLowest,
-                        border = BorderStroke(if (isSelected) 1.2.dp else 0.7.dp, if (isSelected) AccentCyan else BorderSubtle),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        color = if (selected) clr.copy(alpha = 0.16f) else BgSurfaceLowest,
+                        border = BorderStroke(if (selected) 1.2.dp else 0.7.dp, if (selected) clr else BorderSubtle),
+                        modifier = Modifier.weight(1f).heightIn(min = 46.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) TextPrimary else TextSecondary,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                                if (spec.isNotBlank()) {
-                                    Text(
-                                        text = spec,
-                                        color = TextTertiary,
-                                        fontSize = 9.5.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                if (rtt != null) {
-                                    val rttText = if (rtt > 0f) "${"%.0f".format(Locale.US, rtt)} ms" else "Timeout"
-                                    val rttColor = when {
-                                        rtt <= 0f -> AccentRed
-                                        rtt <= 45f -> AccentGreen
-                                        else -> AccentOrange
-                                    }
-                                    LynxCapabilityBadge(rttText, rttColor)
-                                }
-                                if (isSelected) {
-                                    Icon(Icons.Default.Check, contentDescription = "Terpilih", tint = AccentCyan, modifier = Modifier.size(16.dp))
-                                }
-                            }
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                            Text(
+                                text = modeLabel,
+                                color = if (selected) TextPrimary else TextSecondary,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
                     }
                 }
             }
 
-            LynxSectionDivider()
-
-            LynxSectionHeader(
-                title = "Custom Hostname DoT",
-                subtitle = "Masukkan alamat resolver TLS kustom (mis. NextDNS / ControlD)",
-                accentColor = AccentBlue
-            )
-
+            // 3 Quick favorites
             Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
-                    value = customDnsInput,
-                    onValueChange = { customDnsInput = it.filter { ch -> !ch.isWhitespace() } },
-                    singleLine = true,
-                    placeholder = { Text("contoh: abcdef.dns.nextdns.io", color = TextSecondary, fontSize = 11.5.sp) },
-                    modifier = Modifier.weight(1f),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = TextPrimary
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentCyan,
-                        unfocusedBorderColor = BorderGlass,
-                        focusedContainerColor = Color(0xFF0A0C12),
-                        unfocusedContainerColor = Color(0xFF0A0C12)
-                    )
-                )
-                Button(
-                    onClick = {
-                        val target = customDnsInput.trim()
-                        if (target.isNotBlank()) viewModel.setPrivateDns("hostname", target)
-                    },
-                    enabled = customDnsInput.isNotBlank(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentCyan.copy(alpha = 0.2f),
-                        contentColor = AccentCyan
-                    ),
-                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.45f)),
-                    modifier = Modifier.heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+                quickFavorites.forEach { (shortLabel, host, clr) ->
+                    val selected = uiState.privateDnsMode == "hostname" &&
+                        uiState.privateDnsSpecifier.equals(host, ignoreCase = true)
+                    Surface(
+                        onClick = { viewModel.setPrivateDns("hostname", host) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (selected) clr.copy(alpha = 0.16f) else BgSurfaceLowest,
+                        border = BorderStroke(if (selected) 1.2.dp else 0.7.dp, if (selected) clr else BorderSubtle),
+                        modifier = Modifier.weight(1f).heightIn(min = 46.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
+                            Text(
+                                text = shortLabel,
+                                color = if (selected) clr else TextPrimary,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
+            Surface(
+                onClick = { showDnsCatalogSheet = true },
+                shape = RoundedCornerShape(12.dp),
+                color = AccentCyan.copy(alpha = 0.14f),
+                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Terapkan", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Dns, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "Buka Katalog DNS (${PRIVATE_DNS_CATALOG.size} Server) & Custom",
+                            color = AccentCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
                 }
             }
         }

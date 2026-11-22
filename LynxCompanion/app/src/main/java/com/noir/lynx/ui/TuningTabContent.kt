@@ -315,7 +315,6 @@ fun TuningTabContent(
                                         detailText1 = uiState.audioTelemetry.activeDevice,
                                         detailText2 = if (uiState.soundControl.isSupported) "Faux Driver" else "AAudio HAL",
                                         onClick = {
-                                            viewModel.selectNetworkTab(1)
                                             onSelectedCategoryChange("audio")
                                         },
                                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
@@ -339,11 +338,7 @@ fun TuningTabContent(
                             }
                         } else {
                             // ── SUB-PAGE VIEW WITH PERMANENT STICKY PINNED HEADER ──
-                            val cat = if (currentCategory == "network" || currentCategory == "audio") {
-                                if (uiState.selectedNetworkTab == 1) TuningCategory.AUDIO else TuningCategory.NETWORK
-                            } else {
-                                TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
-                            }
+                            val cat = TuningCategory.fromId(currentCategory) ?: TuningCategory.CPU
 
                             Column(
                                 modifier = Modifier
@@ -485,7 +480,7 @@ fun TuningTabContent(
                                         onExtremeConfirmRequired = onExtremeConfirmRequired,
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
-                                    "network", "audio" -> NetworkAudioSwipeableSubscreen(
+                                    "network" -> NetworkSwipeableSubscreen(
                                         uiState = uiState,
                                         viewModel = viewModel,
                                         subscreenFling = subscreenFling,
@@ -516,6 +511,12 @@ fun TuningTabContent(
                                                 Spacer(Modifier.height(8.dp))
                                             }
                                             when (currentCategory) {
+                                                "audio" -> item(key = "subscreen_audio") {
+                                                    TuningAudioCategory(
+                                                        uiState = uiState,
+                                                        viewModel = viewModel
+                                                    )
+                                                }
                                                 "hud" -> item(key = "subscreen_hud") {
                                                     TuningGameHudCategory(
                                                         uiState = uiState,

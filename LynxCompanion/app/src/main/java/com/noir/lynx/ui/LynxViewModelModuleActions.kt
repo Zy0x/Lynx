@@ -64,8 +64,8 @@ fun LynxViewModel.setSelectedTuningCategory(category: String?) {
                 "thermal" -> loadThermalSubsystemData()
                 "memory" -> loadMemorySubsystemData(forceRefresh = true)
                 "network" -> {
-                    refreshWifiTelemetry()
-                    refreshTcpAlgorithms()
+                    refreshNetworkEngineAll(runPing = true)
+                    refreshAdbConfig()
                 }
                 "audio" -> loadAudioSubsystemData()
                 "system" -> loadSystemSubsystemData()

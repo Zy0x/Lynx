@@ -1,3 +1,15 @@
+# Lynx Universal [3 Tab Khusus Wi-Fi & Katalog Private DNS ModalSheet] 7.0.0-RC444
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.63
+
+### Companion App (`NetworkTabRow`, `NetworkSubscreen`, `PrivateDnsCatalogSheet`, `TuningTabContent`)
+- **Pemisahan Penuh Sound & Audio vs 3 Tab Khusus Wi-Fi & Network**:
+  - Memisahkan sub-layar `Sound & Audio Subsystem` kembali ke rutenya sendiri (`AudioSubscreen`) di Pusat Tuning dan menghapus tab `Sound & Audio` dari halaman `Wi-Fi & Network Engine`.
+  - Menghadirkan 3 tab terdedikasi di `NetworkTabRow`: **`Monitor`** (Monitor Tautan, Preset Cepat 1-Tap & Engine Radio HAL/Driver), **`Kernel & TCP`** (Algoritma Kongesti TCP, Qdisc, Multi-Queue RPS, Buffer RAM, TCP Fast Open & Prioritas IPv4), dan **`DNS & ADB`** (Private DNS DoT & Wireless ADB Port Lock).
+- **Private DNS Kaya Pilihan Tanpa Membanjiri UI (`PrivateDnsCatalogBottomSheet`)**:
+  - Menyederhanakan kartu utama `Private DNS (DoT)` menjadi ringkasan resolver aktif + 2 mode sistem (`Off` / `Otomatis`) + 3 favorit cepat (`Cloudflare`, `Google`, `AdGuard`) + tombol **`Buka Katalog DNS`**.
+  - Memindahkan katalog 18 resolver DoT (kategori `Gaming & Cepat`, `Anti-Iklan`, `Keamanan`, `Privasi`, `Keluarga`), pencarian, uji latensi Port 853 serentak, tombol **`Uji & Pilih Tercepat`**, dan input Custom Hostname ke dalam `ModalBottomSheet` berfokus.
+
 # Lynx Universal [Deteksi IFF_UP Seluler, Filter Interface Aktif & Benchmark DoT Paralel] 7.0.0-RC443
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.62

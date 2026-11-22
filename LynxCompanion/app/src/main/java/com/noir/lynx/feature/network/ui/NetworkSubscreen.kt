@@ -13,29 +13,44 @@ import com.noir.lynx.ui.refreshAdbConfig
 import com.noir.lynx.ui.refreshNetworkEngineAll
 
 /**
- * Subscreen 6: Unified Adaptive Wi-Fi & Network Engine Composable.
+ * Subscreen 6: Dedicated 3-Tab Wi-Fi & Network Engine Composable:
+ * - targetTab == 0: Monitor & Radio (NetworkHeroCard + NetworkPresetCard + RadioEngineCard)
+ * - targetTab == 1: Kernel & TCP (KernelNetworkStackCard)
+ * - targetTab == 2: DNS & ADB (PrivateDnsCard + AdbKeepAliveCard)
+ * - targetTab == null: Stacked compatibility fallback (all cards)
  */
 @Composable
 fun NetworkSubscreen(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
+    targetTab: Int? = null,
     modifier: Modifier = Modifier
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.refreshNetworkEngineAll(runPing = true)
-        viewModel.refreshAdbConfig()
+    if (targetTab == null) {
+        LaunchedEffect(Unit) {
+            viewModel.refreshNetworkEngineAll(runPing = true)
+            viewModel.refreshAdbConfig()
+        }
     }
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        NetworkHeroCard(uiState = uiState, viewModel = viewModel)
-        NetworkPresetCard(uiState = uiState, viewModel = viewModel)
-        RadioEngineCard(uiState = uiState, viewModel = viewModel)
-        KernelNetworkStackCard(uiState = uiState, viewModel = viewModel)
-        PrivateDnsCard(uiState = uiState, viewModel = viewModel)
-        AdbKeepAliveCard(uiState = uiState, viewModel = viewModel)
+        if (targetTab == null || targetTab == 0) {
+            NetworkHeroCard(uiState = uiState, viewModel = viewModel)
+            NetworkPresetCard(uiState = uiState, viewModel = viewModel)
+            RadioEngineCard(uiState = uiState, viewModel = viewModel)
+        }
+
+        if (targetTab == null || targetTab == 1) {
+            KernelNetworkStackCard(uiState = uiState, viewModel = viewModel)
+        }
+
+        if (targetTab == null || targetTab == 2) {
+            PrivateDnsCard(uiState = uiState, viewModel = viewModel)
+            AdbKeepAliveCard(uiState = uiState, viewModel = viewModel)
+        }
     }
 }
 
@@ -48,5 +63,5 @@ fun TuningNetworkCategory(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
-    NetworkSubscreen(uiState = uiState, viewModel = viewModel, modifier = modifier)
+    NetworkSubscreen(uiState = uiState, viewModel = viewModel, targetTab = null, modifier = modifier)
 }

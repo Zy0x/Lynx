@@ -43,13 +43,16 @@ fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
     fun LynxViewModel.selectMemoryTab(tab: Int) = setSelectedMemoryTab(tab)
 
     fun LynxViewModel.setSelectedNetworkTab(tab: Int) {
-        _uiState.update { it.copy(selectedNetworkTab = tab) }
+        val clamped = tab.coerceIn(0, 2)
+        _uiState.update { it.copy(selectedNetworkTab = clamped) }
         viewModelScope.launch(Dispatchers.IO) {
-            if (tab == 0) {
-                refreshWifiTelemetry()
-                refreshTcpAlgorithms()
-            } else {
-                refreshAudioSubsystem()
+            when (clamped) {
+                0 -> refreshNetworkEngineAll(runPing = false)
+                1 -> refreshNetworkEngineAll(runPing = false)
+                else -> {
+                    refreshNetworkEngineAll(runPing = false)
+                    refreshAdbConfig()
+                }
             }
         }
     }

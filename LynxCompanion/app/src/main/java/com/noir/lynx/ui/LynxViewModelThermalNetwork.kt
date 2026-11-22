@@ -351,17 +351,31 @@ fun LynxViewModel.probeNetworkLatency() {
     }
 }
 
-fun LynxViewModel.benchmarkDnsLatency(hosts: List<String>) {
+fun LynxViewModel.benchmarkDnsLatency(
+    hosts: List<String>,
+    autoSelectFastest: Boolean = false
+) {
     if (_uiState.value.isTestingDns) return
     _uiState.update { it.copy(isTestingDns = true) }
     viewModelScope.launch(Dispatchers.IO) {
         val map = LynxRepository.benchmarkDnsLatency(hosts)
+        val mergedMap = _uiState.value.dnsLatencyMs + map
+        val fastest = map.entries
+            .filter { it.value > 0f }
+            .minByOrNull { it.value }
         _uiState.update {
             it.copy(
-                dnsLatencyMs = map,
+                dnsLatencyMs = mergedMap,
                 isTestingDns = false,
-                successMessage = "Benchmark TLS/853 DNS selesai (${map.count { entry -> entry.value > 0f }}/${hosts.size} merespons)"
+                successMessage = if (!autoSelectFastest || fastest == null) {
+                    "Benchmark TLS/853 DNS selesai (${map.count { entry -> entry.value > 0f }}/${hosts.size} merespons)"
+                } else {
+                    "DNS tercepat: ${fastest.key} (${"%.0f".format(java.util.Locale.US, fastest.value)} ms)"
+                }
             )
+        }
+        if (autoSelectFastest && fastest != null) {
+            setPrivateDns("hostname", fastest.key)
         }
     }
 }

@@ -23,7 +23,8 @@ import com.noir.lynx.feature.gpu.ui.GpuDisplayTabRow
 import com.noir.lynx.feature.gpu.ui.tuningGpuCategoryItems
 import com.noir.lynx.feature.memory.ui.MemoryStorageTabRow
 import com.noir.lynx.feature.memory.ui.MemorySubscreen
-import com.noir.lynx.feature.network.ui.NetworkAudioTabRow
+import com.noir.lynx.feature.network.ui.NetworkTabRow
+import com.noir.lynx.feature.network.ui.NetworkSubscreen
 import com.noir.lynx.feature.network.ui.TuningNetworkCategory
 
 @Composable
@@ -317,21 +318,27 @@ fun ProfilesSwipeableSubscreen(
 }
 
 @Composable
-fun NetworkAudioSwipeableSubscreen(
+fun NetworkSwipeableSubscreen(
     uiState: LynxUiState,
     viewModel: LynxViewModel,
     subscreenFling: FlingBehavior,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.refreshNetworkEngineAll(runPing = true)
+        viewModel.refreshAdbConfig()
+    }
+
     val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
     LynxTabPager(
-        pageCount = 2,
-        selectedPage = uiState.selectedNetworkTab,
+        pageCount = 3,
+        selectedPage = uiState.selectedNetworkTab.coerceIn(0, 2),
         onPageSelected = { viewModel.selectNetworkTab(it) },
         tabRow = { curPage, onSelect ->
-            NetworkAudioTabRow(
+            NetworkTabRow(
                 selectedTab = curPage,
                 onSelectTab = onSelect,
                 modifier = Modifier
@@ -341,20 +348,26 @@ fun NetworkAudioSwipeableSubscreen(
         },
         modifier = modifier
     ) { page ->
-        val listState = if (page == 0) page0State else page1State
+        val listState = when (page) {
+            0 -> page0State
+            1 -> page1State
+            else -> page2State
+        }
         LazyColumn(
             state = listState,
             flingBehavior = subscreenFling,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item(key = "net_audio_p${page}_top") { Spacer(Modifier.height(8.dp)) }
-            if (page == 0) {
-                item(key = "subscreen_network") { TuningNetworkCategory(uiState = uiState, viewModel = viewModel) }
-            } else {
-                item(key = "subscreen_audio") { TuningAudioCategory(uiState = uiState, viewModel = viewModel) }
+            item(key = "net_p${page}_top") { Spacer(Modifier.height(8.dp)) }
+            item(key = "subscreen_network_tab_$page") {
+                NetworkSubscreen(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    targetTab = page
+                )
             }
-            item(key = "net_audio_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
+            item(key = "net_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
         }
     }
 }
