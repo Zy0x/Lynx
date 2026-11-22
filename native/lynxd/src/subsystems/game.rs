@@ -238,11 +238,12 @@ impl GameController {
         Self::offload_kswapd_kcompactd(topo_for_irq.little_mask);
 
         // 8. Unified Media-Aware Storage Engine (Shared Single Source of Truth with StoragePolicy)
-        // Respect MountX-managed disks when external MountX I/O tweaks are active and override is locked.
+        // Even when MountX protects SD disks during idle/compile/download, apply bounded low-latency
+        // game overrides cleanly (with snapshot restore in game_off) so 1024KB/512 FIFO bloat never chokes gameplay.
         let mountx = crate::subsystems::IoController::detect_mountx();
         let storage = HardwareCapability::resolve_storage();
         for dev in &storage.devices {
-            if !dev.queue_path.is_dir() || mountx.is_disk_protected(&dev.name) {
+            if !dev.queue_path.is_dir() {
                 continue;
             }
             let block = match dev.queue_path.parent() {
@@ -253,28 +254,28 @@ impl GameController {
                 continue;
             }
             let effective_type = crate::hardware::storage::StoragePolicy::effective_device_type(dev);
+            if mountx.is_disk_protected(&dev.name) {
+                if effective_type == crate::hardware::capability::BlockDeviceType::Sd {
+                    let orig_path = Path::new("/dev/lynx_orig_sd_io");
+                    if !orig_path.exists() {
+                        let ra = SysfsReader::read_trimmed(dev.queue_path.join("read_ahead_kb")).unwrap_or_else(|_| "256".into());
+                        let nr = SysfsReader::read_trimmed(dev.queue_path.join("nr_requests")).unwrap_or_else(|_| "128".into());
+                        let rexp = SysfsReader::read_trimmed(dev.queue_path.join("iosched/read_expire")).unwrap_or_else(|_| "20".into());
+                        let wexp = SysfsReader::read_trimmed(dev.queue_path.join("iosched/write_expire")).unwrap_or_else(|_| "350".into());
+                        let batch = SysfsReader::read_trimmed(dev.queue_path.join("iosched/fifo_batch")).unwrap_or_else(|_| "16".into());
+                        let starv = SysfsReader::read_trimmed(dev.queue_path.join("iosched/writes_starved")).unwrap_or_else(|_| "4".into());
+                        let _ = fs::write(orig_path, format!("{}|{}|{}|{}|{}|{}|{}\n", dev.name, ra, nr, rexp, wexp, batch, starv));
+                    }
+                    if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
+                        Self::apply_game_block_params(&dev.queue_path, &params);
+                        Self::write_opt(dev.queue_path.join("iosched/front_merges"), "1");
+                    }
+                }
+                continue;
+            }
             if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
-                Self::write_opt(dev.queue_path.join("read_ahead_kb"), params.read_ahead_kb.to_string());
-                if let Some(nr) = params.nr_requests {
-                    Self::write_opt(dev.queue_path.join("nr_requests"), nr.to_string());
-                }
-                Self::write_opt(dev.queue_path.join("rq_affinity"), params.rq_affinity.to_string());
-                Self::write_opt(dev.queue_path.join("add_random"), "0");
-                Self::write_opt(dev.queue_path.join("iostats"), "0");
+                Self::apply_game_block_params(&dev.queue_path, &params);
                 Self::write_opt(dev.queue_path.join("nomerges"), "0");
-                if let Some(wbt) = params.wbt_lat_usec {
-                    Self::write_opt(dev.queue_path.join("wbt_lat_usec"), wbt.to_string());
-                }
-                if let Some(exp) = params.read_expire_ms {
-                    Self::write_opt(dev.queue_path.join("iosched/read_expire"), exp.to_string());
-                }
-                if let Some(starv) = params.writes_starved {
-                    Self::write_opt(dev.queue_path.join("iosched/writes_starved"), starv.to_string());
-                }
-                if let Some(low_lat) = params.bfq_low_latency {
-                    Self::write_opt(dev.queue_path.join("iosched/low_latency"), low_lat.to_string());
-                }
-
                 let sched_candidates: &[&str] = match effective_type {
                     crate::hardware::capability::BlockDeviceType::Emmc => &["bfq", "mq-deadline", "deadline", "none"],
                     crate::hardware::capability::BlockDeviceType::Ufs
@@ -284,6 +285,18 @@ impl GameController {
                 };
                 if let Some(chosen) = sched_candidates.iter().find(|&&c| dev.available_schedulers.iter().any(|s| s == c)) {
                     Self::write_opt(dev.queue_path.join("scheduler"), chosen);
+                }
+            }
+        }
+
+        // F2FS metadata cache retention + sequential directory readahead
+        if let Ok(entries) = fs::read_dir("/sys/fs/f2fs") {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() && entry.file_name() != "features" {
+                    Self::write_opt(p.join("ram_thresh"), "10");
+                    Self::write_opt(p.join("readdir_ra"), "1");
+                    Self::write_opt(p.join("ipu_policy"), "3");
                 }
             }
         }
@@ -316,10 +329,14 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
-        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
-        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
-        Self::write_opt("/proc/sys/vm/dirty_background_ratio", vm.dirty_background_ratio.to_string());
-        Self::write_opt("/proc/sys/vm/dirty_ratio", vm.dirty_ratio.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "150");
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
+        let game_dirty_bg = vm.dirty_background_ratio.min(1).to_string();
+        let game_dirty_fg = vm.dirty_ratio.min(5).to_string();
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", &game_dirty_bg);
+        Self::write_opt("/proc/sys/vm/dirty_ratio", &game_dirty_fg);
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &game_dirty_bg);
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &game_dirty_fg);
         crate::subsystems::zram::ZramController::disable_swap_readahead();
         Self::write_opt("/proc/sys/vm/stat_interval", "20");
 
@@ -605,6 +622,32 @@ impl GameController {
         Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "40");
         Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
 
+        // Restore MountX-protected SD queue & smooth compile/download writeback pacing
+        let orig_sd_path = Path::new("/dev/lynx_orig_sd_io");
+        if let Ok(saved) = fs::read_to_string(orig_sd_path) {
+            let parts: Vec<&str> = saved.trim().split('|').collect();
+            if parts.len() >= 6 {
+                let q = Path::new("/sys/block").join(parts[0]).join("queue");
+                if q.is_dir() {
+                    Self::write_opt(q.join("read_ahead_kb"), parts[1]);
+                    Self::write_opt(q.join("nr_requests"), parts[2]);
+                    Self::write_opt(q.join("iosched/read_expire"), parts[3]);
+                    Self::write_opt(q.join("iosched/write_expire"), parts[4]);
+                    Self::write_opt(q.join("iosched/fifo_batch"), parts[5]);
+                    if parts.len() >= 7 {
+                        Self::write_opt(q.join("iosched/writes_starved"), parts[6]);
+                    }
+                }
+            }
+            let _ = fs::remove_file(orig_sd_path);
+        }
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "300");
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
+        Self::write_opt("/proc/sys/vm/dirty_ratio", "15");
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "5");
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "15");
+
         // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");
 
@@ -612,6 +655,37 @@ impl GameController {
         crate::subsystems::NetworkController::apply_balance();
 
         "Game Mode disengaged (Restored Balanced EAS, Network, and Audio profiles).".to_string()
+    }
+
+    fn apply_game_block_params(
+        q_dir: &Path,
+        params: &crate::hardware::storage::StorageTuneParams,
+    ) {
+        Self::write_opt(q_dir.join("read_ahead_kb"), params.read_ahead_kb.to_string());
+        if let Some(nr) = params.nr_requests {
+            Self::write_opt(q_dir.join("nr_requests"), nr.to_string());
+        }
+        Self::write_opt(q_dir.join("rq_affinity"), params.rq_affinity.to_string());
+        Self::write_opt(q_dir.join("add_random"), "0");
+        Self::write_opt(q_dir.join("iostats"), "0");
+        if let Some(wbt) = params.wbt_lat_usec {
+            Self::write_opt(q_dir.join("wbt_lat_usec"), wbt.to_string());
+        }
+        if let Some(exp) = params.read_expire_ms {
+            Self::write_opt(q_dir.join("iosched/read_expire"), exp.to_string());
+        }
+        if let Some(wexp) = params.write_expire_ms {
+            Self::write_opt(q_dir.join("iosched/write_expire"), wexp.to_string());
+        }
+        if let Some(starv) = params.writes_starved {
+            Self::write_opt(q_dir.join("iosched/writes_starved"), starv.to_string());
+        }
+        if let Some(batch) = params.fifo_batch {
+            Self::write_opt(q_dir.join("iosched/fifo_batch"), batch.to_string());
+        }
+        if let Some(low_lat) = params.bfq_low_latency {
+            Self::write_opt(q_dir.join("iosched/low_latency"), low_lat.to_string());
+        }
     }
 
     fn prioritize_surfaceflinger(nice: i32) {

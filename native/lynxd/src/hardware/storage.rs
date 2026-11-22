@@ -23,7 +23,9 @@ pub struct StorageTuneParams {
     pub scheduler: &'static str,
     pub nr_requests: Option<u32>,
     pub read_expire_ms: Option<u32>,
+    pub write_expire_ms: Option<u32>,
     pub writes_starved: Option<u32>,
+    pub fifo_batch: Option<u32>,
     pub rq_affinity: u32,
     pub bfq_slice_idle_us: Option<u32>,
     pub bfq_low_latency: Option<u32>,
@@ -184,7 +186,9 @@ impl StoragePolicy {
                     scheduler: sched,
                     nr_requests: Some(nr),
                     read_expire_ms: None,
+                    write_expire_ms: None,
                     writes_starved: None,
+                    fifo_batch: None,
                     rq_affinity: 2,
                     bfq_slice_idle_us: None,
                     bfq_low_latency: None,
@@ -207,7 +211,9 @@ impl StoragePolicy {
                     scheduler: "bfq",
                     nr_requests: Some(nr),
                     read_expire_ms: Some(exp),
+                    write_expire_ms: None,
                     writes_starved: Some(starv),
+                    fifo_batch: None,
                     rq_affinity: 1,
                     bfq_slice_idle_us: Some(slice_idle),
                     bfq_low_latency: Some(low_lat),
@@ -216,20 +222,22 @@ impl StoragePolicy {
                 })
             }
             BlockDeviceType::Sd => {
-                // External MicroSD: High serial command latency on SDR104 bus.
-                // 1024KB burst read is optimal for continuous game asset/OBB streaming without head contention.
-                let (ra, nr, exp, starv, sched) = match profile_name {
-                    "extreme" => (1024, 512, 50, 8, "deadline"),
-                    "performance" => (1024, 512, 50, 8, "deadline"),
-                    "powersave" => (256, 64, 350, 2, "noop"),
-                    _ => (1024, 256, 100, 4, "deadline"), // Balance: conservative 1024KB for App2SD MountX
+                // External MicroSD (UHS SDR104 / SD_HS serial bus):
+                // - Balance (Compile/Download/Verify): 256KB RA + 128 depth avoids 512-FIFO bloat while saturating sequential R/W.
+                // - Performance/Extreme (Active Gaming & MountX streaming): 256KB RA + 256 queue depth + 15ms read_expire + 150ms write_expire + writes_starved=2 + fifo_batch=16 prevents 400MB+ dirty accumulation & IO PSI spikes while preserving fast asset streaming.
+                let (ra, nr, exp, wexp, starv, batch, sched) = match profile_name {
+                    "extreme" | "performance" => (256, 256, 15, 150, 2, 16, "deadline"),
+                    "powersave" => (128, 64, 100, 500, 2, 16, "noop"),
+                    _ => (256, 128, 20, 350, 4, 16, "deadline"),
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
                     scheduler: sched,
                     nr_requests: Some(nr),
                     read_expire_ms: Some(exp),
+                    write_expire_ms: Some(wexp),
                     writes_starved: Some(starv),
+                    fifo_batch: Some(batch),
                     rq_affinity: 2,
                     bfq_slice_idle_us: None,
                     bfq_low_latency: None,
@@ -714,5 +722,18 @@ mod tests {
         assert_eq!(ufs_p.scheduler, "kyber");
         assert_eq!(ufs_p.rq_affinity, 2);
         assert_eq!(ufs_p.wbt_lat_usec, None);
+
+        let sd = mock_block("mmcblk0", BlockDeviceType::Sd);
+        let sd_bal = StoragePolicy::profile_targets(&sd, "balance").unwrap();
+        let sd_perf = StoragePolicy::profile_targets(&sd, "performance").unwrap();
+        assert_eq!(sd_bal.read_ahead_kb, 256);
+        assert_eq!(sd_bal.nr_requests, Some(128));
+        assert_eq!(sd_bal.fifo_batch, Some(16));
+        assert_eq!(sd_perf.read_ahead_kb, 256);
+        assert_eq!(sd_perf.nr_requests, Some(256));
+        assert_eq!(sd_perf.read_expire_ms, Some(15));
+        assert_eq!(sd_perf.write_expire_ms, Some(150));
+        assert_eq!(sd_perf.writes_starved, Some(2));
+        assert_eq!(sd_perf.fifo_batch, Some(16));
     }
 }

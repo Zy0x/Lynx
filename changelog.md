@@ -1,3 +1,27 @@
+# Lynx Universal [Optimasi Antrean MicroSD Gaming & Anti-Stutter Dirty Writeback] 7.0.0-RC451
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.69
+
+### Native Engine (`storage.rs`, `game.rs`)
+- **Penyelarasan Antrean MicroSD Mode Performa & Ekstrem (`BlockDeviceType::Sd`)**:
+  - Meningkatkan profil `performance`/`extreme` MicroSD dari `(128, 64, 15, 350, 4, 8)` menjadi **`read_ahead_kb=256`, `nr_requests=256`, `read_expire=15`, `write_expire=150`, `writes_starved=2`, `fifo_batch=16`** (`deadline`) untuk menghilangkan hambatan baca/tulis pada kartu MicroSD kecepatan tinggi saat unduh aset maupun streaming Open World via MountX.
+- **Anti-Stutter Dirty Writeback & Restorasi Penuh 7 Field (`game_on` / `game_off`)**:
+  - Mengetatkan ambang dirty page selama sesi game menjadi `dirty_background_ratio <= 1`, `dirty_ratio <= 5`, `dirty_writeback_centisecs = 150`, dan `dirty_expire_centisecs = 300` (disinkronkan dengan `/sys/module/page_writeback/parameters/`) guna mencegah penumpukan dirty cache ratusan MB yang memicu stall I/O dan PSI memori.
+  - Menyimpan dan memulihkan field ke-7 (`writes_starved`) pada `/dev/lynx_orig_sd_io` saat keluar dari mode game (`game_off`).
+
+# Lynx Universal [Perombakan Sound & Audio Subsystem + Penyelarasan Istilah Teknis & Deskripsi] 7.0.0-RC451
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.70
+
+### Companion App (`AudioSubscreen`, `LynxSystemControlRepository`, `LynxModels`, `LynxViewModelMemoryNetwork`, `MemoryVmAdvancedCard`, `MemoryEntropyCard`, `StorageOverviewCards`)
+- **Perombakan Sound & Audio Subsystem (`AudioSubscreen`)**:
+  - **Telemetri Audio Real-Time (`readAudioTelemetry`)**: Membaca perangkat keluaran aktif (`Internal Speaker`, `Wired Headset`, `USB Audio DAC`, atau `Bluetooth A2DP` beserta codec aktif `LDAC`/`aptX`/`AAC`/`SBC`), frekuensi sampel & format PCM nyata dari `AudioFlinger` (`48.0 kHz • 16-bit`), serta nama chip/driver codec ALSA/ASoC.
+  - **Quick Audio Profile (`1-Tap Preset`)**: Menambahkan pilihan profil instan **`OEM Default`** (pemulihan *baseline* pabrik), **`Low-Latency`** (`MMAP + No Buffer`), dan **`Hi-Res & DAC`** (`32KB Offload + A2DP Guard`).
+  - **Aktivasi Tuning Bluetooth A2DP & Verifikasi Properti (`applyAudioBtCrackleGuard`)**: Menghubungkan sakelar **`Bluetooth A2DP Crackle & Drift Guard`** ke tuning properti A2DP & prioritas proses audio nyata, dilengkapi fallback `resetprop` dan penyimpanan *baseline* asli perangkat.
+  - **Status Ringkas `CODEC MANAGED` pada `Hardware Sound Gain (DAC Amplifier)`**: Meringkas penjelasan saat kernel tidak memiliki modul `sound_control` lawas menjadi 1 baris status **`ALSA / ASoC Codec`** yang rapi, serta menambahkan kontrol `Microphone Gain` dan tombol **`Reset 0 dB`** bagi kernel yang mendukung.
+- **Penyelarasan Istilah Teknis & Deskripsi Penjelas**:
+  - Mempertahankan istilah teknis yang akurat pada judul dan label (`AAudio MMAP Direct DMA`, `Deep Buffer Media Bypass`, `Direct DAC 32KB Offload Buffer`, `VFS Cache Pressure`, `Multi-Gen LRU`, `Page-Cluster`, `Dirty Ratio/Writeback`, `KSM`, `PSI Memory Stall`, `Kernel Entropy Pool`, `KESEHATAN FLASH (WEAR LEVEL)`, `I/O SCHEDULER`), sembari mengartikan maknanya secara ringkas dalam 1 kalimat pada deskripsi di bawahnya.
+
 # Lynx Universal [Penyempurnaan Label Kesehatan Chip Memori & Setelan Baca/Tulis] 7.0.0-RC450
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.69
