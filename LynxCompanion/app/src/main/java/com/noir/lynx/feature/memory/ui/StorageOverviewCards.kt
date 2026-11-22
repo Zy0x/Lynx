@@ -212,22 +212,25 @@ internal fun StorageHeroCard(
 
             if (wearInfo != null || primaryDev != null) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    wearInfo?.let { (wearLabel, wearColor) ->
+                    wearInfo?.let { wear ->
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = wearColor.copy(alpha = 0.08f),
-                            border = BorderStroke(0.6.dp, wearColor.copy(alpha = 0.30f)),
-                            modifier = if (primaryDev != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
+                            color = wear.color.copy(alpha = 0.08f),
+                            border = BorderStroke(0.6.dp, wear.color.copy(alpha = 0.30f)),
+                            modifier = (if (primaryDev != null) Modifier.weight(1f) else Modifier.fillMaxWidth())
+                                .fillMaxHeight()
                         ) {
                             Column(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "KESEHATAN FLASH",
+                                    text = "TINGKAT KEAUSAN FLASH",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary,
@@ -235,10 +238,18 @@ internal fun StorageHeroCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = wearLabel,
+                                    text = wear.label,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = wearColor,
+                                    color = wear.color,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = wear.detail,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = TextSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -250,7 +261,8 @@ internal fun StorageHeroCard(
                             shape = RoundedCornerShape(10.dp),
                             color = BgElevated,
                             border = BorderStroke(0.6.dp, BorderSubtle),
-                            modifier = if (wearInfo != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
+                            modifier = (if (wearInfo != null) Modifier.weight(1f) else Modifier.fillMaxWidth())
+                                .fillMaxHeight()
                         ) {
                             Column(
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
@@ -270,6 +282,18 @@ internal fun StorageHeroCard(
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                val queueMeta = buildString {
+                                    if (fsLabel.isNotBlank()) append(fsLabel) else append(busLabel)
+                                    dev.nrRequests?.let { append(" • Queue $it") }
+                                }
+                                Text(
+                                    text = queueMeta,
+                                    fontSize = 9.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = TextSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -863,20 +887,27 @@ internal fun formatStorageGb(bytes: Long, includeUnit: Boolean = true): String {
     return if (includeUnit) "$formatted GB" else formatted
 }
 
-internal fun formatEmmcWearLabel(raw: String): Pair<String, Color>? {
+internal data class EmmcWearInfo(
+    val label: String,
+    val detail: String,
+    val color: Color
+)
+
+internal fun formatEmmcWearLabel(raw: String): EmmcWearInfo? {
     if (raw.isBlank()) return null
-    val worst = raw.trim()
-        .split(Regex("\\s+"))
+    val tokens = raw.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    val values = tokens
         .mapNotNull { token -> token.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
         .filter { it > 0 }
-        .maxOrNull() ?: return null
+    val worst = values.maxOrNull() ?: return null
+    val detail = "JEDEC A/B: ${tokens.joinToString(" • ")}"
     return when {
-        worst == 0x01 -> "Sehat (0–10%)" to AccentGreen
-        worst in 0x02..0x03 -> "Baik (${(worst - 1) * 10}–${worst * 10}%)" to AccentGreen
-        worst in 0x04..0x06 -> "Normal (${(worst - 1) * 10}–${worst * 10}%)" to AccentCyan
-        worst in 0x07..0x09 -> "Menua (${(worst - 1) * 10}–${worst * 10}%)" to AccentOrange
-        worst == 0x0A -> "Kritis (90–100%)" to AccentRed
-        worst >= 0x0B -> "Maksimal (>100%)" to AccentRed
+        worst == 0x01 -> EmmcWearInfo("0–10% Terpakai (Baru)", detail, AccentGreen)
+        worst in 0x02..0x03 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Baik)", detail, AccentGreen)
+        worst in 0x04..0x06 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Normal)", detail, AccentCyan)
+        worst in 0x07..0x09 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Menua)", detail, AccentOrange)
+        worst == 0x0A -> EmmcWearInfo("90–100% Terpakai (Kritis)", detail, AccentRed)
+        worst >= 0x0B -> EmmcWearInfo(">100% Terpakai (Lewat Batas)", detail, AccentRed)
         else -> null
     }
 }

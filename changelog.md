@@ -1,3 +1,11 @@
+# Lynx Universal [Perbaikan Label Keausan Flash JEDEC Agar Bebas Rancu] 7.0.0-RC441
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.60
+
+### Companion App (`StorageOverviewCards`)
+- **Label Keausan Flash Non-Ambigu (`TINGKAT KEAUSAN FLASH`)**:
+  - Mengganti judul metrik `"KESEHATAN FLASH"` + status `"Maksimal (>100%)"` yang dapat terbaca keliru seolah kondisi 100% prima menjadi **`TINGKAT KEAUSAN FLASH`** dengan keterangan **`X–Y% Terpakai (...)`** atau **`>100% Terpakai (Lewat Batas)`** beserta readout langsung register **`JEDEC A/B`**.
+
 # Lynx Universal [Hierarki Judul Section, Sub-Judul & Pembatas Tegas di Tab Penyimpanan] 7.0.0-RC440
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.59
