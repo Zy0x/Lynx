@@ -66,19 +66,15 @@ fun MemoryEntropyCard(
     ) {
         // ── Card 1: Memory Pressure & Process Kill Engine (PSI / LMK) ──
         LynxCard(
-            title = "Tekanan Memori & LMK",
-            subtitle = if (memoryEntropy.isLmkLegacySupported) {
-                "Sysfs LMK Legacy (/sys/module/lowmemorykiller)"
-            } else {
-                "Userspace LMKD • PSI Memory Stall"
-            },
+            title = "Batas Penutupan Aplikasi Latar (LMK)",
+            subtitle = "Pengatur pembersihan aplikasi saat RAM hampir penuh",
             icon = Icons.Default.Security,
             accentColor = AccentCyan,
             action = {
                 val badgeText = when {
-                    !memoryEntropy.isLmkLegacySupported -> "MODERN"
-                    memoryEntropy.isLmkWritable -> "LEGACY R/W"
-                    else -> "READ-ONLY"
+                    !memoryEntropy.isLmkLegacySupported -> "OTOMATIS"
+                    memoryEntropy.isLmkWritable -> "DAPAT DIATUR"
+                    else -> "HANYA-BACA"
                 }
                 val badgeColor = when {
                     !memoryEntropy.isLmkLegacySupported -> AccentBlue
@@ -118,23 +114,23 @@ fun MemoryEntropyCard(
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = "PSI Memory Stall (10 dtk)",
+                                    text = "Beban Antrean Memori (10 Detik)",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    text = "Antrean tugas saat memori tertekan",
+                                    text = "Persentase waktu tunggu saat RAM sibuk",
                                     fontSize = 10.sp,
                                     color = TextTertiary
                                 )
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 if (memoryEntropy.psiMemorySomeAvg10.isNotBlank()) {
-                                    PsiPill("some ${memoryEntropy.psiMemorySomeAvg10}%", AccentBlue)
+                                    PsiPill("Ringan ${memoryEntropy.psiMemorySomeAvg10}%", AccentBlue)
                                 }
                                 if (memoryEntropy.psiMemoryFullAvg10.isNotBlank()) {
-                                    PsiPill("full ${memoryEntropy.psiMemoryFullAvg10}%", AccentOrange)
+                                    PsiPill("Penuh ${memoryEntropy.psiMemoryFullAvg10}%", AccentOrange)
                                 }
                             }
                         }
@@ -143,28 +139,18 @@ fun MemoryEntropyCard(
 
                 if (!memoryEntropy.isLmkLegacySupported) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = AccentBlueDim.copy(alpha = 0.45f),
-                        border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.30f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgSurfaceLowest,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Text(
-                                text = "Engine: Userspace LMKD (Berbasis PSI)",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = "Kernel ini mengelola penghentian proses latar secara adaptif lewat daemon lmkd Android modern, bukan tabel minfree statis.",
-                                fontSize = 11.sp,
-                                color = TextSecondary,
-                                lineHeight = 15.sp
-                            )
-                        }
+                        Text(
+                            text = "Pembersihan aplikasi latar dikelola otomatis oleh sistem Android (LMKD Modern).",
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            lineHeight = 15.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                        )
                     }
                 } else {
                     if (memoryEntropy.minfreeMb.isNotEmpty()) {
@@ -179,7 +165,7 @@ fun MemoryEntropyCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "Ambang Minfree Aktif (FG • VIS • SEC • HID • CNT • EMP)",
+                                    text = "Batas Memori 6 Kategori Aplikasi",
                                     fontSize = 10.sp,
                                     color = TextSecondary
                                 )
@@ -206,10 +192,10 @@ fun MemoryEntropyCard(
                         }
 
                         val lmkOptions = listOf(
-                            Triple("conservative", "Multitask", AccentGreen),
-                            Triple("balanced", "Balanced", AccentBlue),
-                            Triple("gaming", "Gaming", AccentCyan),
-                            Triple("aggressive", "Aggressive", AccentOrange)
+                            Triple("conservative", "Multitasking", AccentGreen),
+                            Triple("balanced", "Seimbang", AccentBlue),
+                            Triple("gaming", "Mode Gaming", AccentCyan),
+                            Triple("aggressive", "Lega Maksimal", AccentOrange)
                         )
 
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,7 +217,7 @@ fun MemoryEntropyCard(
                             }
 
                             MemoryOptionChip(
-                                label = if (activePreset == "custom") "Edit Kustom 6-Tier (Aktif)" else "Kustom 6-Tier (MB)",
+                                label = if (activePreset == "custom") "Atur Manual 6 Kategori (Aktif)" else "Atur Manual 6 Kategori (MB)",
                                 selected = activePreset == "custom",
                                 accentColor = AccentPurple,
                                 onClick = { showCustomLmkDialog = true },
@@ -240,7 +226,7 @@ fun MemoryEntropyCard(
                         }
                     } else {
                         Text(
-                            text = "Node sysfs minfree hanya-baca pada kernel ini.",
+                            text = "Batas memori aplikasi dikunci hanya-baca oleh kernel.",
                             fontSize = 11.sp,
                             color = TextTertiary
                         )
@@ -252,12 +238,8 @@ fun MemoryEntropyCard(
         // ── Card 2: Kernel Entropy Pool (RNG) ──
         if (memoryEntropy.isEntropySupported) {
             LynxCard(
-                title = "Kernel Entropy Pool (RNG)",
-                subtitle = if (!memoryEntropy.isEntropyThresholdWritable) {
-                    "CSPRNG otomatis • Pool $poolSize bit"
-                } else {
-                    "Ketersediaan acak & ambang bangun RNG"
-                },
+                title = "Respons Acak & Enkripsi (Entropy)",
+                subtitle = "Kecepatan respons sistem untuk keamanan & pembukaan aplikasi",
                 icon = Icons.Default.Tune,
                 accentColor = AccentBlue,
                 action = {
@@ -290,7 +272,7 @@ fun MemoryEntropyCard(
 
                     if (!memoryEntropy.isEntropyThresholdWritable) {
                         Text(
-                            text = "CSPRNG kernel modern ($poolSize-bit) — ambang entropi dikelola otomatis tanpa tuning manual.",
+                            text = "Kapasitas entropi ($poolSize-bit) sudah dikelola otomatis oleh sistem tanpa perlu pengaturan manual.",
                             fontSize = 11.sp,
                             color = TextSecondary,
                             lineHeight = 15.sp
@@ -303,14 +285,14 @@ fun MemoryEntropyCard(
                                 .map { "$it bit" to it }
                         }
                         LynxNumericPresetRow(
-                            label = "Read Wakeup Threshold",
-                            subtitle = "Batas bawah entropi untuk pembacaan /dev/random",
+                            label = "Batas Minimum Pembacaan Acak",
+                            subtitle = "Cadangan minimum sebelum sistem membuat data acak baru",
                             value = memoryEntropy.readThreshold,
                             displayValue = "${memoryEntropy.readThreshold} bit",
                             min = 8,
                             max = readMax,
                             unit = "bit",
-                            dialogHint = "Ambang entropi minimum pembacaan acak (pool: $poolSize bit).",
+                            dialogHint = "Ambang minimum pembacaan data acak (kapasitas: $poolSize bit).",
                             presets = readPresets,
                             accentColor = AccentCyan,
                             onCommitValue = { newRead ->
@@ -325,14 +307,14 @@ fun MemoryEntropyCard(
                                 .map { "$it bit" to it }
                         }
                         LynxNumericPresetRow(
-                            label = "Write Wakeup Threshold",
-                            subtitle = "Ambang pengisian ulang pool RNG kernel",
+                            label = "Batas Pengisian Ulang Entropi",
+                            subtitle = "Target pengisian cadangan data acak sistem",
                             value = memoryEntropy.writeThreshold,
                             displayValue = "${memoryEntropy.writeThreshold} bit",
                             min = 16,
                             max = writeMax,
                             unit = "bit",
-                            dialogHint = "Ambang pengisian entropi (/proc/sys/kernel/random/write_wakeup_threshold).",
+                            dialogHint = "Target pengisian cadangan entropi di latar belakang.",
                             presets = writePresets,
                             accentColor = AccentBlue,
                             onCommitValue = { newWrite ->

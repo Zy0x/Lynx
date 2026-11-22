@@ -137,22 +137,22 @@ fun MountXStorageCard(
         )
 
         LynxCard(
-            title = "Direktori Kelompok Blok",
-            subtitle = "Ketuk kategori di bawah untuk tuning induk maupun per-blok",
+            title = "Optimasi Kecepatan Baca/Tulis",
+            subtitle = "Pilih kategori penyimpanan untuk mengatur kecepatan antrean data",
             icon = Icons.Default.Storage,
             accentColor = AccentCyan
         ) {
             if (allGroups.isEmpty()) {
                 UnsupportedBadge(
-                    reason = "Tidak ada kelompok block device (/sys/block/*/queue) yang tersedia pada kernel ini."
+                    reason = "Tidak ada kelompok penyimpanan (/sys/block/*/queue) yang tersedia pada kernel ini."
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
                     if (storageGroups.isNotEmpty()) {
                         StorageSectionHeader(
-                            title = "Media Penyimpanan",
-                            subtitle = "Disk fisik internal, kartu SD & penyimpanan eksternal",
+                            title = "Media Penyimpanan Utama",
+                            subtitle = "Memori internal, kartu MicroSD & penyimpanan eksternal",
                             badgeText = "${storageGroups.size} KATEGORI",
                             accentColor = AccentCyan
                         )
@@ -175,8 +175,8 @@ fun MountXStorageCard(
                             nonStorageGroups.sumOf { it.devices.size }
                         }
                         StorageSectionHeader(
-                            title = "Blok Sistem & Virtual Kernel",
-                            subtitle = "DM terenkripsi, ZRAM swap, loopback & blok non-storage",
+                            title = "Partisi Sistem & Virtual (Lanjutan)",
+                            subtitle = "Partisi terenkripsi, ZRAM swap & blok sistem internal",
                             badgeText = "${nonStorageGroups.size} KATEGORI",
                             accentColor = AccentPurple
                         )
@@ -202,9 +202,9 @@ fun MountXStorageCard(
                                 ) {
                                     Text(
                                         text = if (showNonStorageAccordion) {
-                                            "Sembunyikan Daftar Blok Non-Storage"
+                                            "Sembunyikan Partisi Sistem & Virtual"
                                         } else {
-                                            "Buka Blok Non-Storage (Expert)"
+                                            "Tampilkan Partisi Sistem & Virtual"
                                         },
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -276,9 +276,9 @@ private fun BlockGroupDirectoryRow(
         }
     }
     val countLabel = if (writableCount < grp.devices.size) {
-        "$writableCount writable / ${grp.devices.size} blok"
+        "$writableCount dapat diatur dari ${grp.devices.size} blok"
     } else {
-        "${grp.devices.size} blok"
+        "${grp.devices.size} blok aktif"
     }
     val previewNames = grp.devices.take(3).joinToString(", ") { it.device } +
         if (grp.devices.size > 3) " (+${grp.devices.size - 3})" else ""
@@ -461,9 +461,9 @@ private fun StorageBlockGroupBottomSheet(
                     val writableCount = activeGroup.devices.count { !it.isReadOnly }
                     Text(
                         text = if (writableCount < activeGroup.devices.size) {
-                            "$writableCount writable dari ${activeGroup.devices.size} blok"
+                            "$writableCount dapat diatur dari ${activeGroup.devices.size} blok"
                         } else {
-                            "${activeGroup.devices.size} blok aktif • Tuning Induk"
+                            "${activeGroup.devices.size} blok aktif • Pengaturan Serentak"
                         },
                         fontSize = 11.sp,
                         color = TextSecondary,
@@ -619,9 +619,9 @@ private fun CategoryMasterTuningSection(
         if (activeGroup.devices.size > 5) " (+${activeGroup.devices.size - 5} lagi)" else ""
 
     StorageSectionHeader(
-        title = "Cakupan Target Induk",
-        subtitle = "Node blok kernel dalam kelompok ${activeGroup.shortTitle}",
-        badgeText = "${writableDevs.size}/${activeGroup.devices.size} WRITABLE",
+        title = "Target Pengaturan",
+        subtitle = "Blok penyimpanan dalam kelompok ${activeGroup.shortTitle}",
+        badgeText = "${writableDevs.size}/${activeGroup.devices.size} AKTIF",
         accentColor = activeGroup.accent
     )
 
@@ -731,8 +731,8 @@ private fun CategoryMasterTuningSection(
         StorageSectionDivider()
 
         StorageSectionHeader(
-            title = "Preset Cepat Induk",
-            subtitle = "Terapkan profil instan ke ${unlockedWritableDevs.size} blok ${activeGroup.shortTitle}",
+            title = "Mode Cepat",
+            subtitle = "Terapkan profil baca/tulis ke ${unlockedWritableDevs.size} blok ${activeGroup.shortTitle}",
             accentColor = activeGroup.accent
         )
         Row(
@@ -767,8 +767,8 @@ private fun CategoryMasterTuningSection(
         StorageSectionDivider()
 
         StorageSectionHeader(
-            title = "Parameter Antrean I/O (Induk)",
-            subtitle = "Atur scheduler, read-ahead & parameter antrean serentak",
+            title = "Pengaturan Antrean Baca/Tulis",
+            subtitle = "Atur penjadwal, ukuran baca-awal (Read-Ahead) & kapasitas antrean",
             accentColor = activeGroup.accent
         )
 
@@ -850,16 +850,16 @@ private fun CategoryMasterTuningSection(
     }
 
     val categoryNote = when {
-        activeGroup.id == "zram" -> "ZRAM adalah blok kompresi swap di RAM. Disarankan Read-Ahead 0 KB bersama Page-Cluster 0 agar paging bekerja tepat per 1 halaman."
-        activeGroup.id == "dm" -> "Device Mapper (dm-*) membungkus partisi terenkripsi FBE/LVM/dynamic. Blok dm-verity bersifat Read-Only; tuning diterapkan hanya ke node writable."
-        activeGroup.id == "loop" -> "Blok Loopback (loop*) digunakan APEX/container image. Perubahan induk berlaku ke seluruh slot loop yang writable."
-        activeGroup.id == "hw_boot" -> "Partisi hardware boot/RPMB (mmcblk*boot*/rpmb). Hanya untuk inspeksi lanjutan; tidak dipakai data aplikasi."
-        activeGroup.id == "ram" || activeGroup.id == "other" -> "Blok driver kernel non-disk. Perubahan diterapkan serentak bila antrean sysfs writable."
-        hasF2fs -> "Filesystem F2FS aktif (/sys/fs/f2fs terdeteksi) — optimal dengan Read-Ahead terukur tanpa buffer berlebih."
-        fsSet.contains("EXT4") -> "Filesystem EXT4 aktif — stabil pada beban baca/tulis acak dan sekuensial."
+        activeGroup.id == "zram" -> "ZRAM bekerja di dalam RAM. Ukuran Baca-Awal (Read-Ahead) 0 KB paling disarankan agar tetap responsif."
+        activeGroup.id == "dm" -> "Partisi sistem terenkripsi; pengaturan hanya diterapkan pada blok yang mengizinkan perubahan."
+        activeGroup.id == "loop" -> "Partisi kontainer modul sistem (APEX). Perubahan berlaku ke seluruh slot yang aktif."
+        activeGroup.id == "hw_boot" -> "Partisi boot perangkat keras; hanya untuk informasi dan tidak digunakan aplikasi."
+        activeGroup.id == "ram" || activeGroup.id == "other" -> "Blok virtual kernel; perubahan diterapkan ke blok yang mendukung penyesuaian."
+        hasF2fs -> "Format penyimpanan F2FS aktif — bekerja optimal dengan Read-Ahead sedang (128–512 KB)."
+        fsSet.contains("EXT4") -> "Format penyimpanan EXT4 aktif — stabil untuk penggunaan harian maupun game."
         fsSet.any { it in listOf("EXFAT", "VFAT", "FAT32", "NTFS", "FUSEBLK") } ->
-            "Media eksternal (${fsSet.joinToString("/")}) — Read-Ahead lebih besar membantu transfer dan streaming berkas besar."
-        else -> "Gunakan Kontrol Blok Individual di bawah bila perlu mengatur satu blok tertentu saja."
+            "Media eksternal (${fsSet.joinToString("/")}) — Read-Ahead lebih besar membantu mempercepat baca file besar."
+        else -> "Gunakan daftar blok di bawah bila ingin mengatur satu partisi tertentu saja."
     }
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -1248,18 +1248,18 @@ private fun IoQueueTuningSection(
         }
 
         LynxNumericPresetRow(
-            label = "Read-Ahead Cache",
+            label = "Ukuran Baca-Awal (Read-Ahead)",
             value = readAheadKb.coerceIn(0, 16384),
             displayValue = readAheadDisplay,
             min = 0,
             max = 16384,
             unit = "KB",
-            subtitle = "Buffer prefetch baca berurutan ($scopeLabel)",
-            dialogTitle = "Read-Ahead ($scopeLabel)",
+            subtitle = "Kapasitas data yang disiapkan lebih awal saat membaca file ($scopeLabel)",
+            dialogTitle = "Ukuran Baca-Awal ($scopeLabel)",
             dialogHint = if (categoryId == "zram") {
-                "Untuk ZRAM swap, 0 KB menonaktifkan swap prefetch sehingga latensi paging turun."
+                "Untuk ZRAM, 0 KB sangat disarankan agar pembacaan memori tetap instan."
             } else {
-                "Tipe: $deviceTypeHint. Nilai kecil fokus respons random 4K; nilai besar mempercepat transfer & streaming aset besar."
+                "Nilai kecil cocok untuk buka aplikasi cepat; nilai besar mempercepat pemuatan file & game besar."
             },
             presets = raPresets,
             accentColor = accentColor,
@@ -1268,15 +1268,15 @@ private fun IoQueueTuningSection(
 
         if (nrRequests != null && nrRequestsDisplay != null) {
             LynxNumericPresetRow(
-                label = "Queue Depth (nr_requests)",
+                label = "Kapasitas Antrean Data",
                 value = nrRequests.coerceIn(8, 2048),
                 displayValue = nrRequestsDisplay,
                 min = 8,
                 max = 2048,
                 unit = "req",
-                subtitle = "Kedalaman antrean permintaan blok kernel",
-                dialogTitle = "Queue Depth ($scopeLabel)",
-                dialogHint = "Membatasi atau memperluas antrean I/O serentak di driver blok.",
+                subtitle = "Jumlah maksimal antrean baca/tulis dalam satu waktu",
+                dialogTitle = "Kapasitas Antrean ($scopeLabel)",
+                dialogHint = "Mengatur banyaknya antrean permintaan baca/tulis yang dapat diproses sekaligus.",
                 presets = nrPresets,
                 accentColor = AccentBlue,
                 onCommitValue = onCommitNrRequests
@@ -1291,13 +1291,13 @@ private fun IoQueueTuningSection(
             )
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
-                    text = "Optimasi Request & Overhead Kernel",
+                    text = "Efisiensi Pemrosesan Antrean",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
                 )
                 Text(
-                    text = "Afinitas CPU completion & pencatatan overhead antrean blok",
+                    text = "Penempatan inti CPU & pengurangan beban pencatatan latar belakang",
                     fontSize = 10.sp,
                     color = TextSecondary
                 )
@@ -1306,12 +1306,12 @@ private fun IoQueueTuningSection(
 
         if (rqAffinity != null) {
             Text(
-                text = "RQ Affinity",
+                text = "Keterikatan Inti CPU (RQ Affinity)",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextSecondary
             )
-            val rqOptions = listOf(0 to "0 • Off", 1 to "1 • Sibling", 2 to "2 • Strict")
+            val rqOptions = listOf(0 to "0 • Bebas", 1 to "1 • Kluster Sama", 2 to "2 • Inti Sama")
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1330,8 +1330,8 @@ private fun IoQueueTuningSection(
 
         if (iostats != null) {
             LynxSwitch(
-                label = "Kernel I/O Stats (iostats)",
-                subLabel = if (!iostats) "Nonaktif — kurangi overhead statistik I/O" else "Aktif — catat statistik blok",
+                label = "Pencatatan Statistik Disk (I/O Stats)",
+                subLabel = if (!iostats) "Nonaktif — lebih ringan tanpa beban pencatatan statistik" else "Aktif — mencatat aktivitas baca/tulis penyimpanan",
                 checked = iostats,
                 onCheckedChange = onToggleIostats
             )
@@ -1339,8 +1339,8 @@ private fun IoQueueTuningSection(
 
         if (addRandom != null) {
             LynxSwitch(
-                label = "Block Entropy Overhead (add_random)",
-                subLabel = if (!addRandom) "Nonaktif — hindari jeda pengumpulan RNG di tiap request I/O" else "Aktif — kumpulkan timing disk ke pool RNG",
+                label = "Sumbang Waktu Disk ke Entropi",
+                subLabel = if (!addRandom) "Nonaktif — kurangi beban tambahan di setiap aktivitas baca/tulis" else "Aktif — gunakan waktu akses penyimpanan untuk data acak",
                 checked = addRandom,
                 onCheckedChange = onToggleAddRandom
             )

@@ -463,34 +463,26 @@ internal fun MountXIntegrationCard(
     ) {
         if (!storage.mountxInstalled) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = BgSurfaceLowest,
                 border = BorderStroke(0.6.dp, BorderSubtle),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Status Ekosistem MountX",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        StorageMetaBadge("UNSUPPORTED", TextSecondary)
-                    }
                     Text(
-                        text = "Baik modul root MountX maupun aplikasi standalone (app.mountx) tidak terpasang pada perangkat ini. Seluruh kontrol blok penyimpanan berjalan langsung melalui Lynx.",
+                        text = "Modul MountX tidak terpasang — seluruh optimasi penyimpanan dikendalikan langsung oleh Lynx.",
                         fontSize = 11.sp,
                         color = TextSecondary,
-                        lineHeight = 15.sp
+                        lineHeight = 14.5.sp,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
                     )
+                    StorageMetaBadge("MANDIRI", AccentCyan)
                 }
             }
             return@LynxCard

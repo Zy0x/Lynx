@@ -167,8 +167,8 @@ fun MemoryVmZramCard(
     ) {
         // ── Card 1: ZRAM Configuration ──
         LynxCard(
-            title = "Konfigurasi ZRAM",
-            subtitle = "Algoritma kompresi & kapasitas target swap",
+            title = "Pengaturan RAM Virtual (ZRAM)",
+            subtitle = "Pilih metode kompresi & kapasitas tambahan RAM",
             icon = Icons.Default.Memory,
             accentColor = AccentCyan,
             action = {
@@ -280,7 +280,7 @@ fun MemoryVmZramCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "Kapasitas Target ZRAM",
+                                    text = "Ukuran ZRAM",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = TextPrimary
@@ -289,7 +289,7 @@ fun MemoryVmZramCard(
                                     text = if (isDirtySize) {
                                         "Target baru: ${if (stagedZramMb == 0) "Nonaktif (0 GB)" else formatZramGb(stagedZramMb)} (aktif: ${formatZramGb(liveZramMb)})"
                                     } else {
-                                        "Ketuk untuk preset GB cepat atau ukuran kustom"
+                                        "Ketuk untuk memilih kapasitas GB"
                                     },
                                     fontSize = 10.5.sp,
                                     color = if (isDirtySize) AccentCyan else TextSecondary,
@@ -365,8 +365,8 @@ fun MemoryVmZramCard(
 
         // ── Card 2: Quick VM Profile & Swappiness ──
         LynxCard(
-            title = "Profil VM & Swappiness",
-            subtitle = "Prioritas RAM fisik vs swap kompresi",
+            title = "Prioritas RAM vs ZRAM",
+            subtitle = "Atur seberapa sering data dipindahkan ke ZRAM",
             icon = Icons.Default.Speed,
             accentColor = AccentBlue,
             action = {
@@ -390,9 +390,9 @@ fun MemoryVmZramCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val vmPresets = listOf(
-                    Triple("gaming", "Gaming", AccentOrange),
-                    Triple("balanced", "Balanced", AccentBlue),
-                    Triple("battery", "Battery", AccentGreen)
+                    Triple("gaming", "Mode Gaming", AccentOrange),
+                    Triple("balanced", "Seimbang", AccentBlue),
+                    Triple("battery", "Hemat Daya", AccentGreen)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -411,23 +411,23 @@ fun MemoryVmZramCard(
 
                 val swappinessPresets = remember(swappinessMax) {
                     listOf(
-                        "10 • RAM" to 10,
+                        "10 • Utamakan RAM" to 10,
                         "30 • Responsif" to 30,
                         "60 • Standar" to 60,
-                        "100 • Aktif" to 100,
-                        "130 • MGLRU" to 130,
-                        "160 • Agresif" to 160
+                        "100 • Aktif ZRAM" to 100,
+                        "130 • Optimal" to 130,
+                        "160 • Maksimal" to 160
                     ).filter { it.second <= swappinessMax }
                 }
                 LynxNumericPresetRow(
-                    label = "VM Swappiness",
-                    subtitle = "Kecil menahan app di RAM fisik • Besar aktif memakai ZRAM",
+                    label = "Agresivitas ZRAM (Swappiness)",
+                    subtitle = "Rendah = utamakan RAM fisik • Tinggi = aktif gunakan ZRAM",
                     value = uiState.vmAdvanced.swappiness,
                     displayValue = "${uiState.vmAdvanced.swappiness} / $swappinessMax",
                     min = 0,
                     max = swappinessMax,
-                    dialogTitle = "Atur VM Swappiness",
-                    dialogHint = "Nilai kecil mempertahankan aplikasi lebih lama di RAM fisik; tinggi lebih agresif memakai ZRAM (0 – $swappinessMax).",
+                    dialogTitle = "Atur Agresivitas ZRAM",
+                    dialogHint = "Nilai rendah menahan aplikasi lebih lama di RAM fisik; nilai tinggi lebih aktif memindahkan data ke ZRAM (0 – $swappinessMax).",
                     presets = swappinessPresets,
                     accentColor = AccentBlue,
                     onCommitValue = { viewModel.setSwappiness(it) }

@@ -1,3 +1,13 @@
+# Lynx Universal [Penyederhanaan Teks & Deskripsi Halaman Memory & Storage] 7.0.0-RC449
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.68
+
+### Companion App (`MemoryVmZramCard`, `MemoryVmAdvancedCard`, `MemoryEntropyCard`, `StorageOverviewCards`, `MountXStorageCard`)
+- **Penyederhanaan Bahasa & Pemangkasan Penjelasan Panjang di Memory & Storage**:
+  - **Tab `RAM & ZRAM`**: Mengubah istilah `Konfigurasi ZRAM` dan `Profil VM & Swappiness` menjadi **`Pengaturan RAM Virtual (ZRAM)`** (`Ukuran ZRAM`) serta **`Prioritas RAM vs ZRAM`** (`Mode Gaming`, `Seimbang`, `Hemat Daya`, dan `Agresivitas ZRAM (Swappiness)`).
+  - **Tab `VM & LMK`**: Menyederhanakan `VFS Cache Pressure`, `MGLRU Anti-Thrash (min_ttl_ms)`, `VM Page-Cluster`, `Dirty Ratio/Writeback`, `KSM`, `PSI Memory Stall` (`Ringan` / `Penuh`), dan `Kernel Entropy Pool (RNG)` menjadi bahasa manfaat yang mudah dipahami, serta meringkas status `LMKD Modern` menjadi satu baris **`OTOMATIS`**.
+  - **Tab `Penyimpanan`**: Meringkas status MountX saat tidak terpasang menjadi 1 baris **`MANDIRI`** (tanpa kotak `UNSUPPORTED` 3 baris), serta menyederhanakan `Direktori Kelompok Blok` menjadi **`Optimasi Kecepatan Baca/Tulis`** beserta kontrol di dalam sheet (`Ukuran Baca-Awal`, `Kapasitas Antrean Data`, `Efisiensi Pemrosesan Antrean`).
+
 # Lynx Universal [Penyederhanaan Bahasa & Pemangkasan Istilah Teknis Jaringan] 7.0.0-RC448
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.67
