@@ -101,7 +101,11 @@ internal fun RadioEngineCard(
             LynxSectionHeader(
                 title = radioTitle,
                 subtitle = engine.radioLabel,
-                badgeText = if (engine.supportsHwRadio) "VERIFIED" else "UNSUPPORTED",
+                badgeText = when {
+                    engine.supportsHwRadio -> "VERIFIED"
+                    engine.supportsHalLowLatency -> "HAL ONLY"
+                    else -> "UNSUPPORTED"
+                },
                 accentColor = if (engine.supportsHwRadio) AccentOrange else TextSecondary
             )
 
@@ -114,7 +118,7 @@ internal fun RadioEngineCard(
                 )
             } else {
                 UnsupportedBadge(
-                    reason = "Kernel perangkat ini (GKI/Built-in) tidak mengekspos parameter sysfs driver radio vendor secara terpisah. Radio tetap dioptimalkan lewat Wi-Fi Low-Latency HAL di atas."
+                    reason = "Driver kernel tidak mengekspor parameter CAM/power-save sysfs yang dapat ditulis langsung; kontrol radio ditangani penuh via Android Wi-Fi HAL di atas."
                 )
             }
         }

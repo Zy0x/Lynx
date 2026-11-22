@@ -594,49 +594,98 @@ impl NetworkController {
         }
     }
 
+    #[cfg(unix)]
+    fn is_tunable_param(path: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path)
+            .map(|m| m.is_file() && (m.permissions().mode() & 0o222) != 0)
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(unix))]
+    fn is_tunable_param(path: &Path) -> bool {
+        fs::metadata(path)
+            .map(|m| m.is_file() && !m.permissions().readonly())
+            .unwrap_or(false)
+    }
+
     fn detect_radio_hardware() -> RadioProbe {
-        let has_mtk_proc = Path::new("/proc/net/wlan/cfg").exists()
-            || Path::new("/proc/net/wlan/setCAM").exists()
-            || Path::new("/proc/net/wlan/autoPerfCfg").exists();
+        Self::probe_radio_hardware_in(
+            Path::new("/sys/module"),
+            Path::new("/proc/net/wlan"),
+            Path::new("/proc/sprdwlan"),
+            get_android_sdk(),
+            which_exists("iw"),
+        )
+    }
+
+    fn probe_radio_hardware_in(
+        sys_module_root: &Path,
+        mtk_proc_root: &Path,
+        sprd_proc_root: &Path,
+        sdk: u32,
+        has_iw: bool,
+    ) -> RadioProbe {
+        let has_mtk_proc = mtk_proc_root.join("cfg").exists()
+            || mtk_proc_root.join("setCAM").exists()
+            || mtk_proc_root.join("autoPerfCfg").exists();
         if has_mtk_proc {
             return RadioProbe {
                 vendor: RadioVendor::MediaTekProc,
                 label: "MediaTek Wireless Engine (/proc/net/wlan)".to_string(),
-                module_paths: vec![PathBuf::from("/proc/net/wlan")],
+                module_paths: vec![mtk_proc_root.to_path_buf()],
             };
         }
+
+        const QCA_TUNABLE_KEYS: &[&str] = &[
+            "power_save",
+            "dynamic_ps",
+            "gEnablePacketFilter",
+            "gEnablePowerSaveOffload",
+            "gPowerSaveMode",
+        ];
+        const DHD_TUNABLE_KEYS: &[&str] = &["dhd_slpauto", "op_mode", "dhd_pkt_filter_enable"];
+        const SPRD_TUNABLE_KEYS: &[&str] = &["auto_power", "dynamic_ps", "packet_filter"];
 
         let mut qca_dirs = Vec::new();
         let mut dhd_dirs = Vec::new();
         let mut scsc_dirs = Vec::new();
         let mut sprd_dirs = Vec::new();
+        let mut detected_qcom_module = false;
 
-        if let Ok(mod_entries) = fs::read_dir("/sys/module") {
+        if let Ok(mod_entries) = fs::read_dir(sys_module_root) {
             for entry in mod_entries.flatten() {
                 let mname = entry.file_name().to_string_lossy().to_string();
                 let params = entry.path().join("parameters");
                 if !params.is_dir() {
                     continue;
                 }
-                let qca_param_exists = ["power_save", "con_mode", "dynamic_ps", "gEnablePacketFilter", "rx_mode", "roam_trigger"]
-                    .iter()
-                    .any(|k| params.join(k).exists());
-                if (mname.contains("wlan") || mname.contains("qca") || mname.contains("cnss"))
-                    && qca_param_exists
-                {
-                    qca_dirs.push(params);
-                } else if (mname == "dhd" || mname == "bcmdhd")
-                    && ["dhd_slpauto", "op_mode", "dhd_pkt_filter_enable"]
+                if mname.contains("wlan") || mname.contains("qca") || mname.contains("cnss") {
+                    if QCA_TUNABLE_KEYS
+                        .iter()
+                        .any(|k| Self::is_tunable_param(&params.join(k)))
+                    {
+                        qca_dirs.push(params);
+                    } else if ["con_mode", "fwpath", "country_code"]
                         .iter()
                         .any(|k| params.join(k).exists())
+                    {
+                        detected_qcom_module = true;
+                    }
+                } else if (mname == "dhd" || mname == "bcmdhd")
+                    && DHD_TUNABLE_KEYS
+                        .iter()
+                        .any(|k| Self::is_tunable_param(&params.join(k)))
                 {
                     dhd_dirs.push(params);
-                } else if mname == "scsc_wlan" && params.join("slp_enable").exists() {
+                } else if mname == "scsc_wlan"
+                    && Self::is_tunable_param(&params.join("slp_enable"))
+                {
                     scsc_dirs.push(params);
                 } else if mname.starts_with("sprdwl")
-                    && ["auto_power", "rx_mode", "packet_filter"]
+                    && SPRD_TUNABLE_KEYS
                         .iter()
-                        .any(|k| params.join(k).exists())
+                        .any(|k| Self::is_tunable_param(&params.join(k)))
                 {
                     sprd_dirs.push(params);
                 }
@@ -664,9 +713,9 @@ impl NetworkController {
                 module_paths: scsc_dirs,
             };
         }
-        if !sprd_dirs.is_empty() || Path::new("/proc/sprdwlan").is_dir() {
-            if Path::new("/proc/sprdwlan").is_dir() {
-                sprd_dirs.push(PathBuf::from("/proc/sprdwlan"));
+        if !sprd_dirs.is_empty() || sprd_proc_root.is_dir() {
+            if sprd_proc_root.is_dir() {
+                sprd_dirs.push(sprd_proc_root.to_path_buf());
             }
             return RadioProbe {
                 vendor: RadioVendor::UnisocSprd,
@@ -675,16 +724,18 @@ impl NetworkController {
             };
         }
 
-        let sdk = get_android_sdk();
-        let has_iw = which_exists("iw");
-        if sdk >= 29 || has_iw {
+        if sdk >= 29 || has_iw || detected_qcom_module {
+            let nl = if has_iw { " + nl80211" } else { "" };
+            let label = if detected_qcom_module {
+                format!("Qualcomm WLAN (HAL API {}){}", sdk, nl)
+            } else if has_iw {
+                format!("Android Wi-Fi HAL (API {}) + nl80211", sdk)
+            } else {
+                format!("Android Wi-Fi HAL Only (API {})", sdk)
+            };
             return RadioProbe {
                 vendor: RadioVendor::HalGeneric,
-                label: if has_iw {
-                    format!("Android Wi-Fi HAL (API {}) + nl80211", sdk)
-                } else {
-                    format!("Android Wi-Fi HAL Only (API {})", sdk)
-                },
+                label,
                 module_paths: Vec::new(),
             };
         }
@@ -1221,10 +1272,8 @@ impl NetworkController {
                     outcome.record_write(params.join("power_save"), ps);
                     outcome.record_write(params.join("dynamic_ps"), ps);
                     outcome.record_write(params.join("gEnablePacketFilter"), ps);
-                    if enable {
-                        outcome.record_write(params.join("con_mode"), "0");
-                        outcome.record_write(params.join("rx_mode"), "1");
-                    }
+                    outcome.record_write(params.join("gEnablePowerSaveOffload"), ps);
+                    outcome.record_write(params.join("gPowerSaveMode"), ps);
                 }
             }
             RadioVendor::BroadcomDhd => {
@@ -1548,22 +1597,37 @@ impl NetworkController {
             RadioVendor::MediaTekProc => SysfsReader::read_trimmed("/proc/net/wlan/setCAM")
                 .map(|s| s.contains('1'))
                 .unwrap_or(false),
-            RadioVendor::QualcommCnss => radio
-                .module_paths
+            RadioVendor::QualcommCnss => radio.module_paths.iter().any(|p| {
+                [
+                    "power_save",
+                    "dynamic_ps",
+                    "gEnablePacketFilter",
+                    "gEnablePowerSaveOffload",
+                    "gPowerSaveMode",
+                ]
                 .iter()
-                .any(|p| SysfsReader::read_trimmed(p.join("power_save")).map(|v| v == "0").unwrap_or(false)),
-            RadioVendor::BroadcomDhd => radio
-                .module_paths
-                .iter()
-                .any(|p| SysfsReader::read_trimmed(p.join("dhd_slpauto")).map(|v| v == "0").unwrap_or(false)),
+                .any(|k| SysfsReader::read_trimmed(p.join(k)).map(|v| v == "0").unwrap_or(false))
+            }),
+            RadioVendor::BroadcomDhd => radio.module_paths.iter().any(|p| {
+                SysfsReader::read_trimmed(p.join("dhd_slpauto"))
+                    .map(|v| v == "0")
+                    .unwrap_or(false)
+                    || SysfsReader::read_trimmed(p.join("dhd_pkt_filter_enable"))
+                        .map(|v| v == "0")
+                        .unwrap_or(false)
+                    || SysfsReader::read_trimmed(p.join("op_mode"))
+                        .map(|v| v == "1")
+                        .unwrap_or(false)
+            }),
             RadioVendor::ExynosScsc => radio
                 .module_paths
                 .iter()
                 .any(|p| SysfsReader::read_trimmed(p.join("slp_enable")).map(|v| v == "0").unwrap_or(false)),
-            RadioVendor::UnisocSprd => radio
-                .module_paths
-                .iter()
-                .any(|p| SysfsReader::read_trimmed(p.join("auto_power")).map(|v| v == "0").unwrap_or(false)),
+            RadioVendor::UnisocSprd => radio.module_paths.iter().any(|p| {
+                ["auto_power", "dynamic_ps", "packet_filter"]
+                    .iter()
+                    .any(|k| SysfsReader::read_trimmed(p.join(k)).map(|v| v == "0").unwrap_or(false))
+            }),
             RadioVendor::HalGeneric | RadioVendor::Unsupported => false,
         };
 
@@ -1993,5 +2057,43 @@ mod tests {
     #[test]
     fn json_escapes_control_and_quotes() {
         assert_eq!(json_str("My \"Home\"\\Net\n"), "\"My \\\"Home\\\"\\\\Net\\n\"");
+    }
+
+    #[test]
+    fn qcacld_con_mode_only_downgrades_cleanly_to_hal_generic() {
+        let base = std::env::temp_dir().join(format!(
+            "lynx_radio_test_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&base);
+        let qca_ro_params = base.join("sys_mod/wlan/parameters");
+        fs::create_dir_all(&qca_ro_params).unwrap();
+        fs::write(qca_ro_params.join("con_mode"), "0\n").unwrap();
+        fs::write(qca_ro_params.join("fwpath"), "sta\n").unwrap();
+
+        let probe_hal = NetworkController::probe_radio_hardware_in(
+            &base.join("sys_mod"),
+            &base.join("missing_mtk"),
+            &base.join("missing_sprd"),
+            35,
+            false,
+        );
+        assert_eq!(probe_hal.vendor, RadioVendor::HalGeneric);
+        assert!(!probe_hal.vendor.supports_vendor_sysfs());
+        assert!(probe_hal.label.contains("Qualcomm WLAN (HAL API 35)"));
+
+        // Adding a writable power_save parameter promotes to QualcommCnss
+        fs::write(qca_ro_params.join("power_save"), "1\n").unwrap();
+        let probe_qca = NetworkController::probe_radio_hardware_in(
+            &base.join("sys_mod"),
+            &base.join("missing_mtk"),
+            &base.join("missing_sprd"),
+            35,
+            false,
+        );
+        assert_eq!(probe_qca.vendor, RadioVendor::QualcommCnss);
+        assert!(probe_qca.vendor.supports_vendor_sysfs());
+
+        let _ = fs::remove_dir_all(&base);
     }
 }

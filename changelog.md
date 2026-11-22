@@ -1,3 +1,13 @@
+# Lynx Universal [Validasi Parameter Radio Lintas Vendor & Pemurnian HAL] 7.0.0-RC445
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.64
+
+### Native Engine (`network.rs`) & Companion App (`NetworkTuningCards`)
+- **Validasi Node Tunable Radio Lintas Vendor (`probe_radio_hardware_in` / `is_tunable_param`)**:
+  - Memastikan node informasional/mode koneksi (`con_mode`, `rx_mode`, `roam_trigger`) atau sysfs berstatus read-only (`0444`) tidak lagi diklasifikasikan keliru sebagai sakelar `hw_radio` yang dapat ditulis bolak-balik.
+  - Pada perangkat Qualcomm `qcacld-3.0` yang hanya mengekspor `con_mode`/`fwpath` tanpa parameter power-save sysfs (`power_save`, `dynamic_ps`, `gEnablePacketFilter`), engine kini melabelinya akurat sebagai `Qualcomm WLAN (HAL API XX)` dengan `supports_hw_radio = false` dan badge UI **`HAL ONLY`**, sehingga mencegah toast gagal palsu saat pemulihan driver radio.
+  - Memperluas pengecekan status aktif (`hw_radio_active`) agar membaca seluruh node power-save/filter Qualcomm, Broadcom DHD (`dhd_pkt_filter_enable`, `op_mode`), Exynos SCSC, dan Unisoc SPRD secara simetris.
+
 # Lynx Universal [3 Tab Khusus Wi-Fi & Katalog Private DNS ModalSheet] 7.0.0-RC444
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.63
