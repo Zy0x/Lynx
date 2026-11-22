@@ -1,3 +1,27 @@
+# Lynx Universal [Tab Penyimpanan Multi-Volume, Tuning Induk Kelompok Blok & Proteksi Override MountX] 7.0.0-RC436
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.55
+
+### Native Engine (`storage.rs`, `io.rs`, `game.rs`, `translator.rs`, `verifier.rs`)
+- **Multi-Volume Storage Discovery & Bus Classification**:
+  - Added `StoragePolicy::mounted_volumes()` scanning `/proc/self/mountinfo` (`root == "/"` and `vold/public` backing resolution) to report Internal `/data`, multi-partition MicroSD cards (e.g. concurrent `EXT4` + `F2FS` partitions), USB OTG drives (`exFAT`/`FAT32`/`NTFS`), and custom external mounts accurately.
+  - Added `lynxd io group-tune <target> <param> <value>` for atomic verified batch updates across block groups (`internal`, `sd`, `usb`, `virtual`) and `lynxd io mountx-override <0|1>`.
+- **Zero-Hardcode MountX Detection & Anti-Clobber Guard**:
+  - Updated `IoController::detect_mountx()` to detect both MountX Root Module installations (scanning Magisk/KernelSU/APatch module directories and reading `config.conf`) and Standalone App installations (`app.mountx` via DataStore protobuf parsing for custom `sd_base_path`/`sd_block_device`, `/dev/mountx_bin`, and active `/MountX` bind-mounts) without assuming `/data/sdext2`.
+  - Protected MountX-managed disks from automatic overwrites in `IoController::apply_default`, `game.rs`, `translator.rs`, and `verifier.rs` unless `/dev/lynx_mountx_override` is explicitly unlocked.
+
+### Companion App (`MemoryStorageTabRow`, `StorageOverviewCards`, `MountXStorageCard`, `LynxSystemTuningRepository`, ViewModels)
+- **Tab "Penyimpanan" & Multi-Volume Overview (`StorageHeroCard`, `MemoryStorageTabRow`)**:
+  - Renamed Tab 2 from `"Storage & I/O"` to `"Penyimpanan"` and upgraded `StorageHeroCard` to display `/data` internal storage alongside external partitions (MicroSD multi-partition FS, USB OTG, capacity progress bars, `[MOUNTX]` tags) with fixed fallback bus classification (`usb` before `sd[a-z]+`, dynamic `/data` primary parent resolution).
+- **MountX Integration Status & Two-Step Override Confirmation (`MountXIntegrationCard`, `MountXOverrideConfirmDialog`)**:
+  - Displays `UNSUPPORTED` when neither MountX module nor `app.mountx` is installed, or shows live mode (`MODUL + APP` / `MODUL ROOT` / `APP ONLY`), dynamic mount base, protected disk(s), and MountX config with an acknowledged confirmation dialog to unlock session overrides.
+- **Block Group Parent Tuning & Expert Per-Block Inspector (`BlockGroupMasterCard`, `AdvancedPerBlockInspectorCard`)**:
+  - Added 1-tap category selector (`Internal`, `MicroSD`, `USB OTG`) and unified **Tuning Induk** controls (`Standar Aman` / `Responsif` / `Performa` presets, Scheduler, `LynxNumericPresetRow` overlays for Read-Ahead KB and `nr_requests`, RQ Affinity, `iostats`, `add_random`) so users can tune all UFS/eMMC/SD/USB blocks in a category at once, while keeping individual per-block & virtual node tuning cleanly tucked inside an initially collapsed Expert section.
+- **Anti-Stutter VM Headroom, MountX MicroSD VFS Shield & Zero Swap-Readahead (`device_tier.rs`, `memory.rs`, `zram.rs`, `game.rs`, `translator.rs`)**:
+  - Restored full `24 MB` `extra_free_kbytes` (`24576`) and `watermark_scale_factor=75` on `8GB+` UFS ZRAM devices (`device_tier.rs`), eliminating `allocstall` freezes and `kswapd` scanning storms without over-scanning `12GB` (`wsf=60`).
+  - Kept `swappiness=60` (`direct_swappiness=20`, `memcg=60`) with `MGLRU min_ttl_ms=500` on `8GB+` ZRAM gaming profiles and `vfs_cache_pressure=10` whenever `has_mountx_sd` is detected so slow external MicroSD game assets stay cached in RAM instead of thrashing.
+  - Added `ZramController::disable_swap_readahead()` (`page-cluster=0`, `zram0/queue/read_ahead_kb=0`, `bdi/read_ahead_kb=0`), skipped `check_system_server_vma()` synchronous compaction during gameplay, gated `am kill-all` on `game_on()` under `< 50%` `MemAvailable`, and kept `watermark_boost_factor=0` on game exit.
+
 # Lynx Universal [VM & Entropy Overhaul, Verified Sysfs Rollback & Clean PSI/LMK Separation] 7.0.0-RC435
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.54

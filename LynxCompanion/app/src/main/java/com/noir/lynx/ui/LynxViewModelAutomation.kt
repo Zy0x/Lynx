@@ -338,7 +338,31 @@ import kotlinx.coroutines.flow.update
                             pidsList.add(pidsArray.getInt(i))
                         }
                     }
+                    val managedArray = json.optJSONArray("managed_disks")
+                    val managedList = mutableListOf<String>()
+                    if (managedArray != null) {
+                        for (i in 0 until managedArray.length()) {
+                            val d = managedArray.optString(i)
+                            if (d.isNotBlank()) managedList.add(d)
+                        }
+                    }
                     baseInfo = MountXStorageInfo(
+                        mountxInstalled = json.optBoolean("mountx_installed", false),
+                        moduleInstalled = json.optBoolean("module_installed", false),
+                        appInstalled = json.optBoolean("app_installed", false),
+                        mountxMode = json.optString("mountx_mode", "none"),
+                        moduleDir = json.optString("module_dir", ""),
+                        moduleVersion = json.optString("module_version", ""),
+                        ioTweaksActive = json.optBoolean("io_tweaks_active", false),
+                        overrideUnlocked = json.optBoolean("override_unlocked", false),
+                        sdBase = json.optString("sd_base", ""),
+                        sdBlock = json.optString("sd_block", ""),
+                        configuredReadAheadKb = if (json.isNull("configured_read_ahead_kb")) null else json.optInt("configured_read_ahead_kb"),
+                        configuredScheduler = json.optString("configured_scheduler", ""),
+                        configuredNrRequests = if (json.isNull("configured_nr_requests")) null else json.optInt("configured_nr_requests"),
+                        configuredRqAffinity = if (json.isNull("configured_rq_affinity")) null else json.optInt("configured_rq_affinity"),
+                        managedDisks = managedList,
+                        activeBindCount = json.optInt("active_bind_count", 0),
                         isDetected = json.optBoolean("is_detected", false),
                         mountPoint = json.optString("mount_point", ""),
                         partitionName = json.optString("partition_name", ""),
@@ -364,7 +388,7 @@ import kotlinx.coroutines.flow.update
                     android.util.Log.e("LynxAutomation", "Error parsing mountx info: ${e.message}")
                 }
             } else {
-                // Standalone fallback without lynxd: probe primary eMMC / UFS details safely
+                // Standalone fallback without lynxd: probe primary eMMC / UFS + MountX presence safely
                 val fallback = com.topjohnwu.superuser.Shell.cmd("""
                     chip=""
                     life=""
@@ -373,16 +397,38 @@ import kotlinx.coroutines.flow.update
                         ptype="eMMC 5.1 Flash"
                         chip=${'$'}(cat /sys/block/mmcblk0/device/name 2>/dev/null)
                         life=${'$'}(cat /sys/block/mmcblk0/device/life_time 2>/dev/null)
-                    elif [ -d /sys/block/sda/device ]; then
+                    elif [ -d /sys/block/sda/device ] || [ -d /sys/block/sdc/device ]; then
                         ptype="UFS High-Throughput"
                     fi
-                    echo "${'$'}ptype|${'$'}chip|${'$'}life"
+                    mx_mod=0
+                    for d in /data/adb/modules/MountX /data/adb/modules/mountx /data/adb/modules/Mountify /data/adb/ksu/modules/MountX /data/adb/ap/modules/MountX; do
+                        if [ -d "${'$'}d" ] && [ ! -e "${'$'}d/disable" ] && [ ! -e "${'$'}d/remove" ]; then mx_mod=1; break; fi
+                    done
+                    mx_app=0
+                    if [ -d /data/data/app.mountx ] || [ -d /data/user/0/app.mountx ] || [ -d /dev/mountx_bin ]; then mx_app=1; fi
+                    mx_ovr=0
+                    [ -f /dev/lynx_mountx_override ] && mx_ovr=1
+                    echo "${'$'}ptype|${'$'}chip|${'$'}life|${'$'}mx_mod|${'$'}mx_app|${'$'}mx_ovr"
                 """.trimIndent()).exec().out.firstOrNull()?.split("|")
+                val fbMod = fallback?.getOrNull(3)?.trim() == "1"
+                val fbApp = fallback?.getOrNull(4)?.trim() == "1"
+                val fbOvr = fallback?.getOrNull(5)?.trim() == "1"
                 baseInfo = baseInfo.copy(
                     primaryStorageType = fallback?.getOrNull(0)?.trim().orEmpty(),
                     emmcName = fallback?.getOrNull(1)?.trim().orEmpty(),
                     emmcLifeTime = fallback?.getOrNull(2)?.trim().orEmpty(),
-                    isPrimaryEmmc = fallback?.getOrNull(0)?.contains("eMMC", ignoreCase = true) == true
+                    isPrimaryEmmc = fallback?.getOrNull(0)?.contains("eMMC", ignoreCase = true) == true,
+                    moduleInstalled = fbMod,
+                    appInstalled = fbApp,
+                    mountxInstalled = fbMod || fbApp,
+                    mountxMode = when {
+                        fbMod && fbApp -> "module+app"
+                        fbMod -> "module"
+                        fbApp -> "app"
+                        else -> "none"
+                    },
+                    overrideUnlocked = fbOvr,
+                    ioTweaksActive = fbMod || fbApp
                 )
             }
 
@@ -392,6 +438,13 @@ import kotlinx.coroutines.flow.update
 
     fun LynxViewModel.triggerMountXBoost(context: Context, boost: Boolean) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val info = _uiState.value.mountXStorageInfo
+            if (info.mountxInstalled && info.ioTweaksActive && !info.overrideUnlocked) {
+                _uiState.update {
+                    it.copy(errorMessage = "Disk dikelola MountX. Aktifkan Override Lanjutan terlebih dahulu untuk mengubah dari Lynx.")
+                }
+                return@launch
+            }
             val path = LynxRepository.getLynxdPath()
             val cmd = if (boost) {
                 "'$path' io mountx-tune"

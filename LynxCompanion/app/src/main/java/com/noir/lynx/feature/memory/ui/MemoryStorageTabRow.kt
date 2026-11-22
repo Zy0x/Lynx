@@ -31,7 +31,7 @@ import com.noir.lynx.designsystem.theme.*
  * Segments Memory & Storage cleanly by domain:
  * 0: RAM & ZRAM (Hero + ZRAM + Quick VM & Swappiness)
  * 1: VM & Entropi (VM Summary + Progressive Writeback/KSM + LMK + Entropy + PSI)
- * 2: Storage & I/O (MountX Flash Shield + MicroSD + Block Device Schedulers & Read-Ahead)
+ * 2: Penyimpanan (Volume Media, Integrasi MountX, Tuning Induk Kelompok Blok & Inspektor Lanjutan)
  */
 @Composable
 fun MemoryStorageTabRow(
@@ -43,7 +43,7 @@ fun MemoryStorageTabRow(
     val tabs = listOf(
         Triple(0, "RAM & ZRAM", Icons.Default.Memory),
         Triple(1, "VM & Entropi", Icons.Default.Tune),
-        Triple(2, "Storage & I/O", Icons.Default.Storage)
+        Triple(2, "Penyimpanan", Icons.Default.Storage)
     )
 
     Surface(

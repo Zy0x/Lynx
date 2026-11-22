@@ -238,9 +238,11 @@ impl GameController {
         Self::offload_kswapd_kcompactd(topo_for_irq.little_mask);
 
         // 8. Unified Media-Aware Storage Engine (Shared Single Source of Truth with StoragePolicy)
+        // Respect MountX-managed disks when external MountX I/O tweaks are active and override is locked.
+        let mountx = crate::subsystems::IoController::detect_mountx();
         let storage = HardwareCapability::resolve_storage();
         for dev in &storage.devices {
-            if !dev.queue_path.is_dir() {
+            if !dev.queue_path.is_dir() || mountx.is_disk_protected(&dev.name) {
                 continue;
             }
             let block = match dev.queue_path.parent() {
@@ -287,12 +289,19 @@ impl GameController {
         }
 
         // Virtual Memory & VFS Cache Shield (Hardware-Tiered: Protects 4GB RAM & eMMC FBE from reclaim thrashing)
-        let mountx = crate::subsystems::IoController::detect_mountx();
         let mem = HardwareCapability::resolve_memory();
         let primary_type = crate::hardware::storage::StoragePolicy::primary_storage(&storage).map(|(_, t)| t);
         let has_emmc = storage.devices.iter().any(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Emmc);
         let has_ufs = storage.devices.iter().any(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Ufs);
-        let tier = crate::hardware::DeviceTier::classify(mem.total_ram_mb, primary_type, has_emmc && !has_ufs, mountx.is_detected);
+        let tier = crate::hardware::DeviceTier::classify_with_vm_caps(
+            mem.total_ram_mb,
+            primary_type,
+            has_emmc && !has_ufs,
+            mountx.is_detected,
+            mem.mglru_supported,
+            Path::new("/proc/sys/vm/extra_free_kbytes").exists(),
+        )
+        .with_zram(mem.zram_available);
         let vm = tier.vm_profile_targets("performance");
 
         Self::write_opt("/proc/sys/vm/vfs_cache_pressure", vm.vfs_cache_pressure.to_string());
@@ -311,16 +320,10 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
         Self::write_opt("/proc/sys/vm/dirty_background_ratio", vm.dirty_background_ratio.to_string());
         Self::write_opt("/proc/sys/vm/dirty_ratio", vm.dirty_ratio.to_string());
-        Self::write_opt("/proc/sys/vm/page-cluster", "0");
+        crate::subsystems::zram::ZramController::disable_swap_readahead();
         Self::write_opt("/proc/sys/vm/stat_interval", "20");
 
-        if mountx.is_detected {
-            if let Some(sd_dev) = storage.devices.iter().find(|d| d.device_type == crate::hardware::capability::BlockDeviceType::Sd) {
-                Self::write_opt(sd_dev.queue_path.join("nr_requests"), "512");
-                Self::write_opt(sd_dev.queue_path.join("iosched/writes_starved"), "8");
-                Self::write_opt(sd_dev.queue_path.join("read_ahead_kb"), "1024");
-                Self::write_opt(sd_dev.queue_path.join("scheduler"), "deadline");
-            }
+        if mountx.mountx_installed || mountx.is_detected {
             let _ = std::fs::write("/dev/lynx_mountx_active", "1\n");
         } else {
             let _ = std::fs::remove_file("/dev/lynx_mountx_active");
@@ -369,8 +372,8 @@ impl GameController {
         // 10. Dynamic Low-Latency Network & Wi-Fi Silicon Engagement
         crate::subsystems::NetworkController::apply_game();
 
-        // 11. Graceful AMS background cache trim (avoids SIGKILL service crash-restarts unless RAM headroom is genuinely low)
-        let _ = Command::new("am").arg("kill-all").output();
+        // 11. Graceful AMS background cache trim only when available RAM is actually tight (< 50%),
+        // avoiding unnecessary background helper/overlay disruption on 8GB+ devices with ample headroom.
         if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
             let mut mem_total = 0u64;
             let mut mem_avail = u64::MAX;
@@ -380,6 +383,9 @@ impl GameController {
                 } else if let Some(rest) = line.strip_prefix("MemAvailable:") {
                     mem_avail = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(u64::MAX);
                 }
+            }
+            if mem_total > 0 && mem_avail.saturating_mul(100) < mem_total.saturating_mul(50) {
+                let _ = Command::new("am").arg("kill-all").output();
             }
             if mem_total > 0 && mem_avail.saturating_mul(100) < mem_total.saturating_mul(40) {
                 let protected_pkg = top_pid.and_then(|pid| {
@@ -540,10 +546,11 @@ impl GameController {
         MtkHardware::boost_ddr_peak(false);
         Self::write_opt(MtkHardware::FPSGO_ULTRA_RESCUE, "0");
 
-        // Restore Dynamic Storage to Balanced Targets (Zero-Hardcoding)
+        // Restore Dynamic Storage to Balanced Targets (Respecting MountX protection)
+        let mountx = crate::subsystems::IoController::detect_mountx();
         let storage = HardwareCapability::resolve_storage();
         for dev in &storage.devices {
-            if !dev.queue_path.is_dir() {
+            if !dev.queue_path.is_dir() || mountx.is_disk_protected(&dev.name) {
                 continue;
             }
             if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "balance") {
@@ -565,7 +572,7 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
-        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "15000");
+        Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
 
         for id in 0..16 {
             Self::write_opt(

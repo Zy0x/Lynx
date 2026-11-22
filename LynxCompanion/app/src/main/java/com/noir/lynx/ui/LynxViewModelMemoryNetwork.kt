@@ -92,12 +92,17 @@ fun LynxViewModel.refreshIoDevices(forceRefresh: Boolean = false) {
         try {
             val raw = LynxRepository.readIoDevices(forceRefresh = forceRefresh)
             val devices = mergeIoDevicesWithIntents(raw)
-            _uiState.update { it.copy(ioDevices = devices) }
+            val volumes = LynxRepository.readStorageVolumes(forceRefresh = false)
+            _uiState.update { it.copy(ioDevices = devices, storageVolumes = volumes) }
         } catch (_: Exception) {}
     }
 }
 
 fun LynxViewModel.setIoScheduler(device: String, scheduler: String) {
+    if (_uiState.value.mountXStorageInfo.isDiskProtected(device)) {
+        _uiState.update { it.copy(errorMessage = "Blok $device dikelola MountX. Aktifkan Override terlebih dahulu.") }
+        return
+    }
     recordStateMutation()
     activeIoSchedulerIntents[device] = Pair(scheduler, System.currentTimeMillis())
     _uiState.update { current ->
@@ -123,6 +128,10 @@ fun LynxViewModel.setIoScheduler(device: String, scheduler: String) {
 }
 
 fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
+    if (_uiState.value.mountXStorageInfo.isDiskProtected(device)) {
+        _uiState.update { it.copy(errorMessage = "Blok $device dikelola MountX. Aktifkan Override terlebih dahulu.") }
+        return
+    }
     recordStateMutation()
     activeReadAheadIntents[device] = Pair(kb, System.currentTimeMillis())
     _uiState.update { current ->
@@ -148,6 +157,10 @@ fun LynxViewModel.setReadAheadKb(device: String, kb: Int) {
 }
 
 fun LynxViewModel.setIoQueueTunable(device: String, key: String, value: Int) {
+    if (_uiState.value.mountXStorageInfo.isDiskProtected(device)) {
+        _uiState.update { it.copy(errorMessage = "Blok $device dikelola MountX. Aktifkan Override terlebih dahulu.") }
+        return
+    }
     recordStateMutation()
     _uiState.update { current ->
         current.copy(ioDevices = current.ioDevices.map { info ->
@@ -155,14 +168,180 @@ fun LynxViewModel.setIoQueueTunable(device: String, key: String, value: Int) {
                 "nr_requests" -> info.copy(nrRequests = value)
                 "iostats" -> info.copy(iostats = value)
                 "rq_affinity" -> info.copy(rqAffinity = value)
+                "add_random" -> info.copy(addRandom = value)
                 else -> info
             }
         })
     }
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setIoQueueTunable(device, key, value)
+        if (ok) {
+            _uiState.update { it.copy(successMessage = "$key pada $device diatur ke $value") }
+        } else {
+            val fresh = LynxRepository.readIoDevices(forceRefresh = true)
+            _uiState.update {
+                it.copy(
+                    ioDevices = mergeIoDevicesWithIntents(fresh),
+                    errorMessage = "Gagal mengubah parameter I/O $key pada $device"
+                )
+            }
+        }
+    }
+}
+
+fun LynxViewModel.tuneBlockGroup(
+    groupId: String,
+    devicesInGroup: List<IoDeviceInfo>,
+    param: String,
+    value: String
+) {
+    val mountx = _uiState.value.mountXStorageInfo
+    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked }
+    if (unlocked.isEmpty()) {
+        _uiState.update {
+            it.copy(errorMessage = "Kelompok blok ini dilindungi oleh MountX. Buka Override terlebih dahulu untuk mengubahnya.")
+        }
+        return
+    }
+    recordStateMutation()
+    val memberNames = unlocked.map { it.device }
+    val allUnlockedInGroup = unlocked.size == devicesInGroup.size
+    val targetArg = if (allUnlockedInGroup && groupId in listOf("internal", "sd", "usb", "virtual")) {
+        groupId
+    } else {
+        memberNames.joinToString(",")
+    }
+
+    val now = System.currentTimeMillis()
+    val numVal = value.toIntOrNull()
+    unlocked.forEach { d ->
+        if (param == "scheduler") activeIoSchedulerIntents[d.device] = value to now
+        if (param == "read_ahead_kb" && numVal != null) activeReadAheadIntents[d.device] = numVal to now
+    }
+
+    _uiState.update { current ->
+        current.copy(ioDevices = current.ioDevices.map { dev ->
+            if (dev.device !in memberNames) dev else when (param) {
+                "scheduler" -> dev.copy(currentScheduler = value)
+                "read_ahead_kb" -> dev.copy(readAheadKb = numVal ?: dev.readAheadKb)
+                "nr_requests" -> dev.copy(nrRequests = numVal)
+                "rq_affinity" -> dev.copy(rqAffinity = numVal)
+                "iostats" -> dev.copy(iostats = numVal)
+                "add_random" -> dev.copy(addRandom = numVal)
+                else -> dev
+            }
+        })
+    }
+
+    viewModelScope.launch(Dispatchers.IO) {
+        val (ok, count) = LynxRepository.tuneBlockGroup(targetArg, memberNames, param, value)
         if (!ok) {
-            _uiState.update { it.copy(errorMessage = "Gagal mengubah parameter I/O $key pada $device") }
+            memberNames.forEach {
+                if (param == "scheduler") activeIoSchedulerIntents.remove(it)
+                if (param == "read_ahead_kb") activeReadAheadIntents.remove(it)
+            }
+        }
+        val fresh = LynxRepository.readIoDevices(forceRefresh = true)
+        val groupLabel = when (groupId) {
+            "internal" -> "Internal"
+            "sd" -> "MicroSD"
+            "usb" -> "USB OTG"
+            else -> groupId
+        }
+        val paramLabel = when (param) {
+            "scheduler" -> "Scheduler"
+            "read_ahead_kb" -> "Read-Ahead"
+            "nr_requests" -> "Queue Depth"
+            "rq_affinity" -> "RQ Affinity"
+            "iostats" -> "I/O Stats"
+            "add_random" -> "Add Random"
+            else -> param
+        }
+        _uiState.update {
+            if (ok) {
+                it.copy(
+                    ioDevices = mergeIoDevicesWithIntents(fresh),
+                    successMessage = "$paramLabel kelompok $groupLabel diatur ke $value ($count blok)"
+                )
+            } else {
+                it.copy(
+                    ioDevices = mergeIoDevicesWithIntents(fresh),
+                    errorMessage = "Kernel menolak pengaturan $paramLabel=$value pada kelompok $groupLabel"
+                )
+            }
+        }
+    }
+}
+
+fun LynxViewModel.applyBlockGroupPreset(
+    groupId: String,
+    devicesInGroup: List<IoDeviceInfo>,
+    preset: String
+) {
+    val mountx = _uiState.value.mountXStorageInfo
+    val unlocked = devicesInGroup.filter { !mountx.isDiskProtected(it.device) && !it.mountxLocked }
+    if (unlocked.isEmpty()) {
+        _uiState.update {
+            it.copy(errorMessage = "Kelompok ini dilindungi oleh MountX. Aktifkan Override jika ingin mengubah dari Lynx.")
+        }
+        return
+    }
+    recordStateMutation()
+    viewModelScope.launch(Dispatchers.IO) {
+        val (ok, count) = LynxRepository.applyBlockGroupPreset(groupId, unlocked, preset)
+        val fresh = LynxRepository.readIoDevices(forceRefresh = true)
+        val volumes = LynxRepository.readStorageVolumes(forceRefresh = false)
+        val presetName = when (preset) {
+            "powersave" -> "Standar Aman"
+            "performance" -> "Performa"
+            else -> "Responsif"
+        }
+        _uiState.update {
+            if (ok) {
+                it.copy(
+                    ioDevices = fresh,
+                    storageVolumes = volumes,
+                    successMessage = "Preset $presetName diterapkan ke $count blok kelompok ${groupId.uppercase()}"
+                )
+            } else {
+                it.copy(
+                    ioDevices = fresh,
+                    errorMessage = "Gagal menerapkan preset $presetName pada kelompok ${groupId.uppercase()}"
+                )
+            }
+        }
+    }
+}
+
+fun LynxViewModel.setMountXOverride(unlock: Boolean) {
+    recordStateMutation()
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.setMountXOverride(unlock)
+        if (ok) {
+            _uiState.update {
+                it.copy(mountXStorageInfo = it.mountXStorageInfo.copy(overrideUnlocked = unlock))
+            }
+        }
+        refreshMountXStorageInfo()
+        val freshDevices = LynxRepository.readIoDevices(forceRefresh = true)
+        val freshVolumes = LynxRepository.readStorageVolumes(forceRefresh = true)
+        _uiState.update {
+            if (ok) {
+                it.copy(
+                    ioDevices = freshDevices,
+                    storageVolumes = freshVolumes,
+                    successMessage = if (unlock) {
+                        "Override MountX diaktifkan untuk sesi ini"
+                    } else {
+                        "Disk target dikunci kembali dan dikembalikan ke MountX"
+                    }
+                )
+            } else {
+                it.copy(
+                    ioDevices = freshDevices,
+                    errorMessage = "Gagal mengubah status override MountX"
+                )
+            }
         }
     }
 }

@@ -40,6 +40,7 @@ fun MemoryStorageSwipeableSubscreen(
     LaunchedEffect(Unit) {
         viewModel.loadMemorySubsystemData(forceRefresh = true)
         viewModel.refreshMountXStorageInfo()
+        viewModel.refreshIoDevices(forceRefresh = true)
     }
 
     LynxTabPager(

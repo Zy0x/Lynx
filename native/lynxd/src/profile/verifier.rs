@@ -267,7 +267,11 @@ impl ProfileVerifier {
         }
 
         // 4. Audit Storage I/O
+        let mountx = crate::subsystems::IoController::detect_mountx();
         for dev in &cap.storage.devices {
+            if mountx.is_disk_protected(&dev.name) {
+                continue;
+            }
             if let Some(target) = StoragePolicy::read_ahead_target(dev) {
                 let path = dev.queue_path.join("read_ahead_kb");
                 let actual = SysfsReader::read_trimmed(&path).unwrap_or_default();

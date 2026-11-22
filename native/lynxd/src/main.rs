@@ -1593,6 +1593,17 @@ fn main() {
                     let sched = args.get(4).map(|s| s.as_str()).unwrap_or("none");
                     println!("{}", IoController::set_scheduler(blk, sched));
                 }
+                "group-tune" | "group_tune" => {
+                    let target = args.get(3).map(|s| s.as_str()).unwrap_or("");
+                    let param = args.get(4).map(|s| s.as_str()).unwrap_or("");
+                    let val = args.get(5).map(|s| s.as_str()).unwrap_or("");
+                    println!("{}", IoController::group_tune(target, param, val));
+                }
+                "mountx-override" | "override" => {
+                    let raw = args.get(3).map(|s| s.as_str()).unwrap_or("0");
+                    let unlock = matches!(raw, "1" | "true" | "unlock" | "on");
+                    println!("{}", IoController::set_mountx_override(unlock));
+                }
                 _ => {
                     println!("{}", IoController::apply_default());
                     for arg in args.iter().skip(2) {

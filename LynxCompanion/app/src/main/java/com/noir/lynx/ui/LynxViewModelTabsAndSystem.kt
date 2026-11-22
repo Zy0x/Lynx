@@ -34,8 +34,9 @@ fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
 
     fun LynxViewModel.setSelectedMemoryTab(tab: Int) {
         _uiState.update { it.copy(selectedMemoryTab = tab) }
-        if (tab == 2 && !_uiState.value.mountXStorageInfo.isDetected) {
+        if (tab == 2) {
             refreshMountXStorageInfo()
+            refreshIoDevices(forceRefresh = true)
         }
     }
 

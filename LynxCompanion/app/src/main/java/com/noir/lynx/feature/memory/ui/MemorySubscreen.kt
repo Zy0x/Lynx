@@ -10,6 +10,7 @@ import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.ui.LynxViewModel
 import com.noir.lynx.ui.applyLmkPreset
 import com.noir.lynx.ui.loadMemorySubsystemData
+import com.noir.lynx.ui.refreshIoDevices
 import com.noir.lynx.ui.refreshMountXStorageInfo
 import com.noir.lynx.ui.setCustomLmkMinfreeMb
 import com.noir.lynx.ui.setEntropyThresholds
@@ -18,7 +19,7 @@ import com.noir.lynx.ui.setEntropyThresholds
  * MemorySubscreen — Modular domain router for Memory & Storage:
  * - targetTab == 0: RAM & ZRAM (MemoryHeroCard + MemoryVmZramCard)
  * - targetTab == 1: VM & Entropi (MemoryVmAdvancedCard + MemoryEntropyCard)
- * - targetTab == 2: Storage & I/O (MountXStorageCard)
+ * - targetTab == 2: Penyimpanan (StorageHeroCard + MountXStorageCard)
  * - targetTab == null: Stacked compatibility fallback (all cards)
  */
 @Composable
@@ -33,6 +34,7 @@ fun MemorySubscreen(
         LaunchedEffect(Unit) {
             viewModel.loadMemorySubsystemData(forceRefresh = true)
             viewModel.refreshMountXStorageInfo()
+            viewModel.refreshIoDevices(forceRefresh = true)
         }
     }
 

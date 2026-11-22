@@ -211,10 +211,14 @@ data class KsmStats(
 //  I/O SCHEDULER INFO (per block device)
 // ============================================================
 
+@androidx.compose.runtime.Immutable
 data class IoDeviceInfo(
     val device: String = "",
     val deviceType: String = "",
+    val group: String = "",
     val isPrimary: Boolean = false,
+    val sizeBytes: Long = 0L,
+    val removable: Boolean = false,
     val currentScheduler: String = "",
     val availableSchedulers: List<String> = emptyList(),
     val readAheadKb: Int = 0,
@@ -223,9 +227,62 @@ data class IoDeviceInfo(
     val nrRequests: Int? = null,
     val iostats: Int? = null,
     val rqAffinity: Int? = null,
+    val addRandom: Int? = null,
+    val rotational: Int? = null,
+    val mountxManaged: Boolean = false,
+    val mountxLocked: Boolean = false,
+) {
+    fun resolvedGroup(): String {
+        if (group.isNotBlank()) return group.lowercase()
+        val t = deviceType.uppercase()
+        val d = device.lowercase()
+        return when {
+            t == "USB" -> "usb"
+            t == "SD" || t == "SDCARD" -> "sd"
+            t in listOf("UFS", "EMMC", "NVME") -> "internal"
+            d.startsWith("mmcblk") && !isPrimary && !d.contains("boot") && !d.contains("rpmb") -> "sd"
+            d.startsWith("zram") || d.startsWith("loop") || d.startsWith("ram") || d.startsWith("dm-") ||
+                d.contains("boot") || d.contains("rpmb") -> "virtual"
+            d.startsWith("sd") -> if (removable) "usb" else "internal"
+            else -> "virtual"
+        }
+    }
+}
+
+@androidx.compose.runtime.Immutable
+data class StorageVolumeInfo(
+    val partition: String = "",
+    val parentDisk: String = "",
+    val deviceType: String = "",
+    val group: String = "",
+    val mountPoint: String = "",
+    val fsType: String = "",
+    val partitionSizeBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+    val availBytes: Long = 0L,
+    val f2fsSysfsExists: Boolean = false,
+    val isPrimaryInternal: Boolean = false,
+    val isMountxTarget: Boolean = false,
 )
 
+@androidx.compose.runtime.Immutable
 data class MountXStorageInfo(
+    val mountxInstalled: Boolean = false,
+    val moduleInstalled: Boolean = false,
+    val appInstalled: Boolean = false,
+    val mountxMode: String = "none",
+    val moduleDir: String = "",
+    val moduleVersion: String = "",
+    val ioTweaksActive: Boolean = false,
+    val overrideUnlocked: Boolean = false,
+    val sdBase: String = "",
+    val sdBlock: String = "",
+    val configuredReadAheadKb: Int? = null,
+    val configuredScheduler: String = "",
+    val configuredNrRequests: Int? = null,
+    val configuredRqAffinity: Int? = null,
+    val managedDisks: List<String> = emptyList(),
+    val activeBindCount: Int = 0,
     val isDetected: Boolean = false,
     val mountPoint: String = "",
     val partitionName: String = "",
@@ -246,7 +303,11 @@ data class MountXStorageInfo(
     val internalFsType: String = "",
     val internalTotalBytes: Long = 0L,
     val internalAvailableBytes: Long = 0L
-)
+) {
+    fun isDiskProtected(diskName: String): Boolean {
+        return mountxInstalled && ioTweaksActive && !overrideUnlocked && managedDisks.contains(diskName)
+    }
+}
 
 data class ZramApplyResult(
     val success: Boolean,
@@ -600,6 +661,7 @@ data class LynxUiState(
     // Hysteresis Exit Cooldown & MountX Storage Engine
     val appAutomationCooldownSeconds: Int = 30, // 5, 30, 60, 180, 0 (Persistent in RAM)
     val mountXStorageInfo: MountXStorageInfo = MountXStorageInfo(),
+    val storageVolumes: List<StorageVolumeInfo> = emptyList(),
     val diagnosticHubState: com.noir.lynx.feature.system.model.DiagnosticHubState = com.noir.lynx.feature.system.model.DiagnosticHubState(),
 ) {
     fun resolveCpuTempC(): Int {

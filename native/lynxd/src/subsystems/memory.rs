@@ -64,7 +64,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/overcommit_ratio", "80");
         Self::write_opt("/proc/sys/kernel/sched_schedstats", "0");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
-        Self::write_opt("/proc/sys/vm/page-cluster", "0");
+        super::zram::ZramController::disable_swap_readahead();
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };
         Self::write_opt("/proc/sys/vm/max_map_count", max_maps);
@@ -372,7 +372,7 @@ impl MemoryController {
         let direct = if vm_swappiness <= 20 {
             vm_swappiness.min(5)
         } else {
-            (vm_swappiness / 2).clamp(10, 40)
+            (vm_swappiness / 3).clamp(10, 30)
         };
         let memcg = if vm_swappiness == 0 {
             0
@@ -424,6 +424,7 @@ impl MemoryController {
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
+        super::zram::ZramController::disable_swap_readahead();
         Self::write_opt("/proc/sys/vm/stat_interval", stat_interval);
     }
 
@@ -476,7 +477,12 @@ impl MemoryController {
     ///    When an active game is in the foreground, strictly shields textures and prevents synchronous compaction stalls.
     pub fn check_vma_health(fg_app: Option<&ForegroundApp>) {
         Self::check_swap_pressure(fg_app);
-        Self::check_system_server_vma();
+        let is_game = fg_app
+            .map(|a| a.category == AppCategory::Game || a.category == AppCategory::Benchmark)
+            .unwrap_or(false);
+        if !is_game {
+            Self::check_system_server_vma();
+        }
     }
 
     /// Evaluates whether background swap/memory relief should run.
@@ -643,8 +649,8 @@ mod tests {
         assert_eq!(MemoryController::derived_swappiness_targets(8), (5, 10));
         assert_eq!(MemoryController::derived_swappiness_targets(10), (5, 10));
         assert_eq!(MemoryController::derived_swappiness_targets(15), (5, 15));
-        assert_eq!(MemoryController::derived_swappiness_targets(40), (20, 40));
-        assert_eq!(MemoryController::derived_swappiness_targets(60), (30, 60));
+        assert_eq!(MemoryController::derived_swappiness_targets(40), (13, 40));
+        assert_eq!(MemoryController::derived_swappiness_targets(60), (20, 60));
         assert_eq!(MemoryController::derived_swappiness_targets(0), (0, 0));
     }
 

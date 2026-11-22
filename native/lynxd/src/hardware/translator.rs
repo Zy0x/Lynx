@@ -1219,8 +1219,16 @@ impl HardwareTranslator {
         Self::push_op(&mut ops, "Memory", "VM watermark_scale_factor (anti-allocstall buffer)", "/proc/sys/vm/watermark_scale_factor", vm_targets.watermark_scale_factor.to_string(), false);
         Self::push_op(&mut ops, "Memory", "VM extra_free_kbytes buffer", "/proc/sys/vm/extra_free_kbytes", vm_targets.extra_free_kbytes.to_string(), false);
 
-        // Universal ZRAM Latency Eliminator (page-cluster = 0 reads 1 page instead of 8, cutting swap latency)
+        // Universal ZRAM Latency Eliminator (page-cluster = 0 & block RA = 0 cut swap fault waste)
         Self::push_op(&mut ops, "Memory", "ZRAM single-page read latency fix (page-cluster 0)", "/proc/sys/vm/page-cluster", "0", false);
+        for zram_ra in &[
+            "/sys/block/zram0/queue/read_ahead_kb",
+            "/sys/class/block/zram0/bdi/read_ahead_kb",
+        ] {
+            if Path::new(zram_ra).exists() {
+                Self::push_op(&mut ops, "Memory", "ZRAM zero block read-ahead", *zram_ra, "0", false);
+            }
+        }
 
         // KSM (Kernel Samepage Merging) scanning suppression during gaming
         let ksm_run = if is_perf_or_ext { "0" } else { "1" };
@@ -1273,8 +1281,10 @@ impl HardwareTranslator {
         }
 
         // C. Universal Tri-Tier Block Queue & Storage Engine (Module 15 / AGENTS.md)
+        // Protect MountX-managed disks unless explicit override is unlocked.
+        let mountx = crate::subsystems::IoController::detect_mountx();
         for dev in &cap.storage.devices {
-            if !dev.queue_path.is_dir() {
+            if !dev.queue_path.is_dir() || mountx.is_disk_protected(&dev.name) {
                 continue;
             }
             let block = match dev.queue_path.parent() {

@@ -277,6 +277,7 @@ impl ZramController {
                     });
                 }
             }
+            Self::disable_swap_readahead();
             if actual_bytes != bytes {
                 let actual_mb = actual_bytes / (1024 * 1024);
                 return Ok(if is_english() {
@@ -327,6 +328,19 @@ impl ZramController {
             "ZRAM disabled successfully.",
         )
         .to_string())
+    }
+
+    /// Forces single-page swap read-in and disables zram0 block read-ahead waste.
+    pub fn disable_swap_readahead() {
+        for p in &[
+            "/proc/sys/vm/page-cluster",
+            "/sys/block/zram0/queue/read_ahead_kb",
+            "/sys/class/block/zram0/bdi/read_ahead_kb",
+        ] {
+            if Path::new(p).exists() {
+                let _ = SysfsWriter::write(p, "0", WriteMode::ForcePermission);
+            }
+        }
     }
 
     /// Triggers hardware ZRAM page compaction via sysfs to merge chunk allocations

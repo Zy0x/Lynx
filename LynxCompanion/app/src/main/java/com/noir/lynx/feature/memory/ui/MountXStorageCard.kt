@@ -7,27 +7,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,225 +36,38 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.IoDeviceInfo
 import com.noir.lynx.data.LynxUiState
+import com.noir.lynx.data.MountXStorageInfo
+import com.noir.lynx.data.StorageVolumeInfo
 import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.card.UnsupportedBadge
 import com.noir.lynx.designsystem.controls.LynxActionButton
+import com.noir.lynx.designsystem.controls.LynxNumericPresetRow
 import com.noir.lynx.designsystem.controls.LynxSwitch
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
+import com.noir.lynx.ui.applyBlockGroupPreset
 import com.noir.lynx.ui.setIoQueueTunable
 import com.noir.lynx.ui.setIoScheduler
+import com.noir.lynx.ui.setMountXOverride
 import com.noir.lynx.ui.setReadAheadKb
-import com.noir.lynx.ui.triggerMountXBoost
-import java.util.Locale
-import kotlin.math.roundToInt
+import com.noir.lynx.ui.tuneBlockGroup
+
+private data class BlockGroupDescriptor(
+    val id: String,
+    val title: String,
+    val shortTitle: String,
+    val busSubtitle: String,
+    val icon: ImageVector,
+    val accent: Color,
+    val devices: List<IoDeviceInfo>,
+    val volumes: List<StorageVolumeInfo>
+)
 
 /**
- * StorageHeroCard — Always-visible overview of internal `/data` storage capacity, bus type (UFS/eMMC),
- * filesystem, JEDEC flash wear (human-translated), and primary block I/O status.
- */
-@Composable
-internal fun StorageHeroCard(
-    uiState: LynxUiState,
-    modifier: Modifier = Modifier
-) {
-    val storage = uiState.mountXStorageInfo
-    val primaryDev = remember(uiState.ioDevices) {
-        uiState.ioDevices.firstOrNull { it.isPrimary }
-    }
-    val totalBytes = storage.internalTotalBytes.coerceAtLeast(0L)
-    val availBytes = storage.internalAvailableBytes.coerceIn(0L, totalBytes)
-    val usedBytes = (totalBytes - availBytes).coerceAtLeast(0L)
-    val usedRatio = if (totalBytes > 0L) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
-    val usedPercent = (usedRatio * 100f).roundToInt()
-
-    val healthColor = when {
-        usedPercent >= 90 -> AccentRed
-        usedPercent >= 75 -> AccentOrange
-        else -> AccentCyan
-    }
-
-    val busLabel = storage.primaryStorageType
-        .ifBlank { primaryDev?.deviceType?.uppercase().orEmpty() }
-        .ifBlank { "Flash Internal" }
-    val fsLabel = storage.internalFsType
-        .ifBlank { if (!storage.isDetected) storage.fsType else "" }
-        .uppercase()
-    val wearInfo = remember(storage.emmcLifeTime) {
-        formatEmmcWearLabel(storage.emmcLifeTime)
-    }
-
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = Color(0xFF10141F),
-        border = BorderStroke(
-            0.8.dp,
-            Brush.verticalGradient(
-                listOf(
-                    AccentCyan.copy(alpha = 0.28f),
-                    Color(0x15FFFFFF)
-                )
-            )
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = healthColor.copy(alpha = 0.20f),
-                        modifier = Modifier.size(12.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Surface(
-                                shape = CircleShape,
-                                color = healthColor,
-                                modifier = Modifier.size(6.dp)
-                            ) {}
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = "PENYIMPANAN INTERNAL (/data)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (storage.emmcName.isNotBlank()) {
-                            Text(
-                                text = "Chip ${storage.emmcName}",
-                                fontSize = 10.sp,
-                                color = TextSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = AccentCyan.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = if (fsLabel.isNotBlank()) "$busLabel • $fsLabel" else busLabel,
-                        color = AccentCyan,
-                        fontSize = 9.5.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            if (totalBytes > 0L) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Text(
-                            text = "${formatStorageGb(usedBytes, includeUnit = false)} / ${formatStorageGb(totalBytes)}",
-                            fontSize = 21.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "$usedPercent% • Sisa ${formatStorageGb(availBytes)}",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { usedRatio },
-                        color = healthColor,
-                        trackColor = BgSurfaceLowest,
-                        strokeCap = StrokeCap.Round,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                    )
-                }
-            } else {
-                Text(
-                    text = "Kapasitas partisi /data sedang dimuat...",
-                    fontSize = 11.5.sp,
-                    color = TextSecondary
-                )
-            }
-
-            if (wearInfo != null || primaryDev != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    wearInfo?.let { (wearLabel, wearColor) ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = wearColor.copy(alpha = 0.10f),
-                            border = BorderStroke(0.6.dp, wearColor.copy(alpha = 0.32f)),
-                            modifier = if (primaryDev != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Wear: $wearLabel",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = wearColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                    primaryDev?.let { dev ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgElevated,
-                            border = BorderStroke(0.6.dp, BorderSubtle),
-                            modifier = if (wearInfo != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "${dev.device}: ${dev.currentScheduler.ifBlank { "default" }} • ${dev.readAheadKb} KB",
-                                fontSize = 10.5.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * MountXStorageCard — Sub-tab 2 (Storage & I/O).
- * Clean direct controls without lock-bar friction:
- * - External MicroSD policy & MountX Boost/Restore (shown strictly when an external SD card is mounted)
- * - Primary physical block device expanded by default; secondary/virtual nodes collapsible
+ * MountXStorageCard — Complete Sub-tab 2 ("Penyimpanan"):
+ * 1. Integrasi MountX (Module + App `app.mountx`, or `Unsupported` when absent; Override confirmation)
+ * 2. Tuning Induk Kelompok Blok (`Internal Flash sda..sdc` / `MicroSD` / `USB OTG`)
+ * 3. Tuning Lanjutan & Inspektor Per-Blok (collapsed by default)
  */
 @Composable
 fun MountXStorageCard(
@@ -262,274 +75,521 @@ fun MountXStorageCard(
     viewModel: LynxViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val storage = uiState.mountXStorageInfo
-    var showVirtualDevices by remember { mutableStateOf(false) }
+    var showOverrideDialog by remember { mutableStateOf(false) }
 
-    var customRaDevice by remember { mutableStateOf<IoDeviceInfo?>(null) }
-    var customNrDevice by remember { mutableStateOf<IoDeviceInfo?>(null) }
-
-    val displayedDevices = remember(uiState.ioDevices, showVirtualDevices) {
-        if (showVirtualDevices) {
-            uiState.ioDevices
-        } else {
-            val physical = uiState.ioDevices.filter { isPrimaryOrPhysicalBlock(it) }
-            if (physical.isNotEmpty()) physical else uiState.ioDevices.filter {
-                !it.device.startsWith("zram") && !it.device.startsWith("loop") && !it.device.startsWith("ram")
-            }
-        }
-    }
-
-    customRaDevice?.let { dev ->
-        CustomNumericInputDialog(
-            title = "Read-Ahead Kustom (${dev.device})",
-            unit = "KB",
-            currentValue = dev.readAheadKb.coerceIn(16, 16384),
-            min = 16,
-            max = 16384,
-            hint = buildString {
-                append("Tipe: ${dev.deviceType.ifBlank { "Block" }}. ")
-                if (dev.targetReadAheadKb != null) {
-                    append("Rekomendasi sistem: ${dev.targetReadAheadKb} KB.")
-                } else {
-                    append("Nilai kecil cocok untuk random I/O, besar untuk baca berurutan.")
-                }
-            },
-            presets = listOf(
-                "64 KB • Acak" to 64,
-                "128 KB • Standar" to 128,
-                "256 KB • Seimbang" to 256,
-                "512 KB • Sekuensial" to 512
-            ),
-            accentColor = AccentCyan,
-            onDismiss = { customRaDevice = null },
-            onConfirm = { kb ->
-                val targetDev = dev.device
-                customRaDevice = null
-                viewModel.setReadAheadKb(targetDev, kb)
+    if (showOverrideDialog) {
+        MountXOverrideConfirmDialog(
+            storage = storage,
+            onDismiss = { showOverrideDialog = false },
+            onConfirmUnlock = {
+                showOverrideDialog = false
+                viewModel.setMountXOverride(true)
             }
         )
     }
 
-    customNrDevice?.let { dev ->
-        CustomNumericInputDialog(
-            title = "Queue Depth nr_requests (${dev.device})",
-            unit = "req",
-            currentValue = (dev.nrRequests ?: 128).coerceIn(8, 2048),
-            min = 8,
-            max = 2048,
-            hint = "Kedalaman antrean permintaan blok (/sys/block/${dev.device}/queue/nr_requests).",
-            presets = listOf(
-                "32 req • Rendah" to 32,
-                "64 req • Responsif" to 64,
-                "128 req • Standar" to 128,
-                "256 req • Besar" to 256
-            ),
-            accentColor = AccentBlue,
-            onDismiss = { customNrDevice = null },
-            onConfirm = { value ->
-                val targetDev = dev.device
-                customNrDevice = null
-                viewModel.setIoQueueTunable(targetDev, "nr_requests", value)
-            }
-        )
+    val groups = remember(uiState.ioDevices, uiState.storageVolumes) {
+        buildStorageBlockGroups(uiState.ioDevices, uiState.storageVolumes)
     }
-
-    val externalSdDevices = remember(uiState.ioDevices) {
-        uiState.ioDevices.filter {
-            val t = it.deviceType.uppercase()
-            (t == "SD" || (it.device.startsWith("mmcblk") && !it.isPrimary &&
-                !it.device.contains("boot") && !it.device.contains("rpmb")))
+    var selectedGroupId by remember { mutableStateOf("internal") }
+    LaunchedEffect(groups) {
+        if (groups.isNotEmpty() && groups.none { it.id == selectedGroupId }) {
+            selectedGroupId = groups.first().id
         }
     }
-    val hasExternalSd = storage.isDetected || externalSdDevices.isNotEmpty()
-    val primaryBusLabel = storage.primaryStorageType.ifBlank {
-        displayedDevices.firstOrNull { it.isPrimary }?.deviceType?.uppercase().orEmpty()
-    }.ifBlank { "Deteksi Otomatis" }
-    val primaryFsLabel = storage.internalFsType
-        .ifBlank { if (!storage.isDetected) storage.fsType else "" }
-        .uppercase()
+    val activeGroup = remember(groups, selectedGroupId) {
+        groups.firstOrNull { it.id == selectedGroupId } ?: groups.firstOrNull()
+    }
 
-    LynxCard(
-        title = "Storage & I/O Scheduler",
-        subtitle = buildString {
-            append(primaryBusLabel)
-            if (primaryFsLabel.isNotBlank()) append(" ($primaryFsLabel)")
-            append(" • ${displayedDevices.size} perangkat")
-        },
-        icon = Icons.Default.Storage,
-        accentColor = AccentCyan,
-        modifier = modifier
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        MountXIntegrationCard(
+            storage = storage,
+            onRequestOverrideUnlock = { showOverrideDialog = true },
+            onRelockToMountX = { viewModel.setMountXOverride(false) }
+        )
+
+        BlockGroupMasterCard(
+            groups = groups,
+            activeGroup = activeGroup,
+            mountx = storage,
+            onSelectGroup = { selectedGroupId = it },
+            onRequestOverrideUnlock = { showOverrideDialog = true },
+            viewModel = viewModel
+        )
+
+        AdvancedPerBlockInspectorCard(
+            allDevices = uiState.ioDevices,
+            activeGroup = activeGroup,
+            mountx = storage,
+            onRequestOverrideUnlock = { showOverrideDialog = true },
+            viewModel = viewModel
+        )
+    }
+}
+
+@Composable
+private fun BlockGroupMasterCard(
+    groups: List<BlockGroupDescriptor>,
+    activeGroup: BlockGroupDescriptor?,
+    mountx: MountXStorageInfo,
+    onSelectGroup: (String) -> Unit,
+    onRequestOverrideUnlock: () -> Unit,
+    viewModel: LynxViewModel
+) {
+    LynxCard(
+        title = "Tuning Induk Kelompok Blok",
+        subtitle = activeGroup?.let {
+            "${it.title} • ${it.devices.size} blok fisik diatur serentak"
+        } ?: "Mengatur seluruh blok satu kategori sekaligus",
+        icon = Icons.Default.Storage,
+        accentColor = activeGroup?.accent ?: AccentCyan
+    ) {
+        if (groups.isEmpty() || activeGroup == null) {
+            UnsupportedBadge(
+                reason = "Tidak ada kelompok block device (/sys/block/*/queue) yang tersedia pada kernel ini."
+            )
+            return@LynxCard
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // ── 1. MountX External MicroSD Policy (shown strictly when an external SD card is mounted) ──
-            if (hasExternalSd) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // ── 1. Selector Kategori Kelompok Blok ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                groups.forEach { grp ->
+                    val selected = grp.id == activeGroup.id
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (selected) grp.accent.copy(alpha = 0.16f) else BgElevated,
+                        border = BorderStroke(
+                            if (selected) 1.dp else 0.6.dp,
+                            if (selected) grp.accent.copy(alpha = 0.65f) else BorderSubtle
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 52.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelectGroup(grp.id) }
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = grp.icon,
+                                    contentDescription = null,
+                                    tint = if (selected) grp.accent else TextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = grp.shortTitle,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (selected) grp.accent else TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Text(
+                                text = "${grp.devices.size} blok",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (selected) grp.accent.copy(alpha = 0.85f) else TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── 2. Ringkasan Anggota & Filesystem Kelompok ──
+            val memberListText = activeGroup.devices.joinToString(", ") { it.device }
+            val fsSet = activeGroup.volumes
+                .map { it.fsType.uppercase() }
+                .filter { it.isNotBlank() }
+                .distinct()
+            val hasF2fs = activeGroup.volumes.any { it.fsType.equals("f2fs", ignoreCase = true) || it.f2fsSysfsExists }
+            val anyProtected = activeGroup.devices.any { it.mountxLocked || mountx.isDiskProtected(it.device) }
+            val allProtected = activeGroup.devices.all { it.mountxLocked || mountx.isDiskProtected(it.device) }
+            val unlockedMembers = activeGroup.devices.filter { !it.mountxLocked && !mountx.isDiskProtected(it.device) }
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f).padding(end = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SdStorage,
-                                contentDescription = null,
-                                tint = if (storage.isOptimized) AccentGreen else AccentBlue,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "Kebijakan I/O Kartu SD (${storage.mountPoint.ifBlank { "/storage" }})",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        if (storage.isDetected) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (storage.isOptimized) AccentGreenDim else BgElevated,
-                                border = BorderStroke(
-                                    0.6.dp,
-                                    if (storage.isOptimized) AccentGreen.copy(alpha = 0.4f) else BorderSubtle
-                                )
-                            ) {
-                                Text(
-                                    text = if (storage.isOptimized) "OPTIMAL" else "STANDAR",
-                                    fontSize = 9.5.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (storage.isOptimized) AccentGreen else TextSecondary,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                                )
+                        Text(
+                            text = "Anggota Induk (${activeGroup.devices.size} blok)",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            if (activeGroup.busSubtitle.isNotBlank()) {
+                                StorageMetaBadge(activeGroup.busSubtitle, activeGroup.accent)
+                            }
+                            fsSet.forEach { fs ->
+                                StorageMetaBadge(fs, AccentBlue)
                             }
                         }
                     }
-
                     Text(
-                        text = "Membatasi read_ahead_kb kartu SD eksternal (<= 256 KB) agar baca-tulis stabil tanpa membebani antrean I/O.",
-                        fontSize = 10.5.sp,
-                        color = TextSecondary,
-                        lineHeight = 14.sp
+                        text = memberListText,
+                        fontSize = 11.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-
-                    if (storage.isDetected) {
-                        val sdMetaPairs = buildList {
-                            if (storage.parentDevice.isNotBlank()) add("Disk" to storage.parentDevice)
-                            if (storage.fsType.isNotBlank()) add("FS" to storage.fsType.uppercase())
-                            if (storage.currentReadAheadKb > 0) add("Read-Ahead" to "${storage.currentReadAheadKb} KB")
-                            if (storage.targetReadAheadKb != null) add("Target RA" to "${storage.targetReadAheadKb} KB")
-                            if (storage.currentScheduler.isNotBlank()) add("Scheduler" to storage.currentScheduler)
+                    if (activeGroup.volumes.isNotEmpty()) {
+                        val partSummary = activeGroup.volumes.joinToString(" • ") { v ->
+                            "${v.partition.ifBlank { v.parentDisk }} (${v.fsType.uppercase()})"
                         }
-                        if (sdMetaPairs.isNotEmpty()) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                sdMetaPairs.chunked(2).forEach { rowPairs ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        rowPairs.forEach { (k, v) ->
-                                            Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = BgElevated,
-                                                border = BorderStroke(0.6.dp, BorderSubtle),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(k, fontSize = 10.5.sp, color = TextSecondary)
-                                                    Text(
-                                                        v,
-                                                        fontSize = 11.sp,
-                                                        fontFamily = FontFamily.Monospace,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = TextPrimary,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        if (rowPairs.size == 1) Spacer(Modifier.weight(1f))
-                                    }
-                                }
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            LynxActionButton(
-                                text = "MountX Boost",
-                                icon = Icons.Default.Bolt,
-                                accentColor = AccentCyan,
-                                onClick = { viewModel.triggerMountXBoost(context, true) },
-                                modifier = Modifier.weight(1f)
-                            )
-                            LynxActionButton(
-                                text = "Pulihkan Standar",
-                                accentColor = AccentBlue,
-                                onClick = { viewModel.triggerMountXBoost(context, false) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    } else if (externalSdDevices.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = AccentBlueDim,
-                            border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = externalSdDevices.joinToString(", ") {
-                                    "${it.device} (${it.currentScheduler.ifBlank { "default" }} • ${it.readAheadKb} KB)"
-                                },
-                                fontSize = 10.5.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = AccentBlue,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
+                        Text(
+                            text = "Partisi terpasang: $partSummary",
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
             }
 
-            // ── 3. Dynamic Block Device Toggle (Virtual / Boot Partition visibility) ──
-            LynxSwitch(
-                label = "Tampilkan Perangkat Virtual & Partisi Boot",
-                subLabel = "Menampilkan ${displayedDevices.size} dari ${uiState.ioDevices.size} node blok",
-                checked = showVirtualDevices,
-                onCheckedChange = { showVirtualDevices = it }
-            )
-
-            // ── 4. Dynamic Per-Device I/O Scheduler, Read-Ahead & Queue Tunables ──
-            if (displayedDevices.isEmpty()) {
-                UnsupportedBadge(
-                    reason = "Tidak ada block device I/O sysfs (/sys/block/*/queue) yang dapat dibaca pada kernel ini."
-                )
-            } else {
-                displayedDevices.forEach { dev ->
-                    IoBlockDevicePanel(
-                        dev = dev,
-                        defaultExpanded = dev.isPrimary || displayedDevices.size == 1,
-                        onSelectScheduler = { sched -> viewModel.setIoScheduler(dev.device, sched) },
-                        onSelectReadAhead = { kb -> viewModel.setReadAheadKb(dev.device, kb) },
-                        onOpenCustomReadAhead = { customRaDevice = dev },
-                        onOpenCustomNrRequests = { customNrDevice = dev },
-                        onSetQueueTunable = { key, value ->
-                            viewModel.setIoQueueTunable(dev.device, key, value)
+            if (allProtected) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentOrange.copy(alpha = 0.08f),
+                    border = BorderStroke(0.7.dp, AccentOrange.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = AccentOrange,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Kelompok Dikunci oleh MountX",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentOrange
+                                )
+                                Text(
+                                    text = "Parameter kelompok ini sedang dijaga agar tidak menimpa setting I/O MountX. Buka Override Lanjutan jika Anda ingin mengatur manual via Lynx.",
+                                    fontSize = 10.5.sp,
+                                    color = TextSecondary,
+                                    lineHeight = 14.sp
+                                )
+                            }
                         }
+                        LynxActionButton(
+                            text = "Buka Override (Konfirmasi Lanjutan)",
+                            icon = Icons.Default.LockOpen,
+                            accentColor = AccentOrange,
+                            onClick = onRequestOverrideUnlock
+                        )
+                    }
+                }
+            } else {
+                if (anyProtected) {
+                    Text(
+                        text = "Catatan: Sebagian blok dikunci MountX; perubahan induk hanya diterapkan ke ${unlockedMembers.size} blok yang tidak dikunci.",
+                        fontSize = 10.5.sp,
+                        color = AccentOrange
                     )
+                }
+
+                // ── 3. Preset Cepat 1-Tap Kelompok ──
+                Text(
+                    text = "Preset Cepat Induk (${activeGroup.shortTitle})",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        "powersave" to "Standar Aman",
+                        "balanced" to "Responsif",
+                        "performance" to "Performa"
+                    ).forEach { (presetKey, label) ->
+                        MemoryOptionChip(
+                            label = label,
+                            selected = false,
+                            accentColor = when (presetKey) {
+                                "powersave" -> AccentGreen
+                                "performance" -> AccentOrange
+                                else -> activeGroup.accent
+                            },
+                            onClick = {
+                                viewModel.applyBlockGroupPreset(
+                                    groupId = activeGroup.id,
+                                    devicesInGroup = activeGroup.devices,
+                                    preset = presetKey
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+
+                // ── 4. Aggregated Group Parameters via Shared UI Controls ──
+                val sourceDevs = unlockedMembers.ifEmpty { activeGroup.devices }
+                val commonScheds = sourceDevs
+                    .map { it.availableSchedulers.toSet() }
+                    .reduceOrNull { acc, s -> acc intersect s }
+                    ?.toList()
+                    ?.ifEmpty { sourceDevs.flatMap { it.availableSchedulers }.distinct() }
+                    ?: sourceDevs.flatMap { it.availableSchedulers }.distinct()
+
+                val schedVals = sourceDevs.map { it.currentScheduler }.distinct()
+                val uniformSched = if (schedVals.size == 1) schedVals.first() else ""
+                val schedSubtitle = if (schedVals.size > 1) {
+                    "Saat ini bervariasi (${schedVals.joinToString("/")})"
+                } else {
+                    "Aktif di semua blok: ${uniformSched.ifBlank { "default" }}"
+                }
+
+                val raVals = sourceDevs.map { it.readAheadKb }.filter { it > 0 }.distinct()
+                val raRepresentative = raVals.firstOrNull() ?: 128
+                val raDisplay = when {
+                    raVals.isEmpty() -> "—"
+                    raVals.size == 1 -> "${raVals.first()} KB"
+                    else -> "${raVals.min()}–${raVals.max()} KB (Campuran)"
+                }
+
+                val nrVals = sourceDevs.mapNotNull { it.nrRequests }.distinct()
+                val nrRepresentative = nrVals.firstOrNull()
+                val nrDisplay = when {
+                    nrVals.isEmpty() -> null
+                    nrVals.size == 1 -> "${nrVals.first()} req"
+                    else -> "${nrVals.min()}–${nrVals.max()} req (Campuran)"
+                }
+
+                val rqaVals = sourceDevs.mapNotNull { it.rqAffinity }.distinct()
+                val rqaUniform = if (rqaVals.size == 1) rqaVals.first() else -1
+
+                val iosVals = sourceDevs.mapNotNull { it.iostats }.distinct()
+                val iosChecked = iosVals.firstOrNull()?.let { it != 0 }
+
+                val randVals = sourceDevs.mapNotNull { it.addRandom }.distinct()
+                val randChecked = randVals.firstOrNull()?.let { it != 0 }
+
+                val hintType = activeGroup.busSubtitle.ifBlank { activeGroup.shortTitle }
+                IoQueueTuningSection(
+                    scopeLabel = "Induk ${activeGroup.shortTitle} (${sourceDevs.size} blok)",
+                    deviceTypeHint = hintType,
+                    availableSchedulers = commonScheds,
+                    currentScheduler = uniformSched,
+                    schedulerHeader = schedSubtitle,
+                    readAheadKb = raRepresentative,
+                    readAheadDisplay = raDisplay,
+                    targetReadAheadKb = sourceDevs.firstNotNullOfOrNull { it.targetReadAheadKb },
+                    nrRequests = nrRepresentative,
+                    nrRequestsDisplay = nrDisplay,
+                    rqAffinity = if (rqaVals.isEmpty()) null else rqaUniform,
+                    iostats = iosChecked,
+                    addRandom = randChecked,
+                    accentColor = activeGroup.accent,
+                    onSelectScheduler = { sched ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "scheduler", sched)
+                    },
+                    onCommitReadAhead = { kb ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "read_ahead_kb", kb.toString())
+                    },
+                    onCommitNrRequests = { req ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "nr_requests", req.toString())
+                    },
+                    onSelectRqAffinity = { v ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "rq_affinity", v.toString())
+                    },
+                    onToggleIostats = { checked ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "iostats", if (checked) "1" else "0")
+                    },
+                    onToggleAddRandom = { checked ->
+                        viewModel.tuneBlockGroup(activeGroup.id, activeGroup.devices, "add_random", if (checked) "1" else "0")
+                    }
+                )
+            }
+
+            if (activeGroup.volumes.isNotEmpty() || hasF2fs) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val fsNote = buildString {
+                        if (hasF2fs) {
+                            append("Filesystem F2FS aktif (/sys/fs/f2fs terdeteksi) — cocok dengan Read-Ahead terukur tanpa buffer berlebihan.")
+                        } else if (fsSet.contains("EXT4")) {
+                            append("Filesystem EXT4 aktif — jurnal POSIX stabil pada I/O acak & sekuensial.")
+                        } else if (fsSet.any { it in listOf("EXFAT", "VFAT", "FAT32", "NTFS", "FUSEBLK") }) {
+                            append("Media eksternal (${fsSet.joinToString("/")}) — Read-Ahead lebih besar membantu transfer & streaming file besar.")
+                        } else {
+                            append("Gunakan Tuning Lanjutan di bawah jika perlu membedakan satu blok khusus saja.")
+                        }
+                    }
+                    Text(
+                        text = fsNote,
+                        fontSize = 10.5.sp,
+                        color = TextSecondary,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedPerBlockInspectorCard(
+    allDevices: List<IoDeviceInfo>,
+    activeGroup: BlockGroupDescriptor?,
+    mountx: MountXStorageInfo,
+    onRequestOverrideUnlock: () -> Unit,
+    viewModel: LynxViewModel
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var scopeAllGroups by remember { mutableStateOf(false) }
+    var includeVirtual by remember { mutableStateOf(false) }
+
+    val physicalCount = remember(allDevices) { allDevices.count { !isVirtualOrBootBlock(it) } }
+    val virtualCount = remember(allDevices, physicalCount) { (allDevices.size - physicalCount).coerceAtLeast(0) }
+
+    val displayedDevices = remember(allDevices, activeGroup, scopeAllGroups, includeVirtual) {
+        val base = if (!scopeAllGroups && activeGroup != null && !includeVirtual) {
+            activeGroup.devices
+        } else {
+            allDevices
+        }
+        if (includeVirtual) base else base.filter { !isVirtualOrBootBlock(it) }
+    }
+
+    LynxCard(
+        title = "Tuning Lanjutan Per-Blok (Expert)",
+        subtitle = "$physicalCount blok fisik • $virtualCount blok virtual/mapper",
+        icon = Icons.Default.Tune,
+        accentColor = AccentPurple
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Surface(
+                onClick = { expanded = !expanded },
+                shape = RoundedCornerShape(12.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (expanded) "Tutup Inspektor Blok Individual" else "Buka Kontrol Per-Blok & Blok Virtual",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = AccentPurple,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+                exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MemoryOptionChip(
+                            label = "Kelompok (${activeGroup?.shortTitle ?: "Aktif"})",
+                            selected = !scopeAllGroups,
+                            accentColor = AccentPurple,
+                            onClick = { scopeAllGroups = false },
+                            modifier = Modifier.weight(1f)
+                        )
+                        MemoryOptionChip(
+                            label = "Semua Blok Fisik",
+                            selected = scopeAllGroups,
+                            accentColor = AccentPurple,
+                            onClick = { scopeAllGroups = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    LynxSwitch(
+                        label = "Tampilkan Blok Virtual / Mapper",
+                        subLabel = "Menyertakan dm-*, zram, loop, dan partisi boot hardware",
+                        checked = includeVirtual,
+                        onCheckedChange = { includeVirtual = it }
+                    )
+
+                    if (displayedDevices.isEmpty()) {
+                        UnsupportedBadge(reason = "Tidak ada blok yang cocok dengan filter ini.")
+                    } else {
+                        displayedDevices.forEach { dev ->
+                            val isLocked = dev.mountxLocked || mountx.isDiskProtected(dev.device)
+                            IoBlockDevicePanel(
+                                dev = dev,
+                                isLockedByMountX = isLocked,
+                                defaultExpanded = displayedDevices.size == 1,
+                                onRequestOverrideUnlock = onRequestOverrideUnlock,
+                                onSelectScheduler = { sched -> viewModel.setIoScheduler(dev.device, sched) },
+                                onCommitReadAhead = { kb -> viewModel.setReadAheadKb(dev.device, kb) },
+                                onCommitNrRequests = { req -> viewModel.setIoQueueTunable(dev.device, "nr_requests", req) },
+                                onSelectRqAffinity = { v -> viewModel.setIoQueueTunable(dev.device, "rq_affinity", v) },
+                                onToggleIostats = { c -> viewModel.setIoQueueTunable(dev.device, "iostats", if (c) 1 else 0) },
+                                onToggleAddRandom = { c -> viewModel.setIoQueueTunable(dev.device, "add_random", if (c) 1 else 0) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -539,36 +599,38 @@ fun MountXStorageCard(
 @Composable
 private fun IoBlockDevicePanel(
     dev: IoDeviceInfo,
+    isLockedByMountX: Boolean,
     defaultExpanded: Boolean,
+    onRequestOverrideUnlock: () -> Unit,
     onSelectScheduler: (String) -> Unit,
-    onSelectReadAhead: (Int) -> Unit,
-    onOpenCustomReadAhead: () -> Unit,
-    onOpenCustomNrRequests: () -> Unit,
-    onSetQueueTunable: (key: String, value: Int) -> Unit
+    onCommitReadAhead: (Int) -> Unit,
+    onCommitNrRequests: (Int) -> Unit,
+    onSelectRqAffinity: (Int) -> Unit,
+    onToggleIostats: (Boolean) -> Unit,
+    onToggleAddRandom: (Boolean) -> Unit
 ) {
     var expanded by remember(dev.device) { mutableStateOf(defaultExpanded) }
-    val raOptions = remember(dev.deviceType, dev.targetReadAheadKb, dev.readAheadKb) {
-        buildDynamicReadAheadOptions(
-            deviceType = dev.deviceType,
-            targetKb = dev.targetReadAheadKb
-        )
-    }
 
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = BgSurfaceLowest,
         border = BorderStroke(
             0.6.dp,
-            if (dev.isPrimary) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
+            when {
+                isLockedByMountX -> AccentOrange.copy(alpha = 0.45f)
+                dev.isPrimary -> AccentCyan.copy(alpha = 0.35f)
+                else -> BorderSubtle
+            }
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Header row: clickable accordion toggle for clean Progressive Disclosure
             Surface(
                 onClick = { expanded = !expanded },
                 color = Color.Transparent,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 44.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -585,212 +647,89 @@ private fun IoBlockDevicePanel(
                         ) {
                             Text(
                                 text = "/dev/${dev.device}",
-                                fontSize = 12.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace,
                                 color = TextPrimary
                             )
                             if (dev.deviceType.isNotBlank()) {
-                                IoMetaBadge(dev.deviceType.uppercase(), AccentBlue)
+                                StorageMetaBadge(dev.deviceType.uppercase(), AccentBlue)
                             }
                             if (dev.isPrimary) {
-                                IoMetaBadge("UTAMA", AccentCyan)
+                                StorageMetaBadge("UTAMA", AccentCyan)
+                            }
+                            if (isLockedByMountX) {
+                                StorageMetaBadge("MOUNTX", AccentOrange)
                             }
                         }
-                        if (!expanded) {
-                            Text(
-                                text = "${dev.currentScheduler.ifBlank { "default" }} • ${dev.readAheadKb} KB",
-                                fontSize = 10.5.sp,
-                                color = TextSecondary
-                            )
+                        val metaLine = buildString {
+                            append(dev.currentScheduler.ifBlank { "default" })
+                            append(" • ${dev.readAheadKb} KB")
+                            if (dev.sizeBytes > 0L) append(" • ${formatStorageGb(dev.sizeBytes)}")
                         }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
                         Text(
-                            text = "${dev.readAheadKb} KB",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = AccentCyan
-                        )
-                        Icon(
-                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            text = metaLine,
+                            fontSize = 10.5.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
             AnimatedVisibility(
                 visible = expanded,
-                enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+                enter = expandVertically(animationSpec = tween(200)) + fadeIn(animationSpec = tween(200)),
                 exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .padding(top = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (dev.availableSchedulers.isNotEmpty()) {
+                    if (isLockedByMountX) {
                         Text(
-                            text = "I/O Scheduler (${dev.currentScheduler.ifBlank { "default" }})",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextSecondary
+                            text = "Blok ini dilindungi oleh MountX. Aktifkan Override Lanjutan untuk mengedit langsung.",
+                            fontSize = 10.5.sp,
+                            color = AccentOrange
                         )
-                        val schedCols = if (dev.availableSchedulers.size == 4) 2 else 3
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            dev.availableSchedulers.chunked(schedCols).forEach { rowScheds ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    rowScheds.forEach { sched ->
-                                        MemoryOptionChip(
-                                            label = sched,
-                                            selected = dev.currentScheduler == sched,
-                                            accentColor = AccentCyan,
-                                            onClick = { onSelectScheduler(sched) },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                    repeat(schedCols - rowScheds.size) { Spacer(Modifier.weight(1f)) }
-                                }
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = "Read-Ahead Cache",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextSecondary
-                    )
-                    val raChipItems: List<Pair<String, Int?>> =
-                        raOptions.map { "${it} KB" to it } + ("Kustom" to null)
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        raChipItems.chunked(3).forEach { rowItems ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowItems.forEach { (label, kbOpt) ->
-                                    val isCustom = kbOpt == null
-                                    val isSelected = if (isCustom) {
-                                        dev.readAheadKb !in raOptions && dev.readAheadKb > 0
-                                    } else {
-                                        dev.readAheadKb == kbOpt
-                                    }
-                                    MemoryOptionChip(
-                                        label = if (isCustom && isSelected) "${dev.readAheadKb}K*" else label,
-                                        selected = isSelected,
-                                        accentColor = if (isCustom) AccentPurple else AccentBlue,
-                                        onClick = {
-                                            if (kbOpt != null) onSelectReadAhead(kbOpt) else onOpenCustomReadAhead()
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                repeat(3 - rowItems.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
-                    }
-
-                    val hasQueueTunables = dev.nrRequests != null || dev.rqAffinity != null || dev.iostats != null
-                    if (hasQueueTunables) {
-                        HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
-
-                        dev.nrRequests?.let { nrReq ->
-                            val nrPresets = remember(dev.deviceType) {
-                                val t = dev.deviceType.uppercase()
-                                if (t.contains("UFS") || t.contains("NVME")) listOf(64, 128, 256)
-                                else listOf(32, 64, 128)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Queue Depth (nr_requests)",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextSecondary
-                                )
-                                Text(
-                                    text = "$nrReq req",
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = AccentBlue
-                                )
-                            }
-                            val nrItems: List<Pair<String, Int?>> =
-                                nrPresets.map { "$it" to it } + ("Kustom" to null)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                nrItems.forEach { (label, valOpt) ->
-                                    val isCustom = valOpt == null
-                                    val isSelected = if (isCustom) nrReq !in nrPresets else nrReq == valOpt
-                                    MemoryOptionChip(
-                                        label = if (isCustom && isSelected) "${nrReq}*" else label,
-                                        selected = isSelected,
-                                        accentColor = if (isCustom) AccentPurple else AccentCyan,
-                                        onClick = {
-                                            if (valOpt != null) onSetQueueTunable("nr_requests", valOpt)
-                                            else onOpenCustomNrRequests()
-                                        },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-
-                        dev.rqAffinity?.let { rqAff ->
-                            Text(
-                                text = "RQ Affinity",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextSecondary
-                            )
-                            val rqOptions = listOf(0 to "0 • Off", 1 to "1 • Sibling", 2 to "2 • Strict")
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rqOptions.forEach { (valOpt, label) ->
-                                    MemoryOptionChip(
-                                        label = label,
-                                        selected = rqAff == valOpt,
-                                        accentColor = AccentBlue,
-                                        onClick = { onSetQueueTunable("rq_affinity", valOpt) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-
-                        dev.iostats?.let { iostat ->
-                            LynxSwitch(
-                                label = "Kernel I/O Stats (iostats)",
-                                subLabel = if (iostat == 0) {
-                                    "Nonaktif — kurangi overhead statistik blok"
-                                } else {
-                                    "Aktif — catat metrik diskstats"
-                                },
-                                checked = iostat != 0,
-                                onCheckedChange = { checked ->
-                                    onSetQueueTunable("iostats", if (checked) 1 else 0)
-                                }
-                            )
-                        }
+                        LynxActionButton(
+                            text = "Buka Override (Konfirmasi)",
+                            icon = Icons.Default.LockOpen,
+                            accentColor = AccentOrange,
+                            onClick = onRequestOverrideUnlock
+                        )
+                    } else {
+                        IoQueueTuningSection(
+                            scopeLabel = "/dev/${dev.device}",
+                            deviceTypeHint = dev.deviceType.ifBlank { "Block" },
+                            availableSchedulers = dev.availableSchedulers,
+                            currentScheduler = dev.currentScheduler,
+                            schedulerHeader = "I/O Scheduler (${dev.currentScheduler.ifBlank { "default" }})",
+                            readAheadKb = dev.readAheadKb.coerceAtLeast(16),
+                            readAheadDisplay = "${dev.readAheadKb} KB",
+                            targetReadAheadKb = dev.targetReadAheadKb,
+                            nrRequests = dev.nrRequests,
+                            nrRequestsDisplay = dev.nrRequests?.let { "$it req" },
+                            rqAffinity = dev.rqAffinity,
+                            iostats = dev.iostats?.let { it != 0 },
+                            addRandom = dev.addRandom?.let { it != 0 },
+                            accentColor = AccentCyan,
+                            onSelectScheduler = onSelectScheduler,
+                            onCommitReadAhead = onCommitReadAhead,
+                            onCommitNrRequests = onCommitNrRequests,
+                            onSelectRqAffinity = onSelectRqAffinity,
+                            onToggleIostats = onToggleIostats,
+                            onToggleAddRandom = onToggleAddRandom
+                        )
                     }
                 }
             }
@@ -798,72 +737,268 @@ private fun IoBlockDevicePanel(
     }
 }
 
+/**
+ * Shared I/O Queue Tuning UI used uniformly by both Group Induk Master Card and Per-Block Inspector.
+ */
 @Composable
-private fun IoMetaBadge(text: String, color: Color) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = color.copy(alpha = 0.14f),
-        border = BorderStroke(0.6.dp, color.copy(alpha = 0.35f))
-    ) {
-        Text(
-            text = text,
-            fontSize = 9.5.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+private fun IoQueueTuningSection(
+    scopeLabel: String,
+    deviceTypeHint: String,
+    availableSchedulers: List<String>,
+    currentScheduler: String,
+    schedulerHeader: String,
+    readAheadKb: Int,
+    readAheadDisplay: String,
+    targetReadAheadKb: Int?,
+    nrRequests: Int?,
+    nrRequestsDisplay: String?,
+    rqAffinity: Int?,
+    iostats: Boolean?,
+    addRandom: Boolean?,
+    accentColor: Color,
+    onSelectScheduler: (String) -> Unit,
+    onCommitReadAhead: (Int) -> Unit,
+    onCommitNrRequests: (Int) -> Unit,
+    onSelectRqAffinity: (Int) -> Unit,
+    onToggleIostats: (Boolean) -> Unit,
+    onToggleAddRandom: (Boolean) -> Unit
+) {
+    val raPresets = remember(deviceTypeHint, targetReadAheadKb) {
+        buildDynamicReadAheadPresets(deviceTypeHint, targetReadAheadKb)
+    }
+    val nrPresets = remember(deviceTypeHint) {
+        val t = deviceTypeHint.uppercase()
+        if (t.contains("UFS") || t.contains("NVME")) {
+            listOf("32 • Rendah" to 32, "64 • Cepat" to 64, "128 • Standar" to 128, "256 • Tinggi" to 256, "512 • Maks" to 512)
+        } else {
+            listOf("32 • Aman" to 32, "64 • Responsif" to 64, "128 • Standar" to 128, "256 • Sekuensial" to 256, "512 • Besar" to 512)
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (availableSchedulers.isNotEmpty()) {
+            Text(
+                text = schedulerHeader,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary
+            )
+            val schedCols = if (availableSchedulers.size == 4) 2 else 3
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                availableSchedulers.chunked(schedCols).forEach { rowScheds ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowScheds.forEach { sched ->
+                            MemoryOptionChip(
+                                label = sched,
+                                selected = currentScheduler == sched,
+                                accentColor = accentColor,
+                                onClick = { onSelectScheduler(sched) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        repeat(schedCols - rowScheds.size) { Spacer(Modifier.weight(1f)) }
+                    }
+                }
+            }
+        }
+
+        LynxNumericPresetRow(
+            label = "Read-Ahead Cache",
+            value = readAheadKb.coerceIn(16, 16384),
+            displayValue = readAheadDisplay,
+            min = 16,
+            max = 16384,
+            unit = "KB",
+            subtitle = "Buffer prefetch baca berurutan ($scopeLabel)",
+            dialogTitle = "Read-Ahead ($scopeLabel)",
+            dialogHint = "Tipe: $deviceTypeHint. Nilai kecil (64–128 KB) fokus respons random 4K; nilai besar (512–2048 KB) mempercepat streaming aset & game besar.",
+            presets = raPresets,
+            accentColor = accentColor,
+            onCommitValue = onCommitReadAhead
+        )
+
+        if (nrRequests != null && nrRequestsDisplay != null) {
+            LynxNumericPresetRow(
+                label = "Queue Depth (nr_requests)",
+                value = nrRequests.coerceIn(8, 2048),
+                displayValue = nrRequestsDisplay,
+                min = 8,
+                max = 2048,
+                unit = "req",
+                subtitle = "Kedalaman antrean permintaan blok kernel",
+                dialogTitle = "Queue Depth ($scopeLabel)",
+                dialogHint = "Membatasi atau memperluas antrean I/O serentak di driver blok.",
+                presets = nrPresets,
+                accentColor = AccentBlue,
+                onCommitValue = onCommitNrRequests
+            )
+        }
+
+        if (rqAffinity != null) {
+            Text(
+                text = "RQ Affinity",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary
+            )
+            val rqOptions = listOf(0 to "0 • Off", 1 to "1 • Sibling", 2 to "2 • Strict")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rqOptions.forEach { (valOpt, label) ->
+                    MemoryOptionChip(
+                        label = label,
+                        selected = rqAffinity == valOpt,
+                        accentColor = AccentBlue,
+                        onClick = { onSelectRqAffinity(valOpt) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        if (iostats != null) {
+            LynxSwitch(
+                label = "Kernel I/O Stats (iostats)",
+                subLabel = if (!iostats) "Nonaktif — kurangi overhead statistik I/O" else "Aktif — catat statistik blok",
+                checked = iostats,
+                onCheckedChange = onToggleIostats
+            )
+        }
+
+        if (addRandom != null) {
+            LynxSwitch(
+                label = "Block Entropy Overhead (add_random)",
+                subLabel = if (!addRandom) "Nonaktif — hindari jeda pengumpulan RNG di tiap request I/O" else "Aktif — kumpulkan timing disk ke pool RNG",
+                checked = addRandom,
+                onCheckedChange = onToggleAddRandom
+            )
+        }
+    }
+}
+
+private fun buildStorageBlockGroups(
+    devices: List<IoDeviceInfo>,
+    volumes: List<StorageVolumeInfo>
+): List<BlockGroupDescriptor> {
+    val physicalOnly = devices.filter { !isVirtualOrBootBlock(it) }
+    val grouped = physicalOnly.groupBy { it.resolvedGroup() }
+    val order = listOf("internal", "sd", "usb", "virtual")
+    val descriptors = mutableListOf<BlockGroupDescriptor>()
+
+    for (key in order) {
+        val devs = grouped[key].orEmpty()
+        if (devs.isEmpty()) continue
+        val vols = volumes.filter { v ->
+            v.group.equals(key, ignoreCase = true) || devs.any { it.device == v.parentDisk }
+        }
+        val primaryType = devs.firstOrNull { it.isPrimary }?.deviceType
+            ?: devs.first().deviceType
+        descriptors.add(
+            when (key) {
+                "internal" -> BlockGroupDescriptor(
+                    id = "internal",
+                    title = "Penyimpanan Internal",
+                    shortTitle = "Internal",
+                    busSubtitle = primaryType.uppercase().ifBlank { "Flash" },
+                    icon = Icons.Default.Storage,
+                    accent = AccentCyan,
+                    devices = devs,
+                    volumes = vols
+                )
+                "sd" -> BlockGroupDescriptor(
+                    id = "sd",
+                    title = "Kartu Memori / MicroSD",
+                    shortTitle = "MicroSD",
+                    busSubtitle = "SD Card",
+                    icon = Icons.Default.SdStorage,
+                    accent = AccentBlue,
+                    devices = devs,
+                    volumes = vols
+                )
+                "usb" -> BlockGroupDescriptor(
+                    id = "usb",
+                    title = "USB OTG / Drive Eksternal",
+                    shortTitle = "USB OTG",
+                    busSubtitle = "USB Mass",
+                    icon = Icons.Default.Usb,
+                    accent = AccentPurple,
+                    devices = devs,
+                    volumes = vols
+                )
+                else -> BlockGroupDescriptor(
+                    id = key,
+                    title = "Blok Lainnya",
+                    shortTitle = key.uppercase(),
+                    busSubtitle = "Block",
+                    icon = Icons.Default.Storage,
+                    accent = AccentBlue,
+                    devices = devs,
+                    volumes = vols
+                )
+            }
         )
     }
+
+    if (descriptors.isEmpty() && devices.isNotEmpty()) {
+        descriptors.add(
+            BlockGroupDescriptor(
+                id = "virtual",
+                title = "Blok Virtual",
+                shortTitle = "Virtual",
+                busSubtitle = "Virtual",
+                icon = Icons.Default.Storage,
+                accent = AccentPurple,
+                devices = devices,
+                volumes = volumes
+            )
+        )
+    }
+    return descriptors
 }
 
-private fun isPrimaryOrPhysicalBlock(dev: IoDeviceInfo): Boolean {
+private fun isVirtualOrBootBlock(dev: IoDeviceInfo): Boolean {
     val name = dev.device.lowercase()
     if (name.startsWith("zram") || name.startsWith("loop") || name.startsWith("ram") || name.startsWith("dm-")) {
-        return false
+        return true
     }
     if (name.contains("boot") || name.contains("rpmb")) {
-        return false
+        return true
     }
-    if (dev.isPrimary) return true
-    val type = dev.deviceType.uppercase()
-    if (type in listOf("UFS", "EMMC", "NVME", "SD", "MMC")) return true
-    return name.startsWith("sd") || name.startsWith("mmcblk") || name.startsWith("nvme")
+    return dev.resolvedGroup() == "virtual"
 }
 
-private fun buildDynamicReadAheadOptions(deviceType: String, targetKb: Int?): List<Int> {
+private fun buildDynamicReadAheadPresets(deviceType: String, targetKb: Int?): List<Pair<String, Int>> {
     val t = deviceType.uppercase()
     val base = when {
-        t.contains("UFS") || t.contains("NVME") -> listOf(32, 64, 128, 256, 512)
-        t.contains("EMMC") || t.contains("SD") || t.contains("MMC") -> listOf(64, 128, 256, 512, 1024)
-        else -> listOf(128, 256, 512, 1024)
+        t.contains("UFS") || t.contains("NVME") -> listOf(
+            "64 KB • Acak 4K" to 64,
+            "128 KB • Seimbang" to 128,
+            "256 KB • Standar" to 256,
+            "512 KB • Sekuensial" to 512,
+            "1024 KB • Burst" to 1024
+        )
+        t.contains("EMMC") -> listOf(
+            "64 KB • Responsif" to 64,
+            "128 KB • Seimbang" to 128,
+            "256 KB • Standar" to 256,
+            "512 KB • Besar" to 512
+        )
+        else -> listOf(
+            "128 KB • Ringan" to 128,
+            "256 KB • Aman" to 256,
+            "512 KB • Seimbang" to 512,
+            "1024 KB • MountX" to 1024,
+            "2048 KB • Streaming" to 2048
+        )
     }
-    return (base + listOfNotNull(targetKb?.takeIf { it > 0 }))
-        .distinct()
-        .sorted()
-        .take(5)
-}
-
-private fun formatStorageGb(bytes: Long, includeUnit: Boolean = true): String {
-    if (bytes <= 0L) return if (includeUnit) "0.0 GB" else "0.0"
-    val gb = bytes / 1_000_000_000.0
-    val formatted = "%.1f".format(Locale.US, gb)
-    return if (includeUnit) "$formatted GB" else formatted
-}
-
-private fun formatEmmcWearLabel(raw: String): Pair<String, Color>? {
-    if (raw.isBlank()) return null
-    val worst = raw.trim()
-        .split(Regex("\\s+"))
-        .mapNotNull { token -> token.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
-        .filter { it > 0 }
-        .maxOrNull() ?: return null
-    return when {
-        worst == 0x01 -> "Sehat (0–10%)" to AccentGreen
-        worst in 0x02..0x03 -> "Baik (${(worst - 1) * 10}–${worst * 10}%)" to AccentGreen
-        worst in 0x04..0x06 -> "Normal (${(worst - 1) * 10}–${worst * 10}%)" to AccentCyan
-        worst in 0x07..0x09 -> "Menua (${(worst - 1) * 10}–${worst * 10}%)" to AccentOrange
-        worst == 0x0A -> "Kritis (90–100%)" to AccentRed
-        worst >= 0x0B -> "Maksimal (>100%)" to AccentRed
-        else -> null
+    return if (targetKb != null && targetKb > 0 && base.none { it.second == targetKb }) {
+        (base + ("$targetKb KB • Target" to targetKb)).sortedBy { it.second }
+    } else {
+        base
     }
 }

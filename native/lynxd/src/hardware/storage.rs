@@ -5,6 +5,18 @@ use std::path::{Path, PathBuf};
 use super::capability::{BlockDeviceCapability, BlockDeviceType, StorageCapability};
 use crate::sysfs::SysfsReader;
 
+#[derive(Debug, Clone)]
+pub struct MountedVolumeInfo {
+    pub partition: String,
+    pub parent_disk: String,
+    pub device_type: BlockDeviceType,
+    pub mount_point: String,
+    pub fs_type: String,
+    pub partition_size_bytes: u64,
+    pub f2fs_sysfs_exists: bool,
+    pub is_primary_internal: bool,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct StorageTuneParams {
     pub read_ahead_kb: u32,
@@ -288,6 +300,206 @@ impl StoragePolicy {
         Some(physical)
     }
 
+    pub fn decode_mountinfo_path(raw: &str) -> String {
+        raw.replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\")
+    }
+
+    pub fn block_group(device_type: BlockDeviceType) -> &'static str {
+        match device_type {
+            BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme => "internal",
+            BlockDeviceType::Sd => "sd",
+            BlockDeviceType::Usb => "usb",
+            BlockDeviceType::Loop | BlockDeviceType::Virtual | BlockDeviceType::Unknown => "virtual",
+        }
+    }
+
+    pub fn resolve_partition_and_disk(sys_dev_path: &Path) -> Option<(String, String, PathBuf)> {
+        let canon_part = fs::canonicalize(sys_dev_path).ok()?;
+        let partition = canon_part.file_name()?.to_string_lossy().into_owned();
+        let physical = Self::physical_devices(sys_dev_path.to_path_buf(), &mut HashSet::new())?;
+        if physical.len() != 1 {
+            return None;
+        }
+        let phys_path = physical.into_iter().next()?;
+        let parent_disk = phys_path.file_name()?.to_string_lossy().into_owned();
+        Some((partition, parent_disk, phys_path))
+    }
+
+    fn resolve_mount_source_sys_path(maj_min: &str, source: &str) -> Option<PathBuf> {
+        if !maj_min.starts_with("0:") {
+            let p = Path::new("/sys/dev/block").join(maj_min);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+        if let Some(vold_mm) = source.strip_prefix("/dev/block/vold/public:") {
+            let normalized = vold_mm.replace(',', ":");
+            let p = Path::new("/sys/dev/block").join(normalized);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+        if let Some(dev_name) = source.strip_prefix("/dev/block/") {
+            if !dev_name.contains('/') {
+                let p = Path::new("/sys/class/block").join(dev_name);
+                if p.exists() {
+                    return Some(p);
+                }
+            }
+        }
+        None
+    }
+
+    fn mount_priority(mount_point: &str, fs_type: &str) -> u8 {
+        if mount_point == "/data" {
+            return 0;
+        }
+        if mount_point.starts_with("/mnt/media_rw/") {
+            return 1;
+        }
+        if !mount_point.starts_with("/storage/") && fs_type != "fuse" && fs_type != "sdcardfs" {
+            return 2;
+        }
+        if mount_point.starts_with("/storage/") && fs_type != "fuse" && fs_type != "sdcardfs" {
+            return 3;
+        }
+        4
+    }
+
+    /// Enumerates unique mounted user/external storage partitions (Internal `/data`, MicroSD partitions,
+    /// USB OTG drives, and user/MountX custom mounts) resolving real filesystem & underlying block bus.
+    pub fn mounted_volumes(storage: &StorageCapability) -> Vec<MountedVolumeInfo> {
+        let mounts = match fs::read_to_string("/proc/self/mountinfo") {
+            Ok(m) => m,
+            Err(_) => return Vec::new(),
+        };
+        let primary_disk = Self::primary_storage(storage)
+            .and_then(|(idx, _)| storage.devices.get(idx).map(|d| d.name.clone()));
+
+        let mut best_by_key: std::collections::BTreeMap<(String, String), MountedVolumeInfo> =
+            std::collections::BTreeMap::new();
+
+        for line in mounts.lines() {
+            let (mount_part, fs_part) = match line.split_once(" - ") {
+                Some(parts) => parts,
+                None => continue,
+            };
+            let mount: Vec<_> = mount_part.split_whitespace().collect();
+            let fs_fields: Vec<_> = fs_part.split_whitespace().collect();
+            if mount.len() < 5 || fs_fields.len() < 2 {
+                continue;
+            }
+            // Bind subdirectories (root != "/") like /MountX/Android/data/... or /data/user/0 are mirrors.
+            if mount[3] != "/" {
+                continue;
+            }
+            let mount_point = Self::decode_mountinfo_path(mount[4]);
+            if mount_point == "/"
+                || mount_point.starts_with("/system")
+                || mount_point.starts_with("/vendor")
+                || mount_point.starts_with("/product")
+                || mount_point.starts_with("/odm")
+                || mount_point.starts_with("/apex")
+                || mount_point.starts_with("/bootstrap-apex")
+                || mount_point.starts_with("/linkerconfig")
+                || mount_point.starts_with("/mnt/runtime/")
+                || mount_point.starts_with("/mnt/installer/")
+                || mount_point.starts_with("/mnt/androidwritable/")
+                || mount_point.starts_with("/mnt/pass_through/")
+                || mount_point.starts_with("/mnt/user/")
+                || mount_point.starts_with("/data_mirror/")
+                || mount_point.starts_with("/storage/emulated")
+            {
+                continue;
+            }
+
+            let fs_type = fs_fields[0].to_string();
+            let source = fs_fields[1];
+            let sys_path = match Self::resolve_mount_source_sys_path(mount[2], source) {
+                Some(p) => p,
+                None => continue,
+            };
+            let (partition, parent_disk, _) = match Self::resolve_partition_and_disk(&sys_path) {
+                Some(resolved) => resolved,
+                None => continue,
+            };
+
+            let dev_type = storage
+                .devices
+                .iter()
+                .find(|d| d.name == parent_disk)
+                .map(|d| d.device_type)
+                .unwrap_or_else(|| Self::classify(&Path::new("/sys/block").join(&parent_disk)));
+
+            // Skip static firmware/metadata/boot/system partitions on internal flash unless it is `/data`.
+            if matches!(dev_type, BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme)
+                && mount_point != "/data"
+            {
+                continue;
+            }
+            if dev_type == BlockDeviceType::Loop {
+                let is_ro = SysfsReader::read_trimmed(
+                    Path::new("/sys/class/block").join(&parent_disk).join("ro"),
+                )
+                .ok()
+                .as_deref()
+                    == Some("1");
+                if is_ro || mount_point.contains("apex") {
+                    continue;
+                }
+            }
+            if matches!(dev_type, BlockDeviceType::Virtual) && !partition.starts_with("dm-") {
+                continue;
+            }
+            if partition.starts_with("dm-") && mount_point != "/data" {
+                continue;
+            }
+
+            let size_sectors = SysfsReader::read_int::<u64>(
+                Path::new("/sys/class/block").join(&partition).join("size"),
+            )
+            .unwrap_or(0);
+            let partition_size_bytes = size_sectors.saturating_mul(512);
+            let f2fs_sysfs_exists = Path::new("/sys/fs/f2fs").join(&partition).is_dir();
+            let is_primary_internal = mount_point == "/data"
+                || (primary_disk.as_deref() == Some(parent_disk.as_str()) && mount_point == "/data");
+
+            let candidate = MountedVolumeInfo {
+                partition: partition.clone(),
+                parent_disk: parent_disk.clone(),
+                device_type: dev_type,
+                mount_point: mount_point.clone(),
+                fs_type: fs_type.clone(),
+                partition_size_bytes,
+                f2fs_sysfs_exists,
+                is_primary_internal,
+            };
+            let key = (parent_disk, partition);
+            let replace = match best_by_key.get(&key) {
+                None => true,
+                Some(existing) => {
+                    Self::mount_priority(&candidate.mount_point, &candidate.fs_type)
+                        < Self::mount_priority(&existing.mount_point, &existing.fs_type)
+                }
+            };
+            if replace {
+                best_by_key.insert(key, candidate);
+            }
+        }
+
+        let mut list: Vec<MountedVolumeInfo> = best_by_key.into_values().collect();
+        list.sort_by(|a, b| {
+            b.is_primary_internal
+                .cmp(&a.is_primary_internal)
+                .then_with(|| a.parent_disk.cmp(&b.parent_disk))
+                .then_with(|| a.partition.cmp(&b.partition))
+        });
+        list
+    }
+
     /// Locate a mounted SD filesystem by major:minor, including device-mapper mounts.
     pub fn mounted_sd(storage: &StorageCapability) -> Option<(usize, String, String, String)> {
         let mounts = fs::read_to_string("/proc/self/mountinfo").ok()?;
@@ -320,11 +532,7 @@ impl StoragePolicy {
                     .file_name()?
                     .to_string_lossy()
                     .into_owned();
-                let mount_point = mount[4]
-                    .replace("\\040", " ")
-                    .replace("\\011", "\t")
-                    .replace("\\012", "\n")
-                    .replace("\\134", "\\");
+                let mount_point = Self::decode_mountinfo_path(mount[4]);
                 return Some((index, partition, mount_point, filesystem[0].to_string()));
             }
         }

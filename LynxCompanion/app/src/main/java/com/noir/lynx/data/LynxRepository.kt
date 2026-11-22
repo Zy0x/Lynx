@@ -550,11 +550,21 @@ object LynxRepository {
 
     suspend fun readIoDevices(forceRefresh: Boolean = false): List<IoDeviceInfo> = LynxSystemTuningRepository.readIoDevices(forceRefresh)
 
+    suspend fun readStorageVolumes(forceRefresh: Boolean = false): List<StorageVolumeInfo> = LynxSystemTuningRepository.readStorageVolumes(forceRefresh)
+
     suspend fun setIoScheduler(device: String, scheduler: String): Boolean = LynxSystemTuningRepository.setIoScheduler(device, scheduler)
 
     suspend fun setReadAheadKb(device: String, kb: Int): Boolean = LynxSystemTuningRepository.setReadAheadKb(device, kb)
 
     suspend fun setIoQueueTunable(device: String, key: String, value: Int): Boolean = LynxSystemTuningRepository.setIoQueueTunable(device, key, value)
+
+    suspend fun tuneBlockGroup(groupOrTarget: String, memberDevices: List<String>, param: String, value: String): Pair<Boolean, Int> =
+        LynxSystemTuningRepository.tuneBlockGroup(groupOrTarget, memberDevices, param, value)
+
+    suspend fun applyBlockGroupPreset(groupId: String, devices: List<IoDeviceInfo>, preset: String): Pair<Boolean, Int> =
+        LynxSystemTuningRepository.applyBlockGroupPreset(groupId, devices, preset)
+
+    suspend fun setMountXOverride(unlock: Boolean): Boolean = LynxSystemTuningRepository.setMountXOverride(unlock)
 
     suspend fun readAvailableTcpAlgorithms(): List<String> = LynxSystemTuningRepository.readAvailableTcpAlgorithms()
 

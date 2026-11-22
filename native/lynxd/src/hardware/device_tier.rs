@@ -186,29 +186,51 @@ impl DeviceTier {
 
         // Secondary microSD presence on full-duplex UFS/NVMe systems must not halve /data VM buffers.
         let is_halved_io = self.is_emmc_primary;
+        let is_high_ram = ram_mb > Self::MID_RAM_MAX_MB;
         let extra_free = match profile {
             "extreme" | "performance" | "gaming" | "game" => {
                 if is_halved_io {
                     Self::align_kb((mfk * 2) / 3, 12288, 16384)
+                } else if is_high_ram && self.has_zram {
+                    Self::align_kb(mfk, 16384, 24576)
                 } else {
                     Self::align_kb(mfk / 2, 12288, 16384)
                 }
             }
-            "powersave" | "battery" => Self::align_kb(mfk / 2, 8192, 12288),
-            _ => Self::align_kb(mfk / 2, 12288, 16384),
+            "powersave" | "battery" => {
+                if is_high_ram && self.has_zram {
+                    16384
+                } else {
+                    Self::align_kb(mfk / 2, 8192, 12288)
+                }
+            }
+            _ => {
+                if is_high_ram && self.has_zram && !is_halved_io {
+                    Self::align_kb(mfk, 16384, 24576)
+                } else {
+                    Self::align_kb(mfk / 2, 12288, 16384)
+                }
+            }
         };
 
-        let (permille, min_step_mb, max_step_mb): (u64, u64, u64) = match profile {
-            "extreme" => if is_halved_io { (32, 20, 32) } else { (32, 22, 36) },
-            "performance" | "gaming" | "game" => if is_halved_io { (30, 18, 30) } else { (30, 20, 34) },
-            "powersave" | "battery" => (25, 16, 26),
-            _ => {
-                if self.has_mglru {
-                    if is_halved_io { (28, 18, 28) } else { (30, 20, 32) }
-                } else if is_halved_io {
-                    (26, 16, 28)
-                } else {
-                    (28, 18, 30)
+        let (permille, min_step_mb, max_step_mb): (u64, u64, u64) = if is_high_ram && self.has_zram && !is_halved_io {
+            match profile {
+                "powersave" | "battery" => (45, 32, 48),
+                _ => (75, 54, 72),
+            }
+        } else {
+            match profile {
+                "extreme" => if is_halved_io { (32, 20, 32) } else { (32, 22, 36) },
+                "performance" | "gaming" | "game" => if is_halved_io { (30, 18, 30) } else { (30, 20, 34) },
+                "powersave" | "battery" => (25, 16, 26),
+                _ => {
+                    if self.has_mglru {
+                        if is_halved_io { (28, 18, 28) } else { (30, 20, 32) }
+                    } else if is_halved_io {
+                        (26, 16, 28)
+                    } else {
+                        (28, 18, 30)
+                    }
                 }
             }
         };
@@ -218,7 +240,8 @@ impl DeviceTier {
             .clamp(min_step_mb * 1024, max_step_mb * 1024);
         // When kernel omits /proc/sys/vm/extra_free_kbytes (e.g. GKI), shift half of EFK cushion into wsf.
         let efk_comp_kb = if self.has_extra_free_node { 0 } else { (extra_free as u64) / 2 };
-        let effective_step_kb = (base_step_kb + efk_comp_kb).min(72 * 1024);
+        let max_cap_kb = if self.has_extra_free_node { 72 * 1024 } else { 84 * 1024 };
+        let effective_step_kb = (base_step_kb + efk_comp_kb).min(max_cap_kb);
         let ram_kb = ram_mb.saturating_mul(1024);
         let wsf = ((effective_step_kb.saturating_mul(10_000) + ram_kb / 2) / ram_kb).clamp(25, 85) as u32;
 
@@ -251,10 +274,17 @@ impl DeviceTier {
             (8, 16, 200, 500)
         };
 
+        let is_high_ram_zram = self.has_zram && !self.is_low_end_ram && !self.is_mid_ram && !self.is_emmc_primary;
         let targets = match profile.as_str() {
             "extreme" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 35 } else { 8 },
-                vfs_cache_pressure: if self.has_mountx_sd { 85 } else { 100 },
+                swappiness: if self.is_low_end_ram {
+                    35
+                } else if is_high_ram_zram {
+                    60
+                } else {
+                    8
+                },
+                vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 100 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
@@ -266,12 +296,18 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary && !self.has_mountx_sd,
             },
             "performance" | "gaming" | "game" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 35 } else { 10 },
-                // Keep dentry/inode caches balanced; avoid starving file/dentry reclaim on UFS during heavy asset streaming
-                vfs_cache_pressure: if self.is_emmc_primary {
+                swappiness: if self.is_low_end_ram {
+                    35
+                } else if is_high_ram_zram {
+                    60
+                } else {
+                    10
+                },
+                // Protect MountX microSD file/dentry caches (often ~20 MB/s) in RAM during active streaming.
+                vfs_cache_pressure: if self.has_mountx_sd {
+                    10
+                } else if self.is_emmc_primary {
                     40
-                } else if self.has_mountx_sd {
-                    80
                 } else {
                     85
                 },
@@ -294,7 +330,13 @@ impl DeviceTier {
             },
             "powersave" | "battery" => VmProfileTargets {
                 swappiness: if self.is_low_end_ram { 70 } else { 50 },
-                vfs_cache_pressure: if self.is_emmc_primary { 40 } else { 85 },
+                vfs_cache_pressure: if self.has_mountx_sd {
+                    10
+                } else if self.is_emmc_primary {
+                    40
+                } else {
+                    85
+                },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: if self.is_emmc_primary { 200 } else { 500 },
@@ -306,16 +348,20 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
             "balance" | "balanced" | _ => VmProfileTargets {
-                // Keep low-RAM ZRAM devices at moderate 60 swappiness so active UI/SystemUI pages
-                // are not aggressively compressed out to ZRAM and thawed on every Doze wakeup.
+                // Keep ZRAM-backed 8GB+ devices at moderate swappiness (50-60) so idle background anon
+                // pages move to compressed ZRAM without stripping active game/MountX file caches.
                 swappiness: if self.is_low_end_ram {
                     60
+                } else if is_high_ram_zram {
+                    if self.has_mountx_sd { 60 } else { 50 }
                 } else if self.is_mid_ram || self.is_emmc_primary {
                     50
                 } else {
                     40
                 },
-                vfs_cache_pressure: if self.is_emmc_primary {
+                vfs_cache_pressure: if self.has_mountx_sd {
+                    10
+                } else if self.is_emmc_primary {
                     40
                 } else if self.is_low_end_ram {
                     75
@@ -453,30 +499,31 @@ mod tests {
 
         let ufs8g_ext = ufs8g.vm_profile_targets("extreme");
         assert_eq!(ufs8g_ext.min_free_kbytes, 24576);
-        assert_eq!(ufs8g_ext.watermark_scale_factor, 32);
-        assert_eq!(ufs8g_ext.extra_free_kbytes, 12288);
-        assert_eq!(ufs8g_ext.swappiness, 8);
+        assert_eq!(ufs8g_ext.watermark_scale_factor, 75);
+        assert_eq!(ufs8g_ext.extra_free_kbytes, 24576);
+        assert_eq!(ufs8g_ext.swappiness, 60);
         assert_eq!(ufs8g_ext.vfs_cache_pressure, 100);
         assert_eq!(ufs8g_ext.f2fs_cp_interval_secs, 600);
         assert!(ufs8g_ext.allow_drop_caches_full);
 
         let ufs8g_bal = ufs8g.vm_profile_targets("balance");
         assert_eq!(ufs8g_bal.min_free_kbytes, 24576);
-        assert_eq!(ufs8g_bal.watermark_scale_factor, 30);
-        assert_eq!(ufs8g_bal.extra_free_kbytes, 12288);
+        assert_eq!(ufs8g_bal.watermark_scale_factor, 75);
+        assert_eq!(ufs8g_bal.extra_free_kbytes, 24576);
         assert_eq!(ufs8g_bal.f2fs_cp_interval_secs, 300);
 
         // 12GB UFS caps step size cleanly without over-scanning normal zone
         let ufs12g_ext = ufs12g.vm_profile_targets("extreme");
         assert_eq!(ufs12g_ext.min_free_kbytes, 32768);
-        assert_eq!(ufs12g_ext.extra_free_kbytes, 16384);
-        assert_eq!(ufs12g_ext.watermark_scale_factor, 30);
+        assert_eq!(ufs12g_ext.extra_free_kbytes, 24576);
+        assert_eq!(ufs12g_ext.watermark_scale_factor, 60);
 
         let ufs8g_sd = DeviceTier::classify_with_vm_caps(7812, Some(BlockDeviceType::Ufs), false, true, true, true);
         let ufs8g_sd_ext = ufs8g_sd.vm_profile_targets("extreme");
-        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 32);
-        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 12288);
-        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 85);
+        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 75);
+        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 24576);
+        assert_eq!(ufs8g_sd_ext.swappiness, 60);
+        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 10);
 
         // Mainline/GKI kernel lacking extra_free_kbytes automatically compensates via wsf (bounded <= 85)
         let gki_ext = gki_no_efk.vm_profile_targets("extreme");
