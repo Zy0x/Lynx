@@ -735,13 +735,14 @@ object LynxSystemControlRepository {
             val isPhhGsi = map["PHH_DIR"] == "1" || map["DISP_ID"].orEmpty().contains("treble_", ignoreCase = true)
             val hasPhhHandler = map["PHH_HANDLER"] == "1"
             val isTreble = map["TREBLE"].orEmpty().equals("true", ignoreCase = true)
-            val dispId = map["DISP_ID"].orEmpty()
+            val dispId = map["DISP_ID"].orEmpty().trim()
+            val cleanBuildTag = dispId.split(Regex("\\s+")).firstOrNull().orEmpty().take(28)
             val romTypeLabel = when {
                 isPhhGsi -> "PHH Project Treble GSI"
                 isTreble -> "Custom / OEM Treble ROM"
                 else -> "Standard Android ROM"
             }.let { base ->
-                if (dispId.isNotBlank()) "$base (${dispId.take(22)})" else base
+                if (cleanBuildTag.isNotBlank()) "$base ($cleanBuildTag)" else base
             }
             val socVendor = map["SOC_TYPE"].orEmpty().ifBlank { "generic" }
             val oemBrand = map["BRAND"].orEmpty()

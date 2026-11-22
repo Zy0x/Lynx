@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.dp
 import com.noir.lynx.data.AppProfileRule
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.controls.LynxTabPager
+import com.noir.lynx.feature.audio.ui.AudioSubscreen
+import com.noir.lynx.feature.audio.ui.AudioTabRow
 import com.noir.lynx.feature.battery.ChargingScreenLifecycle
 import com.noir.lynx.feature.battery.ui.BatteryProtectionCard
 import com.noir.lynx.feature.battery.ui.BatterySubscreenTabRow
@@ -368,6 +370,61 @@ fun NetworkSwipeableSubscreen(
                 )
             }
             item(key = "net_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
+        }
+    }
+}
+
+@Composable
+fun AudioSwipeableSubscreen(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    subscreenFling: FlingBehavior,
+    modifier: Modifier = Modifier
+) {
+    LaunchedEffect(Unit) {
+        viewModel.refreshAudioSubsystem()
+    }
+
+    var selectedAudioTab by rememberSaveable { mutableIntStateOf(0) }
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    LynxTabPager(
+        pageCount = 3,
+        selectedPage = selectedAudioTab.coerceIn(0, 2),
+        onPageSelected = { selectedAudioTab = it },
+        tabRow = { curPage, onSelect ->
+            AudioTabRow(
+                selectedTab = curPage,
+                onSelectTab = onSelect,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        },
+        modifier = modifier
+    ) { page ->
+        val listState = when (page) {
+            0 -> page0State
+            1 -> page1State
+            else -> page2State
+        }
+        LazyColumn(
+            state = listState,
+            flingBehavior = subscreenFling,
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item(key = "audio_p${page}_top") { Spacer(Modifier.height(4.dp)) }
+            item(key = "subscreen_audio_tab_$page") {
+                AudioSubscreen(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    targetTab = page
+                )
+            }
+            item(key = "audio_p${page}_bottom") { Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding()) }
         }
     }
 }
