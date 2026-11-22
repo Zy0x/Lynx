@@ -223,6 +223,7 @@ fun CpuSchedulerAccordion(
 
                     // Advanced Scheduler Switches
                     if (schedInfo.isSchedtuneSupported || schedInfo.isEasSupported) {
+                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
                         LynxSwitch(
                             label = "Prioritas Core Menganggur (Prefer Idle)",
                             subLabel = "Arahkan tugas aplikasi utama langsung ke core bebas antrean",
@@ -230,6 +231,8 @@ fun CpuSchedulerAccordion(
                             onCheckedChange = onTopAppPreferIdleChange
                         )
                     }
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
                     LynxSwitch(
                         label = "Antrean Kernel Hemat Daya (Power-Efficient WQ)",
@@ -319,6 +322,8 @@ fun CpuSchedulerAccordion(
                                         onCheckedChange = onBigTaskRotationChange
                                     )
 
+                                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+
                                     LynxSwitch(
                                         label = "Bangun Latensi Rendah (C-State Aware)",
                                         subLabel = "Prioritaskan bangun di inti dengan sleep dangkal untuk memotong jeda latensi respon sentuhan",
@@ -326,12 +331,16 @@ fun CpuSchedulerAccordion(
                                         onCheckedChange = onCstateAwareChange
                                     )
 
+                                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+
                                     LynxSwitch(
                                         label = "Penjadwal Sadar Energi (Energy-Aware EAS)",
                                         subLabel = "Evaluasi efisiensi baterai saat memilih inti. Matikan untuk throughput CFS murni tanpa batas",
                                         checked = schedInfo.schedEnergyAware,
                                         onCheckedChange = onEnergyAwareChange
                                     )
+
+                                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
                                     LynxSwitch(
                                         label = "Boost I/O Penyimpanan (I/O Wait Boost)",
@@ -479,6 +488,7 @@ fun CpuIdleEfficiencyAccordion(
 
                     // Toggles
                     if (cpuIdle.isArmPllSupported) {
+                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
                         LynxSwitch(
                             label = "ARM PLL Deep Sleep",
                             subLabel = "Matikan phase-locked loop saat perangkat tidur lelap",
@@ -486,6 +496,8 @@ fun CpuIdleEfficiencyAccordion(
                             onCheckedChange = onArmPllModeChange
                         )
                     }
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
                     LynxSwitch(
                         label = "Terapkan Efisiensi saat Boot",

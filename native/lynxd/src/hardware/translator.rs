@@ -1410,6 +1410,32 @@ impl HardwareTranslator {
                         );
                     }
                 }
+                if let Some(wexp) = params.write_expire_ms {
+                    let p = q_dir.join("iosched/write_expire");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): iosched write_expire", dev.name, dev.device_type.as_str()),
+                            p,
+                            wexp.to_string(),
+                            false,
+                        );
+                    }
+                }
+                if let Some(batch) = params.fifo_batch {
+                    let p = q_dir.join("iosched/fifo_batch");
+                    if p.exists() {
+                        Self::push_op(
+                            &mut ops,
+                            "Storage",
+                            format!("Block {} ({}): iosched fifo_batch", dev.name, dev.device_type.as_str()),
+                            p,
+                            batch.to_string(),
+                            false,
+                        );
+                    }
+                }
 
                 // BFQ scheduler tunables (verified dynamically before pushing ops)
                 if let Some(slice_idle) = params.bfq_slice_idle_us {
@@ -1506,6 +1532,28 @@ impl HardwareTranslator {
                                 format!("F2FS {} checkpoint interval", entry_name),
                                 cp_node,
                                 eff_cp.to_string(),
+                                false,
+                            );
+                        }
+                        let ram_thresh_node = p.join("ram_thresh");
+                        if ram_thresh_node.exists() {
+                            Self::push_op(
+                                &mut ops,
+                                "Storage",
+                                format!("F2FS {} NAT/SIT RAM cache budget", entry_name),
+                                ram_thresh_node,
+                                if is_powersave { "4" } else { "10" },
+                                false,
+                            );
+                        }
+                        let readdir_ra_node = p.join("readdir_ra");
+                        if readdir_ra_node.exists() {
+                            Self::push_op(
+                                &mut ops,
+                                "Storage",
+                                format!("F2FS {} directory scan readahead", entry_name),
+                                readdir_ra_node,
+                                "1",
                                 false,
                             );
                         }

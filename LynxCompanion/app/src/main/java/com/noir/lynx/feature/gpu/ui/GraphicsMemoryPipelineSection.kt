@@ -295,6 +295,7 @@ fun GraphicsMemoryPipelineSection(
 
             // Async Shader & Pure Hardware VSync
             if (onSetAsyncShaderPipeline != null && graphics.isAsyncShaderSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 LynxSwitch(
                     label = "Pra-Pemuatan Efek Visual (Async Shader)",
                     subLabel = "Siapkan shader di latar belakang agar rendering game tetap lancar",
@@ -304,6 +305,7 @@ fun GraphicsMemoryPipelineSection(
             }
 
             if (onSetPureHwVsync != null && graphics.isPureHwVsyncSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 LynxSwitch(
                     label = "Akselerasi VSync Hardware Layar",
                     subLabel = "Sinkronisasi animasi langsung ke panel fisik layar untuk mencegah tearing",
@@ -313,6 +315,7 @@ fun GraphicsMemoryPipelineSection(
             }
 
             if (onSetEglMultifileCache != null && graphics.isEglMultifileCacheSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 LynxSwitch(
                     label = "EGL Multi-File Shader BlobCache (${graphics.eglMultifileCacheLimitMb}MB)",
                     subLabel = "Percepat kompilasi shader OpenGL ES antar aplikasi tanpa mengorbankan kualitas gambar",
@@ -322,6 +325,7 @@ fun GraphicsMemoryPipelineSection(
             }
 
             if (onSetHwuiHintManager != null && graphics.isHwuiHintManagerSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 LynxSwitch(
                     label = "Sinkronisasi ADPF Render Thread (Hint Manager)",
                     subLabel = "Laporkan anggaran waktu render ke scheduler kernel agar frame rate antarmuka stabil",
@@ -331,6 +335,7 @@ fun GraphicsMemoryPipelineSection(
             }
 
             if (onSetHwuiSkipEmptyDamage != null && graphics.isHwuiSkipEmptyDamageSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 LynxSwitch(
                     label = "Lewati Redraw Kosong (Skip Empty Damage)",
                     subLabel = "Optimasi lossless yang mencegah render ulang area statis tanpa ubah presisi piksel",

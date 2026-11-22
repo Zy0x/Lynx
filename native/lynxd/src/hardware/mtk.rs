@@ -63,8 +63,11 @@ impl MtkHardware {
     pub const FPSGO_ULTRA_RESCUE: &'static str = "/sys/kernel/fpsgo/fbt/ultra_rescue";
     pub const FPSGO_FBT_THRM_TEMP_TH: &'static str = "/sys/kernel/fpsgo/fbt/thrm_temp_th";
     pub const FPSGO_FBT_THRM_LIMIT_CPU: &'static str = "/sys/kernel/fpsgo/fbt/thrm_limit_cpu";
+    pub const FBT_CPU_BOOST_AFFINITY: &'static str = "/sys/module/fbt_cpu/parameters/boost_affinity";
     pub const FBT_CPU_RESCUE_SECOND: &'static str = "/sys/module/fbt_cpu/parameters/rescue_second_enable";
+    pub const FBT_CPU_RESCUE_OPP_F: &'static str = "/sys/module/fbt_cpu/parameters/rescue_opp_f";
     pub const FBT_CPU_RESCUE_PERCENT: &'static str = "/sys/module/fbt_cpu/parameters/rescue_percent";
+    pub const FBT_CPU_CM_BIG_CAP: &'static str = "/sys/module/fbt_cpu/parameters/cm_big_cap";
     pub const FBT_CPU_BHR_OPP: &'static str = "/sys/module/fbt_cpu/parameters/bhr_opp";
     pub const FBT_CPU_GCC_ENABLE: &'static str = "/sys/module/fbt_cpu/parameters/gcc_enable";
 

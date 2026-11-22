@@ -509,6 +509,8 @@ private fun ThermalFlexibleTuningSection(
             enabled = true
         )
 
+        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 4.dp))
+
         // Anti-Dimming Display Protection switch
         LynxSwitch(
             label = "Cegah Layar Meredup (Anti-Dimming)",

@@ -300,6 +300,8 @@ fun MemoryEntropyCard(
                             }
                         )
 
+                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
                         val writePresets = remember(writeMax) {
                             listOf(64, 128, 256, 512, 1024, 2048)
                                 .filter { it in 16..writeMax }

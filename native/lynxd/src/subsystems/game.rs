@@ -186,8 +186,11 @@ impl GameController {
         Self::write_opt(MtkHardware::FPSGO_ULTRA_RESCUE, "1");
         Self::write_opt(MtkHardware::FPSGO_FBT_THRM_TEMP_TH, "85");
         Self::write_opt(MtkHardware::FPSGO_FBT_THRM_LIMIT_CPU, "0");
+        Self::write_opt(MtkHardware::FBT_CPU_BOOST_AFFINITY, "1");
         Self::write_opt(MtkHardware::FBT_CPU_RESCUE_SECOND, "1");
+        Self::write_opt(MtkHardware::FBT_CPU_RESCUE_OPP_F, "8");
         Self::write_opt(MtkHardware::FBT_CPU_RESCUE_PERCENT, "100");
+        Self::write_opt(MtkHardware::FBT_CPU_CM_BIG_CAP, "80");
         Self::write_opt(MtkHardware::FBT_CPU_BHR_OPP, "1");
         Self::write_opt(MtkHardware::FBT_CPU_GCC_ENABLE, "1");
 

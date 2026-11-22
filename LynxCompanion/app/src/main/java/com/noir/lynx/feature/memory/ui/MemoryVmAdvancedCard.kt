@@ -109,6 +109,8 @@ fun MemoryVmAdvancedCard(
             )
 
             if (vm.mglruSupported) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
                 if (vm.mglruWritable) {
                     LynxSwitch(
                         label = "Multi-Gen LRU (MGLRU Page Reclaim)",
@@ -120,6 +122,8 @@ fun MemoryVmAdvancedCard(
                         checked = vm.mglruEnabled,
                         onCheckedChange = { enabled -> viewModel.setMglruEnabled(enabled) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
                 }
 
                 LynxNumericPresetRow(
@@ -144,6 +148,8 @@ fun MemoryVmAdvancedCard(
             }
 
             if (vm.pageCluster >= 0) {
+                HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
                 val pagesCount = 1 shl vm.pageCluster.coerceIn(0, 10)
                 LynxNumericPresetRow(
                     label = "Page-Cluster (Swap Read-Ahead)",
@@ -246,6 +252,8 @@ fun MemoryVmAdvancedCard(
                         onCommitValue = { viewModel.setDirtyRatio(it) }
                     )
 
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
                     LynxNumericPresetRow(
                         label = "Dirty Background Ratio (Batas Tulis Latar)",
                         subtitle = "Persentase RAM saat kernel mulai mencicil tulis data ke penyimpanan di latar belakang",
@@ -264,6 +272,8 @@ fun MemoryVmAdvancedCard(
                         accentColor = AccentPurple,
                         onCommitValue = { viewModel.setDirtyBackgroundRatio(it) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
 
                     val expireSec = (vm.dirtyExpireCentisecs / 100).coerceAtLeast(1)
                     LynxNumericPresetRow(
@@ -284,6 +294,8 @@ fun MemoryVmAdvancedCard(
                         accentColor = AccentCyan,
                         onCommitValue = { viewModel.setDirtyExpireCentisecs(it * 100) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
 
                     val wbSec = (vm.dirtyWritebackCentisecs / 100).coerceAtLeast(1)
                     LynxNumericPresetRow(

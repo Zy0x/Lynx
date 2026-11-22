@@ -218,6 +218,8 @@ fun SiliconSleepAndRegistersSection(
             onCheckedChange = onSetSptpPc
         )
 
+        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
         // Skip Save / Restore
         LynxSwitch(
             label = "Skip Register Save / Restore",
@@ -226,6 +228,8 @@ fun SiliconSleepAndRegistersSection(
             onCheckedChange = onSetSkipSaveRestore
         )
 
+        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
         // GPU LLC Cache Slicing
         LynxSwitch(
             label = "GPU System LLC Cache Slicing",
@@ -233,6 +237,8 @@ fun SiliconSleepAndRegistersSection(
             checked = silicon.gpuLlcSliceEnabled,
             onCheckedChange = onSetGpuLlcSlice
         )
+
+        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
 
         // Wake Nice Priority
         Row(

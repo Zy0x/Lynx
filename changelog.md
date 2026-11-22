@@ -1,3 +1,19 @@
+# Lynx Universal [Sinkronisasi Engine R1.101–R1.105: FPSGO Big-Core Steering, Storage/F2FS Pipeline & Bundel APK lynxd Persisten] 7.0.0-RC454
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.73
+
+### Native Engine (`mtk.rs`, `game.rs`, `translator.rs`)
+- **Penyelarasan FPSGO v3 Big-Core Render Steering (`R1.105`)**:
+  - Menambahkan guard penegasan otomatis `boost_affinity=1`, `rescue_opp_f=8`, dan `cm_big_cap=80` (berbasis pengecekan eksistensi sysfs `write_opt` agar tetap universal lintas SoC) saat memasuki mode game (`game_on`) sehingga penempatan thread render game pada Big Core tidak tereset oleh PowerHAL.
+- **Sinkronisasi Pipeline Storage & F2FS (`translator.rs`)**:
+  - Menambahkan sinkronisasi `iosched/write_expire`, `iosched/fifo_batch`, serta optimasi cache metadata F2FS (`ram_thresh`, `readdir_ra`) pada lapisan translator hardware.
+- **Bundel Biner `lynxd` Persisten Lintas Reboot (`LynxCompanion v3.4.73`)**:
+  - Mengemas ulang APK Release `LynxKernelManager.apk` dengan biner `lynxd` terbaru (`RC451–RC454`: antrean MicroSD gaming `ra=256/nr=256/write_expire=150/writes_starved=2/fifo_batch=16`, dirty writeback `1/5`, `direct_swappiness=20`, & probe puncak GPU dinamis `1004.2 MHz`) agar tidak lagi tertimpa biner lawas saat perangkat di-reboot.
+
+### Companion App (`LynxCompanion` UI Polish)
+- **Konsistensi Pemisah Visual Kartu Tuning**:
+  - Menambahkan `HorizontalDivider` halus pada grup kontrol CPU, GPU, Touch Precision, Memory, Network, dan Thermal agar pemisahan antar opsi lebih rapi dan mudah dibaca di seluruh rasio layar.
+
 # Lynx Universal [Optimasi Antrean MicroSD Gaming & Anti-Stutter Dirty Writeback] 7.0.0-RC451
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.69
@@ -8,6 +24,28 @@ Released on: 2026-11-22
 - **Anti-Stutter Dirty Writeback & Restorasi Penuh 7 Field (`game_on` / `game_off`)**:
   - Mengetatkan ambang dirty page selama sesi game menjadi `dirty_background_ratio <= 1`, `dirty_ratio <= 5`, `dirty_writeback_centisecs = 150`, dan `dirty_expire_centisecs = 300` (disinkronkan dengan `/sys/module/page_writeback/parameters/`) guna mencegah penumpukan dirty cache ratusan MB yang memicu stall I/O dan PSI memori.
   - Menyimpan dan memulihkan field ke-7 (`writes_starved`) pada `/dev/lynx_orig_sd_io` saat keluar dari mode game (`game_off`).
+
+# Lynx Universal [Perbaikan Tata Letak AudioTabRow Pinned Pager & Presisi Judul/Subjudul Kartu Audio] 7.0.0-RC453
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.72
+
+### Companion App (`AudioSubscreen`, `TuningTabSubscreenPagers`, `TuningTabContent`, `LynxSystemControlRepository`)
+- **Integrasi `AudioSwipeableSubscreen` & `AudioTabRow` Pinned Obsidian Pill**:
+  - Mengubah navigasi 3-Tab Sound & Audio (**`Pipeline`**, **`Bluetooth`**, **`GSI & HAL`**) menjadi *Pinned Sticky Tab Bar* dengan `LynxTabPager` (*swipeable horizontal pager*) yang sejajar presisi (`padding(horizontal = 16.dp, vertical = 6.dp)`) di bawah header utama, selaras penuh dengan `Memory & Storage` dan `Wi-Fi & Network`.
+  - Memperbaiki pemotongan teks (*ellipsis `...`*) pada judul/subjudul kartu (`Bluetooth A2DP & Volume`, `Codec Bluetooth, LDAC & AVRCP`, `Deteksi Treble GSI & Audio HAL`, `Kompatibilitas HAL Vendor`, `Hi-Res DAC, Resampler & Spatial`) serta memperbaiki pemotongan tag Build ID ROM di tengah kata.
+
+# Lynx Universal [Arsitektur 3-Tab Sound & Audio: Pipeline, Bluetooth Dev Audio, & Multi-Vendor GSI/HAL Fix] 7.0.0-RC452
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.71
+
+### Companion App (`AudioSubscreen`, `LynxSystemControlRepository`, `LynxModels`, `LynxRepository`, `LynxViewModelMemoryNetwork`)
+- **Arsitektur 3-Tab Kategori pada `Sound & Audio Subsystem`**:
+  - **Tab 1 (`Pipeline & Game`)**: Menyediakan `Quick Audio Profile (1-Tap Preset)`, `Low-Latency Gaming Audio (MMAP)`, `Hi-Res DAC Offload, Resampler & Spatial Engine` (**`Direct DAC 32KB Offload Buffer`**, **`Hi-Res 24-Bit PCM & Sinc Resampler (Quality 7)`**, **`ASoC Codec Pop/Click Idle Guard (pmdown_time)`**, **`Spatial Audio & Multi-Channel Surround Engine`**, **`Fine Media Volume Steps (30-Step Precision)`**), serta `Hardware Sound Gain (DAC Amplifier)`.
+  - **Tab 2 (`Bluetooth & Dev`)**: Menyediakan kontrol Opsi Pengembang & Bluetooth A2DP dinamis: **`Disable Bluetooth A2DP Hardware Offload`**, **`Bluetooth A2DP Crackle & Clock Drift Guard`**, **`Disable Bluetooth Absolute Volume`**, **`LDAC Playback Quality & Bitrate Mode`** (`Adaptive`, `660 kbps`, `990 kbps`), **`SBC Dual-Channel HD Audio (SBC XQ)`**, **`Qualcomm aptX Adaptive R2.2 & TWS+ Low-Latency`**, **`Bluetooth HFP SWB HD Voice & NREC Bypass (In-Game Mic)`**, **`Bluetooth LE Audio (LC3 Unicast BAP)`**, **`Bluetooth AVRCP Protocol Version`** (`Default`, `1.4`, `1.5`, `1.6`), dan **`Disable USB Audio Automatic Routing`**.
+  - **Tab 3 (`GSI & HAL Fix`)**:
+    - Mendeteksi secara dinamis lingkungan ROM (**`PHH Project Treble GSI`** vs **`Custom / OEM Treble ROM`**), hook `/system/bin/phh-prop-handler.sh`, layanan `vendor.audio-hal` / `system.bt-audio-hal`, serta arsitektur SoC (`Qualcomm`, `MediaTek`, `Exynos`, `Tensor`, `Unisoc`).
+    - Menyediakan perbaikan spesifik GSI & Multi-Vendor: **`System Bluetooth Audio HAL`**, **`Disable SoundFX & Audio Effects`**, **`Alternate CAF / Vendor Audio Policy`**, **`In-Call Voice & Fluence Route Fix`**, **`Incoming Call Binder Thread Fix`**, **`Disable Qualcomm Volume Listener (`libvolumelistener.so`)`**, **`Qualcomm Fluence Dual-Mic Noise Suppression Bypass`**, dan **`MediaTek BesLoudness Audio Enhancer`**.
+    - Menyertakan **`Dynamic Audio & Bluetooth HAL Property Scanner`** (pemindai properti HAL live lintas merek/perangkat), tombol **`Reload AudioServer & Bluetooth Audio HAL (Tanpa Reboot)`**, serta **`Restore OEM Audio Baseline`**.
 
 # Lynx Universal [Perombakan Sound & Audio Subsystem + Penyelarasan Istilah Teknis & Deskripsi] 7.0.0-RC451
 Released on: 2026-11-22

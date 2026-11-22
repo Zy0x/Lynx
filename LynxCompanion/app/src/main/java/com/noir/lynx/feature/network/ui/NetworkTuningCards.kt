@@ -72,6 +72,8 @@ internal fun RadioEngineCard(
                 onCheckedChange = { viewModel.setWifiPingStabilizer(it) }
             )
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
             LynxSwitch(
                 label = "Redam Gangguan Pemindaian Latar",
                 subLabel = "Cegah lonjakan ping akibat scan Wi-Fi & Bluetooth otomatis di latar belakang",
@@ -79,12 +81,16 @@ internal fun RadioEngineCard(
                 onCheckedChange = { viewModel.setAntiJitterScan(it) }
             )
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
             LynxSwitch(
                 label = "Siaga Data Seluler Cepat",
                 subLabel = "Peralihan ke data seluler lebih mulus saat sinyal Wi-Fi melemah",
                 checked = state.network.cellularHotStandby,
                 onCheckedChange = { viewModel.setCellularHotStandby(it) }
             )
+
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
 
             if (engine.supportsHwRadio) {
                 LynxSectionDivider()
@@ -309,6 +315,8 @@ internal fun KernelNetworkStackCard(
                 onCheckedChange = { viewModel.setFqCodelEnabled(it) }
             )
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
             val bufDesc = if (engine.effectiveRmemMaxMb > 0f) {
                 "Sesuaikan kapasitas tampung data otomatis (saat ini ${"%.0f".format(Locale.US, engine.effectiveRmemMaxMb)} MB)"
             } else {
@@ -321,12 +329,16 @@ internal fun KernelNetworkStackCard(
                 onCheckedChange = { viewModel.setTcpBuffers16m(it) }
             )
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
+
             LynxSwitch(
                 label = "Percepat Koneksi Awal (Fast Open)",
                 subLabel = "Kurangi jeda saat pertama membuka web, aplikasi, atau berpindah server",
                 checked = state.network.tcpFastOpen,
                 onCheckedChange = { viewModel.setTcpFastOpen(it) }
             )
+
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.7.dp)
 
             LynxSwitch(
                 label = "Prioritaskan Jalur IPv4 Stabil",

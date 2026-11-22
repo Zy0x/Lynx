@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +36,7 @@ import com.noir.lynx.designsystem.theme.AccentBlue
 import com.noir.lynx.designsystem.theme.AccentCyan
 import com.noir.lynx.designsystem.theme.AccentOrange
 import com.noir.lynx.designsystem.theme.BgElevated
+import com.noir.lynx.designsystem.theme.BorderGlass
 import com.noir.lynx.designsystem.theme.BorderSubtle
 import com.noir.lynx.designsystem.theme.TextPrimary
 import com.noir.lynx.designsystem.theme.TextSecondary
@@ -191,6 +193,7 @@ fun NovatekMicroSensitivitySection(
             onCommit(updated)
         },
     )
+    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
     LynxSwitch(
         label = stringResource(R.string.touch_precision_nvt_hop_fix),
         subLabel = stringResource(R.string.touch_precision_nvt_hop_fix_sub),
@@ -201,6 +204,7 @@ fun NovatekMicroSensitivitySection(
             onCommit(updated)
         },
     )
+    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
 
     IcLevelSelectorRow(
         title = stringResource(R.string.touch_precision_nvt_jitter_label),
@@ -285,6 +289,9 @@ fun InputPipelineKtchSection(
                 onCommit(updated)
             },
         )
+        if (resamplingSupported || ktchPresent) {
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
+        }
     }
 
     if (resamplingSupported) {
@@ -298,6 +305,9 @@ fun InputPipelineKtchSection(
                 onCommit(updated)
             },
         )
+        if (ktchPresent) {
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
+        }
     }
 
     if (ktchPresent) {

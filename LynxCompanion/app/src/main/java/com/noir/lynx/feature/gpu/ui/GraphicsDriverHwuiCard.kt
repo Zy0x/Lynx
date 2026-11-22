@@ -173,6 +173,7 @@ fun GraphicsDriverHwuiCard(
                 checked = graphics.surfaceFlingerLatchUnsignaled,
                 onCheckedChange = { onSetLatch(it) }
             )
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
         }
 
         if (graphics.isSfDisableBackpressureSupported) {
@@ -182,6 +183,7 @@ fun GraphicsDriverHwuiCard(
                 checked = graphics.surfaceFlingerDisableBackpressure,
                 onCheckedChange = { onSetDisableBackpressure(it) }
             )
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 8.dp))
         }
 
         // Force 4x MSAA
