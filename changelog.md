@@ -1,3 +1,13 @@
+# Lynx Universal [Sub-Halaman Kategori Blok Tanpa Tab Bertingkat & Deteksi Sysfs Dinamis Lintas Vendor] 7.0.0-RC438
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.57
+
+### Companion App (`MemorySubscreen`, `MountXStorageCard`, `LynxGpuModels`, `MainDashboard`, `TuningTabSubscreenPagers`) & Native (`storage.rs`, `io.rs`)
+- **Zero-Nested-Tab Drill-Down Sub-Pages (`MountXStorageCard` -> `StorageGroupDetailSubpage`)**:
+  - Replaced multi-level nested tabs inside Tab `"Penyimpanan"` with clean interactive category cards (**Media Penyimpanan** & **Blok Kernel & Non-Storage**). Tapping any category opens a dedicated drill-down sub-page (`StorageGroupDetailSubpage`) complete with a Back navigation bar, system `BackHandler` integration, mounted partition summary, category master controls, MountX override guard, and a scoped per-block Expert inspector.
+- **Device/Vendor/ROM-Agnostic Block Classification (`block_group_for_path`, `LynxSystemTuningRepository`)**:
+  - Updated native `lynxd` and Kotlin fallback detection to classify `dm`, `loop`, `zram`, `hw_boot` (`boot`/`rpmb`), `usb`, `sd`, `internal`, removable `external` drives, `ram`, and `other` kernel drivers via real sysfs directory attributes (`dm/`, `loop/`, `comp_algorithm`/`mm_stat`, `removable`, controller ancestry) and `/proc/self/mountinfo` (`root == "/"`) rather than hardcoded vendor device names or fixed mount paths.
+
 # Lynx Universal [Separated Loop/DM/ZRAM Block Categories & Strict Physical Storage Hero Filter] 7.0.0-RC437
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.56
@@ -31,7 +41,7 @@ Released on: 2026-11-22
 - **Anti-Stutter VM Headroom, MountX MicroSD VFS Shield & Zero Swap-Readahead (`device_tier.rs`, `memory.rs`, `zram.rs`, `game.rs`, `translator.rs`)**:
   - Restored full `24 MB` `extra_free_kbytes` (`24576`) and `watermark_scale_factor=75` on `8GB+` UFS ZRAM devices (`device_tier.rs`), eliminating `allocstall` freezes and `kswapd` scanning storms without over-scanning `12GB` (`wsf=60`).
   - Kept `swappiness=60` (`direct_swappiness=20`, `memcg=60`) with `MGLRU min_ttl_ms=500` on `8GB+` ZRAM gaming profiles and `vfs_cache_pressure=10` whenever `has_mountx_sd` is detected so slow external MicroSD game assets stay cached in RAM instead of thrashing.
-  - Added `ZramController::disable_swap_readahead()` (`page-cluster=0`, `zram0/queue/read_ahead_kb=0`, `bdi/read_ahead_kb=0`), skipped `check_system_server_vma()` synchronous compaction during gameplay, gated `am kill-all` on `game_on()` under `< 50%` `MemAvailable`, and kept `watermark_boost_factor=0` on game exit.
+  - Added `ZramController::disable_swap_readahead()` (`page-cluster=0`, `zram0/queue/read_ahead_kb=0`, `bdi/read_ahead_kb=0`), skipped `check_system_server_vma()` synchronous compaction during gameplay, preserved `am kill-all` background trim on `game_on()` to prevent idle social/sync apps (`facebook.katana`, etc.) from competing with gameplay, and kept `watermark_boost_factor=0` on game exit.
 
 # Lynx Universal [VM & Entropy Overhaul, Verified Sysfs Rollback & Clean PSI/LMK Separation] 7.0.0-RC435
 Released on: 2026-11-22

@@ -206,7 +206,7 @@ fun LynxViewModel.tuneBlockGroup(
     recordStateMutation()
     val memberNames = unlocked.map { it.device }
     val allUnlockedInGroup = unlocked.size == devicesInGroup.size
-    val targetArg = if (allUnlockedInGroup && groupId in listOf("internal", "sd", "usb", "dm", "loop", "zram", "ram")) {
+    val targetArg = if (allUnlockedInGroup && groupId in listOf("internal", "sd", "usb", "external", "dm", "loop", "zram", "hw_boot", "ram", "other")) {
         groupId
     } else {
         memberNames.joinToString(",")
@@ -246,11 +246,13 @@ fun LynxViewModel.tuneBlockGroup(
             "internal" -> "Internal"
             "sd" -> "MicroSD"
             "usb" -> "USB OTG"
+            "external" -> "Eksternal Lain"
             "dm" -> "DM Mapper"
             "loop" -> "Loopback"
             "zram" -> "ZRAM"
+            "hw_boot" -> "Boot/RPMB"
             "ram" -> "RAMDisk"
-            else -> groupId
+            else -> groupId.uppercase()
         }
         val paramLabel = when (param) {
             "scheduler" -> "Scheduler"

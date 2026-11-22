@@ -372,8 +372,9 @@ impl GameController {
         // 10. Dynamic Low-Latency Network & Wi-Fi Silicon Engagement
         crate::subsystems::NetworkController::apply_game();
 
-        // 11. Graceful AMS background cache trim only when available RAM is actually tight (< 50%),
-        // avoiding unnecessary background helper/overlay disruption on 8GB+ devices with ample headroom.
+        // 11. Graceful AMS background cache trim on game entry (evicts cached background bloat like
+        // social/sync apps while preserving accessibility services, overlays, and non-cached daemons).
+        let _ = Command::new("am").arg("kill-all").output();
         if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
             let mut mem_total = 0u64;
             let mut mem_avail = u64::MAX;
@@ -383,9 +384,6 @@ impl GameController {
                 } else if let Some(rest) = line.strip_prefix("MemAvailable:") {
                     mem_avail = rest.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(u64::MAX);
                 }
-            }
-            if mem_total > 0 && mem_avail.saturating_mul(100) < mem_total.saturating_mul(50) {
-                let _ = Command::new("am").arg("kill-all").output();
             }
             if mem_total > 0 && mem_avail.saturating_mul(100) < mem_total.saturating_mul(40) {
                 let protected_pkg = top_pid.and_then(|pid| {

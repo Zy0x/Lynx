@@ -318,9 +318,30 @@ impl StoragePolicy {
     }
 
     pub fn block_group_for_device(name: &str, device_type: BlockDeviceType) -> &'static str {
+        Self::block_group_for_path(None, name, device_type)
+    }
+
+    /// Dynamically classifies a block node into a standalone tuning category using kernel sysfs
+    /// attributes (`dm/`, `loop/`, `comp_algorithm`/`mm_stat`, `removable`) before name patterns.
+    pub fn block_group_for_path(
+        block_path: Option<&Path>,
+        name: &str,
+        device_type: BlockDeviceType,
+    ) -> &'static str {
         let lower = name.to_ascii_lowercase();
-        if lower.contains("boot") || lower.contains("rpmb") || lower.starts_with("ram") || lower.starts_with("nbd") {
-            return "ram";
+        if let Some(p) = block_path {
+            if p.join("dm").is_dir() {
+                return "dm";
+            }
+            if p.join("loop").is_dir() {
+                return "loop";
+            }
+            if p.join("comp_algorithm").exists() || p.join("mm_stat").exists() {
+                return "zram";
+            }
+        }
+        if lower.contains("boot") || lower.contains("rpmb") {
+            return "hw_boot";
         }
         if lower.starts_with("zram") {
             return "zram";
@@ -332,10 +353,26 @@ impl StoragePolicy {
             return "loop";
         }
         match device_type {
-            BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme => "internal",
             BlockDeviceType::Sd => "sd",
             BlockDeviceType::Usb => "usb",
-            _ => "ram",
+            BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme => {
+                let is_rem = block_path
+                    .and_then(|p| SysfsReader::read_trimmed(p.join("removable")).ok())
+                    .as_deref()
+                    == Some("1");
+                if is_rem && device_type == BlockDeviceType::Nvme {
+                    "external"
+                } else {
+                    "internal"
+                }
+            }
+            _ => {
+                if lower.starts_with("ram") {
+                    "ram"
+                } else {
+                    "other"
+                }
+            }
         }
     }
 
@@ -474,12 +511,22 @@ impl StoragePolicy {
             if partition.starts_with("dm-") && mount_point != "/data" {
                 continue;
             }
+            let disk_sys_path = Path::new("/sys/block").join(&parent_disk);
+            let is_removable_phys = SysfsReader::read_trimmed(disk_sys_path.join("removable"))
+                .ok()
+                .as_deref()
+                == Some("1")
+                && dev_type != BlockDeviceType::Virtual;
             if matches!(dev_type, BlockDeviceType::Ufs | BlockDeviceType::Emmc | BlockDeviceType::Nvme)
+                && !is_removable_phys
                 && mount_point != "/data"
             {
                 continue;
             }
-            if mount_point != "/data" && !matches!(dev_type, BlockDeviceType::Sd | BlockDeviceType::Usb) {
+            if mount_point != "/data"
+                && !matches!(dev_type, BlockDeviceType::Sd | BlockDeviceType::Usb)
+                && !is_removable_phys
+            {
                 continue;
             }
 

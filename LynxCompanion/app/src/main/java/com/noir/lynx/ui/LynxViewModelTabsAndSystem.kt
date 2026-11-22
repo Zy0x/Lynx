@@ -33,7 +33,12 @@ fun LynxViewModel.selectThermalTab(tab: Int) = setSelectedThermalTab(tab)
 fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
 
     fun LynxViewModel.setSelectedMemoryTab(tab: Int) {
-        _uiState.update { it.copy(selectedMemoryTab = tab) }
+        _uiState.update {
+            it.copy(
+                selectedMemoryTab = tab,
+                selectedStorageBlockGroupId = if (tab == 2) it.selectedStorageBlockGroupId else null
+            )
+        }
         if (tab == 2) {
             refreshMountXStorageInfo()
             refreshIoDevices(forceRefresh = true)
@@ -41,6 +46,10 @@ fun LynxViewModel.selectProfileTab(tab: Int) = setSelectedProfileTab(tab)
     }
 
     fun LynxViewModel.selectMemoryTab(tab: Int) = setSelectedMemoryTab(tab)
+
+    fun LynxViewModel.setSelectedStorageBlockGroup(groupId: String?) {
+        _uiState.update { it.copy(selectedStorageBlockGroupId = groupId) }
+    }
 
     fun LynxViewModel.setSelectedNetworkTab(tab: Int) {
         _uiState.update { it.copy(selectedNetworkTab = tab) }

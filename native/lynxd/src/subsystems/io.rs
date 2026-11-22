@@ -446,7 +446,11 @@ impl IoController {
                 "{{\"name\":{},\"type\":{},\"group\":{},\"is_primary\":{},\"is_read_only\":{},\"size_bytes\":{},\"removable\":{},\"current_scheduler\":{},\"available_schedulers\":[{}],\"current_read_ahead_kb\":{},\"nr_requests\":{},\"iostats\":{},\"rq_affinity\":{},\"add_random\":{},\"rotational\":{},\"mountx_managed\":{},\"mountx_locked\":{},\"target_read_ahead_kb\":{},\"policy\":{}}}",
                 json_string(&dev.name),
                 json_string(dev.device_type.as_str()),
-                json_string(StoragePolicy::block_group_for_device(&dev.name, dev.device_type)),
+                json_string(StoragePolicy::block_group_for_path(
+                    block_root,
+                    &dev.name,
+                    dev.device_type,
+                )),
                 is_primary,
                 is_read_only,
                 size_bytes,
@@ -486,7 +490,11 @@ impl IoController {
                 json_string(&vol.partition),
                 json_string(&vol.parent_disk),
                 json_string(vol.device_type.as_str()),
-                json_string(StoragePolicy::block_group(vol.device_type)),
+                json_string(StoragePolicy::block_group_for_path(
+                    Some(Path::new("/sys/block").join(&vol.parent_disk).as_path()),
+                    &vol.parent_disk,
+                    vol.device_type,
+                )),
                 json_string(&vol.mount_point),
                 json_string(&vol.fs_type),
                 vol.partition_size_bytes,
@@ -608,7 +616,7 @@ impl IoController {
         let target_tokens: Vec<&str> = target_trimmed.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
         let is_group = matches!(
             target_trimmed,
-            "internal" | "sd" | "usb" | "dm" | "loop" | "zram" | "ram"
+            "internal" | "sd" | "usb" | "external" | "dm" | "loop" | "zram" | "hw_boot" | "ram" | "other"
         );
         let exact_single = !is_group
             && target_tokens.len() == 1
@@ -622,7 +630,11 @@ impl IoController {
 
         for dev in &storage.devices {
             let matches = if is_group {
-                StoragePolicy::block_group_for_device(&dev.name, dev.device_type) == target_trimmed
+                StoragePolicy::block_group_for_path(
+                    dev.queue_path.parent(),
+                    &dev.name,
+                    dev.device_type,
+                ) == target_trimmed
             } else if target_tokens.len() > 1 {
                 target_tokens.iter().any(|t| dev.name == *t)
             } else if exact_single {
@@ -1040,6 +1052,7 @@ mod tests {
         assert_eq!(StoragePolicy::block_group_for_device("loop0", BlockDeviceType::Loop), "loop");
         assert_eq!(StoragePolicy::block_group_for_device("zram0", BlockDeviceType::Virtual), "zram");
         assert_eq!(StoragePolicy::block_group_for_device("ram0", BlockDeviceType::Virtual), "ram");
-        assert_eq!(StoragePolicy::block_group_for_device("mmcblk0boot0", BlockDeviceType::Emmc), "ram");
+        assert_eq!(StoragePolicy::block_group_for_device("mmcblk0boot0", BlockDeviceType::Emmc), "hw_boot");
+        assert_eq!(StoragePolicy::block_group_for_device("nbd0", BlockDeviceType::Virtual), "other");
     }
 }

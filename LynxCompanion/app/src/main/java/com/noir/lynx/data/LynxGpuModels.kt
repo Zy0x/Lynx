@@ -234,31 +234,30 @@ data class IoDeviceInfo(
     val mountxLocked: Boolean = false,
 ) {
     fun resolvedGroup(): String {
-        val d = device.lowercase()
-        if (d.contains("boot") || d.contains("rpmb") || d.startsWith("ram") || d.startsWith("nbd")) {
-            return "ram"
+        val g = group.lowercase()
+        if (g in listOf("internal", "sd", "usb", "external", "dm", "loop", "zram", "hw_boot", "ram", "other")) {
+            return g
         }
+        val d = device.lowercase()
+        if (d.contains("boot") || d.contains("rpmb")) return "hw_boot"
         if (d.startsWith("zram")) return "zram"
         if (d.startsWith("dm-")) return "dm"
         if (d.startsWith("loop")) return "loop"
 
-        val g = group.lowercase()
-        if (g in listOf("internal", "sd", "usb", "dm", "loop", "zram", "ram")) {
-            return g
-        }
         val t = deviceType.uppercase()
         return when {
             t == "USB" -> "usb"
             t == "SD" || t == "SDCARD" -> "sd"
-            t in listOf("UFS", "EMMC", "NVME") -> "internal"
+            t in listOf("UFS", "EMMC", "NVME") -> if (removable && t == "NVME") "external" else "internal"
             t == "LOOP" -> "loop"
             d.startsWith("mmcblk") && !isPrimary -> "sd"
             d.startsWith("sd") -> if (removable) "usb" else "internal"
-            else -> "ram"
+            d.startsWith("ram") -> "ram"
+            else -> "other"
         }
     }
 
-    fun isPhysicalStorageGroup(): Boolean = resolvedGroup() in listOf("internal", "sd", "usb")
+    fun isPhysicalStorageGroup(): Boolean = resolvedGroup() in listOf("internal", "sd", "usb", "external")
 }
 
 @androidx.compose.runtime.Immutable
@@ -674,6 +673,7 @@ data class LynxUiState(
     val appAutomationCooldownSeconds: Int = 30, // 5, 30, 60, 180, 0 (Persistent in RAM)
     val mountXStorageInfo: MountXStorageInfo = MountXStorageInfo(),
     val storageVolumes: List<StorageVolumeInfo> = emptyList(),
+    val selectedStorageBlockGroupId: String? = null,
     val diagnosticHubState: com.noir.lynx.feature.system.model.DiagnosticHubState = com.noir.lynx.feature.system.model.DiagnosticHubState(),
 ) {
     fun resolveCpuTempC(): Int {
