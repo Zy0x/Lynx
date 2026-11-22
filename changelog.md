@@ -1,3 +1,12 @@
+# Lynx Universal [Diagnostik Penyebab Kegagalan Speedtest & Pintasan Izin Aplikasi] 7.0.0-RC447
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.66
+
+### Companion App (`LynxSpeedtestEngine`, `NetworkSpeedtestSheet`, `LynxSpeedtestEngineTest`)
+- **Diagnostik Error Jaringan Akurat (`classifyNetworkError` & `ProbeResult`)**:
+  - Menampilkan penyebab spesifik saat koneksi Speedtest terhambat oleh **Restricted Networking Mode / Firewall ROM (`EPERM`)**, kegagalan resolusi **DNS** (`UnknownHostException`), kesalahan **TLS/SSL**, atau **Timeout**, menggantikan pesan umum yang sebelumnya menyembunyikan detail pengecualian socket.
+  - Menambahkan tombol **`Buka Izin Jaringan Aplikasi (Setelan)`** di dalam `NetworkSpeedtestBottomSheet` ketika sistem menolak akses socket/DNS agar pengguna dapat meninjau izin jaringan aplikasi di Android Settings dengan 1 ketukan.
+
 # Lynx Universal [Monitor Speedtest Multi-Stream & Evaluasi Bufferbloat] 7.0.0-RC446
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.65

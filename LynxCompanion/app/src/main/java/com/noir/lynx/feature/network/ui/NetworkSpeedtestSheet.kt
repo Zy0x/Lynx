@@ -3,6 +3,7 @@ package com.noir.lynx.feature.network.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -54,6 +55,16 @@ internal fun launchExternalOoklaSpeedtest(context: Context): Boolean {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     return runCatching { context.startActivity(webIntent) }.isSuccess
+}
+
+internal fun launchAppNetworkSettings(context: Context): Boolean {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null)
+    ).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    return runCatching { context.startActivity(intent) }.isSuccess
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -313,12 +324,42 @@ internal fun NetworkSpeedtestBottomSheet(
                         }
 
                         if (!st.errorMessage.isNullOrBlank()) {
-                            Text(
-                                text = st.errorMessage,
-                                fontSize = 10.5.sp,
-                                color = AccentRed,
-                                lineHeight = 14.sp
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = st.errorMessage,
+                                    fontSize = 10.5.sp,
+                                    color = AccentRed,
+                                    lineHeight = 14.sp
+                                )
+                                val looksRestricted = st.errorMessage.contains("izin", ignoreCase = true) ||
+                                    st.errorMessage.contains("diblokir", ignoreCase = true) ||
+                                    st.errorMessage.contains("Restricted", ignoreCase = true) ||
+                                    st.errorMessage.contains("DNS", ignoreCase = true)
+                                if (looksRestricted) {
+                                    OutlinedButton(
+                                        onClick = { launchAppNetworkSettings(context) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(0.8.dp, AccentOrange.copy(alpha = 0.5f)),
+                                        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = null,
+                                            tint = AccentOrange,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Buka Izin Jaringan Aplikasi (Setelan)",
+                                            color = AccentOrange,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -7,11 +7,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import javax.net.ssl.SSLException
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -99,23 +103,65 @@ internal object LynxSpeedtestEngine {
         return conn
     }
 
-    private fun probeSingleRttMs(urlStr: String): Pair<Float, String?> {
+    internal data class ProbeResult(
+        val rttMs: Float,
+        val edgeLabel: String?,
+        val errorDetail: String? = null
+    )
+
+    internal fun classifyNetworkError(t: Throwable, serverLabel: String): String {
+        val rawMsg = (t.message ?: t.cause?.message).orEmpty()
+        val lower = rawMsg.lowercase()
+        return when {
+            t is SecurityException ||
+                lower.contains("eperm") ||
+                lower.contains("operation not permitted") ||
+                lower.contains("eacces") ||
+                lower.contains("permission denied") ->
+                "Akses socket diblokir oleh OS / Restricted Networking Mode ($rawMsg). Aktifkan 'Izinkan akses jaringan' untuk Lynx di Setelan Aplikasi."
+
+            t is UnknownHostException ->
+                "Gagal resolusi DNS ke $serverLabel ($rawMsg). Periksa koneksi internet, Private DNS, atau izin akses jaringan Lynx di Setelan Aplikasi."
+
+            t is SSLException ->
+                "Handshake TLS/SSL gagal ke $serverLabel ($rawMsg). Periksa jam/tanggal sistem atau filter sertifikat jaringan."
+
+            t is SocketTimeoutException ->
+                "Koneksi ke $serverLabel timeout (${rawMsg.ifBlank { "Timeout" }})."
+
+            t is ConnectException ->
+                "Koneksi ditolak oleh $serverLabel (${rawMsg.ifBlank { "ConnectException" }})."
+
+            lower.contains("cleartext") ->
+                "Android memblokir URL http:// non-terenkripsi ($rawMsg). Gunakan endpoint https://."
+
+            else ->
+                "Tidak dapat menjangkau $serverLabel (${rawMsg.ifBlank { t.javaClass.simpleName }})."
+        }
+    }
+
+    private fun probeSingleRttMs(urlStr: String, serverLabel: String = "server"): ProbeResult {
         var conn: HttpURLConnection? = null
         return try {
             val t0 = System.nanoTime()
-            conn = openConn("$urlStr${if ('?' in urlStr) '&' else '?'}t=$t0")
-            val code = conn.responseCode
-            conn.inputStream?.use { ins ->
+            val httpConn = openConn("$urlStr${if ('?' in urlStr) '&' else '?'}t=$t0")
+            conn = httpConn
+            val code = httpConn.responseCode
+            httpConn.inputStream?.use { ins ->
                 val buf = ByteArray(1024)
                 while (ins.read(buf) >= 0) {
                     // Drain lightweight ping response cleanly for socket reuse
                 }
             }
             val elapsedMs = ((System.nanoTime() - t0) / 1_000_000.0).toFloat()
-            val edge = parseCfRayEdge(conn.getHeaderField("cf-ray"))
-            if (code in 200..399) elapsedMs to edge.ifBlank { null } else -1f to null
-        } catch (_: Exception) {
-            -1f to null
+            val edge = parseCfRayEdge(httpConn.getHeaderField("cf-ray")).ifBlank { null }
+            if (code in 200..399) {
+                ProbeResult(elapsedMs, edge)
+            } else {
+                ProbeResult(-1f, null, "HTTP $code dari $serverLabel")
+            }
+        } catch (t: Throwable) {
+            ProbeResult(-1f, null, classifyNetworkError(t, serverLabel))
         } finally {
             runCatching { conn?.disconnect() }
         }
@@ -149,8 +195,8 @@ internal object LynxSpeedtestEngine {
                 } else {
                     val emptyProbe = "$clean/backend/empty.php"
                     val altEmpty = "$clean/empty.php"
-                    val hasBackend = probeSingleRttMs(emptyProbe).first > 0f
-                    val hasRootEmpty = !hasBackend && probeSingleRttMs(altEmpty).first > 0f
+                    val hasBackend = probeSingleRttMs(emptyProbe, hostLabel).rttMs > 0f
+                    val hasRootEmpty = !hasBackend && probeSingleRttMs(altEmpty, hostLabel).rttMs > 0f
                     val prefix = if (hasBackend) "$clean/backend" else clean
                     ResolvedEndpoints(
                         mode = CustomMode.CUSTOM_HTTP,
@@ -229,15 +275,16 @@ internal object LynxSpeedtestEngine {
         )
         onUpdate(current)
 
-        val warmup = probeSingleRttMs(resolved.pingUrl)
-        val detectedEdge = warmup.second ?: resolved.serverLabel
-        if (warmup.first <= 0f) {
+        val warmup = probeSingleRttMs(resolved.pingUrl, resolved.serverLabel)
+        val detectedEdge = warmup.edgeLabel ?: resolved.serverLabel
+        if (warmup.rttMs <= 0f) {
             onUpdate(
                 current.copy(
                     phase = SpeedtestPhase.ERROR,
                     progress = 0f,
                     statusText = "Gagal menjangkau server uji",
-                    errorMessage = "Tidak ada respons HTTP/TLS dari ${resolved.serverLabel}. Periksa koneksi internet atau URL server."
+                    errorMessage = warmup.errorDetail
+                        ?: "Tidak ada respons HTTP/TLS dari ${resolved.serverLabel}. Periksa koneksi internet atau URL server."
                 )
             )
             return@coroutineScope
@@ -246,11 +293,11 @@ internal object LynxSpeedtestEngine {
         val rttSamples = mutableListOf<Float>()
         for (i in 0 until 5) {
             if (!isActive) return@coroutineScope
-            val (rtt, edge) = probeSingleRttMs(resolved.pingUrl)
-            if (rtt > 0f) {
-                rttSamples += rtt
+            val probe = probeSingleRttMs(resolved.pingUrl, resolved.serverLabel)
+            if (probe.rttMs > 0f) {
+                rttSamples += probe.rttMs
             }
-            val latestEdge = edge ?: detectedEdge
+            val latestEdge = probe.edgeLabel ?: detectedEdge
             val sorted = rttSamples.sorted()
             val med = if (sorted.isNotEmpty()) sorted[sorted.size / 2] else 0f
             val jit = computeJitter(rttSamples)
@@ -346,9 +393,9 @@ internal object LynxSpeedtestEngine {
             val pingLoadJob = launch(Dispatchers.IO) {
                 delay(400)
                 while (dlActive.get() && isActive) {
-                    val (rtt, _) = probeSingleRttMs(resolved.pingUrl)
-                    if (rtt > 0f) {
-                        dlLoadedSamples.add(rtt)
+                    val probe = probeSingleRttMs(resolved.pingUrl, resolved.serverLabel)
+                    if (probe.rttMs > 0f) {
+                        dlLoadedSamples.add(probe.rttMs)
                     }
                     delay(420)
                 }
@@ -505,9 +552,9 @@ internal object LynxSpeedtestEngine {
                 val pingLoadJob = launch(Dispatchers.IO) {
                     delay(400)
                     while (ulActive.get() && isActive) {
-                        val (rtt, _) = probeSingleRttMs(resolved.pingUrl)
-                        if (rtt > 0f) {
-                            ulLoadedSamples.add(rtt)
+                        val probe = probeSingleRttMs(resolved.pingUrl, resolved.serverLabel)
+                        if (probe.rttMs > 0f) {
+                            ulLoadedSamples.add(probe.rttMs)
                         }
                         delay(420)
                     }

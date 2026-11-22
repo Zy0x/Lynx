@@ -3,6 +3,9 @@ package com.noir.lynx.feature.network.engine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 
 class LynxSpeedtestEngineTest {
 
@@ -40,5 +43,32 @@ class LynxSpeedtestEngineTest {
         assertEquals(0f, LynxSpeedtestEngine.computeJitter(listOf(12f)), 0.001f)
         // |15 - 10| = 5, |11 - 15| = 4 -> mean = 4.5 ms
         assertEquals(4.5f, LynxSpeedtestEngine.computeJitter(listOf(10f, 15f, 11f)), 0.001f)
+    }
+
+    @Test
+    fun classifyNetworkErrorDistinguishesFirewallDnsTlsAndTimeout() {
+        val permErr = LynxSpeedtestEngine.classifyNetworkError(
+            SecurityException("EPERM (Operation not permitted)"),
+            "Cloudflare Edge"
+        )
+        assertTrue(permErr.contains("Restricted Networking Mode") || permErr.contains("Setelan Aplikasi"))
+
+        val dnsErr = LynxSpeedtestEngine.classifyNetworkError(
+            UnknownHostException("Unable to resolve host"),
+            "Cloudflare Edge"
+        )
+        assertTrue(dnsErr.contains("DNS"))
+
+        val sslErr = LynxSpeedtestEngine.classifyNetworkError(
+            SSLHandshakeException("Chain validation failed"),
+            "Cloudflare Edge"
+        )
+        assertTrue(sslErr.contains("TLS/SSL"))
+
+        val timeoutErr = LynxSpeedtestEngine.classifyNetworkError(
+            SocketTimeoutException("connect timed out"),
+            "Cloudflare Edge"
+        )
+        assertTrue(timeoutErr.contains("timeout"))
     }
 }
