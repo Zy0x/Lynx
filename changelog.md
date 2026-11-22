@@ -1,3 +1,12 @@
+# Lynx Universal [Penyempurnaan Label Kesehatan Chip Memori & Setelan Baca/Tulis] 7.0.0-RC450
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.69
+
+### Companion App (`StorageOverviewCards`)
+- **Perbaikan Teks Kesehatan Chip Memori & Setelan Baca/Tulis (`StorageHeroCard`)**:
+  - Mengubah **`TINGKAT KEAUSAN FLASH`** (`0–10% Terpakai` / `JEDEC A/B`) menjadi **`KESEHATAN CHIP MEMORI`** dengan pembacaan status **`Sangat Sehat (Sisa 90–100%)`** serta sub-keterangan **`Usia pakai sel 0–10% (0x01)`** agar tidak rancu dengan persentase ruang kapasitas penyimpanan yang terpakai.
+  - Mengubah **`ANTREAN UTAMA`** (`RA 128 KB` / `Queue 128`) menjadi **`SETELAN BACA/TULIS`** (`Baca-Awal 128 KB` / `Format F2FS • Antrean 128`) dan judul kartu menjadi **`Kapasitas & Kesehatan Penyimpanan`**.
+
 # Lynx Universal [Penyederhanaan Teks & Deskripsi Halaman Memory & Storage] 7.0.0-RC449
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.68

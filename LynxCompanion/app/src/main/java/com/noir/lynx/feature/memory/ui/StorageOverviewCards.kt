@@ -147,7 +147,7 @@ internal fun StorageHeroCard(
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Status & Partisi Penyimpanan",
+                            text = "Kapasitas & Kesehatan Penyimpanan",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary,
@@ -156,9 +156,9 @@ internal fun StorageHeroCard(
                         )
                         Text(
                             text = if (storage.emmcName.isNotBlank()) {
-                                "Chip ${storage.emmcName} • Kapasitas internal & eksternal"
+                                "Chip ${storage.emmcName} • Ruang internal, umur chip & eksternal"
                             } else {
-                                "Ringkasan kapasitas internal & media terpasang"
+                                "Ruang memori internal, umur chip & kartu eksternal"
                             },
                             fontSize = 11.sp,
                             color = TextSecondary,
@@ -233,7 +233,7 @@ internal fun StorageHeroCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "TINGKAT KEAUSAN FLASH",
+                                    text = "KESEHATAN CHIP MEMORI",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary,
@@ -272,7 +272,7 @@ internal fun StorageHeroCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "ANTREAN UTAMA (${dev.device})",
+                                    text = "SETELAN BACA/TULIS (${dev.device})",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary,
@@ -280,7 +280,7 @@ internal fun StorageHeroCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${dev.currentScheduler.ifBlank { "default" }} • RA ${dev.readAheadKb} KB",
+                                    text = "${dev.currentScheduler.ifBlank { "default" }} • Baca-Awal ${dev.readAheadKb} KB",
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
@@ -289,8 +289,8 @@ internal fun StorageHeroCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 val queueMeta = buildString {
-                                    if (fsLabel.isNotBlank()) append(fsLabel) else append(busLabel)
-                                    dev.nrRequests?.let { append(" • Queue $it") }
+                                    if (fsLabel.isNotBlank()) append("Format $fsLabel") else append(busLabel)
+                                    dev.nrRequests?.let { append(" • Antrean $it") }
                                 }
                                 Text(
                                     text = queueMeta,
@@ -842,14 +842,23 @@ internal fun formatEmmcWearLabel(raw: String): EmmcWearInfo? {
         .mapNotNull { token -> token.removePrefix("0x").removePrefix("0X").toIntOrNull(16) }
         .filter { it > 0 }
     val worst = values.maxOrNull() ?: return null
-    val detail = "JEDEC A/B: ${tokens.joinToString(" • ")}"
+    val usedLower = ((worst - 1) * 10).coerceAtLeast(0)
+    val usedUpper = (worst * 10).coerceAtMost(100)
+    val remLower = (100 - usedUpper).coerceAtLeast(0)
+    val remUpper = (100 - usedLower).coerceAtLeast(0)
+    val sensorRaw = tokens.distinct().joinToString("/")
+    val detail = if (worst <= 0x0A) {
+        "Usia pakai sel $usedLower–$usedUpper% ($sensorRaw)"
+    } else {
+        "Usia pakai sel >100% ($sensorRaw)"
+    }
     return when {
-        worst == 0x01 -> EmmcWearInfo("0–10% Terpakai (Baru)", detail, AccentGreen)
-        worst in 0x02..0x03 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Baik)", detail, AccentGreen)
-        worst in 0x04..0x06 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Normal)", detail, AccentCyan)
-        worst in 0x07..0x09 -> EmmcWearInfo("${(worst - 1) * 10}–${worst * 10}% Terpakai (Menua)", detail, AccentOrange)
-        worst == 0x0A -> EmmcWearInfo("90–100% Terpakai (Kritis)", detail, AccentRed)
-        worst >= 0x0B -> EmmcWearInfo(">100% Terpakai (Lewat Batas)", detail, AccentRed)
+        worst == 0x01 -> EmmcWearInfo("Sangat Sehat (Sisa 90–100%)", detail, AccentGreen)
+        worst in 0x02..0x03 -> EmmcWearInfo("Sehat (Sisa $remLower–$remUpper%)", detail, AccentGreen)
+        worst in 0x04..0x06 -> EmmcWearInfo("Normal (Sisa $remLower–$remUpper%)", detail, AccentCyan)
+        worst in 0x07..0x09 -> EmmcWearInfo("Mulai Menua (Sisa $remLower–$remUpper%)", detail, AccentOrange)
+        worst == 0x0A -> EmmcWearInfo("Kritis (Sisa <10%)", detail, AccentRed)
+        worst >= 0x0B -> EmmcWearInfo("Melewati Batas Umur", detail, AccentRed)
         else -> null
     }
 }
