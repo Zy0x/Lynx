@@ -39,12 +39,12 @@ internal fun RadioEngineCard(
     val engine = uiState.networkEngineInfo
 
     val radioTitle = when (engine.radioVendor) {
-        "mediatek_proc" -> "MediaTek Wireless Silicon Hook"
-        "qualcomm_cnss" -> "Qualcomm WCNSS / CNSS Driver"
-        "broadcom_dhd" -> "Broadcom DHD Driver Parameters"
-        "exynos_scsc" -> "Samsung Exynos / Tensor SCSC Driver"
-        "unisoc_sprd" -> "Unisoc SPRDWLAN Driver Hook"
-        else -> "Driver Radio Hardware Vendor"
+        "mediatek_proc" -> "Optimasi Driver Radio MediaTek"
+        "qualcomm_cnss" -> "Optimasi Driver Radio Qualcomm"
+        "broadcom_dhd" -> "Optimasi Driver Radio Broadcom"
+        "exynos_scsc" -> "Optimasi Driver Radio Exynos"
+        "unisoc_sprd" -> "Optimasi Driver Radio Unisoc"
+        else -> "Optimasi Driver Radio Hardware"
     }
     val radioDesc = when (engine.radioVendor) {
         "mediatek_proc" -> "Aktifkan setCAM, autoPerfCfg & agregasi AMPDU lewat /proc/net/wlan"

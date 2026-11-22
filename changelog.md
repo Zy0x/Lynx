@@ -1,3 +1,13 @@
+# Lynx Universal [Deteksi IFF_UP Seluler, Filter Interface Aktif & Benchmark DoT Paralel] 7.0.0-RC443
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.62
+
+### Native Engine (`network.rs`) & Companion App (`NetworkOverviewCards`, `NetworkTuningCards`, `LynxCard`)
+- **Deteksi `IFF_UP` Interface Seluler (`is_iface_up`)**: Membaca flag kernel (`/sys/class/net/*/flags`) sehingga interface seluler (`rmnet_data*`, `ccmni*`, `seth*`) yang melaporkan `operstate="unknown"` saat aktif tetap terbaca status `up` serta menerima konfigurasi `qdisc` aktif.
+- **Filter Sheet Interface & Polish Badge**:
+  - Menambahkan filter **`Aktif / Utama`** vs **`Semua`** di `NetworkInterfacesBottomSheet` agar saluran dorman tidak memenuhi tampilan awal.
+  - Mencegah badge status `● WI-FI` dan `LynxCapabilityBadge` membungkus dua baris (`softWrap = false`), menghapus duplikasi teks judul/sub-judul pada bagian driver radio, dan menjalankan uji latensi DoT Port 853 secara paralel (~1,2 dtk total).
+
 # Lynx Universal [Perombakan Total Wi-Fi & Network Engine Dinamis Lintas Vendor, OS & Multi-Transport] 7.0.0-RC442
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.61

@@ -94,8 +94,8 @@ internal fun NetworkHeroCard(
     }
 
     LynxCard(
-        title = "Monitor Tautan & Lingkungan Radio",
-        subtitle = "Telemetri Wi-Fi, seluler, rute aktif & deteksi driver kernel",
+        title = "Monitor Tautan & Radio",
+        subtitle = "Telemetri Wi-Fi, seluler, rute aktif & driver",
         icon = heroIcon,
         accentColor = heroAccent,
         action = {
@@ -106,7 +106,7 @@ internal fun NetworkHeroCard(
                 border = BorderStroke(0.7.dp, heroAccent.copy(alpha = 0.35f)),
                 modifier = Modifier.heightIn(min = 34.dp)
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)) {
                     Text(
                         text = when {
                             isWifi -> "● WI-FI"
@@ -116,7 +116,9 @@ internal fun NetworkHeroCard(
                         },
                         color = heroAccent,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -502,7 +504,53 @@ private fun NetworkInterfacesBottomSheet(
                         color = TextSecondary
                     )
                 } else {
-                    engine.interfaces.forEach { iface ->
+                    var activeOnly by remember { mutableStateOf(true) }
+                    val activeIfaces = remember(engine.interfaces, engine.activeIface) {
+                        engine.interfaces.filter {
+                            it.state.equals("up", ignoreCase = true) ||
+                                (it.name == engine.activeIface && it.name.isNotBlank())
+                        }
+                    }
+                    val visibleIfaces = if (activeOnly && activeIfaces.isNotEmpty()) {
+                        activeIfaces
+                    } else {
+                        engine.interfaces
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            true to "Aktif / Utama (${activeIfaces.size})",
+                            false to "Semua (${engine.interfaces.size})"
+                        ).forEach { (isAct, label) ->
+                            val selected = activeOnly == isAct
+                            Surface(
+                                onClick = { activeOnly = isAct },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (selected) AccentCyan.copy(alpha = 0.16f) else BgSurfaceLowest,
+                                border = BorderStroke(
+                                    if (selected) 1.2.dp else 0.7.dp,
+                                    if (selected) AccentCyan else BorderSubtle
+                                ),
+                                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                                    Text(
+                                        text = label,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) AccentCyan else TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    visibleIfaces.forEach { iface ->
                         val isPrimaryRoute = iface.name == engine.activeIface && iface.name.isNotBlank()
                         val isUp = iface.state.equals("up", ignoreCase = true)
                         val rowAccent = when {

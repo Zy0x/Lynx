@@ -6,6 +6,9 @@ import android.net.NetworkCapabilities
 import com.noir.lynx.LynxApp
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -410,23 +413,26 @@ object LynxSystemControlRepository {
         }
     }
 
-    suspend fun benchmarkDnsLatency(hosts: List<String>): Map<String, Float> = withContext(Dispatchers.IO) {
-        val results = mutableMapOf<String, Float>()
-        hosts.distinct().forEach { host ->
-            val safeHost = host.trim()
-            if (safeHost.isBlank()) return@forEach
-            val rttMs = try {
-                val startNs = System.nanoTime()
-                Socket().use { sock ->
-                    sock.connect(InetSocketAddress(safeHost, 853), 1500)
+    suspend fun benchmarkDnsLatency(hosts: List<String>): Map<String, Float> = coroutineScope {
+        hosts.map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { host ->
+                async(Dispatchers.IO) {
+                    val rttMs = try {
+                        val startNs = System.nanoTime()
+                        Socket().use { sock ->
+                            sock.connect(InetSocketAddress(host, 853), 1200)
+                        }
+                        ((System.nanoTime() - startNs) / 1_000_000.0).toFloat()
+                    } catch (_: Exception) {
+                        -1f
+                    }
+                    host to rttMs
                 }
-                ((System.nanoTime() - startNs) / 1_000_000.0).toFloat()
-            } catch (_: Exception) {
-                -1f
             }
-            results[safeHost] = rttMs
-        }
-        results
+            .awaitAll()
+            .toMap()
     }
 
     suspend fun readPrivateDns(): Pair<String, String> = withContext(Dispatchers.IO) {

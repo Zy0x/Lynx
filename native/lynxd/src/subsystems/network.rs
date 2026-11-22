@@ -369,6 +369,23 @@ fn should_skip_iface(name: &str) -> bool {
         || name.starts_with("p2p")
 }
 
+fn is_iface_up(iface_path: &Path, operstate: &str) -> bool {
+    if operstate.eq_ignore_ascii_case("up") {
+        return true;
+    }
+    if operstate.eq_ignore_ascii_case("down") {
+        return false;
+    }
+    // Virtual / P2P cellular netdevs (rmnet_data*, ccmni*, tun*) often report operstate="unknown" even when IFF_UP (0x1)
+    if let Ok(flags_raw) = SysfsReader::read_trimmed(iface_path.join("flags")) {
+        let hex = flags_raw.trim().trim_start_matches("0x").trim_start_matches("0X");
+        if let Ok(flags) = u32::from_str_radix(hex, 16) {
+            return (flags & 0x1) != 0;
+        }
+    }
+    false
+}
+
 fn compute_cpu_mask_hex(prefer_avoid_cpu0: bool) -> String {
     let mut mask: u64 = 0;
     if let Ok(present_str) = SysfsReader::read_trimmed("/sys/devices/system/cpu/present") {
@@ -778,7 +795,9 @@ impl NetworkController {
                 }
             }
 
-            let qdisc = if operstate == "up" {
+            let is_up = is_iface_up(&base, &operstate);
+            let effective_state = if is_up { "up".to_string() } else { operstate.clone() };
+            let qdisc = if is_up {
                 Self::read_iface_qdisc(&name, has_tc, default_qdisc)
             } else {
                 String::new()
@@ -787,7 +806,7 @@ impl NetworkController {
             ifaces.push(IfaceEntry {
                 name,
                 kind,
-                operstate,
+                operstate: effective_state,
                 mtu,
                 rx_queues,
                 tx_queues,
@@ -982,7 +1001,7 @@ impl NetworkController {
                     }
                     let oper = SysfsReader::read_trimmed(entry.path().join("operstate"))
                         .unwrap_or_default();
-                    if oper != "up" {
+                    if !is_iface_up(&entry.path(), &oper) {
                         continue;
                     }
                     if enable {
