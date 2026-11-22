@@ -381,6 +381,12 @@ fun CpuControlCenterCard(
                 }
             }
 
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
             LynxSwitch(
                 label = "Terapkan Saat Boot",
                 subLabel = "Simpan snapshot profil aktif & jalankan health-check saat booting",

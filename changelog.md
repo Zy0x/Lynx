@@ -1,3 +1,14 @@
+# Lynx Universal [Standardisasi Pemisah Visual Section Divider di Seluruh Halaman Tuning] 7.0.0-RC455
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.74
+
+### Companion App (`LynxCompanion` Design System & UI Consistency)
+- **Standardisasi Pemisah Visual (`HorizontalDivider` / `LynxSectionDivider`) Lintas Seluruh Halaman Tuning**:
+  - Menerapkan pembatas visual halus yang konsisten (`HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)`) di seluruh kartu kontrol tuning untuk menjaga keterbacaan, keteraturan visual, dan ergonomi sentuhan tanpa elemen yang menumpuk:
+    - **CPU Controls**: Menambahkan pemisah antar switch dan sub-section pada `PlatformHardwareEngineCard` (Touch Boost, Plafon Clock Anti-Throttling, Sinkronisasi Thermal Policy Hardware, dan Tile Verifikasi Developer), `CpuSchedulerCard` (Top-App Prefer Idle & Power-Efficient WQ), `CpuPlatformControlCards` (Core Efficiency & C-States vs Read-Only Telemetry), `CpuSchedLoadBoostCard` (Task Capacity Bias vs Tactile Bias Pills), serta `CpuControlCenterCard` (Recovery Point vs Terapkan Saat Boot).
+    - **GPU & Display Tuning**: Menambahkan pemisah pada `GpuProfilesAndHardwareCard` (KGSL Memory Bus Always-On, Adreno Force Rail, Bypass GPU Thermal Throttling, Idle Timer, Target Load, FPSGO Frame Pacing, Ultra Rescue, Mali DVFS Margin, Unmask Shader Cores, dan Power Policy), `GpuDeepSiliconCard` (SPTP Power Collapse, Skip Save/Restore, Preemption Level, GPU Wake Nice, Min Power Level Floor, System LLC Cache Slicing, dan Analisis Risiko), `DisplayRefreshRateTouchCard` (DC Dimming), serta `TouchPrecisionSections` (Edge Link Sides & Sliders).
+    - **Memory & Storage**: Menambahkan pemisah pada `MemoryVmZramCard` (Mode Preset RAM/ZRAM vs Swappiness numeric row) dan `MountXStorageCard` (Keterikatan RQ Affinity, I/O Stats, dan Sumbang Entropi Waktu Disk).
+
 # Lynx Universal [Sinkronisasi Engine R1.101–R1.105: FPSGO Big-Core Steering, Storage/F2FS Pipeline & Bundel APK lynxd Persisten] 7.0.0-RC454
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.73

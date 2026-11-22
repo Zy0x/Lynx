@@ -114,6 +114,8 @@ fun GpuDeepSiliconCard(
                 accentColor = AccentCyan
             )
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+
             // ── 2. SKIP REGISTER SAVE / RESTORE ──
             SiliconToggleRow(
                 title = "Skip Save / Restore",
@@ -122,6 +124,8 @@ fun GpuDeepSiliconCard(
                 onCheckedChange = onSetSkipSaveRestore,
                 accentColor = AccentPurple
             )
+
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
             // ── 3. PREEMPTION LEVEL ──
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -180,7 +184,7 @@ fun GpuDeepSiliconCard(
                 }
             }
 
-            HorizontalDivider(color = BorderGlass)
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
             // ── 4. GPU WAKE NICE (CUSTOM NUMBER DIALOG) ──
             Row(
@@ -220,6 +224,8 @@ fun GpuDeepSiliconCard(
                 }
             }
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+
             // ── 5. MIN POWER LEVEL FLOOR (CUSTOM NUMBER DIALOG) ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -258,6 +264,8 @@ fun GpuDeepSiliconCard(
                 }
             }
 
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+
             // ── 6. LAST LEVEL CACHE (LLC) SLICING ──
             SiliconToggleRow(
                 title = "GPU System LLC Cache Slicing",
@@ -267,7 +275,7 @@ fun GpuDeepSiliconCard(
                 accentColor = AccentGreen
             )
 
-            HorizontalDivider(color = BorderGlass)
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
 
             // ── 7. DAMPAK & RISIKO ACCORDION (TRANSPARANSI TWEAK) ──
             var showImpactDetails by remember { mutableStateOf(false) }

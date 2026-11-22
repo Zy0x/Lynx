@@ -368,6 +368,12 @@ fun KernelSchedulerCard(
                 }
             }
 
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
             // 3. Top-App Prefer Idle & Power-Efficient Workqueue Switches
             if (schedInfo.isSchedtuneSupported || schedInfo.isEasSupported) {
                 LynxSwitch(
@@ -375,6 +381,12 @@ fun KernelSchedulerCard(
                     subLabel = "Tempatkan thread aplikasi utama langsung ke core bebas antrean (schedtune.prefer_idle)",
                     checked = schedInfo.topAppPreferIdle,
                     onCheckedChange = onTopAppPreferIdleChange
+                )
+
+                HorizontalDivider(
+                    color = BorderGlass.copy(alpha = 0.6f),
+                    thickness = 0.6.dp,
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
 

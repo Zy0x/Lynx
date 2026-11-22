@@ -145,6 +145,12 @@ fun CpuSchedLoadBoostCard(
                 color = TextSecondary.copy(alpha = 0.8f)
             )
 
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+
             // 4 Tactile Bias Pills
             val biasOptions = listOf(
                 Tuple4("anti_inversion", "Anti-Inversi", "-10 / +20", AccentCyan, -10, 20),

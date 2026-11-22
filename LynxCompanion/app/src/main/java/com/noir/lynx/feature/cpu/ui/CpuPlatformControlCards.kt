@@ -277,7 +277,11 @@ fun CpuIdleCoreParkingCard(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(
+            color = BorderGlass.copy(alpha = 0.6f),
+            thickness = 0.6.dp,
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
 
         // 3. Performance and Power Status (Unified Read-Only Telemetry Panel)
         Column(

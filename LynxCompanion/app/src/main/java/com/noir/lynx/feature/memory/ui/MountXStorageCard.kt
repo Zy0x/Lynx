@@ -1329,6 +1329,11 @@ private fun IoQueueTuningSection(
         }
 
         if (iostats != null) {
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
             LynxSwitch(
                 label = "Pencatatan Statistik Disk (I/O Stats)",
                 subLabel = if (!iostats) "Nonaktif — lebih ringan tanpa beban pencatatan statistik" else "Aktif — mencatat aktivitas baca/tulis penyimpanan",
@@ -1338,6 +1343,11 @@ private fun IoQueueTuningSection(
         }
 
         if (addRandom != null) {
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
             LynxSwitch(
                 label = "Sumbang Waktu Disk ke Entropi",
                 subLabel = if (!addRandom) "Nonaktif — kurangi beban tambahan di setiap aktivitas baca/tulis" else "Aktif — gunakan waktu akses penyimpanan untuk data acak",

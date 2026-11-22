@@ -421,7 +421,12 @@ fun EdgeGestureGuardSection(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
 
             LynxSwitch(
                 label = stringResource(R.string.touch_precision_edge_link_sides),
@@ -439,6 +444,12 @@ fun EdgeGestureGuardSection(
                     onConfigChange(updated)
                     onCommit(updated)
                 },
+            )
+
+            HorizontalDivider(
+                color = BorderGlass.copy(alpha = 0.6f),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
             )
 
             val labelDisabled = stringResource(R.string.touch_precision_edge_scale_disabled)

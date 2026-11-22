@@ -409,6 +409,12 @@ fun MemoryVmZramCard(
                     }
                 }
 
+                HorizontalDivider(
+                    color = BorderGlass.copy(alpha = 0.6f),
+                    thickness = 0.6.dp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
                 val swappinessPresets = remember(swappinessMax) {
                     listOf(
                         "10 • Utamakan RAM" to 10,

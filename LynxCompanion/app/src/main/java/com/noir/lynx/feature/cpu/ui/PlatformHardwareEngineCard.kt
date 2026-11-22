@@ -463,6 +463,12 @@ fun PlatformHardwareEngineCard(
                         }
                     }
 
+                    HorizontalDivider(
+                        color = BorderGlass.copy(alpha = 0.6f),
+                        thickness = 0.6.dp,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+
                     // ── Sub-section 3: Switch Toggles (Touch, Anti-Throttling, Thermal) ──
                     val touchBoostChecked = schedInfo.universalTouchBoostEnabled || schedInfo.qcomTouchboostEnabled
                     LynxSwitch(
@@ -500,6 +506,12 @@ fun PlatformHardwareEngineCard(
                     )
 
                     if (isMtk || isQcom) {
+                        HorizontalDivider(
+                            color = BorderGlass.copy(alpha = 0.6f),
+                            thickness = 0.6.dp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+
                         val guardChecked = schedInfo.antiThrottlingGuardEnabled || schedInfo.ppmDlptBypassEnabled
                         LynxSwitch(
                             label = "Pertahankan Plafon Clock Puncak (Anti-Throttling)",
@@ -539,6 +551,12 @@ fun PlatformHardwareEngineCard(
                             } else null
                         )
 
+                        HorizontalDivider(
+                            color = BorderGlass.copy(alpha = 0.6f),
+                            thickness = 0.6.dp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+
                         LynxSwitch(
                             label = "Sinkronisasi Thermal Policy Hardware",
                             subLabel = if (isMtk) {
@@ -575,6 +593,12 @@ fun PlatformHardwareEngineCard(
                             } else null
                         )
                     }
+
+                    HorizontalDivider(
+                        color = BorderGlass.copy(alpha = 0.6f),
+                        thickness = 0.6.dp,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
 
                     // ── Sub-section 4: Integrated Developer Verification Tile ─
                     Surface(

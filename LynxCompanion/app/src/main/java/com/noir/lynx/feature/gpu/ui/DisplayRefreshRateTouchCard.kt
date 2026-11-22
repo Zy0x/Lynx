@@ -326,6 +326,7 @@ fun DisplayRefreshRateTouchCard(
 
         // DC Dimming Switch if supported
         if (dcDimmingSupported) {
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), modifier = Modifier.padding(vertical = 6.dp))
             LynxSwitch(
                 label = "Peredam Kedipan Layar (DC Dimming)",
                 subLabel = "Mengurangi kedipan layar pada kecerahan rendah demi kenyamanan mata",

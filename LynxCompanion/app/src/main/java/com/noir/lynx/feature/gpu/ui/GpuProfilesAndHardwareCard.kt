@@ -266,7 +266,14 @@ fun AdaptiveGpuHardwareCard(
                         )
                     }
 
-                    features.forEach { feat ->
+                    features.forEachIndexed { idx, feat ->
+                        if (idx > 0) {
+                            HorizontalDivider(
+                                color = BorderGlass.copy(alpha = 0.6f),
+                                thickness = 0.6.dp,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
                         val isWritable = feat.accessState == FeatureAccessState.VERIFIED_WORKING
                         when (feat.uiType) {
                             FeatureUiType.SWITCH -> {
@@ -420,6 +427,8 @@ fun AdaptiveGpuHardwareCard(
                         onCheckedChange = { onSetBusAlwaysOn(it) }
                     )
 
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
+
                     LynxSwitch(
                         label = "Adreno Force Rail Active",
                         subLabel = "Paksa jalur daya power rail GPU aktif bertenaga selama game",
@@ -427,12 +436,16 @@ fun AdaptiveGpuHardwareCard(
                         onCheckedChange = { onSetAdrenoForceRail(it) }
                     )
 
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
+
                     LynxSwitch(
                         label = "Bypass GPU Thermal Throttling",
                         subLabel = "Abaikan batas pwrlevel thermal throttling kernel Qualcomm",
                         checked = gpu.isThrottlingBypassed,
                         onCheckedChange = { onSetThermalBypass(it) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
 
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("Adreno Idle Timer (Waktu Tahan Clock)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
@@ -463,6 +476,8 @@ fun AdaptiveGpuHardwareCard(
                             }
                         }
                     }
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
 
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("Trustzone TZ Governor Target Load", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
@@ -500,6 +515,8 @@ fun AdaptiveGpuHardwareCard(
                         onCheckedChange = { onSetFramePacing(it) }
                     )
 
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
+
                     LynxSwitch(
                         label = "FPSGO Ultra Rescue (Penyelamat Frame)",
                         subLabel = "Akselerasi frekuensi instan jika frame terancam drop di bawah target FPS",
@@ -507,12 +524,16 @@ fun AdaptiveGpuHardwareCard(
                         onCheckedChange = { onSetFpsgoUltraRescue(it) }
                     )
 
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
+
                     LynxSwitch(
                         label = "Bypass GPU Thermal Throttling",
                         subLabel = "Override pembatasan throttling thermal daemon MediaTek saat beban berat",
                         checked = gpu.isThrottlingBypassed,
                         onCheckedChange = { onSetThermalBypass(it) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
 
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("Mali GED DVFS Margin (Sensitivitas Boost)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
@@ -549,6 +570,8 @@ fun AdaptiveGpuHardwareCard(
                         checked = gpu.isMaliAllCoresActive,
                         onCheckedChange = { onSetMaliCoreMask(it) }
                     )
+
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp, modifier = Modifier.padding(vertical = 4.dp))
 
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("Kebijakan Daya GPU (Power Policy)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
