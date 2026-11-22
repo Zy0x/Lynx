@@ -56,6 +56,7 @@ class LynxViewModel : ViewModel() {
     private var initJob: Job? = null
     private var periodicSyncJob: Job? = null
     internal var telemetryPollingJob: Job? = null
+    internal var speedtestJob: Job? = null
     private var observersStarted: Boolean = false
     @Volatile private var lastRootRetryMs: Long = 0L
 

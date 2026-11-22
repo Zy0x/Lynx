@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +30,8 @@ import com.noir.lynx.designsystem.controls.LynxActionButton
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.ui.LynxViewModel
 import com.noir.lynx.ui.applyNetworkPreset
+import com.noir.lynx.ui.closeSpeedtestSheet
+import com.noir.lynx.ui.openSpeedtestSheet
 import com.noir.lynx.ui.probeNetworkLatency
 import com.noir.lynx.ui.refreshNetworkEngineAll
 import java.util.Locale
@@ -42,6 +45,8 @@ internal fun NetworkHeroCard(
 ) {
     val tele = uiState.wifiTelemetry
     val engine = uiState.networkEngineInfo
+    val st = uiState.speedtestState
+    val context = LocalContext.current
     var showInterfacesSheet by remember { mutableStateOf(false) }
 
     val isWifi = tele.isConnected
@@ -90,6 +95,14 @@ internal fun NetworkHeroCard(
         NetworkInterfacesBottomSheet(
             engine = engine,
             onDismiss = { showInterfacesSheet = false }
+        )
+    }
+
+    if (st.isSheetOpen) {
+        NetworkSpeedtestBottomSheet(
+            uiState = uiState,
+            viewModel = viewModel,
+            onDismiss = { viewModel.closeSpeedtestSheet() }
         )
     }
 
@@ -261,68 +274,190 @@ internal fun NetworkHeroCard(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            if (st.hasResult || st.isRunning) {
                 Surface(
-                    onClick = { viewModel.probeNetworkLatency() },
-                    enabled = !uiState.isProbingNetwork && isOnline,
+                    onClick = { viewModel.openSpeedtestSheet() },
                     shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.14f),
-                    border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.7.dp, AccentGreen.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = null,
-                            tint = if (isOnline) AccentCyan else TextTertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = if (uiState.isProbingNetwork) "Menguji Ping..." else "Uji Ping & Jitter",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isOnline) AccentCyan else TextTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "↓ ${if (st.downloadMbps > 0f) "%.1f".format(Locale.US, st.downloadMbps) else "—"}",
+                                fontSize = 11.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentCyan,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = "↑ ${if (st.uploadMbps > 0f) "%.1f".format(Locale.US, st.uploadMbps) else "—"} Mbps",
+                                fontSize = 11.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentGreen,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        if (st.bufferbloatGrade.isNotBlank()) {
+                            LynxCapabilityBadge("GRADE ${st.bufferbloatGrade}", AccentGreen)
+                        } else if (st.isRunning) {
+                            LynxCapabilityBadge("${(st.progress * 100).toInt()}%", AccentCyan)
+                        }
+                    }
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        onClick = { viewModel.probeNetworkLatency() },
+                        enabled = !uiState.isProbingNetwork && isOnline,
+                        shape = RoundedCornerShape(10.dp),
+                        color = AccentCyan.copy(alpha = 0.14f),
+                        border = BorderStroke(0.7.dp, AccentCyan.copy(alpha = 0.35f)),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NetworkPing,
+                                contentDescription = null,
+                                tint = if (isOnline) AccentCyan else TextTertiary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (uiState.isProbingNetwork) "Menguji Ping..." else "Uji Ping & Jitter",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOnline) AccentCyan else TextTertiary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = { viewModel.openSpeedtestSheet() },
+                        enabled = isOnline || st.hasResult || st.isRunning,
+                        shape = RoundedCornerShape(10.dp),
+                        color = AccentGreen.copy(alpha = 0.15f),
+                        border = BorderStroke(0.8.dp, AccentGreen.copy(alpha = 0.42f)),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = if (isOnline || st.hasResult) AccentGreen else TextTertiary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = when {
+                                    st.isRunning -> "Uji ${(st.progress * 100).toInt()}%"
+                                    st.hasResult -> "Detail Speedtest"
+                                    else -> "Uji Speedtest"
+                                },
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOnline || st.hasResult) AccentGreen else TextTertiary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
 
-                Surface(
-                    onClick = { showInterfacesSheet = true },
-                    shape = RoundedCornerShape(10.dp),
-                    color = BgElevated,
-                    border = BorderStroke(0.7.dp, BorderSubtle),
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        onClick = { showInterfacesSheet = true },
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.7.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f).heightIn(min = 46.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = null,
-                            tint = TextPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Interface (${engine.interfaces.size})",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Dns,
+                                contentDescription = null,
+                                tint = TextPrimary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Interface (${engine.interfaces.size})",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = { launchExternalOoklaSpeedtest(context) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.7.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f).heightIn(min = 46.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInNew,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Buka Ookla",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
             }

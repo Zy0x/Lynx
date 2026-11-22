@@ -630,6 +630,8 @@ data class LynxUiState(
     val availableTcpCongestion: List<String> = listOf("cubic", "bic", "reno"),
     val wifiTelemetry: WifiTelemetryInfo = WifiTelemetryInfo(),
     val networkEngineInfo: NetworkEngineInfo = NetworkEngineInfo(),
+    val speedtestState: com.noir.lynx.feature.network.model.SpeedtestUiState =
+        com.noir.lynx.feature.network.model.SpeedtestUiState(),
     val isProbingNetwork: Boolean = false,
     val dnsLatencyMs: Map<String, Float> = emptyMap(),
     val isTestingDns: Boolean = false,

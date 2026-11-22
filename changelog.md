@@ -1,3 +1,13 @@
+# Lynx Universal [Monitor Speedtest Multi-Stream & Evaluasi Bufferbloat] 7.0.0-RC446
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.65
+
+### Companion App (`LynxSpeedtestEngine`, `NetworkSpeedtestSheet`, `NetworkOverviewCards`, `SpeedtestModels`)
+- **Uji Speedtest Download, Upload & Loaded Latency Langsung di Monitor Network**:
+  - Menambahkan `LynxSpeedtestEngine` berbasis stream HTTPS paralel langsung di Kotlin Coroutines menggunakan endpoint terbuka **Cloudflare Edge (`speed.cloudflare.com/__down` & `/__up`)** (mode penuh & **Hemat Kuota**) serta dukungan **Server Kustom HTTPS** (LibreSpeed/OpenSpeedTest).
+  - Mengukur **Idle Ping & Jitter**, **Download (Mbps + Puncak)**, **Upload (Mbps + Puncak)**, kode edge `cf-ray` (mis. `Cloudflare (CGK)`/`SIN`), serta **Loaded Latency saat Unduh & Unggah** untuk menghitung skor **Bufferbloat (`A+` hingga `D`)**.
+  - Menghadirkan **`NetworkSpeedtestBottomSheet`** dengan grafik gelombang live, penyimpan & pembanding **Baseline Tuning (Sebelum vs Sesudah ubah TCP/Qdisc)**, ringkasan hasil cepat pada kartu `Monitor Tautan & Radio`, serta tombol pintasan **`Buka Ookla`** untuk perbandingan eksternal.
+
 # Lynx Universal [Validasi Parameter Radio Lintas Vendor & Pemurnian HAL] 7.0.0-RC445
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.64

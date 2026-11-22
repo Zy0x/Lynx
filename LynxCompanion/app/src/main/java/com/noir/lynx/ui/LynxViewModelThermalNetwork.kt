@@ -380,6 +380,153 @@ fun LynxViewModel.benchmarkDnsLatency(
     }
 }
 
+fun LynxViewModel.openSpeedtestSheet() {
+    _uiState.update { current ->
+        val eng = current.networkEngineInfo
+        val tele = current.wifiTelemetry
+        val iface = tele.activeIface.ifBlank { eng.activeIface }
+        val transport = if (tele.isConnected) "Wi-Fi" else eng.activeTransport.uppercase().ifBlank { "NET" }
+        current.copy(
+            speedtestState = current.speedtestState.copy(
+                isSheetOpen = true,
+                activeIfaceLabel = listOf(transport, iface).filter { it.isNotBlank() }.joinToString(" • "),
+                tcpAlgoSnapshot = eng.currentAlgo.ifBlank { current.currentTcpCongestion }.uppercase(),
+                qdiscSnapshot = eng.currentQdisc.ifBlank { current.state.network.qdisc }
+            )
+        )
+    }
+}
+
+fun LynxViewModel.closeSpeedtestSheet() {
+    _uiState.update { current ->
+        current.copy(speedtestState = current.speedtestState.copy(isSheetOpen = false))
+    }
+}
+
+fun LynxViewModel.selectSpeedtestServer(serverId: String) {
+    if (_uiState.value.speedtestState.isRunning) return
+    _uiState.update { current ->
+        current.copy(
+            speedtestState = current.speedtestState.copy(
+                selectedServerId = serverId,
+                errorMessage = null
+            )
+        )
+    }
+}
+
+fun LynxViewModel.setSpeedtestCustomUrl(url: String) {
+    _uiState.update { current ->
+        current.copy(
+            speedtestState = current.speedtestState.copy(
+                customBaseUrl = url,
+                errorMessage = null
+            )
+        )
+    }
+}
+
+fun LynxViewModel.saveSpeedtestBaseline() {
+    val st = _uiState.value.speedtestState
+    if (!st.hasResult || st.isRunning) return
+    val eng = _uiState.value.networkEngineInfo
+    val snap = com.noir.lynx.feature.network.model.SpeedtestSnapshot(
+        serverLabel = st.serverEdgeLabel.ifBlank { st.selectedServerId },
+        idleLatencyMs = st.idleLatencyMs,
+        idleJitterMs = st.idleJitterMs,
+        downloadMbps = st.downloadMbps,
+        downloadLoadedLatencyMs = st.downloadLoadedLatencyMs,
+        uploadMbps = st.uploadMbps,
+        uploadLoadedLatencyMs = st.uploadLoadedLatencyMs,
+        bufferbloatGrade = st.bufferbloatGrade,
+        tcpAlgo = st.tcpAlgoSnapshot.ifBlank { eng.currentAlgo.uppercase() },
+        qdisc = st.qdiscSnapshot.ifBlank { eng.currentQdisc },
+        timestampMs = st.lastTestedAtMs.takeIf { it > 0L } ?: System.currentTimeMillis()
+    )
+    _uiState.update {
+        it.copy(
+            speedtestState = it.speedtestState.copy(baselineResult = snap),
+            successMessage = "Baseline Speedtest disimpan untuk perbandingan tuning"
+        )
+    }
+}
+
+fun LynxViewModel.clearSpeedtestBaseline() {
+    _uiState.update {
+        it.copy(speedtestState = it.speedtestState.copy(baselineResult = null))
+    }
+}
+
+fun LynxViewModel.cancelNetworkSpeedtest() {
+    speedtestJob?.cancel()
+    speedtestJob = null
+    _uiState.update { current ->
+        val prev = current.speedtestState
+        current.copy(
+            speedtestState = prev.copy(
+                phase = com.noir.lynx.feature.network.model.SpeedtestPhase.IDLE,
+                progress = 0f,
+                statusText = "Pengujian dibatalkan",
+                errorMessage = null
+            )
+        )
+    }
+}
+
+fun LynxViewModel.startNetworkSpeedtest() {
+    if (_uiState.value.speedtestState.isRunning) return
+    speedtestJob?.cancel()
+    val eng = _uiState.value.networkEngineInfo
+    val tele = _uiState.value.wifiTelemetry
+    val iface = tele.activeIface.ifBlank { eng.activeIface }
+    val transport = if (tele.isConnected) "Wi-Fi" else eng.activeTransport.uppercase().ifBlank { "NET" }
+    val seedState = _uiState.value.speedtestState.copy(
+        isSheetOpen = true,
+        activeIfaceLabel = listOf(transport, iface).filter { it.isNotBlank() }.joinToString(" • "),
+        tcpAlgoSnapshot = eng.currentAlgo.ifBlank { _uiState.value.currentTcpCongestion }.uppercase(),
+        qdiscSnapshot = eng.currentQdisc.ifBlank { _uiState.value.state.network.qdisc }
+    )
+
+    speedtestJob = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            com.noir.lynx.feature.network.engine.LynxSpeedtestEngine.runSpeedtest(seedState) { updated ->
+                _uiState.update { current ->
+                    current.copy(
+                        speedtestState = updated.copy(
+                            isSheetOpen = current.speedtestState.isSheetOpen,
+                            baselineResult = current.speedtestState.baselineResult
+                        )
+                    )
+                }
+            }
+            val done = _uiState.value.speedtestState
+            if (done.phase == com.noir.lynx.feature.network.model.SpeedtestPhase.COMPLETED) {
+                _uiState.update {
+                    it.copy(
+                        successMessage = "Speedtest selesai: ↓ ${"%.1f".format(java.util.Locale.US, done.downloadMbps)} / ↑ ${"%.1f".format(java.util.Locale.US, done.uploadMbps)} Mbps • Ping ${"%.0f".format(java.util.Locale.US, done.idleLatencyMs)} ms"
+                    )
+                }
+            } else if (done.phase == com.noir.lynx.feature.network.model.SpeedtestPhase.ERROR && !done.errorMessage.isNullOrBlank()) {
+                _uiState.update { it.copy(errorMessage = done.errorMessage) }
+            }
+        } catch (_: kotlinx.coroutines.CancellationException) {
+            // Cancelled cleanly by user
+        } catch (t: Throwable) {
+            _uiState.update { current ->
+                current.copy(
+                    speedtestState = current.speedtestState.copy(
+                        phase = com.noir.lynx.feature.network.model.SpeedtestPhase.ERROR,
+                        progress = 0f,
+                        statusText = "Pengujian gagal",
+                        errorMessage = t.message ?: "Terjadi kesalahan jaringan saat uji speedtest"
+                    ),
+                    errorMessage = t.message ?: "Gagal menjalankan speedtest"
+                )
+            }
+        }
+    }
+}
+
 fun LynxViewModel.refreshWifiTelemetry() {
     viewModelScope.launch(Dispatchers.IO) {
         val tele = LynxRepository.readWifiTelemetry(includePing = true)
