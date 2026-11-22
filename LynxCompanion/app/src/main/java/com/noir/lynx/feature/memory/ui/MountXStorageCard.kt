@@ -137,8 +137,8 @@ fun MountXStorageCard(
         )
 
         LynxCard(
-            title = "Tuning Kelompok Blok",
-            subtitle = "Ketuk kategori untuk mengatur seluruh blok sekaligus via panel sheet",
+            title = "Direktori Kelompok Blok",
+            subtitle = "Ketuk kategori di bawah untuk tuning induk maupun per-blok",
             icon = Icons.Default.Storage,
             accentColor = AccentCyan
         ) {
@@ -148,12 +148,13 @@ fun MountXStorageCard(
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
                     if (storageGroups.isNotEmpty()) {
-                        Text(
-                            text = "MEDIA PENYIMPANAN",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary
+                        StorageSectionHeader(
+                            title = "Media Penyimpanan",
+                            subtitle = "Disk fisik internal, kartu SD & penyimpanan eksternal",
+                            badgeText = "${storageGroups.size} KATEGORI",
+                            accentColor = AccentCyan
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             storageGroups.forEach { grp ->
@@ -168,11 +169,17 @@ fun MountXStorageCard(
 
                     if (nonStorageGroups.isNotEmpty()) {
                         if (storageGroups.isNotEmpty()) {
-                            HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+                            StorageSectionDivider()
                         }
                         val nonStorageBlockTotal = remember(nonStorageGroups) {
                             nonStorageGroups.sumOf { it.devices.size }
                         }
+                        StorageSectionHeader(
+                            title = "Blok Sistem & Virtual Kernel",
+                            subtitle = "DM terenkripsi, ZRAM swap, loopback & blok non-storage",
+                            badgeText = "${nonStorageGroups.size} KATEGORI",
+                            accentColor = AccentPurple
+                        )
                         Surface(
                             onClick = { showNonStorageAccordion = !showNonStorageAccordion },
                             shape = RoundedCornerShape(12.dp),
@@ -194,7 +201,11 @@ fun MountXStorageCard(
                                     verticalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     Text(
-                                        text = "Blok Kernel & Non-Storage (Expert)",
+                                        text = if (showNonStorageAccordion) {
+                                            "Sembunyikan Daftar Blok Non-Storage"
+                                        } else {
+                                            "Buka Blok Non-Storage (Expert)"
+                                        },
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = TextPrimary,
@@ -202,7 +213,7 @@ fun MountXStorageCard(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "${nonStorageGroups.size} kategori (${nonStorageGroups.joinToString(", ") { it.shortTitle }}) • $nonStorageBlockTotal blok",
+                                        text = "${nonStorageGroups.joinToString(", ") { it.shortTitle }} • Total $nonStorageBlockTotal blok",
                                         fontSize = 10.sp,
                                         color = TextSecondary,
                                         maxLines = 1,
@@ -481,10 +492,11 @@ private fun StorageBlockGroupBottomSheet(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (activeGroup.volumes.isNotEmpty()) {
                     CategoryVolumesSection(activeGroup = activeGroup)
+                    StorageSectionDivider()
                 }
 
                 CategoryMasterTuningSection(
@@ -495,7 +507,7 @@ private fun StorageBlockGroupBottomSheet(
                     viewModel = viewModel
                 )
 
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+                StorageSectionDivider()
 
                 CategoryPerBlockSection(
                     activeGroup = activeGroup,
@@ -512,12 +524,12 @@ private fun StorageBlockGroupBottomSheet(
 
 @Composable
 private fun CategoryVolumesSection(activeGroup: BlockGroupDescriptor) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = "PARTISI TERPASANG (${activeGroup.volumes.size})",
-            fontSize = 10.5.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        StorageSectionHeader(
+            title = "Partisi & Titik Mount",
+            subtitle = "Volume dan filesystem aktif dalam kategori ini",
+            badgeText = "${activeGroup.volumes.size} PARTISI",
+            accentColor = AccentBlue
         )
         activeGroup.volumes.forEach { vol ->
             val total = if (vol.totalBytes > 0L) vol.totalBytes else vol.partitionSizeBytes
@@ -606,6 +618,13 @@ private fun CategoryMasterTuningSection(
     val previewMembers = activeGroup.devices.take(5).joinToString(", ") { it.device } +
         if (activeGroup.devices.size > 5) " (+${activeGroup.devices.size - 5} lagi)" else ""
 
+    StorageSectionHeader(
+        title = "Cakupan Target Induk",
+        subtitle = "Node blok kernel dalam kelompok ${activeGroup.shortTitle}",
+        badgeText = "${writableDevs.size}/${activeGroup.devices.size} WRITABLE",
+        accentColor = activeGroup.accent
+    )
+
     Surface(
         shape = RoundedCornerShape(10.dp),
         color = BgSurfaceLowest,
@@ -617,7 +636,7 @@ private fun CategoryMasterTuningSection(
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Text(
-                text = "Anggota Target Induk: $previewMembers",
+                text = "Anggota: $previewMembers",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
@@ -709,11 +728,12 @@ private fun CategoryMasterTuningSection(
             )
         }
 
-        Text(
-            text = "Preset Cepat Induk (${activeGroup.shortTitle})",
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextSecondary
+        StorageSectionDivider()
+
+        StorageSectionHeader(
+            title = "Preset Cepat Induk",
+            subtitle = "Terapkan profil instan ke ${unlockedWritableDevs.size} blok ${activeGroup.shortTitle}",
+            accentColor = activeGroup.accent
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -744,6 +764,14 @@ private fun CategoryMasterTuningSection(
             }
         }
 
+        StorageSectionDivider()
+
+        StorageSectionHeader(
+            title = "Parameter Antrean I/O (Induk)",
+            subtitle = "Atur scheduler, read-ahead & parameter antrean serentak",
+            accentColor = activeGroup.accent
+        )
+
         val commonScheds = unlockedWritableDevs
             .map { it.availableSchedulers.toSet() }
             .reduceOrNull { acc, s -> acc intersect s }
@@ -754,9 +782,9 @@ private fun CategoryMasterTuningSection(
         val schedVals = unlockedWritableDevs.map { it.currentScheduler }.distinct()
         val uniformSched = if (schedVals.size == 1) schedVals.first() else ""
         val schedSubtitle = if (schedVals.size > 1) {
-            "I/O Scheduler: bervariasi (${schedVals.joinToString("/")})"
+            "Bervariasi antar blok: ${schedVals.joinToString("/")}"
         } else {
-            "I/O Scheduler (${uniformSched.ifBlank { "default" }})"
+            "Aktif saat ini: ${uniformSched.ifBlank { "default" }}"
         }
 
         val raVals = unlockedWritableDevs.map { it.readAheadKb }.distinct()
@@ -835,17 +863,27 @@ private fun CategoryMasterTuningSection(
     }
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = BgSurfaceLowest,
-        border = BorderStroke(0.6.dp, BorderSubtle),
+        color = activeGroup.accent.copy(alpha = 0.06f),
+        border = BorderStroke(0.6.dp, activeGroup.accent.copy(alpha = 0.25f)),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = categoryNote,
-            fontSize = 10.5.sp,
-            color = TextSecondary,
-            lineHeight = 14.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        )
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = "CATATAN KARAKTERISTIK",
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = activeGroup.accent
+            )
+            Text(
+                text = categoryNote,
+                fontSize = 10.5.sp,
+                color = TextSecondary,
+                lineHeight = 14.5.sp
+            )
+        }
     }
 }
 
@@ -871,6 +909,12 @@ private fun CategoryPerBlockSection(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        StorageSectionHeader(
+            title = "Inspeksi Blok Individual (Lanjutan)",
+            subtitle = "Override setelan satu node blok saja bila dibutuhkan",
+            badgeText = "${activeGroup.devices.size} BLOK",
+            accentColor = AccentPurple
+        )
         Surface(
             onClick = { expanded = !expanded },
             shape = RoundedCornerShape(12.dp),
@@ -897,7 +941,11 @@ private fun CategoryPerBlockSection(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "Kontrol Blok Individual (${activeGroup.devices.size} blok)",
+                        text = if (expanded) {
+                            "Tutup Daftar Blok Individual"
+                        } else {
+                            "Buka Daftar Blok (${activeGroup.devices.size} node)"
+                        },
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary,
@@ -1099,7 +1147,7 @@ private fun IoBlockDevicePanel(
                             deviceTypeHint = dev.deviceType.ifBlank { groupId.uppercase() },
                             availableSchedulers = dev.availableSchedulers,
                             currentScheduler = dev.currentScheduler,
-                            schedulerHeader = "I/O Scheduler (${dev.currentScheduler.ifBlank { "default" }})",
+                            schedulerHeader = "Aktif saat ini: ${dev.currentScheduler.ifBlank { "default" }}",
                             readAheadKb = dev.readAheadKb.coerceAtLeast(0),
                             readAheadDisplay = "${dev.readAheadKb} KB",
                             targetReadAheadKb = dev.targetReadAheadKb,
@@ -1164,12 +1212,19 @@ private fun IoQueueTuningSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (availableSchedulers.isNotEmpty()) {
-            Text(
-                text = schedulerHeader,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextSecondary
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Penjadwal I/O (Scheduler)",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = schedulerHeader,
+                    fontSize = 10.5.sp,
+                    color = TextSecondary
+                )
+            }
             val schedCols = if (availableSchedulers.size == 4) 2 else 3
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 availableSchedulers.chunked(schedCols).forEach { rowScheds ->
@@ -1226,6 +1281,27 @@ private fun IoQueueTuningSection(
                 accentColor = AccentBlue,
                 onCommitValue = onCommitNrRequests
             )
+        }
+
+        if (rqAffinity != null || iostats != null || addRandom != null) {
+            HorizontalDivider(
+                color = Color(0x22FFFFFF),
+                thickness = 0.7.dp,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = "Optimasi Request & Overhead Kernel",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Afinitas CPU completion & pencatatan overhead antrean blok",
+                    fontSize = 10.sp,
+                    color = TextSecondary
+                )
+            }
         }
 
         if (rqAffinity != null) {

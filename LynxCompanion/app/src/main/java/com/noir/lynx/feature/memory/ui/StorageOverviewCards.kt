@@ -100,7 +100,7 @@ internal fun StorageHeroCard(
     }
 
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(22.dp),
         color = Color(0xFF10141F),
         border = BorderStroke(
             0.8.dp,
@@ -113,7 +113,7 @@ internal fun StorageHeroCard(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -126,40 +126,42 @@ internal fun StorageHeroCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
                     modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
                     Surface(
                         shape = CircleShape,
                         color = healthColor.copy(alpha = 0.20f),
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(14.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Surface(
                                 shape = CircleShape,
                                 color = healthColor,
-                                modifier = Modifier.size(6.dp)
+                                modifier = Modifier.size(7.dp)
                             ) {}
                         }
                     }
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "PENYIMPANAN & PARTISI AKTIF",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = "Status & Partisi Penyimpanan",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (storage.emmcName.isNotBlank()) {
-                            Text(
-                                text = "Chip ${storage.emmcName}",
-                                fontSize = 10.sp,
-                                color = TextSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Text(
+                            text = if (storage.emmcName.isNotBlank()) {
+                                "Chip ${storage.emmcName} • Kapasitas internal & eksternal"
+                            } else {
+                                "Ringkasan kapasitas internal & media terpasang"
+                            },
+                            fontSize = 11.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 StorageMetaBadge(
@@ -167,6 +169,7 @@ internal fun StorageHeroCard(
                     color = AccentCyan
                 )
             }
+            HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
 
             if (totalBytes > 0L) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -214,60 +217,85 @@ internal fun StorageHeroCard(
                 ) {
                     wearInfo?.let { (wearLabel, wearColor) ->
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = wearColor.copy(alpha = 0.10f),
-                            border = BorderStroke(0.6.dp, wearColor.copy(alpha = 0.32f)),
+                            shape = RoundedCornerShape(10.dp),
+                            color = wearColor.copy(alpha = 0.08f),
+                            border = BorderStroke(0.6.dp, wearColor.copy(alpha = 0.30f)),
                             modifier = if (primaryDev != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "Wear: $wearLabel",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = wearColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "KESEHATAN FLASH",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = wearLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = wearColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                     primaryDev?.let { dev ->
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = BgElevated,
                             border = BorderStroke(0.6.dp, BorderSubtle),
                             modifier = if (wearInfo != null) Modifier.weight(1f) else Modifier.fillMaxWidth()
                         ) {
-                            Text(
-                                text = "${dev.device}: ${dev.currentScheduler.ifBlank { "default" }} • ${dev.readAheadKb} KB",
-                                fontSize = 10.5.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
+                            Column(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "ANTREAN UTAMA (${dev.device})",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${dev.currentScheduler.ifBlank { "default" }} • RA ${dev.readAheadKb} KB",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
             }
 
             if (externalVolumes.isNotEmpty()) {
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+                StorageSectionDivider()
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "MEDIA EKSTERNAL TERPASANG (${externalVolumes.size} partisi)",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary
+                    StorageSectionHeader(
+                        title = "Media Eksternal Terpasang",
+                        subtitle = "Partisi SD Card, USB OTG, atau mount eksternal aktif",
+                        badgeText = "${externalVolumes.size} PARTISI",
+                        accentColor = AccentBlue
                     )
                     externalVolumes.forEach { vol ->
                         ExternalVolumeRow(vol = vol)
                     }
                 }
             } else {
+                StorageSectionDivider()
                 Text(
-                    text = "MicroSD / USB OTG tidak terpasang saat ini.",
+                    text = "Media Eksternal: Tidak ada MicroSD / USB OTG yang terpasang saat ini.",
                     fontSize = 10.5.sp,
                     color = TextTertiary
                 )
@@ -442,6 +470,7 @@ internal fun MountXIntegrationCard(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            HorizontalDivider(color = BorderSubtle, thickness = 0.7.dp)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -518,6 +547,12 @@ internal fun MountXIntegrationCard(
             }
 
             if (metaPairs.isNotEmpty()) {
+                StorageSectionDivider()
+                StorageSectionHeader(
+                    title = "Parameter & Proteksi MountX",
+                    subtitle = "Target volume serta profil I/O yang dikelola aktif",
+                    accentColor = accent
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     metaPairs.chunked(2).forEach { rowPairs ->
                         Row(
@@ -555,6 +590,7 @@ internal fun MountXIntegrationCard(
             }
 
             if (storage.ioTweaksActive) {
+                StorageSectionDivider()
                 if (!storage.overrideUnlocked) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -742,6 +778,64 @@ internal fun MountXOverrideConfirmDialog(
             }
         }
     )
+}
+
+@Composable
+internal fun StorageSectionDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        color = Color(0x26FFFFFF),
+        thickness = 0.8.dp,
+        modifier = modifier.padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+internal fun StorageSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    badgeText: String? = null,
+    accentColor: Color = AccentCyan,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(2.dp),
+            color = accentColor,
+            modifier = Modifier
+                .width(3.dp)
+                .height(if (subtitle.isNullOrBlank()) 15.dp else 28.dp)
+        ) {}
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 10.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (!badgeText.isNullOrBlank()) {
+            StorageMetaBadge(badgeText, accentColor)
+        }
+    }
 }
 
 @Composable

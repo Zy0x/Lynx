@@ -1,3 +1,14 @@
+# Lynx Universal [Hierarki Judul Section, Sub-Judul & Pembatas Tegas di Tab Penyimpanan] 7.0.0-RC440
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.59
+
+### Companion App (`StorageOverviewCards`, `MountXStorageCard`)
+- **Pemisahan Visual Section (`StorageSectionHeader` & `StorageSectionDivider`)**:
+  - Menyeragamkan geometri kartu utama (`22.dp` corner radius & `vertical = 6.dp` padding) serta menambahkan pembatas header dan section berjarak lega agar antar bagian tidak terasa menyatu.
+  - Memperjelas **Status & Partisi Penyimpanan** dengan label metrik eksplisit (`KESEHATAN FLASH`, `ANTREAN UTAMA`), pembatas tegas, dan judul section beraksen untuk **Media Eksternal Terpasang**.
+  - Mempertegas **Direktori Kelompok Blok** dengan sub-header deskriptif terpisah untuk **Media Penyimpanan** dan **Blok Sistem & Virtual Kernel**.
+  - Menata ulang bagian dalam `StorageBlockGroupBottomSheet` menjadi section berbatas jelas (**Partisi & Titik Mount**, **Cakupan Target Induk**, **Preset Cepat Induk**, **Parameter Antrean I/O Induk**, sub-grup **Optimasi Request & Overhead Kernel**, **Catatan Karakteristik**, dan **Inspeksi Blok Individual**).
+
 # Lynx Universal [Modal Bottom Sheet Kategori Blok & Akordion Non-Storage Expert di Tab Penyimpanan] 7.0.0-RC439
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.58
