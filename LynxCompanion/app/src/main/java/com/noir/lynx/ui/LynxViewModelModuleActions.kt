@@ -57,12 +57,7 @@ fun LynxViewModel.switchTab(tabIndex: Int) {
 }
 
 fun LynxViewModel.setSelectedTuningCategory(category: String?) {
-    _uiState.update {
-        it.copy(
-            selectedTuningCategory = category,
-            selectedStorageBlockGroupId = if (category == "memory") it.selectedStorageBlockGroupId else null
-        )
-    }
+    _uiState.update { it.copy(selectedTuningCategory = category) }
     if (category != null) {
         viewModelScope.launch(Dispatchers.IO) {
             when (category) {

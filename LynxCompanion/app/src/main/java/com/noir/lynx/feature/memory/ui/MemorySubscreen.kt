@@ -1,6 +1,5 @@
 package com.noir.lynx.feature.memory.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,13 +14,12 @@ import com.noir.lynx.ui.refreshIoDevices
 import com.noir.lynx.ui.refreshMountXStorageInfo
 import com.noir.lynx.ui.setCustomLmkMinfreeMb
 import com.noir.lynx.ui.setEntropyThresholds
-import com.noir.lynx.ui.setSelectedStorageBlockGroup
 
 /**
  * MemorySubscreen — Modular domain router for Memory & Storage:
  * - targetTab == 0: RAM & ZRAM (MemoryHeroCard + MemoryVmZramCard)
  * - targetTab == 1: VM & Entropi (MemoryVmAdvancedCard + MemoryEntropyCard)
- * - targetTab == 2: Penyimpanan (Overview Directory OR dedicated category sub-page)
+ * - targetTab == 2: Penyimpanan (StorageHeroCard + MountXStorageCard)
  * - targetTab == null: Stacked compatibility fallback (all cards)
  */
 @Composable
@@ -37,13 +35,6 @@ fun MemorySubscreen(
             viewModel.loadMemorySubsystemData(forceRefresh = true)
             viewModel.refreshMountXStorageInfo()
             viewModel.refreshIoDevices(forceRefresh = true)
-        }
-    }
-
-    val selectedBlockGroupId = uiState.selectedStorageBlockGroupId
-    if (targetTab == 2 && selectedBlockGroupId != null) {
-        BackHandler {
-            viewModel.setSelectedStorageBlockGroup(null)
         }
     }
 
@@ -79,20 +70,11 @@ fun MemorySubscreen(
         }
 
         if (targetTab == null || targetTab == 2) {
-            if (selectedBlockGroupId != null) {
-                StorageGroupDetailSubpage(
-                    groupId = selectedBlockGroupId,
-                    uiState = uiState,
-                    viewModel = viewModel,
-                    onBack = { viewModel.setSelectedStorageBlockGroup(null) }
-                )
-            } else {
-                StorageHeroCard(uiState = uiState)
-                MountXStorageCard(
-                    uiState = uiState,
-                    viewModel = viewModel
-                )
-            }
+            StorageHeroCard(uiState = uiState)
+            MountXStorageCard(
+                uiState = uiState,
+                viewModel = viewModel
+            )
         }
     }
 }

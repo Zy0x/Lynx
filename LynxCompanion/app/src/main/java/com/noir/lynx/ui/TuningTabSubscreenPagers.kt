@@ -42,9 +42,6 @@ fun MemoryStorageSwipeableSubscreen(
         viewModel.refreshMountXStorageInfo()
         viewModel.refreshIoDevices(forceRefresh = true)
     }
-    LaunchedEffect(uiState.selectedStorageBlockGroupId) {
-        page2State.scrollToItem(0)
-    }
 
     LynxTabPager(
         pageCount = 3,

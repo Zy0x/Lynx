@@ -145,12 +145,8 @@ fun MainDashboard(
         viewModel.syncHudPrefs(context)
     }
     BackHandler(enabled = uiState.currentTab == 1 && uiState.selectedTuningCategory != null) {
-        if (uiState.selectedTuningCategory == "memory" && uiState.selectedMemoryTab == 2 && uiState.selectedStorageBlockGroupId != null) {
-            viewModel.setSelectedStorageBlockGroup(null)
-        } else {
-            android.util.Log.i("LynxNavigation", "system-back category=${uiState.selectedTuningCategory} scrolling=${subscreenLazyState.isScrollInProgress}")
-            viewModel.setSelectedTuningCategory(null)
-        }
+        android.util.Log.i("LynxNavigation", "system-back category=${uiState.selectedTuningCategory} scrolling=${subscreenLazyState.isScrollInProgress}")
+        viewModel.setSelectedTuningCategory(null)
     }
     BackHandler(enabled = (uiState.currentTab == 2 || uiState.currentTab == 3) && selectedToolsCategory != null) {
         android.util.Log.i("LynxNavigation", "system-back toolsCategory=$selectedToolsCategory")

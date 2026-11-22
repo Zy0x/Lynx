@@ -1,3 +1,13 @@
+# Lynx Universal [Modal Bottom Sheet Kategori Blok & Akordion Non-Storage Expert di Tab Penyimpanan] 7.0.0-RC439
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.58
+
+### Companion App (`MountXStorageCard`, `MemorySubscreen`)
+- **Flat Category Directory + Modal Bottom Sheet Tuning (`StorageBlockGroupBottomSheet`)**:
+  - Removed nested drill-down sub-pages from inside Tab `"Penyimpanan"` so the tab remains flat without stacked back bars under top tabs.
+  - Displayed **Media Penyimpanan** (`Internal`, `MicroSD`, `USB OTG`, external storage) openly by default while grouping **Blok Kernel & Non-Storage** (`DM Mapper`, `Loopback`, `ZRAM`, `Boot/RPMB`, `RAMDisk`, driver lainnya) cleanly inside an initially collapsed Expert accordion.
+  - Tapping any block category opens a focused full-height `ModalBottomSheet` containing partition status, **Preset Cepat & Tuning Induk** (respecting MountX locks & override confirmation), and a collapsed `Kontrol Blok Individual` accordion with `Writable Saja` vs `Semua + RO` filtering and 12-item pagination.
+
 # Lynx Universal [Sub-Halaman Kategori Blok Tanpa Tab Bertingkat & Deteksi Sysfs Dinamis Lintas Vendor] 7.0.0-RC438
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.57

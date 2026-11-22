@@ -7,13 +7,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
@@ -23,15 +23,19 @@ import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,7 +58,6 @@ import com.noir.lynx.ui.setIoQueueTunable
 import com.noir.lynx.ui.setIoScheduler
 import com.noir.lynx.ui.setMountXOverride
 import com.noir.lynx.ui.setReadAheadKb
-import com.noir.lynx.ui.setSelectedStorageBlockGroup
 import com.noir.lynx.ui.tuneBlockGroup
 
 private data class BlockGroupDescriptor(
@@ -70,9 +73,10 @@ private data class BlockGroupDescriptor(
 )
 
 /**
- * MountXStorageCard — Main overview directory inside Tab 2 ("Penyimpanan"):
+ * MountXStorageCard — Flat, clean overview inside Tab 2 ("Penyimpanan"):
  * 1. Integrasi MountX (Module + App `app.mountx`, or `UNSUPPORTED` when absent)
- * 2. Kategori Kelompok Blok (tap to drill down into a clean category sub-page; zero nested tabs)
+ * 2. Media Penyimpanan (expanded by default) + Blok Kernel & Non-Storage Expert accordion (collapsed by default)
+ * 3. Tapping any category opens a focused `ModalBottomSheet` (zero nested tabs, zero nested sub-pages)
  */
 @Composable
 fun MountXStorageCard(
@@ -81,7 +85,9 @@ fun MountXStorageCard(
     modifier: Modifier = Modifier
 ) {
     val storage = uiState.mountXStorageInfo
+    var activeSheetGroupId by remember { mutableStateOf<String?>(null) }
     var showOverrideDialog by remember { mutableStateOf(false) }
+    var showNonStorageAccordion by remember { mutableStateOf(false) }
 
     if (showOverrideDialog) {
         MountXOverrideConfirmDialog(
@@ -99,6 +105,26 @@ fun MountXStorageCard(
     }
     val storageGroups = remember(allGroups) { allGroups.filter { it.isStorageMedia } }
     val nonStorageGroups = remember(allGroups) { allGroups.filter { !it.isStorageMedia } }
+    val activeSheetGroup = remember(allGroups, activeSheetGroupId) {
+        activeSheetGroupId?.let { target -> allGroups.firstOrNull { it.id == target } }
+    }
+
+    LaunchedEffect(activeSheetGroupId, activeSheetGroup, allGroups.isNotEmpty()) {
+        if (activeSheetGroupId != null && allGroups.isNotEmpty() && activeSheetGroup == null) {
+            activeSheetGroupId = null
+        }
+    }
+
+    if (activeSheetGroup != null) {
+        StorageBlockGroupBottomSheet(
+            activeGroup = activeSheetGroup,
+            mountx = storage,
+            onDismiss = { activeSheetGroupId = null },
+            onRequestOverrideUnlock = { showOverrideDialog = true },
+            onRelockToMountX = { viewModel.setMountXOverride(false) },
+            viewModel = viewModel
+        )
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -111,8 +137,8 @@ fun MountXStorageCard(
         )
 
         LynxCard(
-            title = "Kategori Kelompok Blok",
-            subtitle = "Pilih kategori untuk membuka sub-halaman tuning induk & per-blok",
+            title = "Tuning Kelompok Blok",
+            subtitle = "Ketuk kategori untuk mengatur seluruh blok sekaligus via panel sheet",
             icon = Icons.Default.Storage,
             accentColor = AccentCyan
         ) {
@@ -121,7 +147,7 @@ fun MountXStorageCard(
                     reason = "Tidak ada kelompok block device (/sys/block/*/queue) yang tersedia pada kernel ini."
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (storageGroups.isNotEmpty()) {
                         Text(
                             text = "MEDIA PENYIMPANAN",
@@ -134,7 +160,7 @@ fun MountXStorageCard(
                                 BlockGroupDirectoryRow(
                                     grp = grp,
                                     mountx = storage,
-                                    onClick = { viewModel.setSelectedStorageBlockGroup(grp.id) }
+                                    onClick = { activeSheetGroupId = grp.id }
                                 )
                             }
                         }
@@ -144,19 +170,67 @@ fun MountXStorageCard(
                         if (storageGroups.isNotEmpty()) {
                             HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
                         }
-                        Text(
-                            text = "BLOK KERNEL & NON-STORAGE",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            nonStorageGroups.forEach { grp ->
-                                BlockGroupDirectoryRow(
-                                    grp = grp,
-                                    mountx = storage,
-                                    onClick = { viewModel.setSelectedStorageBlockGroup(grp.id) }
+                        val nonStorageBlockTotal = remember(nonStorageGroups) {
+                            nonStorageGroups.sumOf { it.devices.size }
+                        }
+                        Surface(
+                            onClick = { showNonStorageAccordion = !showNonStorageAccordion },
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgSurfaceLowest,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = "Blok Kernel & Non-Storage (Expert)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${nonStorageGroups.size} kategori (${nonStorageGroups.joinToString(", ") { it.shortTitle }}) • $nonStorageBlockTotal blok",
+                                        fontSize = 10.sp,
+                                        color = TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Icon(
+                                    imageVector = if (showNonStorageAccordion) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = AccentPurple,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = showNonStorageAccordion,
+                            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+                            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                nonStorageGroups.forEach { grp ->
+                                    BlockGroupDirectoryRow(
+                                        grp = grp,
+                                        mountx = storage,
+                                        onClick = { activeSheetGroupId = grp.id }
+                                    )
+                                }
                             }
                         }
                     }
@@ -283,7 +357,7 @@ private fun BlockGroupDirectoryRow(
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Masuk ke ${grp.title}",
+                contentDescription = "Buka panel ${grp.title}",
                 tint = TextSecondary,
                 modifier = Modifier.size(20.dp)
             )
@@ -292,84 +366,51 @@ private fun BlockGroupDirectoryRow(
 }
 
 /**
- * StorageGroupDetailSubpage — Clean drill-down sub-page dedicated strictly to ONE block group category.
- * Eliminates nested tabs and presents Group Induk Tuning + Volumes + Expert Per-Blok Inspector cleanly.
+ * StorageBlockGroupBottomSheet — Modal bottom sheet focused on ONE block category.
+ * Presents group-level Induk tuning immediately at top + collapsible individual block inspector
+ * with Writable/All filter & 12-item pagination so the sheet stays light and responsive.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun StorageGroupDetailSubpage(
-    groupId: String,
-    uiState: LynxUiState,
-    viewModel: LynxViewModel,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier
+private fun StorageBlockGroupBottomSheet(
+    activeGroup: BlockGroupDescriptor,
+    mountx: MountXStorageInfo,
+    onDismiss: () -> Unit,
+    onRequestOverrideUnlock: () -> Unit,
+    onRelockToMountX: () -> Unit,
+    viewModel: LynxViewModel
 ) {
-    val storage = uiState.mountXStorageInfo
-    var showOverrideDialog by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val maxSheetHeight = (LocalConfiguration.current.screenHeightDp * 0.88f).dp
 
-    if (showOverrideDialog) {
-        MountXOverrideConfirmDialog(
-            storage = storage,
-            onDismiss = { showOverrideDialog = false },
-            onConfirmUnlock = {
-                showOverrideDialog = false
-                viewModel.setMountXOverride(true)
-            }
-        )
-    }
-
-    val allGroups = remember(uiState.ioDevices, uiState.storageVolumes) {
-        buildSeparatedBlockGroups(uiState.ioDevices, uiState.storageVolumes)
-    }
-    val activeGroup = remember(allGroups, groupId) {
-        allGroups.firstOrNull { it.id == groupId }
-    }
-
-    // Hot-unplug safety: if USB OTG or external category disappears, return cleanly to directory.
-    LaunchedEffect(activeGroup, allGroups.isNotEmpty()) {
-        if (allGroups.isNotEmpty() && activeGroup == null) {
-            onBack()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = BgCard,
+        dragHandle = {
+            Surface(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .size(width = 36.dp, height = 4.dp),
+                shape = RoundedCornerShape(2.dp),
+                color = BorderSubtle
+            ) {}
         }
-    }
-
-    if (activeGroup == null) return
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ── 1. Sub-Page Header Bar with Circular Back Button ──
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = BgCard,
-            border = BorderStroke(0.8.dp, activeGroup.accent.copy(alpha = 0.32f)),
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp)
+                .heightIn(max = maxSheetHeight)
+                .navigationBarsPadding()
         ) {
+            // ── Sticky Sheet Header ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Surface(
-                    onClick = onBack,
-                    shape = CircleShape,
-                    color = BgElevated,
-                    border = BorderStroke(0.8.dp, BorderSubtle),
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Kembali ke daftar Penyimpanan",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = activeGroup.accent.copy(alpha = 0.14f),
@@ -385,25 +426,33 @@ internal fun StorageGroupDetailSubpage(
                         )
                     }
                 }
-
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        text = activeGroup.title,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = activeGroup.title,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (activeGroup.busSubtitle.isNotBlank()) {
+                            StorageMetaBadge(activeGroup.busSubtitle, activeGroup.accent)
+                        }
+                    }
                     val writableCount = activeGroup.devices.count { !it.isReadOnly }
                     Text(
                         text = if (writableCount < activeGroup.devices.size) {
                             "$writableCount writable dari ${activeGroup.devices.size} blok"
                         } else {
-                            "${activeGroup.devices.size} blok aktif"
+                            "${activeGroup.devices.size} blok aktif • Tuning Induk"
                         },
                         fontSize = 11.sp,
                         color = TextSecondary,
@@ -411,106 +460,129 @@ internal fun StorageGroupDetailSubpage(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                if (activeGroup.busSubtitle.isNotBlank()) {
-                    StorageMetaBadge(activeGroup.busSubtitle, activeGroup.accent)
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup panel",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
-        }
 
-        // ── 2. Category Mounted Volumes Summary (only for storage categories with mounts) ──
-        if (activeGroup.volumes.isNotEmpty()) {
-            LynxCard(
-                title = "Partisi Terpasang",
-                subtitle = "${activeGroup.volumes.size} partisi aktif pada kategori ini",
-                icon = activeGroup.icon,
-                accentColor = activeGroup.accent
+            HorizontalDivider(color = BorderGlass, thickness = 0.6.dp, modifier = Modifier.padding(top = 6.dp))
+
+            // ── Scrollable Body Inside Sheet ──
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    activeGroup.volumes.forEach { vol ->
-                        val total = if (vol.totalBytes > 0L) vol.totalBytes else vol.partitionSizeBytes
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = BgSurfaceLowest,
-                            border = BorderStroke(0.6.dp, BorderSubtle),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.weight(1f).padding(end = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = vol.partition.ifBlank { vol.parentDisk },
-                                            fontSize = 11.5.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                        if (vol.fsType.isNotBlank()) {
-                                            StorageMetaBadge(vol.fsType.uppercase(), AccentBlue)
-                                        }
-                                        if (vol.isMountxTarget) {
-                                            StorageMetaBadge("MOUNTX", AccentGreen)
-                                        }
-                                    }
-                                    if (total > 0L) {
-                                        Text(
-                                            text = formatStorageGb(total),
-                                            fontSize = 10.5.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = TextPrimary
-                                        )
-                                    }
-                                }
-                                if (vol.mountPoint.isNotBlank()) {
-                                    Text(
-                                        text = vol.mountPoint,
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = TextSecondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
+                if (activeGroup.volumes.isNotEmpty()) {
+                    CategoryVolumesSection(activeGroup = activeGroup)
                 }
+
+                CategoryMasterTuningSection(
+                    activeGroup = activeGroup,
+                    mountx = mountx,
+                    onRequestOverrideUnlock = onRequestOverrideUnlock,
+                    onRelockToMountX = onRelockToMountX,
+                    viewModel = viewModel
+                )
+
+                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
+
+                CategoryPerBlockSection(
+                    activeGroup = activeGroup,
+                    mountx = mountx,
+                    onRequestOverrideUnlock = onRequestOverrideUnlock,
+                    viewModel = viewModel
+                )
+
+                Spacer(Modifier.height(8.dp))
             }
         }
-
-        // ── 3. Tuning Induk Kelompok Blok ──
-        BlockGroupMasterControlsCard(
-            activeGroup = activeGroup,
-            mountx = storage,
-            onRequestOverrideUnlock = { showOverrideDialog = true },
-            onRelockToMountX = { viewModel.setMountXOverride(false) },
-            viewModel = viewModel
-        )
-
-        // ── 4. Tuning Lanjutan Per-Blok (Strictly scoped to this category, collapsed by default) ──
-        PerBlockCategoryInspectorCard(
-            activeGroup = activeGroup,
-            mountx = storage,
-            onRequestOverrideUnlock = { showOverrideDialog = true },
-            viewModel = viewModel
-        )
     }
 }
 
 @Composable
-private fun BlockGroupMasterControlsCard(
+private fun CategoryVolumesSection(activeGroup: BlockGroupDescriptor) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = "PARTISI TERPASANG (${activeGroup.volumes.size})",
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary
+        )
+        activeGroup.volumes.forEach { vol ->
+            val total = if (vol.totalBytes > 0L) vol.totalBytes else vol.partitionSizeBytes
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = BgSurfaceLowest,
+                border = BorderStroke(0.6.dp, BorderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f).padding(end = 6.dp)
+                        ) {
+                            Text(
+                                text = vol.partition.ifBlank { vol.parentDisk },
+                                fontSize = 11.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            if (vol.fsType.isNotBlank()) {
+                                StorageMetaBadge(vol.fsType.uppercase(), AccentBlue)
+                            }
+                            if (vol.isMountxTarget) {
+                                StorageMetaBadge("MOUNTX", AccentGreen)
+                            }
+                        }
+                        if (total > 0L) {
+                            Text(
+                                text = formatStorageGb(total),
+                                fontSize = 10.5.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                        }
+                    }
+                    if (vol.mountPoint.isNotBlank()) {
+                        Text(
+                            text = vol.mountPoint,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryMasterTuningSection(
     activeGroup: BlockGroupDescriptor,
     mountx: MountXStorageInfo,
     onRequestOverrideUnlock: () -> Unit,
@@ -534,347 +606,365 @@ private fun BlockGroupMasterControlsCard(
     val previewMembers = activeGroup.devices.take(5).joinToString(", ") { it.device } +
         if (activeGroup.devices.size > 5) " (+${activeGroup.devices.size - 5} lagi)" else ""
 
-    LynxCard(
-        title = "Tuning Induk (${activeGroup.shortTitle})",
-        subtitle = "Mengatur serentak seluruh anggota writable di kategori ini",
-        icon = Icons.Default.Tune,
-        accentColor = activeGroup.accent
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = BgSurfaceLowest,
+        border = BorderStroke(0.6.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgSurfaceLowest,
-                border = BorderStroke(0.6.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Anggota Target ($previewMembers)",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (hasOverrideUnlockedInGroup) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            StorageMetaBadge("OVERRIDE SESI AKTIF", AccentOrange)
-                            Surface(
-                                onClick = onRelockToMountX,
-                                shape = RoundedCornerShape(8.dp),
-                                color = AccentCyan.copy(alpha = 0.14f),
-                                border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f)),
-                                modifier = Modifier.heightIn(min = 36.dp)
-                            ) {
-                                Text(
-                                    text = "Kunci ke MountX",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AccentCyan,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (writableDevs.isEmpty()) {
-                UnsupportedBadge(
-                    reason = "Seluruh blok dalam kategori ${activeGroup.title} berstatus Read-Only (ro=1) pada kernel."
-                )
-            } else if (allProtected) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = AccentOrange.copy(alpha = 0.08f),
-                    border = BorderStroke(0.7.dp, AccentOrange.copy(alpha = 0.35f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = AccentOrange,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    text = "Kategori Dikunci oleh MountX",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AccentOrange
-                                )
-                                Text(
-                                    text = "Parameter blok ini dijaga agar tidak menimpa setting I/O MountX. Buka Override Lanjutan untuk mengaturnya dari Lynx.",
-                                    fontSize = 10.5.sp,
-                                    color = TextSecondary,
-                                    lineHeight = 14.sp
-                                )
-                            }
-                        }
-                        LynxActionButton(
-                            text = "Buka Override (Konfirmasi Lanjutan)",
-                            icon = Icons.Default.LockOpen,
-                            accentColor = AccentOrange,
-                            onClick = onRequestOverrideUnlock
-                        )
-                    }
-                }
-            } else {
-                if (anyProtected) {
-                    Text(
-                        text = "Sebagian blok dikunci MountX; perubahan induk hanya diterapkan ke ${unlockedWritableDevs.size} blok yang bebas.",
-                        fontSize = 10.5.sp,
-                        color = AccentOrange
-                    )
-                }
-
-                Text(
-                    text = "Preset Cepat (${activeGroup.shortTitle})",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextSecondary
-                )
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(
+                text = "Anggota Target Induk: $previewMembers",
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (hasOverrideUnlockedInGroup) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    listOf(
-                        "powersave" to "Standar Aman",
-                        "balanced" to "Responsif",
-                        "performance" to "Performa"
-                    ).forEach { (presetKey, label) ->
-                        MemoryOptionChip(
-                            label = label,
-                            selected = false,
-                            accentColor = when (presetKey) {
-                                "powersave" -> AccentGreen
-                                "performance" -> AccentOrange
-                                else -> activeGroup.accent
-                            },
-                            onClick = {
-                                viewModel.applyBlockGroupPreset(
-                                    groupId = activeGroup.id,
-                                    devicesInGroup = unlockedWritableDevs,
-                                    preset = presetKey
-                                )
-                            },
-                            modifier = Modifier.weight(1f)
+                    StorageMetaBadge("OVERRIDE SESI AKTIF", AccentOrange)
+                    Surface(
+                        onClick = onRelockToMountX,
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentCyan.copy(alpha = 0.14f),
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f)),
+                        modifier = Modifier.heightIn(min = 38.dp)
+                    ) {
+                        Text(
+                            text = "Kunci ke MountX",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
                         )
                     }
                 }
-
-                HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
-
-                val commonScheds = unlockedWritableDevs
-                    .map { it.availableSchedulers.toSet() }
-                    .reduceOrNull { acc, s -> acc intersect s }
-                    ?.toList()
-                    ?.ifEmpty { unlockedWritableDevs.flatMap { it.availableSchedulers }.distinct() }
-                    ?: unlockedWritableDevs.flatMap { it.availableSchedulers }.distinct()
-
-                val schedVals = unlockedWritableDevs.map { it.currentScheduler }.distinct()
-                val uniformSched = if (schedVals.size == 1) schedVals.first() else ""
-                val schedSubtitle = if (schedVals.size > 1) {
-                    "Saat ini bervariasi (${schedVals.joinToString("/")})"
-                } else {
-                    "Aktif: ${uniformSched.ifBlank { "default" }}"
-                }
-
-                val raVals = unlockedWritableDevs.map { it.readAheadKb }.distinct()
-                val raRepresentative = raVals.firstOrNull() ?: 128
-                val raDisplay = when {
-                    raVals.isEmpty() -> "—"
-                    raVals.size == 1 -> "${raVals.first()} KB"
-                    else -> "${raVals.min()}–${raVals.max()} KB (Campuran)"
-                }
-
-                val nrVals = unlockedWritableDevs.mapNotNull { it.nrRequests }.distinct()
-                val nrRepresentative = nrVals.firstOrNull()
-                val nrDisplay = when {
-                    nrVals.isEmpty() -> null
-                    nrVals.size == 1 -> "${nrVals.first()} req"
-                    else -> "${nrVals.min()}–${nrVals.max()} req (Campuran)"
-                }
-
-                val rqaVals = unlockedWritableDevs.mapNotNull { it.rqAffinity }.distinct()
-                val rqaUniform = if (rqaVals.size == 1) rqaVals.first() else -1
-
-                val iosVals = unlockedWritableDevs.mapNotNull { it.iostats }.distinct()
-                val iosChecked = iosVals.firstOrNull()?.let { it != 0 }
-
-                val randVals = unlockedWritableDevs.mapNotNull { it.addRandom }.distinct()
-                val randChecked = randVals.firstOrNull()?.let { it != 0 }
-
-                IoQueueTuningSection(
-                    categoryId = activeGroup.id,
-                    scopeLabel = "${activeGroup.shortTitle} (${unlockedWritableDevs.size} blok)",
-                    deviceTypeHint = activeGroup.busSubtitle.ifBlank { activeGroup.shortTitle },
-                    availableSchedulers = commonScheds,
-                    currentScheduler = uniformSched,
-                    schedulerHeader = schedSubtitle,
-                    readAheadKb = raRepresentative,
-                    readAheadDisplay = raDisplay,
-                    targetReadAheadKb = unlockedWritableDevs.firstNotNullOfOrNull { it.targetReadAheadKb },
-                    nrRequests = nrRepresentative,
-                    nrRequestsDisplay = nrDisplay,
-                    rqAffinity = if (rqaVals.isEmpty()) null else rqaUniform,
-                    iostats = iosChecked,
-                    addRandom = randChecked,
-                    accentColor = activeGroup.accent,
-                    onSelectScheduler = { sched ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "scheduler", sched)
-                    },
-                    onCommitReadAhead = { kb ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "read_ahead_kb", kb.toString())
-                    },
-                    onCommitNrRequests = { req ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "nr_requests", req.toString())
-                    },
-                    onSelectRqAffinity = { v ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "rq_affinity", v.toString())
-                    },
-                    onToggleIostats = { checked ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "iostats", if (checked) "1" else "0")
-                    },
-                    onToggleAddRandom = { checked ->
-                        viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "add_random", if (checked) "1" else "0")
-                    }
-                )
             }
+        }
+    }
 
-            val categoryNote = when {
-                activeGroup.id == "zram" -> "ZRAM adalah blok kompresi swap di RAM. Disarankan Read-Ahead 0 KB bersama Page-Cluster 0 agar paging bekerja tepat per 1 halaman."
-                activeGroup.id == "dm" -> "Device Mapper (dm-*) membungkus partisi terenkripsi FBE/LVM/dynamic. Blok dm-verity bersifat Read-Only; tuning diterapkan hanya ke node writable."
-                activeGroup.id == "loop" -> "Blok Loopback (loop*) digunakan APEX/container image. Perubahan induk berlaku ke seluruh slot loop yang writable."
-                activeGroup.id == "hw_boot" -> "Partisi hardware boot/RPMB (mmcblk*boot*/rpmb). Hanya untuk inspeksi lanjutan; tidak dipakai data aplikasi."
-                activeGroup.id == "ram" || activeGroup.id == "other" -> "Blok driver kernel non-disk. Perubahan diterapkan serentak bila antrean sysfs writable."
-                hasF2fs -> "Filesystem F2FS aktif (/sys/fs/f2fs terdeteksi) — optimal dengan Read-Ahead terukur tanpa buffer berlebih."
-                fsSet.contains("EXT4") -> "Filesystem EXT4 aktif — stabil pada beban baca/tulis acak dan sekuensial."
-                fsSet.any { it in listOf("EXFAT", "VFAT", "FAT32", "NTFS", "FUSEBLK") } ->
-                    "Media eksternal (${fsSet.joinToString("/")}) — Read-Ahead lebih besar membantu transfer dan streaming berkas besar."
-                else -> "Gunakan Inspektor Per-Blok di bawah bila perlu mengatur satu blok tertentu saja."
-            }
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgSurfaceLowest,
-                border = BorderStroke(0.6.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
+    if (writableDevs.isEmpty()) {
+        UnsupportedBadge(
+            reason = "Seluruh blok dalam kategori ${activeGroup.title} berstatus Read-Only (ro=1) pada kernel."
+        )
+    } else if (allProtected) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = AccentOrange.copy(alpha = 0.08f),
+            border = BorderStroke(0.7.dp, AccentOrange.copy(alpha = 0.35f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = categoryNote,
-                    fontSize = 10.5.sp,
-                    color = TextSecondary,
-                    lineHeight = 14.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = AccentOrange,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Kategori Dikunci oleh MountX",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentOrange
+                        )
+                        Text(
+                            text = "Parameter blok ini dijaga agar tidak menimpa setting I/O MountX. Buka Override Lanjutan untuk mengaturnya dari Lynx.",
+                            fontSize = 10.5.sp,
+                            color = TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+                LynxActionButton(
+                    text = "Buka Override (Konfirmasi Lanjutan)",
+                    icon = Icons.Default.LockOpen,
+                    accentColor = AccentOrange,
+                    onClick = onRequestOverrideUnlock
                 )
             }
         }
+    } else {
+        if (anyProtected) {
+            Text(
+                text = "Sebagian blok dikunci MountX; perubahan induk hanya diterapkan ke ${unlockedWritableDevs.size} blok yang bebas.",
+                fontSize = 10.5.sp,
+                color = AccentOrange
+            )
+        }
+
+        Text(
+            text = "Preset Cepat Induk (${activeGroup.shortTitle})",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextSecondary
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                "powersave" to "Standar Aman",
+                "balanced" to "Responsif",
+                "performance" to "Performa"
+            ).forEach { (presetKey, label) ->
+                MemoryOptionChip(
+                    label = label,
+                    selected = false,
+                    accentColor = when (presetKey) {
+                        "powersave" -> AccentGreen
+                        "performance" -> AccentOrange
+                        else -> activeGroup.accent
+                    },
+                    onClick = {
+                        viewModel.applyBlockGroupPreset(
+                            groupId = activeGroup.id,
+                            devicesInGroup = unlockedWritableDevs,
+                            preset = presetKey
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        val commonScheds = unlockedWritableDevs
+            .map { it.availableSchedulers.toSet() }
+            .reduceOrNull { acc, s -> acc intersect s }
+            ?.toList()
+            ?.ifEmpty { unlockedWritableDevs.flatMap { it.availableSchedulers }.distinct() }
+            ?: unlockedWritableDevs.flatMap { it.availableSchedulers }.distinct()
+
+        val schedVals = unlockedWritableDevs.map { it.currentScheduler }.distinct()
+        val uniformSched = if (schedVals.size == 1) schedVals.first() else ""
+        val schedSubtitle = if (schedVals.size > 1) {
+            "I/O Scheduler: bervariasi (${schedVals.joinToString("/")})"
+        } else {
+            "I/O Scheduler (${uniformSched.ifBlank { "default" }})"
+        }
+
+        val raVals = unlockedWritableDevs.map { it.readAheadKb }.distinct()
+        val raRepresentative = raVals.firstOrNull() ?: 128
+        val raDisplay = when {
+            raVals.isEmpty() -> "—"
+            raVals.size == 1 -> "${raVals.first()} KB"
+            else -> "${raVals.min()}–${raVals.max()} KB (Campuran)"
+        }
+
+        val nrVals = unlockedWritableDevs.mapNotNull { it.nrRequests }.distinct()
+        val nrRepresentative = nrVals.firstOrNull()
+        val nrDisplay = when {
+            nrVals.isEmpty() -> null
+            nrVals.size == 1 -> "${nrVals.first()} req"
+            else -> "${nrVals.min()}–${nrVals.max()} req (Campuran)"
+        }
+
+        val rqaVals = unlockedWritableDevs.mapNotNull { it.rqAffinity }.distinct()
+        val rqaUniform = if (rqaVals.size == 1) rqaVals.first() else -1
+
+        val iosVals = unlockedWritableDevs.mapNotNull { it.iostats }.distinct()
+        val iosChecked = iosVals.firstOrNull()?.let { it != 0 }
+
+        val randVals = unlockedWritableDevs.mapNotNull { it.addRandom }.distinct()
+        val randChecked = randVals.firstOrNull()?.let { it != 0 }
+
+        IoQueueTuningSection(
+            categoryId = activeGroup.id,
+            scopeLabel = "${activeGroup.shortTitle} (${unlockedWritableDevs.size} blok)",
+            deviceTypeHint = activeGroup.busSubtitle.ifBlank { activeGroup.shortTitle },
+            availableSchedulers = commonScheds,
+            currentScheduler = uniformSched,
+            schedulerHeader = schedSubtitle,
+            readAheadKb = raRepresentative,
+            readAheadDisplay = raDisplay,
+            targetReadAheadKb = unlockedWritableDevs.firstNotNullOfOrNull { it.targetReadAheadKb },
+            nrRequests = nrRepresentative,
+            nrRequestsDisplay = nrDisplay,
+            rqAffinity = if (rqaVals.isEmpty()) null else rqaUniform,
+            iostats = iosChecked,
+            addRandom = randChecked,
+            accentColor = activeGroup.accent,
+            onSelectScheduler = { sched ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "scheduler", sched)
+            },
+            onCommitReadAhead = { kb ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "read_ahead_kb", kb.toString())
+            },
+            onCommitNrRequests = { req ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "nr_requests", req.toString())
+            },
+            onSelectRqAffinity = { v ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "rq_affinity", v.toString())
+            },
+            onToggleIostats = { checked ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "iostats", if (checked) "1" else "0")
+            },
+            onToggleAddRandom = { checked ->
+                viewModel.tuneBlockGroup(activeGroup.id, unlockedWritableDevs, "add_random", if (checked) "1" else "0")
+            }
+        )
+    }
+
+    val categoryNote = when {
+        activeGroup.id == "zram" -> "ZRAM adalah blok kompresi swap di RAM. Disarankan Read-Ahead 0 KB bersama Page-Cluster 0 agar paging bekerja tepat per 1 halaman."
+        activeGroup.id == "dm" -> "Device Mapper (dm-*) membungkus partisi terenkripsi FBE/LVM/dynamic. Blok dm-verity bersifat Read-Only; tuning diterapkan hanya ke node writable."
+        activeGroup.id == "loop" -> "Blok Loopback (loop*) digunakan APEX/container image. Perubahan induk berlaku ke seluruh slot loop yang writable."
+        activeGroup.id == "hw_boot" -> "Partisi hardware boot/RPMB (mmcblk*boot*/rpmb). Hanya untuk inspeksi lanjutan; tidak dipakai data aplikasi."
+        activeGroup.id == "ram" || activeGroup.id == "other" -> "Blok driver kernel non-disk. Perubahan diterapkan serentak bila antrean sysfs writable."
+        hasF2fs -> "Filesystem F2FS aktif (/sys/fs/f2fs terdeteksi) — optimal dengan Read-Ahead terukur tanpa buffer berlebih."
+        fsSet.contains("EXT4") -> "Filesystem EXT4 aktif — stabil pada beban baca/tulis acak dan sekuensial."
+        fsSet.any { it in listOf("EXFAT", "VFAT", "FAT32", "NTFS", "FUSEBLK") } ->
+            "Media eksternal (${fsSet.joinToString("/")}) — Read-Ahead lebih besar membantu transfer dan streaming berkas besar."
+        else -> "Gunakan Kontrol Blok Individual di bawah bila perlu mengatur satu blok tertentu saja."
+    }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = BgSurfaceLowest,
+        border = BorderStroke(0.6.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = categoryNote,
+            fontSize = 10.5.sp,
+            color = TextSecondary,
+            lineHeight = 14.sp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
     }
 }
 
 @Composable
-private fun PerBlockCategoryInspectorCard(
+private fun CategoryPerBlockSection(
     activeGroup: BlockGroupDescriptor,
     mountx: MountXStorageInfo,
     onRequestOverrideUnlock: () -> Unit,
     viewModel: LynxViewModel
 ) {
-    var expanded by remember(activeGroup.id) { mutableStateOf(false) }
-    var showAllNodes by remember(activeGroup.id) { mutableStateOf(false) }
+    val hasRoNodes = remember(activeGroup.devices) { activeGroup.devices.any { it.isReadOnly } }
+    val hasWritableNodes = remember(activeGroup.devices) { activeGroup.devices.any { !it.isReadOnly } }
 
-    val sourceList = activeGroup.devices
-    val visibleDevices = remember(sourceList, showAllNodes) {
-        if (showAllNodes || sourceList.size <= 12) sourceList else sourceList.take(12)
+    var expanded by remember(activeGroup.id) { mutableStateOf(false) }
+    var writableOnlyFilter by remember(activeGroup.id) { mutableStateOf(hasRoNodes && hasWritableNodes) }
+    var showAllNodes by remember(activeGroup.id, writableOnlyFilter) { mutableStateOf(false) }
+
+    val filteredList = remember(activeGroup.devices, writableOnlyFilter) {
+        if (writableOnlyFilter) activeGroup.devices.filter { !it.isReadOnly } else activeGroup.devices
+    }
+    val visibleDevices = remember(filteredList, showAllNodes) {
+        if (showAllNodes || filteredList.size <= 12) filteredList else filteredList.take(12)
     }
 
-    LynxCard(
-        title = "Tuning Lanjutan Per-Blok (${activeGroup.shortTitle})",
-        subtitle = "Inspeksi & kontrol independen per node (/dev/${sourceList.firstOrNull()?.device ?: "..."})",
-        icon = Icons.Default.Tune,
-        accentColor = AccentPurple
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(
-                onClick = { expanded = !expanded },
-                shape = RoundedCornerShape(12.dp),
-                color = BgSurfaceLowest,
-                border = BorderStroke(0.6.dp, BorderSubtle),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(
+            onClick = { expanded = !expanded },
+            shape = RoundedCornerShape(12.dp),
+            color = BgSurfaceLowest,
+            border = BorderStroke(0.6.dp, AccentPurple.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        tint = AccentPurple,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Text(
-                        text = if (expanded) {
-                            "Tutup Daftar Blok Individual"
-                        } else {
-                            "Buka Kontrol Individual (${sourceList.size} blok)"
-                        },
+                        text = "Kontrol Blok Individual (${activeGroup.devices.size} blok)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    )
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = AccentPurple,
-                        modifier = Modifier.size(20.dp)
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = AccentPurple,
+                    modifier = Modifier.size(20.dp)
+                )
             }
+        }
 
-            AnimatedVisibility(
-                visible = expanded,
-                enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
-                exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    visibleDevices.forEach { dev ->
-                        val isLocked = dev.mountxLocked || mountx.isDiskProtected(dev.device)
-                        IoBlockDevicePanel(
-                            dev = dev,
-                            isLockedByMountX = isLocked,
-                            defaultExpanded = visibleDevices.size == 1 && !dev.isReadOnly,
-                            onRequestOverrideUnlock = onRequestOverrideUnlock,
-                            onSelectScheduler = { sched -> viewModel.setIoScheduler(dev.device, sched) },
-                            onCommitReadAhead = { kb -> viewModel.setReadAheadKb(dev.device, kb) },
-                            onCommitNrRequests = { req -> viewModel.setIoQueueTunable(dev.device, "nr_requests", req) },
-                            onSelectRqAffinity = { v -> viewModel.setIoQueueTunable(dev.device, "rq_affinity", v) },
-                            onToggleIostats = { c -> viewModel.setIoQueueTunable(dev.device, "iostats", if (c) 1 else 0) },
-                            onToggleAddRandom = { c -> viewModel.setIoQueueTunable(dev.device, "add_random", if (c) 1 else 0) }
-                        )
-                    }
-
-                    if (!showAllNodes && sourceList.size > visibleDevices.size) {
-                        LynxActionButton(
-                            text = "Tampilkan Semua (${sourceList.size} blok)",
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(220)),
+            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(180))
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (hasRoNodes && hasWritableNodes) {
+                    val wCount = activeGroup.devices.count { !it.isReadOnly }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MemoryOptionChip(
+                            label = "Writable Saja ($wCount)",
+                            selected = writableOnlyFilter,
                             accentColor = AccentPurple,
-                            onClick = { showAllNodes = true }
+                            onClick = { writableOnlyFilter = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                        MemoryOptionChip(
+                            label = "Semua + RO (${activeGroup.devices.size})",
+                            selected = !writableOnlyFilter,
+                            accentColor = AccentPurple,
+                            onClick = { writableOnlyFilter = false },
+                            modifier = Modifier.weight(1f)
                         )
                     }
+                }
+
+                visibleDevices.forEach { dev ->
+                    val isLocked = dev.mountxLocked || mountx.isDiskProtected(dev.device)
+                    IoBlockDevicePanel(
+                        dev = dev,
+                        isLockedByMountX = isLocked,
+                        defaultExpanded = visibleDevices.size == 1 && !dev.isReadOnly,
+                        onRequestOverrideUnlock = onRequestOverrideUnlock,
+                        onSelectScheduler = { sched -> viewModel.setIoScheduler(dev.device, sched) },
+                        onCommitReadAhead = { kb -> viewModel.setReadAheadKb(dev.device, kb) },
+                        onCommitNrRequests = { req -> viewModel.setIoQueueTunable(dev.device, "nr_requests", req) },
+                        onSelectRqAffinity = { v -> viewModel.setIoQueueTunable(dev.device, "rq_affinity", v) },
+                        onToggleIostats = { c -> viewModel.setIoQueueTunable(dev.device, "iostats", if (c) 1 else 0) },
+                        onToggleAddRandom = { c -> viewModel.setIoQueueTunable(dev.device, "add_random", if (c) 1 else 0) }
+                    )
+                }
+
+                if (!showAllNodes && filteredList.size > visibleDevices.size) {
+                    LynxActionButton(
+                        text = "Tampilkan Semua (${filteredList.size} blok)",
+                        accentColor = AccentPurple,
+                        onClick = { showAllNodes = true }
+                    )
                 }
             }
         }
@@ -1034,7 +1124,7 @@ private fun IoBlockDevicePanel(
 }
 
 /**
- * Shared I/O Queue Tuning UI used uniformly by both Group Induk Controls and Per-Block Inspector.
+ * Shared I/O Queue Tuning UI used uniformly by both Group Induk Sheet and Per-Block Inspector.
  */
 @Composable
 private fun IoQueueTuningSection(
