@@ -111,7 +111,6 @@ fun DisplayTelemetryCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier.horizontalScroll(rememberScrollState())
                     ) {
                         val supportedFrequencies = if (caps.displayModes.isNotEmpty()) {
                             caps.displayModes.map { "${it.fps.toInt()}Hz" }.distinct()

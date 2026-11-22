@@ -115,48 +115,59 @@ fun GraphicsDriverHwuiCard(
                 Triple("angle", "ANGLE", if (graphics.isAngleSupported) "Khronos" else "Tidak Didukung")
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                backends.forEach { (backend, title, badge) ->
-                    val isSupported = graphics.isBackendSupported(backend)
-                    val isSel = graphics.hwuiRenderer == backend
-                    Surface(
-                        onClick = { if (isSupported) onSetRenderer(backend) },
-                        enabled = isSupported,
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSel) cardAccent.copy(alpha = 0.22f) else if (!isSupported) BgElevated.copy(alpha = 0.35f) else BgElevated,
-                        border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass),
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 96.dp, minHeight = 46.dp)
-                            .alpha(if (isSupported) 1f else 0.45f)
+                backends.chunked(3).forEach { chunk ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = title,
-                                color = if (isSel) cardAccent else if (!isSupported) TextSecondary else TextPrimary,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
-                            )
-                            Spacer(Modifier.height(2.dp))
+                        chunk.forEach { (backend, title, badge) ->
+                            val isSupported = graphics.isBackendSupported(backend)
+                            val isSel = graphics.hwuiRenderer == backend
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (isSel) cardAccent.copy(alpha = 0.25f) else BgSurfaceLowest,
-                                border = BorderStroke(0.6.dp, if (isSel) cardAccent.copy(alpha = 0.5f) else BorderGlass)
+                                onClick = { if (isSupported) onSetRenderer(backend) },
+                                enabled = isSupported,
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSel) cardAccent.copy(alpha = 0.22f) else if (!isSupported) BgElevated.copy(alpha = 0.35f) else BgElevated,
+                                border = BorderStroke(1.2.dp, if (isSel) cardAccent else BorderGlass),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .alpha(if (isSupported) 1f else 0.45f)
                             ) {
-                                Text(
-                                    text = if (!isSupported) "Tidak Didukung" else badge,
-                                    color = if (isSel) cardAccent else if (!isSupported) TextSecondary.copy(alpha = 0.8f) else TextSecondary,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                )
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = title,
+                                        color = if (isSel) cardAccent else if (!isSupported) TextSecondary else TextPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isSel) cardAccent.copy(alpha = 0.25f) else BgSurfaceLowest,
+                                        border = BorderStroke(0.6.dp, if (isSel) cardAccent.copy(alpha = 0.5f) else BorderGlass)
+                                    ) {
+                                        Text(
+                                            text = if (!isSupported) "Tidak Didukung" else badge,
+                                            color = if (isSel) cardAccent else if (!isSupported) TextSecondary.copy(alpha = 0.8f) else TextSecondary,
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        )
+                                    }
+                                }
                             }
+                        }
+                        repeat(3 - chunk.size) {
+                            Spacer(Modifier.weight(1f))
                         }
                     }
                 }

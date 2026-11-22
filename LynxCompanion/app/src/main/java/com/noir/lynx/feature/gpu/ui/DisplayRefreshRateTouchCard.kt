@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -153,57 +154,74 @@ fun DisplayRefreshRateTouchCard(
             }
         }
 
-        // Dynamic Refresh Rate Chip Selector: Auto + Fixed Rates
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // Auto Chip
-            Surface(
-                onClick = { onSetRefreshRate(maxHz, true) },
-                shape = RoundedCornerShape(10.dp),
-                color = if (isAuto) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                border = BorderStroke(1.5.dp, if (isAuto) cardAccent else BorderGlass),
-                modifier = Modifier.defaultMinSize(minWidth = 72.dp, minHeight = 48.dp)
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                ) {
-                    Text("Auto", color = if (isAuto) cardAccent else TextPrimary, fontWeight = if (isAuto) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
-                    Text("Adaptif", color = if (isAuto) cardAccent.copy(alpha = 0.8f) else TextSecondary, fontSize = 9.5.sp)
-                }
-            }
+        // Dynamic Refresh Rate Chip Selector: Auto + Fixed Rates (Non-scrollable grid to eliminate gesture conflict with tab swipe)
+        val allRateItems = remember(supportedRates, maxHz) {
+            listOf(null to "Auto") + supportedRates.map { it to "${it}Hz" }
+        }
 
-            // Fixed Supported Rates
-            supportedRates.forEach { hz ->
-                val isSelected = (!isAuto && currentHz == hz)
-                Surface(
-                    onClick = { onSetRefreshRate(hz, false) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
-                    border = BorderStroke(1.5.dp, if (isSelected) cardAccent else BorderGlass),
-                    modifier = Modifier.defaultMinSize(minWidth = 64.dp, minHeight = 48.dp)
+        val rateChunks = remember(allRateItems) {
+            if (allRateItems.size <= 4) listOf(allRateItems)
+            else allRateItems.chunked(3)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            rateChunks.forEach { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                    ) {
-                        Text("${hz}Hz", color = if (isSelected) cardAccent else TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 12.sp)
-                        Text(
-                            when (hz) {
-                                60 -> "Hemat"
-                                90 -> "Halus"
-                                120 -> "Gaming"
-                                144, 165 -> "Ultra"
-                                240 -> "Esports"
-                                else -> "Tersedia"
+                    chunk.forEach { (hzOpt, label) ->
+                        val isAutoChip = hzOpt == null
+                        val isSelected = if (isAutoChip) isAuto else (!isAuto && currentHz == hzOpt)
+                        val subText = if (isAutoChip) "Adaptif" else when (hzOpt) {
+                            60 -> "Hemat"
+                            90 -> "Halus"
+                            120 -> "Gaming"
+                            144, 165 -> "Ultra"
+                            240 -> "Esports"
+                            else -> "Tersedia"
+                        }
+
+                        Surface(
+                            onClick = {
+                                if (isAutoChip) onSetRefreshRate(maxHz, true)
+                                else hzOpt?.let { onSetRefreshRate(it, false) }
                             },
-                            color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                            fontSize = 9.5.sp
-                        )
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                            border = BorderStroke(1.5.dp, if (isSelected) cardAccent else BorderGlass),
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    label,
+                                    color = if (isSelected) cardAccent else TextPrimary,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    subText,
+                                    color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
+                                    fontSize = 9.5.sp
+                                )
+                            }
+                        }
+                    }
+                    if (rateChunks.size > 1 && chunk.size < 3) {
+                        repeat(3 - chunk.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -285,35 +303,93 @@ fun DisplayRefreshRateTouchCard(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
-                    val fpsOptions = listOf(0, 90, 120, 144, 240)
+                    // Force Peak FPS Unlocker Options: Top Standar Mode + 4 Balanced Tiers (Zero scroll conflict with tab swipe)
+                    val isStdSelected = forcedFpsUnlockerHz == 0
+                    Surface(
+                        onClick = { onSetForcedFpsUnlocker(0) },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isStdSelected) AccentGreen.copy(alpha = 0.18f) else BgSurfaceLowest,
+                        border = BorderStroke(1.2.dp, if (isStdSelected) AccentGreen else BorderGlass),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 48.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isStdSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                    contentDescription = null,
+                                    tint = if (isStdSelected) AccentGreen else TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Standar (Limit Sistem Android)",
+                                        color = if (isStdSelected) AccentGreen else TextPrimary,
+                                        fontWeight = if (isStdSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 11.5.sp
+                                    )
+                                    Text(
+                                        text = "Ikuti batas frame dinamis bawaan sistem dan game",
+                                        color = if (isStdSelected) AccentGreen.copy(alpha = 0.8f) else TextSecondary,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isStdSelected) AccentGreen.copy(alpha = 0.25f) else Color.Transparent,
+                                border = BorderStroke(0.6.dp, if (isStdSelected) AccentGreen.copy(alpha = 0.6f) else BorderGlass)
+                            ) {
+                                Text(
+                                    text = if (isStdSelected) "AKTIF" else "DEFAULT",
+                                    color = if (isStdSelected) AccentGreen else TextSecondary,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        fpsOptions.forEach { fps ->
+                        listOf(90, 120, 144, 240).forEach { fps ->
                             val isSelected = forcedFpsUnlockerHz == fps
-                            val chipAccent = if (fps == 0) AccentGreen else AccentOrange
                             Surface(
                                 onClick = { onSetForcedFpsUnlocker(fps) },
                                 shape = RoundedCornerShape(9.dp),
-                                color = if (isSelected) chipAccent.copy(alpha = 0.22f) else BgSurfaceLowest,
-                                border = BorderStroke(1.2.dp, if (isSelected) chipAccent else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minWidth = 64.dp, minHeight = 44.dp)
+                                color = if (isSelected) AccentOrange.copy(alpha = 0.22f) else BgSurfaceLowest,
+                                border = BorderStroke(1.2.dp, if (isSelected) AccentOrange else BorderGlass),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
                                 ) {
                                     Text(
-                                        text = if (fps == 0) "Standar" else "${fps} FPS",
-                                        color = if (isSelected) chipAccent else TextPrimary,
+                                        text = "${fps} FPS",
+                                        color = if (isSelected) AccentOrange else TextPrimary,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 11.5.sp
                                     )
                                     Text(
-                                        text = if (fps == 0) "Off" else "Terbuka",
-                                        color = if (isSelected) chipAccent.copy(alpha = 0.8f) else TextSecondary,
+                                        text = "Terbuka",
+                                        color = if (isSelected) AccentOrange.copy(alpha = 0.8f) else TextSecondary,
                                         fontSize = 8.5.sp
                                     )
                                 }

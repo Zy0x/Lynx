@@ -93,9 +93,9 @@ fun KcalHardwareCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(6.dp))
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     val presets = listOf(
                         Triple("Vivid OLED", Triple(280, 265, 256), Triple(256, 256, 256)),
@@ -103,34 +103,42 @@ fun KcalHardwareCard(
                         Triple("Outdoor Boost", Triple(270, 280, 280), Triple(256, 256, 256)),
                         Triple("Default Flat", Triple(256, 256, 256), Triple(256, 256, 256))
                     )
-                    presets.forEach { (name, satContVal, rgb) ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = BgElevated,
-                            border = BorderStroke(1.dp, BorderGlass),
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = 44.dp)
-                                .clickable {
-                                    kcalSat = satContVal.first
-                                    kcalCont = satContVal.second
-                                    kcalVal = satContVal.third
-                                    kcalR = rgb.first
-                                    kcalG = rgb.second
-                                    kcalB = rgb.third
-                                    lastKcalInteraction = System.currentTimeMillis()
-                                    onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
-                                }
+                    presets.chunked(2).forEach { chunk ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Box(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = name,
-                                    color = cardAccent,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            chunk.forEach { (name, satContVal, rgb) ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = BgElevated,
+                                    border = BorderStroke(1.dp, BorderGlass),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .defaultMinSize(minHeight = 44.dp)
+                                        .clickable {
+                                            kcalSat = satContVal.first
+                                            kcalCont = satContVal.second
+                                            kcalVal = satContVal.third
+                                            kcalR = rgb.first
+                                            kcalG = rgb.second
+                                            kcalB = rgb.third
+                                            lastKcalInteraction = System.currentTimeMillis()
+                                            onSetKcal(true, kcalR, kcalG, kcalB, kcalSat, kcalVal, kcalCont, 0)
+                                        }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = name,
+                                            color = cardAccent,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

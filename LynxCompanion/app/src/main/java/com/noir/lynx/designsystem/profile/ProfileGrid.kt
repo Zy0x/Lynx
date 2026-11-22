@@ -969,35 +969,52 @@ private fun SettingOptionChips(
             letterSpacing = 0.5.sp,
             modifier = Modifier.padding(bottom = 3.dp)
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        val optionChunks = remember(options) {
+            if (options.size <= 4) listOf(options)
+            else options.chunked(3)
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            options.forEach { (valKey, label) ->
-                val selected = currentValue.equals(valKey, ignoreCase = true)
-                Surface(
-                    onClick = { onSelect(valKey) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (selected) accentColor.copy(alpha = 0.18f) else BgElevated,
-                    border = BorderStroke(
-                        if (selected) 1.dp else 0.6.dp,
-                        if (selected) accentColor else BorderGlass
-                    ),
-                    modifier = Modifier.height(30.dp)
+            optionChunks.forEach { chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(horizontal = 9.dp)
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (selected) accentColor else TextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0")
-                        )
+                    chunk.forEach { (valKey, label) ->
+                        val selected = currentValue.equals(valKey, ignoreCase = true)
+                        Surface(
+                            onClick = { onSelect(valKey) },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (selected) accentColor.copy(alpha = 0.18f) else BgElevated,
+                            border = BorderStroke(
+                                if (selected) 1.dp else 0.6.dp,
+                                if (selected) accentColor else BorderGlass
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = 6.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (selected) accentColor else TextSecondary,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "liga 0, dlig 0, calt 0"),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                    if (optionChunks.size > 1 && chunk.size < 3) {
+                        repeat(3 - chunk.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
             }

@@ -1,3 +1,17 @@
+# Lynx Universal [Eliminasi Konflik Horizontal Scroll vs Swipe Pager & Refaktor Grid Pilihan Layar] 7.0.0-RC456
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.75
+
+### Companion App (`DisplayRefreshRateTouchCard`, `TouchPrecisionSections`, `GraphicsDriverHwuiCard`, `GpuProfilesAndHardwareCard`, `ProfileGrid`)
+- **Penyelesaian Konflik Gestur Horizontal Scroll vs Swipe Tab Subscreen**:
+  - Menghilangkan sepenuhnya kontainer `horizontalScroll` pada seluruh baris opsi pilihan di dalam halaman ber-tab (`HorizontalPager`) yang sebelumnya memicu perebutan interupsi sentuhan (*gesture contention*) saat pengguna menggeser antar-tab atau memilih opsi.
+  - **Refaktor Pilihan FPS Unlocker (`BUKA LIMIT FPS GAME`)**:
+    - Menggantikan baris geser horizontal sempit dengan tombol terdedikasi **`Standar (Limit Sistem Android)`** full-width di baris atas dengan ikon status aktif dan badge `AKTIF / DEFAULT`, serta 4 tier target FPS yang seimbang presisi (**`90 FPS`**, **`120 FPS`**, **`144 FPS`**, **`240 FPS`**) di baris bawah dengan bobot fleksibel (`weight(1f)`). Semua opsi langsung terlihat utuh tanpa terpotong (*no clipping*) dan tanpa perlu scroll horizontal.
+  - **Refaktor Pilihan Refresh Rate (`Kecepatan Refresh Layar`)**:
+    - Mengganti `horizontalScroll` dengan grid adaptif `weight(1f)` (1 baris untuk 2–4 opsi, atau multi-baris wrap untuk gaming display dengan 5+ frekuensi), menjamin chip `Auto` dan fixed rates (`60Hz`, `90Hz`, `120Hz`, dll.) selalu pas dengan lebar layar.
+  - **Penyelarasan Opsi Render & Driver Lainnya**:
+    - Merefaktor `GraphicsDriverHwuiCard` (backends HWUI: `Default`, `SkiaGL`, `SkiaVK`, `Graphite`, `ANGLE`), `GraphicsMemoryPipelineSection` (alokasi texture cache), `GpuProfilesAndHardwareCard` (Adreno Idle Timer & Devfreq Governor), `TouchPrecisionSections` (SPI clock presets & gesture overlays), `KcalHardwareCard` (preset warna KCAL), dan `ProfileGrid` (chips opsi pengaturan) menjadi grid wrap non-scrollable yang responsif dan kebal konflik gestur swipe.
+
 # Lynx Universal [Standardisasi Pemisah Visual Section Divider di Seluruh Halaman Tuning] 7.0.0-RC455
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.74

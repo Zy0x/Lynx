@@ -230,7 +230,7 @@ fun GraphicsMemoryPipelineSection(
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         graphics.textureCacheOptions.forEach { (mb, label) ->
@@ -240,10 +240,12 @@ fun GraphicsMemoryPipelineSection(
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) cardAccent.copy(alpha = 0.2f) else BgElevated,
                                 border = BorderStroke(1.2.dp, if (isSelected) cardAccent else BorderGlass),
-                                modifier = Modifier.defaultMinSize(minWidth = 70.dp, minHeight = 48.dp)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minHeight = 48.dp)
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
                                 ) {
@@ -256,7 +258,8 @@ fun GraphicsMemoryPipelineSection(
                                     Text(
                                         label.substringAfter("(").removeSuffix(")"),
                                         color = if (isSelected) cardAccent.copy(alpha = 0.8f) else TextSecondary,
-                                        fontSize = 8.5.sp
+                                        fontSize = 8.sp,
+                                        maxLines = 1
                                     )
                                 }
                             }

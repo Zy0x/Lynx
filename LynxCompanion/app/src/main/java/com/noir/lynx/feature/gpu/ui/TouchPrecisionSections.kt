@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -138,28 +139,36 @@ fun NovatekMicroSensitivitySection(
     )
     Spacer(modifier = Modifier.height(6.dp))
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        TouchPrecisionConfig.SPI_PRESETS_HZ.forEach { hz ->
-            val mhzText = if (hz % 1_000_000 == 0) {
-                (hz / 1_000_000).toString()
-            } else {
-                String.format(Locale.US, "%.1f", hz / 1_000_000f)
+        for (chunk in TouchPrecisionConfig.SPI_PRESETS_HZ.chunked(4)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (hz in chunk) {
+                    val mhzText = if (hz % 1_000_000 == 0) {
+                        (hz / 1_000_000).toString()
+                    } else {
+                        String.format(Locale.US, "%.1f", hz / 1_000_000f)
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        TouchChoiceChip(
+                            text = stringResource(R.string.touch_precision_nvt_spi_mhz, mhzText),
+                            selected = config.nvtSpiSpeedHz == hz,
+                            accentColor = if (hz > 15_000_000) AccentOrange else AccentCyan,
+                            onClick = {
+                                val updated = config.copy(nvtSpiSpeedHz = hz)
+                                onConfigChange(updated)
+                                onCommit(updated)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
-            TouchChoiceChip(
-                text = stringResource(R.string.touch_precision_nvt_spi_mhz, mhzText),
-                selected = config.nvtSpiSpeedHz == hz,
-                accentColor = if (hz > 15_000_000) AccentOrange else AccentCyan,
-                onClick = {
-                    val updated = config.copy(nvtSpiSpeedHz = hz)
-                    onConfigChange(updated)
-                    onCommit(updated)
-                },
-            )
         }
     }
 
@@ -402,22 +411,23 @@ fun EdgeGestureGuardSection(
             )
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                overlays.forEach { (key, label) ->
-                    TouchChoiceChip(
-                        text = label,
-                        selected = config.backGestureOverlay == key,
-                        accentColor = AccentCyan,
-                        onClick = {
-                            val updated = config.copy(backGestureOverlay = key)
-                            onConfigChange(updated)
-                            onCommit(updated)
-                        },
-                    )
+                for ((key, label) in overlays) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        TouchChoiceChip(
+                            text = label,
+                            selected = config.backGestureOverlay == key,
+                            accentColor = AccentCyan,
+                            onClick = {
+                                val updated = config.copy(backGestureOverlay = key)
+                                onConfigChange(updated)
+                                onCommit(updated)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 

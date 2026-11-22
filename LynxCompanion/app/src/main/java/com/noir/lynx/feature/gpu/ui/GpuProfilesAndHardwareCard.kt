@@ -450,27 +450,38 @@ fun AdaptiveGpuHardwareCard(
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                         Text("Adreno Idle Timer (Waktu Tahan Clock)", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                         Text("Mencegah penurunan clock GPU tiba-tiba saat jeda frame game", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        val idleOptions = listOf(
+                            Pair(20, "20ms (Agresif)"),
+                            Pair(40, "40ms (Responsif)"),
+                            Pair(64, "64ms (Bawaan)"),
+                            Pair(80, "80ms (Smooth)"),
+                            Pair(100, "100ms (Gaming)")
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            listOf(
-                                Pair(20, "20ms (Agresif)"),
-                                Pair(40, "40ms (Responsif)"),
-                                Pair(64, "64ms (Bawaan)"),
-                                Pair(80, "80ms (Smooth)"),
-                                Pair(100, "100ms (Gaming)")
-                            ).forEach { (ms, label) ->
-                                val isSel = gpu.idleTimerMs == ms
-                                Surface(
-                                    onClick = { onSetIdleTimer(ms) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                    border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                    modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                            idleOptions.chunked(3).forEach { chunk ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                        Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                    chunk.forEach { (ms, label) ->
+                                        val isSel = gpu.idleTimerMs == ms
+                                        Surface(
+                                            onClick = { onSetIdleTimer(ms) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                            border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                            modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)) {
+                                                Text(label, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                            }
+                                        }
+                                    }
+                                    repeat(3 - chunk.size) {
+                                        Spacer(Modifier.weight(1f))
                                     }
                                 }
                             }
@@ -603,25 +614,41 @@ fun AdaptiveGpuHardwareCard(
                     if (gpu.availableGovernors.isNotEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                             Text("Devfreq Governor", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                            Row(
-                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            val govChunks = remember(gpu.availableGovernors) {
+                                if (gpu.availableGovernors.size <= 3) listOf(gpu.availableGovernors)
+                                else gpu.availableGovernors.chunked(3)
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                gpu.availableGovernors.forEach { gov ->
-                                    val cleanCur = gpu.currentGovernor.trim()
-                                    val cleanTarget = gov.trim()
-                                    val isSel = cleanCur == cleanTarget ||
-                                                cleanCur.removePrefix("ged_mode_") == cleanTarget.removePrefix("ged_mode_")
-                                    val displayGov = formatGpuGovernorLabel(gov, gpu.platform)
-                                    Surface(
-                                        onClick = { onSetGovernor(gov) },
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
-                                        border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
-                                        modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                                govChunks.forEach { chunk ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                            Text(displayGov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.5.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                                        chunk.forEach { gov ->
+                                            val cleanCur = gpu.currentGovernor.trim()
+                                            val cleanTarget = gov.trim()
+                                            val isSel = cleanCur == cleanTarget ||
+                                                        cleanCur.removePrefix("ged_mode_") == cleanTarget.removePrefix("ged_mode_")
+                                            val displayGov = formatGpuGovernorLabel(gov, gpu.platform)
+                                            Surface(
+                                                onClick = { onSetGovernor(gov) },
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = if (isSel) AccentOrange.copy(alpha = 0.2f) else BgElevated,
+                                                border = BorderStroke(1.dp, if (isSel) AccentOrange else BorderGlass),
+                                                modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+                                                    Text(displayGov, color = if (isSel) AccentOrange else TextSecondary, fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                                }
+                                            }
+                                        }
+                                        if (govChunks.size > 1 && chunk.size < 3) {
+                                            repeat(3 - chunk.size) {
+                                                Spacer(Modifier.weight(1f))
+                                            }
                                         }
                                     }
                                 }
