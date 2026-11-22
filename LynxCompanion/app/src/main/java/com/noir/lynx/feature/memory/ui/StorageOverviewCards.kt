@@ -233,7 +233,7 @@ internal fun StorageHeroCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "KESEHATAN CHIP MEMORI",
+                                    text = "KESEHATAN FLASH (WEAR LEVEL)",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary,
@@ -272,7 +272,7 @@ internal fun StorageHeroCard(
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
-                                    text = "SETELAN BACA/TULIS (${dev.device})",
+                                    text = "I/O SCHEDULER (${dev.device})",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextSecondary,
@@ -280,7 +280,7 @@ internal fun StorageHeroCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${dev.currentScheduler.ifBlank { "default" }} • Baca-Awal ${dev.readAheadKb} KB",
+                                    text = "${dev.currentScheduler.ifBlank { "default" }} • Read-Ahead ${dev.readAheadKb} KB",
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
@@ -289,8 +289,8 @@ internal fun StorageHeroCard(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 val queueMeta = buildString {
-                                    if (fsLabel.isNotBlank()) append("Format $fsLabel") else append(busLabel)
-                                    dev.nrRequests?.let { append(" • Antrean $it") }
+                                    if (fsLabel.isNotBlank()) append("FS $fsLabel") else append(busLabel)
+                                    dev.nrRequests?.let { append(" • Queue $it") }
                                 }
                                 Text(
                                     text = queueMeta,

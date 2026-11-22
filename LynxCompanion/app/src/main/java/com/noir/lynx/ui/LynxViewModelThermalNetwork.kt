@@ -633,13 +633,28 @@ fun LynxViewModel.applyAdbCustomPort(portStr: String) {
 fun LynxViewModel.setAudioMmap(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { current ->
-        current.copy(state = current.state.copy(audio = current.state.audio.copy(lowLatencyMmap = enabled)))
+        val next = current.state.audio.copy(lowLatencyMmap = enabled)
+        val preset = when {
+            !next.lowLatencyMmap && !next.deepBufferBypass && !next.directDacOffload && !next.btCrackleGuard -> "oem_default"
+            next.lowLatencyMmap && next.deepBufferBypass && !next.directDacOffload -> "gaming_mmap"
+            !next.lowLatencyMmap && !next.deepBufferBypass && next.directDacOffload && next.btCrackleGuard -> "hires_dac"
+            next.lowLatencyMmap && next.deepBufferBypass && next.directDacOffload && next.btCrackleGuard -> "full_studio"
+            else -> "custom"
+        }
+        current.copy(state = current.state.copy(audio = next.copy(activePreset = preset)))
     }
     setKey("audio.low_latency_mmap", enabled.toString(), "bool")
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioMmap(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "Audio MMAP Low-Latency diaktifkan" else "Audio MMAP Low-Latency dinonaktifkan") }
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "AAudio MMAP Direct DMA diaktifkan" else "AAudio MMAP dikembalikan ke Standard Mixer"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah kebijakan AAudio MMAP" else null
+            )
         }
     }
 }

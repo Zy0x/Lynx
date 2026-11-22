@@ -413,20 +413,44 @@ fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
     }
 }
 
+private fun deriveAudioPreset(
+    mmap: Boolean,
+    deepBypass: Boolean,
+    dacOffload: Boolean,
+    btGuard: Boolean
+): String = when {
+    !mmap && !deepBypass && !dacOffload && !btGuard -> "oem_default"
+    mmap && deepBypass && !dacOffload -> "gaming_mmap"
+    !mmap && !deepBypass && dacOffload && btGuard -> "hires_dac"
+    mmap && deepBypass && dacOffload && btGuard -> "full_studio"
+    else -> "custom"
+}
+
 fun LynxViewModel.refreshAudioSubsystem() {
     viewModelScope.launch(Dispatchers.IO) {
         try {
             val audioTelem = LynxRepository.readAudioTelemetry()
             val soundCtrl = LynxRepository.readSoundControl()
-            _uiState.update { it.copy(
-                audioTelemetry = audioTelem,
-                soundControl = soundCtrl,
-                state = it.state.copy(audio = it.state.audio.copy(
-                    lowLatencyMmap = audioTelem.isMmapForced,
-                    deepBufferBypass = audioTelem.isDeepBufferBypassed,
-                    directDacOffload = audioTelem.isDirectDacOffload
-                ))
-            ) }
+            _uiState.update { current ->
+                val btGuard = audioTelem.isBtCrackleGuardActive || current.state.audio.btCrackleGuard
+                val preset = deriveAudioPreset(
+                    mmap = audioTelem.isMmapForced,
+                    deepBypass = audioTelem.isDeepBufferBypassed,
+                    dacOffload = audioTelem.isDirectDacOffload,
+                    btGuard = btGuard
+                )
+                current.copy(
+                    audioTelemetry = audioTelem,
+                    soundControl = soundCtrl,
+                    state = current.state.copy(audio = current.state.audio.copy(
+                        lowLatencyMmap = audioTelem.isMmapForced,
+                        deepBufferBypass = audioTelem.isDeepBufferBypassed,
+                        directDacOffload = audioTelem.isDirectDacOffload,
+                        btCrackleGuard = btGuard,
+                        activePreset = preset
+                    ))
+                )
+            }
         } catch (_: Exception) {}
     }
 }
@@ -434,13 +458,32 @@ fun LynxViewModel.refreshAudioSubsystem() {
 fun LynxViewModel.setAudioDeepBufferBypass(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { current ->
-        current.copy(state = current.state.copy(audio = current.state.audio.copy(deepBufferBypass = enabled)))
+        val next = current.state.audio.copy(deepBufferBypass = enabled)
+        current.copy(
+            state = current.state.copy(
+                audio = next.copy(
+                    activePreset = deriveAudioPreset(
+                        next.lowLatencyMmap,
+                        next.deepBufferBypass,
+                        next.directDacOffload,
+                        next.btCrackleGuard
+                    )
+                )
+            )
+        )
     }
     setKey("audio.deep_buffer_bypass", enabled.toString(), "bool")
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioDeepBufferBypass(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "Deep Buffer Bypass diaktifkan (Zero Latency)" else "Deep Buffer Bypass dinonaktifkan") }
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Deep Buffer Media Bypass diaktifkan (Real-Time Audio)" else "Deep Buffer Media dipulihkan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan Deep Buffer Media Bypass pada sistem" else null
+            )
         }
     }
 }
@@ -448,13 +491,113 @@ fun LynxViewModel.setAudioDeepBufferBypass(enabled: Boolean) {
 fun LynxViewModel.setAudioDirectDacOffload(enabled: Boolean) {
     recordStateMutation()
     _uiState.update { current ->
-        current.copy(state = current.state.copy(audio = current.state.audio.copy(directDacOffload = enabled)))
+        val next = current.state.audio.copy(directDacOffload = enabled)
+        current.copy(
+            state = current.state.copy(
+                audio = next.copy(
+                    activePreset = deriveAudioPreset(
+                        next.lowLatencyMmap,
+                        next.deepBufferBypass,
+                        next.directDacOffload,
+                        next.btCrackleGuard
+                    )
+                )
+            )
+        )
     }
     setKey("audio.direct_dac_offload", enabled.toString(), "bool")
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyAudioDirectDacOffload(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "Direct DAC Offload (32KB buffer) diaktifkan" else "Direct DAC Offload dinonaktifkan") }
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Direct DAC 32KB Offload Buffer diaktifkan" else "Direct DAC Offload dipulihkan ke 64KB standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan Direct DAC Offload Buffer" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioBtCrackleGuard(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        val next = current.state.audio.copy(btCrackleGuard = enabled)
+        current.copy(
+            state = current.state.copy(
+                audio = next.copy(
+                    activePreset = deriveAudioPreset(
+                        next.lowLatencyMmap,
+                        next.deepBufferBypass,
+                        next.directDacOffload,
+                        next.btCrackleGuard
+                    )
+                )
+            )
+        )
+    }
+    setKey("audio.bt_crackle_guard", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioBtCrackleGuard(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Bluetooth A2DP Crackle & Drift Guard diaktifkan" else "Bluetooth A2DP Drift Guard dinonaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan tuning Bluetooth A2DP" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.applyAudioPreset(preset: String) {
+    recordStateMutation()
+    val (mmap, deep, dac, bt) = when (preset) {
+        "oem_default" -> listOf(false, false, false, false)
+        "gaming_mmap" -> listOf(true, true, false, true)
+        "hires_dac" -> listOf(false, false, true, true)
+        "full_studio" -> listOf(true, true, true, true)
+        else -> return
+    }
+    _uiState.update { current ->
+        current.copy(
+            state = current.state.copy(
+                audio = current.state.audio.copy(
+                    lowLatencyMmap = mmap,
+                    deepBufferBypass = deep,
+                    directDacOffload = dac,
+                    btCrackleGuard = bt,
+                    activePreset = preset
+                )
+            )
+        )
+    }
+    setKey("audio.low_latency_mmap", mmap.toString(), "bool")
+    setKey("audio.deep_buffer_bypass", deep.toString(), "bool")
+    setKey("audio.direct_dac_offload", dac.toString(), "bool")
+    setKey("audio.bt_crackle_guard", bt.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok1 = LynxRepository.applyAudioMmap(mmap)
+        val ok2 = LynxRepository.applyAudioDeepBufferBypass(deep)
+        val ok3 = LynxRepository.applyAudioDirectDacOffload(dac)
+        val ok4 = LynxRepository.applyAudioBtCrackleGuard(bt)
+        val fresh = LynxRepository.readAudioTelemetry()
+        val label = when (preset) {
+            "oem_default" -> "OEM Default (Standar Pabrik)"
+            "gaming_mmap" -> "Low-Latency Gaming (MMAP Direct)"
+            "hires_dac" -> "Hi-Res & DAC Offload"
+            "full_studio" -> "Ultra Studio & Gaming (All Active)"
+            else -> preset
+        }
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok1 && ok2 && ok3 && ok4) "Profil Audio '$label' diterapkan" else "Profil Audio '$label' diterapkan sebagian"
+            )
         }
     }
 }

@@ -203,14 +203,19 @@ data class AudioConfig(
     val btCrackleGuard: Boolean = true,
     val deepBufferBypass: Boolean = true,
     val directDacOffload: Boolean = true,
+    val activePreset: String = "custom",
 )
 
 data class AudioTelemetryInfo(
     val activeDevice: String = "Internal Speaker",
-    val sampleRate: String = "48000 Hz",
-    val isMmapForced: Boolean = true,
+    val sampleRate: String = "48.0 kHz",
+    val bitDepthLabel: String = "16-bit PCM",
+    val codecDriverLabel: String = "AudioFlinger HAL",
+    val btCodecLabel: String = "",
+    val isMmapForced: Boolean = false,
     val isDeepBufferBypassed: Boolean = false,
     val isDirectDacOffload: Boolean = false,
+    val isBtCrackleGuardActive: Boolean = false,
     val serverStatus: String = "audioserver (Active)",
 )
 

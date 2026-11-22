@@ -824,6 +824,7 @@ object LynxRepository {
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioMmap(enabled)
     suspend fun applyAudioDeepBufferBypass(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioDeepBufferBypass(enabled)
     suspend fun applyAudioDirectDacOffload(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioDirectDacOffload(enabled)
+    suspend fun applyAudioBtCrackleGuard(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioBtCrackleGuard(enabled)
 
     suspend fun readAdbKeepAliveConfig(): Pair<Boolean, Int> = LynxSystemControlRepository.readAdbKeepAliveConfig()
 

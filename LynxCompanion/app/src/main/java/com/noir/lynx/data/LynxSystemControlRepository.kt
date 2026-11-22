@@ -475,29 +475,139 @@ object LynxSystemControlRepository {
         } catch (_: Exception) { false }
     }
 
+    private const val AUDIO_BASELINE_FILE = "/dev/lynx_audio_baseline.env"
+
+    private fun ensureAudioBaselineScript(): String = """
+        if [ ! -f "$AUDIO_BASELINE_FILE" ]; then
+            echo "ORIG_MMAP=$(getprop aaudio.mmap_policy 2>/dev/null)" > "$AUDIO_BASELINE_FILE"
+            echo "ORIG_MMAP_EXCL=$(getprop aaudio.mmap_exclusive_policy 2>/dev/null)" >> "$AUDIO_BASELINE_FILE"
+            echo "ORIG_BURST=$(getprop aaudio.hw_burst_min_usec 2>/dev/null)" >> "$AUDIO_BASELINE_FILE"
+            echo "ORIG_DEEP=$(getprop audio.deep_buffer.media 2>/dev/null)" >> "$AUDIO_BASELINE_FILE"
+            echo "ORIG_OFFLOAD_KB=$(getprop vendor.audio.offload.buffer.size.kb 2>/dev/null)" >> "$AUDIO_BASELINE_FILE"
+            echo "ORIG_FAST_MULT=$(getprop af.fast_track_multiplier 2>/dev/null)" >> "$AUDIO_BASELINE_FILE"
+        fi
+        . "$AUDIO_BASELINE_FILE" 2>/dev/null || true
+    """.trimIndent()
+
+    private fun setPropOrResetPropScript(): String = """
+        apply_prop() {
+            local k="${'$'}1"
+            local v="${'$'}2"
+            setprop "${'$'}k" "${'$'}v" 2>/dev/null
+            if [ "$(getprop "${'$'}k" 2>/dev/null)" != "${'$'}v" ]; then
+                if command -v resetprop >/dev/null 2>&1; then
+                    resetprop -n "${'$'}k" "${'$'}v" 2>/dev/null
+                elif [ -x /data/adb/ksu/bin/resetprop ]; then
+                    /data/adb/ksu/bin/resetprop -n "${'$'}k" "${'$'}v" 2>/dev/null
+                elif [ -x /data/adb/ap/bin/resetprop ]; then
+                    /data/adb/ap/bin/resetprop -n "${'$'}k" "${'$'}v" 2>/dev/null
+                fi
+            fi
+        }
+    """.trimIndent()
+
     suspend fun readAudioTelemetry(): AudioTelemetryInfo = withContext(Dispatchers.IO) {
         try {
-            val deviceOut = Shell.cmd("dumpsys audio 2>/dev/null | grep -m 1 -E 'Devices: speaker|Devices: wired_headset|Devices: bluetooth|Devices: usb_headset'").exec().out.firstOrNull()?.trim() ?: ""
-            val activeDevice = when {
-                deviceOut.contains("bluetooth", ignoreCase = true) -> "Bluetooth (A2DP)"
-                deviceOut.contains("wired_headset", ignoreCase = true) -> "Headphone (3.5mm)"
-                deviceOut.contains("usb", ignoreCase = true) -> "USB Audio DAC"
-                deviceOut.contains("speaker", ignoreCase = true) -> "Internal Speaker"
-                else -> "Speaker / Default"
+            val script = """
+                DEV_OUT=$(dumpsys audio 2>/dev/null | grep -m 1 -E 'Devices: speaker|Devices: wired_headset|Devices: wired_headphone|Devices: bluetooth|Devices: usb_headset|Devices: usb_device|Devices: earpiece')
+                FLINGER=$(dumpsys media.audio_flinger 2>/dev/null | head -n 90)
+                RATE=$(echo "${'$'}FLINGER" | grep -m 1 -i "Sample rate:" | awk '{print ${'$'}3}')
+                FMT=$(echo "${'$'}FLINGER" | grep -m 1 -i "HAL format:")
+                CARD=$(cat /proc/asound/cards 2>/dev/null | head -n 1 | sed 's/.*- //')
+                if [ -z "${'$'}CARD" ]; then
+                    CARD=$(cat /sys/kernel/debug/asoc/cards 2>/dev/null | head -n 1)
+                fi
+                if [ -z "${'$'}CARD" ]; then
+                    PLAT=$(getprop ro.board.platform 2>/dev/null)
+                    [ -n "${'$'}PLAT" ] && CARD="${'$'}PLAT-audio-hal" || CARD="AudioFlinger HAL"
+                fi
+                BT_CODEC=$(dumpsys bluetooth_manager 2>/dev/null | grep -m 1 -iE "codecName|mCodecType|LDAC|aptX|AAC|SBC" | head -n 1)
+                MMAP=$(getprop aaudio.mmap_policy 2>/dev/null)
+                DEEP=$(getprop audio.deep_buffer.media 2>/dev/null)
+                OFFLOAD=$(getprop vendor.audio.offload.buffer.size.kb 2>/dev/null)
+                BT_GUARD=$(getprop lynx.audio.bt_crackle_guard 2>/dev/null)
+                SVC=$(getprop init.svc.audioserver 2>/dev/null)
+                echo "DEV=${'$'}DEV_OUT"
+                echo "RATE=${'$'}RATE"
+                echo "FMT=${'$'}FMT"
+                echo "CARD=${'$'}CARD"
+                echo "BTC=${'$'}BT_CODEC"
+                echo "MMAP=${'$'}MMAP"
+                echo "DEEP=${'$'}DEEP"
+                echo "OFFLOAD=${'$'}OFFLOAD"
+                echo "BTGUARD=${'$'}BT_GUARD"
+                echo "SVC=${'$'}SVC"
+            """.trimIndent()
+            val lines = Shell.cmd(script).exec().out
+            val map = mutableMapOf<String, String>()
+            for (line in lines) {
+                val idx = line.indexOf('=')
+                if (idx > 0) {
+                    map[line.substring(0, idx).trim()] = line.substring(idx + 1).trim()
+                }
             }
-            val mmapPolicy = Shell.cmd("getprop aaudio.mmap_policy 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "2"
-            val isMmapForced = mmapPolicy == "3"
-            val deepBuffer = Shell.cmd("getprop audio.deep_buffer.media 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "true"
-            val isDeepBufferBypassed = deepBuffer.equals("false", ignoreCase = true)
-            val offloadKb = Shell.cmd("getprop vendor.audio.offload.buffer.size.kb 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "64"
+
+            val deviceOut = map["DEV"].orEmpty()
+            val btRaw = map["BTC"].orEmpty()
+            val btCodec = when {
+                btRaw.contains("LDAC", ignoreCase = true) -> "LDAC"
+                btRaw.contains("aptX HD", ignoreCase = true) -> "aptX HD"
+                btRaw.contains("aptX", ignoreCase = true) -> "aptX"
+                btRaw.contains("AAC", ignoreCase = true) -> "AAC"
+                btRaw.contains("SBC", ignoreCase = true) -> "SBC"
+                else -> ""
+            }
+            val activeDevice = when {
+                deviceOut.contains("bluetooth", ignoreCase = true) ->
+                    if (btCodec.isNotBlank()) "Bluetooth A2DP ($btCodec)" else "Bluetooth A2DP"
+                deviceOut.contains("wired_head", ignoreCase = true) -> "Wired Headset (3.5mm)"
+                deviceOut.contains("usb", ignoreCase = true) -> "USB Audio DAC"
+                deviceOut.contains("earpiece", ignoreCase = true) -> "Earpiece / Speaker"
+                deviceOut.contains("speaker", ignoreCase = true) -> "Internal Speaker"
+                else -> "Internal Speaker"
+            }
+
+            val rateHz = map["RATE"]?.toIntOrNull() ?: 48000
+            val sampleRateLabel = if (rateHz >= 1000) {
+                String.format(java.util.Locale.US, "%.1f kHz", rateHz / 1000f)
+            } else {
+                "$rateHz Hz"
+            }
+
+            val fmtRaw = map["FMT"].orEmpty()
+            val bitDepthLabel = when {
+                fmtRaw.contains("32_BIT", ignoreCase = true) -> "32-bit PCM"
+                fmtRaw.contains("24_BIT", ignoreCase = true) -> "24-bit PCM"
+                fmtRaw.contains("FLOAT", ignoreCase = true) -> "32-bit Float"
+                else -> "16-bit PCM"
+            }
+
+            val codecDriver = map["CARD"].orEmpty().ifBlank { "AudioFlinger HAL" }
+            val mmapPolicy = map["MMAP"].orEmpty()
+            val isMmapForced = mmapPolicy == "3" || mmapPolicy == "2" && Shell.cmd("getprop aaudio.hw_burst_min_usec 2>/dev/null").exec().out.firstOrNull()?.trim() == "2000"
+            val deepBuffer = map["DEEP"].orEmpty()
+            val isDeepBufferBypassed = deepBuffer.equals("false", ignoreCase = true) || deepBuffer == "0"
+            val offloadKb = map["OFFLOAD"].orEmpty()
             val isDirectDac = offloadKb == "32"
+            val isBtGuard = map["BTGUARD"] == "1" || map["BTGUARD"].equals("true", ignoreCase = true)
+            val svc = map["SVC"].orEmpty()
+            val serverStatus = if (svc.equals("running", ignoreCase = true) || svc.isBlank()) {
+                "audioserver (Active)"
+            } else {
+                "audioserver ($svc)"
+            }
 
             AudioTelemetryInfo(
                 activeDevice = activeDevice,
-                sampleRate = "48000 Hz",
-                isMmapForced = isMmapForced,
+                sampleRate = sampleRateLabel,
+                bitDepthLabel = bitDepthLabel,
+                codecDriverLabel = codecDriver,
+                btCodecLabel = btCodec,
+                isMmapForced = isMmapForced && mmapPolicy == "3",
                 isDeepBufferBypassed = isDeepBufferBypassed,
-                isDirectDacOffload = isDirectDac
+                isDirectDacOffload = isDirectDac,
+                isBtCrackleGuardActive = isBtGuard,
+                serverStatus = serverStatus
             )
         } catch (_: Exception) {
             AudioTelemetryInfo()
@@ -506,27 +616,96 @@ object LynxSystemControlRepository {
 
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val p = if (enabled) "3" else "2"
-            val burst = if (enabled) "2000" else "4000"
-            val cmd = "setprop aaudio.mmap_policy $p; setprop aaudio.mmap_exclusive_policy $p; setprop aaudio.hw_burst_min_usec $burst; [ \"$(getprop aaudio.mmap_policy)\" = \"$p\" ] && echo ok"
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            val cmd = """
+                ${ensureAudioBaselineScript()}
+                ${setPropOrResetPropScript()}
+                if [ "$enabled" = "true" ]; then
+                    apply_prop aaudio.mmap_policy 3
+                    apply_prop aaudio.mmap_exclusive_policy 3
+                    apply_prop aaudio.hw_burst_min_usec 2000
+                    [ "$(getprop aaudio.mmap_policy 2>/dev/null)" = "3" ] && echo ok
+                else
+                    DEF_MMAP="${'$'}{ORIG_MMAP:-2}"
+                    DEF_EXCL="${'$'}{ORIG_MMAP_EXCL:-2}"
+                    DEF_BURST="${'$'}{ORIG_BURST:-4000}"
+                    [ "${'$'}DEF_MMAP" = "3" ] && DEF_MMAP="2"
+                    apply_prop aaudio.mmap_policy "${'$'}DEF_MMAP"
+                    apply_prop aaudio.mmap_exclusive_policy "${'$'}DEF_EXCL"
+                    apply_prop aaudio.hw_burst_min_usec "${'$'}DEF_BURST"
+                    [ "$(getprop aaudio.mmap_policy 2>/dev/null)" != "3" ] && echo ok
+                fi
+            """.trimIndent()
+            Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }
         } catch (_: Exception) { false }
     }
 
     suspend fun applyAudioDeepBufferBypass(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val valStr = if (enabled) "false" else "true"
-            Shell.cmd("setprop audio.deep_buffer.media $valStr; setprop persist.sys.phh.disable_fast_audio 0").exec()
-            true
+            val cmd = """
+                ${ensureAudioBaselineScript()}
+                ${setPropOrResetPropScript()}
+                if [ "$enabled" = "true" ]; then
+                    apply_prop audio.deep_buffer.media false
+                    apply_prop vendor.audio.deep_buffer.media false
+                    apply_prop persist.sys.phh.disable_fast_audio 0
+                    [ "$(getprop audio.deep_buffer.media 2>/dev/null)" = "false" ] && echo ok
+                else
+                    DEF_DEEP="${'$'}{ORIG_DEEP:-true}"
+                    [ "${'$'}DEF_DEEP" = "false" ] && DEF_DEEP="true"
+                    apply_prop audio.deep_buffer.media "${'$'}DEF_DEEP"
+                    apply_prop vendor.audio.deep_buffer.media "${'$'}DEF_DEEP"
+                    [ "$(getprop audio.deep_buffer.media 2>/dev/null)" != "false" ] && echo ok
+                fi
+            """.trimIndent()
+            Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }
         } catch (_: Exception) { false }
     }
 
     suspend fun applyAudioDirectDacOffload(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            val kb = if (enabled) "32" else "64"
-            val mult = if (enabled) "1" else "2"
-            Shell.cmd("setprop vendor.audio.offload.buffer.size.kb $kb; setprop af.fast_track_multiplier $mult").exec()
-            true
+            val cmd = """
+                ${ensureAudioBaselineScript()}
+                ${setPropOrResetPropScript()}
+                if [ "$enabled" = "true" ]; then
+                    apply_prop vendor.audio.offload.buffer.size.kb 32
+                    apply_prop audio.offload.buffer.size.kb 32
+                    apply_prop af.fast_track_multiplier 1
+                    [ "$(getprop vendor.audio.offload.buffer.size.kb 2>/dev/null)" = "32" ] && echo ok
+                else
+                    DEF_KB="${'$'}{ORIG_OFFLOAD_KB:-64}"
+                    DEF_MULT="${'$'}{ORIG_FAST_MULT:-2}"
+                    [ "${'$'}DEF_KB" = "32" ] && DEF_KB="64"
+                    apply_prop vendor.audio.offload.buffer.size.kb "${'$'}DEF_KB"
+                    apply_prop audio.offload.buffer.size.kb "${'$'}DEF_KB"
+                    apply_prop af.fast_track_multiplier "${'$'}DEF_MULT"
+                    [ "$(getprop vendor.audio.offload.buffer.size.kb 2>/dev/null)" != "32" ] && echo ok
+                fi
+            """.trimIndent()
+            Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyAudioBtCrackleGuard(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val cmd = """
+                ${setPropOrResetPropScript()}
+                if [ "$enabled" = "true" ]; then
+                    apply_prop lynx.audio.bt_crackle_guard 1
+                    apply_prop persist.vendor.bt.a2dp.hal.implementation true
+                    apply_prop vendor.bluetooth.ldac.abr true
+                    for pid in $(pidof audioserver com.android.bluetooth android.hardware.audio.service 2>/dev/null); do
+                        renice -n -16 -p "${'$'}pid" 2>/dev/null || true
+                    done
+                    [ "$(getprop lynx.audio.bt_crackle_guard 2>/dev/null)" = "1" ] && echo ok
+                else
+                    apply_prop lynx.audio.bt_crackle_guard 0
+                    for pid in $(pidof com.android.bluetooth 2>/dev/null); do
+                        renice -n 0 -p "${'$'}pid" 2>/dev/null || true
+                    done
+                    [ "$(getprop lynx.audio.bt_crackle_guard 2>/dev/null)" = "0" ] && echo ok
+                fi
+            """.trimIndent()
+            Shell.cmd(cmd).exec().out.any { it.trim() == "ok" }
         } catch (_: Exception) { false }
     }
 

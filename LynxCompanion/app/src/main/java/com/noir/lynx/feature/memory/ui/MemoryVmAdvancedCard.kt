@@ -60,8 +60,8 @@ fun MemoryVmAdvancedCard(
     var isWritebackExpanded by remember { mutableStateOf(false) }
 
     LynxCard(
-        title = "Pengaturan Memori Lanjutan",
-        subtitle = "Cache berkas, perlindungan aplikasi aktif & tunda tulis penyimpanan",
+        title = "Virtual Memory & Kernel Paging (VM)",
+        subtitle = "Pengaturan VFS cache, pelindung aplikasi aktif (MGLRU) & tunda tulis (writeback)",
         icon = Icons.Default.Tune,
         accentColor = AccentPurple,
         action = {
@@ -90,8 +90,8 @@ fun MemoryVmAdvancedCard(
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // ── 1. Core Memory Reclaim & Paging Tunables ──
             LynxNumericPresetRow(
-                label = "Penyimpanan Cache File (VFS Cache)",
-                subtitle = "Rendah = buka folder & aplikasi lebih cepat • Tinggi = hemat RAM",
+                label = "VFS Cache Pressure (Penyimpanan Cache File)",
+                subtitle = "Mengatur seberapa lama struktur folder & berkas disimpan di RAM (rendah = buka aplikasi cepat)",
                 value = vm.vfsCachePressure,
                 displayValue = "${vm.vfsCachePressure}%",
                 min = 1,
@@ -111,11 +111,11 @@ fun MemoryVmAdvancedCard(
             if (vm.mglruSupported) {
                 if (vm.mglruWritable) {
                     LynxSwitch(
-                        label = "Manajemen Memori Pintar (MGLRU)",
+                        label = "Multi-Gen LRU (MGLRU Page Reclaim)",
                         subLabel = if (vm.mglruEnabled) {
-                            "Aktif — menjaga aplikasi yang sering dipakai agar tidak tertutup"
+                            "Algoritma pemilah RAM generasi baru aktif — menjaga aplikasi yang sering dipakai agar tidak tertutup"
                         } else {
-                            "Nonaktif — memakai manajemen memori standar"
+                            "Nonaktif — memakai pemilah halaman memori standar Linux"
                         },
                         checked = vm.mglruEnabled,
                         onCheckedChange = { enabled -> viewModel.setMglruEnabled(enabled) }
@@ -123,8 +123,8 @@ fun MemoryVmAdvancedCard(
                 }
 
                 LynxNumericPresetRow(
-                    label = "Waktu Lindung Aplikasi Aktif",
-                    subtitle = "Durasi minimum aplikasi aktif dipertahankan di RAM fisik",
+                    label = "MGLRU Min TTL (Waktu Lindung Aplikasi)",
+                    subtitle = "Batas waktu minimum halaman aplikasi aktif dilindungi di RAM sebelum boleh dipindah ke ZRAM",
                     value = vm.mglruMinTtlMs,
                     displayValue = "${vm.mglruMinTtlMs} ms",
                     min = 0,
@@ -146,14 +146,14 @@ fun MemoryVmAdvancedCard(
             if (vm.pageCluster >= 0) {
                 val pagesCount = 1 shl vm.pageCluster.coerceIn(0, 10)
                 LynxNumericPresetRow(
-                    label = "Jumlah Baca Data ZRAM Sekaligus",
-                    subtitle = "0 (1 halaman) paling responsif untuk ZRAM",
+                    label = "Page-Cluster (Swap Read-Ahead)",
+                    subtitle = "Jumlah halaman ZRAM yang dibaca sekaligus (0 = 1 halaman, paling responsif untuk ZRAM di RAM)",
                     value = vm.pageCluster,
                     displayValue = "${vm.pageCluster} ($pagesCount hal)",
                     min = 0,
                     max = 8,
                     unit = "order",
-                    dialogTitle = "Atur Jumlah Baca ZRAM",
+                    dialogTitle = "Atur Page-Cluster (Swap Read-Ahead)",
                     dialogHint = "0 = baca 1 halaman per waktu (paling cepat untuk ZRAM), 3 = baca 8 halaman sekaligus.",
                     presets = listOf(
                         "0 • 1 hal (ZRAM)" to 0,
@@ -195,13 +195,13 @@ fun MemoryVmAdvancedCard(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
-                            text = if (isWritebackExpanded) "Sembunyikan Tulis Penyimpanan" else "Pengaturan Tulis Data ke Penyimpanan",
+                            text = if (isWritebackExpanded) "Sembunyikan Disk Writeback (Dirty Pages)" else "Disk Writeback & Dirty Pages (Tunda Tulis)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isWritebackExpanded) TextPrimary else TextSecondary
                         )
                         Text(
-                            text = "Batas ${vm.dirtyRatio}% / ${vm.dirtyBackgroundRatio}% • Interval ${formatCentisecs(vm.dirtyExpireCentisecs)} / ${formatCentisecs(vm.dirtyWritebackCentisecs)}",
+                            text = "Dirty ${vm.dirtyRatio}% / Bg ${vm.dirtyBackgroundRatio}% • Expire ${formatCentisecs(vm.dirtyExpireCentisecs)} / WB ${formatCentisecs(vm.dirtyWritebackCentisecs)}",
                             fontSize = 10.5.sp,
                             fontFamily = FontFamily.Monospace,
                             color = TextTertiary,
@@ -228,8 +228,8 @@ fun MemoryVmAdvancedCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LynxNumericPresetRow(
-                        label = "Batas Maksimal Tunda Tulis",
-                        subtitle = "Persentase RAM sebelum aplikasi wajib menunggu penyimpanan selesai",
+                        label = "Dirty Ratio (Batas Maksimal Tunda Tulis)",
+                        subtitle = "Persentase maksimal RAM untuk menampung data baru sebelum aplikasi wajib menunggu penyimpanan",
                         value = vm.dirtyRatio,
                         displayValue = "${vm.dirtyRatio}%",
                         min = 1,
@@ -247,8 +247,8 @@ fun MemoryVmAdvancedCard(
                     )
 
                     LynxNumericPresetRow(
-                        label = "Batas Awal Tulis Latar Belakang",
-                        subtitle = "Persentase RAM saat sistem mulai mencicil tulis data di latar",
+                        label = "Dirty Background Ratio (Batas Tulis Latar)",
+                        subtitle = "Persentase RAM saat kernel mulai mencicil tulis data ke penyimpanan di latar belakang",
                         value = vm.dirtyBackgroundRatio,
                         displayValue = "${vm.dirtyBackgroundRatio}%",
                         min = 1,
@@ -267,8 +267,8 @@ fun MemoryVmAdvancedCard(
 
                     val expireSec = (vm.dirtyExpireCentisecs / 100).coerceAtLeast(1)
                     LynxNumericPresetRow(
-                        label = "Batas Waktu Tunda Tulis",
-                        subtitle = "Durasi maksimal data tersimpan di RAM sebelum wajib ditulis",
+                        label = "Dirty Expire (Batas Usia Data Tunda)",
+                        subtitle = "Durasi maksimal data mengantre di RAM sebelum wajib segera ditulis ke penyimpanan",
                         value = expireSec,
                         displayValue = "$expireSec dtk",
                         min = 1,
@@ -287,8 +287,8 @@ fun MemoryVmAdvancedCard(
 
                     val wbSec = (vm.dirtyWritebackCentisecs / 100).coerceAtLeast(1)
                     LynxNumericPresetRow(
-                        label = "Jeda Pemeriksaan Tulis Data",
-                        subtitle = "Seberapa sering sistem memeriksa data yang belum disimpan",
+                        label = "Dirty Writeback (Interval Pemeriksaan Tulis)",
+                        subtitle = "Seberapa sering thread kernel memeriksa data di RAM yang belum disimpan ke memori internal",
                         value = wbSec,
                         displayValue = "$wbSec dtk",
                         min = 1,
@@ -312,11 +312,11 @@ fun MemoryVmAdvancedCard(
                 HorizontalDivider(color = BorderGlass, thickness = 0.6.dp)
 
                 LynxSwitch(
-                    label = "Gabungkan Data RAM Kembar (KSM)",
+                    label = "Kernel Samepage Merging (KSM)",
                     subLabel = if (ksm.enabled) {
-                        String.format(Locale.US, "Aktif • Menghemat %.1f MB RAM (%d halaman)", ksm.savedMb, ksm.pagesShared)
+                        String.format(Locale.US, "Aktif • Menggabungkan halaman RAM identik (hemat %.1f MB / %d halaman)", ksm.savedMb, ksm.pagesShared)
                     } else {
-                        "Satukan data identik di RAM untuk menghemat memori"
+                        "Menggabungkan blok data identik di RAM menjadi satu salinan untuk menghemat kapasitas memori"
                     },
                     checked = ksm.enabled,
                     onCheckedChange = { enabled -> viewModel.setKsmEnabled(enabled) }
@@ -329,8 +329,8 @@ fun MemoryVmAdvancedCard(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         LynxNumericPresetRow(
-                            label = "Jumlah Pindai Halaman KSM",
-                            subtitle = "Banyaknya halaman RAM yang diperiksa tiap siklus",
+                            label = "KSM Pages to Scan (Jumlah Pindai Halaman)",
+                            subtitle = "Banyaknya halaman RAM yang dipindai KSM setiap siklus penggabungan",
                             value = ksm.pagesToScan,
                             displayValue = "${ksm.pagesToScan} hal",
                             min = 10,
@@ -348,8 +348,8 @@ fun MemoryVmAdvancedCard(
                         )
 
                         LynxNumericPresetRow(
-                            label = "Jeda Pindai KSM",
-                            subtitle = "Waktu istirahat antar pemindaian agar hemat CPU",
+                            label = "KSM Sleep Interval (Jeda Istirahat Pindai)",
+                            subtitle = "Waktu jeda antar pemindaian halaman KSM agar penggunaan CPU tetap hemat",
                             value = ksm.sleepMs,
                             displayValue = "${ksm.sleepMs} ms",
                             min = 5,
