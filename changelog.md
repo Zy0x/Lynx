@@ -1,3 +1,20 @@
+# Lynx Universal [Perombakan Total Wi-Fi & Network Engine Dinamis Lintas Vendor, OS & Multi-Transport] 7.0.0-RC442
+Released on: 2026-11-22
+> Lynx Kernel Manager v3.4.61
+
+### Native Rust Engine (`network.rs`, `capability.rs`, `main.rs`) & Scripts (`network_turbo.sh`)
+- **Single Source of Truth (`lynxd network`)**:
+  - Menyatukan seluruh eksekusi tuning jaringan (`preset`, `feature`, `discover`, `probe`, `set-algo`, `set-qdisc`) ke dalam `lynxd` Rust engine dan menghubungkan [HudNetworkStabilizer.kt](file:///E:/Data/GitHub/Lynx/LynxCompanion/app/src/main/java/com/noir/lynx/feature/hud/network/HudNetworkStabilizer.kt) serta [network_turbo.sh](file:///E:/Data/GitHub/Lynx/core/network_turbo.sh) ke mesin yang sama.
+- **Discovery Lintas SoC/ROM/Kernel & Baseline Rollback**:
+  - Menambahkan `lynxd network discover` untuk mendeteksi interface aktif (`wifi`, `cellular`, `usb`, `ethernet`, `vpn`), MTU, antrean RX/TX, `RPS/XPS`, ketersediaan binary (`iw`, `iwpriv`, `wl`, `tc`, `wpa_cli`), Android API level, serta driver radio hardware nyata (`mediatek_proc`, `qualcomm_cnss`, `broadcom_dhd`, `exynos_scsc`, `unisoc_sprd`, `hal_generic`).
+  - Menyimpan snapshot baseline asli sistem (`network_baseline.conf`) sebelum mutasi pertama sehingga pemulihan ke **Standar OEM** mengembalikan angka asli perangkat alih-alih nilai hardcoded.
+  - Menghentikan penulisan properti `persist.vendor.*` lintas vendor yang tidak sesuai serta memverifikasi baca-balik (`VERIFIED` / `PARTIAL` / `UNSUPPORTED`) setiap perubahan sysfs/setting.
+  - Menambahkan `lynxd network probe` via rute aktif nyata (`ip -4 route get 1.1.1.1`) untuk ping + jitter gateway / `1.1.1.1` yang akurat tanpa angka palsu.
+
+### Companion App (`NetworkOverviewCards`, `NetworkTuningCards`, `NetworkSubscreen`, `LynxCard`)
+- **Monitor Multi-Transport & Inspeksi Interface**: `NetworkHeroCard` kini mendukung tampilan Wi-Fi maupun Data Seluler (4G/5G), ping/jitter nyata (`Timeout`/`Belum Diuji` bila gagal), badge deteksi driver & tool, serta `ModalBottomSheet` daftar seluruh interface kernel.
+- **Profil Jaringan Cepat 1-Tap & Kontrol Modular Terverifikasi**: Menambahkan preset `Standar OEM`, `Gaming Low-Latency`, dan `Throughput Maks`, pemilihan **Qdisc** (`fq`/`fq_codel`/`cake`/`pfifo_fast`) beserta pairing BBR, guard **IPv4/IPv6**, status jujur `UNSUPPORTED` untuk hardware radio non-sysfs, **Custom Private DNS DoT + mode Opportunistic**, dan **Uji Latensi DoT Port 853**.
+
 # Lynx Universal [Perbaikan Label Keausan Flash JEDEC Agar Bebas Rancu] 7.0.0-RC441
 Released on: 2026-11-22
 > Lynx Kernel Manager v3.4.60

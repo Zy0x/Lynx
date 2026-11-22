@@ -1,8 +1,16 @@
 package com.noir.lynx.data
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import com.noir.lynx.LynxApp
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 
 /** Low-level Android system toggles and wireless ADB controls. */
 object LynxSystemControlRepository {
@@ -36,461 +44,347 @@ object LynxSystemControlRepository {
     }
 
     // ----------------------------------------------------------------
-    //  Subsystem Hardware Apply & Active Verification
+    //  Unified Network Engine (lynxd Single Source of Truth + Multi-Transport)
     // ----------------------------------------------------------------
 
-
-    suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val script = if (enabled) {
-                """
-                # Universal Android Wi-Fi Low-Latency HAL & Power Management
-                cmd wifi force-low-latency-mode enabled 2>/dev/null
-                cmd wifi set-wifi-verbose-logging disabled 2>/dev/null
-                cmd wifi set-power-save-mode 0 2>/dev/null
-                setprop net.tcp.delack 0 2>/dev/null
-                settings put global wifi_sleep_policy 2 2>/dev/null
-                settings put global wifi_watchdog_poor_network_test_enabled 0 2>/dev/null
-                settings put global wifi_networks_available_notification_on 0 2>/dev/null
-                settings put global network_avoid_bad_wifi 0 2>/dev/null
-
-                # Linux Kernel Socket Low-Latency & Fast Recycling
-                echo 1 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
-
-                # Dynamic wireless interface power-save and packet filtering traversal
-                for w_if in /sys/class/net/wlan* /sys/class/net/wifi* /sys/class/net/sta*; do
-                    [ -d "${'$'}w_if" ] || continue
-                    w_name="${'$'}{w_if##*/}"
-                    which iw >/dev/null 2>&1 && iw dev "${'$'}w_name" set power_save off 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" set_power 0 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" gEnablePacketFilter 0 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" mp_duty_cycle 100 2>/dev/null || true
-                    which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 0 2>/dev/null || true
-                done
-
-                # MediaTek Hardware Silicon Hooks (Dynamic Format & Key Discovery)
-                if [ -f /proc/net/wlan/setCAM ]; then
-                    chmod 666 /proc/net/wlan/setCAM 2>/dev/null
-                    echo 1 > /proc/net/wlan/setCAM 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/autoPerfCfg ]; then
-                    echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/pkt_filter ]; then
-                    echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/dbgLevel ]; then
-                    if grep -q ":" /proc/net/wlan/dbgLevel 2>/dev/null; then
-                        echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
-                    else
-                        echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
-                    fi
-                fi
-                if [ -f /proc/net/wlan/cfg ]; then
-                    cfg_dump=${'$'}(cat /proc/net/wlan/cfg 2>/dev/null)
-                    for kv in "PowerSave 0" "KeepFullPwr 1" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
-                        k=${'$'}{kv%% *}
-                        if [ -z "${'$'}cfg_dump" ] || echo "${'$'}cfg_dump" | grep -qE "(D:)?${'$'}{k}\|"; then
-                            echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
-                        fi
-                    done
-                fi
-                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
-                    renice -n -20 -p "${'$'}t" 2>/dev/null
-                done
-
-                # Dynamic Multi-Vendor Kernel Module Parameter Discovery
-                for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do
-                    [ -d "${'$'}mod_dir" ] || continue
-                    for p_zero in con_mode gEnablePacketFilter dynamic_ps auto_power packet_filter dhd_slpauto dhd_watchdog_ms dhd_pkt_filter_enable slp_enable; do
-                        [ -f "${'$'}mod_dir/${'$'}p_zero" ] && echo 0 > "${'$'}mod_dir/${'$'}p_zero" 2>/dev/null
-                    done
-                    for p_one in rx_mode op_mode; do
-                        [ -f "${'$'}mod_dir/${'$'}p_one" ] && echo 1 > "${'$'}mod_dir/${'$'}p_one" 2>/dev/null
-                    done
-                    [ -f "${'$'}mod_dir/roam_trigger" ] && echo -75 > "${'$'}mod_dir/roam_trigger" 2>/dev/null
-                done
-                [ -f /proc/sprdwlan/auto_power ] && echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
-                [ -f /proc/sprdwlan/dynamic_ps ] && echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
-                setprop persist.vendor.data.mode concurrent 2>/dev/null
-                setprop persist.vendor.data.iwlan.enable true 2>/dev/null
-                setprop persist.vendor.sprd.wlan.lowpower 0 2>/dev/null
-                setprop persist.vendor.sprd.wlan.performance 1 2>/dev/null
-                setprop persist.sys.sprd.wlan.latency 1 2>/dev/null
-                echo ok
-                """.trimIndent()
-            } else {
-                """
-                cmd wifi force-low-latency-mode disabled 2>/dev/null
-                cmd wifi set-power-save-mode 1 2>/dev/null
-                settings put global wifi_sleep_policy 2 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
-                for w_if in /sys/class/net/wlan* /sys/class/net/wifi* /sys/class/net/sta*; do
-                    [ -d "${'$'}w_if" ] || continue
-                    w_name="${'$'}{w_if##*/}"
-                    which iw >/dev/null 2>&1 && iw dev "${'$'}w_name" set power_save on 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" set_power 1 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" gEnablePacketFilter 1 2>/dev/null || true
-                    which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 1 2>/dev/null || true
-                done
-                if [ -f /proc/net/wlan/setCAM ]; then
-                    echo 0 > /proc/net/wlan/setCAM 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/autoPerfCfg ]; then
-                    echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-                fi
-                if [ -d /sys/module/wlan/parameters ]; then
-                    [ -f /sys/module/wlan/parameters/con_mode ] && echo 1 > /sys/module/wlan/parameters/con_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/gEnablePacketFilter ] && echo 1 > /sys/module/wlan/parameters/gEnablePacketFilter 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/dynamic_ps ] && echo 1 > /sys/module/wlan/parameters/dynamic_ps 2>/dev/null
-                fi
-                if [ -f /proc/sprdwlan/auto_power ]; then
-                    echo 1 > /proc/sprdwlan/auto_power 2>/dev/null
-                fi
-                if [ -d /sys/module/dhd/parameters ]; then
-                    [ -f /sys/module/dhd/parameters/dhd_slpauto ] && echo 1 > /sys/module/dhd/parameters/dhd_slpauto 2>/dev/null
-                fi
-                if [ -d /sys/module/scsc_wlan/parameters ]; then
-                    [ -f /sys/module/scsc_wlan/parameters/slp_enable ] && echo 1 > /sys/module/scsc_wlan/parameters/slp_enable 2>/dev/null
-                fi
-                echo ok
-                """.trimIndent()
-            }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+    internal fun resolveNetworkBinary(): String? {
+        val primary = LynxRepository.getLynxdPath()
+        val res = Shell.cmd("[ -x '$primary' ] && echo ok").exec()
+        if (res.out.firstOrNull()?.trim() == "ok") return primary
+        return try {
+            val bundled = File(LynxApp.instance.applicationInfo.nativeLibraryDir, "liblynxhud.so")
+            if (bundled.exists() && bundled.canExecute()) bundled.absolutePath else null
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    suspend fun applyAntiJitterScan(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val valStr = if (enabled) "0" else "1"
-            val scanInterval = if (enabled) "300000" else "15000"
-            val cmd = """
-                settings put global wifi_scan_always_enabled $valStr 2>/dev/null
-                settings put global wifi_scan_throttle_enabled 0 2>/dev/null
-                settings put global wifi_framework_scan_interval_ms $scanInterval 2>/dev/null
-                echo ok
-            """.trimIndent()
-            Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+    private fun parseFeatureResult(raw: String, fallbackMsg: String): NetworkFeatureResult {
+        val trimmed = raw.trim()
+        val jsonStart = trimmed.indexOf('{')
+        if (jsonStart >= 0) {
+            return try {
+                val obj = JSONObject(trimmed.substring(jsonStart))
+                NetworkFeatureResult(
+                    ok = obj.optBoolean("ok", false),
+                    status = obj.optString("status", "UNSUPPORTED"),
+                    attempted = obj.optInt("attempted", 0),
+                    verified = obj.optInt("verified", 0),
+                    unsupported = obj.optInt("unsupported", 0),
+                    message = obj.optString("message", fallbackMsg)
+                )
+            } catch (_: Exception) {
+                NetworkFeatureResult(ok = false, status = "ERROR", message = fallbackMsg)
+            }
+        }
+        val isOk = trimmed.isNotEmpty()
+        return NetworkFeatureResult(
+            ok = isOk,
+            status = if (isOk) "PARTIAL" else "UNSUPPORTED",
+            message = trimmed.ifBlank { fallbackMsg }
+        )
     }
 
-    suspend fun applyFqCodel(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun readNetworkEngineInfo(): NetworkEngineInfo = withContext(Dispatchers.IO) {
         try {
-            val script = if (enabled) {
-                """
-                # 1. Dynamic CPU bitmask from all online CPU cores (universal for 4, 6, 8, 10, 12 cores)
-                mask=0
-                for c in /sys/devices/system/cpu/cpu[0-9]*; do
-                    [ -f "${'$'}c/online" ] && [ "$(cat "${'$'}c/online" 2>/dev/null)" = "0" ] && continue
-                    num="${'$'}{c##*cpu}"
-                    mask=${'$'}(( mask | (1 << num) ))
-                done
-                [ "${'$'}mask" -eq 0 ] && mask=255
-                cpu_hex=$(printf "%x" "${'$'}mask")
-
-                # 2. Dynamic multi-queue queue allocation for all physical, wireless & cellular interfaces
-                echo 32768 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null
-                echo 600 > /proc/sys/net/core/netdev_budget 2>/dev/null
-                echo 4000 > /proc/sys/net/core/netdev_budget_usecs 2>/dev/null
-                echo fq_codel > /proc/sys/net/core/default_qdisc 2>/dev/null || echo fq > /proc/sys/net/core/default_qdisc 2>/dev/null
-                for if_path in /sys/class/net/*; do
-                    iface="${'$'}{if_path##*/}"
-                    case "${'$'}iface" in
-                        lo|dummy*|sit*|ip6tnl*|bond*|tun*|tap*|ifb*) continue ;;
-                    esac
-                    for rx in "${'$'}if_path"/queues/rx-*; do
-                        [ -f "${'$'}rx/rps_cpus" ] && echo "${'$'}cpu_hex" > "${'$'}rx/rps_cpus" 2>/dev/null
-                        [ -f "${'$'}rx/rps_flow_cnt" ] && echo 4096 > "${'$'}rx/rps_flow_cnt" 2>/dev/null
-                    done
-                    for tx in "${'$'}if_path"/queues/tx-*; do
-                        [ -f "${'$'}tx/xps_cpus" ] && echo "${'$'}cpu_hex" > "${'$'}tx/xps_cpus" 2>/dev/null
-                    done
-                    tc qdisc replace dev "${'$'}iface" root fq_codel 2>/dev/null || tc qdisc replace dev "${'$'}iface" root fq 2>/dev/null || true
-                done
-                echo ok
-                """.trimIndent()
-            } else {
-                """
-                echo pfifo_fast > /proc/sys/net/core/default_qdisc 2>/dev/null
-                echo 0 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null
-                echo 300 > /proc/sys/net/core/netdev_budget 2>/dev/null
-                for if_path in /sys/class/net/*; do
-                    iface="${'$'}{if_path##*/}"
-                    case "${'$'}iface" in
-                        lo|dummy*|sit*|ip6tnl*|bond*|tun*|tap*|ifb*) continue ;;
-                    esac
-                    for rx in "${'$'}if_path"/queues/rx-*; do
-                        [ -f "${'$'}rx/rps_flow_cnt" ] && echo 0 > "${'$'}rx/rps_flow_cnt" 2>/dev/null
-                    done
-                    tc qdisc del dev "${'$'}iface" root 2>/dev/null || true
-                done
-                echo ok
-                """.trimIndent()
+            val bin = resolveNetworkBinary()
+            if (bin != null) {
+                val out = Shell.cmd("'$bin' network discover 2>/dev/null").exec().out.joinToString("\n").trim()
+                val idx = out.indexOf('{')
+                if (idx >= 0) {
+                    val obj = JSONObject(out.substring(idx))
+                    val algosArr = obj.optJSONArray("available_algos")
+                    val algos = buildList {
+                        if (algosArr != null) {
+                            for (i in 0 until algosArr.length()) {
+                                algosArr.optString(i).takeIf { it.isNotBlank() }?.let(::add)
+                            }
+                        }
+                    }
+                    val qdiscArr = obj.optJSONArray("available_qdiscs")
+                    val qdiscs = buildList {
+                        if (qdiscArr != null) {
+                            for (i in 0 until qdiscArr.length()) {
+                                qdiscArr.optString(i).takeIf { it.isNotBlank() }?.let(::add)
+                            }
+                        }
+                    }
+                    val ifacesArr = obj.optJSONArray("interfaces")
+                    val ifaces = buildList {
+                        if (ifacesArr != null) {
+                            for (i in 0 until ifacesArr.length()) {
+                                val itObj = ifacesArr.optJSONObject(i) ?: continue
+                                add(
+                                    NetworkIfaceInfo(
+                                        name = itObj.optString("name", ""),
+                                        kind = itObj.optString("kind", ""),
+                                        state = itObj.optString("state", ""),
+                                        mtu = itObj.optInt("mtu", 1500),
+                                        rxQueues = itObj.optInt("rx_queues", 0),
+                                        txQueues = itObj.optInt("tx_queues", 0),
+                                        rpsWritable = itObj.optBoolean("rps_writable", false),
+                                        qdisc = itObj.optString("qdisc", "")
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    return@withContext NetworkEngineInfo(
+                        isLoaded = true,
+                        currentAlgo = obj.optString("current_algo", ""),
+                        bestAlgo = obj.optString("best_algo", ""),
+                        availableAlgos = algos,
+                        currentQdisc = obj.optString("current_qdisc", ""),
+                        activeQdisc = obj.optString("active_qdisc", ""),
+                        availableQdiscs = qdiscs,
+                        activeIface = obj.optString("active_iface", ""),
+                        activeTransport = obj.optString("active_transport", "none"),
+                        activeMtu = obj.optInt("active_mtu", 1500),
+                        gatewayIp = obj.optString("gateway_ip", ""),
+                        srcIp = obj.optString("src_ip", ""),
+                        radioVendor = obj.optString("radio_vendor", "unsupported"),
+                        radioLabel = obj.optString("radio_label", "Generic"),
+                        supportsHwRadio = obj.optBoolean("supports_hw_radio", false),
+                        hasIw = obj.optBoolean("has_iw", false),
+                        hasIwpriv = obj.optBoolean("has_iwpriv", false),
+                        hasWl = obj.optBoolean("has_wl", false),
+                        hasTc = obj.optBoolean("has_tc", false),
+                        hasWpaCli = obj.optBoolean("has_wpa_cli", false),
+                        androidSdk = obj.optInt("android_sdk", android.os.Build.VERSION.SDK_INT),
+                        supportsHalLowLatency = obj.optBoolean("supports_hal_low_latency", android.os.Build.VERSION.SDK_INT >= 29),
+                        supportsTcpLowLatency = obj.optBoolean("supports_tcp_low_latency", false),
+                        supportsRpsXps = obj.optBoolean("supports_rps_xps", false),
+                        fastopenNodesPresent = obj.optInt("fastopen_nodes_present", 0),
+                        ramTierLabel = obj.optString("ram_tier_label", ""),
+                        effectiveRmemMaxMb = obj.optDouble("effective_rmem_max_mb", 0.0).toFloat(),
+                        hasBaseline = obj.optBoolean("has_baseline", false),
+                        activePreset = obj.optString("active_preset", "custom"),
+                        lowLatencyActive = obj.optBoolean("low_latency_active", false),
+                        scanGuardActive = obj.optBoolean("scan_guard_active", false),
+                        qdiscGuardActive = obj.optBoolean("qdisc_guard_active", false),
+                        tcpBuffersScaled = obj.optBoolean("tcp_buffers_scaled", false),
+                        tcpFastopenActive = obj.optBoolean("tcp_fastopen_active", false),
+                        hwRadioActive = obj.optBoolean("hw_radio_active", false),
+                        ipv6Disabled = obj.optBoolean("ipv6_disabled", false),
+                        mobileStandbyActive = obj.optBoolean("mobile_standby_active", false),
+                        interfaces = ifaces
+                    )
+                }
             }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+
+            // Minimal read-only sysfs fallback if binary cannot execute
+            val curAlgo = Shell.cmd("cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null").exec().out.firstOrNull()?.trim().orEmpty()
+            val availAlgos = Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null")
+                .exec().out.firstOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() } ?: emptyList()
+            val curQdisc = Shell.cmd("cat /proc/sys/net/core/default_qdisc 2>/dev/null").exec().out.firstOrNull()?.trim().orEmpty()
+            NetworkEngineInfo(
+                isLoaded = true,
+                currentAlgo = curAlgo,
+                availableAlgos = availAlgos,
+                currentQdisc = curQdisc,
+                activeQdisc = curQdisc,
+                androidSdk = android.os.Build.VERSION.SDK_INT,
+                supportsHalLowLatency = android.os.Build.VERSION.SDK_INT >= 29
+            )
+        } catch (_: Exception) {
+            NetworkEngineInfo()
+        }
     }
 
-    suspend fun applyTcpBuffers16m(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun applyNetworkFeature(key: String, enabled: Boolean): NetworkFeatureResult = withContext(Dispatchers.IO) {
         try {
-            val script = if (enabled) {
-                """
-                mem_kb=${'$'}(grep MemTotal /proc/meminfo 2>/dev/null | awk '{print ${'$'}2}')
-                [ -z "${'$'}mem_kb" ] && mem_kb=4000000
-                if [ "${'$'}mem_kb" -ge 8000000 ]; then
-                    buf_max=33554432; buf_def=524288
-                elif [ "${'$'}mem_kb" -ge 4000000 ]; then
-                    buf_max=16777216; buf_def=262144
-                elif [ "${'$'}mem_kb" -ge 2500000 ]; then
-                    buf_max=8388608; buf_def=131072
-                else
-                    buf_max=4194304; buf_def=65536
-                fi
-                echo "${'$'}buf_max" > /proc/sys/net/core/rmem_max 2>/dev/null
-                echo "${'$'}buf_max" > /proc/sys/net/core/wmem_max 2>/dev/null
-                echo "${'$'}buf_def" > /proc/sys/net/core/rmem_default 2>/dev/null
-                echo "${'$'}buf_def" > /proc/sys/net/core/wmem_default 2>/dev/null
-                echo "4096 87380 ${'$'}buf_max" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
-                echo "4096 65536 ${'$'}buf_max" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
-                for k in default wifi lte 5g hspa hsupa hsdpa umts edge gprs evdo cdma; do
-                    setprop net.tcp.buffersize.${'$'}k "524288,1048576,${'$'}buf_max,262144,524288,${'$'}buf_max" 2>/dev/null
-                done
-                echo ok
-                """.trimIndent()
-            } else {
-                """
-                echo 6922240 > /proc/sys/net/core/rmem_max 2>/dev/null
-                echo 4525824 > /proc/sys/net/core/wmem_max 2>/dev/null
-                echo 262144 > /proc/sys/net/core/rmem_default 2>/dev/null
-                echo 262144 > /proc/sys/net/core/wmem_default 2>/dev/null
-                echo "1730560 3461120 6922240" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
-                echo "524288 1048576 4525824" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
-                for k in default wifi lte 5g hspa hsupa hsdpa umts edge gprs evdo cdma; do
-                    setprop net.tcp.buffersize.${'$'}k "" 2>/dev/null
-                done
-                echo ok
-                """.trimIndent()
-            }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+            val safeKey = key.replace(Regex("[^a-zA-Z0-9_-]"), "")
+            val bin = resolveNetworkBinary()
+                ?: return@withContext NetworkFeatureResult(
+                    ok = false,
+                    status = "UNSUPPORTED",
+                    message = "Biner engine lynxd belum tersedia pada sistem ini."
+                )
+            val arg = if (enabled) "on" else "off"
+            val out = Shell.cmd("'$bin' network feature '$safeKey' $arg 2>/dev/null").exec().out.joinToString("\n")
+            parseFeatureResult(out, "Parameter $safeKey gagal diterapkan.")
+        } catch (e: Exception) {
+            NetworkFeatureResult(ok = false, status = "ERROR", message = e.message ?: "Error")
+        }
     }
 
-    suspend fun applyTcpFastOpen(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun applyNetworkPreset(preset: String): NetworkFeatureResult = withContext(Dispatchers.IO) {
         try {
-            val script = if (enabled) {
-                """
-                echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_sack 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_dsack 2>/dev/null
-                echo 15 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
-                echo 10000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
-                echo 4096 > /proc/sys/net/core/somaxconn 2>/dev/null
-                echo 4096 > /proc/sys/net/ipv4/tcp_max_syn_backlog 2>/dev/null
-                echo 3 > /proc/sys/net/ipv4/tcp_syn_retries 2>/dev/null
-                echo 3 > /proc/sys/net/ipv4/tcp_synack_retries 2>/dev/null
-                echo 3 > /proc/sys/net/ipv4/tcp_early_retrans 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_recovery 2>/dev/null
-                echo 2 > /proc/sys/net/ipv4/tcp_frto 2>/dev/null
-                echo 16384 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_no_metrics_save 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
-                echo 300 > /proc/sys/net/ipv4/tcp_keepalive_time 2>/dev/null
-                echo 15 > /proc/sys/net/ipv4/tcp_keepalive_intvl 2>/dev/null
-                echo 5 > /proc/sys/net/ipv4/tcp_keepalive_probes 2>/dev/null
-                echo 2 > /proc/sys/net/ipv4/conf/all/arp_announce 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore 2>/dev/null
-                setprop net.dns.cache_size 1024 2>/dev/null
-                setprop net.dns.cache_ttl 600 2>/dev/null
-                setprop net.dns.cache_net_ttl 300 2>/dev/null
-                echo ok
-                """.trimIndent()
-            } else {
-                """
-                echo 1 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
-                echo 60 > /proc/sys/net/ipv4/tcp_fin_timeout 2>/dev/null
-                echo 1000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
-                echo 128 > /proc/sys/net/core/somaxconn 2>/dev/null
-                echo 1024 > /proc/sys/net/ipv4/tcp_max_syn_backlog 2>/dev/null
-                echo 6 > /proc/sys/net/ipv4/tcp_syn_retries 2>/dev/null
-                echo 5 > /proc/sys/net/ipv4/tcp_synack_retries 2>/dev/null
-                echo 4294967295 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
-                echo 1 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_no_metrics_save 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
-                echo 7200 > /proc/sys/net/ipv4/tcp_keepalive_time 2>/dev/null
-                echo 75 > /proc/sys/net/ipv4/tcp_keepalive_intvl 2>/dev/null
-                echo 9 > /proc/sys/net/ipv4/tcp_keepalive_probes 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/conf/all/arp_announce 2>/dev/null
-                echo 0 > /proc/sys/net/ipv4/conf/all/arp_ignore 2>/dev/null
-                echo ok
-                """.trimIndent()
-            }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+            val safe = preset.replace(Regex("[^a-zA-Z0-9_-]"), "").lowercase()
+            val bin = resolveNetworkBinary()
+                ?: return@withContext NetworkFeatureResult(
+                    ok = false,
+                    status = "UNSUPPORTED",
+                    message = "Biner engine lynxd belum tersedia pada sistem ini."
+                )
+            val out = Shell.cmd("'$bin' network preset '$safe' 2>/dev/null").exec().out.joinToString("\n")
+            parseFeatureResult(out, "Preset $safe gagal diterapkan.")
+        } catch (e: Exception) {
+            NetworkFeatureResult(ok = false, status = "ERROR", message = e.message ?: "Error")
+        }
     }
 
-    suspend fun applyMtkHardwareAggregation(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setNetworkQdisc(qdisc: String): NetworkFeatureResult = withContext(Dispatchers.IO) {
         try {
-            val script = if (enabled) {
-                """
-                # Dynamic wireless interface power-save and packet filtering traversal
-                for w_if in /sys/class/net/wlan* /sys/class/net/wifi* /sys/class/net/sta*; do
-                    [ -d "${'$'}w_if" ] || continue
-                    w_name="${'$'}{w_if##*/}"
-                    which iw >/dev/null 2>&1 && iw dev "${'$'}w_name" set power_save off 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" set_power 0 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" gEnablePacketFilter 0 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" mp_duty_cycle 100 2>/dev/null || true
-                    which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 0 2>/dev/null || true
-                done
-
-                # 1. MediaTek Direct Silicon Hooks (Dynamic Format & Key Discovery)
-                if [ -f /proc/net/wlan/autoPerfCfg ]; then
-                    echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/setCAM ]; then
-                    chmod 666 /proc/net/wlan/setCAM 2>/dev/null
-                    echo "1" > /proc/net/wlan/setCAM 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/pkt_filter ]; then
-                    echo 0 > /proc/net/wlan/pkt_filter 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/dbgLevel ]; then
-                    if grep -q ":" /proc/net/wlan/dbgLevel 2>/dev/null; then
-                        echo "0xff:0x03" > /proc/net/wlan/dbgLevel 2>/dev/null
-                    else
-                        echo 0 > /proc/net/wlan/dbgLevel 2>/dev/null
-                    fi
-                fi
-                if [ -f /proc/net/wlan/cfg ]; then
-                    cfg_dump=${'$'}(cat /proc/net/wlan/cfg 2>/dev/null)
-                    for kv in "PowerSave 0" "KeepFullPwr 1" "AdvPws 0" "DisOnlineScan 1" "Sta2gBw 1" "TxopPsTx 0" "VhtAmsduInAmpduTx 1" "HtAmsduInAmpduTx 1" "VhtAmsduInAmpduRx 1" "HtAmsduInAmpduRx 1" "ThreadSched 1"; do
-                        k=${'$'}{kv%% *}
-                        if [ -z "${'$'}cfg_dump" ] || echo "${'$'}cfg_dump" | grep -qE "(D:)?${'$'}{k}\|"; then
-                            echo "${'$'}kv" > /proc/net/wlan/cfg 2>/dev/null
-                        fi
-                    done
-                fi
-                for t in ${'$'}(ps -A -o pid,comm 2>/dev/null | awk '/main_thread|hif_thread|rx_thread|cds_ol_rx|cds_mc_thread|dhd_dpc|dhd_rxf|hip4_bh|hip5_bh|sprdwl_/ {print ${'$'}1}'); do
-                    renice -n -20 -p "${'$'}t" 2>/dev/null
-                done
-
-                # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery
-                for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do
-                    [ -d "${'$'}mod_dir" ] || continue
-                    for p_zero in con_mode gEnablePacketFilter dynamic_ps auto_power packet_filter dhd_slpauto dhd_watchdog_ms dhd_pkt_filter_enable slp_enable; do
-                        [ -f "${'$'}mod_dir/${'$'}p_zero" ] && echo 0 > "${'$'}mod_dir/${'$'}p_zero" 2>/dev/null
-                    done
-                    for p_one in rx_mode op_mode; do
-                        [ -f "${'$'}mod_dir/${'$'}p_one" ] && echo 1 > "${'$'}mod_dir/${'$'}p_one" 2>/dev/null
-                    done
-                    [ -f "${'$'}mod_dir/roam_trigger" ] && echo -75 > "${'$'}mod_dir/roam_trigger" 2>/dev/null
-                done
-                [ -f /proc/sprdwlan/auto_power ] && echo 0 > /proc/sprdwlan/auto_power 2>/dev/null
-                [ -f /proc/sprdwlan/dynamic_ps ] && echo 0 > /proc/sprdwlan/dynamic_ps 2>/dev/null
-                setprop persist.vendor.data.mode concurrent 2>/dev/null
-                setprop persist.vendor.data.iwlan.enable true 2>/dev/null
-                setprop persist.vendor.sprd.wlan.lowpower 0 2>/dev/null
-                setprop persist.vendor.sprd.wlan.performance 1 2>/dev/null
-                setprop persist.sys.sprd.wlan.latency 1 2>/dev/null
-
-                # 3. Universal Android Framework Wi-Fi Low Latency
-                cmd wifi force-low-latency-mode enabled 2>/dev/null
-                cmd wifi set-power-save-mode 0 2>/dev/null
-                echo ok
-                """.trimIndent()
-            } else {
-                """
-                for w_if in /sys/class/net/wlan* /sys/class/net/wifi* /sys/class/net/sta*; do
-                    [ -d "${'$'}w_if" ] || continue
-                    w_name="${'$'}{w_if##*/}"
-                    which iw >/dev/null 2>&1 && iw dev "${'$'}w_name" set power_save on 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" set_power 1 2>/dev/null || true
-                    which iwpriv >/dev/null 2>&1 && iwpriv "${'$'}w_name" gEnablePacketFilter 1 2>/dev/null || true
-                    which wl >/dev/null 2>&1 && wl -i "${'$'}w_name" PM 1 2>/dev/null || true
-                done
-                if [ -f /proc/net/wlan/autoPerfCfg ]; then
-                    echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-                fi
-                if [ -f /proc/net/wlan/setCAM ]; then
-                    echo "0" > /proc/net/wlan/setCAM 2>/dev/null
-                fi
-                if [ -d /sys/module/wlan/parameters ]; then
-                    [ -f /sys/module/wlan/parameters/con_mode ] && echo 1 > /sys/module/wlan/parameters/con_mode 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/gEnablePacketFilter ] && echo 1 > /sys/module/wlan/parameters/gEnablePacketFilter 2>/dev/null
-                    [ -f /sys/module/wlan/parameters/dynamic_ps ] && echo 1 > /sys/module/wlan/parameters/dynamic_ps 2>/dev/null
-                fi
-                if [ -f /proc/sprdwlan/auto_power ]; then
-                    echo 1 > /proc/sprdwlan/auto_power 2>/dev/null
-                fi
-                if [ -d /sys/module/dhd/parameters ]; then
-                    [ -f /sys/module/dhd/parameters/dhd_slpauto ] && echo 1 > /sys/module/dhd/parameters/dhd_slpauto 2>/dev/null
-                fi
-                if [ -d /sys/module/scsc_wlan/parameters ]; then
-                    [ -f /sys/module/scsc_wlan/parameters/slp_enable ] && echo 1 > /sys/module/scsc_wlan/parameters/slp_enable 2>/dev/null
-                fi
-                cmd wifi force-low-latency-mode disabled 2>/dev/null
-                cmd wifi set-power-save-mode 1 2>/dev/null
-                echo ok
-                """.trimIndent()
+            val safe = qdisc.replace(Regex("[^a-zA-Z0-9_-]"), "")
+            val bin = resolveNetworkBinary()
+            if (bin != null) {
+                val res = Shell.cmd("'$bin' network set-qdisc '$safe' 2>&1").exec()
+                val raw = res.out.joinToString("\n")
+                if (res.isSuccess) return@withContext parseFeatureResult(raw, "Qdisc $safe diterapkan.")
+                return@withContext NetworkFeatureResult(ok = false, status = "UNSUPPORTED", message = raw.ifBlank { "Kernel menolak qdisc $safe" })
             }
-            Shell.cmd(script).exec().out.firstOrNull()?.trim() == "ok"
-        } catch (_: Exception) { false }
+            val cmd = "echo '$safe' > /proc/sys/net/core/default_qdisc 2>/dev/null && [ \"$(cat /proc/sys/net/core/default_qdisc 2>/dev/null)\" = \"$safe\" ] && echo ok"
+            val ok = Shell.cmd(cmd).exec().out.firstOrNull()?.trim() == "ok"
+            NetworkFeatureResult(
+                ok = ok,
+                status = if (ok) "VERIFIED" else "UNSUPPORTED",
+                message = if (ok) "Default qdisc diubah ke $safe" else "Kernel menolak qdisc $safe"
+            )
+        } catch (e: Exception) {
+            NetworkFeatureResult(ok = false, status = "ERROR", message = e.message ?: "Error")
+        }
     }
 
-    suspend fun readWifiTelemetry(): WifiTelemetryInfo = withContext(Dispatchers.IO) {
+    suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean =
+        applyNetworkFeature("low_latency", enabled).ok
+
+    suspend fun applyAntiJitterScan(enabled: Boolean): Boolean =
+        applyNetworkFeature("scan_guard", enabled).ok
+
+    suspend fun applyFqCodel(enabled: Boolean): Boolean =
+        applyNetworkFeature("qdisc_rps", enabled).ok
+
+    suspend fun applyTcpBuffers16m(enabled: Boolean): Boolean =
+        applyNetworkFeature("tcp_buffers", enabled).ok
+
+    suspend fun applyTcpFastOpen(enabled: Boolean): Boolean =
+        applyNetworkFeature("tcp_fastopen", enabled).ok
+
+    suspend fun applyMtkHardwareAggregation(enabled: Boolean): Boolean =
+        applyNetworkFeature("hw_radio", enabled).ok
+
+    suspend fun probeLatencyViaEngine(): WifiTelemetryInfo = withContext(Dispatchers.IO) {
+        readWifiTelemetry(includePing = true)
+    }
+
+    suspend fun readWifiTelemetry(includePing: Boolean = true): WifiTelemetryInfo = withContext(Dispatchers.IO) {
         try {
-            val output = Shell.cmd("cmd wifi status 2>/dev/null").exec().out.joinToString("\n")
-            if (!output.contains("Wifi is connected to") && !output.contains("WifiInfo:")) {
-                return@withContext WifiTelemetryInfo(isConnected = false)
+            val ctx = LynxApp.instance
+            val wifiOut = Shell.cmd("cmd wifi status 2>/dev/null").exec().out.joinToString("\n")
+            val wifiConnected = wifiOut.contains("Wifi is connected to") || wifiOut.contains("SSID: \"")
+
+            var activeTransport = if (wifiConnected) "wifi" else "none"
+            var cellularConnected = false
+            runCatching {
+                val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val net = cm?.activeNetwork
+                val caps = cm?.getNetworkCapabilities(net)
+                if (caps != null) {
+                    if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                        activeTransport = "wifi"
+                    } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                        activeTransport = "cellular"
+                        cellularConnected = true
+                    } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                        activeTransport = "ethernet"
+                    }
+                }
             }
 
-            val ssidMatch = Regex("""Wifi is connected to "([^"]+)"""").find(output)
-                ?: Regex("""SSID: "([^"]+)"""").find(output)
-            val ssid = ssidMatch?.groupValues?.get(1) ?: "Terhubung"
-
-            val ipMatch = Regex("""IP: /?([0-9.]+)""").find(output)
-            val ip = ipMatch?.groupValues?.get(1) ?: ""
-
-            val rssiMatch = Regex("""RSSI: (-?[0-9]+)""").find(output)
-            val rssi = rssiMatch?.groupValues?.get(1)?.toIntOrNull() ?: -60
-
-            val linkSpeedMatch = Regex("""Link speed: ([0-9]+)Mbps""").find(output)
-            val linkSpeed = linkSpeedMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-
-            val maxSpeedMatch = Regex("""Max Supported Tx Link speed: ([0-9]+)Mbps""").find(output)
-            val maxSpeed = maxSpeedMatch?.groupValues?.get(1)?.toIntOrNull() ?: linkSpeed
-
-            val freqMatch = Regex("""Frequency: ([0-9]+)MHz""").find(output)
-            val freq = freqMatch?.groupValues?.get(1)?.toIntOrNull() ?: 5000
-
-            val stdMatch = Regex("""Wi-Fi standard: ([0-9]+)""").find(output)
-            val stdNum = stdMatch?.groupValues?.get(1)?.toIntOrNull() ?: 5
-            val wifiStandard = when (stdNum) {
-                4 -> "Wi-Fi 4 (802.11n)"
-                5 -> "Wi-Fi 5 (802.11ac)"
-                6 -> "Wi-Fi 6 (802.11ax)"
-                7 -> "Wi-Fi 7 (802.11be)"
-                else -> "Wi-Fi"
-            }
-
+            // Active route + cellular radio info via root shell / lynxd
+            var routeIface = ""
+            var gatewayIp = ""
+            var routeSrcIp = ""
+            var activeMtu = 1500
+            val bin = resolveNetworkBinary()
+            var reachable = false
             var pingMs = 0f
-            if (ip.isNotBlank()) {
-                val gatewayIp = Shell.cmd("ip route list table 0 2>/dev/null | grep -E 'default via [0-9.]+' | sed -n 's/.*default via \\([0-9.]*\\).*/\\1/p' | head -n 1").exec().out.firstOrNull()?.trim()?.ifBlank { null }
-                    ?: (ip.substringBeforeLast(".") + ".1")
-                val pingOut = Shell.cmd("ping -c 1 -W 1 $gatewayIp 2>/dev/null").exec().out.joinToString("\n")
-                val pingMatch = Regex("""time=([0-9.]+) ms""").find(pingOut)
-                pingMs = pingMatch?.groupValues?.get(1)?.toFloatOrNull() ?: 0f
+            var jitterMs = 0f
+            var lossPct = 100f
+
+            if (includePing && bin != null) {
+                val probeOut = Shell.cmd("'$bin' network probe 2>/dev/null").exec().out.joinToString("\n").trim()
+                val idx = probeOut.indexOf('{')
+                if (idx >= 0) {
+                    runCatching {
+                        val p = JSONObject(probeOut.substring(idx))
+                        reachable = p.optBoolean("reachable", false)
+                        pingMs = p.optDouble("avg_ms", 0.0).toFloat()
+                        jitterMs = p.optDouble("jitter_ms", 0.0).toFloat()
+                        lossPct = p.optDouble("loss_pct", 100.0).toFloat()
+                        routeIface = p.optString("iface", "")
+                        gatewayIp = p.optString("target", "")
+                        val tr = p.optString("transport", "")
+                        if (activeTransport == "none" && tr.isNotBlank() && tr != "other") {
+                            activeTransport = tr
+                            if (tr == "cellular") cellularConnected = true
+                        }
+                    }
+                }
+            } else {
+                val rLine = Shell.cmd("ip -4 route get 1.1.1.1 2>/dev/null | head -n1").exec().out.firstOrNull().orEmpty()
+                Regex("""\bdev\s+(\S+)""").find(rLine)?.let { routeIface = it.groupValues[1] }
+                Regex("""\bvia\s+([0-9.]+)""").find(rLine)?.let { gatewayIp = it.groupValues[1] }
+                Regex("""\bsrc\s+([0-9.]+)""").find(rLine)?.let { routeSrcIp = it.groupValues[1] }
+                if (activeTransport == "none" && routeIface.isNotBlank()) {
+                    activeTransport = when {
+                        routeIface.startsWith("wlan") || routeIface.startsWith("swlan") -> "wifi"
+                        routeIface.startsWith("rmnet") || routeIface.startsWith("ccmni") || routeIface.startsWith("seth") -> {
+                            cellularConnected = true
+                            "cellular"
+                        }
+                        routeIface.startsWith("eth") -> "ethernet"
+                        else -> "other"
+                    }
+                }
+            }
+
+            if (routeIface.isNotBlank()) {
+                activeMtu = Shell.cmd("cat /sys/class/net/$routeIface/mtu 2>/dev/null").exec()
+                    .out.firstOrNull()?.trim()?.toIntOrNull() ?: 1500
+            }
+
+            var ssid = "Tidak Terhubung"
+            var ip = routeSrcIp
+            var rssi = 0
+            var linkSpeed = 0
+            var maxSpeed = 0
+            var freq = 0
+            var wifiStandard = "Wi-Fi"
+
+            if (wifiConnected) {
+                val ssidMatch = Regex("""Wifi is connected to "([^"]+)"""").find(wifiOut)
+                    ?: Regex("""SSID: "([^"]+)"""").find(wifiOut)
+                ssid = ssidMatch?.groupValues?.get(1) ?: "Wi-Fi Terhubung"
+                if (ip.isBlank()) {
+                    ip = Regex("""IP: /?([0-9.]+)""").find(wifiOut)?.groupValues?.get(1) ?: ""
+                }
+                rssi = Regex("""RSSI: (-?[0-9]+)""").find(wifiOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                linkSpeed = Regex("""Link speed: ([0-9]+)Mbps""").find(wifiOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                maxSpeed = Regex("""Max Supported Tx Link speed: ([0-9]+)Mbps""").find(wifiOut)?.groupValues?.get(1)?.toIntOrNull() ?: linkSpeed
+                freq = Regex("""Frequency: ([0-9]+)MHz""").find(wifiOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val stdNum = Regex("""Wi-Fi standard: ([0-9]+)""").find(wifiOut)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                wifiStandard = when (stdNum) {
+                    4 -> "Wi-Fi 4 (802.11n)"
+                    5 -> "Wi-Fi 5 (802.11ac)"
+                    6 -> "Wi-Fi 6 (802.11ax)"
+                    7 -> "Wi-Fi 7 (802.11be)"
+                    else -> if (freq >= 5925) "Wi-Fi 6E/7" else if (freq >= 4900) "Wi-Fi 5/6 (5 GHz)" else "Wi-Fi (2.4 GHz)"
+                }
+            }
+
+            var cellNetType = ""
+            var cellOp = ""
+            if (cellularConnected || activeTransport == "cellular") {
+                val propsOut = Shell.cmd("getprop gsm.network.type; echo '---'; getprop gsm.operator.alpha").exec().out.joinToString("\n")
+                val parts = propsOut.split("---")
+                cellNetType = parts.getOrNull(0)?.trim()?.split(',')?.firstOrNull { it.isNotBlank() && it != "Unknown" } ?: "Seluler Data"
+                cellOp = parts.getOrNull(1)?.trim()?.split(',')?.firstOrNull { it.isNotBlank() } ?: ""
             }
 
             WifiTelemetryInfo(
-                isConnected = true,
+                isConnected = wifiConnected,
                 ssid = ssid,
                 ipAddress = ip,
                 frequencyMhz = freq,
@@ -499,17 +393,52 @@ object LynxSystemControlRepository {
                 rssiDbm = rssi,
                 wifiStandard = wifiStandard,
                 gatewayPingMs = pingMs,
-                isLowLatencyActive = output.contains("low-latency") || linkSpeed > 200
+                isLowLatencyActive = wifiOut.contains("low-latency", ignoreCase = true) || linkSpeed > 200,
+                cellularConnected = cellularConnected,
+                cellularNetworkType = cellNetType,
+                cellularOperator = cellOp,
+                activeTransport = activeTransport,
+                activeIface = routeIface,
+                gatewayIp = gatewayIp,
+                gatewayJitterMs = jitterMs,
+                gatewayLossPct = lossPct,
+                probeReachable = reachable,
+                activeMtu = activeMtu
             )
         } catch (_: Exception) {
             WifiTelemetryInfo(isConnected = false)
         }
     }
 
+    suspend fun benchmarkDnsLatency(hosts: List<String>): Map<String, Float> = withContext(Dispatchers.IO) {
+        val results = mutableMapOf<String, Float>()
+        hosts.distinct().forEach { host ->
+            val safeHost = host.trim()
+            if (safeHost.isBlank()) return@forEach
+            val rttMs = try {
+                val startNs = System.nanoTime()
+                Socket().use { sock ->
+                    sock.connect(InetSocketAddress(safeHost, 853), 1500)
+                }
+                ((System.nanoTime() - startNs) / 1_000_000.0).toFloat()
+            } catch (_: Exception) {
+                -1f
+            }
+            results[safeHost] = rttMs
+        }
+        results
+    }
+
     suspend fun readPrivateDns(): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
-            val mode = Shell.cmd("settings get global private_dns_mode 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "off"
-            val spec = Shell.cmd("settings get global private_dns_specifier 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val rawMode = Shell.cmd("settings get global private_dns_mode 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val rawSpec = Shell.cmd("settings get global private_dns_specifier 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val mode = when (rawMode.lowercase()) {
+                "hostname" -> "hostname"
+                "off" -> "off"
+                else -> "opportunistic"
+            }
+            val spec = if (rawSpec.equals("null", ignoreCase = true)) "" else rawSpec
             Pair(mode, spec)
         } catch (_: Exception) {
             Pair("off", "")
@@ -518,32 +447,25 @@ object LynxSystemControlRepository {
 
     suspend fun applyPrivateDns(mode: String, specifier: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            if (mode == "hostname" && specifier.isNotBlank()) {
-                Shell.cmd("settings put global private_dns_mode hostname; settings put global private_dns_specifier $specifier").exec()
-            } else {
-                Shell.cmd("settings put global private_dns_mode off; settings put global private_dns_specifier \"\"").exec()
+            val safeMode = when (mode.lowercase()) {
+                "hostname" -> "hostname"
+                "off" -> "off"
+                else -> "opportunistic"
             }
-            true
-        } catch (_: Exception) { false }
-    }
-
-    suspend fun readAvailableTcpCongestion(): List<String> = withContext(Dispatchers.IO) {
-        try {
-            val out = Shell.cmd("cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
-            if (out.isNotBlank()) {
-                out.split(Regex("\\s+")).filter { it.isNotBlank() }
+            val safeSpec = specifier.trim().replace(Regex("[^a-zA-Z0-9.-]"), "")
+            val cmd = if (safeMode == "hostname" && safeSpec.isNotBlank()) {
+                "settings put global private_dns_mode hostname && settings put global private_dns_specifier '$safeSpec'"
             } else {
-                listOf("cubic", "bic", "reno")
+                "settings put global private_dns_mode '$safeMode' && settings delete global private_dns_specifier 2>/dev/null || true"
             }
-        } catch (_: Exception) {
-            listOf("cubic", "bic", "reno")
-        }
-    }
-
-    suspend fun applyTcpCongestionControl(algo: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            Shell.cmd("sysctl -w net.ipv4.tcp_congestion_control=$algo 2>/dev/null").exec()
-            true
+            Shell.cmd(cmd).exec()
+            val verifiedMode = Shell.cmd("settings get global private_dns_mode 2>/dev/null").exec().out.firstOrNull()?.trim()?.lowercase()
+            if (safeMode == "hostname") {
+                val verifiedSpec = Shell.cmd("settings get global private_dns_specifier 2>/dev/null").exec().out.firstOrNull()?.trim()
+                verifiedMode == "hostname" && verifiedSpec == safeSpec
+            } else {
+                verifiedMode == safeMode || (safeMode == "opportunistic" && (verifiedMode == "opportunistic" || verifiedMode == "null"))
+            }
         } catch (_: Exception) { false }
     }
 

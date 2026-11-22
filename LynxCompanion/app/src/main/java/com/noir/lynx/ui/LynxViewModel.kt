@@ -581,6 +581,10 @@ class LynxViewModel : ViewModel() {
                 privateDnsMode = strOf("network.private_dns_mode", rawState.network.privateDnsMode),
                 privateDnsSpecifier = strOf("network.private_dns_specifier", rawState.network.privateDnsSpecifier),
                 wifiGameAutoTrigger = boolOf("network.wifi_game_auto_trigger", rawState.network.wifiGameAutoTrigger),
+                activePreset = strOf("network.active_preset", rawState.network.activePreset),
+                qdisc = strOf("network.qdisc", rawState.network.qdisc),
+                ipv6Disabled = boolOf("network.ipv6_disabled", rawState.network.ipv6Disabled),
+                cellularHotStandby = boolOf("network.cellular_hot_standby", rawState.network.cellularHotStandby),
             ),
             displayTouch = rawState.displayTouch.copy(
                 touchboost = boolOf("display_touch.touchboost", rawState.displayTouch.touchboost),

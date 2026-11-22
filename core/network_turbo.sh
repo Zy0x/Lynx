@@ -6,6 +6,27 @@
 # ==============================================================================
 
 ACTION="${1:-enable}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+LYNXD_BIN=""
+for cand in "$SCRIPT_DIR/../system/bin/lynxd" "/data/adb/modules/Lynx/system/bin/lynxd" "/data/local/tmp/lynxd"; do
+    if [ -x "$cand" ]; then
+        LYNXD_BIN="$cand"
+        break
+    fi
+done
+
+if [ -n "$LYNXD_BIN" ]; then
+    case "$ACTION" in
+        enable)
+            "$LYNXD_BIN" network preset gaming
+            exit $?
+            ;;
+        disable)
+            "$LYNXD_BIN" network preset oem
+            exit $?
+            ;;
+    esac
+fi
 
 apply_sysctl() {
     local key="$1"

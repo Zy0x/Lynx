@@ -800,17 +800,25 @@ object LynxRepository {
 
     suspend fun setPrintkSilent(silent: Boolean): Boolean = LynxSystemControlRepository.setPrintkSilent(silent)
 
+    suspend fun readNetworkEngineInfo(): NetworkEngineInfo = LynxSystemControlRepository.readNetworkEngineInfo()
+    suspend fun applyNetworkFeature(key: String, enabled: Boolean): NetworkFeatureResult =
+        LynxSystemControlRepository.applyNetworkFeature(key, enabled)
+    suspend fun applyNetworkPreset(preset: String): NetworkFeatureResult =
+        LynxSystemControlRepository.applyNetworkPreset(preset)
+    suspend fun setNetworkQdisc(qdisc: String): NetworkFeatureResult =
+        LynxSystemControlRepository.setNetworkQdisc(qdisc)
+    suspend fun benchmarkDnsLatency(hosts: List<String>): Map<String, Float> =
+        LynxSystemControlRepository.benchmarkDnsLatency(hosts)
     suspend fun applyWifiPingStabilizer(enabled: Boolean): Boolean = LynxSystemControlRepository.applyWifiPingStabilizer(enabled)
     suspend fun applyAntiJitterScan(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAntiJitterScan(enabled)
     suspend fun applyFqCodel(enabled: Boolean): Boolean = LynxSystemControlRepository.applyFqCodel(enabled)
     suspend fun applyTcpBuffers16m(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTcpBuffers16m(enabled)
     suspend fun applyTcpFastOpen(enabled: Boolean): Boolean = LynxSystemControlRepository.applyTcpFastOpen(enabled)
     suspend fun applyMtkHardwareAggregation(enabled: Boolean): Boolean = LynxSystemControlRepository.applyMtkHardwareAggregation(enabled)
-    suspend fun readWifiTelemetry(): WifiTelemetryInfo = LynxSystemControlRepository.readWifiTelemetry()
+    suspend fun readWifiTelemetry(includePing: Boolean = true): WifiTelemetryInfo =
+        LynxSystemControlRepository.readWifiTelemetry(includePing)
     suspend fun readPrivateDns(): Pair<String, String> = LynxSystemControlRepository.readPrivateDns()
     suspend fun applyPrivateDns(mode: String, specifier: String): Boolean = LynxSystemControlRepository.applyPrivateDns(mode, specifier)
-    suspend fun readAvailableTcpCongestion(): List<String> = LynxSystemControlRepository.readAvailableTcpCongestion()
-    suspend fun applyTcpCongestionControl(algo: String): Boolean = LynxSystemControlRepository.applyTcpCongestionControl(algo)
 
     suspend fun readAudioTelemetry(): AudioTelemetryInfo = LynxSystemControlRepository.readAudioTelemetry()
     suspend fun applyAudioMmap(enabled: Boolean): Boolean = LynxSystemControlRepository.applyAudioMmap(enabled)

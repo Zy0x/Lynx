@@ -38,7 +38,10 @@ import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.data.MountXStorageInfo
 import com.noir.lynx.data.StorageVolumeInfo
+import com.noir.lynx.designsystem.card.LynxCapabilityBadge
 import com.noir.lynx.designsystem.card.LynxCard
+import com.noir.lynx.designsystem.card.LynxSectionDivider
+import com.noir.lynx.designsystem.card.LynxSectionHeader
 import com.noir.lynx.designsystem.controls.LynxActionButton
 import com.noir.lynx.designsystem.theme.*
 import java.util.Locale
@@ -805,13 +808,8 @@ internal fun MountXOverrideConfirmDialog(
 }
 
 @Composable
-internal fun StorageSectionDivider(modifier: Modifier = Modifier) {
-    HorizontalDivider(
-        color = Color(0x26FFFFFF),
-        thickness = 0.8.dp,
-        modifier = modifier.padding(vertical = 4.dp)
-    )
-}
+internal fun StorageSectionDivider(modifier: Modifier = Modifier) =
+    LynxSectionDivider(modifier = modifier)
 
 @Composable
 internal fun StorageSectionHeader(
@@ -820,65 +818,17 @@ internal fun StorageSectionHeader(
     badgeText: String? = null,
     accentColor: Color = AccentCyan,
     modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(2.dp),
-            color = accentColor,
-            modifier = Modifier
-                .width(3.dp)
-                .height(if (subtitle.isNullOrBlank()) 15.dp else 28.dp)
-        ) {}
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(1.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    fontSize = 10.5.sp,
-                    color = TextSecondary,
-                    lineHeight = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (!badgeText.isNullOrBlank()) {
-            StorageMetaBadge(badgeText, accentColor)
-        }
-    }
-}
+) = LynxSectionHeader(
+    title = title,
+    subtitle = subtitle,
+    badgeText = badgeText,
+    accentColor = accentColor,
+    modifier = modifier
+)
 
 @Composable
-internal fun StorageMetaBadge(text: String, color: Color) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = color.copy(alpha = 0.14f),
-        border = BorderStroke(0.6.dp, color.copy(alpha = 0.35f))
-    ) {
-        Text(
-            text = text,
-            fontSize = 9.5.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
+internal fun StorageMetaBadge(text: String, color: Color) =
+    LynxCapabilityBadge(text = text, color = color)
 
 internal fun formatStorageGb(bytes: Long, includeUnit: Boolean = true): String {
     if (bytes <= 0L) return if (includeUnit) "0.0 GB" else "0.0"

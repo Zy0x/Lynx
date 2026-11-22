@@ -388,12 +388,27 @@ fun LynxViewModel.setPrivateDns(mode: String, specifier: String) {
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.applyPrivateDns(mode, specifier)
         if (ok) {
-            val label = if (mode == "hostname") specifier else "Off (ISP)"
-            _uiState.update { it.copy(successMessage = "Private DNS: $label diterapkan") }
-            LynxRepository.writeStateKey("network.private_dns_mode", mode, "str")
-            LynxRepository.writeStateKey("network.private_dns_specifier", specifier, "str")
+            val verified = LynxRepository.readPrivateDns()
+            val label = when (verified.first) {
+                "hostname" -> verified.second.ifBlank { specifier }
+                "off" -> "Off (ISP / DHCP)"
+                else -> "Otomatis (Opportunistic DoT)"
+            }
+            _uiState.update {
+                it.copy(
+                    privateDnsMode = verified.first,
+                    privateDnsSpecifier = verified.second,
+                    state = it.state.copy(network = it.state.network.copy(
+                        privateDnsMode = verified.first,
+                        privateDnsSpecifier = verified.second
+                    )),
+                    successMessage = "Private DNS: $label diterapkan"
+                )
+            }
+            LynxRepository.writeStateKey("network.private_dns_mode", verified.first, "str")
+            LynxRepository.writeStateKey("network.private_dns_specifier", verified.second, "str")
         } else {
-            _uiState.update { it.copy(errorMessage = "Gagal menerapkan Private DNS") }
+            _uiState.update { it.copy(errorMessage = "Gagal memverifikasi perubahan Private DNS pada sistem") }
         }
     }
 }
@@ -453,14 +468,19 @@ fun LynxViewModel.setTcpCongestion(algorithm: String) {
     viewModelScope.launch(Dispatchers.IO) {
         val ok = LynxRepository.setTcpCongestion(algorithm)
         if (ok) {
-            val current = LynxRepository.readCurrentTcpCongestion()
-            val effective = if (current.isNotBlank()) current else algorithm
+            val freshEngine = LynxRepository.readNetworkEngineInfo()
+            val effective = freshEngine.currentAlgo.ifBlank { LynxRepository.readCurrentTcpCongestion() }.ifBlank { algorithm }
             _uiState.update { it.copy(
+                networkEngineInfo = if (freshEngine.isLoaded) freshEngine else it.networkEngineInfo,
                 currentTcpCongestion = effective,
-                state = it.state.copy(network = it.state.network.copy(tcpCongestion = effective)),
-                successMessage = "TCP: $algorithm berhasil diterapkan"
+                state = it.state.copy(network = it.state.network.copy(
+                    tcpCongestion = effective,
+                    qdisc = freshEngine.currentQdisc.ifBlank { it.state.network.qdisc }
+                )),
+                successMessage = "TCP '$effective' diterapkan" +
+                    if (freshEngine.currentQdisc.isNotBlank()) " (qdisc ${freshEngine.currentQdisc})" else ""
             ) }
-            LynxRepository.writeStateKey("network.tcp_congestion", algorithm, "str")
+            LynxRepository.writeStateKey("network.tcp_congestion", effective, "str")
         } else {
             _uiState.update { it.copy(errorMessage = "Gagal menerapkan TCP $algorithm (Kernel menolak)") }
         }

@@ -280,11 +280,26 @@ fun TuningTabContent(
                                 }
 
                                 item(key = "hub_card_network") {
+                                    val netTele = uiState.wifiTelemetry
+                                    val netDetail1 = when (state.network.activePreset) {
+                                        "gaming" -> "Gaming LL"
+                                        "throughput" -> "Throughput"
+                                        "oem" -> "Standar OEM"
+                                        else -> if (state.network.wifiPingStabilizer) "Low-Latency" else "Standard"
+                                    }
+                                    val netDetail2 = when {
+                                        netTele.isConnected -> "${netTele.linkSpeedMbps} Mbps"
+                                        netTele.cellularConnected -> netTele.cellularNetworkType.ifBlank { "Seluler" }
+                                        netTele.activeIface.isNotBlank() -> netTele.activeIface
+                                        else -> "Offline"
+                                    }
                                     SubsystemCategoryCard(
                                         category = TuningCategory.NETWORK,
-                                        badgeText = uiState.currentTcpCongestion.ifBlank { "CUBIC" }.uppercase(),
-                                        detailText1 = if (state.network.wifiPingStabilizer) "CAM Mode" else "Standard",
-                                        detailText2 = if (uiState.wifiTelemetry.isConnected) "${uiState.wifiTelemetry.linkSpeedMbps} Mbps" else "Offline",
+                                        badgeText = uiState.currentTcpCongestion.ifBlank {
+                                            uiState.networkEngineInfo.currentAlgo.ifBlank { "NET" }
+                                        }.uppercase(),
+                                        detailText1 = netDetail1,
+                                        detailText2 = netDetail2,
                                         onClick = {
                                             viewModel.selectNetworkTab(0)
                                             onSelectedCategoryChange("network")

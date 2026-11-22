@@ -1621,9 +1621,30 @@ fn main() {
         "network" | "net" => {
             let sub = args.get(2).map(|s| s.as_str()).unwrap_or("apply");
             match sub {
-                "info" => println!("{}", NetworkController::info_json()),
+                "info" | "discover" => println!("{}", NetworkController::info_json()),
+                "probe" => println!("{}", NetworkController::probe_ping_json()),
                 "game" => println!("{}", NetworkController::apply_game()),
                 "balance" => println!("{}", NetworkController::apply_balance()),
+                "preset" => {
+                    let preset = args.get(3).map(|s| s.as_str()).unwrap_or("oem");
+                    println!("{}", NetworkController::apply_preset(preset));
+                }
+                "feature" => {
+                    let key = args.get(3).map(|s| s.as_str()).unwrap_or("");
+                    let raw_val = args.get(4).map(|s| s.as_str()).unwrap_or("true");
+                    let enabled = matches!(raw_val, "1" | "true" | "on" | "enable" | "enabled");
+                    println!("{}", NetworkController::set_feature(key, enabled));
+                }
+                "set-qdisc" | "set_qdisc" => {
+                    let qdisc = args.get(3).map(|s| s.as_str()).unwrap_or("fq_codel");
+                    match NetworkController::set_qdisc(qdisc) {
+                        Ok(msg) => println!("{}", msg),
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            std::process::exit(1);
+                        }
+                    }
+                }
                 "set-algo" | "set_algo" => {
                     let algo = args.get(3).map(|s| s.as_str()).unwrap_or("cubic");
                     match NetworkController::set_tcp_algo(algo) {

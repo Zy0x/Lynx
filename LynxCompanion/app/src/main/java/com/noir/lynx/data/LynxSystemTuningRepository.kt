@@ -711,8 +711,9 @@ internal object LynxSystemTuningRepository {
                     return@withContext algos
                 }
             }
-            if (LynxRepository.isModuleInstalled()) {
-                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
+            val bin = LynxSystemControlRepository.resolveNetworkBinary()
+            if (bin != null) {
+                val lynxRes = Shell.cmd("'$bin' network info 2>/dev/null").exec()
                 if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
                     val raw = lynxRes.out.joinToString("").trim()
                     if (raw.startsWith("{")) {
@@ -747,8 +748,9 @@ internal object LynxSystemTuningRepository {
                     return@withContext cur
                 }
             }
-            if (LynxRepository.isModuleInstalled()) {
-                val lynxRes = Shell.cmd("if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network info 2>/dev/null; fi").exec()
+            val bin = LynxSystemControlRepository.resolveNetworkBinary()
+            if (bin != null) {
+                val lynxRes = Shell.cmd("'$bin' network info 2>/dev/null").exec()
                 if (lynxRes.isSuccess && lynxRes.out.isNotEmpty()) {
                     val raw = lynxRes.out.joinToString("").trim()
                     if (raw.startsWith("{")) {
@@ -772,8 +774,9 @@ internal object LynxSystemTuningRepository {
         try {
             val safe = algorithm.replace(Regex("[^a-zA-Z0-9_]"), "")
             var ok = false
-            if (LynxRepository.isModuleInstalled()) {
-                val cmd = "if [ -x '$LYNXD_PATH' ]; then '$LYNXD_PATH' network set-algo '$safe' && echo ok; fi"
+            val bin = LynxSystemControlRepository.resolveNetworkBinary()
+            if (bin != null) {
+                val cmd = "'$bin' network set-algo '$safe' && echo ok"
                 val res = Shell.cmd(cmd).exec()
                 if (res.out.any { it.contains("ok") || it.contains("set to") }) ok = true
             }

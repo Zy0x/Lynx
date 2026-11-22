@@ -210,6 +210,7 @@ pub struct NetworkCapability {
     pub available_tcp_algos: Vec<String>,
     pub current_tcp_algo: String,
     pub best_tcp_algo: String,
+    pub current_qdisc: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1196,24 +1197,37 @@ impl HardwareCapability {
         let mut available_tcp_algos = Vec::new();
         if let Ok(raw) = SysfsReader::read_trimmed("/proc/sys/net/ipv4/tcp_available_congestion_control") {
             for token in raw.split_whitespace() {
-                available_tcp_algos.push(token.to_string());
+                if !available_tcp_algos.iter().any(|existing| existing == token) {
+                    available_tcp_algos.push(token.to_string());
+                }
             }
         }
         let current_tcp_algo = SysfsReader::read_trimmed("/proc/sys/net/ipv4/tcp_congestion_control")
-            .unwrap_or_else(|_| "cubic".to_string());
+            .unwrap_or_default();
+        let current_qdisc = SysfsReader::read_trimmed("/proc/sys/net/core/default_qdisc")
+            .unwrap_or_default();
 
-        let mut best_tcp_algo = "cubic".to_string();
-        for pref in &["bbrv3", "bbr2", "bbr", "westwood", "cubic"] {
-            if available_tcp_algos.iter().any(|a| a == pref) {
-                best_tcp_algo = (*pref).to_string();
-                break;
+        let mut best_tcp_algo = String::new();
+        for pref in &["bbr3", "bbrv3", "bbrplus", "bbr2", "bbrv2", "bbr", "westwood", "cubic"] {
+            if available_tcp_algos.iter().any(|a| a.eq_ignore_ascii_case(pref)) {
+                if let Some(matched) = available_tcp_algos.iter().find(|a| a.eq_ignore_ascii_case(pref)) {
+                    best_tcp_algo = matched.clone();
+                    break;
+                }
             }
+        }
+        if best_tcp_algo.is_empty() {
+            best_tcp_algo = available_tcp_algos
+                .first()
+                .cloned()
+                .unwrap_or_else(|| current_tcp_algo.clone());
         }
 
         NetworkCapability {
             available_tcp_algos,
             current_tcp_algo,
             best_tcp_algo,
+            current_qdisc,
         }
     }
 }

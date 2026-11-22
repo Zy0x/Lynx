@@ -174,93 +174,201 @@ fun LynxViewModel.setThermalAntiDimming(enabled: Boolean) {
     }
 }
 
-fun LynxViewModel.setWifiPingStabilizer(enabled: Boolean) {
+private fun LynxViewModel.syncStateFromEngine(info: NetworkEngineInfo) {
+    if (!info.isLoaded) return
+    _uiState.update { current ->
+        val updatedNet = current.state.network.copy(
+            tcpCongestion = info.currentAlgo.ifBlank { current.state.network.tcpCongestion },
+            qdisc = info.currentQdisc.ifBlank { current.state.network.qdisc },
+            activePreset = info.activePreset.ifBlank { current.state.network.activePreset },
+            wifiPingStabilizer = info.lowLatencyActive,
+            antiJitterScan = info.scanGuardActive,
+            fqCodelEnabled = info.qdiscGuardActive,
+            tcpBuffers16m = info.tcpBuffersScaled,
+            tcpFastOpen = info.tcpFastopenActive,
+            mtkHardwareAggregation = if (info.supportsHwRadio) info.hwRadioActive else false,
+            ipv6Disabled = info.ipv6Disabled,
+            cellularHotStandby = info.mobileStandbyActive
+        )
+        current.copy(
+            networkEngineInfo = info,
+            availableTcpAlgorithms = info.availableAlgos.ifEmpty { current.availableTcpAlgorithms },
+            currentTcpCongestion = info.currentAlgo.ifBlank { current.currentTcpCongestion },
+            state = current.state.copy(network = updatedNet)
+        )
+    }
+}
+
+private fun LynxViewModel.launchNetworkFeatureUpdate(
+    featureKey: String,
+    stateKey: String,
+    enabled: Boolean,
+    optimisticUpdate: (NetworkConfig) -> NetworkConfig
+) {
     recordStateMutation()
     _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(wifiPingStabilizer = enabled)))
+        current.copy(state = current.state.copy(network = optimisticUpdate(current.state.network)))
     }
-    setKey("network.wifi_ping_stabilizer", enabled.toString(), "bool")
+    setKey(stateKey, enabled.toString(), "bool")
     viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyWifiPingStabilizer(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "Wi-Fi Ping Stabilizer diaktifkan" else "Wi-Fi Ping Stabilizer dinonaktifkan") }
+        val result = LynxRepository.applyNetworkFeature(featureKey, enabled)
+        val freshInfo = LynxRepository.readNetworkEngineInfo()
+        syncStateFromEngine(freshInfo)
+        _uiState.update {
+            if (result.ok) {
+                it.copy(successMessage = "${result.message} [${result.status}]")
+            } else {
+                it.copy(errorMessage = result.message.ifBlank { "Fitur tidak didukung pada kernel/ROM ini." })
+            }
         }
+    }
+}
+
+fun LynxViewModel.setWifiPingStabilizer(enabled: Boolean) {
+    launchNetworkFeatureUpdate("low_latency", "network.wifi_ping_stabilizer", enabled) {
+        it.copy(wifiPingStabilizer = enabled)
     }
 }
 
 fun LynxViewModel.setAntiJitterScan(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(antiJitterScan = enabled)))
-    }
-    setKey("network.anti_jitter_scan", enabled.toString(), "bool")
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyAntiJitterScan(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "Anti-Lag Wi-Fi Scan Guard aktif" else "Anti-Lag Scan Guard dinonaktifkan") }
-        }
+    launchNetworkFeatureUpdate("scan_guard", "network.anti_jitter_scan", enabled) {
+        it.copy(antiJitterScan = enabled)
     }
 }
 
 fun LynxViewModel.setFqCodelEnabled(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(fqCodelEnabled = enabled)))
-    }
-    setKey("network.fq_codel_enabled", enabled.toString(), "bool")
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyFqCodel(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "FQ-CoDel Bufferbloat Killer aktif" else "FQ-CoDel dinonaktifkan (Default FIFO)") }
-        }
+    launchNetworkFeatureUpdate("qdisc_rps", "network.fq_codel_enabled", enabled) {
+        it.copy(fqCodelEnabled = enabled)
     }
 }
 
 fun LynxViewModel.setTcpBuffers16m(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(tcpBuffers16m = enabled)))
-    }
-    setKey("network.tcp_buffers_16m", enabled.toString(), "bool")
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyTcpBuffers16m(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "TCP High-Bandwidth 16MB Buffers aktif" else "TCP Buffers dikembalikan ke bawaan") }
-        }
+    launchNetworkFeatureUpdate("tcp_buffers", "network.tcp_buffers_16m", enabled) {
+        it.copy(tcpBuffers16m = enabled)
     }
 }
 
 fun LynxViewModel.setTcpFastOpen(enabled: Boolean) {
-    recordStateMutation()
-    _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(tcpFastOpen = enabled)))
-    }
-    setKey("network.tcp_fast_open", enabled.toString(), "bool")
-    viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyTcpFastOpen(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "TCP Fast Open & Anti-Corking aktif" else "TCP Fast Open dinonaktifkan") }
-        }
+    launchNetworkFeatureUpdate("tcp_fastopen", "network.tcp_fast_open", enabled) {
+        it.copy(tcpFastOpen = enabled)
     }
 }
 
 fun LynxViewModel.setMtkHardwareAggregation(enabled: Boolean) {
+    launchNetworkFeatureUpdate("hw_radio", "network.mtk_hardware_aggregation", enabled) {
+        it.copy(mtkHardwareAggregation = enabled)
+    }
+}
+
+fun LynxViewModel.setIpv6Disabled(enabled: Boolean) {
+    launchNetworkFeatureUpdate("ipv6_disable", "network.ipv6_disabled", enabled) {
+        it.copy(ipv6Disabled = enabled)
+    }
+}
+
+fun LynxViewModel.setCellularHotStandby(enabled: Boolean) {
+    launchNetworkFeatureUpdate("mobile_standby", "network.cellular_hot_standby", enabled) {
+        it.copy(cellularHotStandby = enabled)
+    }
+}
+
+fun LynxViewModel.applyNetworkPreset(preset: String) {
     recordStateMutation()
     _uiState.update { current ->
-        current.copy(state = current.state.copy(network = current.state.network.copy(mtkHardwareAggregation = enabled)))
+        current.copy(state = current.state.copy(network = current.state.network.copy(activePreset = preset)))
     }
-    setKey("network.mtk_hw_aggregation", enabled.toString(), "bool")
+    setKey("network.active_preset", preset, "str")
     viewModelScope.launch(Dispatchers.IO) {
-        val ok = LynxRepository.applyMtkHardwareAggregation(enabled)
-        if (ok) {
-            _uiState.update { it.copy(successMessage = if (enabled) "MediaTek Hardware Aggregation aktif" else "MediaTek Aggregation dinonaktifkan") }
+        val result = LynxRepository.applyNetworkPreset(preset)
+        val freshInfo = LynxRepository.readNetworkEngineInfo()
+        val freshTele = LynxRepository.readWifiTelemetry(includePing = false)
+        syncStateFromEngine(freshInfo)
+        _uiState.update {
+            it.copy(
+                wifiTelemetry = freshTele,
+                successMessage = if (result.ok) "${result.message} [${result.status}]" else null,
+                errorMessage = if (!result.ok) result.message else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setNetworkQdisc(qdisc: String) {
+    recordStateMutation()
+    setKey("network.qdisc", qdisc, "str")
+    viewModelScope.launch(Dispatchers.IO) {
+        val result = LynxRepository.setNetworkQdisc(qdisc)
+        val freshInfo = LynxRepository.readNetworkEngineInfo()
+        syncStateFromEngine(freshInfo)
+        _uiState.update {
+            if (result.ok) {
+                it.copy(successMessage = "Qdisc '$qdisc' diterapkan [${result.status}]")
+            } else {
+                it.copy(errorMessage = result.message.ifBlank { "Kernel menolak qdisc '$qdisc'" })
+            }
+        }
+    }
+}
+
+fun LynxViewModel.refreshNetworkEngineAll(runPing: Boolean = false) {
+    viewModelScope.launch(Dispatchers.IO) {
+        val engine = LynxRepository.readNetworkEngineInfo()
+        val tele = LynxRepository.readWifiTelemetry(includePing = runPing)
+        val dns = LynxRepository.readPrivateDns()
+        syncStateFromEngine(engine)
+        _uiState.update {
+            it.copy(
+                wifiTelemetry = tele,
+                privateDnsMode = dns.first,
+                privateDnsSpecifier = dns.second,
+                state = it.state.copy(
+                    network = it.state.network.copy(
+                        privateDnsMode = dns.first,
+                        privateDnsSpecifier = dns.second
+                    )
+                )
+            )
+        }
+    }
+}
+
+fun LynxViewModel.probeNetworkLatency() {
+    if (_uiState.value.isProbingNetwork) return
+    _uiState.update { it.copy(isProbingNetwork = true) }
+    viewModelScope.launch(Dispatchers.IO) {
+        val tele = LynxRepository.readWifiTelemetry(includePing = true)
+        _uiState.update {
+            it.copy(
+                wifiTelemetry = tele,
+                isProbingNetwork = false,
+                successMessage = if (tele.probeReachable) {
+                    "Ping ${tele.gatewayIp.ifBlank { "1.1.1.1" }}: ${"%.1f".format(java.util.Locale.US, tele.gatewayPingMs)} ms (jitter ${"%.1f".format(java.util.Locale.US, tele.gatewayJitterMs)} ms)"
+                } else {
+                    "Host target tidak merespons ICMP saat uji latensi"
+                }
+            )
+        }
+    }
+}
+
+fun LynxViewModel.benchmarkDnsLatency(hosts: List<String>) {
+    if (_uiState.value.isTestingDns) return
+    _uiState.update { it.copy(isTestingDns = true) }
+    viewModelScope.launch(Dispatchers.IO) {
+        val map = LynxRepository.benchmarkDnsLatency(hosts)
+        _uiState.update {
+            it.copy(
+                dnsLatencyMs = map,
+                isTestingDns = false,
+                successMessage = "Benchmark TLS/853 DNS selesai (${map.count { entry -> entry.value > 0f }}/${hosts.size} merespons)"
+            )
         }
     }
 }
 
 fun LynxViewModel.refreshWifiTelemetry() {
     viewModelScope.launch(Dispatchers.IO) {
-        val tele = LynxRepository.readWifiTelemetry()
+        val tele = LynxRepository.readWifiTelemetry(includePing = true)
         _uiState.update { it.copy(wifiTelemetry = tele) }
     }
 }

@@ -74,34 +74,21 @@ class HudNetworkStabilizer(
                     }
                 }
 
-                // 2. Hardware radio & settings tuning
-                val cellularCmd = if (mutableCellularStandby.value) {
-                    "settings put global mobile_data_always_on 1 2>/dev/null"
-                } else ""
-
-                val tcpCmd = if (mutableTcpTuning.value) {
-                    """
-                    [ -e /proc/sys/net/ipv4/tcp_low_latency ] && echo 1 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
-                    [ -e /proc/sys/net/ipv4/tcp_notsent_lowat ] && echo 16384 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
-                    [ -e /proc/sys/net/ipv4/tcp_fastopen ] && echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
-                    [ -e /proc/sys/net/core/netdev_max_backlog ] && echo 10000 > /proc/sys/net/core/netdev_max_backlog 2>/dev/null
-                    """.trimIndent()
-                } else ""
-
-                val script = """
-                    # Disable Wi-Fi power saving on all detected wireless adapters
-                    for iface in ${'$'}(ls /sys/class/net 2>/dev/null | grep -E '^wlan|^wlp|^mlan'); do
-                        iw dev "${'$'}iface" set power_save off 2>/dev/null
-                    done
-
-                    # Throttle background scans during gameplay
-                    settings put global wifi_scan_always_enabled 0 2>/dev/null
-
-                    $cellularCmd
-                    $tcpCmd
-                """.trimIndent()
-
-                Shell.cmd(script).submit()
+                // 2. Hardware radio & settings tuning unified via lynxd Single Source of Truth
+                val standbyVal = if (mutableCellularStandby.value) "on" else "off"
+                val bin = com.noir.lynx.data.LynxSystemControlRepository.resolveNetworkBinary()
+                if (bin != null) {
+                    val presetCmd = if (mutableTcpTuning.value) {
+                        "'$bin' network preset gaming >/dev/null 2>&1"
+                    } else {
+                        "'$bin' network feature low_latency on >/dev/null 2>&1; '$bin' network feature scan_guard on >/dev/null 2>&1"
+                    }
+                    val fullCmd = "$presetCmd; '$bin' network feature mobile_standby $standbyVal >/dev/null 2>&1"
+                    Shell.cmd(fullCmd).submit()
+                } else {
+                    val standbyCmd = "settings put global mobile_data_always_on ${if (mutableCellularStandby.value) 1 else 0} 2>/dev/null"
+                    Shell.cmd("cmd wifi force-low-latency-mode enabled 2>/dev/null; settings put global wifi_scan_always_enabled 0 2>/dev/null; $standbyCmd").submit()
+                }
             } else {
                 runCatching {
                     if (wifiLock?.isHeld == true) {
@@ -110,16 +97,12 @@ class HudNetworkStabilizer(
                     wifiLock = null
                 }
 
-                val restoreScript = """
-                    for iface in ${'$'}(ls /sys/class/net 2>/dev/null | grep -E '^wlan|^wlp|^mlan'); do
-                        iw dev "${'$'}iface" set power_save on 2>/dev/null
-                    done
-                    settings put global wifi_scan_always_enabled 1 2>/dev/null
-                    [ -e /proc/sys/net/ipv4/tcp_low_latency ] && echo 0 > /proc/sys/net/ipv4/tcp_low_latency 2>/dev/null
-                    [ -e /proc/sys/net/ipv4/tcp_notsent_lowat ] && echo 4294967295 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
-                """.trimIndent()
-
-                Shell.cmd(restoreScript).submit()
+                val bin = com.noir.lynx.data.LynxSystemControlRepository.resolveNetworkBinary()
+                if (bin != null) {
+                    Shell.cmd("'$bin' network preset oem >/dev/null 2>&1").submit()
+                } else {
+                    Shell.cmd("cmd wifi force-low-latency-mode disabled 2>/dev/null; settings put global wifi_scan_always_enabled 1 2>/dev/null").submit()
+                }
             }
         }
     }

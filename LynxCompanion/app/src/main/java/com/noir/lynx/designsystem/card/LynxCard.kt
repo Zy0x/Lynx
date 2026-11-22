@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -129,6 +130,87 @@ fun LynxCard(
                 }
             }
             content()
+        }
+    }
+}
+
+@Composable
+fun LynxSectionDivider(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        color = Color(0x26FFFFFF),
+        thickness = 0.8.dp,
+        modifier = modifier.padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+fun LynxCapabilityBadge(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = color.copy(alpha = 0.14f),
+        border = BorderStroke(0.6.dp, color.copy(alpha = 0.35f)),
+        modifier = modifier
+    ) {
+        Text(
+            text = text,
+            fontSize = 9.5.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun LynxSectionHeader(
+    title: String,
+    subtitle: String? = null,
+    badgeText: String? = null,
+    accentColor: Color = AccentCyan,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(2.dp),
+            color = accentColor,
+            modifier = Modifier
+                .width(3.dp)
+                .height(if (subtitle.isNullOrBlank()) 15.dp else 28.dp)
+        ) {}
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 10.5.sp,
+                    color = TextSecondary,
+                    lineHeight = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (!badgeText.isNullOrBlank()) {
+            LynxCapabilityBadge(text = badgeText, color = accentColor)
         }
     }
 }

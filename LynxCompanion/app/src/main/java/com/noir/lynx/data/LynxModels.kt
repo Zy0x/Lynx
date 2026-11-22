@@ -87,6 +87,7 @@ data class DisplayTouchConfig(
     val skiaVulkanEnabled: Boolean = false,
 )
 
+@Immutable
 data class NetworkConfig(
     val wifiPingStabilizer: Boolean = true,
     val tcpCongestion: String = "cubic",
@@ -99,8 +100,13 @@ data class NetworkConfig(
     val privateDnsMode: String = "off",
     val privateDnsSpecifier: String = "",
     val wifiGameAutoTrigger: Boolean = true,
+    val activePreset: String = "balanced",
+    val qdisc: String = "fq_codel",
+    val ipv6Disabled: Boolean = false,
+    val cellularHotStandby: Boolean = false,
 )
 
+@Immutable
 data class WifiTelemetryInfo(
     val isConnected: Boolean = false,
     val ssid: String = "Tidak Terhubung",
@@ -115,6 +121,80 @@ data class WifiTelemetryInfo(
     val isLowLatencyActive: Boolean = false,
     val rxLinkSpeedMbps: Int = 0,
     val txLinkSpeedMbps: Int = 0,
+    val cellularConnected: Boolean = false,
+    val cellularNetworkType: String = "",
+    val cellularOperator: String = "",
+    val activeTransport: String = "none",
+    val activeIface: String = "",
+    val gatewayIp: String = "",
+    val gatewayJitterMs: Float = 0f,
+    val gatewayLossPct: Float = 0f,
+    val probeReachable: Boolean = false,
+    val activeMtu: Int = 1500,
+)
+
+@Immutable
+data class NetworkIfaceInfo(
+    val name: String = "",
+    val kind: String = "",
+    val state: String = "",
+    val mtu: Int = 1500,
+    val rxQueues: Int = 0,
+    val txQueues: Int = 0,
+    val rpsWritable: Boolean = false,
+    val qdisc: String = "",
+)
+
+@Immutable
+data class NetworkFeatureResult(
+    val ok: Boolean = false,
+    val status: String = "UNSUPPORTED",
+    val attempted: Int = 0,
+    val verified: Int = 0,
+    val unsupported: Int = 0,
+    val message: String = "",
+)
+
+@Immutable
+data class NetworkEngineInfo(
+    val isLoaded: Boolean = false,
+    val currentAlgo: String = "",
+    val bestAlgo: String = "",
+    val availableAlgos: List<String> = emptyList(),
+    val currentQdisc: String = "",
+    val activeQdisc: String = "",
+    val availableQdiscs: List<String> = emptyList(),
+    val activeIface: String = "",
+    val activeTransport: String = "none",
+    val activeMtu: Int = 1500,
+    val gatewayIp: String = "",
+    val srcIp: String = "",
+    val radioVendor: String = "unsupported",
+    val radioLabel: String = "Memeriksa driver radio...",
+    val supportsHwRadio: Boolean = false,
+    val hasIw: Boolean = false,
+    val hasIwpriv: Boolean = false,
+    val hasWl: Boolean = false,
+    val hasTc: Boolean = false,
+    val hasWpaCli: Boolean = false,
+    val androidSdk: Int = 0,
+    val supportsHalLowLatency: Boolean = false,
+    val supportsTcpLowLatency: Boolean = false,
+    val supportsRpsXps: Boolean = false,
+    val fastopenNodesPresent: Int = 0,
+    val ramTierLabel: String = "",
+    val effectiveRmemMaxMb: Float = 0f,
+    val hasBaseline: Boolean = false,
+    val activePreset: String = "custom",
+    val lowLatencyActive: Boolean = false,
+    val scanGuardActive: Boolean = false,
+    val qdiscGuardActive: Boolean = false,
+    val tcpBuffersScaled: Boolean = false,
+    val tcpFastopenActive: Boolean = false,
+    val hwRadioActive: Boolean = false,
+    val ipv6Disabled: Boolean = false,
+    val mobileStandbyActive: Boolean = false,
+    val interfaces: List<NetworkIfaceInfo> = emptyList(),
 )
 
 data class AudioConfig(
