@@ -447,7 +447,28 @@ fun LynxViewModel.refreshAudioSubsystem() {
                         deepBufferBypass = audioTelem.isDeepBufferBypassed,
                         directDacOffload = audioTelem.isDirectDacOffload,
                         btCrackleGuard = btGuard,
-                        activePreset = preset
+                        hiresResampler24Bit = audioTelem.isHiresResamplerActive,
+                        codecIdlePopGuard = audioTelem.isCodecIdlePopGuardActive,
+                        spatializerBoost = audioTelem.isSpatializerBoostActive,
+                        activePreset = preset,
+                        disableA2dpHwOffload = audioTelem.a2dpOffloadDisabledLive,
+                        systemBtAudioHalEnabled = audioTelem.systemBtAudioHalLive,
+                        disableAbsoluteVolume = audioTelem.absoluteVolumeDisabledLive,
+                        ldacQualityMode = audioTelem.ldacQualityModeLive,
+                        sbcDualChannelHd = audioTelem.sbcDualChannelHdLive,
+                        aptxAdaptiveLowLatency = audioTelem.aptxAdaptiveLive,
+                        leAudioLc3Enabled = audioTelem.leAudioLc3Live,
+                        btHfpHdVoiceNrecBypass = audioTelem.btHfpHdVoiceNrecBypassLive,
+                        avrcpVersion = audioTelem.avrcpVersionLive,
+                        disableUsbAudioRouting = audioTelem.usbRoutingDisabledLive,
+                        phhDisableAudioEffects = audioTelem.phhDisableAudioEffectsLive,
+                        phhCafAudioPolicy = audioTelem.phhCafAudioPolicyLive,
+                        phhDisableVolumeListener = audioTelem.phhDisableVolumeListenerLive,
+                        phhDisableVoiceCallIn = audioTelem.phhDisableVoiceCallInLive,
+                        phhAllowIncomingCallBinder = audioTelem.phhAllowIncomingCallBinderLive,
+                        qcomFluenceBypass = audioTelem.qcomFluenceBypassLive,
+                        vendorBesLoudnessEnabled = audioTelem.vendorBesLoudnessLive,
+                        fineVolumeSteps30 = audioTelem.fineVolumeSteps30Live
                     ))
                 )
             }
@@ -597,6 +618,530 @@ fun LynxViewModel.applyAudioPreset(preset: String) {
             it.copy(
                 audioTelemetry = fresh,
                 successMessage = if (ok1 && ok2 && ok3 && ok4) "Profil Audio '$label' diterapkan" else "Profil Audio '$label' diterapkan sebagian"
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioA2dpHwOffloadDisabled(disabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(disableA2dpHwOffload = disabled)))
+    }
+    setKey("audio.disable_a2dp_hw_offload", disabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioA2dpHwOffloadDisabled(disabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (disabled) "Bluetooth A2DP Hardware Offload dinonaktifkan (Host Stack Aktif)"
+                    else "Bluetooth A2DP Hardware Offload dikembalikan ke DSP Vendor"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah status A2DP Hardware Offload" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioSystemBtAudioHal(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(
+            state = current.state.copy(
+                audio = current.state.audio.copy(
+                    systemBtAudioHalEnabled = enabled,
+                    disableA2dpHwOffload = if (enabled) true else current.state.audio.disableA2dpHwOffload
+                )
+            )
+        )
+    }
+    setKey("audio.system_bt_audio_hal", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioSystemBtAudioHal(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "System Bluetooth Audio HAL (GSI A2DP Fix) diaktifkan & AudioServer dimuat ulang"
+                    else "System Bluetooth Audio HAL dikembalikan ke Vendor HAL"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan System Bluetooth Audio HAL" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioDisableAbsoluteVolume(disabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(disableAbsoluteVolume = disabled)))
+    }
+    setKey("audio.disable_absolute_volume", disabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioDisableAbsoluteVolume(disabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (disabled) "Bluetooth Absolute Volume dinonaktifkan (Volume HP & TWS terpisah)"
+                    else "Bluetooth Absolute Volume diaktifkan kembali"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan Bluetooth Absolute Volume" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioLdacQualityMode(mode: String) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(ldacQualityMode = mode)))
+    }
+    setKey("audio.ldac_quality_mode", mode, "str")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioLdacQualityMode(mode)
+        val fresh = LynxRepository.readAudioTelemetry()
+        val label = when (mode) {
+            "hires_990" -> "Hi-Res 990 kbps (Audio Quality)"
+            "balanced" -> "Balanced 660 kbps"
+            else -> "Adaptive Bitrate (Best Effort)"
+        }
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) "LDAC Playback Quality diatur ke $label" else null,
+                errorMessage = if (!ok) "Gagal mengatur LDAC Playback Quality" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioSbcDualChannelHd(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(sbcDualChannelHd = enabled)))
+    }
+    setKey("audio.sbc_dual_channel_hd", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioSbcDualChannelHd(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "SBC Dual-Channel HD (SBC XQ High Bitrate) diaktifkan"
+                    else "SBC Dual-Channel HD dinonaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah mode SBC Dual-Channel HD" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioAvrcpVersion(version: String) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(avrcpVersion = version)))
+    }
+    setKey("audio.avrcp_version", version, "str")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioAvrcpVersion(version)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) "Versi protokol Bluetooth AVRCP diatur ke ${version.uppercase()}" else null,
+                errorMessage = if (!ok) "Gagal mengubah versi Bluetooth AVRCP" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioDisableUsbRouting(disabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(disableUsbAudioRouting = disabled)))
+    }
+    setKey("audio.disable_usb_routing", disabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioDisableUsbRouting(disabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (disabled) "USB Audio Automatic Routing dinonaktifkan"
+                    else "USB Audio Automatic Routing diaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan USB Audio Routing" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioPhhDisableEffects(disabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(phhDisableAudioEffects = disabled)))
+    }
+    setKey("audio.phh_disable_audio_effects", disabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioPhhDisableEffects(disabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (disabled) "SoundFX & Audio Effects Offload dinonaktifkan (ro.audio.ignore_effects=true)"
+                    else "SoundFX & Audio Effects dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah status Audio Effects" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioPhhCafPolicy(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(phhCafAudioPolicy = enabled)))
+    }
+    setKey("audio.phh_caf_audio_policy", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioPhhCafPolicy(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Alternate CAF / Vendor Audio Policy diaktifkan"
+                    else "Audio Policy dikembalikan ke konfigurasi default"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan Alternate CAF Audio Policy" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioPhhDisableVolumeListener(disabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(phhDisableVolumeListener = disabled)))
+    }
+    setKey("audio.phh_disable_volume_listener", disabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioPhhDisableVolumeListener(disabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (disabled) "SoundVolume Effect Listener (libvolumelistener.so) dinonaktifkan"
+                    else "SoundVolume Effect Listener diaktifkan kembali"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah status SoundVolume Effect Listener" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioPhhVoiceCallRouteFix(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(phhDisableVoiceCallIn = enabled)))
+    }
+    setKey("audio.phh_voice_call_route_fix", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioPhhVoiceCallRouteFix(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "In-Call Voice & Fluence Routing Fix diaktifkan"
+                    else "In-Call Voice Routing dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan In-Call Voice Routing" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioVendorBesLoudness(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(vendorBesLoudnessEnabled = enabled)))
+    }
+    setKey("audio.vendor_besloudness", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioVendorBesLoudness(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "MediaTek BesLoudness Audio Enhancer diaktifkan"
+                    else "MediaTek BesLoudness Audio Enhancer dinonaktifkan (Bypass)"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah status MediaTek BesLoudness" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioHiresResampler24Bit(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(hiresResampler24Bit = enabled)))
+    }
+    setKey("audio.hires_resampler_24bit", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioHiresResampler24Bit(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Hi-Res 24-Bit PCM Offload & Sinc Resampler (Quality 7) diaktifkan"
+                    else "AudioFlinger Resampler dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah konfigurasi Hi-Res Resampler" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioCodecIdlePopGuard(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(codecIdlePopGuard = enabled)))
+    }
+    setKey("audio.codec_idle_pop_guard", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioCodecIdlePopGuard(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "ASoC Codec Pop/Click Idle Guard (pmdown_time=0) diaktifkan"
+                    else "ASoC Codec Idle Power-Down dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan ASoC Codec Pop/Click Guard" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioSpatializerBoost(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(spatializerBoost = enabled)))
+    }
+    setKey("audio.spatializer_boost", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioSpatializerBoost(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Spatial Audio & Multi-Channel Surround Engine diaktifkan"
+                    else "Spatial Audio Engine dinonaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan Spatializer Engine" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioAptxAdaptiveLowLatency(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(aptxAdaptiveLowLatency = enabled)))
+    }
+    setKey("audio.aptx_adaptive_ll", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioAptxAdaptiveLowLatency(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Qualcomm aptX Adaptive R2.2 & TWS+ Low-Latency Mode diaktifkan"
+                    else "Qualcomm aptX Adaptive R2.2 & TWS+ dinonaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan aptX Adaptive" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioLeAudioLc3(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(leAudioLc3Enabled = enabled)))
+    }
+    setKey("audio.le_audio_lc3", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioLeAudioLc3(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Bluetooth LE Audio (LC3 Unicast BAP) diaktifkan"
+                    else "Bluetooth LE Audio (LC3 Unicast BAP) dinonaktifkan"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah profil Bluetooth LE Audio" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioBtHfpHdVoiceNrecBypass(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(btHfpHdVoiceNrecBypass = enabled)))
+    }
+    setKey("audio.bt_hfp_hd_nrec_bypass", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioBtHfpHdVoiceNrecBypass(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Bluetooth HFP SWB HD Voice & NREC Bypass diaktifkan"
+                    else "Bluetooth HFP Voice & NREC dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan tuning Bluetooth HFP Voice" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioPhhIncomingCallBinder(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(phhAllowIncomingCallBinder = enabled)))
+    }
+    setKey("audio.phh_incoming_call_binder", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioPhhIncomingCallBinder(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Incoming Call Binder Thread Fix (GSI Telephony Audio) diaktifkan"
+                    else "Incoming Call Binder Thread dikembalikan ke standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal menerapkan Incoming Call Binder Fix" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioQcomFluenceBypass(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(qcomFluenceBypass = enabled)))
+    }
+    setKey("audio.qcom_fluence_bypass", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioQcomFluenceBypass(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Qualcomm Fluence Dual-Mic Noise Suppression Bypass diaktifkan"
+                    else "Qualcomm Fluence Dual-Mic diaktifkan kembali"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah pengaturan Qualcomm Fluence" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setAudioFineVolumeSteps30(enabled: Boolean) {
+    recordStateMutation()
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(fineVolumeSteps30 = enabled)))
+    }
+    setKey("audio.fine_volume_steps_30", enabled.toString(), "bool")
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.applyAudioFineVolumeSteps30(enabled)
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) {
+                    if (enabled) "Fine Media Volume Steps (30-Step Precision) diaktifkan"
+                    else "Media Volume Steps dikembalikan ke 15-Step standar"
+                } else null,
+                errorMessage = if (!ok) "Gagal mengubah jumlah langkah volume media" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.setForceShowGsiControls(force: Boolean) {
+    _uiState.update { current ->
+        current.copy(state = current.state.copy(audio = current.state.audio.copy(forceShowGsiControls = force)))
+    }
+}
+
+fun LynxViewModel.reloadAudioServerAndHal() {
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.reloadAudioServerAndHal()
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update {
+            it.copy(
+                audioTelemetry = fresh,
+                successMessage = if (ok) "AudioServer & Vendor Audio HAL berhasil dimuat ulang tanpa reboot" else null,
+                errorMessage = if (!ok) "Gagal memuat ulang layanan AudioServer" else null
+            )
+        }
+    }
+}
+
+fun LynxViewModel.restoreAudioOemBaseline() {
+    recordStateMutation()
+    viewModelScope.launch(Dispatchers.IO) {
+        val ok = LynxRepository.restoreAudioOemBaseline()
+        val fresh = LynxRepository.readAudioTelemetry()
+        _uiState.update { current ->
+            current.copy(
+                audioTelemetry = fresh,
+                state = current.state.copy(
+                    audio = current.state.audio.copy(
+                        lowLatencyMmap = fresh.isMmapForced,
+                        deepBufferBypass = fresh.isDeepBufferBypassed,
+                        directDacOffload = fresh.isDirectDacOffload,
+                        btCrackleGuard = fresh.isBtCrackleGuardActive,
+                        activePreset = "oem_default",
+                        disableA2dpHwOffload = fresh.a2dpOffloadDisabledLive,
+                        systemBtAudioHalEnabled = fresh.systemBtAudioHalLive,
+                        disableAbsoluteVolume = fresh.absoluteVolumeDisabledLive,
+                        ldacQualityMode = fresh.ldacQualityModeLive,
+                        sbcDualChannelHd = fresh.sbcDualChannelHdLive,
+                        avrcpVersion = fresh.avrcpVersionLive,
+                        disableUsbAudioRouting = fresh.usbRoutingDisabledLive,
+                        phhDisableAudioEffects = fresh.phhDisableAudioEffectsLive,
+                        phhCafAudioPolicy = fresh.phhCafAudioPolicyLive,
+                        phhDisableVolumeListener = fresh.phhDisableVolumeListenerLive,
+                        phhDisableVoiceCallIn = fresh.phhDisableVoiceCallInLive,
+                        vendorBesLoudnessEnabled = fresh.vendorBesLoudnessLive
+                    )
+                ),
+                successMessage = if (ok) "Baseline Audio OEM berhasil dipulihkan" else null,
+                errorMessage = if (!ok) "Gagal memulihkan baseline Audio OEM" else null
             )
         }
     }
