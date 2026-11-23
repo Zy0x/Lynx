@@ -800,6 +800,17 @@ object LynxRepository {
 
     suspend fun setPrintkSilent(silent: Boolean): Boolean = LynxSystemControlRepository.setPrintkSilent(silent)
 
+    suspend fun readSystemFrameworkSummary(): SystemFrameworkSummary = LynxSystemControlRepository.readSystemFrameworkSummary()
+    suspend fun readAnimationScale(): Float = LynxSystemControlRepository.readAnimationScale()
+    suspend fun applyAnimationScale(scale: Float): Boolean = LynxSystemControlRepository.applyAnimationScale(scale)
+    suspend fun readDisableWindowBlurs(): Boolean = LynxSystemControlRepository.readDisableWindowBlurs()
+    suspend fun applyDisableWindowBlurs(disabled: Boolean): Boolean = LynxSystemControlRepository.applyDisableWindowBlurs(disabled)
+    suspend fun readDisablePhantomProcesses(): Boolean = LynxSystemControlRepository.readDisablePhantomProcesses()
+    suspend fun applyDisablePhantomProcesses(disabled: Boolean): Boolean = LynxSystemControlRepository.applyDisablePhantomProcesses(disabled)
+    suspend fun readQemuMainkeys(): Boolean = LynxSystemControlRepository.readQemuMainkeys()
+    suspend fun applyQemuMainkeys(showNavbar: Boolean): Boolean = LynxSystemControlRepository.applyQemuMainkeys(showNavbar)
+    suspend fun executeArtSpeedProfileDexopt(): Pair<Boolean, String> = LynxSystemControlRepository.executeArtSpeedProfileDexopt()
+
     suspend fun readNetworkEngineInfo(): NetworkEngineInfo = LynxSystemControlRepository.readNetworkEngineInfo()
     suspend fun applyNetworkFeature(key: String, enabled: Boolean): NetworkFeatureResult =
         LynxSystemControlRepository.applyNetworkFeature(key, enabled)

@@ -1,3 +1,23 @@
+# Lynx Universal [Perombakan Total Tab Sistem & GSI: Eliminasi 5 Redundansi Lintas Halaman, UI Fluidity, Skala Animasi 1-Ketukan & GSI Framework Murni] 7.0.0-RC460
+Released on: 2026-11-23
+> Lynx Kernel Manager v3.4.79
+
+### Companion App & System Framework (`SystemGsiTabContent`, `SystemFrameworkHeroCard`, `KernelSecurityCard`, `AndroidFrameworkUiCard`, `GsiTrebleFrameworkCard`, `DozePowerDiagnosticCard`, `LynxSystemControlRepository`, `LynxRepository`, `LynxViewModelTabsAndSystem`, `LynxGpuModels`)
+- **Eliminasi Total 5 Pengaturan Redundan Lintas Halaman Tuning**:
+  - **4 Pengaturan Audio Bluetooth Dihapus dari Tab Sistem & GSI**: Menghapus duplikasi *System Bluetooth Audio HAL*, *Bypass A2DP Hardware Offload*, *Nonaktifkan Volume Mutlak*, dan *SBC HD Dual Channel Bitrate*. Seluruh kontrol audio kini terpusat secara eksklusif pada Halaman Audio (`Sound & Audio Subsystem` / `AudioSubscreen.kt`) sebagai *Single Source of Truth*.
+  - **Switch Wireless Debugging Dihapus dari Tab Sistem & GSI**: Menghapus duplikasi sakelar ADB TCP 5555 karena Halaman Wi-Fi & Jaringan (`NetworkTuningCards.kt`) telah memiliki kartu `AdbKeepAliveCard` lengkap dengan pemilih port multi-preset (5555, 5556, 8888) dan pemantau status koneksi live.
+- **5 Bagian Baru Tab Sistem & GSI Murni Framework & OS**:
+  - **Bagian 1: Hero Framework & Keamanan OS (`SystemFrameworkHeroCard`)**: Menampilkan rilis versi Android, level API, status tipe framework (`Android GSI / Treble (PHH AOSP)` vs `Vendor Stock / OEM`), status dm-verity / proteksi partisi read-only, dan badge status SELinux Enforcing/Permissive dengan tombol refresh instan.
+  - **Bagian 2: Keamanan & Penegakan Kernel (`KernelSecurityCard`)**: Kontrol mode SELinux aman dengan modal konfirmasi risiko sebelum beralih ke Permissive, serta sakelar *Peredam Log Konsol Kernel (Printk Silent 0 0 0 0)* untuk mencegah logging kernel membangunkan CPU dari deep sleep standby.
+  - **Bagian 3: Penyetelan Framework & Kelancaran UI (`AndroidFrameworkUiCard`)**:
+    - **Skala Animasi Sistem 1-Ketukan**: Pemilih preset responsivitas instan (`1.0x Normal`, `0.5x Cepat`, `0.25x Kilat`, `0x Mati/Instan`) yang secara sinkron mengubah `window_animation_scale`, `transition_animation_scale`, dan `animator_duration_scale`.
+    - **Nonaktifkan Window Blurs Sistem**: Sakelar `persist.sys.sf.disable_blurs` / `wm disable-blur` untuk mematikan efek blur Gaussian berat pada notification shade dan app switcher di Android 12/13/14 GSI, mereduksi GPU render load dan frame drops.
+    - **Matikan Pembunuh Proses Phantom**: Pengaturan `max_phantom_processes 2147483647` dan `override.settings_enable_monitor_phantom_procs false` untuk mencegah Android 12+ membunuh aplikasi root latar belakang (Termux, daemon lynxd, web server lokal).
+  - **Bagian 4: Kompatibilitas Murni Android GSI & Treble (`GsiTrebleFrameworkCard`)**:
+    - **Paksa Bilah Navigasi Layar (QEMU Mainkeys)**: Pengaturan `qemu.hw.mainkeys` untuk memunculkan atau mematikan tombol navigasi software 3-tombol pada ROM GSI.
+    - **Kompilasi ART / Dexopt Cepat (Speed-Profile AOT)**: Tombol eksekusi `cmd package compile -m speed-profile -a` untuk mengompilasi bytecode aplikasi secara offline demi percepatan waktu peluncuran aplikasi dan eliminasi micro-stutter.
+  - **Bagian 5: Diagnostik Daya & Doze Subsystem (`DozePowerDiagnosticCard`)**: Tombol pemicu deep sleep instan (`dumpsys deviceidle force-idle`) dan tombol pemulihan timer normal (`dumpsys deviceidle unforce`) untuk menguji perilaku suspensi sistem.
+
 # Lynx Universal [Perombakan Menyeluruh Tab Alat Kernel: Identitas & Crash Hero, Utilitas 1-Sentuh, Skrip Shell Edit & Dmesg Konsol Cerdas] 7.0.0-RC459
 Released on: 2026-11-23
 > Lynx Kernel Manager v3.4.78

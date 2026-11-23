@@ -490,6 +490,17 @@ data class KernelEnvironmentSummary(
     val isLoading: Boolean = false
 )
 
+data class SystemFrameworkSummary(
+    val androidVersion: String = "",
+    val apiLevel: Int = 0,
+    val securityPatch: String = "",
+    val frameworkType: String = "Universal Linux / Stock OEM",
+    val isGsiTreble: Boolean = false,
+    val selinuxMode: String = "Enforcing",
+    val partitionProtection: String = "dm-verity Enforced",
+    val isLoading: Boolean = false
+)
+
 // ============================================================
 //  NATIVE ENGINE STATUS (lynxd status --json)
 // ============================================================
@@ -646,6 +657,13 @@ data class LynxUiState(
     val kernelSummary: KernelEnvironmentSummary = KernelEnvironmentSummary(),
     val isMaintenanceExecuting: Boolean = false,
     val lastMaintenanceOutput: String? = null,
+    val systemFramework: SystemFrameworkSummary = SystemFrameworkSummary(),
+    val animationScale: Float = 1.0f,
+    val disableWindowBlurs: Boolean = false,
+    val disablePhantomProcesses: Boolean = false,
+    val forceShowNavbar: Boolean = false,
+    val isDexoptRunning: Boolean = false,
+    val lastDexoptOutput: String? = null,
     val currentTcpCongestion: String = "",
     val availableTcpCongestion: List<String> = listOf("cubic", "bic", "reno"),
     val wifiTelemetry: WifiTelemetryInfo = WifiTelemetryInfo(),

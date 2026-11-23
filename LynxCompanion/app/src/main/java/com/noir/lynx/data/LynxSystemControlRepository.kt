@@ -1402,5 +1402,149 @@ object LynxSystemControlRepository {
         } catch (_: Exception) { false }
     }
 
+    // ============================================================
+    //  PURE ANDROID OS, FRAMEWORK UI & GSI TREBLE CONTROLS
+    // ============================================================
+
+    suspend fun readSystemFrameworkSummary(): SystemFrameworkSummary = withContext(Dispatchers.IO) {
+        try {
+            val androidVer = android.os.Build.VERSION.RELEASE ?: "Unknown"
+            val apiLevel = android.os.Build.VERSION.SDK_INT
+            val securityPatch = try { android.os.Build.VERSION.SECURITY_PATCH ?: "" } catch (_: Exception) { "" }
+
+            val flavor = Shell.cmd("getprop ro.system.build.flavor 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val incr = Shell.cmd("getprop ro.build.version.incremental 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val treble = Shell.cmd("getprop ro.treble.enabled 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+
+            val isGsi = flavor.contains("gsi", ignoreCase = true) ||
+                    incr.contains("phh", ignoreCase = true) ||
+                    flavor.contains("aosp", ignoreCase = true)
+
+            val framework = when {
+                isGsi -> "Android GSI / Treble (PHH AOSP)"
+                treble == "true" -> "Project Treble Framework"
+                else -> "Vendor Stock / OEM Framework"
+            }
+
+            val selinux = readSelinuxMode()
+
+            val verity = Shell.cmd("getprop ro.boot.veritymode 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val protection = if (verity.isNotBlank()) "dm-verity ($verity)" else "dm-verity Enforced"
+
+            SystemFrameworkSummary(
+                androidVersion = androidVer,
+                apiLevel = apiLevel,
+                securityPatch = securityPatch,
+                frameworkType = framework,
+                isGsiTreble = isGsi,
+                selinuxMode = selinux,
+                partitionProtection = protection,
+                isLoading = false
+            )
+        } catch (e: Exception) {
+            SystemFrameworkSummary(
+                androidVersion = android.os.Build.VERSION.RELEASE ?: "",
+                apiLevel = android.os.Build.VERSION.SDK_INT,
+                frameworkType = "Android System",
+                isLoading = false
+            )
+        }
+    }
+
+    suspend fun readAnimationScale(): Float = withContext(Dispatchers.IO) {
+        try {
+            val out = Shell.cmd("settings get global window_animation_scale 2>/dev/null").exec().out.firstOrNull()?.trim() ?: "1.0"
+            out.toFloatOrNull() ?: 1.0f
+        } catch (_: Exception) { 1.0f }
+    }
+
+    suspend fun applyAnimationScale(scale: Float): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Shell.cmd(
+                "settings put global window_animation_scale $scale 2>/dev/null",
+                "settings put global transition_animation_scale $scale 2>/dev/null",
+                "settings put global animator_duration_scale $scale 2>/dev/null"
+            ).exec().isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readDisableWindowBlurs(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val sfBlur = Shell.cmd("getprop persist.sys.sf.disable_blurs 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val globalBlur = Shell.cmd("settings get global disable_window_blurs 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            sfBlur == "1" || globalBlur == "1"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyDisableWindowBlurs(disabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (disabled) "1" else "0"
+            Shell.cmd(
+                "setprop persist.sys.sf.disable_blurs $v 2>/dev/null",
+                "settings put global disable_window_blurs $v 2>/dev/null",
+                "wm disable-blur $v 2>/dev/null || true"
+            ).exec().isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readDisablePhantomProcesses(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val maxPhantom = Shell.cmd("device_config get activity_manager max_phantom_processes 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val prop = Shell.cmd("getprop persist.sys.fflag.override.settings_enable_monitor_phantom_procs 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            maxPhantom == "2147483647" || prop == "false"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyDisablePhantomProcesses(disabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (disabled) {
+                Shell.cmd(
+                    "device_config set_sync_disabled_for_tests persistent 2>/dev/null",
+                    "device_config put activity_manager max_phantom_processes 2147483647 2>/dev/null",
+                    "setprop persist.sys.fflag.override.settings_enable_monitor_phantom_procs false 2>/dev/null"
+                ).exec().isSuccess
+            } else {
+                Shell.cmd(
+                    "device_config put activity_manager max_phantom_processes 32 2>/dev/null",
+                    "setprop persist.sys.fflag.override.settings_enable_monitor_phantom_procs true 2>/dev/null"
+                ).exec().isSuccess
+            }
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun readQemuMainkeys(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = Shell.cmd("getprop qemu.hw.mainkeys 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            val pv = Shell.cmd("getprop persist.sys.qemu.hw.mainkeys 2>/dev/null").exec().out.firstOrNull()?.trim() ?: ""
+            v == "0" || pv == "0"
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun applyQemuMainkeys(showNavbar: Boolean): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val v = if (showNavbar) "0" else "1"
+            Shell.cmd(
+                "setprop qemu.hw.mainkeys $v 2>/dev/null",
+                "setprop persist.sys.qemu.hw.mainkeys $v 2>/dev/null"
+            ).exec().isSuccess
+        } catch (_: Exception) { false }
+    }
+
+    suspend fun executeArtSpeedProfileDexopt(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val startTime = System.currentTimeMillis()
+            val res = Shell.cmd("cmd package compile -m speed-profile -a 2>&1").exec()
+            val duration = (System.currentTimeMillis() - startTime) / 1000
+            if (res.isSuccess) {
+                Pair(true, "Kompilasi ART Speed-Profile selesai dalam ${duration} detik.")
+            } else {
+                val err = res.out.joinToString("\n").ifBlank { "Gagal menjalankan dexopt." }
+                Pair(false, err)
+            }
+        } catch (e: Exception) {
+            Pair(false, "Gagal menjalankan dexopt: ${e.message}")
+        }
+    }
+
 
 }

@@ -167,384 +167,60 @@ fun SystemGsiTabContent(
     val context = LocalContext.current
     var showPermissiveWarningDialog by remember { mutableStateOf(false) }
 
-    // 1. Hero Card Status Proteksi Sistem & Kernel
-    SystemHeroCard(uiState)
-
-    // 2. Kartu SELinux & Keamanan Kernel
-    LynxCard(
-        title = "Mode SELinux & Keamanan Kernel",
-        icon = Icons.Default.Shield,
-        accentColor = AccentCyan
-    ) {
-        val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Status SELinux: ${uiState.selinuxMode}",
-                        color = if (isEnforcing) AccentGreen else AccentOrange,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = if (isEnforcing) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
-                        border = BorderStroke(0.6.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = if (isEnforcing) "AMAN" else "PERMISSIVE",
-                            color = if (isEnforcing) AccentGreen else AccentOrange,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = if (isEnforcing) {
-                        "Enforcing: Kebijakan keamanan resmi Android aktif melindungi partisi sistem dari modifikasi tidak sah."
-                    } else {
-                        "Permissive: SELinux mengizinkan seluruh modul root berjalan tanpa batasan kebijakan keamanan."
-                    },
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = isEnforcing,
-                onCheckedChange = { willEnforce ->
-                    if (!willEnforce) {
-                        showPermissiveWarningDialog = true
-                    } else {
-                        viewModel.setSelinuxMode(true)
-                    }
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentGreen,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // Peredam Log Konsol Kernel (Printk Suppressor)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Peredam Log Konsol Kernel (Printk Silent)",
-                    color = TextPrimary,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Meredam pencatatan log debug konsol kernel (0 0 0 0) saat sistem berjalan. Mencegah CPU sering terbangun dari Deep Sleep dan menghemat baterai standby.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.isPrintkSilent,
-                onCheckedChange = { viewModel.setPrintkSilent(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentCyan,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
+    LaunchedEffect(Unit) {
+        viewModel.refreshSystemFrameworkSummary()
     }
 
-    // 3. Kartu Kompatibilitas Android GSI & Treble
-    LynxCard(
-        title = "Kompatibilitas Android GSI & Treble",
-        icon = Icons.Default.Build,
-        accentColor = AccentPurple
-    ) {
-        val isTrebleDetected = uiState.audioTelemetry.isPhhGsiDetected || uiState.audioTelemetry.isTrebleEnabled
+    // 1. Hero Status Framework & Keamanan OS
+    SystemFrameworkHeroCard(
+        uiState = uiState,
+        onRefresh = { viewModel.refreshSystemFrameworkSummary() }
+    )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Deteksi Framework:",
-                color = TextSecondary,
-                fontSize = 11.sp
-            )
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = if (isTrebleDetected) AccentPurple.copy(alpha = 0.18f) else Color(0x15FFFFFF),
-                border = BorderStroke(0.6.dp, if (isTrebleDetected) AccentPurple.copy(alpha = 0.45f) else BorderSubtle)
-            ) {
-                Text(
-                    text = if (isTrebleDetected) "Android GSI / Treble Terdeteksi" else "Universal Linux / Stock Framework",
-                    color = if (isTrebleDetected) AccentPurple else TextSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
+    Spacer(Modifier.height(10.dp))
+
+    // 2. Keamanan & Penegakan Kernel (SELinux & Printk)
+    KernelSecurityCard(
+        uiState = uiState,
+        onSetSelinux = { viewModel.setSelinuxMode(it) },
+        onSetPrintkSilent = { viewModel.setPrintkSilent(it) },
+        onShowWarningDialog = { showPermissiveWarningDialog = true }
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    // 3. Penyetelan Kelancaran UI & Framework Android (Animasi, Blurs, Phantom Procs)
+    AndroidFrameworkUiCard(
+        uiState = uiState,
+        onSetAnimationScale = { viewModel.setAnimationScale(it) },
+        onSetDisableWindowBlurs = { viewModel.setDisableWindowBlurs(it) },
+        onSetDisablePhantomProcesses = { viewModel.setDisablePhantomProcesses(it) }
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    // 4. Kompatibilitas Murni Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
+    GsiTrebleFrameworkCard(
+        uiState = uiState,
+        onSetForceShowNavbar = { viewModel.setForceShowNavbar(it) },
+        onRunDexopt = { viewModel.runArtSpeedProfileDexopt() }
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    // 5. Diagnostik Daya & Doze Subsystem (Uji Doze Deep Sleep)
+    DozePowerDiagnosticCard(
+        onTriggerDoze = {
+            com.topjohnwu.superuser.Shell.cmd("dumpsys deviceidle force-idle 2>/dev/null; echo ok").submit {
+                Toast.makeText(context, "Sistem dipaksa masuk ke status Doze Idle", Toast.LENGTH_SHORT).show()
+            }
+        },
+        onUnforceDoze = {
+            com.topjohnwu.superuser.Shell.cmd("dumpsys deviceidle unforce 2>/dev/null; echo ok").submit {
+                Toast.makeText(context, "Status Doze dipulihkan ke timer normal", Toast.LENGTH_SHORT).show()
             }
         }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // System Bluetooth Audio HAL
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "System Bluetooth Audio HAL (GSI Fix)",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Mengalihkan audio Bluetooth dari vendor HAL bermasalah ke System HAL bawaan AOSP. Mengatasi masalah headset Bluetooth tidak mengeluarkan suara sama sekali di ROM GSI.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.state.audio.systemBtAudioHalEnabled,
-                onCheckedChange = { viewModel.setAudioSystemBtAudioHal(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentPurple,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // Bypass A2DP Hardware Offload
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Bypass A2DP Hardware Offload",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Memindahkan pemrosesan audio Bluetooth dari DSP vendor ke CPU host stack. Mengatasi suara putus-putus, kresek (crackle), dan delay tinggi.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.state.audio.disableA2dpHwOffload,
-                onCheckedChange = { viewModel.setAudioA2dpHwOffloadDisabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentCyan,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // Disable Absolute Volume
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Nonaktifkan Volume Mutlak (Absolute Volume)",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Memisahkan kontrol volume Android dari kontrol volume internal headset Bluetooth. Mengatasi suara headset yang melonjak terlalu keras atau tidak bisa dikecilkan.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.state.audio.disableAbsoluteVolume,
-                onCheckedChange = { viewModel.setAudioDisableAbsoluteVolume(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentBlue,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // SBC HD Dual Channel
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "SBC HD Dual Channel Bitrate",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Menaikkan batas bitrate transmisi codec Bluetooth SBC standar hingga mendekati kualitas aptX/LDAC secara nirkabel.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.state.audio.sbcDualChannelHd,
-                onCheckedChange = { viewModel.setAudioSbcDualChannelHd(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentGreen,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-    }
-
-    // 4. Kartu Opsi Pengembang & Daya Lanjutan
-    LynxCard(
-        title = "Opsi Pengembang & Daya Lanjutan",
-        icon = Icons.Default.SettingsEthernet,
-        accentColor = AccentOrange
-    ) {
-        // Wireless Debugging (ADB TCP Port 5555)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Wireless Debugging (ADB Port ${uiState.adbPort})",
-                    color = TextPrimary,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Membuka port TCP 5555 untuk koneksi ADB nirkabel ke PC atau Termux tanpa kabel USB. Status tetap aktif melintasi reboot jika diaktifkan.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.adbKeepAliveEnabled,
-                onCheckedChange = { viewModel.setAdbKeepAlive(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentOrange,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
-
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
-
-        // Pemicu Deep Sleep Instan (Doze Idle Force)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Uji Coba Deep Sleep (Doze Trigger)",
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Memaksa sistem Android masuk ke mode idle tidur lelap instan untuk menguji penghentian wakelock latar belakang.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    com.topjohnwu.superuser.Shell.cmd("dumpsys deviceidle force-idle 2>/dev/null; echo ok").submit {
-                        Toast.makeText(context, "Sistem dipaksa masuk ke status Doze Idle", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentOrange.copy(alpha = 0.18f),
-                    contentColor = AccentOrange
-                ),
-                border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.4f)),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text("Trigger Doze", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
+    )
 
     // Modal Peringatan Beralih ke Permissive
     if (showPermissiveWarningDialog) {
@@ -578,6 +254,590 @@ fun SystemGsiTabContent(
             },
             containerColor = BgCard
         )
+    }
+}
+
+/**
+ * 1. Hero Status Framework & Keamanan OS
+ */
+@Composable
+fun SystemFrameworkHeroCard(
+    uiState: LynxUiState,
+    onRefresh: () -> Unit
+) {
+    val fw = uiState.systemFramework
+
+    LaunchedEffect(Unit) {
+        if (fw.androidVersion.isBlank()) {
+            onRefresh()
+        }
+    }
+
+    val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    Color(0xFF8B5CF6).copy(alpha = 0.35f),
+                    Color(0x15FFFFFF)
+                )
+            )
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Status Indicator & Refresh Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(shape = CircleShape, color = Color(0xFF8B5CF6).copy(alpha = 0.22f), modifier = Modifier.size(10.dp)) {}
+                        Surface(shape = CircleShape, color = Color(0xFF8B5CF6), modifier = Modifier.size(5.dp)) {}
+                    }
+                    Text(
+                        text = "Framework Android & Keamanan OS",
+                        color = TextSecondary.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(5.dp),
+                        color = if (isEnforcing) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
+                        border = BorderStroke(0.5.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = if (isEnforcing) "SELinux: Enforcing" else "SELinux: Permissive",
+                            color = if (isEnforcing) AccentGreen else AccentOrange,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    if (fw.isLoading) {
+                        CircularProgressIndicator(color = Color(0xFF8B5CF6), strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                    } else {
+                        IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Default.Refresh, "Segarkan", tint = Color(0xFF8B5CF6), modifier = Modifier.size(15.dp))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Main Android Version & Framework
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF8B5CF6).copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f)),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Android,
+                            contentDescription = null,
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Android ${fw.androidVersion.ifBlank { android.os.Build.VERSION.RELEASE }} (API ${if (fw.apiLevel > 0) fw.apiLevel else android.os.Build.VERSION.SDK_INT})",
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "${fw.frameworkType} • ${fw.partitionProtection}",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 2. Keamanan & Penegakan Kernel (SELinux & Printk)
+ */
+@Composable
+fun KernelSecurityCard(
+    uiState: LynxUiState,
+    onSetSelinux: (Boolean) -> Unit,
+    onSetPrintkSilent: (Boolean) -> Unit,
+    onShowWarningDialog: () -> Unit
+) {
+    val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
+
+    LynxCard(
+        title = "Mode SELinux & Keamanan Kernel",
+        icon = Icons.Default.Shield,
+        accentColor = AccentCyan
+    ) {
+        // SELinux switch
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Status SELinux: ${uiState.selinuxMode}",
+                        color = if (isEnforcing) AccentGreen else AccentOrange,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (isEnforcing) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
+                        border = BorderStroke(0.6.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = if (isEnforcing) "AMAN" else "PERMISSIVE",
+                            color = if (isEnforcing) AccentGreen else AccentOrange,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = if (isEnforcing) {
+                        "Enforcing: Kebijakan akses resmi Android aktif melindungi partisi sistem dari modifikasi tidak sah."
+                    } else {
+                        "Permissive: SELinux mengizinkan seluruh modul root berjalan tanpa batasan kebijakan keamanan."
+                    },
+                    color = TextSecondary,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.5.sp
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = isEnforcing,
+                onCheckedChange = { willEnforce ->
+                    if (!willEnforce) {
+                        onShowWarningDialog()
+                    } else {
+                        onSetSelinux(true)
+                    }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = BgDeepOled,
+                    checkedTrackColor = AccentGreen,
+                    uncheckedThumbColor = TextTertiary,
+                    uncheckedTrackColor = BgElevated
+                )
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+        Spacer(Modifier.height(10.dp))
+
+        // Peredam Log Konsol Kernel (Printk Silent)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Peredam Log Konsol Kernel (Printk Silent)",
+                    color = TextPrimary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Meredam pencatatan log debug konsol kernel (0 0 0 0) saat sistem berjalan. Mencegah CPU sering terbangun dari Deep Sleep dan menghemat baterai standby.",
+                    color = TextSecondary,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.5.sp
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = uiState.isPrintkSilent,
+                onCheckedChange = onSetPrintkSilent,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = BgDeepOled,
+                    checkedTrackColor = AccentCyan,
+                    uncheckedThumbColor = TextTertiary,
+                    uncheckedTrackColor = BgElevated
+                )
+            )
+        }
+    }
+}
+
+/**
+ * 3. Penyetelan Kelancaran UI & Framework Android (Animasi, Blurs, Phantom Procs)
+ */
+@Composable
+fun AndroidFrameworkUiCard(
+    uiState: LynxUiState,
+    onSetAnimationScale: (Float) -> Unit,
+    onSetDisableWindowBlurs: (Boolean) -> Unit,
+    onSetDisablePhantomProcesses: (Boolean) -> Unit
+) {
+    LynxCard(
+        title = "Penyetelan Framework & Kelancaran UI",
+        icon = Icons.Default.Speed,
+        accentColor = Color(0xFF8B5CF6)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Optimasi rendering jendela dan manajemen proses sistem operasi Android.",
+                color = TextSecondary,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            // Skala Animasi Sistem 1-Ketukan
+            Text(
+                text = "Skala Animasi Sistem (Window, Transition, Animator):",
+                color = TextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Mengubah durasi seluruh animasi jendela secara sinkron untuk responsivitas instan.",
+                color = TextSecondary,
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            val animPresets = listOf(
+                1.0f to "1.0x (Normal)",
+                0.5f to "0.5x (Cepat)",
+                0.25f to "0.25x (Kilat)",
+                0.0f to "0x (Mati / Instan)"
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                for ((scale, label) in animPresets) {
+                    val isSelected = kotlin.math.abs(uiState.animationScale - scale) < 0.05f
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) Color(0xFF8B5CF6).copy(alpha = 0.22f) else BgElevated,
+                        border = BorderStroke(
+                            0.7.dp,
+                            if (isSelected) Color(0xFF8B5CF6).copy(alpha = 0.6f) else BorderSubtle
+                        ),
+                        onClick = { onSetAnimationScale(scale) }
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) Color(0xFF8B5CF6) else TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+            Spacer(Modifier.height(10.dp))
+
+            // Nonaktifkan Window Blurs Sistem
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Nonaktifkan Window Blurs Sistem",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Mematikan efek blur Gaussian pada notification shade dan app switcher di Android 12+. Sangat efektif menghilangkan micro-stutter pada GPU.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.5.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = uiState.disableWindowBlurs,
+                    onCheckedChange = onSetDisableWindowBlurs,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = Color(0xFF8B5CF6),
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgElevated
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+            Spacer(Modifier.height(10.dp))
+
+            // Matikan Pembunuh Proses Phantom
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Matikan Pembunuh Proses Phantom",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Menaikkan limit proses phantom menjadi tak terbatas (2147483647). Mencegah Termux, daemon Lynx, dan server lokal dibunuh paksa oleh Android 12+.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.5.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = uiState.disablePhantomProcesses,
+                    onCheckedChange = onSetDisablePhantomProcesses,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = AccentCyan,
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgElevated
+                    )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 4. Kompatibilitas Murni Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
+ */
+@Composable
+fun GsiTrebleFrameworkCard(
+    uiState: LynxUiState,
+    onSetForceShowNavbar: (Boolean) -> Unit,
+    onRunDexopt: () -> Unit
+) {
+    LynxCard(
+        title = "Kompatibilitas Murni Android GSI & Treble",
+        icon = Icons.Default.Build,
+        accentColor = AccentBlue
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Penyetelan tingkat sistem khusus untuk ROM Generic System Image (GSI) dan Project Treble.",
+                color = TextSecondary,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            // Bilah Navigasi Layar (QEMU Mainkeys)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Paksa Bilah Navigasi 3-Tombol (QEMU Mainkeys)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Mengontrol kemunculan tombol navigasi software (Back, Home, Recents) pada ROM GSI. Atasi tombol navigasi yang hilang atau dobel.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.5.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = uiState.forceShowNavbar,
+                    onCheckedChange = onSetForceShowNavbar,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BgDeepOled,
+                        checkedTrackColor = AccentBlue,
+                        uncheckedThumbColor = TextTertiary,
+                        uncheckedTrackColor = BgElevated
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
+            Spacer(Modifier.height(10.dp))
+
+            // Kompilasi ART Speed-Profile Instan
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Kompilasi ART / Dexopt Cepat (Speed-Profile)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Mengompilasi bytecode aplikasi ke native code secara offline. Mempercepat pembukaan aplikasi dan menghilangkan micro-stutter saat baru ganti ROM.",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.5.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = onRunDexopt,
+                    enabled = !uiState.isDexoptRunning,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentBlue.copy(alpha = 0.18f),
+                        contentColor = AccentBlue
+                    ),
+                    border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.45f)),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    if (uiState.isDexoptRunning) {
+                        CircularProgressIndicator(color = AccentBlue, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Kompilasi...", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.Bolt, null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Jalankan Dexopt", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            uiState.lastDexoptOutput?.let { out ->
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BgSurfaceLowest,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = out,
+                        color = AccentCyan,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 9.5.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 5. Diagnostik Daya & Doze Subsystem (Uji Doze Deep Sleep)
+ */
+@Composable
+fun DozePowerDiagnosticCard(
+    onTriggerDoze: () -> Unit,
+    onUnforceDoze: () -> Unit
+) {
+    LynxCard(
+        title = "Diagnostik Daya & Doze Subsystem",
+        icon = Icons.Default.Bedtime,
+        accentColor = AccentOrange
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Pengujian status tidur lelap Android (Doze) untuk mengecek apakah aplikasi latar belakang tertidur dengan benar.",
+                color = TextSecondary,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onTriggerDoze,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentOrange.copy(alpha = 0.18f),
+                        contentColor = AccentOrange
+                    ),
+                    border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.45f)),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Bedtime, null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Trigger Deep Sleep", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = onUnforceDoze,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Restore, null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Reset Standar", fontSize = 11.sp)
+                }
+            }
+        }
     }
 }
 
@@ -1368,110 +1628,7 @@ fun KernelQuickMaintenanceCard(
     }
 }
 
-/**
- * Hero Card Ringkas Status Perlindungan Sistem & Kernel.
- */
-@Composable
-private fun SystemHeroCard(uiState: LynxUiState) {
-    val platformName = when (uiState.gpuInfo.platform) {
-        "adreno" -> "Qualcomm Snapdragon"
-        "mali_ged", "mali_kbase" -> "MediaTek Dimensity/Helio"
-        else -> "Universal Linux Kernel"
-    }
 
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF10141F),
-        border = BorderStroke(
-            0.8.dp,
-            Brush.verticalGradient(
-                listOf(
-                    AccentCyan.copy(alpha = 0.28f),
-                    Color(0x15FFFFFF)
-                )
-            )
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(shape = CircleShape, color = AccentCyan.copy(alpha = 0.18f), modifier = Modifier.size(10.dp)) {}
-                        Surface(shape = CircleShape, color = AccentCyan, modifier = Modifier.size(5.dp)) {}
-                    }
-                    Text(
-                        text = "Subsystem & Kernel Safeguards",
-                        color = TextSecondary.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(5.dp),
-                    color = AccentCyan.copy(alpha = 0.12f),
-                    border = BorderStroke(0.5.dp, AccentCyan.copy(alpha = 0.35f))
-                ) {
-                    Text(
-                        text = "Root Verified",
-                        color = AccentCyan,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.10f),
-                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.25f)),
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = platformName,
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(1.dp))
-                    Text(
-                        text = "Guardrails Aktif • SELinux ${uiState.selinuxMode}",
-                        color = TextSecondary.copy(alpha = 0.75f),
-                        fontSize = 10.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
 
 /**
  * Swipeable Tab Pager untuk Halaman Subsystem & Deep Tunables.

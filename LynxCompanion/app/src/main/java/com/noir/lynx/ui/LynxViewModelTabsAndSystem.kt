@@ -121,3 +121,84 @@ fun LynxViewModel.selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
             }
         }
     }
+
+    fun LynxViewModel.refreshSystemFrameworkSummary() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(systemFramework = it.systemFramework.copy(isLoading = true)) }
+            val summary = LynxRepository.readSystemFrameworkSummary()
+            val animScale = LynxRepository.readAnimationScale()
+            val blurs = LynxRepository.readDisableWindowBlurs()
+            val phantoms = LynxRepository.readDisablePhantomProcesses()
+            val navbar = LynxRepository.readQemuMainkeys()
+            _uiState.update {
+                it.copy(
+                    systemFramework = summary,
+                    animationScale = animScale,
+                    disableWindowBlurs = blurs,
+                    disablePhantomProcesses = phantoms,
+                    forceShowNavbar = navbar
+                )
+            }
+        }
+    }
+
+    fun LynxViewModel.setAnimationScale(scale: Float) {
+        _uiState.update { it.copy(animationScale = scale) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.applyAnimationScale(scale)
+            if (ok) {
+                _uiState.update { it.copy(successMessage = "Skala animasi diatur ke ${scale}x") }
+            }
+        }
+    }
+
+    fun LynxViewModel.setDisableWindowBlurs(disabled: Boolean) {
+        _uiState.update { it.copy(disableWindowBlurs = disabled) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.applyDisableWindowBlurs(disabled)
+            if (ok) {
+                _uiState.update {
+                    it.copy(successMessage = if (disabled) "Window blurs sistem dinonaktifkan (GPU Hemat)" else "Window blurs sistem diaktifkan")
+                }
+            }
+        }
+    }
+
+    fun LynxViewModel.setDisablePhantomProcesses(disabled: Boolean) {
+        _uiState.update { it.copy(disablePhantomProcesses = disabled) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.applyDisablePhantomProcesses(disabled)
+            if (ok) {
+                _uiState.update {
+                    it.copy(successMessage = if (disabled) "Phantom Process Killer dinonaktifkan (Termux/Root Aman)" else "Phantom Process Killer diaktifkan")
+                }
+            }
+        }
+    }
+
+    fun LynxViewModel.setForceShowNavbar(showNavbar: Boolean) {
+        _uiState.update { it.copy(forceShowNavbar = showNavbar) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = LynxRepository.applyQemuMainkeys(showNavbar)
+            if (ok) {
+                _uiState.update {
+                    it.copy(successMessage = if (showNavbar) "Bilah navigasi 3-tombol dipaksa aktif (Reboot mungkin diperlukan)" else "Bilah navigasi 3-tombol dimatikan")
+                }
+            }
+        }
+    }
+
+    fun LynxViewModel.runArtSpeedProfileDexopt() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isDexoptRunning = true, lastDexoptOutput = null) }
+            val (ok, msg) = LynxRepository.executeArtSpeedProfileDexopt()
+            _uiState.update {
+                it.copy(
+                    isDexoptRunning = false,
+                    lastDexoptOutput = msg,
+                    successMessage = if (ok) msg else null,
+                    errorMessage = if (!ok) msg else null
+                )
+            }
+        }
+    }
