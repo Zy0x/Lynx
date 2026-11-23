@@ -3,9 +3,173 @@ package com.noir.lynx.data
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
-/** Kernel log export and emergency return-to-stock operations. */
+/** Kernel log export, environment summary, and emergency return-to-stock operations. */
 object LynxKernelDiagnosticsRepository {
+
+    suspend fun readKernelSummary(): KernelEnvironmentSummary = withContext(Dispatchers.IO) {
+        try {
+            val procVersion = runCatching { File("/proc/version").readText().trim() }
+                .getOrElse { Shell.cmd("cat /proc/version 2>/dev/null").exec().out.joinToString(" ").trim() }
+
+            val kernelRel = System.getProperty("os.version")?.ifBlank { null }
+                ?: runCatching { File("/proc/sys/kernel/osrelease").readText().trim() }.getOrDefault("")
+
+            val arch = System.getProperty("os.arch") ?: "aarch64"
+
+            val compiler = when {
+                procVersion.contains("clang", ignoreCase = true) -> {
+                    val clangPart = procVersion.substringAfter("clang version", "").trim().takeWhile { it != ' ' && it != '(' }
+                    if (clangPart.isNotBlank()) "Clang $clangPart" else "Clang (LLVM)"
+                }
+                procVersion.contains("gcc", ignoreCase = true) -> {
+                    val gccPart = procVersion.substringAfter("gcc version", "").trim().takeWhile { it != ' ' && it != '(' }
+                    if (gccPart.isNotBlank()) "GCC $gccPart" else "GCC"
+                }
+                else -> "Linux Toolchain"
+            }
+
+            val uptimeSeconds = runCatching {
+                val upStr = File("/proc/uptime").readText().trim().split(" ").firstOrNull() ?: "0"
+                upStr.toDoubleOrNull()?.toLong() ?: 0L
+            }.getOrDefault(0L)
+
+            val uptimeFormatted = when {
+                uptimeSeconds >= 86400L -> {
+                    val days = uptimeSeconds / 86400L
+                    val hours = (uptimeSeconds % 86400L) / 3600L
+                    val mins = (uptimeSeconds % 3600L) / 60L
+                    "$days hari $hours jam $mins mnt"
+                }
+                uptimeSeconds >= 3600L -> {
+                    val hours = uptimeSeconds / 3600L
+                    val mins = (uptimeSeconds % 3600L) / 60L
+                    "$hours jam $mins menit"
+                }
+                else -> {
+                    val mins = uptimeSeconds / 60L
+                    val secs = uptimeSeconds % 60L
+                    "$mins menit $secs detik"
+                }
+            }
+
+            val pstoreConsole = File("/sys/fs/pstore/console-ramoops")
+            val pstoreDmesg = File("/sys/fs/pstore/dmesg-ramoops-0")
+            val lastKmsg = File("/proc/last_kmsg")
+            val dontPanic = File("/data/vendor/dontpanic")
+
+            val hasPanicLog = (pstoreConsole.exists() && pstoreConsole.length() > 0) ||
+                    (pstoreDmesg.exists() && pstoreDmesg.length() > 0) ||
+                    (lastKmsg.exists() && lastKmsg.length() > 0) ||
+                    (dontPanic.exists() && (dontPanic.listFiles()?.isNotEmpty() == true))
+
+            val panicStatus = if (hasPanicLog) {
+                "Terdeteksi Catatan Crash / Panic Kernel Sebelumnya"
+            } else {
+                "Sistem Stabil (Bebas Panic/Crash)"
+            }
+
+            val zramOk = File("/sys/block/zram0").exists()
+            val easOk = File("/sys/devices/system/cpu/eas").exists() ||
+                    runCatching { File("/proc/sys/kernel/sched_energy_aware").readText().trim() == "1" }.getOrDefault(false) ||
+                    runCatching { File("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors").readText().contains("schedutil") }.getOrDefault(false)
+            val compactOk = File("/proc/sys/vm/compact_memory").exists()
+            val kprobesOk = File("/sys/kernel/debug/kprobes").exists() || File("/proc/kallsyms").exists()
+            val ebpfOk = File("/sys/fs/bpf").exists()
+            val ksmOk = File("/sys/kernel/mm/ksm/run").exists()
+            val uclampOk = File("/proc/sys/kernel/sched_util_clamp_min").exists()
+            val mglruOk = File("/sys/kernel/mm/lru_gen/enabled").exists()
+
+            val badges = listOf(
+                KernelCapabilityBadge("ZRAM Swap", zramOk),
+                KernelCapabilityBadge("EAS / Schedutil", easOk),
+                KernelCapabilityBadge("RAM Compaction", compactOk),
+                KernelCapabilityBadge("Kernel Probes", kprobesOk),
+                KernelCapabilityBadge("eBPF Subsystem", ebpfOk),
+                KernelCapabilityBadge("KSM Memory", ksmOk),
+                KernelCapabilityBadge("UCLAMP", uclampOk),
+                KernelCapabilityBadge("MGLRU", mglruOk)
+            )
+
+            KernelEnvironmentSummary(
+                kernelVersion = procVersion,
+                kernelRelease = kernelRel,
+                compiler = compiler,
+                architecture = arch,
+                uptimeFormatted = uptimeFormatted,
+                panicStatus = panicStatus,
+                hasPanicLog = hasPanicLog,
+                capabilities = badges,
+                isLoading = false
+            )
+        } catch (e: Exception) {
+            KernelEnvironmentSummary(
+                kernelVersion = "Linux " + (System.getProperty("os.version") ?: "Generic"),
+                kernelRelease = System.getProperty("os.version") ?: "",
+                compiler = "Toolchain",
+                architecture = System.getProperty("os.arch") ?: "aarch64",
+                uptimeFormatted = "Aktif",
+                panicStatus = "Status tidak dapat dipindai: ${e.message}",
+                hasPanicLog = false,
+                capabilities = emptyList(),
+                isLoading = false
+            )
+        }
+    }
+
+    suspend fun executeQuickMaintenance(action: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        try {
+            when (action) {
+                "drop_caches" -> {
+                    Shell.cmd("sync", "echo 3 > /proc/sys/vm/drop_caches").exec()
+                    val duration = System.currentTimeMillis() - startTime
+                    Pair(true, "Cache pagecache, dentries & inodes berhasil dibersihkan (${duration}ms).")
+                }
+                "fstrim" -> {
+                    val res = Shell.cmd(
+                        "fstrim -v /data 2>&1",
+                        "fstrim -v /cache 2>&1 || true",
+                        "fstrim -v /system 2>&1 || true"
+                    ).exec()
+                    val duration = System.currentTimeMillis() - startTime
+                    val out = res.out.filter { it.isNotBlank() }.joinToString(" | ")
+                    Pair(true, "TRIM selesai (${duration}ms): ${out.ifBlank { "Semua blok flash berhasil di-TRIM." }}")
+                }
+                "compact_memory" -> {
+                    if (File("/proc/sys/vm/compact_memory").exists()) {
+                        Shell.cmd("echo 1 > /proc/sys/vm/compact_memory 2>/dev/null").exec()
+                        val duration = System.currentTimeMillis() - startTime
+                        Pair(true, "Kompaksi memori fisik (RAM compaction) berhasil dipicu (${duration}ms).")
+                    } else {
+                        Pair(false, "Node /proc/sys/vm/compact_memory tidak didukung oleh kernel ini.")
+                    }
+                }
+                "restart_audioserver" -> {
+                    Shell.cmd("killall -9 audioserver 2>/dev/null || pkill -9 audioserver 2>/dev/null").exec()
+                    val duration = System.currentTimeMillis() - startTime
+                    Pair(true, "Daemon audioserver Android berhasil dimulai ulang (${duration}ms).")
+                }
+                "flush_logs" -> {
+                    Shell.cmd("dmesg -c > /dev/null 2>&1", "logcat -c 2>/dev/null || true").exec()
+                    val duration = System.currentTimeMillis() - startTime
+                    Pair(true, "Ring buffer dmesg dan logcat berhasil dikosongkan (${duration}ms).")
+                }
+                "reset_to_stock" -> {
+                    val msg = resetKernelToStock()
+                    val duration = System.currentTimeMillis() - startTime
+                    Pair(true, "$msg (${duration}ms)")
+                }
+                else -> {
+                    Pair(false, "Aksi pemeliharaan tidak dikenal: $action")
+                }
+            }
+        } catch (e: Exception) {
+            Pair(false, "Gagal menjalankan pemeliharaan: ${e.message}")
+        }
+    }
+
     suspend fun readDmesgLog(limit: Int = 300, filter: String = ""): List<String> = withContext(Dispatchers.IO) {
         try {
             val cmd = if (filter.isBlank()) {
@@ -67,6 +231,4 @@ object LynxKernelDiagnosticsRepository {
             "Gagal reset: ${e.message}"
         }
     }
-
-
 }

@@ -473,6 +473,23 @@ data class DmesgLogState(
     val exportPath: String? = null,
 )
 
+data class KernelCapabilityBadge(
+    val label: String,
+    val isSupported: Boolean
+)
+
+data class KernelEnvironmentSummary(
+    val kernelVersion: String = "",
+    val kernelRelease: String = "",
+    val compiler: String = "",
+    val architecture: String = "aarch64",
+    val uptimeFormatted: String = "",
+    val panicStatus: String = "Sistem Stabil (Bebas Panic)",
+    val hasPanicLog: Boolean = false,
+    val capabilities: List<KernelCapabilityBadge> = emptyList(),
+    val isLoading: Boolean = false
+)
+
 // ============================================================
 //  NATIVE ENGINE STATUS (lynxd status --json)
 // ============================================================
@@ -626,6 +643,9 @@ data class LynxUiState(
     val memoryEntropy: MemoryEntropyInfo = MemoryEntropyInfo(),
     val customScripts: List<CustomScriptItem> = emptyList(),
     val dmesgState: DmesgLogState = DmesgLogState(),
+    val kernelSummary: KernelEnvironmentSummary = KernelEnvironmentSummary(),
+    val isMaintenanceExecuting: Boolean = false,
+    val lastMaintenanceOutput: String? = null,
     val currentTcpCongestion: String = "",
     val availableTcpCongestion: List<String> = listOf("cubic", "bic", "reno"),
     val wifiTelemetry: WifiTelemetryInfo = WifiTelemetryInfo(),

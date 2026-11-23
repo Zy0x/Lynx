@@ -86,6 +86,33 @@ import kotlinx.coroutines.flow.update
         }
     }
 
+    fun LynxViewModel.refreshKernelSummary() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(kernelSummary = it.kernelSummary.copy(isLoading = true)) }
+            val summary = LynxRepository.readKernelSummary()
+            _uiState.update { it.copy(kernelSummary = summary) }
+        }
+    }
+
+    fun LynxViewModel.runQuickMaintenance(action: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isMaintenanceExecuting = true) }
+            val (success, message) = LynxRepository.executeQuickMaintenance(action)
+            _uiState.update {
+                it.copy(
+                    isMaintenanceExecuting = false,
+                    lastMaintenanceOutput = message,
+                    successMessage = if (success) message else null,
+                    errorMessage = if (!success) message else null
+                )
+            }
+            if (action == "drop_caches" || action == "compact_memory" || action == "reset_to_stock") {
+                refreshState()
+                refreshKernelSummary()
+            }
+        }
+    }
+
     // ============================================================
     //  MASTER CATEGORIZED DIAGNOSTIC & FORENSIC LOG HUB
     // ============================================================

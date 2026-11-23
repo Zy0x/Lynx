@@ -1159,6 +1159,10 @@ object LynxRepository {
 
     suspend fun resetKernelToStock(): String = LynxKernelDiagnosticsRepository.resetKernelToStock()
 
+    suspend fun readKernelSummary(): KernelEnvironmentSummary = LynxKernelDiagnosticsRepository.readKernelSummary()
+
+    suspend fun executeQuickMaintenance(action: String): Pair<Boolean, String> = LynxKernelDiagnosticsRepository.executeQuickMaintenance(action)
+
     // ============================================================
     //  KERNEL SCHEDULER & GOVERNOR DEEP TUNABLES (CFS / EAS / BORE)
     // ============================================================

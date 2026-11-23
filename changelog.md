@@ -1,3 +1,34 @@
+# Lynx Universal [Perombakan Menyeluruh Tab Alat Kernel: Identitas & Crash Hero, Utilitas 1-Sentuh, Skrip Shell Edit & Dmesg Konsol Cerdas] 7.0.0-RC459
+Released on: 2026-11-23
+> Lynx Kernel Manager v3.4.78
+
+### Companion App & Kernel Subsystem (`KernelToolsTabContent`, `KernelIdentityHeroCard`, `KernelQuickMaintenanceCard`, `CustomScriptManagerCard`, `DmesgViewerCard`, `LynxKernelDiagnosticsRepository`, `LynxRepository`, `LynxViewModelDiagnostics`, `LynxGpuModels`)
+- **Bagian 1: Hero Identitas Kernel & Status Crash (`KernelIdentityHeroCard`)**:
+  - Menampilkan ringkasan menyeluruh rilis kernel Linux aktif (`/proc/version`, `os.version`), arsitektur (`aarch64`), toolchain kompilator (Clang LLVM / GCC), dan waktu aktif sistem (*Uptime* yang diformat presisi dalam hari, jam, menit, detik).
+  - Melakukan probe real-time status kestabilan kernel terhadap riwayat *kernel crash/panic* melalui deteksi berkas pstore ramoops (`/sys/fs/pstore/console-ramoops`, `/sys/fs/pstore/dmesg-ramoops-0`, `/proc/last_kmsg`, `/data/vendor/dontpanic`). Jika bersih, sistem menampilkan badge hijau `✓ Bebas Kernel Panic`, dan jika ada riwayat crash, sistem menampilkan peringatan `⚠️ Terdeteksi Crash Log`.
+  - Dilengkapi pita badge kapabilitas kernel interaktif: ZRAM Swap, EAS / Schedutil, RAM Compaction, Kernel Probes, eBPF Subsystem, KSM Memory, UCLAMP, dan MGLRU.
+  - Dilengkapi tombol penyegaran instan (*Refresh*) dengan animasi status loading asinkron.
+- **Bagian 2: Utilitas Pemeliharaan 1-Sentuh (`KernelQuickMaintenanceCard`)**:
+  - Menghadirkan grid 6 utilitas pemeliharaan cepat 1-sentuh dengan umpan balik durasi milidetik (*execution timer*) dan banner laporan hasil:
+    1. **Bersihkan Cache RAM (Drop Caches)**: Mengosongkan *pagecache*, *dentries*, dan *inodes* yang tidak terpakai dari RAM (`sync; echo 3 > /proc/sys/vm/drop_caches`).
+    2. **TRIM Penyimpanan (FSTRIM)**: Mengirim perintah TRIM ke kontroler flash UFS / eMMC pada partisi `/data`, `/cache`, dan `/system` untuk meremajakan kecepatan baca/tulis disk.
+    3. **Kompaksi RAM (RAM Compaction)**: Memaksa kernel merestrukturisasi alokasi memori fisik untuk mereduksi fragmentasi memori Linux (`/proc/sys/vm/compact_memory`).
+    4. **Restart Audioserver**: Memulai ulang daemon audio Android (`audioserver`) untuk mengatasi masalah audio glitch, distorsi, atau latensi Bluetooth.
+    5. **Flush Buffer Log (Clear Logs)**: Mengosongkan ring buffer dmesg dan logcat untuk menghemat RAM dan mempermudah pelacakan event baru.
+    6. **Reset Kernel Stock**: Dialog konfirmasi aman untuk mengembalikan seluruh frekuensi scaling, governor CPU, batas GPU, dan membersihkan watchdog locks kembali ke standar aman bawaan pabrik (OEM).
+- **Bagian 3: Pengelola Skrip Shell & Boot Kustom (`CustomScriptManagerCard`)**:
+  - Pembaruan antarmuka dan terminologi bahasa Indonesia profesional (*Pengelola Skrip Shell & Boot*).
+  - Menambahkan fitur **Edit Skrip** lengkap dengan dialog modifikasi nama, isi perintah shell root, dan sakelar eksekusi otomatis saat boot (*Run on Boot*).
+  - Menambahkan tombol chip penyisipan pola cepat (*Quick Snippet Chips*): `+ Drop Caches`, `+ FSTRIM`, `+ RAM Compaction`, `+ TCP FastOpen`, `+ Schedstats Mati`, dan `+ Silent Printk`.
+  - Tampilan monospace terminal yang diperkaya dengan badge status hasil eksekusi (`✓ Sukses (Exit: 0)` hijau vs `✗ Gagal (Exit: N)` oranye/merah), durasi eksekusi dalam milidetik, pemisahan jelas antara `stdout` dan `stderr`, serta tombol sekali sentuh salin output ke papan klip (*Clipboard*).
+  - Dialog konfirmasi aman sebelum menghapus skrip untuk mencegah kehilangan skrip secara tidak sengaja.
+- **Bagian 4: Konsol Log dmesg Ring Buffer Interaktif (`DmesgViewerCard`)**:
+  - Antarmuka baru *Konsol Log Kernel (dmesg)* dengan teks deskripsi informatif.
+  - Pita penghitung statistik keparahan (*Severity Ribbon*): Total Log, Error/Panic (merah), dan Peringatan/Warning (oranye).
+  - Deretan filter preset cepat sekali sentuh (*Quick Filter Chips*): `Semua`, `⚠️ Error & Panic`, `⚡ CPU & Sched`, `🎮 GPU & Driver`, `🔥 Suhu & Termal`, `🔋 Daya & Baterai`, `📶 Jaringan (WLAN)`, dan `💾 Memori & ZRAM`.
+  - Kolom pencarian teks fleksibel dengan tombol pembersih (*Clear 'X'*), tombol refresh log, dan tombol salin seluruh log yang tampil ke clipboard.
+  - Pewarnaan baris log kontekstual: error/panic (merah), warning (oranye), lynx subsystem (cyan), dan thermal (kuning).
+
 # Lynx Universal [Purifikasi Deep Sysfs: Eliminasi Duplikasi Lintas Halaman Tuning & Pemindaian Kernel Mendalam] 7.0.0-RC458
 Released on: 2026-11-23
 > Lynx Kernel Manager v3.4.77

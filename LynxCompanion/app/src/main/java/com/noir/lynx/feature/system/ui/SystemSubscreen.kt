@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -926,15 +928,34 @@ fun DeepSysfsTabContent(
 
 /**
  * TAB 2: ALAT KERNEL & LOG
- * Mengintegrasikan Pengelola Skrip Shell Boot (Custom Script Manager)
- * dan Penampil Log Ring Buffer Kernel (dmesg).
+ * Mengintegrasikan:
+ * 1. Hero Identitas Kernel & Status Crash
+ * 2. Utilitas Pemeliharaan 1-Sentuh
+ * 3. Pengelola Skrip Shell & Boot Kustom
+ * 4. Konsol Log Kernel Ring Buffer (dmesg)
  */
 @Composable
 fun KernelToolsTabContent(
     uiState: LynxUiState,
     viewModel: LynxViewModel
 ) {
-    // 1. Pengelola Skrip Kustom Boot
+    // 1. Hero Identitas Kernel & Status Crash
+    KernelIdentityHeroCard(
+        uiState = uiState,
+        onRefresh = { viewModel.refreshKernelSummary() }
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    // 2. Utilitas Pemeliharaan 1-Sentuh
+    KernelQuickMaintenanceCard(
+        uiState = uiState,
+        onAction = { viewModel.runQuickMaintenance(it) }
+    )
+
+    Spacer(Modifier.height(10.dp))
+
+    // 3. Pengelola Skrip Shell & Boot Kustom
     CustomScriptManagerCard(
         scripts = uiState.customScripts,
         onExecute = { viewModel.executeCustomScript(it) },
@@ -944,12 +965,407 @@ fun KernelToolsTabContent(
 
     Spacer(Modifier.height(10.dp))
 
-    // 2. Penampil Log dmesg Ring Buffer
+    // 4. Penampil Log dmesg Ring Buffer
     DmesgViewerCard(
         dmesgState = uiState.dmesgState,
         onLoadLogs = { viewModel.loadDmesgLog(it) },
         onExport = { viewModel.exportDmesgLog() }
     )
+}
+
+/**
+ * 1. Hero Identitas Kernel & Status Crash
+ */
+@Composable
+fun KernelIdentityHeroCard(
+    uiState: LynxUiState,
+    onRefresh: () -> Unit
+) {
+    val summary = uiState.kernelSummary
+
+    LaunchedEffect(Unit) {
+        if (summary.kernelRelease.isBlank()) {
+            onRefresh()
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFF10141F),
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    AccentCyan.copy(alpha = 0.35f),
+                    Color(0x15FFFFFF)
+                )
+            )
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Header Row: Status Indicator & Refresh Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Surface(shape = CircleShape, color = AccentCyan.copy(alpha = 0.18f), modifier = Modifier.size(10.dp)) {}
+                        Surface(shape = CircleShape, color = AccentCyan, modifier = Modifier.size(5.dp)) {}
+                    }
+                    Text(
+                        text = "Identitas Kernel & Stabilitas Crash",
+                        color = TextSecondary.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (summary.isLoading) {
+                        CircularProgressIndicator(
+                            color = AccentCyan,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        IconButton(
+                            onClick = onRefresh,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, "Segarkan Ringkasan", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            // Main Kernel Version & Architecture Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.3f)),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.DeveloperBoard,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = summary.kernelRelease.ifBlank { System.getProperty("os.version") ?: "Linux Kernel" },
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "${summary.compiler} • ${summary.architecture} • Uptime: ${summary.uptimeFormatted.ifBlank { "Aktif" }}",
+                        color = TextSecondary,
+                        fontSize = 10.5.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Crash & Panic Status Bar
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (summary.hasPanicLog) AccentRed.copy(alpha = 0.12f) else AccentGreen.copy(alpha = 0.10f),
+                border = BorderStroke(
+                    0.6.dp,
+                    if (summary.hasPanicLog) AccentRed.copy(alpha = 0.4f) else AccentGreen.copy(alpha = 0.35f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (summary.hasPanicLog) Icons.Default.Warning else Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = if (summary.hasPanicLog) AccentRed else AccentGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = summary.panicStatus,
+                            color = if (summary.hasPanicLog) AccentRed else AccentGreen,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (summary.hasPanicLog) {
+                                "Ditemukan log ramoops/last_kmsg di pstore. Periksa dmesg untuk analisis."
+                            } else {
+                                "PStore & console-ramoops bersih, kernel berjalan tanpa kegagalan kritis."
+                            },
+                            color = TextSecondary,
+                            fontSize = 9.5.sp,
+                            lineHeight = 13.sp
+                        )
+                    }
+                }
+            }
+
+            // Capability Badges
+            if (summary.capabilities.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    for (badge in summary.capabilities) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (badge.isSupported) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                            border = BorderStroke(
+                                0.6.dp,
+                                if (badge.isSupported) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
+                            )
+                        ) {
+                            Text(
+                                text = (if (badge.isSupported) "✓ " else "✗ ") + badge.label,
+                                color = if (badge.isSupported) AccentCyan else TextTertiary,
+                                fontSize = 10.sp,
+                                fontWeight = if (badge.isSupported) FontWeight.SemiBold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class MaintenanceToolItem(
+    val id: String,
+    val title: String,
+    val desc: String,
+    val icon: ImageVector,
+    val accent: Color
+)
+
+/**
+ * 2. Utilitas Pemeliharaan 1-Sentuh
+ */
+@Composable
+fun KernelQuickMaintenanceCard(
+    uiState: LynxUiState,
+    onAction: (String) -> Unit
+) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            containerColor = BgCard,
+            title = {
+                Text(
+                    text = "Kembalikan ke Parameter Kernel Stock?",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Tindakan ini akan mengembalikan seluruh governor CPU, frekuensi scaling, limit GPU, dan menghapus kunci watchdog darurat kembali ke setelan aman standar pabrik (OEM).",
+                    color = TextSecondary,
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetDialog = false
+                        onAction("reset_to_stock")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = TextPrimary)
+                ) {
+                    Text("Pulihkan ke Stock", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Batal", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    LynxCard(
+        title = "Utilitas Pemeliharaan 1-Sentuh",
+        icon = Icons.Default.Handyman,
+        accentColor = AccentCyan
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Optimasi cepat dan pemulihan instan subsistem kernel tanpa perlu me-reboot perangkat.",
+                color = TextSecondary,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            // Status output eksekusi terakhir
+            uiState.lastMaintenanceOutput?.let { lastOut ->
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.Info, null, tint = AccentCyan, modifier = Modifier.size(15.dp))
+                        Text(
+                            text = lastOut,
+                            color = TextPrimary,
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+
+            // Grid 2 Kolom untuk 6 utilitas
+            val tools = listOf(
+                MaintenanceToolItem(
+                    id = "drop_caches",
+                    title = "Bersihkan Cache RAM",
+                    desc = "Drop pagecache & inodes",
+                    icon = Icons.Default.CleaningServices,
+                    accent = AccentCyan
+                ),
+                MaintenanceToolItem(
+                    id = "fstrim",
+                    title = "TRIM Penyimpanan",
+                    desc = "Optimasi blok UFS / eMMC",
+                    icon = Icons.Default.Storage,
+                    accent = AccentBlue
+                ),
+                MaintenanceToolItem(
+                    id = "compact_memory",
+                    title = "Kompaksi RAM",
+                    desc = "Reduksi fragmentasi kernel",
+                    icon = Icons.Default.Compress,
+                    accent = AccentGreen
+                ),
+                MaintenanceToolItem(
+                    id = "restart_audioserver",
+                    title = "Restart Audioserver",
+                    desc = "Atasi audio lag & glitch",
+                    icon = Icons.Default.VolumeUp,
+                    accent = AccentPurple
+                ),
+                MaintenanceToolItem(
+                    id = "flush_logs",
+                    title = "Flush Buffer Log",
+                    desc = "Reset dmesg & logcat",
+                    icon = Icons.Default.LayersClear,
+                    accent = AccentCyan
+                ),
+                MaintenanceToolItem(
+                    id = "reset_to_stock",
+                    title = "Reset Kernel Stock",
+                    desc = "Kembalikan ke standar OEM",
+                    icon = Icons.Default.Restore,
+                    accent = AccentOrange
+                )
+            )
+
+            for (row in tools.chunked(2)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    for (tool in row) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.7.dp, tool.accent.copy(alpha = 0.3f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(82.dp),
+                            onClick = {
+                                if (tool.id == "reset_to_stock") {
+                                    showResetDialog = true
+                                } else {
+                                    onAction(tool.id)
+                                }
+                            }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(tool.icon, null, tint = tool.accent, modifier = Modifier.size(18.dp))
+                                    if (uiState.isMaintenanceExecuting) {
+                                        CircularProgressIndicator(color = tool.accent, strokeWidth = 1.5.dp, modifier = Modifier.size(12.dp))
+                                    }
+                                }
+                                Column {
+                                    Text(
+                                        text = tool.title,
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = tool.desc,
+                                        color = TextSecondary,
+                                        fontSize = 9.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
