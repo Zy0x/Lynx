@@ -39,6 +39,10 @@ fi
     [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
     [ -f /proc/net/wlan/setCAM ] && echo "CAM 0" > /proc/net/wlan/setCAM 2>/dev/null
     [ -f /proc/net/wlan/pkt_filter ] && echo 1 > /proc/net/wlan/pkt_filter 2>/dev/null
+    if [ -f /proc/net/wlan/cfg ]; then
+        echo "PowerSave 0" > /proc/net/wlan/cfg 2>/dev/null
+        echo "AdvPws 0" > /proc/net/wlan/cfg 2>/dev/null
+    fi
 
     # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery (Safe Baseline)
     for mod_dir in /sys/module/*wlan*/parameters /sys/module/*qca*/parameters /sys/module/*cnss*/parameters /sys/module/dhd/parameters /sys/module/bcmdhd/parameters /sys/module/scsc_wlan/parameters /sys/module/sprdwl*/parameters; do

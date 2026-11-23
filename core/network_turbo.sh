@@ -66,7 +66,11 @@ enable_network_turbo() {
         [ -e "$p" ] && echo 1 > "$p" 2>/dev/null
     done
 
-    # MTK Wi-Fi fast TX
+    # MTK Wi-Fi fast TX & PowerSave disable
+    if [ -f /proc/net/wlan/cfg ]; then
+        echo "PowerSave 0" > /proc/net/wlan/cfg 2>/dev/null
+        echo "AdvPws 0" > /proc/net/wlan/cfg 2>/dev/null
+    fi
     [ -e /proc/net/wlan/low_latency ] && echo 1 > /proc/net/wlan/low_latency 2>/dev/null
 }
 

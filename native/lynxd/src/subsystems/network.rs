@@ -1594,9 +1594,13 @@ impl NetworkController {
                 .unwrap_or(false);
 
         let hw_radio_active = match radio.vendor {
-            RadioVendor::MediaTekProc => SysfsReader::read_trimmed("/proc/net/wlan/setCAM")
-                .map(|s| s.contains('1'))
-                .unwrap_or(false),
+            RadioVendor::MediaTekProc => SysfsReader::read_trimmed("/proc/net/wlan/cfg")
+                .map(|s| s.contains("PowerSave|0"))
+                .unwrap_or_else(|_| {
+                    SysfsReader::read_trimmed("/proc/net/wlan/setCAM")
+                        .map(|s| s.contains('1'))
+                        .unwrap_or(false)
+                }),
             RadioVendor::QualcommCnss => radio.module_paths.iter().any(|p| {
                 [
                     "power_save",
