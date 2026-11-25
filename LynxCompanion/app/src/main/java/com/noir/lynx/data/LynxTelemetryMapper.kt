@@ -333,7 +333,7 @@ internal object LynxTelemetryMapper {
 
                 chargingEfficiencyPercent = if (isPlugged) effPct else 0,
 
-                realPhysicalTempC = existingBatt?.realPhysicalTempC ?: tempFloat,
+                realPhysicalTempC = if ((existingBatt?.spoofedTempC ?: 0f) > 0f && existingBatt?.realPhysicalTempC != null && existingBatt.realPhysicalTempC > 0f) existingBatt.realPhysicalTempC else tempFloat,
 
                 spoofedTempC = existingBatt?.spoofedTempC ?: 0f,
 

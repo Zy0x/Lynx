@@ -35,8 +35,19 @@ internal object LynxBatteryTelemetryRepository {
                     temp=${'$'}(cat /sys/class/power_supply/battery/temp 2>/dev/null)
                     [ -z "${'$'}temp" ] || [ "${'$'}temp" = "0" ] 2>/dev/null && temp=${'$'}(cat /sys/class/power_supply/bms/temp 2>/dev/null)
                     if [ -z "${'$'}temp" ] || [ "${'$'}temp" -le 0 ] 2>/dev/null; then
-                        tz1=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
-                        [ -n "${'$'}tz1" ] && [ "${'$'}tz1" -gt 10000 ] 2>/dev/null && temp=${'$'}(( tz1 / 100 ))
+                        for tz in /sys/class/thermal/thermal_zone*; do
+                            [ -d "${'$'}tz" ] || continue
+                            tzt=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                            case "${'$'}tzt" in
+                                battery|bms|mtktsbattery|battery_*|bms_*)
+                                    tzv=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                                    if [ -n "${'$'}tzv" ] && [ "${'$'}tzv" -gt 10000 ] 2>/dev/null; then
+                                        temp=${'$'}(( tzv / 100 ))
+                                        break
+                                    fi
+                                    ;;
+                            esac
+                        done
                     fi
                     [ -z "${'$'}temp" ] && temp=0
                     volt=${'$'}(cat /sys/class/power_supply/battery/voltage_now 2>/dev/null)
@@ -115,7 +126,50 @@ internal object LynxBatteryTelemetryRepository {
                         fi
                     fi
                     [ -z "${'$'}rfc" ] && rfc=0
-                    rtmp=${'$'}(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null)
+                    is_spoofed_temp=0
+                    if [ -f /dev/lynx_spoofed_batt_temp ]; then
+                        is_spoofed_temp=1
+                    elif [ -f /sys/devices/platform/battery/Battery_Temperature ] && [ "${'$'}temp" -ge 245 ] && [ "${'$'}temp" -le 285 ] 2>/dev/null; then
+                        bt_raw=${'$'}(cat /sys/devices/platform/battery/Battery_Temperature 2>/dev/null)
+                        if [ -n "${'$'}bt_raw" ] && [ "${'$'}bt_raw" != "65535" ] && [ "${'$'}bt_raw" -le 30 ] 2>/dev/null; then
+                            is_spoofed_temp=1
+                        fi
+                    fi
+                    rtmp=""
+                    if [ "${'$'}is_spoofed_temp" = "0" ] && [ -n "${'$'}temp" ] && [ "${'$'}temp" -gt 0 ] 2>/dev/null; then
+                        rtmp="${'$'}temp"
+                    fi
+                    if [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null; then
+                        for tz in /sys/class/thermal/thermal_zone*; do
+                            [ -d "${'$'}tz" ] || continue
+                            tzt=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                            case "${'$'}tzt" in
+                                *pmic*|*pm660*|*smb*|*cpu*|*gpu*) continue ;;
+                                battery|bms|mtktsbattery|battery_*|bms_*)
+                                    tzv=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                                    if [ -n "${'$'}tzv" ] && [ "${'$'}tzv" -gt 10000 ] 2>/dev/null; then
+                                        if [ "${'$'}is_spoofed_temp" = "1" ] && { [ "${'$'}tzv" = "25000" ] || [ "${'$'}tzv" = "28000" ]; }; then
+                                            continue
+                                        fi
+                                        rtmp="${'$'}tzv"
+                                        break
+                                    fi
+                                    ;;
+                            esac
+                        done
+                    fi
+                    if [ "${'$'}is_spoofed_temp" = "1" ] && { [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null; }; then
+                        for tz in /sys/class/thermal/thermal_zone*; do
+                            [ -d "${'$'}tz" ] || continue
+                            tzt=${'$'}(cat "${'$'}tz/type" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+                            case "${'$'}tzt" in
+                                *mtktswmt*)
+                                    tzv=${'$'}(cat "${'$'}tz/temp" 2>/dev/null)
+                                    [ -n "${'$'}tzv" ] && [ "${'$'}tzv" -gt 10000 ] 2>/dev/null && rtmp="${'$'}tzv" && break
+                                    ;;
+                            esac
+                        done
+                    fi
                     [ -z "${'$'}rtmp" ] || [ "${'$'}rtmp" -le 0 ] 2>/dev/null && rtmp=${'$'}temp
                     grd=${'$'}([ -f /dev/lynx_charging_guard ] && echo 1 || echo 0)
                     cst=${'$'}(cat /dev/lynx_charging_state 2>/dev/null || echo "")

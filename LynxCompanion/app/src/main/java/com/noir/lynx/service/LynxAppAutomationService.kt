@@ -337,13 +337,15 @@ class LynxAppAutomationService : Service() {
             registerReceiver(hudOverrideReceiver, hudFilter)
         }
 
-        // Persistent Charging Guardian: Guarantees high-power charging holds even when app is closed / backgrounded
+        // Persistent Charging Guardian: Guarantees high-power charging holds when native lynxd daemon is unavailable
         serviceScope.launch(Dispatchers.IO) {
             while (isActive) {
                 try {
-                    val chg = LynxRepository.readState().charging
-                    if (chg.chargingMode == "hyper" || chg.extremeChargingEnabled) {
-                        LynxRepository.chargingRepository.reapplyExtremeChargingLock()
+                    if (!isNativeDaemonHandlingProfiles()) {
+                        val chg = LynxRepository.readState().charging
+                        if (chg.chargingMode == "hyper" || chg.extremeChargingEnabled) {
+                            LynxRepository.chargingRepository.reapplyExtremeChargingLock()
+                        }
                     }
                 } catch (_: Exception) {}
                 delay(15000L)

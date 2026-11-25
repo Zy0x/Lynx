@@ -1,3 +1,19 @@
+# Lynx Universal [Perbaikan Engine Hyper Charging Qualcomm, Eliminasi Loop Bind-Mount Termal & Sinkronisasi Sensor Suhu Baterai] 7.0.0-RC461
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.80
+
+### Native Core & Charging Regulator (`native/lynxd/src/hardware/charging.rs`)
+- **Pemulihan Hyper Mode Tanpa Cabut-Colok Ulang & Proteksi Kecepatan Asli**:
+  - Memperbaiki *fallthrough bug* pada `probe_silicon_charge_ceiling_ua` dan `probe_silicon_usb_current_max_ua` yang sebelumnya dapat menyimpan kandidat arus `6,5 A` saat readback kernel di bawah `2,8 A`, serta membatasi probing `qpnp-smb2` / `pm660` single-PMIC secara aman di `3,2 A` agar voter `USB_ICL_VOTABLE` tidak kolaps ke `1,5 A` (tanpa memengaruhi batas `direct pump` dual-cell atau perangkat MediaTek/Transsion seperti Infinix).
+  - Menambahkan eskalasi pemulihan dua tahap (`trigger_qcom_apsd_renegotiate` dengan `cooldown >= 180s` dan batas maksimal `2x` per sesi kabel) khusus ketika pengisian Qualcomm terjebak di `< 1550 mA` & `< 6,5 V` selama `>= 8` detik berturut-turut, sambil memastikan sesi QC 3.0 INOV / MediaTek PE+ yang sudah kencang tetap berjalan tanpa gangguan.
+  - Memperbaiki penjaga batas `should_reapply_qcom_fcc` pada `enforce_live_charging_invariants` agar kecepatan penuh saat pengisian hangat normal (`<= 55°C`) tetap terjaga di Redmi Note 7 maupun Infinix, sambil tetap menegakkan step-down saat overheat kritis (`>= 55,5°C`) atau float `100% SoC`.
+- **Eliminasi Loop Bind-Mount `thermal-engine.conf` 1 Hz & Leak `//deleted`**:
+  - Mengganti pengecekan `/proc/mounts` yang selalu gagal dengan validasi `/proc/self/mountinfo` (`mountinfo_has_active_lynx_thermal_mount`), membersihkan mount basi `//deleted` sebelum re-mount, men-throttle inspeksi zona `quiet-therm` ke interval 15 detik, dan hanya menghapus berkas backing setelah seluruh mount terlepas bersih.
+
+### Companion App (`LynxAppAutomationService`, `LynxBatteryTelemetryRepository`, `LynxTelemetryMapper`)
+- **Penghapusan Tabrakan `lynxd charging tick` 15 Detik**: Menambahkan penjaga `!isNativeDaemonHandlingProfiles()` pada loop pengisian daya latar belakang `LynxAppAutomationService` sehingga `lynxd charging tick` hanya dijalankan sebagai fallback ketika daemon native tidak aktif.
+- **Pembacaan Sensor Suhu Baterai Autentik**: Mengeliminasi fallback paksa `thermal_zone1` (`pm660l-tz` statis `37.0°C`) dan menggantinya dengan resolusi zona termal baterai nyata (`battery` / `bms` / `mtktsbattery` / `mtktswmt`) yang sinkron dengan telemetri langsung.
+
 # Lynx Universal [Perombakan Total Tab Sistem & GSI: Eliminasi 5 Redundansi Lintas Halaman, UI Fluidity, Skala Animasi 1-Ketukan & GSI Framework Murni] 7.0.0-RC460
 Released on: 2026-11-23
 > Lynx Kernel Manager v3.4.79
