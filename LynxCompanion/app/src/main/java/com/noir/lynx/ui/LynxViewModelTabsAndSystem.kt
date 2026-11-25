@@ -202,3 +202,31 @@ fun LynxViewModel.selectCpuTab(tab: Int) = setSelectedCpuTab(tab)
             }
         }
     }
+
+    fun LynxViewModel.clearDexoptOutput() {
+        _uiState.update { it.copy(lastDexoptOutput = null) }
+    }
+
+    fun LynxViewModel.triggerDozeDeepSleep() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val (ok, msg) = LynxRepository.triggerDozeDeepSleep()
+            _uiState.update {
+                it.copy(
+                    successMessage = if (ok) msg else null,
+                    errorMessage = if (!ok) msg else null
+                )
+            }
+        }
+    }
+
+    fun LynxViewModel.restoreDozeTimer() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val (ok, msg) = LynxRepository.restoreDozeTimer()
+            _uiState.update {
+                it.copy(
+                    successMessage = if (ok) msg else null,
+                    errorMessage = if (!ok) msg else null
+                )
+            }
+        }
+    }

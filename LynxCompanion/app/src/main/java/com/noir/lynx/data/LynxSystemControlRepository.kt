@@ -1546,5 +1546,29 @@ object LynxSystemControlRepository {
         }
     }
 
+    suspend fun triggerDozeDeepSleep(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val res = Shell.cmd("dumpsys deviceidle force-idle 2>&1").exec()
+            if (res.isSuccess) {
+                Pair(true, "Sistem dipaksa masuk ke status Doze Deep Sleep.")
+            } else {
+                Pair(false, res.out.joinToString("\n").ifBlank { "Gagal memicu Doze Deep Sleep." })
+            }
+        } catch (e: Exception) {
+            Pair(false, "Gagal memicu Doze: ${e.message}")
+        }
+    }
 
+    suspend fun restoreDozeTimer(): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val res = Shell.cmd("dumpsys deviceidle unforce 2>&1").exec()
+            if (res.isSuccess) {
+                Pair(true, "Status Doze dipulihkan ke siklus timer normal.")
+            } else {
+                Pair(false, res.out.joinToString("\n").ifBlank { "Gagal memulihkan status Doze." })
+            }
+        } catch (e: Exception) {
+            Pair(false, "Gagal memulihkan Doze: ${e.message}")
+        }
+    }
 }

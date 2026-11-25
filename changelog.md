@@ -1,3 +1,25 @@
+# Lynx Universal [Penyempurnaan Estetika Visual Tab Sistem & GSI: 4-Bento Telemetri OS, Segmented Animasi Bar, Standardisasi LynxSwitch, & Mini Terminal Dexopt] 7.0.0-RC462
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.81
+
+### UI/UX & Companion App (`SystemSubscreen.kt`, `SystemFrameworkHeroCard`, `AndroidFrameworkUiCard`, `GsiTrebleFrameworkCard`, `DozePowerDiagnosticCard`)
+- **Penyelarasan Margin & Geometri Kartu**:
+  - Menyelaraskan padding horizontal `SystemFrameworkHeroCard` ke `16.dp` dan kelengkungan sudut ke `22.dp` agar sejajar presisi dengan seluruh `LynxCard` di bawahnya.
+  - Mengeliminasi akumulasi jarak vertikal berlebih antar kartu (`vertical spacing bug`) sehingga layout menjadi padat, rapi, dan nyaman di-scroll.
+- **Rombak 4-Bento Telemetri OS (`SystemFrameworkHeroCard`)**:
+  - Menggantikan teks satu baris polos dengan grid 4-bento telemetri interaktif: *Tipe Framework* (Project Treble GSI vs Stock Vendor), *Integritas Partisi* (dm-verity), *Status SELinux Access*, dan *Status OS*, dilengkapi status banner stabilitas di bagian bawah.
+- **Standardisasi Komponen Toggle (`LynxSwitch`)**:
+  - Menggantikan seluruh `Switch` Material 3 mentah dengan `LynxSwitch` resmi berstandar target sentuh 48dp, haptic feedback sentuhan, dan typography seragam.
+- **Segmented 4-Column Bar Skala Animasi (`AndroidFrameworkUiCard`)**:
+  - Menggantikan baris geser horizontal dengan Segmented 4-Column Bar responsif (`1.0x`, `0.5x`, `0.25x`, `Mati`) yang mengisi lebar layar penuh dengan highlight aktif `AccentPurple`.
+- **Mini Terminal Console Log Dexopt (`GsiTrebleFrameworkCard`)**:
+  - Menambahkan frame konsol bergaya Obsidian dengan header status, indikator titik hijau, font monospace rapi, dan tombol tutup/bersihkan log.
+- **Refactoring MVVM & Tombol Aksi Doze Subsystem (`DozePowerDiagnosticCard`)**:
+  - Memindahkan eksekusi shell `dumpsys deviceidle` langsung dari composable ke `LynxViewModel` (`triggerDozeDeepSleep` & `restoreDozeTimer`).
+  - Merancang dua tombol aksi berimbang (*dual balanced action surfaces*) dengan target sentuh ergonomis >= 48dp.
+- **Dialog Keamanan SELinux Cyberpunk**:
+  - Mempercantik dialog konfirmasi peralihan ke Permissive dengan styling Obsidian, aksen `AccentOrange`, dan tombol aksi yang jelas.
+
 # Lynx Universal [Perbaikan Engine Hyper Charging Qualcomm, Eliminasi Loop Bind-Mount Termal & Sinkronisasi Sensor Suhu Baterai] 7.0.0-RC461
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.80

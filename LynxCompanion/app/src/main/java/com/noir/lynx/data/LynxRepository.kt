@@ -810,6 +810,8 @@ object LynxRepository {
     suspend fun readQemuMainkeys(): Boolean = LynxSystemControlRepository.readQemuMainkeys()
     suspend fun applyQemuMainkeys(showNavbar: Boolean): Boolean = LynxSystemControlRepository.applyQemuMainkeys(showNavbar)
     suspend fun executeArtSpeedProfileDexopt(): Pair<Boolean, String> = LynxSystemControlRepository.executeArtSpeedProfileDexopt()
+    suspend fun triggerDozeDeepSleep(): Pair<Boolean, String> = LynxSystemControlRepository.triggerDozeDeepSleep()
+    suspend fun restoreDozeTimer(): Pair<Boolean, String> = LynxSystemControlRepository.restoreDozeTimer()
 
     suspend fun readNetworkEngineInfo(): NetworkEngineInfo = LynxSystemControlRepository.readNetworkEngineInfo()
     suspend fun applyNetworkFeature(key: String, enabled: Boolean): NetworkFeatureResult =

@@ -164,7 +164,6 @@ fun SystemGsiTabContent(
     uiState: LynxUiState,
     viewModel: LynxViewModel
 ) {
-    val context = LocalContext.current
     var showPermissiveWarningDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -177,8 +176,6 @@ fun SystemGsiTabContent(
         onRefresh = { viewModel.refreshSystemFrameworkSummary() }
     )
 
-    Spacer(Modifier.height(10.dp))
-
     // 2. Keamanan & Penegakan Kernel (SELinux & Printk)
     KernelSecurityCard(
         uiState = uiState,
@@ -186,8 +183,6 @@ fun SystemGsiTabContent(
         onSetPrintkSilent = { viewModel.setPrintkSilent(it) },
         onShowWarningDialog = { showPermissiveWarningDialog = true }
     )
-
-    Spacer(Modifier.height(10.dp))
 
     // 3. Penyetelan Kelancaran UI & Framework Android (Animasi, Blurs, Phantom Procs)
     AndroidFrameworkUiCard(
@@ -197,62 +192,77 @@ fun SystemGsiTabContent(
         onSetDisablePhantomProcesses = { viewModel.setDisablePhantomProcesses(it) }
     )
 
-    Spacer(Modifier.height(10.dp))
-
-    // 4. Kompatibilitas Murni Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
+    // 4. Kompatibilitas Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
     GsiTrebleFrameworkCard(
         uiState = uiState,
         onSetForceShowNavbar = { viewModel.setForceShowNavbar(it) },
-        onRunDexopt = { viewModel.runArtSpeedProfileDexopt() }
+        onRunDexopt = { viewModel.runArtSpeedProfileDexopt() },
+        onClearDexoptOutput = { viewModel.clearDexoptOutput() }
     )
-
-    Spacer(Modifier.height(10.dp))
 
     // 5. Diagnostik Daya & Doze Subsystem (Uji Doze Deep Sleep)
     DozePowerDiagnosticCard(
-        onTriggerDoze = {
-            com.topjohnwu.superuser.Shell.cmd("dumpsys deviceidle force-idle 2>/dev/null; echo ok").submit {
-                Toast.makeText(context, "Sistem dipaksa masuk ke status Doze Idle", Toast.LENGTH_SHORT).show()
-            }
-        },
-        onUnforceDoze = {
-            com.topjohnwu.superuser.Shell.cmd("dumpsys deviceidle unforce 2>/dev/null; echo ok").submit {
-                Toast.makeText(context, "Status Doze dipulihkan ke timer normal", Toast.LENGTH_SHORT).show()
-            }
-        }
+        onTriggerDoze = { viewModel.triggerDozeDeepSleep() },
+        onUnforceDoze = { viewModel.restoreDozeTimer() }
     )
 
-    // Modal Peringatan Beralih ke Permissive
+    // Modal Peringatan Cyberpunk Beralih ke Permissive
     if (showPermissiveWarningDialog) {
         AlertDialog(
             onDismissRequest = { showPermissiveWarningDialog = false },
+            shape = RoundedCornerShape(18.dp),
+            containerColor = Color(0xFF141724),
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
             title = {
-                Text("Peringatan Keamanan SELinux", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(
+                    text = "Peringatan Keamanan SELinux",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center
+                )
             },
             text = {
                 Text(
-                    "Mengubah SELinux ke mode Permissive akan menonaktifkan penegakan akses wajib Android. Modul root dan custom kernel tertentu mungkin membutuhkannya, namun perlindungan partisi sistem akan menurun. Lanjutkan?",
+                    text = "Mengubah SELinux ke mode Permissive akan menonaktifkan penegakan akses wajib Android. Modul root atau kernel kustom tertentu mungkin membutuhkannya, namun perlindungan partisi sistem terhadap eksploitasi akan menurun.\n\nApakah Anda yakin ingin melanjutkan?",
                     color = TextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     lineHeight = 16.sp
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showPermissiveWarningDialog = false
                         viewModel.setSelinuxMode(false)
-                    }
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentOrange.copy(alpha = 0.22f),
+                        contentColor = AccentOrange
+                    ),
+                    border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.55f))
                 ) {
-                    Text("Tetap Ubah ke Permissive", color = AccentOrange, fontWeight = FontWeight.Bold)
+                    Text("Tetap Ubah ke Permissive", fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPermissiveWarningDialog = false }) {
-                    Text("Batal", color = TextSecondary)
+                OutlinedButton(
+                    onClick = { showPermissiveWarningDialog = false },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                ) {
+                    Text("Batal", fontSize = 11.5.sp)
                 }
-            },
-            containerColor = BgCard
+            }
         )
     }
 }
@@ -274,22 +284,26 @@ fun SystemFrameworkHeroCard(
     }
 
     val isEnforcing = uiState.selinuxMode.equals("Enforcing", ignoreCase = true)
+    val isTreble = fw.frameworkType.contains("Treble", ignoreCase = true) || fw.frameworkType.contains("GSI", ignoreCase = true)
+    val isDmVerityEnforcing = fw.partitionProtection.contains("Aktif", ignoreCase = true) || fw.partitionProtection.contains("Enforcing", ignoreCase = true)
 
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF10141F),
+        shape = RoundedCornerShape(22.dp),
+        color = BgCard,
         border = BorderStroke(
             0.8.dp,
             Brush.verticalGradient(
                 listOf(
-                    Color(0xFF8B5CF6).copy(alpha = 0.35f),
-                    Color(0x15FFFFFF)
+                    AccentPurple.copy(alpha = 0.45f),
+                    BorderSubtle
                 )
             )
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Header Row: Status Indicator & Refresh Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -301,13 +315,13 @@ fun SystemFrameworkHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Surface(shape = CircleShape, color = Color(0xFF8B5CF6).copy(alpha = 0.22f), modifier = Modifier.size(10.dp)) {}
-                        Surface(shape = CircleShape, color = Color(0xFF8B5CF6), modifier = Modifier.size(5.dp)) {}
+                        Surface(shape = CircleShape, color = AccentPurple.copy(alpha = 0.22f), modifier = Modifier.size(10.dp)) {}
+                        Surface(shape = CircleShape, color = AccentPurple, modifier = Modifier.size(5.dp)) {}
                     }
                     Text(
                         text = "Framework Android & Keamanan OS",
                         color = TextSecondary.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -317,24 +331,178 @@ fun SystemFrameworkHeroCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = if (isEnforcing) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
-                        border = BorderStroke(0.5.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
+                        border = BorderStroke(0.6.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.45f) else AccentOrange.copy(alpha = 0.45f))
                     ) {
                         Text(
                             text = if (isEnforcing) "SELinux: Enforcing" else "SELinux: Permissive",
                             color = if (isEnforcing) AccentGreen else AccentOrange,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
                         )
                     }
 
                     if (fw.isLoading) {
-                        CircularProgressIndicator(color = Color(0xFF8B5CF6), strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                        CircularProgressIndicator(color = AccentPurple, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                     } else {
                         IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Refresh, "Segarkan", tint = Color(0xFF8B5CF6), modifier = Modifier.size(15.dp))
+                            Icon(Icons.Default.Refresh, "Segarkan", tint = AccentPurple, modifier = Modifier.size(15.dp))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Main Android Version & Framework Hero
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentPurple.copy(alpha = 0.14f),
+                    border = BorderStroke(0.8.dp, AccentPurple.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Android,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Android ${fw.androidVersion.ifBlank { android.os.Build.VERSION.RELEASE }}",
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "API Level ${if (fw.apiLevel > 0) fw.apiLevel else android.os.Build.VERSION.SDK_INT} • Build ${android.os.Build.ID}",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 4-Bento Telemetry Tiles (2x2 Grid)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Tile 1: Tipe Framework
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Layers, null, tint = AccentBlue, modifier = Modifier.size(12.dp))
+                                Text("FRAMEWORK", color = TextTertiary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = fw.frameworkType.ifBlank { if (isTreble) "Project Treble" else "Stock Vendor" },
+                                color = if (isTreble) AccentBlue else AccentCyan,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Tile 2: Partisi dm-verity
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.VerifiedUser, null, tint = if (isDmVerityEnforcing) AccentGreen else AccentOrange, modifier = Modifier.size(12.dp))
+                                Text("DM-VERITY", color = TextTertiary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = fw.partitionProtection.ifBlank { "Terproteksi" },
+                                color = if (isDmVerityEnforcing) AccentGreen else AccentOrange,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Tile 3: Status Akses SELinux
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Security, null, tint = if (isEnforcing) AccentGreen else AccentOrange, modifier = Modifier.size(12.dp))
+                                Text("SELINUX ACCESS", color = TextTertiary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = if (isEnforcing) "Enforcing (Aman)" else "Permissive (Bypass)",
+                                color = if (isEnforcing) AccentGreen else AccentOrange,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // Tile 4: Status Kesiapan Kernel & Sistem
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.6.dp, BorderSubtle),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.CheckCircle, null, tint = AccentCyan, modifier = Modifier.size(12.dp))
+                                Text("STATUS OS", color = TextTertiary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = if (isTreble) "Treble Siap Tuning" else "OS Vendor Stabil",
+                                color = AccentCyan,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
@@ -342,40 +510,32 @@ fun SystemFrameworkHeroCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Main Android Version & Framework
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // Bottom System Integrity Banner
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AccentPurple.copy(alpha = 0.08f),
+                border = BorderStroke(0.6.dp, AccentPurple.copy(alpha = 0.25f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF8B5CF6).copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f)),
-                    modifier = Modifier.size(42.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Android,
-                            contentDescription = null,
-                            tint = Color(0xFF8B5CF6),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Android ${fw.androidVersion.ifBlank { android.os.Build.VERSION.RELEASE }} (API ${if (fw.apiLevel > 0) fw.apiLevel else android.os.Build.VERSION.SDK_INT})",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = AccentPurple,
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "${fw.frameworkType} • ${fw.partitionProtection}",
+                        text = "Framework dan partisi sistem siap untuk tuning animasi UI, penjadwalan proses, dan diagnostik daya.",
                         color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.sp
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -400,102 +560,37 @@ fun KernelSecurityCard(
         icon = Icons.Default.Shield,
         accentColor = AccentCyan
     ) {
-        // SELinux switch
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Status SELinux: ${uiState.selinuxMode}",
-                        color = if (isEnforcing) AccentGreen else AccentOrange,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = if (isEnforcing) AccentGreen.copy(alpha = 0.15f) else AccentOrange.copy(alpha = 0.15f),
-                        border = BorderStroke(0.6.dp, if (isEnforcing) AccentGreen.copy(alpha = 0.4f) else AccentOrange.copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = if (isEnforcing) "AMAN" else "PERMISSIVE",
-                            color = if (isEnforcing) AccentGreen else AccentOrange,
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
-                    }
+        // SELinux switch via LynxSwitch
+        LynxSwitch(
+            label = "Penegakan Akses SELinux",
+            subLabel = if (isEnforcing) {
+                "Enforcing: Kebijakan akses wajib Android aktif melindungi partisi sistem dari modifikasi proses tidak sah."
+            } else {
+                "Permissive: SELinux mengizinkan seluruh modul root berjalan tanpa batasan kebijakan keamanan (Akses Bebas)."
+            },
+            checked = isEnforcing,
+            onCheckedChange = { willEnforce ->
+                if (!willEnforce) {
+                    onShowWarningDialog()
+                } else {
+                    onSetSelinux(true)
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = if (isEnforcing) {
-                        "Enforcing: Kebijakan akses resmi Android aktif melindungi partisi sistem dari modifikasi tidak sah."
-                    } else {
-                        "Permissive: SELinux mengizinkan seluruh modul root berjalan tanpa batasan kebijakan keamanan."
-                    },
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
             }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = isEnforcing,
-                onCheckedChange = { willEnforce ->
-                    if (!willEnforce) {
-                        onShowWarningDialog()
-                    } else {
-                        onSetSelinux(true)
-                    }
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentGreen,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
+        )
 
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(
+            color = BorderGlass.copy(alpha = 0.5f),
+            thickness = 0.6.dp,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
 
-        // Peredam Log Konsol Kernel (Printk Silent)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Peredam Log Konsol Kernel (Printk Silent)",
-                    color = TextPrimary,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Meredam pencatatan log debug konsol kernel (0 0 0 0) saat sistem berjalan. Mencegah CPU sering terbangun dari Deep Sleep dan menghemat baterai standby.",
-                    color = TextSecondary,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.5.sp
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Switch(
-                checked = uiState.isPrintkSilent,
-                onCheckedChange = onSetPrintkSilent,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = BgDeepOled,
-                    checkedTrackColor = AccentCyan,
-                    uncheckedThumbColor = TextTertiary,
-                    uncheckedTrackColor = BgElevated
-                )
-            )
-        }
+        // Peredam Log Konsol Kernel (Printk Silent) via LynxSwitch
+        LynxSwitch(
+            label = "Peredam Log Konsol Kernel (Printk Silent)",
+            subLabel = "Meredam pencatatan log debug konsol kernel (0 0 0 0) saat sistem berjalan. Mencegah CPU sering terbangun dari Deep Sleep dan menghemat baterai standby.",
+            checked = uiState.isPrintkSilent,
+            onCheckedChange = onSetPrintkSilent
+        )
     }
 }
 
@@ -509,272 +604,206 @@ fun AndroidFrameworkUiCard(
     onSetDisableWindowBlurs: (Boolean) -> Unit,
     onSetDisablePhantomProcesses: (Boolean) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+
     LynxCard(
         title = "Penyetelan Framework & Kelancaran UI",
+        subtitle = "Optimasi durasi animasi, rendering SurfaceFlinger, dan manajemen proses Android.",
         icon = Icons.Default.Speed,
-        accentColor = Color(0xFF8B5CF6)
+        accentColor = AccentPurple
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Optimasi rendering jendela dan manajemen proses sistem operasi Android.",
-                color = TextSecondary,
-                fontSize = 11.5.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+        // Skala Animasi Sistem 1-Ketukan
+        Text(
+            text = "Skala Animasi Sistem (Window, Transition, Animator)",
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "Mengatur durasi ketiga parameter animasi sistem secara instan dan harmonis.",
+            color = TextSecondary,
+            fontSize = 10.5.sp,
+            lineHeight = 14.5.sp
+        )
 
-            // Skala Animasi Sistem 1-Ketukan
-            Text(
-                text = "Skala Animasi Sistem (Window, Transition, Animator):",
-                color = TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Mengubah durasi seluruh animasi jendela secara sinkron untuk responsivitas instan.",
-                color = TextSecondary,
-                fontSize = 10.5.sp,
-                lineHeight = 14.sp
-            )
+        Spacer(Modifier.height(10.dp))
 
-            Spacer(Modifier.height(8.dp))
+        val animPresets = listOf(
+            1.0f to "1.0x (Normal)",
+            0.5f to "0.5x (Cepat)",
+            0.25f to "0.25x (Kilat)",
+            0.0f to "Mati (Instan)"
+        )
 
-            val animPresets = listOf(
-                1.0f to "1.0x (Normal)",
-                0.5f to "0.5x (Cepat)",
-                0.25f to "0.25x (Kilat)",
-                0.0f to "0x (Mati / Instan)"
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                for ((scale, label) in animPresets) {
-                    val isSelected = kotlin.math.abs(uiState.animationScale - scale) < 0.05f
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) Color(0xFF8B5CF6).copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(
-                            0.7.dp,
-                            if (isSelected) Color(0xFF8B5CF6).copy(alpha = 0.6f) else BorderSubtle
-                        ),
-                        onClick = { onSetAnimationScale(scale) }
-                    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            animPresets.forEach { (scale, label) ->
+                val isSelected = kotlin.math.abs(uiState.animationScale - scale) < 0.05f
+                Surface(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSetAnimationScale(scale)
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) AccentPurple.copy(alpha = 0.22f) else BgElevated,
+                    border = BorderStroke(
+                        if (isSelected) 1.dp else 0.8.dp,
+                        if (isSelected) AccentPurple.copy(alpha = 0.65f) else BorderSubtle
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = label,
-                            color = if (isSelected) Color(0xFF8B5CF6) else TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            color = if (isSelected) AccentPurple else TextSecondary,
+                            fontSize = 10.5.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
-
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-            Spacer(Modifier.height(10.dp))
-
-            // Nonaktifkan Window Blurs Sistem
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Nonaktifkan Window Blurs Sistem",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Mematikan efek blur Gaussian pada notification shade dan app switcher di Android 12+. Sangat efektif menghilangkan micro-stutter pada GPU.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.5.sp
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Switch(
-                    checked = uiState.disableWindowBlurs,
-                    onCheckedChange = onSetDisableWindowBlurs,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = Color(0xFF8B5CF6),
-                        uncheckedThumbColor = TextTertiary,
-                        uncheckedTrackColor = BgElevated
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-            Spacer(Modifier.height(10.dp))
-
-            // Matikan Pembunuh Proses Phantom
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Matikan Pembunuh Proses Phantom",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Menaikkan limit proses phantom menjadi tak terbatas (2147483647). Mencegah Termux, daemon Lynx, dan server lokal dibunuh paksa oleh Android 12+.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.5.sp
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Switch(
-                    checked = uiState.disablePhantomProcesses,
-                    onCheckedChange = onSetDisablePhantomProcesses,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentCyan,
-                        uncheckedThumbColor = TextTertiary,
-                        uncheckedTrackColor = BgElevated
-                    )
-                )
-            }
         }
+
+        HorizontalDivider(
+            color = BorderGlass.copy(alpha = 0.5f),
+            thickness = 0.6.dp,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
+
+        // Nonaktifkan Window Blurs Sistem via LynxSwitch
+        LynxSwitch(
+            label = "Nonaktifkan Window Blurs Sistem",
+            subLabel = "Mematikan efek blur Gaussian pada notification shade dan app switcher di Android 12+. Sangat efektif menghilangkan micro-stutter pada GPU.",
+            checked = uiState.disableWindowBlurs,
+            onCheckedChange = onSetDisableWindowBlurs
+        )
+
+        HorizontalDivider(
+            color = BorderGlass.copy(alpha = 0.5f),
+            thickness = 0.6.dp,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
+
+        // Matikan Pembunuh Proses Phantom via LynxSwitch
+        LynxSwitch(
+            label = "Matikan Pembunuh Proses Phantom",
+            subLabel = "Menaikkan limit proses phantom menjadi tak terbatas (2.147.483.647). Mencegah Termux, daemon Lynx, dan server lokal dibunuh paksa oleh Android 12+.",
+            checked = uiState.disablePhantomProcesses,
+            onCheckedChange = onSetDisablePhantomProcesses
+        )
     }
 }
 
 /**
- * 4. Kompatibilitas Murni Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
+ * 4. Kompatibilitas Android GSI & Treble (QEMU Mainkeys, Speed-Profile Dexopt)
  */
 @Composable
 fun GsiTrebleFrameworkCard(
     uiState: LynxUiState,
     onSetForceShowNavbar: (Boolean) -> Unit,
-    onRunDexopt: () -> Unit
+    onRunDexopt: () -> Unit,
+    onClearDexoptOutput: () -> Unit
 ) {
     LynxCard(
-        title = "Kompatibilitas Murni Android GSI & Treble",
-        icon = Icons.Default.Build,
+        title = "Framework GSI & Kompatibilitas Treble",
+        subtitle = "Penyetelan bilah navigasi dan optimasi kompilasi Ahead-Of-Time (AOT).",
+        icon = Icons.Default.Layers,
         accentColor = AccentBlue
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Penyetelan tingkat sistem khusus untuk ROM Generic System Image (GSI) dan Project Treble.",
-                color = TextSecondary,
-                fontSize = 11.5.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+        // Bilah Navigasi Layar (QEMU Mainkeys) via LynxSwitch
+        LynxSwitch(
+            label = "Paksa Bilah Navigasi Layar (QEMU Mainkeys)",
+            subLabel = "Mengontrol kemunculan tombol navigasi software (Back, Home, Recents) pada ROM GSI. Memperbaiki tombol navigasi yang hilang atau dobel.",
+            checked = uiState.forceShowNavbar,
+            onCheckedChange = onSetForceShowNavbar
+        )
 
-            // Bilah Navigasi Layar (QEMU Mainkeys)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Paksa Bilah Navigasi 3-Tombol (QEMU Mainkeys)",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Mengontrol kemunculan tombol navigasi software (Back, Home, Recents) pada ROM GSI. Atasi tombol navigasi yang hilang atau dobel.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.5.sp
-                    )
-                }
+        HorizontalDivider(
+            color = BorderGlass.copy(alpha = 0.5f),
+            thickness = 0.6.dp,
+            modifier = Modifier.padding(vertical = 10.dp)
+        )
+
+        // Kompilasi ART Speed-Profile Instan
+        Text(
+            text = "Kompilasi ART / Dexopt Cepat (Speed-Profile)",
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = "Mengompilasi bytecode aplikasi ke native code secara offline. Mempercepat pembukaan aplikasi dan melenyapkan micro-stutter saat baru berganti ROM.",
+            color = TextSecondary,
+            fontSize = 10.5.sp,
+            lineHeight = 14.5.sp
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Button(
+            onClick = onRunDexopt,
+            enabled = !uiState.isDexoptRunning,
+            shape = RoundedCornerShape(10.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AccentBlue.copy(alpha = 0.20f),
+                contentColor = AccentBlue,
+                disabledContainerColor = BgElevated,
+                disabledContentColor = TextTertiary
+            ),
+            border = BorderStroke(1.dp, if (!uiState.isDexoptRunning) AccentBlue.copy(alpha = 0.50f) else BorderSubtle),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp)
+        ) {
+            if (uiState.isDexoptRunning) {
+                CircularProgressIndicator(color = AccentBlue, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
-                Switch(
-                    checked = uiState.forceShowNavbar,
-                    onCheckedChange = onSetForceShowNavbar,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BgDeepOled,
-                        checkedTrackColor = AccentBlue,
-                        uncheckedThumbColor = TextTertiary,
-                        uncheckedTrackColor = BgElevated
-                    )
-                )
+                Text("Sedang Mengompilasi Bytecode Aplikasi...", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            } else {
+                Icon(Icons.Default.Bolt, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Jalankan Kompilasi ART Dexopt", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
             }
+        }
 
+        uiState.lastDexoptOutput?.let { out ->
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = BorderGlass.copy(alpha = 0.6f), thickness = 0.6.dp)
-            Spacer(Modifier.height(10.dp))
-
-            // Kompilasi ART Speed-Profile Instan
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF090D14),
+                border = BorderStroke(0.8.dp, AccentBlue.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Kompilasi ART / Dexopt Cepat (Speed-Profile)",
-                        color = TextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "Mengompilasi bytecode aplikasi ke native code secara offline. Mempercepat pembukaan aplikasi dan menghilangkan micro-stutter saat baru ganti ROM.",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.5.sp
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = onRunDexopt,
-                    enabled = !uiState.isDexoptRunning,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentBlue.copy(alpha = 0.18f),
-                        contentColor = AccentBlue
-                    ),
-                    border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.45f)),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    if (uiState.isDexoptRunning) {
-                        CircularProgressIndicator(color = AccentBlue, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Kompilasi...", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.Bolt, null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Jalankan Dexopt", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Terminal, null, tint = AccentBlue, modifier = Modifier.size(14.dp))
+                            Text("OUTPUT LOG DEXOPT", color = AccentBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(onClick = onClearDexoptOutput, modifier = Modifier.size(22.dp)) {
+                            Icon(Icons.Default.Close, "Tutup Log", tint = TextTertiary, modifier = Modifier.size(14.dp))
+                        }
                     }
-                }
-            }
-
-            uiState.lastDexoptOutput?.let { out ->
-                Spacer(Modifier.height(8.dp))
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = BgSurfaceLowest,
-                    border = BorderStroke(0.6.dp, BorderSubtle),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         text = out,
                         color = AccentCyan,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 9.5.sp,
-                        lineHeight = 13.sp,
-                        modifier = Modifier.padding(8.dp)
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp
                     )
                 }
             }
@@ -792,49 +821,70 @@ fun DozePowerDiagnosticCard(
 ) {
     LynxCard(
         title = "Diagnostik Daya & Doze Subsystem",
+        subtitle = "Pengujian status tidur lelap Android (Doze) untuk mengevaluasi efisiensi baterai.",
         icon = Icons.Default.Bedtime,
         accentColor = AccentOrange
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Pengujian status tidur lelap Android (Doze) untuk mengecek apakah aplikasi latar belakang tertidur dengan benar.",
-                color = TextSecondary,
-                fontSize = 11.5.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
+        Text(
+            text = "Pengujian status tidur lelap Android (Doze) untuk memastikan konsumsi baterai standby saat layar mati berada dalam tingkat paling efisien.",
+            color = TextSecondary,
+            fontSize = 10.5.sp,
+            lineHeight = 14.5.sp
+        )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                onClick = onTriggerDoze,
+                shape = RoundedCornerShape(10.dp),
+                color = AccentOrange.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.45f)),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
             ) {
-                Button(
-                    onClick = onTriggerDoze,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentOrange.copy(alpha = 0.18f),
-                        contentColor = AccentOrange
-                    ),
-                    border = BorderStroke(1.dp, AccentOrange.copy(alpha = 0.45f)),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Bedtime, null, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Trigger Deep Sleep", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Bedtime, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("Paksa Deep Sleep", color = AccentOrange, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("dumpsys force-idle", color = AccentOrange.copy(alpha = 0.75f), fontSize = 9.sp)
+                    }
                 }
+            }
 
-                OutlinedButton(
-                    onClick = onUnforceDoze,
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                    border = BorderStroke(0.8.dp, BorderSubtle),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+            Surface(
+                onClick = onUnforceDoze,
+                shape = RoundedCornerShape(10.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Restore, null, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Reset Standar", fontSize = 11.sp)
+                    Icon(Icons.Default.Restore, null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text("Pulihkan Normal", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text("dumpsys unforce", color = TextSecondary, fontSize = 9.sp)
+                    }
                 }
             }
         }
