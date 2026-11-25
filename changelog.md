@@ -1,3 +1,22 @@
+# Lynx Universal [Perombakan Total Tab Alat Kernel: Hero Bento Identitas & Crash, Eliminasi Gesture Trap Horizontal, Standardisasi LynxSwitch & Grid 2x4 Dmesg] 7.0.0-RC464
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.83
+
+### UI/UX & Companion App (`SystemSubscreen.kt`, `CustomScriptManagerCard.kt`, `DmesgViewerCard.kt`)
+- **Penyelarasan Geometri & Margin Presisi Tab 2 (`16.dp` & `22.dp`)**:
+  - Menyelaraskan padding horizontal `KernelIdentityHeroCard` ke `16.dp`, kelengkungan sudut ke `22.dp`, dan background `BgCard` Obsidian bergradien `AccentCyan` halus, menyelesaikan kartu yang sebelumnya menempel ke tepi layar.
+- **Hero Bento Telemetri Kernel 4-Tile (`KernelIdentityHeroCard`)**:
+  - Mengintegrasikan grid telemetri 4-tile: *VERSI KERNEL* (`AccentCyan`), *STATUS CRASH* (`AccentGreen` / `AccentRed`), *UPTIME SISTEM* (`AccentBlue`), dan *KOMPILATOR* (`AccentPurple`), lengkap dengan banner status audit crash pstore/ramoops.
+- **Eliminasi Total Konflik Gesture Horizontal (Banned `horizontalScroll`)**:
+  - Menggantikan baris kapabilitas kernel dengan **Grid 3-Kolom Seimbang** tanpa gesture scroll menyamping.
+  - Menggantikan 8 chip filter preset dmesg di `DmesgViewerCard` dengan **Grid 2x4 Seimbang**, mencegah gesture swipe antar tab tertahan atau terpicu tidak sengaja.
+  - Menggantikan snippet template shell pada dialog tambah & edit skrip dengan **Grid 2x3 Seimbang**.
+- **Standardisasi Komponen Toggle (`LynxSwitch`)**:
+  - Menggantikan seluruh raw Material 3 `Switch` pada modal tambah/edit skrip boot otomatis di `CustomScriptManagerCard` dengan `LynxSwitch` standar 48dp berhaptic feedback.
+- **Penyempurnaan Utilitas Pemeliharaan 1-Sentuh (`KernelQuickMaintenanceCard`)**:
+  - Memperbaiki ikon deprecated `VolumeUp` ke `Icons.AutoMirrored.Filled.VolumeUp`.
+  - Menambahkan respon haptic feedback pada seluruh 6 tombol utilitas pemeliharaan instan.
+
 # Lynx Universal [Perombakan Total Tab Deep Sysfs: Hero Bento Telemetri, Filter Grid Kategori Berhitung, Standardisasi LynxSwitch, & Presets Cepat Uji Path] 7.0.0-RC463
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.82

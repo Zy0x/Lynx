@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
@@ -151,36 +152,49 @@ fun DmesgViewerCard(
                 }
             }
 
-            // 2. Quick Filter Chips
-            Row(
+            // 2. Quick Filter Chips (Grid 2x4 Seimbang TANPA horizontalScroll)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
                     .padding(bottom = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                for ((label, filterKeyword) in DMESG_FILTER_PRESETS) {
-                    val isSelected = activeFilterChip == label
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
-                        border = BorderStroke(
-                            0.7.dp,
-                            if (isSelected) AccentBlue.copy(alpha = 0.6f) else BorderSubtle
-                        ),
-                        onClick = {
-                            activeFilterChip = label
-                            searchFilter = filterKeyword
-                            onLoadLogs(filterKeyword)
-                        }
+                DMESG_FILTER_PRESETS.chunked(4).forEach { chunk ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) AccentBlue else TextSecondary,
-                            fontSize = 10.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
-                        )
+                        chunk.forEach { (label, filterKeyword) ->
+                            val isSelected = activeFilterChip == label
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) AccentBlue.copy(alpha = 0.22f) else BgElevated,
+                                border = BorderStroke(
+                                    0.7.dp,
+                                    if (isSelected) AccentBlue.copy(alpha = 0.6f) else BorderSubtle
+                                ),
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    activeFilterChip = label
+                                    searchFilter = filterKeyword
+                                    onLoadLogs(filterKeyword)
+                                }
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) AccentBlue else TextSecondary,
+                                        fontSize = 9.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

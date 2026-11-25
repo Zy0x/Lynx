@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import com.noir.lynx.data.*
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.designsystem.card.*
+import com.noir.lynx.designsystem.controls.LynxSwitch
+import androidx.compose.ui.text.style.TextOverflow
 
 private val SHELL_SNIPPETS = listOf(
     "Drop Caches" to "sync\necho 3 > /proc/sys/vm/drop_caches",
@@ -107,28 +109,42 @@ fun CustomScriptManagerCard(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(bottom = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        for ((label, code) in SHELL_SNIPPETS) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = AccentCyan.copy(alpha = 0.12f),
-                                border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
-                                onClick = {
-                                    formScript = if (formScript.isBlank()) code else "$formScript\n$code"
-                                }
+                        SHELL_SNIPPETS.chunked(3).forEach { chunk ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(
-                                    text = "+ $label",
-                                    color = AccentCyan,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                chunk.forEach { (label, code) ->
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentCyan.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.35f)),
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            formScript = if (formScript.isBlank()) code else "$formScript\n$code"
+                                        }
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "+ $label",
+                                                color = AccentCyan,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -158,28 +174,18 @@ fun CustomScriptManagerCard(
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = BgElevated,
                         border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Jalankan Otomatis Saat Boot", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Eksekusi setelah sistem selesai boot via service.sh", color = TextSecondary, fontSize = 10.sp)
-                            }
-                            Switch(
-                                checked = formRunOnBoot,
-                                onCheckedChange = { formRunOnBoot = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentCyan)
-                            )
-                        }
+                        LynxSwitch(
+                            label = "Jalankan Otomatis Saat Boot",
+                            subLabel = "Eksekusi setelah sistem selesai boot via service.sh",
+                            checked = formRunOnBoot,
+                            onCheckedChange = { formRunOnBoot = it },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
                     }
                 }
             },
@@ -252,29 +258,49 @@ fun CustomScriptManagerCard(
                     )
 
                     // Template Snippet Chips
-                    Row(
+                    Text(
+                        text = "Sisipkan Pola Cepat (Snippet):",
+                        color = TextTertiary,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
                             .padding(bottom = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        for ((label, code) in SHELL_SNIPPETS) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = AccentBlue.copy(alpha = 0.12f),
-                                border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
-                                onClick = {
-                                    formScript = if (formScript.isBlank()) code else "$formScript\n$code"
-                                }
+                        SHELL_SNIPPETS.chunked(3).forEach { chunk ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(
-                                    text = "+ $label",
-                                    color = AccentBlue,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                chunk.forEach { (label, code) ->
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentBlue.copy(alpha = 0.12f),
+                                        border = BorderStroke(0.6.dp, AccentBlue.copy(alpha = 0.35f)),
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            formScript = if (formScript.isBlank()) code else "$formScript\n$code"
+                                        }
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "+ $label",
+                                                color = AccentBlue,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -301,28 +327,18 @@ fun CustomScriptManagerCard(
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = BgElevated,
                         border = BorderStroke(0.6.dp, BorderSubtle),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Jalankan Otomatis Saat Boot", color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Eksekusi setelah sistem selesai boot", color = TextSecondary, fontSize = 10.sp)
-                            }
-                            Switch(
-                                checked = formRunOnBoot,
-                                onCheckedChange = { formRunOnBoot = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = BgDeepOled, checkedTrackColor = AccentBlue)
-                            )
-                        }
+                        LynxSwitch(
+                            label = "Jalankan Otomatis Saat Boot",
+                            subLabel = "Eksekusi setelah sistem selesai boot",
+                            checked = formRunOnBoot,
+                            onCheckedChange = { formRunOnBoot = it },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
                     }
                 }
             },

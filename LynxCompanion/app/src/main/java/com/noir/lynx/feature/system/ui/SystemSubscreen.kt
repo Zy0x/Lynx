@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
@@ -1615,6 +1616,7 @@ fun KernelToolsTabContent(
 
 /**
  * 1. Hero Identitas Kernel & Status Crash
+ * Dilengkapi Bento Telemetri 4-Tile, Status Crash PStore/Ramoops, dan Grid Kapabilitas Seimbang tanpa gesture trap.
  */
 @Composable
 fun KernelIdentityHeroCard(
@@ -1630,20 +1632,22 @@ fun KernelIdentityHeroCard(
     }
 
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF10141F),
+        shape = RoundedCornerShape(22.dp),
+        color = BgCard,
         border = BorderStroke(
             0.8.dp,
             Brush.verticalGradient(
                 listOf(
-                    AccentCyan.copy(alpha = 0.35f),
-                    Color(0x15FFFFFF)
+                    AccentCyan.copy(alpha = 0.5f),
+                    BorderSubtle
                 )
             )
         ),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Header Row: Status Indicator & Refresh Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1652,18 +1656,41 @@ fun KernelIdentityHeroCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(shape = CircleShape, color = AccentCyan.copy(alpha = 0.18f), modifier = Modifier.size(10.dp)) {}
-                        Surface(shape = CircleShape, color = AccentCyan, modifier = Modifier.size(5.dp)) {}
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = AccentCyan.copy(alpha = 0.15f),
+                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
+                        modifier = Modifier.size(42.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.DeveloperBoard,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
-                    Text(
-                        text = "Identitas Kernel & Stabilitas Crash",
-                        color = TextSecondary.copy(alpha = 0.85f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+
+                    Column {
+                        Text(
+                            text = "Identitas Kernel & Stabilitas Crash",
+                            color = TextPrimary,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = summary.kernelRelease.ifBlank { System.getProperty("os.version") ?: "Linux Kernel" },
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1671,56 +1698,152 @@ fun KernelIdentityHeroCard(
                         CircularProgressIndicator(
                             color = AccentCyan,
                             strokeWidth = 2.dp,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     } else {
                         IconButton(
                             onClick = onRefresh,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(36.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, "Segarkan Ringkasan", tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Refresh, "Segarkan Ringkasan", tint = AccentCyan, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // Main Kernel Version & Architecture Row
+            // 4-Tile Bento Telemetry Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Tile 1: Versi Kernel
+                val kernelVerShort = remember(summary.kernelRelease) {
+                    summary.kernelRelease.substringBefore("-").ifBlank { "Linux" }
+                }
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.12f),
-                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.3f)),
-                    modifier = Modifier.size(42.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.DeveloperBoard,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(22.dp)
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "VERSI KERNEL",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = kernelVerShort,
+                            color = AccentCyan,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = summary.kernelRelease.ifBlank { System.getProperty("os.version") ?: "Linux Kernel" },
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "${summary.compiler} • ${summary.architecture} • Uptime: ${summary.uptimeFormatted.ifBlank { "Aktif" }}",
-                        color = TextSecondary,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.sp
-                    )
+
+                // Tile 2: Status Crash
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "STATUS CRASH",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (summary.hasPanicLog) "PANIC" else "STABIL",
+                            color = if (summary.hasPanicLog) AccentRed else AccentGreen,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                // Tile 3: Uptime
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "UPTIME",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = summary.uptimeFormatted.ifBlank { "Aktif" }.take(10),
+                            color = AccentBlue,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Tile 4: Kompilator
+                val compilerShort = remember(summary.compiler) {
+                    when {
+                        summary.compiler.contains("Clang", true) -> "CLANG"
+                        summary.compiler.contains("GCC", true) -> "GCC"
+                        else -> summary.architecture.ifBlank { "ARM64" }.uppercase()
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "KOMPILATOR",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = compilerShort,
+                            color = AccentPurple,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
 
@@ -1728,7 +1851,7 @@ fun KernelIdentityHeroCard(
 
             // Crash & Panic Status Bar
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = if (summary.hasPanicLog) AccentRed.copy(alpha = 0.12f) else AccentGreen.copy(alpha = 0.10f),
                 border = BorderStroke(
                     0.6.dp,
@@ -1739,7 +1862,7 @@ fun KernelIdentityHeroCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -1747,7 +1870,7 @@ fun KernelIdentityHeroCard(
                         imageVector = if (summary.hasPanicLog) Icons.Default.Warning else Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = if (summary.hasPanicLog) AccentRed else AccentGreen,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -1763,38 +1886,55 @@ fun KernelIdentityHeroCard(
                                 "PStore & console-ramoops bersih, kernel berjalan tanpa kegagalan kritis."
                             },
                             color = TextSecondary,
-                            fontSize = 9.5.sp,
-                            lineHeight = 13.sp
+                            fontSize = 10.sp,
+                            lineHeight = 13.5.sp
                         )
                     }
                 }
             }
 
-            // Capability Badges
+            // Capability Badges (Grid 3-Kolom Seimbang TANPA horizontalScroll)
             if (summary.capabilities.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                Spacer(Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    for (badge in summary.capabilities) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (badge.isSupported) AccentCyan.copy(alpha = 0.12f) else BgElevated,
-                            border = BorderStroke(
-                                0.6.dp,
-                                if (badge.isSupported) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
-                            )
+                    summary.capabilities.chunked(3).forEach { chunk ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = (if (badge.isSupported) "✓ " else "✗ ") + badge.label,
-                                color = if (badge.isSupported) AccentCyan else TextTertiary,
-                                fontSize = 10.sp,
-                                fontWeight = if (badge.isSupported) FontWeight.SemiBold else FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp)
-                            )
+                            chunk.forEach { badge ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (badge.isSupported) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                                    border = BorderStroke(
+                                        0.6.dp,
+                                        if (badge.isSupported) AccentCyan.copy(alpha = 0.35f) else BorderSubtle
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = (if (badge.isSupported) "✓ " else "✗ ") + badge.label,
+                                            color = if (badge.isSupported) AccentCyan else TextTertiary,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = if (badge.isSupported) FontWeight.SemiBold else FontWeight.Normal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                            if (chunk.size < 3) {
+                                repeat(3 - chunk.size) {
+                                    Spacer(Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
                 }
@@ -1819,6 +1959,7 @@ fun KernelQuickMaintenanceCard(
     uiState: LynxUiState,
     onAction: (String) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     var showResetDialog by remember { mutableStateOf(false) }
 
     if (showResetDialog) {
@@ -1926,7 +2067,7 @@ fun KernelQuickMaintenanceCard(
                     id = "restart_audioserver",
                     title = "Restart Audioserver",
                     desc = "Atasi audio lag & glitch",
-                    icon = Icons.Default.VolumeUp,
+                    icon = Icons.AutoMirrored.Filled.VolumeUp,
                     accent = AccentPurple
                 ),
                 MaintenanceToolItem(
@@ -1954,13 +2095,14 @@ fun KernelQuickMaintenanceCard(
                 ) {
                     for (tool in row) {
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = BgElevated,
-                            border = BorderStroke(0.7.dp, tool.accent.copy(alpha = 0.3f)),
+                            border = BorderStroke(0.7.dp, tool.accent.copy(alpha = 0.35f)),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(82.dp),
+                                .height(86.dp),
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (tool.id == "reset_to_stock") {
                                     showResetDialog = true
                                 } else {
