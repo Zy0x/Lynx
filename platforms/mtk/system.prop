@@ -36,3 +36,9 @@ debug.sf.auto_latch_unsignaled=1
 debug.sf.enable_hwc_vds=0
 ro.surface_flinger.supports_background_blur=0
 ro.sf.blurs_are_expensive=1
+
+# ── 4. Expanded Persistent EGL Shader BlobCache (64 MB vs stock 8 MB) ─────────
+# Prevents shader cache thrashing & synchronous recompilation hitches when loading
+# new open-world characters, NPCs, and buildings in heavy OpenGLES3 games.
+debug.egl.blobcache.multifile=true
+debug.egl.blobcache.multifile_limit=67108864

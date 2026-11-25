@@ -1683,7 +1683,10 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "IRQ", "Wi-Fi interrupt affinity (LITTLE offload)", format!("/proc/irq/{}/smp_affinity_list", wifi_irq), core, false);
             }
             if let Some(&gpu_irq) = irqs.get("gpu") {
-                Self::push_op(&mut ops, "IRQ", "GPU interrupt affinity (Big Cluster)", format!("/proc/irq/{}/smp_affinity_list", gpu_irq), &clusters.big_cpu_range, false);
+                // Offload GPU IRQs off reserved Big/Prime game cores so millions of Mali/Adreno interrupts
+                // never preempt UnityMain/UnityGfxDeviceW (harmonized with GameController::offload_heavy_irqs).
+                let core = clusters.little_offload_core(2).to_string();
+                Self::push_op(&mut ops, "IRQ", "GPU interrupt affinity (LITTLE offload)", format!("/proc/irq/{}/smp_affinity_list", gpu_irq), core, false);
             }
         } else {
             for (_, &irq) in irqs.iter() {

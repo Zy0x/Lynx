@@ -273,6 +273,8 @@ impl GameController {
                     if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
                         Self::apply_game_block_params(&dev.queue_path, &params);
                         Self::write_opt(dev.queue_path.join("iosched/front_merges"), "1");
+                        // Cap single SD DMA request to 256KB so giant 1MB bursts never head-of-line block random .blk asset slices
+                        Self::write_opt(dev.queue_path.join("max_sectors_kb"), "256");
                     }
                 }
                 continue;
@@ -820,15 +822,16 @@ impl GameController {
 
             if !pinned_exclusive {
                 let (mask, nice) = match t.role {
-                    // Enforce strict 1:1 exclusive prime-core isolation: secondary render/main threads,
-                    // engine heavy workers, and GPU driver helpers run with high priority across the
-                    // dedicated worker pool (e.g. 6x A55 @ 2.0 GHz) without preempting or polluting L1/L2
-                    // caches on the reserved primary RenderBackend / MainGameLoop prime cores.
+                    // Secondary render/main threads stay on worker pool so they never fight primary -20 threads.
                     ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14),
-                    ThreadRole::EngineHeavyWorker => (worker_mask, -12),
-                    ThreadRole::GpuDriverWorker => (worker_mask, -12),
+                    // Asset/shader decompressors (MHYLoadThreadWo, AsyncReadManage, ShaderLoadManag,
+                    // UnityMultiRende, NativeThread) & GPU driver submitters (mali-cmar-backe) run at nice -12
+                    // across all cores so they can burst 3x faster onto idle Big/Prime cores whenever primary
+                    // -20 render/main threads block waiting on newly streamed open-world characters/buildings.
+                    ThreadRole::EngineHeavyWorker => (topo.all_mask, -12),
+                    ThreadRole::GpuDriverWorker => (topo.all_mask, -12),
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
-                    // Quarantine non-critical workers & background pools off dual/single prime cores
+                    // Quarantine non-critical workers & background pools strictly off prime cores
                     // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
                     ThreadRole::ActiveGeneric => (worker_mask, 0),
                     ThreadRole::BackgroundHelper => (worker_mask, 0),

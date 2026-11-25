@@ -156,12 +156,15 @@ impl SystemController {
     }
 
     pub fn compute_adaptive_egl_blobcache_limit_bytes(total_ram_mb: u64) -> u64 {
+        // Persistent disk shader blobcache cap (`/data/user_de/0/<pkg>/cache/shaders_cache.multifile`),
+        // NOT a RAM buffer. Modern AAA open-world titles (Genshin/WuWa/HSR) compile 20k+ shaders (~6-40 MB);
+        // an 8 MB cap causes constant LRU eviction and synchronous mid-gameplay shader recompiles.
         if total_ram_mb <= 4096 {
-            4 * 1024 * 1024
-        } else if total_ram_mb <= 8192 {
-            8 * 1024 * 1024
-        } else {
             16 * 1024 * 1024
+        } else if total_ram_mb <= 8192 {
+            64 * 1024 * 1024
+        } else {
+            128 * 1024 * 1024
         }
     }
 
@@ -457,9 +460,9 @@ mod tests {
 
     #[test]
     fn adaptive_egl_blobcache_limit_scales_by_ram_tier() {
-        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(3584), 4 * 1024 * 1024);
-        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(7680), 8 * 1024 * 1024);
-        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(12288), 16 * 1024 * 1024);
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(3584), 16 * 1024 * 1024);
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(7680), 64 * 1024 * 1024);
+        assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(12288), 128 * 1024 * 1024);
     }
 
     #[test]
