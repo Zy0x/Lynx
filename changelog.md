@@ -1,3 +1,17 @@
+# Lynx Universal [Sempurnakan Ergonomi Kontrol Kluster CPU: Live MHz Telemetry Badge, Bento Hardware OPP Tiles 50dp, & Status Kunci Frekuensi] 7.0.0-RC468
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.87
+
+### UI/UX & Companion App (`feature/cpu/ui/`)
+- **Live MHz Telemetry Badge Real-Time (`CpuClusterCard.kt`, `CpuTuningCards.kt`)**:
+  - Mengintegrasikan pemantauan frekuensi live kluster pada header bar kartu kluster (`CompactClusterRow`), dihitung langsung secara dinamis dari core online di kluster terkait (`uiState.cpuCores`).
+  - Menampilkan badge frekuensi real-time (`● <MHz> MHz`) dengan pewarnaan dinamis adaptif (hijau saat hemat daya/idle, cyan saat seimbang, oranye saat mendekati boost/turbo).
+- **Perombakan Ergonomi Tombol Kontrol Kluster Bento-Style (`CpuClusterCard.kt`)**:
+  - Mendesain ulang tombol pemilih frekuensi Min MHz dan Max MHz menjadi kartu Bento ergonomis tinggi 50dp dengan ikon batas frekuensi (`ArrowDownward` / `ArrowUpward`), label subjudul semantik ("BATAS MIN (IDLE)" / "BATAS MAX (TURBO)"), dan tipografi clock monospace tebal.
+  - Menyesuaikan tombol toggle Thermal Lock ke tinggi 50dp dengan indikator status dinamis dan border tegas beraksen.
+  - Mempercantik tombol Governor picker dan Tunables menjadi Bento tile tinggi 50dp dengan sublabel semantik ("GUBERNUR AKTIF", "PARAMETER") serta chevron navigasi jelas.
+  - Menambahkan banner informatif status kunci frekuensi saat penguncian aktif.
+
 # Lynx Universal [Penyempurnaan Subscreen CPU Performa: Default Expanded Clock CPU, Standardisasi TabRow 52dp, & Target Sentuh 48dp] 7.0.0-RC467
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.86

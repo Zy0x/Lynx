@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.designsystem.controls.SafeSlider as Slider
@@ -68,6 +69,7 @@ import com.noir.lynx.ui.*
 fun CompactClusterRow(
     cluster: CpuClusterInfo,
     governorTunables: Map<Int, List<GovernorTunable>>,
+    cpuCores: List<CpuCoreInfo> = emptyList(),
     onFreqChange: (policyId: Int, minFreq: Long?, maxFreq: Long?) -> Unit,
     onGovChange: (policyId: Int, gov: String) -> Unit,
     onLoadTunables: (policyId: Int, gov: String) -> Unit,
@@ -80,6 +82,16 @@ fun CompactClusterRow(
 ) {
     val haptic = LocalHapticFeedback.current
     var isExpanded by remember { mutableStateOf(defaultExpanded) }
+
+    val clusterCores = remember(cpuCores, cluster) {
+        cpuCores.filter { cluster.containsCore(it.coreId) }
+    }
+    val onlineCores = remember(clusterCores) { clusterCores.filter { it.isOnline } }
+    val liveMhz = remember(onlineCores) {
+        val peakKhz = onlineCores.maxOfOrNull { it.curFreqKhz } ?: 0L
+        if (peakKhz > 0L) (peakKhz / 1000).toInt() else null
+    }
+
     val isPrimeCluster = cluster.role.contains("Prime", ignoreCase = true)
     val isMidCluster = cluster.role.contains("Mid", ignoreCase = true)
     val isPerfCluster = cluster.id > 0
@@ -203,14 +215,60 @@ fun CompactClusterRow(
                     }
                 }
 
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = TextSecondary.copy(alpha = 0.6f),
-                    modifier = Modifier
-                        .size(18.dp)
-                        .rotate(rotationAngle)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (liveMhz != null && liveMhz > 0) {
+                        val liveColor = when {
+                            liveMhz >= (maxMhz * 0.9f) -> AccentOrange
+                            liveMhz <= (minMhz * 1.1f) -> AccentGreen
+                            else -> AccentCyan
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = liveColor.copy(alpha = 0.14f),
+                            border = BorderStroke(0.6.dp, liveColor.copy(alpha = 0.45f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.5.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(liveColor)
+                                )
+                                Text(
+                                    text = "$liveMhz MHz",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = liveColor
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0x15FFFFFF),
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (isExpanded) "Tutup" else "Buka",
+                                tint = if (isExpanded) clusterAccent else TextSecondary.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .size(17.dp)
+                                    .rotate(rotationAngle)
+                            )
+                        }
+                    }
+                }
             }
 
             // Expanded Granular Controls (Level 2)
@@ -231,19 +289,35 @@ fun CompactClusterRow(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "FREQUENCY LEVELS (OPP)",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary.copy(alpha = 0.75f),
-                            letterSpacing = 0.6.sp
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = clusterAccent,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "FREKUENSI HARDWARE (OPP)",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary.copy(alpha = 0.85f),
+                                letterSpacing = 0.6.sp
+                            )
+                        }
 
-                        Text(
-                            text = "${cluster.availFreqs.size} Tingkatan",
-                            fontSize = 9.sp,
-                            color = TextSecondary.copy(alpha = 0.5f)
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
+                        ) {
+                            Text(
+                                text = "${cluster.availFreqs.size} Level OPP",
+                                fontSize = 8.5.sp,
+                                color = TextSecondary.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
 
                     Row(
@@ -257,19 +331,47 @@ fun CompactClusterRow(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 freqPickerTarget = Pair(cluster, true)
                             },
-                            modifier = Modifier.weight(1f).height(48.dp),
+                            modifier = Modifier.weight(1f).height(50.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF0C0F17),
-                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.7.dp, Color(0x1AFFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text("Min", fontSize = 8.5.sp, color = TextSecondary.copy(alpha = 0.5f))
-                                    Text("$minMhz MHz", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = TextPrimary)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0x15FFFFFF),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowDownward,
+                                                contentDescription = null,
+                                                tint = TextSecondary,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "BATAS MIN (IDLE)",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextSecondary.copy(alpha = 0.65f),
+                                            letterSpacing = 0.4.sp
+                                        )
+                                        Text(
+                                            text = "$minMhz MHz",
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = TextPrimary
+                                        )
+                                    }
                                 }
                                 Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                             }
@@ -281,21 +383,49 @@ fun CompactClusterRow(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 freqPickerTarget = Pair(cluster, false)
                             },
-                            modifier = Modifier.weight(1f).height(48.dp),
+                            modifier = Modifier.weight(1f).height(50.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF0C0F17),
-                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.4f))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text("Max", fontSize = 8.5.sp, color = TextSecondary.copy(alpha = 0.5f))
-                                    Text("$maxMhz MHz", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = clusterAccent)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = clusterAccent.copy(alpha = 0.15f),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.ArrowUpward,
+                                                contentDescription = null,
+                                                tint = clusterAccent,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "BATAS MAX (TURBO)",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = clusterAccent,
+                                            letterSpacing = 0.4.sp
+                                        )
+                                        Text(
+                                            text = "$maxMhz MHz",
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = clusterAccent
+                                        )
+                                    }
                                 }
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = clusterAccent, modifier = Modifier.size(16.dp))
                             }
                         }
 
@@ -306,28 +436,60 @@ fun CompactClusterRow(
                                 onLockToggle(cluster.id, !cluster.isLocked, cluster.curMin, cluster.curMax)
                             },
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(50.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (cluster.isLocked) AccentRed.copy(alpha = 0.15f) else Color(0xFF0C0F17))
-                                .border(0.6.dp, if (cluster.isLocked) AccentRed.copy(alpha = 0.4f) else Color(0x15FFFFFF), RoundedCornerShape(10.dp))
+                                .background(if (cluster.isLocked) AccentRed.copy(alpha = 0.18f) else Color(0xFF141824))
+                                .border(
+                                    0.8.dp,
+                                    if (cluster.isLocked) AccentRed.copy(alpha = 0.5f) else Color(0x18FFFFFF),
+                                    RoundedCornerShape(10.dp)
+                                )
                         ) {
                             Icon(
                                 imageVector = if (cluster.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
                                 contentDescription = localizedUiText("Kunci Frekuensi"),
-                                tint = if (cluster.isLocked) AccentRed else TextSecondary.copy(alpha = 0.5f),
-                                modifier = Modifier.size(16.dp)
+                                tint = if (cluster.isLocked) AccentRed else TextSecondary.copy(alpha = 0.6f),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
                     // 2. CPU Response (Governor)
-                    Text(
-                        text = "CPU RESPONSE (GOVERNOR)",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextSecondary.copy(alpha = 0.75f),
-                        letterSpacing = 0.6.sp
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Speed,
+                                contentDescription = null,
+                                tint = AccentCyan,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "RESPON DAYA & GUBERNUR",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary.copy(alpha = 0.85f),
+                                letterSpacing = 0.6.sp
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.5.dp, Color(0x18FFFFFF))
+                        ) {
+                            Text(
+                                text = cluster.curGov.uppercase(),
+                                fontSize = 8.5.sp,
+                                color = AccentCyan,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -339,25 +501,46 @@ fun CompactClusterRow(
                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 govPickerTarget = cluster
                             },
-                            modifier = Modifier.weight(1f).height(48.dp),
+                            modifier = Modifier.weight(1f).height(50.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF0C0F17),
-                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.7.dp, Color(0x1AFFFFFF))
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Speed, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = "$govDisplayName (${cluster.curGov})",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = TextPrimary
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AccentCyan.copy(alpha = 0.14f),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = null,
+                                                tint = AccentCyan,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "GUBERNUR AKTIF",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextSecondary.copy(alpha = 0.65f),
+                                            letterSpacing = 0.4.sp
+                                        )
+                                        Text(
+                                            text = "$govDisplayName (${cluster.curGov})",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = TextPrimary
+                                        )
+                                    }
                                 }
                                 Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = TextSecondary.copy(alpha = 0.5f), modifier = Modifier.size(16.dp))
                             }
@@ -370,19 +553,54 @@ fun CompactClusterRow(
                                 onLoadTunables(cluster.id, cluster.curGov)
                                 tunablesTarget = cluster
                             },
-                            modifier = Modifier.height(48.dp),
+                            modifier = Modifier.height(50.dp),
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF0C0F17),
-                            border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
+                            color = Color(0xFF141824),
+                            border = BorderStroke(0.8.dp, clusterAccent.copy(alpha = 0.35f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Tune, contentDescription = null, tint = TextSecondary.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(5.dp))
-                                Text("Tunables", fontSize = 10.5.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                Icon(Icons.Default.Tune, contentDescription = null, tint = clusterAccent, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = "PARAMETER",
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextSecondary.copy(alpha = 0.65f),
+                                        letterSpacing = 0.4.sp
+                                    )
+                                    Text("Tunables", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = clusterAccent)
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = clusterAccent.copy(alpha = 0.6f), modifier = Modifier.size(10.dp))
+                            }
+                        }
+                    }
+
+                    // Status banner when locked
+                    if (cluster.isLocked) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AccentRed.copy(alpha = 0.10f),
+                            border = BorderStroke(0.6.dp, AccentRed.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = AccentRed, modifier = Modifier.size(14.dp))
+                                Text(
+                                    text = "Kunci Frekuensi Aktif: Clock ditahan pada rentang $minMhz-$maxMhz MHz.",
+                                    fontSize = 10.sp,
+                                    color = AccentRed,
+                                    lineHeight = 13.5.sp
+                                )
                             }
                         }
                     }

@@ -94,7 +94,7 @@ fi
         BUF_MAX=4194304; BUF_DEF=65536; BACKLOG=4096; BUDGET=300; RPS_ENTRIES=8192; SYN_BACKLOG=1024; SOMAXCONN=512; UDP_MEM="98304 131072 196608"
     fi
 
-    echo fq_codel > /proc/sys/net/core/default_qdisc 2>/dev/null || echo fq > /proc/sys/net/core/default_qdisc 2>/dev/null
+    echo fq > /proc/sys/net/core/default_qdisc 2>/dev/null || echo fq_codel > /proc/sys/net/core/default_qdisc 2>/dev/null
     if [ -f /proc/sys/net/ipv4/tcp_available_congestion_control ]; then
         AVAIL_CC=$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)
         for cc in bbr3 bbr2 bbrplus bbr westwood cubic; do
@@ -176,7 +176,7 @@ fi
         [ -f "$if_path/gro_flush_timeout" ] && echo 0 > "$if_path/gro_flush_timeout" 2>/dev/null
         case "$iface" in
             wlan*|wlp*|mlan*|eth*|rmnet*|ccmni*)
-                tc qdisc replace dev "$iface" root fq_codel 2>/dev/null || tc qdisc replace dev "$iface" root fq 2>/dev/null
+                tc qdisc replace dev "$iface" root fq 2>/dev/null || tc qdisc replace dev "$iface" root fq_codel 2>/dev/null
                 ;;
         esac
     done

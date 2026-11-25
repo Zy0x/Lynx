@@ -341,6 +341,7 @@ fun CpuUnifiedPerformanceCard(
                 CompactClusterRow(
                     cluster = cluster,
                     governorTunables = governorTunables,
+                    cpuCores = uiState.cpuCores,
                     onFreqChange = onFreqChange,
                     onGovChange = onGovChange,
                     onLoadTunables = onLoadTunables,
