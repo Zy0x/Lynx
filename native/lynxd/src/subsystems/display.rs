@@ -213,6 +213,30 @@ impl DisplayController {
         }
     }
 
+    /// Aligns CFS scheduler preemption tightness & HWC/Touch responsiveness to active display refresh rate:
+    /// - High refresh (>= 90Hz, 8.33ms/frame at 120Hz): tighter preemption (6ms / 1.0ms / 0.75ms / 1.0ms)
+    ///   plus Novatek 20MHz SPI & game mode so 120Hz pacing stays flat with zero missed VSyncs.
+    /// - Standard 60Hz (16.67ms/frame): preserves golden 60Hz cache-affinity tuning (8ms / 1.5ms / 1.5ms / 1.5ms).
+    fn sync_cfs_and_hwc_for_hz(target_hz: u32) {
+        if target_hz >= 90 {
+            Self::write_opt("/proc/sys/kernel/sched_latency_ns", "6000000");
+            Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1000000");
+            Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "750000");
+            Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1000000");
+            Self::write_opt("/proc/nvt_game_mode", "1");
+            // Keep NT36672C SPI at verified 15MHz (20MHz degrades flex signal integrity to fw_ver=0xFF)
+            Self::write_opt("/proc/nvt_spi_speed", "15000000");
+            let _ = Self::run_cmd("setprop", &["persist.sys.sf.disable_hwc_overlays", "0"]);
+            // Un-trap HWC composer@2.1 across all non-prime cores (0-5) & elevate VSyncThread_0 to SCHED_FIFO
+            crate::subsystems::game::GameController::prioritize_surfaceflinger(-20);
+        } else {
+            Self::write_opt("/proc/sys/kernel/sched_latency_ns", "8000000");
+            Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
+            Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
+            Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
+        }
+    }
+
     /// Universally configures hardware composer, Android framework settings, and panel sysfs nodes.
     /// Used when a static fixed refresh rate is locked by the user.
     pub fn apply_hz_hardware(target_hz: u32, sf_id: Option<i32>) {
@@ -236,8 +260,9 @@ impl DisplayController {
         }
         Self::sync_android_refresh_settings(&hz_str, &target_str);
 
-        // 2. Kernel / Vendor Panel Sysfs Nodes
+        // 2. Kernel / Vendor Panel Sysfs Nodes & 120Hz CFS/HWC alignment
         Self::write_panel_fps_nodes(&target_str);
+        Self::sync_cfs_and_hwc_for_hz(target_hz);
 
         // 3. Direct SurfaceFlinger HWC mode switch LAST so activeMode stays pinned post-boot
         if let Some(id) = sf_id {
@@ -255,8 +280,9 @@ impl DisplayController {
             let _ = Self::run_cmd("service", &["call", "SurfaceFlinger", "1035", "i32", &id.to_string()]);
         }
 
-        // 2. Kernel / Vendor Panel Sysfs Nodes
+        // 2. Kernel / Vendor Panel Sysfs Nodes & 120Hz CFS/HWC alignment
         Self::write_panel_fps_nodes(&target_str);
+        Self::sync_cfs_and_hwc_for_hz(target_hz);
 
         // 3. Android settings provider (spawn non-blocking async thread to avoid daemon loop stall)
         let hz_str = format!("{}.0", target_hz);

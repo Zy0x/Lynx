@@ -422,6 +422,30 @@ fn compute_cpu_mask_hex(prefer_avoid_cpu0: bool) -> String {
     if prefer_avoid_cpu0 && mask.count_ones() >= 4 && (mask & !1u64) != 0 {
         mask &= !1u64;
     }
+    // On heterogeneous big.LITTLE SoCs, keep network RPS/XPS softirqs strictly inside the
+    // non-prime/LITTLE cluster so Wi-Fi packets never trigger cross-cluster IPIs (TCPOFOQueue
+    // out-of-order floods) or preempt high-FPS game render threads on Big/Prime cores.
+    let cpu = HardwareCapability::resolve_cpu();
+    if cpu.policies.len() >= 2 {
+        if let Some(max_freq) = cpu.policies.iter().map(|p| p.max_freq).max() {
+            let mut prime_mask = 0u64;
+            for p in &cpu.policies {
+                if p.max_freq == max_freq {
+                    for tok in p.related_cpus.split_whitespace() {
+                        if let Ok(c) = tok.parse::<u32>() {
+                            if c < 64 {
+                                prime_mask |= 1u64 << c;
+                            }
+                        }
+                    }
+                }
+            }
+            let non_prime = mask & !prime_mask;
+            if non_prime != 0 {
+                mask = non_prime;
+            }
+        }
+    }
     format!("{:x}", mask)
 }
 
@@ -998,7 +1022,8 @@ impl NetworkController {
 
             let gro_path = entry.path().join("gro_flush_timeout");
             if gro_path.exists() {
-                outcome.record_write(gro_path, if enable { "20000" } else { "0" });
+                // Keep GRO flush timeout 0 to prevent micro-batching stalls on interactive gaming Wi-Fi
+                outcome.record_write(gro_path, "0");
             }
         }
 
@@ -1171,100 +1196,22 @@ impl NetworkController {
 
         match probe.vendor {
             RadioVendor::MediaTekProc => {
+                // MediaTek gen4m / MT6631 firmware safety rule:
+                // Live mutations to `/proc/net/wlan/cfg` (Rx2OsLoop, Rx2ReorderLoop, AmsduInAmpdu,
+                // BaSize, ThreadSched), `autoPerfCfg`, or `setCAM` while wlan0 is associated can
+                // corrupt BA reorder / FW state (RSSI wraparound & 0 Mbps hang until full reboot).
+                // Keep ONLY non-destructive debug-log suppression here; low-latency mode & power
+                // save are handled safely via Android's standard `cmd wifi` / `iw` HAL path.
                 let dbg_path = Path::new("/proc/net/wlan/dbgLevel");
                 if dbg_path.exists() {
+                    outcome.attempted += 1;
                     let raw_dbg = SysfsReader::read_trimmed(dbg_path).unwrap_or_default();
-                    if raw_dbg.contains(':') {
-                        Self::write_opt(dbg_path, "0xff:0x03");
-                    } else {
-                        Self::write_opt(dbg_path, "0");
-                    }
-                }
-                let set_cam = Path::new("/proc/net/wlan/setCAM");
-                if set_cam.exists() {
-                    outcome.attempted += 1;
-                    let ok_cam = SysfsWriter::write(
-                        set_cam,
-                        if enable { "CAM 1" } else { "CAM 0" },
-                        WriteMode::ForcePermission,
-                    )
-                    .is_ok()
-                        || SysfsWriter::write(
-                            set_cam,
-                            if enable { "1" } else { "0" },
-                            WriteMode::ForcePermission,
-                        )
-                        .is_ok();
-                    if ok_cam {
+                    let val = if raw_dbg.contains(':') { "0xff:0x03" } else { "0" };
+                    if SysfsWriter::write(dbg_path, val, WriteMode::ForcePermission).is_ok() {
                         outcome.verified += 1;
                     }
                 }
-                let auto_perf = Path::new("/proc/net/wlan/autoPerfCfg");
-                if auto_perf.exists() {
-                    outcome.attempted += 1;
-                    if SysfsWriter::write(
-                        auto_perf,
-                        if enable { "ForceEnable:1" } else { "ForceEnable:0" },
-                        WriteMode::ForcePermission,
-                    )
-                    .is_ok()
-                    {
-                        outcome.verified += 1;
-                    }
-                }
-                Self::write_opt("/proc/net/wlan/pkt_filter", if enable { "0" } else { "1" });
-
-                let cfg_path = Path::new("/proc/net/wlan/cfg");
-                if cfg_path.exists() {
-                    let supported = SysfsReader::read_trimmed(cfg_path).unwrap_or_default();
-                    let dis_scan = if enable && gaming_scan_off { "1" } else { "0" };
-                    let candidates: Vec<(&str, &str)> = if enable {
-                        vec![
-                            ("Sta2gBw", "1"),
-                            ("TxopPsTx", "0"),
-                            ("VhtAmsduInAmpduTx", "1"),
-                            ("HtAmsduInAmpduTx", "1"),
-                            ("VhtAmsduInAmpduRx", "1"),
-                            ("HtAmsduInAmpduRx", "1"),
-                            ("PowerSave", "0"),
-                            ("AdvPws", "0"),
-                            ("DisOnlineScan", dis_scan),
-                            ("ThreadSched", "1"),
-                            ("Rx2OsLoop", if gaming_scan_off { "32" } else { "16" }),
-                            ("Rx2ReorderLoop", if gaming_scan_off { "16" } else { "8" }),
-                            ("TxMaxAmsduInAmpduLen", "0x4000"),
-                            ("TxBaSize", "64"),
-                            ("RxVhtBaSize", "64"),
-                            ("RxHtBaSize", "64"),
-                            ("Probe256QAM", "1"),
-                        ]
-                    } else {
-                        vec![
-                            ("DisOnlineScan", "0"),
-                            ("PowerSave", "1"),
-                            ("AdvPws", "1"),
-                        ]
-                    };
-                    for (key, val) in candidates {
-                        let marker = format!("D:{}|", key);
-                        let marker_alt = format!("{}|", key);
-                        if supported.is_empty()
-                            || supported.contains(&marker)
-                            || supported.contains(&marker_alt)
-                        {
-                            outcome.attempted += 1;
-                            if SysfsWriter::write(
-                                cfg_path,
-                                format!("{} {}", key, val),
-                                WriteMode::ForcePermission,
-                            )
-                            .is_ok()
-                            {
-                                outcome.verified += 1;
-                            }
-                        }
-                    }
-                }
+                let _ = gaming_scan_off;
             }
             RadioVendor::QualcommCnss => {
                 let ps = if enable { "0" } else { "1" };
@@ -1434,15 +1381,16 @@ impl NetworkController {
             );
             outcome.record_write(
                 "/proc/sys/net/ipv4/tcp_notsent_lowat",
-                if low_latency_cork { "16384" } else { "131072" },
+                if low_latency_cork { "131072" } else { "262144" },
             );
             outcome.record_write("/proc/sys/net/ipv4/tcp_slow_start_after_idle", "0");
             outcome.record_write("/proc/sys/net/ipv4/tcp_tw_reuse", "1");
             outcome.record_write("/proc/sys/net/ipv4/tcp_sack", "1");
             outcome.record_write("/proc/sys/net/ipv4/tcp_dsack", "1");
             outcome.record_write("/proc/sys/net/ipv4/tcp_fin_timeout", "15");
-            outcome.record_write("/proc/sys/net/ipv4/tcp_mtu_probing", "1");
-            outcome.record_write("/proc/sys/net/ipv4/tcp_ecn", "1");
+            // Keep tcp_mtu_probing=0 & passive RFC tcp_ecn=2 to prevent SYN drops/blackholes on ISP/home NATs
+            outcome.record_write("/proc/sys/net/ipv4/tcp_mtu_probing", "0");
+            outcome.record_write("/proc/sys/net/ipv4/tcp_ecn", "2");
             outcome.record_write("/proc/sys/net/core/netdev_max_backlog", &backlog.to_string());
             outcome.record_write("/proc/sys/net/core/netdev_budget", &budget.to_string());
             outcome.record_write("/proc/sys/net/core/somaxconn", &somaxconn.to_string());

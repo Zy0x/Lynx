@@ -24,24 +24,13 @@ fi
     settings put global disable_window_blurs 1 2>/dev/null
     setprop persist.sys.sf.disable_blurs 1 2>/dev/null
 
-    # Universal Dynamic Wi-Fi Silicon & Kernel Network Low-Latency Engine (Zero-Hardcoding)
-    if [ -d /proc/net/wlan ] && [ -f "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" ] && [ -f /vendor/firmware/wifi.cfg ]; then
-        mount -o bind "$MODPATH/platforms/mtk/system/vendor/firmware/wifi.cfg" /vendor/firmware/wifi.cfg 2>/dev/null || true
-    fi
+    # Preserve genuine OEM /vendor/firmware/wifi.cfg RF/EDCCA/antenna calibration on MediaTek gen4m
+    # and avoid runtime /proc/net/wlan/{cfg,autoPerfCfg,setCAM} writes that can stall MT6631 FW.
 
     # Qualcomm Snapdragon thermal-engine override
     if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ]; then
         [ -f /vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null || true
         [ -f /system/vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /system/vendor/etc/thermal-engine.conf 2>/dev/null || true
-    fi
-
-    # 1. Dynamic MediaTek Wi-Fi Silicon Probing (Safe Balanced Baseline at Boot)
-    [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:0" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-    [ -f /proc/net/wlan/setCAM ] && echo "CAM 0" > /proc/net/wlan/setCAM 2>/dev/null
-    [ -f /proc/net/wlan/pkt_filter ] && echo 1 > /proc/net/wlan/pkt_filter 2>/dev/null
-    if [ -f /proc/net/wlan/cfg ]; then
-        echo "PowerSave 0" > /proc/net/wlan/cfg 2>/dev/null
-        echo "AdvPws 0" > /proc/net/wlan/cfg 2>/dev/null
     fi
 
     # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery (Safe Baseline)

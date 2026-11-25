@@ -700,14 +700,58 @@ impl GameController {
         }
     }
 
-    fn prioritize_surfaceflinger(nice: i32) {
+    pub(crate) fn prioritize_surfaceflinger(nice: i32) {
+        let cap = HardwareCapability::resolve();
+        let topo = TopologyMasks::from_policies(&cap.cpu.policies, cap.cpu.total_cores);
+        let non_prime_mask = if !topo.prime_cores.is_empty() && topo.all_mask != 0 {
+            let prime_mask: u64 = topo
+                .prime_cores
+                .iter()
+                .fold(0u64, |acc, &c| if c < 64 { acc | (1u64 << c) } else { acc });
+            let m = topo.all_mask & !prime_mask;
+            if m != 0 { m } else { topo.little_mask }
+        } else {
+            0
+        };
+
         if let Ok(entries) = fs::read_dir("/proc") {
             for entry in entries.flatten() {
                 let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else { continue };
                 let Ok(comm) = fs::read_to_string(entry.path().join("comm")) else { continue };
-                if comm.trim() == "surfaceflinger" {
+                let cname = comm.trim();
+                if cname == "surfaceflinger" {
                     Self::set_tid_nice(pid, nice);
-                    break;
+                    // Quarantine SurfaceFlinger's Mali utility helper threads off reserved Big/Prime game cores
+                    if non_prime_mask != 0 {
+                        if let Ok(tasks) = fs::read_dir(entry.path().join("task")) {
+                            for t in tasks.flatten() {
+                                let Ok(tid) = t.file_name().to_string_lossy().parse::<u32>() else { continue };
+                                let Ok(tcomm) = fs::read_to_string(t.path().join("comm")) else { continue };
+                                if tcomm.trim().starts_with("mali-utility") {
+                                    Self::set_thread_affinity(tid, non_prime_mask);
+                                }
+                            }
+                        }
+                    }
+                } else if cname.starts_with("composer@") || cname.contains("hwcomposer") {
+                    // Move HWC composer out of narrow 0-2 system-background cpuset into foreground (0-5/0-7)
+                    // so affinity widening succeeds, then elevate VSyncThread_0 to SCHED_FIFO prio 2.
+                    Self::write_opt("/dev/cpuset/foreground/cgroup.procs", &pid.to_string());
+                    if let Ok(tasks) = fs::read_dir(entry.path().join("task")) {
+                        for t in tasks.flatten() {
+                            let Ok(tid) = t.file_name().to_string_lossy().parse::<u32>() else { continue };
+                            if non_prime_mask != 0 {
+                                Self::set_thread_affinity(tid, non_prime_mask);
+                            }
+                            if let Ok(tcomm) = fs::read_to_string(t.path().join("comm")) {
+                                if tcomm.trim().starts_with("VSyncThread") {
+                                    let _ = Command::new("chrt")
+                                        .args(&["-f", "-p", "2", &tid.to_string()])
+                                        .output();
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

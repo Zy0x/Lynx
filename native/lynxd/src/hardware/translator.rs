@@ -1655,6 +1655,7 @@ impl HardwareTranslator {
         // ── 7. Display & Touch Game Mode ────────────────────────────────────
         let touch_val = if is_perf_or_ext { "1" } else { "0" };
         for tnode in &[
+            "/proc/nvt_game_mode",
             "/sys/class/touch/touch_dev/touch_game_mode",
             "/sys/devices/virtual/touch/touch_dev/bump_sample_rate",
             "/proc/touchscreen/game_mode",

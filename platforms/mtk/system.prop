@@ -15,21 +15,28 @@ persist.vendor.ged.smart_boost=1
 persist.log.tag.mtkpower@impl=S
 persist.log.tag.libPowerHal=S
 
-# ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard (Zero-Jitter High-FPS Phases) ──
+# ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard (Zero-Jitter 60/90/120Hz Phases) ──
+# Ensure hardware display compositor overlays (disp_ovl0) stay enabled so 120Hz frames
+# never fall back to full GPU GLES RenderEngine composition.
+persist.sys.sf.disable_hwc_overlays=0
 debug.sf.enable_gl_backpressure=0
 debug.sf.disable_backpressure=1
-# Keep SF wakeup >= App wakeup across all 60Hz and high-FPS (90/120Hz+) schedules
-# so SurfaceFlinger stays in a 1-VSync pipeline instead of falling back to 2-VSync buffering.
-debug.sf.early_phase_offset_ns=1500000
-debug.sf.early_app_phase_offset_ns=500000
-debug.sf.early_gl_phase_offset_ns=1500000
-debug.sf.early_gl_app_phase_offset_ns=500000
-debug.sf.high_fps_late_sf_phase_offset_ns=1500000
-debug.sf.high_fps_late_app_phase_offset_ns=500000
-debug.sf.high_fps_early_phase_offset_ns=1500000
-debug.sf.high_fps_early_app_phase_offset_ns=500000
+# Calibrated 60Hz (16.67ms) & 120Hz (8.33ms) VSync phase offsets for EXACT 1.0x VSync cadence:
+# On Android 14 VsyncConfiguration, matching app_phase == sf_phase yields appDuration = 1.0 * VSYNC
+# (exact 8.33ms at 120Hz with ZERO High-Input-Latency penalty) while giving SF+GPU 5.83-6.83ms headroom:
+#   - 120Hz late:     SF +2.5ms (5.83ms budget), App +2.5ms (8.33ms = exact 1-VSync!)
+#   - 120Hz early:    SF +2.0ms (6.33ms budget), App +2.0ms (8.33ms = exact 1-VSync!)
+#   - 120Hz early GL: SF +1.5ms (6.83ms budget), App +1.5ms (8.33ms = exact 1-VSync!)
+debug.sf.early_phase_offset_ns=4000000
+debug.sf.early_app_phase_offset_ns=4000000
+debug.sf.early_gl_phase_offset_ns=3000000
+debug.sf.early_gl_app_phase_offset_ns=3000000
+debug.sf.high_fps_late_sf_phase_offset_ns=2500000
+debug.sf.high_fps_late_app_phase_offset_ns=2500000
+debug.sf.high_fps_early_phase_offset_ns=2000000
+debug.sf.high_fps_early_app_phase_offset_ns=2000000
 debug.sf.high_fps_early_gl_phase_offset_ns=1500000
-debug.sf.high_fps_early_gl_app_phase_offset_ns=500000
+debug.sf.high_fps_early_gl_app_phase_offset_ns=1500000
 debug.sf.latch_unsignaled=1
 vendor.debug.sf.latch_unsignaled=1
 debug.sf.auto_latch_unsignaled=1
