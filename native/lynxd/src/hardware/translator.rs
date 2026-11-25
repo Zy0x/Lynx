@@ -1196,7 +1196,8 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "Memory", "Memcg swappiness alignment", *memcg_path, memcg_swap.to_string(), false);
             }
         }
-        Self::push_op(&mut ops, "Memory", "VM extfrag_threshold (prevent compaction stalls)", "/proc/sys/vm/extfrag_threshold", "850", false);
+        Self::push_op(&mut ops, "Memory", "VM extfrag_threshold (proactive background kcompactd)", "/proc/sys/vm/extfrag_threshold", "250", false);
+        Self::push_op(&mut ops, "Memory", "VM compact_unevictable_allowed (skip mlocked GPU pages)", "/proc/sys/vm/compact_unevictable_allowed", "0", false);
         if cap.memory.mglru_supported && Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
             let ttl_ms = if is_perf_or_ext {
                 "500"

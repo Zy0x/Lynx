@@ -16,8 +16,8 @@ persist.log.tag.mtkpower@impl=S
 persist.log.tag.libPowerHal=S
 
 # ── 3. SurfaceFlinger & Mali GPU Frame Pacing Guard (Zero-Jitter High-FPS Phases) ──
-debug.sf.enable_gl_backpressure=1
-debug.sf.disable_backpressure=0
+debug.sf.enable_gl_backpressure=0
+debug.sf.disable_backpressure=1
 # Keep SF wakeup >= App wakeup across all 60Hz and high-FPS (90/120Hz+) schedules
 # so SurfaceFlinger stays in a 1-VSync pipeline instead of falling back to 2-VSync buffering.
 debug.sf.early_phase_offset_ns=1500000
@@ -30,8 +30,9 @@ debug.sf.high_fps_early_phase_offset_ns=1500000
 debug.sf.high_fps_early_app_phase_offset_ns=500000
 debug.sf.high_fps_early_gl_phase_offset_ns=1500000
 debug.sf.high_fps_early_gl_app_phase_offset_ns=500000
-debug.sf.latch_unsignaled=0
-vendor.debug.sf.latch_unsignaled=0
+debug.sf.latch_unsignaled=1
+vendor.debug.sf.latch_unsignaled=1
+debug.sf.auto_latch_unsignaled=1
 debug.sf.enable_hwc_vds=0
 ro.surface_flinger.supports_background_blur=0
 ro.sf.blurs_are_expensive=1

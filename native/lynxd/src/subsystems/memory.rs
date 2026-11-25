@@ -58,12 +58,12 @@ impl MemoryController {
         Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_ratio);
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", &dirty_expire);
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", &dirty_writeback);
-        Self::write_opt("/proc/sys/vm/extfrag_threshold", "850");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "250");
         Self::write_opt("/proc/sys/vm/oom_kill_allocating_task", "0");
         Self::write_opt("/proc/sys/vm/oom_dump_tasks", "0");
         Self::write_opt("/proc/sys/vm/overcommit_ratio", "80");
         Self::write_opt("/proc/sys/kernel/sched_schedstats", "0");
-        Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "1");
+        Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "0");
         super::zram::ZramController::disable_swap_readahead();
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         let max_maps = if mem.total_ram_mb <= 4500 { "524288" } else { "1048576" };

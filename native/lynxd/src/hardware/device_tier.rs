@@ -184,11 +184,12 @@ impl DeviceTier {
             return (wsf, extra_free);
         }
 
-        // MountX MicroSD active gaming protection: aggressive wsf=75 + extra_free=24MB forces kswapd
-        // to evict clean SD OBB/AssetBundle page cache during burst streaming (triggering 1M+ page scan
-        // storms and MicroSD re-read hitches). Use calm reclaim headroom (wsf=25, efk=8192) during gaming.
+        // MountX MicroSD active gaming protection: aggressive wsf=75 + extra_free=24MB triggers 1M+ page
+        // kswapd storms, while wsf=25 + extra_free=8MB leaves only ~14.9MB Normal-zone cushion (allocstall_normal>0
+        // under 50MB+ SD bursts). Empirical sweet spot (wsf=45, efk=12288) yields ~34MB Normal headroom with
+        // zero allocstall_normal, zero direct reclaim, and calm async kswapd.
         if self.has_mountx_sd && matches!(profile, "extreme" | "performance" | "gaming" | "game") {
-            return (25, 8192);
+            return (45, 12288);
         }
 
         // Secondary microSD presence on full-duplex UFS/NVMe systems must not halve /data VM buffers.
@@ -533,8 +534,8 @@ mod tests {
 
         let ufs8g_sd = DeviceTier::classify_with_vm_caps(7812, Some(BlockDeviceType::Ufs), false, true, true, true);
         let ufs8g_sd_ext = ufs8g_sd.vm_profile_targets("extreme");
-        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 25);
-        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 8192);
+        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 45);
+        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 12288);
         assert_eq!(ufs8g_sd_ext.swappiness, 10);
         assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 50);
         assert_eq!(ufs8g_sd_ext.dirty_writeback_cs, 1500);

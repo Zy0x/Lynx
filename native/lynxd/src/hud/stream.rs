@@ -159,6 +159,15 @@ fn detect_top_package_fast() -> Option<String> {
 }
 
 pub fn run() {
+    // Keep HUD telemetry collector strictly on energy-efficient cores so SurfaceFlinger/sysfs
+    // polling never preempts or pollutes caches on reserved game prime cores.
+    let hud_cap = crate::hardware::capability::HardwareCapability::resolve();
+    let hud_topo = crate::subsystems::game::TopologyMasks::from_policies(
+        &hud_cap.cpu.policies,
+        hud_cap.cpu.total_cores,
+    );
+    crate::subsystems::GameController::pin_self_to_little(hud_topo.little_mask);
+
     let alive = Arc::new(AtomicBool::new(true));
     let stdin_alive = alive.clone();
     std::thread::spawn(move || {

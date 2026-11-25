@@ -293,7 +293,7 @@ impl GameController {
             }
         }
 
-        // F2FS metadata cache retention + sequential directory readahead
+        // F2FS metadata cache retention, sequential directory readahead & anti-discard-stall protection
         if let Ok(entries) = fs::read_dir("/sys/fs/f2fs") {
             for entry in entries.flatten() {
                 let p = entry.path();
@@ -301,6 +301,8 @@ impl GameController {
                     Self::write_opt(p.join("ram_thresh"), "10");
                     Self::write_opt(p.join("readdir_ra"), "1");
                     Self::write_opt(p.join("ipu_policy"), "3");
+                    Self::write_opt(p.join("discard_granularity"), "512");
+                    Self::write_opt(p.join("max_victim_search"), "512");
                 }
             }
         }
@@ -331,6 +333,9 @@ impl GameController {
         Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
         Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "250");
+        Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "0");
+        Self::ensure_unfragmented_normal_zone();
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
@@ -865,6 +870,29 @@ impl GameController {
         utime.saturating_add(stime)
     }
 
+    /// Prevents 200-450ms synchronous direct-compaction freezes (`allocstall_normal` + `compact_stall`)
+    /// during gameplay when `zone Normal` has been drained of order-2+ contiguous blocks.
+    fn ensure_unfragmented_normal_zone() {
+        let Ok(buddy) = fs::read_to_string("/proc/buddyinfo") else { return };
+        for line in buddy.lines() {
+            if line.contains("Normal") {
+                if let Some(idx) = line.find("Normal") {
+                    let counts: Vec<u64> = line[idx + 6..]
+                        .split_whitespace()
+                        .filter_map(|s| s.parse::<u64>().ok())
+                        .collect();
+                    // Order-2 (16KB) and Order-3 (32KB) free block counts
+                    let order2_plus = counts.get(2).copied().unwrap_or(0)
+                        + counts.get(3).copied().unwrap_or(0);
+                    if order2_plus < 32 {
+                        Self::write_opt("/proc/sys/vm/compact_memory", "1");
+                    }
+                }
+                break;
+            }
+        }
+    }
+
     /// Pins all threads of `lynxd` itself onto the energy-efficient cluster so daemon telemetry
     /// polling never preempts or pollutes L1/L2 caches on reserved game prime cores.
     pub fn pin_self_to_little(little_mask: u64) {
@@ -891,8 +919,25 @@ impl GameController {
                 let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else { continue };
                 if let Ok(comm) = fs::read_to_string(entry.path().join("comm")) {
                     let c = comm.trim();
-                    if c.starts_with("kswapd") || c.starts_with("kcompactd") {
-                        Self::set_thread_affinity(pid, little_mask);
+                    let should_offload = c.starts_with("kswapd")
+                        || c.starts_with("kcompactd")
+                        || c == "fuelgauged"
+                        || c == "charger_thread"
+                        || c == "battery_thread"
+                        || c == "thermal_manager"
+                        || c == "logd"
+                        || c == "statsd"
+                        || c.starts_with("health@");
+                    if should_offload {
+                        if let Ok(tasks) = fs::read_dir(entry.path().join("task")) {
+                            for t in tasks.flatten() {
+                                if let Ok(tid) = t.file_name().to_string_lossy().parse::<u32>() {
+                                    Self::set_thread_affinity(tid, little_mask);
+                                }
+                            }
+                        } else {
+                            Self::set_thread_affinity(pid, little_mask);
+                        }
                     }
                 }
             }
