@@ -1,3 +1,23 @@
+# Lynx Universal [Perombakan Total Tab Deep Sysfs: Hero Bento Telemetri, Filter Grid Kategori Berhitung, Standardisasi LynxSwitch, & Presets Cepat Uji Path] 7.0.0-RC463
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.82
+
+### UI/UX & Companion App (`SystemSubscreen.kt`, `DeepTunableItemCard.kt`)
+- **Penyelarasan Geometri & Margin Presisi Tab 1**:
+  - Menyelaraskan padding horizontal seluruh elemen Tab Deep Sysfs ke `16.dp` dan card shape ke `22.dp` (hero) serta `16.dp` (kartu tunable), menyelesaikan ketimpangan margin visual antara Tab 0 dan Tab 1 saat transisi swipe gesture.
+- **Hero Bento Card Telemetri Sysfs Dinamis (`DeepSysfsHeroCard`)**:
+  - Menggantikan ribbon teks polos dengan Bento Telemetry 4-Tile: *TOTAL NODE* (`AccentCyan`), *DAPAT DIUBAH (R/W)* (`AccentGreen`), *READ-ONLY* (`WarningAmber`), dan *KATEGORI AKTIF* (`AccentPurple`).
+  - Menambahkan dual action button ergonomis berstandar >= 48dp (*Pindai Sysfs* & *Uji Path*).
+- **Grid Filter Kategori 2x3 Interaktif Berhitung Real-time**:
+  - Menyediakan filter kategori seimbang (non-scrollable, bebas konflik gesture horizontal) dengan ikon kategori dan dynamic counter badge (`Semua`, `CPU / PPM`, `RAM / VM`, `GPU & Grafis`, `Penyimpanan`, `Sistem & Daya`).
+- **Pencarian Cerdas & Baris Sub-counter Reset**:
+  - Kolom pencarian responsif dengan clear button, indikator counter ("Menampilkan X dari Y parameter"), dan chip sentuh *"Reset Filter"* untuk kembali ke kondisi awal dalam 1-ketukan.
+- **Standardisasi Toggle & Slider Deep Sysfs (`DeepTunableItemCard`)**:
+  - Menggantikan switch mentah pada parameter Boolean dengan `LynxSwitch` standar bertarget sentuh 48dp.
+  - Memperbarui background kartu ke `BgCard` obsidian serasi dengan subscreen lainnya.
+- **Modal Uji Path Node Manual dengan Preset Cepat**:
+  - Menambahkan baris preset node instan (`/proc/sys/vm/swappiness`, `/proc/sys/kernel/sched_latency_ns`, `/sys/block/mmcblk0/queue/read_ahead_kb`, `/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`) untuk pengujian cepat tanpa mengetik manual.
+
 # Lynx Universal [Penyempurnaan Estetika Visual Tab Sistem & GSI: 4-Bento Telemetri OS, Segmented Animasi Bar, Standardisasi LynxSwitch, & Mini Terminal Dexopt] 7.0.0-RC462
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.81

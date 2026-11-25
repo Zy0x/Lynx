@@ -82,10 +82,11 @@ fun DeepTunableItemCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
             .animateContentSize(),
-        shape = RoundedCornerShape(14.dp),
-        color = BgElevated,
-        border = BorderStroke(1.dp, BorderGlass)
+        shape = RoundedCornerShape(16.dp),
+        color = BgCard,
+        border = BorderStroke(0.8.dp, BorderGlass)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             // ── 1. HEADER: Nama Ramah + Kategori + Status Izin ──
@@ -215,38 +216,15 @@ fun DeepTunableItemCard(
                                 tunable.value.equals("on", ignoreCase = true) ||
                                 tunable.value.equals("y", ignoreCase = true)
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isChecked) "Status: Aktif (1)" else "Status: Nonaktif (0)",
-                                    color = if (isChecked) AccentCyan else TextSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = if (isChecked) "Sentuh sakelar untuk mematikan" else "Sentuh sakelar untuk mengaktifkan",
-                                    color = TextTertiary,
-                                    fontSize = 9.5.sp
-                                )
+                        LynxSwitch(
+                            label = "Status Nilai Parameter",
+                            subLabel = if (isChecked) "Aktif (1) • Parameter kernel saat ini diaktifkan." else "Nonaktif (0) • Parameter kernel saat ini dimatikan.",
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                val newVal = if (checked) "1" else "0"
+                                onApply(tunable.path, newVal)
                             }
-                            Switch(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    val newVal = if (checked) "1" else "0"
-                                    onApply(tunable.path, newVal)
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = BgDeepOled,
-                                    checkedTrackColor = AccentCyan,
-                                    uncheckedThumbColor = TextTertiary,
-                                    uncheckedTrackColor = BgElevated
-                                )
-                            )
-                        }
+                        )
                     }
 
                     TunableType.CHOICE -> {

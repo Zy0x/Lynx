@@ -907,83 +907,226 @@ fun DeepSysfsTabContent(
     var deepSearchQuery by remember { mutableStateOf("") }
     var activeCategoryFilter by remember { mutableStateOf("Semua") }
 
-    // 1. Scanner Hero Ribbon
+    val totalNodes = uiState.deepTunables.size
+    val writableCount = remember(uiState.deepTunables) { uiState.deepTunables.count { it.writable } }
+    val readOnlyCount = remember(uiState.deepTunables) { uiState.deepTunables.count { !it.writable } }
+
+    // 1. Scanner Hero Bento Card
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFF10141F),
-        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(22.dp),
+        color = BgCard,
+        border = BorderStroke(
+            0.8.dp,
+            Brush.verticalGradient(
+                listOf(
+                    AccentCyan.copy(alpha = 0.5f),
+                    BorderSubtle
+                )
+            )
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentCyan.copy(alpha = 0.15f),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
+                    modifier = Modifier.size(42.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Katalog Sysfs Dinamis Universal",
                         color = TextPrimary,
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = "Menampung seluruh parameter kernel & vendor yang tidak ada di halaman tuning khusus.",
                         color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = AccentCyan.copy(alpha = 0.15f),
-                    border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = "${uiState.deepTunables.size} Node",
-                        color = AccentCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // Action Buttons: Scan + Manual Node Inspector Modal Button
+            // 4-Tile Bento Telemetry Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Tile 1: Total Node
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "TOTAL NODE",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "$totalNodes",
+                            color = AccentCyan,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                // Tile 2: Dapat Diubah (R/W)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "DAPAT DIUBAH",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "$writableCount",
+                            color = AccentGreen,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                // Tile 3: Terproteksi (R/O)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "READ-ONLY",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "$readOnlyCount",
+                            color = AccentOrange,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                // Tile 4: Filter Aktif
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "KATEGORI",
+                            color = TextTertiary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (activeCategoryFilter == "Semua") "Semua" else activeCategoryFilter.substringBefore(" ").take(6),
+                            color = AccentPurple,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Action Buttons: Scan + Manual Node Inspector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Button(
                     onClick = { viewModel.runDeepScan() },
                     enabled = !uiState.isDeepScanning,
-                    shape = RoundedCornerShape(9.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentCyan.copy(alpha = 0.2f),
-                        contentColor = AccentCyan
+                        containerColor = AccentCyan,
+                        contentColor = BgDeepOled,
+                        disabledContainerColor = AccentCyan.copy(alpha = 0.3f),
+                        disabledContentColor = TextTertiary
                     ),
-                    border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.45f)),
-                    modifier = Modifier.weight(1.5f),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .height(46.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                 ) {
                     if (uiState.isDeepScanning) {
                         CircularProgressIndicator(
-                            color = AccentCyan,
+                            color = BgDeepOled,
                             strokeWidth = 2.dp,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Memindai...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Memindai...", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     } else {
-                        Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = if (uiState.deepTunables.isEmpty()) "Pindai Sysfs" else "Pindai Ulang",
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -991,24 +1134,52 @@ fun DeepSysfsTabContent(
 
                 OutlinedButton(
                     onClick = { showManualNodeDialog = true },
-                    shape = RoundedCornerShape(9.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, BorderSubtle),
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = BgElevated,
+                        contentColor = TextPrimary
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                 ) {
-                    Icon(Icons.Default.Terminal, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("Uji Path", fontSize = 11.5.sp, color = TextPrimary)
+                    Icon(Icons.Default.Terminal, null, tint = AccentCyan, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Uji Path", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 }
             }
         }
     }
 
     if (uiState.deepTunables.isNotEmpty()) {
-        // 2. Filter Kategori Grid Seimbang (Non-Scrollable, BEBAS konflik gesture horizontal)
-        val categories = listOf("Semua", "CPU / PPM", "RAM / VM", "GPU & Grafis", "Penyimpanan", "Sistem & Daya")
+        // Dynamic Category Counts
+        val categoryCounts = remember(uiState.deepTunables) {
+            mapOf(
+                "Semua" to uiState.deepTunables.size,
+                "CPU / PPM" to uiState.deepTunables.count { it.category.contains("CPU", true) || it.category.contains("PPM", true) || it.category.contains("Penjadwal", true) || it.category.contains("Scheduler", true) },
+                "RAM / VM" to uiState.deepTunables.count { it.category.contains("RAM", true) || it.category.contains("Memory", true) || it.category.contains("VM", true) },
+                "GPU & Grafis" to uiState.deepTunables.count { it.category.contains("GPU", true) || it.category.contains("Grafis", true) },
+                "Penyimpanan" to uiState.deepTunables.count { it.category.contains("Storage", true) || it.category.contains("I/O", true) || it.category.contains("Penyimpanan", true) || it.category.contains("Block", true) },
+                "Sistem & Daya" to uiState.deepTunables.count { it.category.contains("Power", true) || it.category.contains("Thermal", true) || it.category.contains("Daya", true) || it.category.contains("General", true) || it.category.contains("System", true) }
+            )
+        }
+
+        // 2. Filter Kategori Grid 2x3 Seimbang
+        val categories = listOf(
+            Triple("Semua", Icons.Default.Tune, categoryCounts["Semua"] ?: 0),
+            Triple("CPU / PPM", Icons.Default.Memory, categoryCounts["CPU / PPM"] ?: 0),
+            Triple("RAM / VM", Icons.Default.Storage, categoryCounts["RAM / VM"] ?: 0),
+            Triple("GPU & Grafis", Icons.Default.VideogameAsset, categoryCounts["GPU & Grafis"] ?: 0),
+            Triple("Penyimpanan", Icons.Default.SdStorage, categoryCounts["Penyimpanan"] ?: 0),
+            Triple("Sistem & Daya", Icons.Default.Bolt, categoryCounts["Sistem & Daya"] ?: 0)
+        )
+
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             categories.chunked(3).forEach { chunk ->
@@ -1016,24 +1187,32 @@ fun DeepSysfsTabContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    chunk.forEach { catName ->
+                    chunk.forEach { (catName, catIcon, count) ->
                         val isSel = activeCategoryFilter == catName
                         Surface(
                             onClick = {
                                 activeCategoryFilter = catName
                                 maxVisibleItems = 25
                             },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isSel) AccentCyan.copy(alpha = 0.22f) else BgElevated,
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSel) AccentCyan.copy(alpha = 0.18f) else BgCard,
                             border = BorderStroke(0.8.dp, if (isSel) AccentCyan else BorderSubtle),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(vertical = 9.dp, horizontal = 4.dp)
                             ) {
+                                Icon(
+                                    imageVector = catIcon,
+                                    contentDescription = null,
+                                    tint = if (isSel) AccentCyan else TextSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = catName,
+                                    text = "$catName ($count)",
                                     color = if (isSel) AccentCyan else TextSecondary,
                                     fontSize = 10.sp,
                                     fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
@@ -1047,44 +1226,109 @@ fun DeepSysfsTabContent(
             }
         }
 
-        // 3. Kolom Pencarian Cerdas
-        OutlinedTextField(
-            value = deepSearchQuery,
-            onValueChange = {
-                deepSearchQuery = it
-                maxVisibleItems = 25
-            },
-            placeholder = { Text("Cari nama parameter, path, atau deskripsi...", fontSize = 11.sp, color = TextTertiary) },
-            leadingIcon = {
-                Icon(Icons.Default.Search, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-            },
-            trailingIcon = {
-                if (deepSearchQuery.isNotEmpty()) {
-                    IconButton(onClick = { deepSearchQuery = "" }) {
-                        Icon(Icons.Default.Close, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+        // 3. Kolom Pencarian Cerdas & Info Counter
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            OutlinedTextField(
+                value = deepSearchQuery,
+                onValueChange = {
+                    deepSearchQuery = it
+                    maxVisibleItems = 25
+                },
+                placeholder = { Text("Cari nama parameter, path, atau deskripsi...", fontSize = 11.5.sp, color = TextTertiary) },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                },
+                trailingIcon = {
+                    if (deepSearchQuery.isNotEmpty()) {
+                        IconButton(onClick = { deepSearchQuery = "" }) {
+                            Icon(Icons.Default.Close, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AccentCyan,
+                    unfocusedBorderColor = BorderSubtle,
+                    focusedContainerColor = BgCard,
+                    unfocusedContainerColor = BgCard
+                )
+            )
+
+            // Sub-counter row & Quick Reset Chip
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp, start = 4.dp, end = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val countDisplay = remember(uiState.deepTunables, deepSearchQuery, activeCategoryFilter) {
+                    uiState.deepTunables.count { tunable ->
+                        val matchesCat = when (activeCategoryFilter) {
+                            "Semua" -> true
+                            "CPU / PPM" -> tunable.category.contains("CPU", true) || tunable.category.contains("PPM", true) || tunable.category.contains("Penjadwal", true) || tunable.category.contains("Scheduler", true)
+                            "RAM / VM" -> tunable.category.contains("RAM", true) || tunable.category.contains("Memory", true) || tunable.category.contains("VM", true)
+                            "GPU & Grafis" -> tunable.category.contains("GPU", true) || tunable.category.contains("Grafis", true)
+                            "Penyimpanan" -> tunable.category.contains("Storage", true) || tunable.category.contains("I/O", true) || tunable.category.contains("Penyimpanan", true) || tunable.category.contains("Block", true)
+                            "Sistem & Daya" -> tunable.category.contains("Power", true) || tunable.category.contains("Thermal", true) || tunable.category.contains("Daya", true) || tunable.category.contains("General", true) || tunable.category.contains("System", true)
+                            else -> tunable.category.equals(activeCategoryFilter, ignoreCase = true)
+                        }
+                        val matchesSearch = deepSearchQuery.isBlank() ||
+                                tunable.name.contains(deepSearchQuery, ignoreCase = true) ||
+                                tunable.rawName.contains(deepSearchQuery, ignoreCase = true) ||
+                                tunable.desc.contains(deepSearchQuery, ignoreCase = true) ||
+                                tunable.path.contains(deepSearchQuery, ignoreCase = true) ||
+                                tunable.help.contains(deepSearchQuery, ignoreCase = true)
+
+                        matchesCat && matchesSearch
                     }
                 }
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AccentCyan,
-                unfocusedBorderColor = BorderSubtle,
-                focusedContainerColor = BgElevated,
-                unfocusedContainerColor = BgElevated
-            )
-        )
+
+                Text(
+                    text = "Menampilkan $countDisplay dari ${uiState.deepTunables.size} parameter",
+                    color = TextTertiary,
+                    fontSize = 11.sp
+                )
+
+                if (deepSearchQuery.isNotEmpty() || activeCategoryFilter != "Semua") {
+                    Surface(
+                        onClick = {
+                            deepSearchQuery = ""
+                            activeCategoryFilter = "Semua"
+                            maxVisibleItems = 25
+                        },
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyan.copy(alpha = 0.12f),
+                        border = BorderStroke(0.6.dp, AccentCyan.copy(alpha = 0.3f))
+                    ) {
+                        Text(
+                            text = "Reset Filter",
+                            color = AccentCyan,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        }
 
         // 4. Daftar Kartu Sysfs yang Difilter
         val displayedTunables = remember(uiState.deepTunables, deepSearchQuery, activeCategoryFilter) {
             uiState.deepTunables.filter { tunable ->
                 val matchesCat = when (activeCategoryFilter) {
                     "Semua" -> true
-                    "CPU / PPM" -> tunable.category.contains("CPU", true) || tunable.category.contains("PPM", true) || tunable.category.contains("Penjadwal", true)
+                    "CPU / PPM" -> tunable.category.contains("CPU", true) || tunable.category.contains("PPM", true) || tunable.category.contains("Penjadwal", true) || tunable.category.contains("Scheduler", true)
                     "RAM / VM" -> tunable.category.contains("RAM", true) || tunable.category.contains("Memory", true) || tunable.category.contains("VM", true)
                     "GPU & Grafis" -> tunable.category.contains("GPU", true) || tunable.category.contains("Grafis", true)
-                    "Penyimpanan" -> tunable.category.contains("Storage", true) || tunable.category.contains("I/O", true) || tunable.category.contains("Penyimpanan", true)
-                    "Sistem & Daya" -> tunable.category.contains("Power", true) || tunable.category.contains("Thermal", true) || tunable.category.contains("Daya", true) || tunable.category.contains("General", true)
+                    "Penyimpanan" -> tunable.category.contains("Storage", true) || tunable.category.contains("I/O", true) || tunable.category.contains("Penyimpanan", true) || tunable.category.contains("Block", true)
+                    "Sistem & Daya" -> tunable.category.contains("Power", true) || tunable.category.contains("Thermal", true) || tunable.category.contains("Daya", true) || tunable.category.contains("General", true) || tunable.category.contains("System", true)
                     else -> tunable.category.equals(activeCategoryFilter, ignoreCase = true)
                 }
                 val matchesSearch = deepSearchQuery.isBlank() ||
@@ -1100,23 +1344,44 @@ fun DeepSysfsTabContent(
 
         if (displayedTunables.isEmpty()) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = BgElevated,
+                shape = RoundedCornerShape(16.dp),
+                color = BgCard,
                 border = BorderStroke(0.8.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.SearchOff, null, tint = TextSecondary, modifier = Modifier.size(28.dp))
-                    Spacer(Modifier.height(6.dp))
+                    Icon(Icons.Default.SearchOff, null, tint = TextSecondary, modifier = Modifier.size(32.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = "Tidak ada parameter yang cocok dengan kriteria",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Coba ubah kata kunci pencarian atau ganti filter kategori.",
                         color = TextSecondary,
                         fontSize = 11.5.sp,
                         textAlign = TextAlign.Center
                     )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = {
+                            deepSearchQuery = ""
+                            activeCategoryFilter = "Semua"
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f))
+                    ) {
+                        Text("Reset Pencarian", color = AccentCyan, fontSize = 11.5.sp)
+                    }
                 }
             }
         } else {
@@ -1129,73 +1394,108 @@ fun DeepSysfsTabContent(
             }
 
             if (displayedTunables.size > maxVisibleItems) {
-                Button(
+                Surface(
                     onClick = { maxVisibleItems += 30 },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BgElevated,
-                        contentColor = AccentCyan
-                    ),
-                    border = BorderStroke(0.8.dp, BorderSubtle)
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.8.dp, BorderSubtle),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
-                    Text("Muat Lebih Banyak (${displayedTunables.size - maxVisibleItems} tersisa)", fontSize = 11.5.sp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ExpandMore, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Muat Lebih Banyak (${displayedTunables.size - maxVisibleItems} tersisa)",
+                                color = AccentCyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
     } else if (!uiState.isDeepScanning) {
         // Empty State saat belum memindai
         Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = BgElevated,
+            shape = RoundedCornerShape(18.dp),
+            color = BgCard,
             border = BorderStroke(0.8.dp, BorderSubtle),
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             Column(
-                modifier = Modifier.padding(22.dp),
+                modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Explore, null, tint = AccentCyan, modifier = Modifier.size(34.dp))
-                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = AccentCyan.copy(alpha = 0.12f),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Explore, null, tint = AccentCyan, modifier = Modifier.size(28.dp))
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Belum Ada Hasil Pemindaian Sysfs",
+                    text = "Katalog Sysfs Belum Dipindai",
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.5.sp
+                    fontSize = 14.sp
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = "Sentuh tombol 'Pindai Sysfs' di atas untuk mendeteksi seluruh parameter kernel, OEM, dan vendor yang tersedia secara adaptif di perangkat Anda.",
                     color = TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     textAlign = TextAlign.Center,
-                    lineHeight = 15.sp
+                    lineHeight = 16.sp
                 )
             }
         }
     }
 
-    // Modal Uji Node Manual (disembunyikan dari tampilan utama)
+    // Modal Uji Node Manual (dengan preset cepat)
     if (showManualNodeDialog) {
+        val quickPresets = listOf(
+            "/proc/sys/vm/swappiness",
+            "/proc/sys/kernel/sched_latency_ns",
+            "/sys/block/mmcblk0/queue/read_ahead_kb",
+            "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+        )
+
         AlertDialog(
             onDismissRequest = { showManualNodeDialog = false },
             title = {
-                Text("Uji Path Node Sysfs / Procfs", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Terminal, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Uji Path Node Sysfs / Procfs", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
             },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Ketik path node kernel lengkap untuk diperiksa dan diubah secara langsung oleh Lynx Engine:",
                         color = TextSecondary,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         lineHeight = 15.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 10.dp)
                     )
                     OutlinedTextField(
                         value = manualNodePath,
                         onValueChange = { manualNodePath = it },
                         placeholder = { Text("/proc/sys/... atau /sys/...", fontSize = 11.sp, color = TextTertiary) },
                         singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = androidx.compose.ui.text.TextStyle(
                             fontFamily = FontFamily.Monospace,
@@ -1209,6 +1509,36 @@ fun DeepSysfsTabContent(
                             unfocusedContainerColor = BgDeepOled
                         )
                     )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        text = "Preset Cepat:",
+                        color = TextTertiary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(6.dp))
+
+                    quickPresets.forEach { preset ->
+                        Surface(
+                            onClick = { manualNodePath = preset },
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = preset,
+                                color = AccentCyan,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
