@@ -1,3 +1,20 @@
+# Lynx Universal [Penyempurnaan Subscreen CPU Performa: Default Expanded Clock CPU, Standardisasi TabRow 52dp, & Target Sentuh 48dp] 7.0.0-RC467
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.86
+
+### UI/UX & Companion App (`feature/cpu/ui/`)
+- **Default Expanded Kontrol Clock CPU (`CpuClusterCard.kt`, `CpuTopologyAndVerification.kt`)**:
+  - Mengonfigurasi seluruh kartu kluster CPU (`CompactClusterRow`) agar langsung terbuka (*expanded*) secara default saat pengguna membuka subscreen CPU Performa.
+  - Membuka tabel frekuensi hardware OPP pada kartu Topologi Silikon secara default (`expandedClusters[cluster.id] ?: true`).
+- **Standardisasi Target Sentuh Presisi $\ge 48\text{ dp}$ (`CpuClusterCard.kt`)**:
+  - Menaikkan tinggi tombol pemilih frekuensi Min MHz dan Max MHz dari 44dp ke `48.dp` dengan kelengkungan sudut `10.dp`.
+  - Menaikkan tombol toggle penguncian frekuensi (*thermal lock*) dari 44dp ke `48.dp`.
+  - Menaikkan selector governor dan tombol *Tunables* dari 42dp ke `48.dp`.
+  - Menstandarkan item daftar pada Modal Bottom Sheet pemilih frekuensi dan governor ke tinggi `48.dp`.
+  - Mengintegrasikan respon *tactile haptic feedback* pada seluruh tombol kontrol kluster dan item dialog.
+- **Penyelarasan TabRow Ergonomis (`CpuOverviewCards.kt`)**:
+  - Menaikkan tinggi kontainer `CpuTabRow` dari 46dp ke `52.dp` (target sentuh $\ge 48\text{ dp}$), sudut luar `14.dp`, sudut tab dalam `10.dp`, dan border `0.8.dp`, konsisten dengan `GpuDisplayTabRow` dan `SystemTabRow`.
+
 # Lynx Universal [Perombakan Total Tab GPU & Display Engine: TabRow Ergonomis 52dp, Eliminasi Gesture Trap Horizontal, Tipografi Rapi Anti-Truncate, & Diagnostik Sesi Modern] 7.0.0-RC466
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.85

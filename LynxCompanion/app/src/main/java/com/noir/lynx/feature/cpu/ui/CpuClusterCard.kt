@@ -45,7 +45,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,9 +75,11 @@ fun CompactClusterRow(
     onLockToggle: (policyId: Int, isLock: Boolean, minFreq: Long, maxFreq: Long) -> Unit,
     onApplyGovernorPreset: ((policyId: Int, preset: String) -> Unit)? = null,
     onSetCustomRateLimits: ((policyId: Int, upUs: Long, downUs: Long) -> Unit)? = null,
+    defaultExpanded: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    var isExpanded by remember { mutableStateOf(defaultExpanded) }
     val isPrimeCluster = cluster.role.contains("Prime", ignoreCase = true)
     val isMidCluster = cluster.role.contains("Mid", ignoreCase = true)
     val isPerfCluster = cluster.id > 0
@@ -131,7 +135,10 @@ fun CompactClusterRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded },
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        isExpanded = !isExpanded
+                    },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -246,9 +253,12 @@ fun CompactClusterRow(
                     ) {
                         // Min MHz Pill
                         Surface(
-                            onClick = { freqPickerTarget = Pair(cluster, true) },
-                            modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                freqPickerTarget = Pair(cluster, true)
+                            },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = Color(0xFF0C0F17),
                             border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
@@ -267,9 +277,12 @@ fun CompactClusterRow(
 
                         // Max MHz Pill
                         Surface(
-                            onClick = { freqPickerTarget = Pair(cluster, false) },
-                            modifier = Modifier.weight(1f).height(44.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                freqPickerTarget = Pair(cluster, false)
+                            },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = Color(0xFF0C0F17),
                             border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
@@ -288,12 +301,15 @@ fun CompactClusterRow(
 
                         // Thermal Lock Toggle
                         IconButton(
-                            onClick = { onLockToggle(cluster.id, !cluster.isLocked, cluster.curMin, cluster.curMax) },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onLockToggle(cluster.id, !cluster.isLocked, cluster.curMin, cluster.curMax)
+                            },
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(9.dp))
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(if (cluster.isLocked) AccentRed.copy(alpha = 0.15f) else Color(0xFF0C0F17))
-                                .border(0.6.dp, if (cluster.isLocked) AccentRed.copy(alpha = 0.4f) else Color(0x15FFFFFF), RoundedCornerShape(9.dp))
+                                .border(0.6.dp, if (cluster.isLocked) AccentRed.copy(alpha = 0.4f) else Color(0x15FFFFFF), RoundedCornerShape(10.dp))
                         ) {
                             Icon(
                                 imageVector = if (cluster.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
@@ -319,9 +335,12 @@ fun CompactClusterRow(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            onClick = { govPickerTarget = cluster },
-                            modifier = Modifier.weight(1f).height(42.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                govPickerTarget = cluster
+                            },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = Color(0xFF0C0F17),
                             border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
@@ -347,16 +366,17 @@ fun CompactClusterRow(
                         // Tunables Button
                         Surface(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onLoadTunables(cluster.id, cluster.curGov)
                                 tunablesTarget = cluster
                             },
-                            modifier = Modifier.height(42.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            modifier = Modifier.height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = Color(0xFF0C0F17),
                             border = BorderStroke(0.6.dp, Color(0x15FFFFFF))
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 10.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -412,6 +432,7 @@ fun CompactClusterRow(
                         val isCurrent = if (isMinPicker) targetCluster.curMin == freqKhz else targetCluster.curMax == freqKhz
                         Surface(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (isMinPicker) {
                                     onFreqChange(targetCluster.id, freqKhz, null)
                                 } else {
@@ -419,8 +440,8 @@ fun CompactClusterRow(
                                 }
                                 freqPickerTarget = null
                             },
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = if (isCurrent) clusterAccent.copy(alpha = 0.16f) else Color(0xFF0C0F17),
                             border = if (isCurrent) BorderStroke(0.8.dp, clusterAccent) else BorderStroke(0.5.dp, Color(0x12FFFFFF))
                         ) {
@@ -487,11 +508,12 @@ fun CompactClusterRow(
                         }
                         Surface(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onGovChange(targetCluster.id, gov)
                                 govPickerTarget = null
                             },
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(9.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
                             color = if (isCurrent) AccentCyan.copy(alpha = 0.16f) else Color(0xFF0C0F17),
                             border = if (isCurrent) BorderStroke(0.8.dp, AccentCyan) else BorderStroke(0.5.dp, Color(0x12FFFFFF))
                         ) {

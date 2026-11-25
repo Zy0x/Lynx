@@ -237,7 +237,7 @@ fun CpuTopologySpecCard(
                         isPerfCluster -> AccentOrange
                         else -> AccentGreen
                     }
-                    val isExpanded = expandedClusters[cluster.id] == true
+                    val isExpanded = expandedClusters[cluster.id] ?: true
                     val rotAngle by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f, label = "rot")
 
                     val microArchHeader = if (detail != null && detail.microArchName.isNotBlank()) {
