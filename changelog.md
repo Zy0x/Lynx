@@ -1,3 +1,13 @@
+# Lynx Universal [Penyempurnaan Eksekusi Storage TRIM Multi-Engine Fallback pada Tab Alat Kernel] 7.0.0-RC465
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.84
+
+### Backend & Repository (`LynxKernelDiagnosticsRepository.kt`)
+- **Peningkatan Ketahanan Storage TRIM Multi-Engine Fallback**:
+  - Menambahkan rantai deteksi runtime berjenjang untuk pemeliharaan TRIM penyimpanan internal: `which fstrim` -> `toybox fstrim` -> `sm fstrim` -> `vdc cryptfs fstrim`.
+  - Mengeliminasi pesan error shell `/system/bin/sh: fstrim: inaccessible or not found` pada ROM Android modern / GSI yang tidak menyertakan biner standalone `fstrim`.
+  - Memfilter output verbose agar pelaporan durasi dan status TRIM tetap rapi dan bersih di antarmuka Companion.
+
 # Lynx Universal [Perombakan Total Tab Alat Kernel: Hero Bento Identitas & Crash, Eliminasi Gesture Trap Horizontal, Standardisasi LynxSwitch & Grid 2x4 Dmesg] 7.0.0-RC464
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.83

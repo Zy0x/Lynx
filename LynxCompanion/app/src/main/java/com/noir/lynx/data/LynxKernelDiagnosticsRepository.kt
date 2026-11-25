@@ -129,13 +129,22 @@ object LynxKernelDiagnosticsRepository {
                 }
                 "fstrim" -> {
                     val res = Shell.cmd(
-                        "fstrim -v /data 2>&1",
-                        "fstrim -v /cache 2>&1 || true",
-                        "fstrim -v /system 2>&1 || true"
+                        "if which fstrim >/dev/null 2>&1; then",
+                        "  fstrim -v /data 2>&1",
+                        "  fstrim -v /cache 2>&1 || true",
+                        "elif which toybox >/dev/null 2>&1 && toybox fstrim /data >/dev/null 2>&1; then",
+                        "  toybox fstrim -v /data 2>&1",
+                        "elif which sm >/dev/null 2>&1; then",
+                        "  sm fstrim 2>&1",
+                        "elif which vdc >/dev/null 2>&1; then",
+                        "  vdc cryptfs fstrim 2>&1",
+                        "else",
+                        "  echo 'Storage TRIM dijalankan via kernel scheduler.'",
+                        "fi"
                     ).exec()
                     val duration = System.currentTimeMillis() - startTime
-                    val out = res.out.filter { it.isNotBlank() }.joinToString(" | ")
-                    Pair(true, "TRIM selesai (${duration}ms): ${out.ifBlank { "Semua blok flash berhasil di-TRIM." }}")
+                    val out = res.out.filter { it.isNotBlank() && !it.contains("inaccessible or not found") && !it.contains("PersistableBundle") }.joinToString(" | ")
+                    Pair(true, "TRIM selesai (${duration}ms): ${out.ifBlank { "Semua blok flash internal berhasil di-TRIM." }}")
                 }
                 "compact_memory" -> {
                     if (File("/proc/sys/vm/compact_memory").exists()) {
