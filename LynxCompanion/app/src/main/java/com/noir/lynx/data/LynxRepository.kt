@@ -459,18 +459,18 @@ object LynxRepository {
                         Shell.cmd("""
                             if [ -d "$MODULE_DIR/system/bin" ]; then
                                 if ! cmp -s '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null; then
-                                    pkill -9 -f "lynxd daemon" 2>/dev/null
+                                    pkill -9 -f "[l]ynxd daemon" 2>/dev/null
                                     pkill -9 lynxd 2>/dev/null
-                                    rm -f '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
-                                    cp -f '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
-                                    chmod 755 '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
+                                    cp -f '${tmpAppFile.absolutePath}' '$MODULE_DIR/system/bin/lynxd.tmp' 2>/dev/null && \
+                                        chmod 755 '$MODULE_DIR/system/bin/lynxd.tmp' 2>/dev/null && \
+                                        mv -f '$MODULE_DIR/system/bin/lynxd.tmp' '$MODULE_DIR/system/bin/lynxd' 2>/dev/null
                                 fi
                             fi
                             if ! cmp -s '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd 2>/dev/null; then
-                                pkill -9 -f "lynxd daemon" 2>/dev/null
-                                pkill -9 lynxd 2>/dev/null
-                                rm -f /data/local/tmp/lynxd 2>/dev/null
-                                cp '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd && chmod 755 /data/local/tmp/lynxd && chcon u:object_r:system_file:s0 /data/local/tmp/lynxd 2>/dev/null
+                                cp -f '${tmpAppFile.absolutePath}' /data/local/tmp/lynxd.tmp 2>/dev/null && \
+                                    chmod 755 /data/local/tmp/lynxd.tmp 2>/dev/null && \
+                                    chcon u:object_r:system_file:s0 /data/local/tmp/lynxd.tmp 2>/dev/null
+                                mv -f /data/local/tmp/lynxd.tmp /data/local/tmp/lynxd 2>/dev/null
                             fi
                         """.trimIndent()).exec()
                         tmpAppFile.delete()
@@ -481,11 +481,15 @@ object LynxRepository {
                 }
             }
             val targetPath = getLynxdPath()
-            // Ensure daemon background runner is active
+            // Ensure daemon background runner is active (use [l] regex to avoid self-matching + setsid for session detach)
             Shell.cmd("""
                 if [ -x '$targetPath' ]; then
-                    if ! pgrep -f "lynxd daemon run" >/dev/null 2>&1; then
-                        nohup '$targetPath' daemon run </dev/null >/dev/null 2>&1 &
+                    if ! pgrep -f "[l]ynxd daemon run" >/dev/null 2>&1; then
+                        if command -v setsid >/dev/null 2>&1; then
+                            setsid '$targetPath' daemon run </dev/null >/dev/null 2>&1 &
+                        else
+                            nohup '$targetPath' daemon run </dev/null >/dev/null 2>&1 &
+                        fi
                     fi
                 fi
             """.trimIndent()).exec().isSuccess

@@ -456,24 +456,57 @@ impl ClusterController {
             .unwrap_or_default()
             .as_millis() as u64;
 
-        // 1. Lightweight Big-cluster max ceiling guard (zero sysfs dir-scan or OPP parsing per tick)
+        // 1. Self-healing CPU ceiling & Extreme peak-floor guard across all clusters
         let clusters = Self::cached_touch_clusters();
+        let has_ppm_min = Path::new("/proc/ppm/policy/hard_userlimit_min_cpu_freq").exists();
+        let has_ppm_max = Path::new("/proc/ppm/policy/hard_userlimit_max_cpu_freq").exists();
         let mut neutralized = false;
         for pol in clusters {
-            if !pol.is_big_cluster {
+            if !pol.is_big_cluster && current_profile != "extreme" {
                 continue;
             }
-            if let Ok(cur_max) = SysfsReader::read_int::<u64>(&pol.max_path) {
-                if cur_max < pol.max_freq && (current_profile == "performance" || current_profile == "extreme") {
-                    if !neutralized {
-                        crate::subsystems::ThermalController::neutralize_quiet_therm();
-                        neutralized = true;
+            if is_screen_on && (current_profile == "performance" || current_profile == "extreme") {
+                if let Ok(cur_max) = SysfsReader::read_int::<u64>(&pol.max_path) {
+                    if cur_max < pol.max_freq {
+                        if !neutralized {
+                            crate::subsystems::ThermalController::neutralize_quiet_therm();
+                            neutralized = true;
+                        }
+                        let is_locked = std::fs::metadata(&pol.max_path)
+                            .map(|m| m.permissions().readonly())
+                            .unwrap_or(false);
+                        if !is_locked {
+                            let _ = SysfsWriter::write(&pol.max_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
+                        }
+                        if has_ppm_max {
+                            let _ = SysfsWriter::write(
+                                "/proc/ppm/policy/hard_userlimit_max_cpu_freq",
+                                format!("{} {}", pol.mtk_cluster_index, pol.max_freq),
+                                WriteMode::Direct,
+                            );
+                        }
                     }
-                    let is_locked = std::fs::metadata(&pol.max_path)
-                        .map(|m| m.permissions().readonly())
-                        .unwrap_or(false);
-                    if !is_locked {
-                        let _ = SysfsWriter::write(&pol.max_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
+                }
+                // In Extreme mode with screen ON, keep every cluster pinned flat at ceiling (zero frequency dip)
+                if current_profile == "extreme" {
+                    if SysfsReader::read_trimmed(&pol.gov_path).ok().as_deref() != Some("performance") {
+                        let _ = SysfsWriter::write(&pol.gov_path, "performance", WriteMode::ForcePermission);
+                    }
+                    let cur_min = SysfsReader::read_int::<u64>(&pol.min_path).unwrap_or(0);
+                    if cur_min < pol.max_freq {
+                        let is_locked = std::fs::metadata(&pol.min_path)
+                            .map(|m| m.permissions().readonly())
+                            .unwrap_or(false);
+                        if !is_locked {
+                            let _ = SysfsWriter::write(&pol.min_path, pol.max_freq.to_string(), WriteMode::ForcePermission);
+                        }
+                        if has_ppm_min {
+                            let _ = SysfsWriter::write(
+                                "/proc/ppm/policy/hard_userlimit_min_cpu_freq",
+                                format!("{} {}", pol.mtk_cluster_index, pol.max_freq),
+                                WriteMode::Direct,
+                            );
+                        }
                     }
                 }
             }

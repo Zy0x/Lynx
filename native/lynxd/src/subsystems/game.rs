@@ -330,10 +330,17 @@ impl GameController {
         if Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
             Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "500");
         }
-        Self::write_opt("/proc/sys/kernel/sched_latency_ns", "8000000");
-        Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
-        Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
-        Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
+        if crate::subsystems::DisplayController::active_refresh_rate_hz() >= 90 {
+            Self::write_opt("/proc/sys/kernel/sched_latency_ns", "6000000");
+            Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1000000");
+            Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "750000");
+            Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1000000");
+        } else {
+            Self::write_opt("/proc/sys/kernel/sched_latency_ns", "8000000");
+            Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
+            Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
+            Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
+        }
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         Self::write_opt("/proc/sys/vm/extfrag_threshold", "250");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "0");
@@ -745,9 +752,18 @@ impl GameController {
                             }
                             if let Ok(tcomm) = fs::read_to_string(t.path().join("comm")) {
                                 if tcomm.trim().starts_with("VSyncThread") {
-                                    let _ = Command::new("chrt")
-                                        .args(&["-f", "-p", "2", &tid.to_string()])
-                                        .output();
+                                    // Android Toybox `chrt` uses `-p <PID> <PRIO>`; fall back to util-linux order if needed
+                                    let tid_s = tid.to_string();
+                                    let ok = Command::new("chrt")
+                                        .args(&["-f", "-p", &tid_s, "2"])
+                                        .status()
+                                        .map(|s| s.success())
+                                        .unwrap_or(false);
+                                    if !ok {
+                                        let _ = Command::new("chrt")
+                                            .args(&["-f", "-p", "2", &tid_s])
+                                            .output();
+                                    }
                                 }
                             }
                         }
@@ -957,7 +973,7 @@ impl GameController {
         }
     }
 
-    fn offload_kswapd_kcompactd(little_mask: u64) {
+    pub(crate) fn offload_kswapd_kcompactd(little_mask: u64) {
         if little_mask == 0 {
             return;
         }
@@ -976,14 +992,21 @@ impl GameController {
                         || c == "statsd"
                         || c.starts_with("health@");
                     if should_offload {
+                        let is_reclaim = c.starts_with("kswapd") || c.starts_with("kcompactd");
                         if let Ok(tasks) = fs::read_dir(entry.path().join("task")) {
                             for t in tasks.flatten() {
                                 if let Ok(tid) = t.file_name().to_string_lossy().parse::<u32>() {
                                     Self::set_thread_affinity(tid, little_mask);
+                                    if is_reclaim {
+                                        Self::set_tid_nice(tid, -10);
+                                    }
                                 }
                             }
                         } else {
                             Self::set_thread_affinity(pid, little_mask);
+                            if is_reclaim {
+                                Self::set_tid_nice(pid, -10);
+                            }
                         }
                     }
                 }

@@ -105,8 +105,11 @@ impl DaemonRunner {
             ));
         }
 
-        // Optimize SystemUI priority & disable expensive window blurs on boot
+        // Optimize SystemUI priority, HWC VSyncThread_0 SCHED_FIFO, kswapd0/kcompactd0 -10 on Little cores,
+        // & disable expensive window blurs on boot
         Self::shield_systemui();
+        crate::subsystems::GameController::prioritize_surfaceflinger(-10);
+        crate::subsystems::GameController::offload_kswapd_kcompactd(boot_topo.little_mask);
         crate::subsystems::thermal::ThermalController::un_isolate_all_cpus();
         let _ = std::process::Command::new("settings").args(&["put", "global", "disable_window_blurs", "1"]).output();
         let _ = std::process::Command::new("setprop").args(&["persist.sys.sf.disable_blurs", "1"]).output();

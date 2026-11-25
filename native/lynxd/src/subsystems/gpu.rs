@@ -732,6 +732,31 @@ impl GpuController {
         if current_u8 != new_u8 {
             CURRENT_SCALER_STATE.store(new_u8, Ordering::Relaxed);
             Self::apply_state_hardware(&gpu, resolved_state);
+        } else if resolved_state == DynamicGpuState::Peak
+            && (active_profile == "extreme" || workload == WorkloadLevel::Heavy)
+        {
+            // Self-healing GPU ceiling guard: prevents GED / PowerHAL / screen-wake transitions
+            // from releasing fixed peak OPP or dropping gpu_bottom_freq back down to 300 MHz.
+            static LAST_PEAK_GUARD_MS: AtomicU64 = AtomicU64::new(0);
+            if now_ms.saturating_sub(LAST_PEAK_GUARD_MS.load(Ordering::Relaxed)) >= 2000 {
+                LAST_PEAK_GUARD_MS.store(now_ms, Ordering::Relaxed);
+                let mut needs_relock = false;
+                if matches!(gpu.driver, GpuDriver::MtkGed | GpuDriver::MtkGpufreq) {
+                    if let Some(high) = gpu.peak_opp() {
+                        let opp_txt = SysfsReader::read_trimmed("/proc/gpufreq/gpufreq_opp_freq")
+                            .or_else(|_| SysfsReader::read_trimmed("/proc/gpufreqv2/gpufreq_opp_freq"))
+                            .unwrap_or_default();
+                        let cur_bottom = SysfsReader::read_int::<u64>("/sys/module/ged/parameters/gpu_bottom_freq")
+                            .unwrap_or(0);
+                        if opp_txt.contains("disabled") || cur_bottom < high.freq_khz {
+                            needs_relock = true;
+                        }
+                    }
+                }
+                if needs_relock {
+                    Self::apply_state_hardware(&gpu, DynamicGpuState::Peak);
+                }
+            }
         }
     }
 
@@ -762,6 +787,8 @@ impl GpuController {
                         Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
                     }
                     DynamicGpuState::Light => {
+                        Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", "0");
+                        Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
                         if let Some(light) = light_opp {
                             Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", light.index.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", light.freq_khz.to_string());
@@ -775,6 +802,8 @@ impl GpuController {
                         Self::write_opt("/sys/module/ged/parameters/ged_boost_enable", "1");
                     }
                     DynamicGpuState::Fluid => {
+                        Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", "0");
+                        Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", "0");
                         if let Some(fluid) = fluid_opp {
                             Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", fluid.index.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", fluid.freq_khz.to_string());
@@ -791,7 +820,16 @@ impl GpuController {
                         if let Some(high) = peak_opp {
                             Self::write_opt("/sys/kernel/ged/hal/custom_boost_gpu_freq", high.index.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", high.freq_khz.to_string());
+                            Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", high.freq_khz.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", high.freq_khz.to_string());
+                            // Hard-lock peak OPP in gpufreq when Extreme or Heavy workload is active so
+                            // GPU clock stays 100% flat at ceiling with zero DVFS oscillation.
+                            if ACTIVE_PROFILE_IS_EXTREME.load(Ordering::Relaxed)
+                                || ACTIVE_WORKLOAD_IS_HEAVY.load(Ordering::Relaxed)
+                            {
+                                Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", high.freq_khz.to_string());
+                                Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", high.freq_khz.to_string());
+                            }
                         }
                         Self::write_opt("/sys/kernel/ged/hal/gpu_boost_level", "100");
                         Self::write_opt("/sys/kernel/ged/hal/dvfs_margin_value", "100");

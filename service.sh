@@ -127,7 +127,8 @@ fi
     echo 1 > /proc/sys/net/ipv4/tcp_autocorking 2>/dev/null
     echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
     echo 131072 > /proc/sys/net/ipv4/tcp_notsent_lowat 2>/dev/null
-    echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+    echo 0 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+    echo 2 > /proc/sys/net/ipv4/tcp_ecn 2>/dev/null
 
     # UDP buffer scaling (Gaming packet bursts, in-game voice chat, & HTTP/3 QUIC)
     echo 16384 > /proc/sys/net/ipv4/udp_rmem_min 2>/dev/null
@@ -162,14 +163,17 @@ fi
         [ "$RX_CNT" -le 0 ] && RX_CNT=1
         FLOW_PER_Q=$(( RPS_ENTRIES / RX_CNT ))
         [ "$FLOW_PER_Q" -lt 1024 ] && FLOW_PER_Q=1024
+        # Steer SoftIRQ RPS/XPS onto non-Big Little cores (e.g. 0x3e on 8-core) so Wi-Fi IRQs never preempt CPU 6-7
+        RPS_HEX="$CPU_HEX"
+        [ "$CPU_MASK" -eq 255 ] && RPS_HEX="3e"
         for rx in "$if_path"/queues/rx-*; do
-            [ -f "$rx/rps_cpus" ] && echo "$CPU_HEX" > "$rx/rps_cpus" 2>/dev/null
+            [ -f "$rx/rps_cpus" ] && echo "$RPS_HEX" > "$rx/rps_cpus" 2>/dev/null
             [ -f "$rx/rps_flow_cnt" ] && echo "$FLOW_PER_Q" > "$rx/rps_flow_cnt" 2>/dev/null
         done
         for tx in "$if_path"/queues/tx-*; do
-            [ -f "$tx/xps_cpus" ] && echo "$CPU_HEX" > "$tx/xps_cpus" 2>/dev/null
+            [ -f "$tx/xps_cpus" ] && echo "$RPS_HEX" > "$tx/xps_cpus" 2>/dev/null
         done
-        [ -f "$if_path/gro_flush_timeout" ] && echo 20000 > "$if_path/gro_flush_timeout" 2>/dev/null
+        [ -f "$if_path/gro_flush_timeout" ] && echo 0 > "$if_path/gro_flush_timeout" 2>/dev/null
         case "$iface" in
             wlan*|wlp*|mlan*|eth*|rmnet*|ccmni*)
                 tc qdisc replace dev "$iface" root fq_codel 2>/dev/null || tc qdisc replace dev "$iface" root fq 2>/dev/null
@@ -177,21 +181,9 @@ fi
         esac
     done
 
-    # MediaTek Wi-Fi silicon baseline tuning (CAM 1, performance monitor, burst loops)
-    [ -f /proc/net/wlan/autoPerfCfg ] && echo "ForceEnable:1" > /proc/net/wlan/autoPerfCfg 2>/dev/null
-    [ -f /proc/net/wlan/setCAM ] && echo "CAM 1" > /proc/net/wlan/setCAM 2>/dev/null
-    if [ -f /proc/net/wlan/cfg ]; then
-        echo "PowerSave 0" > /proc/net/wlan/cfg 2>/dev/null
-        echo "Rx2OsLoop 16" > /proc/net/wlan/cfg 2>/dev/null
-        echo "Rx2ReorderLoop 8" > /proc/net/wlan/cfg 2>/dev/null
-        echo "DisOnlineScan 0" > /proc/net/wlan/cfg 2>/dev/null
-        echo "VhtAmsduInAmpduTx 1" > /proc/net/wlan/cfg 2>/dev/null
-        echo "VhtAmsduInAmpduRx 1" > /proc/net/wlan/cfg 2>/dev/null
-        echo "HtAmsduInAmpduTx 1" > /proc/net/wlan/cfg 2>/dev/null
-        echo "HtAmsduInAmpduRx 1" > /proc/net/wlan/cfg 2>/dev/null
-        echo "TxBaSize 64" > /proc/net/wlan/cfg 2>/dev/null
-        echo "RxVhtBaSize 64" > /proc/net/wlan/cfg 2>/dev/null
-    fi
+    # MediaTek gen4m Wi-Fi safety: DO NOT mutate /proc/net/wlan/{cfg,autoPerfCfg,setCAM} at runtime.
+    # Live driver config writes corrupt MT6631 firmware state (0 Mbps / RSSI=+6 hang until reboot);
+    # keep genuine OEM /vendor/firmware/wifi.cfg intact for full 260+ Mbps stability.
 ) &
 
 exec "$MODPATH/system/bin/lynxd" boot

@@ -213,10 +213,22 @@ impl DisplayController {
         }
     }
 
+    pub fn active_refresh_rate_hz() -> u32 {
+        let cur = CURRENT_DISPLAY_HZ.load(Ordering::Relaxed);
+        if cur > 0 {
+            return cur;
+        }
+        ConfigStore::get("display_touch.refresh_rate_lock")
+            .and_then(|v| v.parse::<u32>().ok())
+            .filter(|&hz| hz >= 30)
+            .unwrap_or(60)
+    }
+
     /// Aligns CFS scheduler preemption tightness & HWC/Touch responsiveness to active display refresh rate:
     /// - High refresh (>= 90Hz, 8.33ms/frame at 120Hz): tighter preemption (6ms / 1.0ms / 0.75ms / 1.0ms)
-    ///   plus Novatek 20MHz SPI & game mode so 120Hz pacing stays flat with zero missed VSyncs.
-    /// - Standard 60Hz (16.67ms/frame): preserves golden 60Hz cache-affinity tuning (8ms / 1.5ms / 1.5ms / 1.5ms).
+    ///   plus Novatek 15MHz SPI & game mode so 120Hz pacing stays flat with zero missed VSyncs.
+    /// - Standard 60Hz (16.67ms/frame): preserves golden 60Hz cache-affinity tuning (8ms / 1.5ms / 1.5ms / 1.5ms)
+    ///   while still elevating HWC VSyncThread_0 to SCHED_FIFO & foreground cpuset.
     fn sync_cfs_and_hwc_for_hz(target_hz: u32) {
         if target_hz >= 90 {
             Self::write_opt("/proc/sys/kernel/sched_latency_ns", "6000000");
@@ -234,6 +246,7 @@ impl DisplayController {
             Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
             Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
             Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
+            crate::subsystems::game::GameController::prioritize_surfaceflinger(-10);
         }
     }
 
