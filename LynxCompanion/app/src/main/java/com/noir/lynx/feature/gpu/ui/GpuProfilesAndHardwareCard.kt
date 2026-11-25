@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,7 @@ fun AdaptiveGpuHardwareCard(
     wrapInCard: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val isAdreno = gpu.platform == "adreno"
     val isMtk = gpu.platform == "mali_ged"
     var customDialogConfig by remember { mutableStateOf<GpuCustomParamConfig?>(null) }
@@ -299,8 +301,13 @@ fun AdaptiveGpuHardwareCard(
                                     "adreno_tz_target_load" -> GpuCustomParamConfig(feat, "%", 10, 95, 5)
                                     else -> null
                                 }
-                                val totalCount = feat.options.size + (if (customNumConfig != null) 1 else 0)
-                                val useFullWidth = totalCount <= 4
+                                val allOptionItems: List<Pair<String, Boolean>> = feat.options.map { it to false } +
+                                    (if (customNumConfig != null) listOf("__custom__" to true) else emptyList())
+
+                                val optionChunks = remember(allOptionItems) {
+                                    if (allOptionItems.size <= 4) listOf(allOptionItems)
+                                    else allOptionItems.chunked(3)
+                                }
 
                                 Column(modifier = Modifier.fillMaxWidth().padding(top = 2.dp)) {
                                     Row(
@@ -314,94 +321,112 @@ fun AdaptiveGpuHardwareCard(
                                         }
                                     }
                                     Text(feat.description, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(bottom = 6.dp))
-                                    Row(
-                                        modifier = if (useFullWidth) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        feat.options.forEach { opt ->
-                                            val isSel = feat.currentValue == opt
-                                            val displayOpt = when (feat.id) {
-                                                "mali_power_policy" -> when (opt) {
-                                                    "always_on" -> "Always-On (Performa)"
-                                                    "coarse_demand" -> "Coarse Demand (Hemat)"
-                                                    else -> opt
-                                                }
-                                                "mtk_dvfs_margin" -> when (opt) {
-                                                    "0" -> "0% (Std)"
-                                                    else -> "+$opt%"
-                                                }
-                                                "mtk_ged_boost_level" -> when (opt) {
-                                                    "0" -> "0 • Mati"
-                                                    "1" -> "1 • Normal"
-                                                    "2" -> "2 • Ekstrem"
-                                                    else -> opt
-                                                }
-                                                "adrenoboost_level" -> when (opt) {
-                                                    "0" -> "0 • Mati"
-                                                    "1" -> "1 • Rendah"
-                                                    "2" -> "2 • Sedang"
-                                                    "3" -> "3 • Maks"
-                                                    else -> opt
-                                                }
-                                                "adreno_tz_target_load" -> when (opt) {
-                                                    "50" -> "50% (Max)"
-                                                    "80" -> "80% (Std)"
-                                                    else -> "$opt%"
-                                                }
-                                                "adreno_pmqos_latency" -> if (opt == "0") "0 µs (Instan)" else "$opt µs"
-                                                "adreno_ft_long_ib" -> "${opt.toIntOrNull()?.div(1000) ?: opt}s"
-                                                "mali_dvfs_period", "devfreq_polling_interval", "adreno_idle_timer", "adreno_polling_interval" -> "$opt ms"
-                                                else -> opt
-                                            }
-                                            Surface(
-                                                onClick = {
-                                                    if (isWritable) {
-                                                        onSetFeature(feat, opt)
-                                                    }
-                                                },
-                                                enabled = isWritable,
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = if (isSel) cardAccent.copy(alpha = 0.2f) else BgElevated,
-                                                border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
-                                                modifier = (if (useFullWidth) Modifier.weight(1f) else Modifier).defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
+                                        optionChunks.forEach { chunk ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                                                    Text(
-                                                        text = displayOpt,
-                                                        color = if (isSel) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
-                                                        fontSize = 10.sp,
-                                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                    )
-                                                }
-                                            }
-                                        }
+                                                chunk.forEach { (opt, isCustom) ->
+                                                    if (!isCustom) {
+                                                        val isSel = feat.currentValue == opt
+                                                        val displayOpt = when (feat.id) {
+                                                            "mali_power_policy" -> when (opt) {
+                                                                "always_on" -> "Always-On"
+                                                                "coarse_demand" -> "Coarse Demand"
+                                                                else -> opt
+                                                            }
+                                                            "mtk_dvfs_margin" -> when (opt) {
+                                                                "0" -> "0% (Std)"
+                                                                else -> "+$opt%"
+                                                            }
+                                                            "mtk_ged_boost_level" -> when (opt) {
+                                                                "0" -> "0 • Mati"
+                                                                "1" -> "1 • Normal"
+                                                                "2" -> "2 • Ekstrem"
+                                                                else -> opt
+                                                            }
+                                                            "adrenoboost_level" -> when (opt) {
+                                                                "0" -> "0 • Mati"
+                                                                "1" -> "1 • Rendah"
+                                                                "2" -> "2 • Sedang"
+                                                                "3" -> "3 • Maks"
+                                                                else -> opt
+                                                            }
+                                                            "adreno_tz_target_load" -> when (opt) {
+                                                                "50" -> "50% (Max)"
+                                                                "80" -> "80% (Std)"
+                                                                else -> "$opt%"
+                                                            }
+                                                            "adreno_pmqos_latency" -> if (opt == "0") "0 µs (Instan)" else "$opt µs"
+                                                            "adreno_ft_long_ib" -> "${opt.toIntOrNull()?.div(1000) ?: opt}s"
+                                                            "mali_dvfs_period", "devfreq_polling_interval", "adreno_idle_timer", "adreno_polling_interval" -> "$opt ms"
+                                                            else -> opt
+                                                        }
+                                                        Surface(
+                                                            onClick = {
+                                                                if (isWritable) {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    onSetFeature(feat, opt)
+                                                                }
+                                                            },
+                                                            enabled = isWritable,
+                                                            shape = RoundedCornerShape(10.dp),
+                                                            color = if (isSel) cardAccent.copy(alpha = 0.22f) else BgElevated,
+                                                            border = BorderStroke(1.dp, if (isSel) cardAccent else BorderGlass),
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .defaultMinSize(minHeight = 48.dp)
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
+                                                                Text(
+                                                                    text = displayOpt,
+                                                                    color = if (isSel) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
+                                                                    fontSize = 10.5.sp,
+                                                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                                )
+                                                            }
+                                                        }
+                                                    } else if (customNumConfig != null) {
+                                                        val isPresetMatched = feat.options.contains(feat.currentValue)
+                                                        val isCustomActive = !isPresetMatched && feat.currentValue.isNotEmpty()
+                                                        val customText = if (isCustomActive) "✎ ${feat.currentValue} ${customNumConfig.unit}" else "✎ Kustom"
 
-                                        if (customNumConfig != null) {
-                                            val isPresetMatched = feat.options.contains(feat.currentValue)
-                                            val isCustomActive = !isPresetMatched && feat.currentValue.isNotEmpty()
-                                            val customText = if (isCustomActive) "✎ ${feat.currentValue} ${customNumConfig.unit}" else "✎ Kustom"
-
-                                            Surface(
-                                                onClick = {
-                                                    if (isWritable) {
-                                                        customDialogConfig = customNumConfig
+                                                        Surface(
+                                                            onClick = {
+                                                                if (isWritable) {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                                    customDialogConfig = customNumConfig
+                                                                }
+                                                            },
+                                                            enabled = isWritable,
+                                                            shape = RoundedCornerShape(10.dp),
+                                                            color = if (isCustomActive) cardAccent.copy(alpha = 0.25f) else BgElevated,
+                                                            border = BorderStroke(1.dp, if (isCustomActive) cardAccent else BorderGlass),
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .defaultMinSize(minHeight = 48.dp)
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)) {
+                                                                Text(
+                                                                    text = customText,
+                                                                    color = if (isCustomActive) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
+                                                                    fontSize = 10.5.sp,
+                                                                    fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Normal,
+                                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                                )
+                                                            }
+                                                        }
                                                     }
-                                                },
-                                                enabled = isWritable,
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = if (isCustomActive) cardAccent.copy(alpha = 0.25f) else BgElevated,
-                                                border = BorderStroke(1.dp, if (isCustomActive) cardAccent else BorderGlass),
-                                                modifier = (if (useFullWidth) Modifier.weight(1f) else Modifier).defaultMinSize(minWidth = 54.dp, minHeight = 44.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                                                    Text(
-                                                        text = customText,
-                                                        color = if (isCustomActive) cardAccent else (if (isWritable) TextSecondary else TextTertiary),
-                                                        fontSize = 10.sp,
-                                                        fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Normal,
-                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                    )
+                                                }
+                                                if (optionChunks.size > 1 && chunk.size < 3) {
+                                                    repeat(3 - chunk.size) {
+                                                        Spacer(Modifier.weight(1f))
+                                                    }
                                                 }
                                             }
                                         }

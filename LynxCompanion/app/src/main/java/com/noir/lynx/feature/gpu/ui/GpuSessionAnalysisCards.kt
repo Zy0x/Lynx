@@ -411,17 +411,48 @@ fun SessionHistoryList(
         modifier = modifier
     ) {
         if (sessions.isEmpty()) {
-            Box(
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = BgElevated,
+                border = BorderStroke(0.8.dp, BorderSubtle),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp),
-                contentAlignment = Alignment.Center
+                    .padding(vertical = 4.dp)
             ) {
-                Text(
-                    text = "Belum ada rekaman sesi. Mulai rekam pada panel di atas.",
-                    color = TextSecondary,
-                    fontSize = 11.5.sp
-                )
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentPurple.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Analytics,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Histori Benchmarking Siap",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Ketuk tombol 'Mulai Perekaman Sesi Baru' saat bermain game untuk merekam frame pacing & analisis micro-stutter.",
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.sp,
+                            color = TextSecondary
+                        )
+                    }
+                }
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

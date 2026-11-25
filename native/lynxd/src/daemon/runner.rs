@@ -26,6 +26,9 @@ impl DaemonRunner {
     /// Hysteresis Cooldown, and Deterministic Profile Switching.
     pub fn run() -> Result<(), String> {
         let pid = DaemonLifecycle::acquire_lock()?;
+        let boot_cap = crate::hardware::capability::HardwareCapability::resolve();
+        let boot_topo = crate::subsystems::game::TopologyMasks::from_policies(&boot_cap.cpu.policies, boot_cap.cpu.total_cores);
+        crate::subsystems::GameController::pin_self_to_little(boot_topo.little_mask);
         Logger::info(if is_english() { format!("Lynx Daemon (lynxd) started successfully [PID: {}]", pid) } else { format!("Daemon Lynx (lynxd) berhasil dimulai [PID: {}]", pid) });
         Logger::info(ui("Mode: Mesin Profil Otonom dengan Histeresis dan Perlindungan Tidur Dalam", "Mode: Autonomous Profile Engine with Hysteresis and Deep Sleep Shield"));
         crate::utils::update_module_prop_description("[ Auto (AI) Mode Active ] Deity Hybrid Architecture");

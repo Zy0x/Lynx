@@ -47,16 +47,16 @@ fun GpuDisplayTabRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(46.dp),
-        shape = RoundedCornerShape(12.dp),
+            .height(52.dp),
+        shape = RoundedCornerShape(14.dp),
         color = Color(0xFF10141E),
-        border = BorderStroke(0.6.dp, Color(0x1AFFFFFF))
+        border = BorderStroke(0.8.dp, Color(0x1AFFFFFF))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(3.5.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             tabs.forEach { (index, title, icon) ->
                 val isSelected = selectedTab == index
@@ -86,7 +86,7 @@ fun GpuDisplayTabRow(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    shape = RoundedCornerShape(9.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = animatedBg,
                     border = if (isSelected) {
                         BorderStroke(

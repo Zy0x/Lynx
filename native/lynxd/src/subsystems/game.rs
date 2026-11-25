@@ -239,6 +239,7 @@ impl GameController {
         let topo_for_irq = TopologyMasks::from_policies(&cap_for_irq.cpu.policies, cap_for_irq.cpu.total_cores);
         Self::offload_heavy_irqs(&topo_for_irq);
         Self::offload_kswapd_kcompactd(topo_for_irq.little_mask);
+        Self::pin_self_to_little(topo_for_irq.little_mask);
 
         // 8. Unified Media-Aware Storage Engine (Shared Single Source of Truth with StoragePolicy)
         // Even when MountX protects SD disks during idle/compile/download, apply bounded low-latency
@@ -325,17 +326,18 @@ impl GameController {
         if Path::new("/sys/kernel/mm/lru_gen/min_ttl_ms").exists() {
             Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", "500");
         }
-        Self::write_opt("/proc/sys/kernel/sched_latency_ns", "6000000");
+        Self::write_opt("/proc/sys/kernel/sched_latency_ns", "8000000");
         Self::write_opt("/proc/sys/kernel/sched_min_granularity_ns", "1500000");
-        Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1000000");
+        Self::write_opt("/proc/sys/kernel/sched_wakeup_granularity_ns", "1500000");
+        Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
-        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "150");
-        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "300");
-        let game_dirty_bg = vm.dirty_background_ratio.min(1).to_string();
-        let game_dirty_fg = vm.dirty_ratio.min(5).to_string();
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+        let game_dirty_bg = vm.dirty_background_ratio.to_string();
+        let game_dirty_fg = vm.dirty_ratio.to_string();
         Self::write_opt("/proc/sys/vm/dirty_background_ratio", &game_dirty_bg);
         Self::write_opt("/proc/sys/vm/dirty_ratio", &game_dirty_fg);
         Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", &game_dirty_bg);
@@ -644,12 +646,12 @@ impl GameController {
             }
             let _ = fs::remove_file(orig_sd_path);
         }
-        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", "300");
-        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", "500");
-        Self::write_opt("/proc/sys/vm/dirty_background_ratio", "5");
-        Self::write_opt("/proc/sys/vm/dirty_ratio", "15");
-        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", "5");
-        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", "15");
+        Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", vm.dirty_writeback_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", vm.dirty_expire_cs.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_background_ratio", vm.dirty_background_ratio.to_string());
+        Self::write_opt("/proc/sys/vm/dirty_ratio", vm.dirty_ratio.to_string());
+        Self::write_opt("/sys/module/page_writeback/parameters/dirty_background_ratio", vm.dirty_background_ratio.to_string());
+        Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", vm.dirty_ratio.to_string());
 
         // 8. Remove Active Game Flag
         let _ = fs::remove_file("/dev/lynx_active_game");
@@ -813,11 +815,13 @@ impl GameController {
 
             if !pinned_exclusive {
                 let (mask, nice) = match t.role {
-                    // Extra render/engine threads & asset/shader loaders should be free to burst onto idle
-                    // performance cores without preempting the -20 primary RenderBackend/MainGameLoop threads.
-                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (topo.all_mask, -14),
-                    ThreadRole::EngineHeavyWorker => (topo.all_mask, -12),
-                    ThreadRole::GpuDriverWorker => (topo.all_mask, -12),
+                    // Enforce strict 1:1 exclusive prime-core isolation: secondary render/main threads,
+                    // engine heavy workers, and GPU driver helpers run with high priority across the
+                    // dedicated worker pool (e.g. 6x A55 @ 2.0 GHz) without preempting or polluting L1/L2
+                    // caches on the reserved primary RenderBackend / MainGameLoop prime cores.
+                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14),
+                    ThreadRole::EngineHeavyWorker => (worker_mask, -12),
+                    ThreadRole::GpuDriverWorker => (worker_mask, -12),
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
                     // Quarantine non-critical workers & background pools off dual/single prime cores
                     // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
@@ -828,8 +832,9 @@ impl GameController {
             }
         }
 
-        // Keep background VM reclaimers confined to energy-efficient cores
+        // Keep background VM reclaimers and lynxd itself confined to energy-efficient cores
         Self::offload_kswapd_kcompactd(topo.little_mask);
+        Self::pin_self_to_little(topo.little_mask);
 
         // Trigger asynchronous Ahead-Of-Time (AOT) machine code compilation in background if not already compiled with 'speed'
         if let Ok(cmd_bytes) = fs::read(format!("/proc/{}/cmdline", pid)) {
@@ -858,6 +863,23 @@ impl GameController {
         let utime = fields.nth(11).and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
         let stime = fields.next().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
         utime.saturating_add(stime)
+    }
+
+    /// Pins all threads of `lynxd` itself onto the energy-efficient cluster so daemon telemetry
+    /// polling never preempts or pollutes L1/L2 caches on reserved game prime cores.
+    pub fn pin_self_to_little(little_mask: u64) {
+        if little_mask == 0 {
+            return;
+        }
+        if let Ok(entries) = fs::read_dir("/proc/self/task") {
+            for entry in entries.flatten() {
+                if let Ok(tid) = entry.file_name().to_string_lossy().parse::<u32>() {
+                    Self::set_thread_affinity(tid, little_mask);
+                }
+            }
+        } else {
+            Self::set_thread_affinity(0, little_mask);
+        }
     }
 
     fn offload_kswapd_kcompactd(little_mask: u64) {

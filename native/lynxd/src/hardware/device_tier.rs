@@ -184,6 +184,13 @@ impl DeviceTier {
             return (wsf, extra_free);
         }
 
+        // MountX MicroSD active gaming protection: aggressive wsf=75 + extra_free=24MB forces kswapd
+        // to evict clean SD OBB/AssetBundle page cache during burst streaming (triggering 1M+ page scan
+        // storms and MicroSD re-read hitches). Use calm reclaim headroom (wsf=25, efk=8192) during gaming.
+        if self.has_mountx_sd && matches!(profile, "extreme" | "performance" | "gaming" | "game") {
+            return (25, 8192);
+        }
+
         // Secondary microSD presence on full-duplex UFS/NVMe systems must not halve /data VM buffers.
         let is_halved_io = self.is_emmc_primary;
         let is_high_ram = ram_mb > Self::MID_RAM_MAX_MB;
@@ -258,14 +265,16 @@ impl DeviceTier {
             self.compute_reclaim_headroom(profile.as_str(), min_free_kbytes);
 
         let (dirty_bg, dirty_ratio, writeback_cs, expire_cs) = if self.is_emmc_primary {
-            if self.has_mountx_sd && matches!(profile.as_str(), "performance" | "extreme") {
-                (8, 15, 500, 1000)
+            if self.has_mountx_sd && matches!(profile.as_str(), "performance" | "extreme" | "gaming" | "game") {
+                (10, 25, 1500, 3000)
             } else {
                 // Keep dirty buffers small on half-duplex eMMC to eliminate 45MB+ writeback stalls
                 (5, 10, 150, 400)
             }
-        } else if self.has_mountx_sd && matches!(profile.as_str(), "performance" | "extreme") {
-            (10, 20, 500, 1000)
+        } else if self.has_mountx_sd && matches!(profile.as_str(), "performance" | "extreme" | "gaming" | "game") {
+            // Defer non-critical background writebacks during MountX MicroSD asset streaming so half-duplex
+            // SD writes never preempt foreground game reads.
+            (10, 25, 1500, 3000)
         } else if self.is_low_end_ram {
             (5, 15, 200, 500)
         } else if matches!(profile.as_str(), "extreme" | "performance") {
@@ -279,12 +288,14 @@ impl DeviceTier {
             "extreme" => VmProfileTargets {
                 swappiness: if self.is_low_end_ram {
                     35
+                } else if self.has_mountx_sd {
+                    10
                 } else if is_high_ram_zram {
                     60
                 } else {
                     8
                 },
-                vfs_cache_pressure: if self.has_mountx_sd { 10 } else { 100 },
+                vfs_cache_pressure: if self.has_mountx_sd { 50 } else { 100 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
@@ -298,14 +309,16 @@ impl DeviceTier {
             "performance" | "gaming" | "game" => VmProfileTargets {
                 swappiness: if self.is_low_end_ram {
                     35
+                } else if self.has_mountx_sd {
+                    10
                 } else if is_high_ram_zram {
                     60
                 } else {
                     10
                 },
-                // Protect MountX microSD file/dentry caches (often ~20 MB/s) in RAM during active streaming.
+                // Balanced dentry/inode cache retention without starving MountX SD file page cache.
                 vfs_cache_pressure: if self.has_mountx_sd {
-                    10
+                    50
                 } else if self.is_emmc_primary {
                     40
                 } else {
@@ -520,10 +533,12 @@ mod tests {
 
         let ufs8g_sd = DeviceTier::classify_with_vm_caps(7812, Some(BlockDeviceType::Ufs), false, true, true, true);
         let ufs8g_sd_ext = ufs8g_sd.vm_profile_targets("extreme");
-        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 75);
-        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 24576);
-        assert_eq!(ufs8g_sd_ext.swappiness, 60);
-        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 10);
+        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 25);
+        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 8192);
+        assert_eq!(ufs8g_sd_ext.swappiness, 10);
+        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 50);
+        assert_eq!(ufs8g_sd_ext.dirty_writeback_cs, 1500);
+        assert_eq!(ufs8g_sd_ext.dirty_expire_cs, 3000);
 
         // Mainline/GKI kernel lacking extra_free_kbytes automatically compensates via wsf (bounded <= 85)
         let gki_ext = gki_no_efk.vm_profile_targets("extreme");

@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +34,7 @@ fun PreemptionLevelSelector(
     isSupported: Boolean = true,
     onSetPreemptLevel: (Int) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -85,14 +88,19 @@ fun PreemptionLevelSelector(
             ).forEach { (lvl, label) ->
                 val isSelected = preemptLevel == lvl
                 Surface(
-                    onClick = { if (isSupported) onSetPreemptLevel(lvl) },
+                    onClick = {
+                        if (isSupported) {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSetPreemptLevel(lvl)
+                        }
+                    },
                     enabled = isSupported,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (isSelected) AccentCyan.copy(alpha = 0.22f) else BgElevated,
                     border = BorderStroke(1.dp, if (isSelected) AccentCyan else BorderGlass),
                     modifier = Modifier
                         .weight(1f)
-                        .defaultMinSize(minHeight = 44.dp)
+                        .defaultMinSize(minHeight = 48.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
                         Text(

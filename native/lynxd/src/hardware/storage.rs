@@ -223,12 +223,14 @@ impl StoragePolicy {
             }
             BlockDeviceType::Sd => {
                 // External MicroSD (UHS SDR104 / SD_HS serial bus):
-                // - Balance (Compile/Download/Verify): 256KB RA + 128 depth avoids 512-FIFO bloat while saturating sequential R/W.
-                // - Performance/Extreme (Active Gaming & MountX streaming): 256KB RA + 256 queue depth + 15ms read_expire + 150ms write_expire + writes_starved=2 + fifo_batch=16 prevents 400MB+ dirty accumulation & IO PSI spikes while preserving fast asset streaming.
+                // - Balance (Compile/Download/Verify): 256KB RA + 128 depth avoids FIFO bloat while saturating sequential R/W.
+                // - Performance/Extreme (Active Gaming & MountX streaming): 512KB RA + 256 queue depth + 10ms read_expire +
+                //   5000ms write_expire + writes_starved=16 + fifo_batch=32 on mq-deadline eliminates MicroSD write-preemption
+                //   stalls while saturating full SDR104 sequential asset streaming (~84 MB/s).
                 let (ra, nr, exp, wexp, starv, batch, sched) = match profile_name {
-                    "extreme" | "performance" => (256, 256, 15, 150, 2, 16, "deadline"),
+                    "extreme" | "performance" => (512, 256, 10, 5000, 16, 32, "mq-deadline"),
                     "powersave" => (128, 64, 100, 500, 2, 16, "noop"),
-                    _ => (256, 128, 20, 350, 4, 16, "deadline"),
+                    _ => (256, 128, 20, 350, 4, 16, "mq-deadline"),
                 };
                 Some(StorageTuneParams {
                     read_ahead_kb: ra,
@@ -729,11 +731,12 @@ mod tests {
         assert_eq!(sd_bal.read_ahead_kb, 256);
         assert_eq!(sd_bal.nr_requests, Some(128));
         assert_eq!(sd_bal.fifo_batch, Some(16));
-        assert_eq!(sd_perf.read_ahead_kb, 256);
+        assert_eq!(sd_perf.read_ahead_kb, 512);
         assert_eq!(sd_perf.nr_requests, Some(256));
-        assert_eq!(sd_perf.read_expire_ms, Some(15));
-        assert_eq!(sd_perf.write_expire_ms, Some(150));
-        assert_eq!(sd_perf.writes_starved, Some(2));
-        assert_eq!(sd_perf.fifo_batch, Some(16));
+        assert_eq!(sd_perf.read_expire_ms, Some(10));
+        assert_eq!(sd_perf.write_expire_ms, Some(5000));
+        assert_eq!(sd_perf.writes_starved, Some(16));
+        assert_eq!(sd_perf.fifo_batch, Some(32));
+        assert_eq!(sd_perf.scheduler, "mq-deadline");
     }
 }

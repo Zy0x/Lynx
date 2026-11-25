@@ -1,3 +1,21 @@
+# Lynx Universal [Perombakan Total Tab GPU & Display Engine: TabRow Ergonomis 52dp, Eliminasi Gesture Trap Horizontal, Tipografi Rapi Anti-Truncate, & Diagnostik Sesi Modern] 7.0.0-RC466
+Released on: 2026-11-25
+> Lynx Kernel Manager v3.4.85
+
+### UI/UX & Companion App (`feature/gpu/ui/`)
+- **Penyelarasan TabRow Ergonomis (`GpuDisplayTabRow.kt`)**:
+  - Menaikkan tinggi kontainer `GpuDisplayTabRow` ke `52.dp` (target sentuh $\ge 48\text{ dp}$), sudut luar `14.dp`, sudut dalam tab `10.dp`, dan padding `4.dp`, selaras sempurna dengan standar `SystemTabRow`.
+- **Eliminasi Text Truncation Profil GPU Cepat (`GpuQuickProfilesCard.kt`)**:
+  - Mengganti subtitle panjang yang sebelumnya terpotong menjadi teks ringkas dan informatif: *Hemat Daya* ("Batas 60% • Irit baterai"), *Seimbang* ("Responsif harian seimbang"), *Esports* ("Latensi rendah • Stabil"), dan *Ekstrem* ("Clock puncak tanpa batas").
+  - Menyesuaikan ukuran tipografi subtitle ke `9.5.sp` dengan `lineHeight = 12.sp` agar pas di semua rasio layar.
+- **Eliminasi Total Konflik Gesture Horizontal pada Sysfs GPU (`GpuProfilesAndHardwareCard.kt`)**:
+  - Mengeliminasi `horizontalScroll` pada selector opsi multi-nilai (Adreno Idle Timer, Polling Interval, PM-QoS Latency, dll.).
+  - Mengonversi menjadi **Grid 3-Kolom Seimbang** non-scrollable dengan target sentuh `minHeight = 48.dp`, sudut `10.dp`, dan respon haptic feedback tactile.
+- **Standardisasi Target Sentuh Preemption Level (`AdaptiveGpuSiliconControls.kt`)**:
+  - Menaikkan target sentuh selector `PreemptionLevelSelector` dari 44dp ke 48dp dengan kelengkungan sudut `10.dp` dan respon haptic feedback.
+- **Kartu Diagnostik Sesi Kosong Modern (`GpuSessionAnalysisCards.kt`)**:
+  - Menggantikan teks kosong polos pada histori benchmarking dengan kartu Cyberpunk berikon analitik, judul "Histori Benchmarking Siap", dan panduan interaktif.
+
 # Lynx Universal [Penyempurnaan Eksekusi Storage TRIM Multi-Engine Fallback pada Tab Alat Kernel] 7.0.0-RC465
 Released on: 2026-11-25
 > Lynx Kernel Manager v3.4.84

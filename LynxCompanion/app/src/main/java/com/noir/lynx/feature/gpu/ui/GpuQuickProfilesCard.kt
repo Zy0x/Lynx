@@ -41,28 +41,28 @@ fun GpuQuickProfilesCard(
         GpuProfilePresetItem(
             id = "battery",
             title = "Hemat Daya",
-            subtitle = "Batas clock 60% • Irit baterai",
+            subtitle = "Batas 60% • Irit baterai",
             icon = Icons.Default.BatteryChargingFull,
             accent = AccentGreen
         ),
         GpuProfilePresetItem(
             id = "balanced",
             title = "Seimbang",
-            subtitle = "Responsif & sejuk untuk harian",
+            subtitle = "Responsif harian seimbang",
             icon = Icons.Default.Tune,
             accent = AccentCyan
         ),
         GpuProfilePresetItem(
             id = "esports",
             title = "Esports",
-            subtitle = "Latensi rendah • Frame stabil",
+            subtitle = "Latensi rendah • Stabil",
             icon = Icons.Default.SportsEsports,
             accent = AccentOrange
         ),
         GpuProfilePresetItem(
             id = "extreme",
             title = "Ekstrem",
-            subtitle = "Frekuensi maksimal tanpa batas",
+            subtitle = "Clock puncak tanpa batas",
             icon = Icons.Default.LocalFireDepartment,
             accent = AccentRed
         )
@@ -210,7 +210,8 @@ private fun GpuBentoProfileCard(
                 Spacer(Modifier.height(1.dp))
                 Text(
                     text = item.subtitle,
-                    fontSize = 10.sp,
+                    fontSize = 9.5.sp,
+                    lineHeight = 12.sp,
                     color = if (isSelected) item.accent.copy(alpha = 0.85f) else TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
