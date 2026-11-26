@@ -191,11 +191,11 @@ impl DeviceTier {
         }
 
         // MountX MicroSD active gaming long-session protection:
-        // Empirical 2-hour open-world telemetry showed wsf=45 + efk=12288 leaves only ~25MB between
-        // Normal low & min watermarks (triggering allocstall_normal=1436 once page cache saturates).
-        // wsf=80 + efk=24576 provides ~90MB proactive async kswapd runway with zero foreground stalls.
+        // Live 2-minute 39MB open-world streaming trace showed wsf=80 + efk=24576 still hit
+        // zone Normal order-4+ depletion (allocstall=10, compact_stall=21, pgscan_direct=44).
+        // wsf=100 + efk=32768 (~120MB async kswapd runway) eliminates direct stalls cleanly.
         if self.has_mountx_sd && matches!(profile, "extreme" | "performance" | "gaming" | "game") {
-            return (80, 24576);
+            return (100, 32768);
         }
 
         // Secondary microSD presence on full-duplex UFS/NVMe systems must not halve /data VM buffers.
@@ -302,7 +302,7 @@ impl DeviceTier {
                 } else {
                     8
                 },
-                vfs_cache_pressure: if self.has_mountx_sd { 50 } else { 100 },
+                vfs_cache_pressure: if self.has_mountx_sd { 100 } else { 100 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
@@ -323,9 +323,9 @@ impl DeviceTier {
                 } else {
                     10
                 },
-                // Balanced dentry/inode cache retention without starving MountX SD file page cache.
+                // Recycle stale old-zone MountX .blk file cache cleanly so zone Normal keeps contiguous blocks.
                 vfs_cache_pressure: if self.has_mountx_sd {
-                    50
+                    100
                 } else if self.is_emmc_primary {
                     40
                 } else {

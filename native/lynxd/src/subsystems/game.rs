@@ -274,12 +274,10 @@ impl GameController {
                     if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
                         Self::apply_game_block_params(&dev.queue_path, &params);
                         Self::write_opt(dev.queue_path.join("iosched/front_merges"), "1");
-                        // Unlock full hardware DMA burst up to 1024KB so AUTOCMD23 transfers run unsplit
-                        // (eliminating 4x CMD/IRQ overhead vs 256KB cap during asset/verification streaming).
-                        let hw_max = SysfsReader::read_int::<u32>(dev.queue_path.join("max_hw_sectors_kb"))
-                            .unwrap_or(512);
-                        let target_maxsec = hw_max.min(1024).max(256);
-                        Self::write_opt(dev.queue_path.join("max_sectors_kb"), target_maxsec.to_string());
+                        // Cap active-gaming SD DMA bursts to 256KB (restored to 1024KB in game_off) so
+                        // 1MB coalesced transfers never head-of-line block random 32-45KB .blk asset slices
+                        // (cuts live MicroSD avg_q from 4.6ms -> <1.0ms while keeping 85 MB/s outside games).
+                        Self::write_opt(dev.queue_path.join("max_sectors_kb"), "256");
                     }
                 }
                 continue;

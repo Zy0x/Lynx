@@ -33,6 +33,17 @@ Released on: 2026-11-26
 - **Kartu Panduan & Gestur Praktis (`HudFloatingSettings.kt`)**:
   - Menyertakan instruksi visual cara memindahkan jendela (drag header), mengubah ukuran (drag corner), meminimalkan (_), dan menutup jendela (X), serta panduan alokasi RAM per jendela.
 
+# Lynx Universal [Dual-Mode MicroSD Gaming Latency (ra=64/maxsec=256) & VM Anti-Fragmentasi zone Normal (wsf=100/efk=32MB/vfs_cp=100)] 7.0.0-RC473
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.92
+
+### Native Rust Engine (`native/lynxd/`)
+- **Dual-Mode MicroSD Queue (`hardware/storage.rs`, `subsystems/game.rs`)**:
+  - Memisahkan profil MicroSD antara mode streaming game 3D acak (`game_on`: **`read_ahead_kb=64`**, **`max_sectors_kb=256`**) dan mode luar game (`game_off` / Balanced / Download / Verifikasi: otomatis dipulihkan ke **`read_ahead_kb=256`**, **`max_sectors_kb=1024`**).
+  - Terbukti live pada sesi 2 menit Genshin Impact (`186.1 MB` / `7,047 IOs` streaming): menurunkan latensi antrean MicroSD `avg_q` **`-73%`** (`3.8–4.6 ms → 1.18 ms`) sambil tetap menjaga `85 MB/s` read & `16 MB/s` write di luar game.
+- **Anti-Fragmentasi `zone Normal` untuk MountX Gaming (`hardware/device_tier.rs`)**:
+  - Menaikkan `watermark_scale_factor` `80 → 100`, `extra_free_kbytes` `24576 → 32768`, dan `vfs_cache_pressure` `50 → 100` saat MountX + Gaming aktif agar cache `.blk` zona lama cepat didaur ulang (memangkas VM stall `allocstall=10 / compact_stall=21 / pgscan_direct=44` menjadi **`0 / 1 / 0`** dengan `51/27/9/4/1` blok kontigu order 4–8 tetap utuh).
+
 # Lynx Universal [Optimalisasi MicroSD Gaming DMA 1024KB, Read-Ahead 256KB, & Penjadwalan Thread Unity Job.Worker / Asset Loader] 7.0.0-RC472
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.91
