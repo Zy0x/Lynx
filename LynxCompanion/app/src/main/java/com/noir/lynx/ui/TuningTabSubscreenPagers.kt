@@ -428,3 +428,100 @@ fun AudioSwipeableSubscreen(
         }
     }
 }
+
+// ============================================================
+//  Lynx Engine (HUD) Subscreen Pager (Swipeable Tab-Based)
+// ============================================================
+
+@Composable
+fun HudSwipeableSubscreen(
+    uiState: LynxUiState,
+    viewModel: LynxViewModel,
+    context: Context,
+    subscreenFling: FlingBehavior,
+    modifier: Modifier = Modifier
+) {
+    val store = remember(context) { com.noir.lynx.feature.hud.data.HudPreferencesStore(context) }
+    val prefs by store.changes.collectAsState(initial = store.read())
+    var selectedHudTab by rememberSaveable { mutableIntStateOf(0) }
+    val page0State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page1State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page2State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val page3State = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Hero Master Switch Card (Always visible at the top)
+        com.noir.lynx.feature.hud.ui.EngineHeroMasterCard(
+            isActive = uiState.isGameHudActive,
+            hudMode = uiState.hudMode,
+            onToggle = { viewModel.toggleGameHud(context, it) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        LynxTabPager(
+            pageCount = 4,
+            selectedPage = selectedHudTab,
+            onPageSelected = { selectedHudTab = it },
+            tabRow = { curPage, onSelect ->
+                com.noir.lynx.feature.hud.ui.EngineTabRow(
+                    selectedTab = curPage,
+                    onSelectTab = onSelect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            },
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) { page ->
+            val listState = when (page) {
+                0 -> page0State
+                1 -> page1State
+                2 -> page2State
+                else -> page3State
+            }
+            LazyColumn(
+                state = listState,
+                flingBehavior = subscreenFling,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item(key = "hud_p${page}_top") { Spacer(Modifier.height(4.dp)) }
+                when (page) {
+                    0 -> item(key = "tab_engine_appearance") {
+                        com.noir.lynx.feature.hud.ui.EngineAppearanceCard(
+                            uiState = uiState,
+                            viewModel = viewModel,
+                            context = context
+                        )
+                    }
+                    1 -> item(key = "tab_engine_metrics") {
+                        com.noir.lynx.feature.hud.ui.EngineMetricsCard(
+                            prefs = prefs,
+                            store = store
+                        )
+                    }
+                    2 -> item(key = "tab_engine_floating") {
+                        com.noir.lynx.feature.hud.ui.EngineFloatingCard(
+                            prefs = prefs,
+                            store = store
+                        )
+                    }
+                    3 -> item(key = "tab_engine_recorder") {
+                        com.noir.lynx.feature.hud.ui.EngineRecorderCard(
+                            context = context
+                        )
+                    }
+                }
+                item(key = "hud_p${page}_bottom") {
+                    Spacer(modifier = Modifier.height(130.dp).navigationBarsPadding())
+                }
+            }
+        }
+    }
+}
+

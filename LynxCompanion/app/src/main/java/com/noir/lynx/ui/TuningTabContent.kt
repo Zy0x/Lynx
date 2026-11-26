@@ -510,6 +510,13 @@ fun TuningTabContent(
                                         subscreenFling = subscreenFling,
                                         modifier = Modifier.weight(1f).fillMaxWidth()
                                     )
+                                    "hud" -> HudSwipeableSubscreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        context = context,
+                                        subscreenFling = subscreenFling,
+                                        modifier = Modifier.weight(1f).fillMaxWidth()
+                                    )
                                     else -> {
                                         LazyColumn(
                                             state = subscreenLazyState,

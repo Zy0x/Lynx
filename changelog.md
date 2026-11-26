@@ -1,3 +1,27 @@
+# Lynx Universal [Perombakan Ergonomi Subscreen Lynx Engine: EngineTabRow 52dp, Hero Master Bento Card, & Navigasi Aplikasi/Jendela Apung Terfokus] 7.0.0-RC470
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.89
+
+### UI/UX & Companion App (`feature/hud/ui/`)
+- **EngineTabRow Standar Ergonomis 52dp (`EngineTabRow.kt`, `TuningTabSubscreenPagers.kt`)**:
+  - Menghadirkan kontainer tab terpadu setinggi 52dp dengan 4 tab utama berlabel jelas dan ikon modern:
+    - 🎨 **Gaya** (`Icons.Default.Tune`)
+    - 📊 **Metrik** (`Icons.Default.Speed`)
+    - 🪟 **Jendela** (`Icons.Default.PictureInPicture`)
+    - 🎬 **Perekam** (`Icons.Default.Videocam`)
+  - Mendukung gestur swipe horizontal antar-tab (`LynxTabPager`) dan interaksi sentuh tactile dengan haptic feedback.
+- **Hero Master Bento Card (`EngineSubscreenCards.kt`)**:
+  - Merombak header switch Lynx Engine menjadi kartu Hero Bento modern beraksen `AccentCyan` dengan indikator status dot dinamis (`AKTIF • SIAP DI TEPI LAYAR` vs `SIAGA • NONAKTIF`), sublabel mode aktif (Bilah Samping vs Jendela Klasik), dan toggle tactile 50dp.
+  - Menyertakan banner peringatan interaktif jika izin *Tampilan di Atas Aplikasi Lain* (overlay permission) belum diberikan oleh pengguna.
+- **Navigasi Aplikasi & Jendela Apung yang Familiar & Mudah Digunakan (`HudFloatingSettings.kt`, `EngineSubscreenCards.kt`)**:
+  - Mempertahankan alur navigasi subpages terfokus yang disukai pengguna (`Engine`, `Ukuran Jendela`, `Atur Aplikasi`, `Info`) sehingga konfigurasi jendela dan aplikasi tetap mudah dan intuitif.
+  - Memperluas tinggi kontainer daftar aplikasi (`HudAppManager`) hingga `480.dp` untuk scrolling dan seleksi aplikasi yang leluasa.
+- **Kartu Gaya & Perekam Layar Modern**:
+  - Menata pemilih mode Bilah Samping vs Jendela Klasik dan 6 tema visual (RTSS Pillar, Top Ribbon, Dual Esport, Quad Tiles, Steam Deck, Ghost Text) menjadi Bento tiles kontras tinggi dengan check indicator.
+  - Mengintegrasikan seleksi metrik dan kontrol perekam layar modern secara mulus.
+- **Eliminasi Tumpang Tindih Navigasi Bawah**:
+  - Menambahkan bantalan scroll bawah 130dp dengan `navigationBarsPadding` agar seluruh kontrol di bagian bawah tetap dapat diakses bebas tanpa terhalang floating bottom bar.
+
 # Lynx Universal [Sempurnakan Ergonomi Kontrol Kluster CPU: Live MHz Telemetry Badge, Bento Hardware OPP Tiles 50dp, & Status Kunci Frekuensi] 7.0.0-RC468
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.87
