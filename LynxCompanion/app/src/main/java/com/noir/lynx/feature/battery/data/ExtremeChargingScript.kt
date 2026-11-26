@@ -106,28 +106,32 @@ object ExtremeChargingScript {
                 if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
                     has_cp=1
                 fi
-                qcom_ua=3500000
-                qcom_ma=3500
+                qcom_ua=3150000
+                qcom_usb_ua=3000000
+                qcom_ma=3150
                 if [ "${'$'}has_cp" -eq 1 ]; then
                     qcom_ua=6000000
+                    qcom_usb_ua=6000000
                     qcom_ma=6000
+                elif [ -f /sys/class/power_supply/usb/hw_current_max ]; then
+                    read -r hw_max < /sys/class/power_supply/usb/hw_current_max 2>/dev/null
+                    if [ "${'$'}hw_max" -ge 1500000 ] 2>/dev/null && [ "${'$'}hw_max" -le 3000000 ] 2>/dev/null; then
+                        qcom_usb_ua="${'$'}hw_max"
+                    fi
                 fi
                 for node in /sys/class/power_supply/battery/constant_charge_current_max \
                             /sys/class/power_supply/battery/constant_charge_current \
-                            /sys/class/power_supply/battery/input_current_limit \
-                            /sys/class/power_supply/battery/charge_control_limit \
-                            /sys/class/power_supply/main/current_max \
                             /sys/class/power_supply/main/constant_charge_current_max \
-                            /sys/class/power_supply/main/input_current_settled \
-                            /sys/class/power_supply/usb/hw_current_max \
-                            /sys/class/power_supply/usb/input_current_settled \
-                            /sys/class/power_supply/dc/current_max \
                             /sys/class/power_supply/battery_ext/chg_pwr_fcc \
-                            /sys/class/power_supply/battery_ext/chg_pwr_icl \
                             /sys/class/power_supply/battery_ext/max_charge_current; do
                     [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo "${'$'}qcom_ua" > "${'$'}node" 2>/dev/null
                 done
-                [ -e /sys/class/power_supply/usb/current_max ] && chmod 666 /sys/class/power_supply/usb/current_max 2>/dev/null && echo "${'$'}qcom_ua" > /sys/class/power_supply/usb/current_max 2>/dev/null
+                for node in /sys/class/power_supply/usb/current_max \
+                            /sys/class/power_supply/battery/input_current_limit \
+                            /sys/class/power_supply/main/current_max \
+                            /sys/class/power_supply/battery_ext/chg_pwr_icl; do
+                    [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo "${'$'}qcom_usb_ua" > "${'$'}node" 2>/dev/null
+                done
 
                 # Qualcomm Safe Non-Flapping Negotiation: Keep input_suspend strictly 0
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
@@ -143,12 +147,9 @@ object ExtremeChargingScript {
                 echo 0 > /sys/class/power_supply/battery/input_suspend 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/system_temp_level 2>/dev/null
-                chmod 444 /sys/class/power_supply/battery/system_temp_level 2>/dev/null
                 echo 0 > /sys/class/qcom-battery/system_temp_level 2>/dev/null
-                chmod 444 /sys/class/qcom-battery/system_temp_level 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/temp_state 2>/dev/null
                 echo -1 > /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
-                chmod 444 /sys/class/power_supply/battery/thermal_input_current_limit 2>/dev/null
                 rm -f /dev/lynx_spoofed_batt_temp /dev/lynx_spoofed_quiet_therm 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/step_charging_enabled 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/safety_timer_enabled 2>/dev/null
@@ -158,14 +159,13 @@ object ExtremeChargingScript {
                 echo 1 > /sys/class/power_supply/usb/allow_hvdcp3 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/allow_hvdcp3 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/subsystem/usb/pd_allowed 2>/dev/null
-                echo 20000000 > /sys/class/power_supply/usb/pd_voltage_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/pd_current_max 2>/dev/null
-                echo 6000000 > /sys/class/power_supply/usb/apdo_max 2>/dev/null
+                if [ "${'$'}has_cp" -eq 1 ]; then
+                    echo 20000000 > /sys/class/power_supply/usb/pd_voltage_max 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/usb/pd_current_max 2>/dev/null
+                    echo 6000000 > /sys/class/power_supply/usb/apdo_max 2>/dev/null
+                fi
                 echo 1 > /sys/class/power_supply/battery/turbo_power 2>/dev/null
                 echo 1 > /sys/class/power_supply/battery/is_turbo_charging 2>/dev/null
-                for aicl in /sys/class/power_supply/usb/rerun_aicl /sys/class/power_supply/battery/rerun_aicl /sys/class/power_supply/main/rerun_aicl; do
-                    [ -e "${'$'}aicl" ] && chmod 666 "${'$'}aicl" 2>/dev/null && echo 1 > "${'$'}aicl" 2>/dev/null
-                done
                 echo 1 > /sys/class/power_supply/battery/soc_decimal 2>/dev/null
                 echo 0 > /sys/class/power_supply/battery/night_charging 2>/dev/null
                 for bms in /sys/class/power_supply/bms /sys/class/power_supply/battery; do
@@ -230,9 +230,6 @@ object ExtremeChargingScript {
                 fi
                 if [ -f /sys/class/typec/port0-partner/supports_usb_power_delivery ] && [ "${'$'}(cat /sys/class/typec/port0-partner/supports_usb_power_delivery 2>/dev/null)" = "yes" ]; then
                     is_pd=1
-                fi
-                if [ "${'$'}is_pd" -eq 0 ] && [ -e /sys/class/power_supply/usb/rerun_aicl ]; then
-                    echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
                 fi
 
 
@@ -301,7 +298,10 @@ object ExtremeChargingScript {
                     fi
                     if [ -s /dev/lynx_thermal_engine.conf ]; then
                         chmod 644 /dev/lynx_thermal_engine.conf 2>/dev/null
-                        mount -o bind /dev/lynx_thermal_engine.conf "${'$'}conf_candidate" 2>/dev/null
+                        if ! grep -q " /lynx_thermal_engine.conf ${'$'}conf_candidate " /proc/1/mountinfo 2>/dev/null; then
+                            umount -l "${'$'}conf_candidate" 2>/dev/null
+                            mount -o bind /dev/lynx_thermal_engine.conf "${'$'}conf_candidate" 2>/dev/null
+                        fi
                         # DO NOT kill or restart thermal-engine! Android init flags it as critical and triggers reboot.
                         # quiet-therm thermistor spoofing below ensures thermal-engine naturally never triggers throttling.
                     fi

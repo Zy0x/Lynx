@@ -976,53 +976,131 @@ impl ChargingRegulator {
     }
 
     #[inline]
-    pub(crate) fn should_escalate_qcom_apsd(
-        is_hyper: bool,
+    pub(crate) fn should_qcom_hyper_invariants_pass(
+        susp: &str,
+        en: &str,
+        direct_ok: bool,
         cur_cap: u32,
-        is_laptop: bool,
+        cur_now_ma: i64,
+        adpv_mv: i64,
+        plugged_elapsed: u64,
+        is_pc: bool,
         is_pd: bool,
-        is_bypass: bool,
+        cur_fcc: i64,
+        cur_usb: i64,
+    ) -> bool {
+        if susp != "0" || en != "1" || !direct_ok {
+            return false;
+        }
+        // Align invariant floor with calculate_adaptive_charge_current_ma() across all SoC tiers
+        // so normal adaptive CV steps (e.g. 2400mA at 85%+) never trigger a 4s re-init storm.
+        let min_fcc_ua = if is_pc {
+            500_000
+        } else if cur_cap >= 95 {
+            1_000_000
+        } else if cur_cap >= 90 {
+            1_600_000
+        } else if cur_cap >= 85 {
+            2_200_000
+        } else {
+            2_500_000
+        };
+        let in_negotiation = plugged_elapsed < 10 || is_pd || is_pc || adpv_mv >= 6500;
+        let fcc_ok = cur_fcc == 0 || cur_fcc >= min_fcc_ua || is_pd || plugged_elapsed < 6;
+        // On single-PMIC Qualcomm (smb2), `usb/current_max` reads back settled AICL.
+        // Only treat it as choked when genuinely stuck below 1.5A outside negotiation.
+        let usb_ok = cur_now_ma >= 2400 || in_negotiation || cur_usb == 0 || cur_usb >= 1_500_000;
+        fcc_ok && usb_ok
+    }
+
+    #[inline]
+    pub(crate) fn should_hold_qcom_coldplug_soft_ramp(
+        is_qcom_single: bool,
         plugged_elapsed: u64,
         adpv_mv: i64,
-        cur_now_ma: i64,
-        stalled_ticks: i64,
-        apsd_attempts: i64,
-        since_last_apsd: u64,
+        is_pd: bool,
+        is_pc: bool,
+        cur_cap: u32,
     ) -> bool {
-        is_hyper
-            && cur_cap < 78
-            && !is_laptop
+        is_qcom_single
             && !is_pd
-            && !is_bypass
-            && plugged_elapsed >= 10
-            && adpv_mv > 3500
-            && adpv_mv < 6500
-            && cur_now_ma > 0
-            && cur_now_ma < 1550
-            && stalled_ticks >= 8
-            && apsd_attempts < 2
-            && since_last_apsd >= 180
+            && !is_pc
+            && cur_cap < 90
+            && plugged_elapsed < 5
+            && (adpv_mv <= 0 || adpv_mv < 6000)
+    }
+
+    #[inline]
+    pub(crate) fn should_trigger_qcom_aicl_kick(
+        cur_cap: u32,
+        cur_now_ma: i64,
+        cur_usb_ua: i64,
+        adpv_mv: i64,
+        plugged_elapsed: u64,
+        secs_since_last_kick: u64,
+        kick_attempts: i64,
+    ) -> bool {
+        if plugged_elapsed < 10 || cur_cap >= 85 || secs_since_last_kick < 300 || kick_attempts >= 2 {
+            return false;
+        }
+        if adpv_mv >= 6500 || cur_now_ma >= 2000 {
+            return false;
+        }
+        // On qpnp-smb2, kicking rerun_aicl while VBUS has already sagged < 4.6V under load
+        // drops settled ICL downward (e.g. 1.85A -> 1.60A). Only kick if genuinely choked < 1.5A
+        // while VBUS still has >= 4.6V headroom to step upward cleanly.
+        cur_usb_ua > 0 && cur_usb_ua < 1_500_000 && adpv_mv >= 4600
+    }
+
+    pub(crate) fn pick_charge_control_limit_value(max_val: Option<i64>, effective_ua_str: &str) -> Option<String> {
+        match max_val {
+            Some(m) if (0..=20).contains(&m) => Some("0".to_string()),
+            Some(m) if m >= 500_000 => Some(effective_ua_str.to_string()),
+            Some(_) => None,
+            None => Some("0".to_string()),
+        }
+    }
+
+    fn clear_charge_control_limit(node: &str, effective_ua_str: &str) {
+        let sibling_max = Path::new(node)
+            .parent()
+            .map(|p| p.join("charge_control_limit_max"))
+            .and_then(|p| Self::read_i64(&p.to_string_lossy()));
+        if let Some(val) = Self::pick_charge_control_limit_value(sibling_max, effective_ua_str) {
+            Self::write_node(node, &val);
+        }
+    }
+
+    pub(crate) fn mountinfo_has_clean_single_lynx_thermal_mount(mountinfo: &str, target_path: &str) -> bool {
+        let mut active_lynx = 0usize;
+        for line in mountinfo.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 && parts[4] == target_path {
+                if parts[3].contains("lynx_thermal_engine.conf//deleted") {
+                    return false;
+                }
+                if parts[3].contains("lynx_thermal_engine.conf") {
+                    active_lynx += 1;
+                } else {
+                    // Conflict with another pre-existing mount (e.g. /data/local/tmp/thermal-engine.conf)
+                    return false;
+                }
+            }
+        }
+        active_lynx == 1
     }
 
     pub(crate) fn mountinfo_has_active_lynx_thermal_mount(mountinfo: &str, target_path: &str) -> bool {
-        let mut found_active = false;
-        for line in mountinfo.lines() {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 5 && parts[4] == target_path && parts[3].contains("lynx_thermal_engine.conf") {
-                if parts[3].contains("//deleted") {
-                    return false;
-                }
-                found_active = true;
-            }
-        }
-        found_active
+        Self::mountinfo_has_clean_single_lynx_thermal_mount(mountinfo, target_path)
     }
 
     pub(crate) fn mountinfo_stale_or_lynx_thermal_targets(mountinfo: &str) -> Vec<String> {
         let mut targets = Vec::new();
         for line in mountinfo.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 5 && parts[3].contains("lynx_thermal_engine.conf") {
+            if parts.len() >= 5
+                && (parts[3].contains("lynx_thermal_engine.conf") || parts[4].ends_with("thermal-engine.conf"))
+            {
                 let target = parts[4].to_string();
                 if !targets.contains(&target) {
                     targets.push(target);
@@ -1053,36 +1131,26 @@ impl ChargingRegulator {
         }
 
         if is_qcom {
-            // Single-PMIC QPNP-SMB2 / PM660 (e.g. SDM660): clamp probing <= 3.2A because writes above
-            // the 3.2A buck comparator trigger smb-lib USB_ICL_VOTABLE collapse down to 1.5A.
+            if is_smb2 {
+                // Single-PMIC QPNP-SMB2 / PM660 (e.g. SDM660): calibrated 3.15A ceiling prevents
+                // USB_ICL_VOTABLE collapse and avoids cold-plug APSD readback retry storms.
+                let _ = fs::write(cache_file, "3150000");
+                return 3_150_000;
+            }
+
             // Newer single-PMIC Qualcomm controllers probe from 4.5A down to 2.8A with verified readback.
-            let qcom_candidates: &[u64] = if is_smb2 {
-                &[3_200_000, 3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000]
-            } else {
-                &[
-                    4_500_000, 4_000_000, 3_800_000, 3_600_000, 3_500_000, 3_400_000,
-                    3_300_000, 3_250_000, 3_200_000, 3_150_000, 3_100_000, 3_050_000,
-                    3_000_000, 2_800_000,
-                ]
-            };
+            let qcom_candidates: &[u64] = &[
+                4_500_000, 4_000_000, 3_800_000, 3_600_000, 3_500_000, 3_400_000,
+                3_300_000, 3_250_000, 3_200_000, 3_150_000, 3_100_000, 3_050_000,
+                3_000_000, 2_800_000,
+            ];
 
             let probe_node = format!("{}/constant_charge_current_max", BATT_DIR);
-            let input_node = format!("{}/input_current_limit", BATT_DIR);
-            let usb_cur_node = format!("{}/current_max", USB_DIR);
 
             for &cand in qcom_candidates {
                 if Path::new(&probe_node).exists() {
                     Self::set_perm(&probe_node, 0o666);
                     if fs::write(&probe_node, cand.to_string()).is_ok() {
-                        if Path::new(&input_node).exists() {
-                            Self::set_perm(&input_node, 0o666);
-                            let _ = fs::write(&input_node, cand.to_string());
-                        }
-                        if Path::new(&usb_cur_node).exists() {
-                            Self::set_perm(&usb_cur_node, 0o666);
-                            let _ = fs::write(&usb_cur_node, cand.to_string());
-                        }
-
                         // Check if the kernel PMIC comparator rejected or tripped overcurrent
                         let die_health = Self::read_node(&format!("{}/die_health", BATT_DIR)).unwrap_or_default().to_lowercase();
                         if die_health.contains("over current") || die_health.contains("fault") {
@@ -1106,7 +1174,7 @@ impl ChargingRegulator {
                 }
             }
 
-            let fallback = if is_smb2 { 3_150_000 } else { 3_100_000 };
+            let fallback = 3_100_000;
             let _ = fs::write(cache_file, fallback.to_string());
             return fallback;
         }
@@ -1155,16 +1223,29 @@ impl ChargingRegulator {
         let is_qcom_single = Self::is_qualcomm_soc() && !Self::has_qcom_direct_charge_pump();
         let is_smb2 = is_qcom_single && Self::is_qcom_smb2_or_pm660();
 
+        let smb2_hw_max = if is_smb2 {
+            let hw = Self::read_i64(&format!("{}/hw_current_max", USB_DIR)).unwrap_or(3_000_000);
+            let ua = if hw > 100_000 { hw as u64 } else { (hw.max(0) as u64) * 1000 };
+            if (1_500_000..=3_000_000).contains(&ua) { ua } else { 3_000_000 }
+        } else {
+            30_000_000
+        };
+
         if let Some(cached) = Self::read_i64(cache_file) {
-            let max_valid = if is_smb2 { 3_300_000 } else { 30_000_000 };
+            let max_valid = if is_smb2 { smb2_hw_max as i64 } else { 30_000_000 };
             if (1_500_000..=max_valid).contains(&cached) {
                 return cached as u64;
             }
         }
 
-        let candidates: &[u64] = if is_smb2 {
-            &[3_150_000, 3_100_000, 3_050_000, 3_000_000, 2_800_000]
-        } else if is_qcom_single {
+        if is_smb2 {
+            // PM660 / qpnp-smb2 physical AICR ceiling is `hw_current_max` (3000mA on RN7).
+            // Never write 3150mA+ to USB ICL or AICL/SMB2 voter arbitration destabilizes.
+            let _ = fs::write(cache_file, smb2_hw_max.to_string());
+            return smb2_hw_max;
+        }
+
+        let candidates: &[u64] = if is_qcom_single {
             &[
                 4_500_000, 4_000_000, 3_800_000, 3_600_000, 3_500_000, 3_400_000,
                 3_300_000, 3_250_000, 3_200_000, 3_150_000, 3_100_000, 3_050_000,
@@ -1548,25 +1629,25 @@ impl ChargingRegulator {
         let qcom_unclamp_active = is_qcom && cur_cap < 100 && !cfg.bypass_enabled;
         if (is_hyper || qcom_unclamp_active) && is_qcom {
             Self::apply_qcom_thermal_engine_bind_mount();
-            // Xiaomi & Qualcomm Screen-On & Deep Sleep Hardware Unclamp & HVDCP Protection
+            // Xiaomi & Qualcomm Screen-On & Deep Sleep Hardware Unclamp & HVDCP Protection (non-locking 0666)
             Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
             Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
             Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
-            Self::write_node_lock("/sys/class/power_supply/usb/allow_hvdcp3", "1");
-            Self::write_node_lock("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
-            Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-            Self::write_node_lock(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
-            Self::write_node_lock(&format!("{}/allow_hvdcp3", MAIN_DIR), "1");
+            Self::write_node("/sys/class/power_supply/usb/allow_hvdcp3", "1");
+            Self::write_node("/sys/class/power_supply/usb/hvdcp_opti_allowed", "1");
+            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node(&format!("{}/allow_hvdcp3", MAIN_DIR), "1");
             Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
             Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
-            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
             let fv_uv_str = Self::probe_hardware_voltage_ceiling_uv().to_string();
             Self::write_node(&format!("{}/constant_charge_voltage", BATT_DIR), &fv_uv_str);
             Self::write_node(&format!("{}/constant_charge_voltage_max", BATT_DIR), &fv_uv_str);
@@ -1586,7 +1667,7 @@ impl ChargingRegulator {
             let v_clean_mv = if volt_raw.abs() >= 10_000 { volt_raw.abs() / 1000 } else { volt_raw.abs() } as u32;
             let has_qcom_cp = Self::has_qcom_direct_charge_pump();
 
-            let effective_ma = Self::calculate_adaptive_charge_current_ma(
+            let mut effective_ma = Self::calculate_adaptive_charge_current_ma(
                 target_peak_ma,
                 cur_cap,
                 v_clean_mv,
@@ -1604,8 +1685,25 @@ impl ChargingRegulator {
             let is_pd_active = Self::is_usb_pd_active();
             let is_high_voltage = adpv_clean >= 6500 || is_pd_active;
 
+            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+            let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+            let plugged_elapsed = if plugged_at > 0 { now_sec.saturating_sub(plugged_at) } else { 999 };
+            let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
+                is_qcom && !has_qcom_cp,
+                plugged_elapsed,
+                adpv_clean,
+                is_pd_active,
+                Self::is_laptop_port(),
+                cur_cap,
+            );
+            if hold_coldplug {
+                effective_ma = effective_ma.min(1500);
+            }
+
             let target_ua = effective_ma as i64 * 1000;
-            let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
+            let target_usb_ua = if hold_coldplug {
+                1_800_000
+            } else if is_qcom && !has_qcom_cp {
                 Self::probe_silicon_usb_current_max_ua() as i64
             } else if is_qcom {
                 (effective_ma as i64 * 1000).max(6_000_000)
@@ -1621,13 +1719,12 @@ impl ChargingRegulator {
             let cur_now_ma = if cur_now_raw > 10000 { cur_now_raw / 1000 } else { cur_now_raw };
             let batt_temp_c = if is_qcom { Self::read_authentic_battery_temp_c() } else { 35.0 };
 
-            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let last_fcc = LAST_FCC_WRITE_EPOCH.load(Ordering::Relaxed);
             let elapsed_fcc = now_sec.saturating_sub(last_fcc);
             // Dynamic responsiveness: If kernel/thermal-engine throttled FCC below our adaptive target
             // (or emergency >= 55.5°C / 100% SoC step-down is needed), recover within 5 seconds!
             // When already synced, maintain 15-second cooldown to avoid SPMI bus contention.
-            let is_fcc_diverged = cur_fcc > 0
+            let is_fcc_diverged = !hold_coldplug && cur_fcc > 0
                 && (cur_fcc < (target_ua - 200_000)
                     || (is_qcom && Self::should_reapply_qcom_fcc(cur_fcc, target_ua, cur_cap, batt_temp_c)));
             let fcc_cooldown_expired = if is_fcc_diverged {
@@ -1639,7 +1736,7 @@ impl ChargingRegulator {
             // In Hyper or Qualcomm unclamp: keep charging at peak without spamming SPMI bus.
             // On MediaTek/Transsion: Never write to buck registers while Direct Charge Pump is active (cur_now_ma >= 1500 or is_high_voltage)!
             let fcc_needs_reapply = if is_qcom {
-                if fcc_cooldown_expired {
+                if !hold_coldplug && fcc_cooldown_expired {
                     if is_hyper || qcom_unclamp_active {
                         Self::should_reapply_qcom_fcc(cur_fcc, target_ua, cur_cap, batt_temp_c)
                     } else {
@@ -1653,11 +1750,11 @@ impl ChargingRegulator {
             };
 
             let usb_needs_reapply = if is_qcom {
-                if fcc_cooldown_expired {
-                    if is_hyper || qcom_unclamp_active {
+                if !hold_coldplug && fcc_cooldown_expired {
+                    if is_high_voltage || is_pd_active {
+                        cur_usb > 0 && cur_usb < 1_500_000
+                    } else if is_hyper || qcom_unclamp_active {
                         cur_usb > 0 && cur_usb < (target_usb_ua - 200_000)
-                    } else if is_high_voltage || is_pd_active {
-                        false
                     } else {
                         cur_usb > 0 && cur_usb < (target_usb_ua - 400_000)
                     }
@@ -1669,11 +1766,11 @@ impl ChargingRegulator {
             };
 
             let in_lim_needs_reapply = if is_qcom {
-                if fcc_cooldown_expired {
-                    if is_hyper || qcom_unclamp_active {
+                if !hold_coldplug && fcc_cooldown_expired {
+                    if is_high_voltage || is_pd_active {
+                        cur_in_lim > 0 && cur_in_lim < 1_500_000
+                    } else if is_hyper || qcom_unclamp_active {
                         cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 200_000)
-                    } else if is_high_voltage || is_pd_active {
-                        false
                     } else {
                         cur_in_lim > 0 && cur_in_lim < (target_usb_ua - 400_000)
                     }
@@ -1703,18 +1800,17 @@ impl ChargingRegulator {
                 if is_qcom {
                     let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-                    Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
                     Self::write_node(&format!("{}/restrict_cur", QC_DIR), &effective_ma_str);
-                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-                    Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
                     Self::write_node(&format!("{}/safety_timer_enabled", BATT_DIR), "0");
-                    Self::write_node(&format!("{}/charge_control_limit", BATT_DIR), "-1");
-                    Self::write_node(&format!("{}/charge_control_limit_max", BATT_DIR), "-1");
+                    Self::clear_charge_control_limit(&format!("{}/charge_control_limit", BATT_DIR), &effective_ua_str);
                 }
             }
         } else if cfg.charging_mode == "custom" {
@@ -2248,19 +2344,15 @@ impl ChargingRegulator {
 
         // --- Phase 2 & Phase 3: Constant Voltage (CV) & Step-Down Saturation Curve ---
         let raw_target_ma = if is_qcom && !has_qcom_cp {
-            // Qualcomm Single-PMIC (PM660 / SD660): gentle CV taper starting at 78% or 4380mV
-            if cur_soc >= 78 || cell_mv >= 4380 {
-                if cur_soc >= 95 {
-                    600
-                } else if cur_soc >= 90 {
-                    1000
-                } else if cur_soc >= 85 {
-                    1400
-                } else if cur_soc >= 80 {
-                    1900
-                } else {
-                    2400
-                }
+            // Qualcomm Single-PMIC (PM660 / SD660): maintain full CC peak below 85% SoC
+            // (do NOT drop on under-load voltage_now IR drop during cold 3000mA charging;
+            // PM660 hardware 4.40V FV loop handles electrochemical tapering smoothly).
+            if cur_soc >= 95 {
+                1200
+            } else if cur_soc >= 90 {
+                1800
+            } else if cur_soc >= 85 {
+                2400
             } else {
                 0
             }
@@ -2299,15 +2391,12 @@ impl ChargingRegulator {
 
         let cc_ma = if is_qcom && !has_qcom_cp {
             // Qualcomm Single-PMIC Architecture (PM660 / SD660 / SD845 / SM8150 single):
-            // Hardware die safety limit is 54°C (quiet_therm).
-            if batt_temp >= 51.5 || pmic_temp >= 52.5 {
-                // Tier 2 Hot: Soft pacing to 2600mA to shed heat before hard analog cut
+            // Preserve full peak across normal cold/warm charging, easing gently above 50°C.
+            if batt_temp >= 53.0 || pmic_temp >= 54.0 {
                 2600
-            } else if batt_temp >= 48.5 || pmic_temp >= 49.5 {
-                // Tier 1 Warm Sweet Spot: 2950mA maintains steady 12.5W without tripping PMIC
+            } else if batt_temp >= 50.0 || pmic_temp >= 52.0 {
                 base_peak_ma.min(2950)
             } else {
-                // Tier 0 Cool: Unrestricted Peak (3500mA)
                 base_peak_ma
             }
         } else {
@@ -2331,12 +2420,17 @@ impl ChargingRegulator {
     /// Completely restores kernel PMIC power paths, battery charging registers,
     /// ODM in-call states, and clears bypass markers so normal or hyper charging resumes instantly.
     pub fn clear_bypass_hardware_state() {
+        let was_bypass = Path::new("/dev/lynx_bypass_active").exists()
+            || (Self::has_lynx_kernel_bypass()
+                && Self::is_flag_enabled(Self::read_node(LYNX_KERNEL_BYPASS_NODE).as_deref()));
         let _ = fs::remove_file("/dev/lynx_bypass_active");
         let _ = fs::remove_file("/dev/lynx_charging_state");
         let _ = fs::remove_file("/dev/lynx_standard_charging");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
-        let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+        if was_bypass {
+            let _ = std::process::Command::new("dumpsys").args(["battery", "reset"]).output();
+        }
 
         // 1. Direct kernel bypass clear + unlatch (clear_lynx_kernel_manual_bypass already clears g_lynx_full_bypass_latched)
         Self::clear_lynx_kernel_manual_bypass();
@@ -2403,21 +2497,24 @@ impl ChargingRegulator {
 
         // 6. Qualcomm Snapdragon un-restrict and direct charging restore
         if Self::is_qualcomm_soc() {
-            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
             let ceiling_ma = (Self::probe_silicon_charge_ceiling_ua() / 1000).to_string();
-            Self::write_node_lock(&format!("{}/restrict_cur", QC_DIR), &ceiling_ma);
+            Self::write_node(&format!("{}/restrict_cur", QC_DIR), &ceiling_ma);
             let direct_val = if Self::has_qcom_direct_charge_pump() { "1" } else { "0" };
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
-            let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-            PLUGGED_AT_EPOCH.store(now_sec, Ordering::Relaxed);
-            let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
-            let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
-            let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
+            if was_bypass {
+                let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                PLUGGED_AT_EPOCH.store(now_sec, Ordering::Relaxed);
+                let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
+                let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+                let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
+                let _ = fs::remove_file("/dev/lynx_qcom_aicl_attempts");
+            }
         }
     }
 
@@ -2426,6 +2523,8 @@ impl ChargingRegulator {
     /// clears AICL droop clamps, enables HVDCP3 / Quick Charge 4+, and sets Xiaomi TurboCharge flags.
     pub fn uncap_usb_pd_protocol(target_ma: u32) {
         let is_qcom = Self::is_qualcomm_soc();
+        let is_qcom_single = is_qcom && !Self::has_qcom_direct_charge_pump();
+        let is_pd_active = Self::is_usb_pd_active();
         let safe_target_ma = target_ma.clamp(500, 25000);
         let target_ma_str = safe_target_ma.to_string();
 
@@ -2451,28 +2550,29 @@ impl ChargingRegulator {
             }
         }
 
-        // 2. High-Voltage Ceilings (Allows 9V, 12V, 15V, and 20V PD contracts)
-        for node in &[
-            format!("{}/pd_voltage_max", USB_DIR),
-            format!("{}/pd_voltage_max", BATT_DIR),
-        ] {
-            if Path::new(node).exists() {
-                Self::set_perm(node, 0o666);
-                Self::write_node(node, "20000000");
+        // 2 & 3. High-Voltage & High-Current PD Ceilings (Skip writing 20V/6A on non-PD single-PMIC SMB2)
+        if !is_qcom_single || is_pd_active {
+            for node in &[
+                format!("{}/pd_voltage_max", USB_DIR),
+                format!("{}/pd_voltage_max", BATT_DIR),
+            ] {
+                if Path::new(node).exists() {
+                    Self::set_perm(node, 0o666);
+                    Self::write_node(node, "20000000");
+                }
             }
-        }
 
-        // 3. High-Current & PPS Augmented PDO Ceilings (Up to 6000mA / 6A)
-        let pd_cur_limit = (safe_target_ma as u64 * 1000).max(6_000_000).to_string();
-        for node in &[
-            format!("{}/pd_current_max", USB_DIR),
-            format!("{}/pd_limit_current", USB_DIR),
-            format!("{}/pd_current_max", BATT_DIR),
-            format!("{}/apdo_max", USB_DIR),
-        ] {
-            if Path::new(node).exists() {
-                Self::set_perm(node, 0o666);
-                Self::write_node(node, &pd_cur_limit);
+            let pd_cur_limit = (safe_target_ma as u64 * 1000).max(6_000_000).to_string();
+            for node in &[
+                format!("{}/pd_current_max", USB_DIR),
+                format!("{}/pd_limit_current", USB_DIR),
+                format!("{}/pd_current_max", BATT_DIR),
+                format!("{}/apdo_max", USB_DIR),
+            ] {
+                if Path::new(node).exists() {
+                    Self::set_perm(node, 0o666);
+                    Self::write_node(node, &pd_cur_limit);
+                }
             }
         }
 
@@ -2607,8 +2707,27 @@ impl ChargingRegulator {
                 has_qcom_cp,
             )
         };
+        let adpv_probe = Self::read_i64(&format!("{}/voltage_now", USB_DIR))
+            .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+            .unwrap_or(0);
+        let adpv_probe_mv = if adpv_probe > 100_000 { adpv_probe / 1000 } else { adpv_probe };
+        let is_pd_active_cold = Self::is_usb_pd_active();
+        let now_sec_cold = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let plugged_at_cold = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+        let plugged_elapsed_cold = if plugged_at_cold > 0 { now_sec_cold.saturating_sub(plugged_at_cold) } else { 999 };
+        let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
+            is_qcom && !has_qcom_cp,
+            plugged_elapsed_cold,
+            adpv_probe_mv,
+            is_pd_active_cold,
+            Self::is_laptop_port(),
+            cur_cap,
+        );
+
         let platform_ma = if is_qcom && !has_qcom_cp {
-            effective_ma.min(silicon_cap_ma)
+            let capped = effective_ma.min(silicon_cap_ma);
+            if hold_coldplug { capped.min(1500) } else { capped }
         } else if !is_qcom {
             // On MediaTek before kernel AutoCut latches, never choke ICHG/hyper_charge below 1800mA:
             // UI_SOC reaches 100% around ~92.6% physical SOC while RT9471 hardware CV (4450mV)
@@ -2698,14 +2817,18 @@ impl ChargingRegulator {
         }
 
         // 3. Universal Linux & Qualcomm Uncaps (Ugreen / Anker PD PPS 5A uncap)
-        let usb_current_cap_ua = if is_qcom && !has_qcom_cp {
+        let usb_current_cap_ua = if hold_coldplug {
+            "1800000".to_string()
+        } else if is_qcom && !has_qcom_cp {
             Self::probe_silicon_usb_current_max_ua().to_string()
         } else {
             (effective_ma as u64 * 1000).max(6_000_000).to_string()
         };
 
         let direct_val = if has_qcom_cp { "1" } else { "0" };
-        let main_current_ua = if is_qcom && !has_qcom_cp {
+        let main_current_ua = if hold_coldplug {
+            "1800000".to_string()
+        } else if is_qcom && !has_qcom_cp {
             // On single-PMIC Qualcomm (PM660), allow the main buck converter full silicon headroom
             // so heavy system loads (gaming, CPU/GPU spikes) draw 100% from the charger without depleting the battery!
             usb_current_cap_ua.clone()
@@ -2714,31 +2837,40 @@ impl ChargingRegulator {
         };
         let qc_restrict_str = effective_ma.max(100).to_string();
 
+        let qcom_vmax_uv_str = if has_qcom_cp {
+            "12000000".to_string()
+        } else {
+            let design_uv = Self::read_i64(&format!("{}/voltage_max_design", USB_DIR)).unwrap_or(9_000_000);
+            let norm = if design_uv > 100_000 { design_uv } else { design_uv * 1000 };
+            norm.clamp(9_000_000, 12_000_000).to_string()
+        };
+
         if is_qcom {
             Self::write_node(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node(&format!("{}/current_max", MAIN_DIR), &main_current_ua);
             Self::write_node(&format!("{}/input_current_limit", USB_DIR), &usb_current_cap_ua);
             Self::write_node(&format!("{}/input_current_limit", MAIN_DIR), &usb_current_cap_ua);
-            Self::write_node(&format!("{}/voltage_max", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max_design", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max_limit", USB_DIR), "12000000");
-            Self::write_node(&format!("{}/voltage_max", MAIN_DIR), "12000000");
+            Self::write_node(&format!("{}/voltage_max", USB_DIR), &qcom_vmax_uv_str);
+            if has_qcom_cp {
+                Self::write_node(&format!("{}/voltage_max_limit", USB_DIR), &qcom_vmax_uv_str);
+            }
+            Self::write_node(&format!("{}/voltage_max", MAIN_DIR), &qcom_vmax_uv_str);
             Self::write_node(&format!("{}/constant_charge_current_max", BATT_DIR), &effective_ua_str);
             Self::write_node(&format!("{}/constant_charge_current", BATT_DIR), &effective_ua_str);
             Self::write_node(&format!("{}/input_current_limit", BATT_DIR), &usb_current_cap_ua);
 
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &qc_restrict_str);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-            Self::write_node(&format!("{}/rerun_aicl", BATT_DIR), "1");
-            Self::write_node(&format!("{}/rerun_aicl", USB_DIR), "1");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            // Cold-plug APSD/HVDCP settles over the first few seconds; tick() shields initial ramp
+            // so VBUS steps cleanly to 9V before uncapping full silicon current.
         } else {
             Self::write_node_lock(&format!("{}/current_max", USB_DIR), &usb_current_cap_ua);
             Self::write_node_lock(&format!("{}/current_max", MAIN_DIR), &effective_ua_str);
@@ -2764,40 +2896,64 @@ impl ChargingRegulator {
                 "constant_charge_current_max" | "constant_charge_current" | "current_max" => {
                     let is_usb_input_node = node.contains("/usb/") || node.contains("/main/");
                     let val_to_write = if is_usb_input_node { &usb_current_cap_ua } else { &effective_ua_str };
-                    Self::write_node_lock(&node, val_to_write);
+                    if is_qcom {
+                        Self::write_node(&node, val_to_write);
+                    } else {
+                        Self::write_node_lock(&node, val_to_write);
+                    }
                 }
-                "input_current_limit" | "hw_current_max" => {
-                    Self::write_node_lock(&node, &usb_current_cap_ua);
+                "input_current_limit" => {
+                    if is_qcom {
+                        Self::write_node(&node, &usb_current_cap_ua);
+                    } else {
+                        Self::write_node_lock(&node, &usb_current_cap_ua);
+                    }
                 }
                 "charge_control_limit" => {
-                    Self::write_node_lock(&node, &effective_ua_str);
+                    Self::clear_charge_control_limit(&node, &effective_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" | "boost_current" | "turbo_power" | "is_turbo_charging" | "soc_decimal" => {
-                    Self::write_node_lock(&node, "1");
+                    if is_qcom {
+                        Self::write_node(&node, "1");
+                    } else {
+                        Self::write_node_lock(&node, "1");
+                    }
                 }
                 "pd_allowed" | "allow_hvdcp3" | "hvdcp_opti_allowed" => {
-                    Self::write_node_lock(&node, "1");
+                    if is_qcom {
+                        Self::write_node(&node, "1");
+                    } else {
+                        Self::write_node_lock(&node, "1");
+                    }
                 }
                 "pd_voltage_max" => {
-                    Self::write_node_lock(&node, "20000000");
+                    if !is_qcom {
+                        Self::write_node_lock(&node, "20000000");
+                    } else if has_qcom_cp || is_pd_active_cold {
+                        Self::write_node(&node, "20000000");
+                    }
                 }
                 "pd_current_max" | "pd_limit_current" | "apdo_max" => {
-                    Self::write_node_lock(&node, "6000000");
+                    if !is_qcom {
+                        Self::write_node_lock(&node, "6000000");
+                    } else if has_qcom_cp || is_pd_active_cold {
+                        Self::write_node(&node, "6000000");
+                    }
                 }
                 "pd_vbus_upper_bound" => {
-                    Self::write_node_lock(&node, "20000");
+                    if is_qcom { Self::write_node(&node, "20000"); } else { Self::write_node_lock(&node, "20000"); }
                 }
                 "pd_vbus_low_bound" => {
-                    Self::write_node_lock(&node, "5000");
+                    if is_qcom { Self::write_node(&node, "5000"); } else { Self::write_node_lock(&node, "5000"); }
                 }
                 "pd_input_current" => {
-                    Self::write_node_lock(&node, "6000");
+                    if is_qcom { Self::write_node(&node, "6000"); } else { Self::write_node_lock(&node, "6000"); }
                 }
                 "pdc_max_watt" => {
-                    Self::write_node_lock(&node, "120");
+                    if is_qcom { Self::write_node(&node, "120"); } else { Self::write_node_lock(&node, "120"); }
                 }
                 "pdc_mode" => {
-                    Self::write_node_lock(&node, "1");
+                    if is_qcom { Self::write_node(&node, "1"); } else { Self::write_node_lock(&node, "1"); }
                 }
                 "charging_enabled" => {
                     Self::write_node(&node, "1");
@@ -2806,25 +2962,25 @@ impl ChargingRegulator {
                     Self::write_node(&node, "0");
                 }
                 "thermal_input_current_limit" => {
-                    Self::write_node_lock(&node, "-1");
+                    if is_qcom { Self::write_node(&node, "-1"); } else { Self::write_node_lock(&node, "-1"); }
                 }
                 "system_temp_level" | "temp_state" | "step_charging_enabled" | "sw_jeita_enabled" | "restricted_charging" => {
-                    Self::write_node_lock(&node, "0");
+                    if is_qcom { Self::write_node(&node, "0"); } else { Self::write_node_lock(&node, "0"); }
                 }
                 "temp_warm" => {
-                    Self::write_node_lock(&node, "650");
+                    if is_qcom { Self::write_node(&node, "650"); } else { Self::write_node_lock(&node, "650"); }
                 }
                 "temp_hot" => {
-                    Self::write_node_lock(&node, "750");
+                    if is_qcom { Self::write_node(&node, "750"); } else { Self::write_node_lock(&node, "750"); }
                 }
                 "temp_cool" => {
-                    Self::write_node_lock(&node, "50");
+                    if is_qcom { Self::write_node(&node, "50"); } else { Self::write_node_lock(&node, "50"); }
                 }
                 "temp_cold" => {
-                    Self::write_node_lock(&node, "0");
+                    if is_qcom { Self::write_node(&node, "0"); } else { Self::write_node_lock(&node, "0"); }
                 }
                 "restrict_cur" => {
-                    Self::write_node_lock(&node, &effective_ma_str);
+                    if is_qcom { Self::write_node(&node, &effective_ma_str); } else { Self::write_node_lock(&node, &effective_ma_str); }
                 }
                 _ => {}
             }
@@ -2850,94 +3006,6 @@ impl ChargingRegulator {
                 } else {
                     Self::apply_standard_mode();
                 }
-            }
-        }
-    }
-
-    /// Controlled Zero-Touch APSD Re-Detection (Qualcomm Only):
-    /// Called ONLY when Qualcomm has been verified stuck in collapsed 5V/AICL (< 1550 mA at < 6.5V)
-    /// for >= 8 consecutive ticks despite silicon-safe limits and `rerun_aicl = 1`.
-    /// Enforces >= 180s cooldown and at most 2 attempts per cable plug session.
-    pub fn trigger_qcom_apsd_renegotiate() {
-        if !Self::is_qualcomm_soc() || Self::is_laptop_port() || Self::is_usb_pd_active() {
-            return;
-        }
-        let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
-        if cur_cap >= 78 || Path::new("/dev/lynx_bypass_active").exists() {
-            return;
-        }
-
-        let now_ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let last_apsd = Self::read_i64("/dev/lynx_last_apsd_kick").unwrap_or(0).max(0) as u64;
-        let attempts = Self::read_i64("/dev/lynx_qcom_apsd_attempts").unwrap_or(0);
-        if attempts >= 2 || now_ts.saturating_sub(last_apsd) < 180 {
-            return;
-        }
-
-        let _ = fs::write("/dev/lynx_last_apsd_kick", now_ts.to_string());
-        let _ = fs::write("/dev/lynx_qcom_apsd_attempts", (attempts + 1).to_string());
-        let _ = fs::remove_file("/dev/lynx_qcom_apsd_wait_count");
-
-        let has_cp = Self::has_qcom_direct_charge_pump();
-        let silicon_ceiling_ua = Self::probe_silicon_charge_ceiling_ua();
-        let silicon_ceiling_ma = (silicon_ceiling_ua / 1000) as u32;
-        let usb_cap_ua = if has_cp {
-            "6000000".to_string()
-        } else {
-            Self::probe_silicon_usb_current_max_ua().to_string()
-        };
-        let target_ua = if has_cp { "6000000".to_string() } else { silicon_ceiling_ua.to_string() };
-        let restrict_cur_val = if has_cp { "6000".to_string() } else { silicon_ceiling_ma.to_string() };
-
-        for node in &[
-            format!("{}/constant_charge_current_max", BATT_DIR),
-            format!("{}/constant_charge_current", BATT_DIR),
-            format!("{}/current_max", MAIN_DIR),
-        ] {
-            if Path::new(node).exists() {
-                Self::set_perm(node, 0o666);
-                Self::write_node(node, &target_ua);
-            }
-        }
-        for node in &[
-            format!("{}/current_max", USB_DIR),
-            format!("{}/input_current_limit", BATT_DIR),
-            format!("{}/hw_current_max", USB_DIR),
-        ] {
-            if Path::new(node).exists() {
-                Self::set_perm(node, 0o666);
-                Self::write_node(node, &usb_cap_ua);
-            }
-        }
-        Self::write_node(&format!("{}/direct_charging", QC_DIR), if has_cp { "1" } else { "0" });
-        Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-        Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-        Self::write_node(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
-        Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
-        Self::write_node(&format!("{}/input_suspend", USB_DIR), "0");
-        Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-        Self::write_node(&format!("{}/pd_allowed", USB_DIR), "1");
-        Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
-        for hvdcp in &[
-            format!("{}/allow_hvdcp3", USB_DIR),
-            format!("{}/allow_hvdcp3", BATT_DIR),
-            format!("{}/allow_hvdcp3", MAIN_DIR),
-            "/sys/class/power_supply/allow_hvdcp3".to_string(),
-        ] {
-            if Path::new(hvdcp).exists() {
-                Self::set_perm(hvdcp, 0o666);
-                Self::write_node(hvdcp, "1");
-            }
-        }
-
-        for apsd in &[
-            format!("{}/rerun_apsd", USB_DIR),
-            format!("{}/rerun_apsd", BATT_DIR),
-        ] {
-            if Path::new(apsd).exists() {
-                Self::set_perm(apsd, 0o666);
-                let _ = fs::write(apsd, "1");
-                break;
             }
         }
     }
@@ -2968,7 +3036,7 @@ impl ChargingRegulator {
             let restrict_cur_val = if has_cp { "6000".to_string() } else { silicon_ceiling_ma.to_string() };
             let direct_val = if has_cp { "1" } else { "0" };
 
-            // 1. Pre-uncap registers in kernel memory before handshake trigger
+            // 1. Pre-uncap registers in kernel memory before handshake trigger (never write hw_current_max or 0444 lock on QCOM)
             for node in &[
                 format!("{}/constant_charge_current_max", BATT_DIR),
                 format!("{}/constant_charge_current", BATT_DIR),
@@ -2982,7 +3050,6 @@ impl ChargingRegulator {
             for node in &[
                 format!("{}/current_max", USB_DIR),
                 format!("{}/input_current_limit", BATT_DIR),
-                format!("{}/hw_current_max", USB_DIR),
             ] {
                 if Path::new(node).exists() {
                     Self::set_perm(node, 0o666);
@@ -2992,10 +3059,10 @@ impl ChargingRegulator {
             Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
             Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
             Self::write_node(&format!("{}/restrict_cur", QC_DIR), &restrict_cur_val);
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
             Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
 
             // 2. Qualcomm Safe Re-Handshake (Zero Flapping):
             // NEVER pulse input_suspend or allow_hvdcp3 on Qualcomm single-PMIC (PM660)!
@@ -3016,8 +3083,9 @@ impl ChargingRegulator {
                 }
             }
 
-            // Note: Routine soft-reconnect only triggers rerun_aicl so active QC 3.0 is never collapsed;
-            // sustained 5V stalls escalate separately via `trigger_qcom_apsd_renegotiate()`.
+            // CRITICAL: NEVER write rerun_apsd during active charging!
+            // Rerunning APSD resets D+/D- lines, which causes QC 3.0 / HVDCP chargers to collapse back to 5V standard DCP.
+            // Use `rerun_aicl` only to re-ramp input current safely.
             for rerun in &[
                 format!("{}/rerun_aicl", USB_DIR),
                 format!("{}/rerun_aicl", BATT_DIR),
@@ -3141,17 +3209,28 @@ impl ChargingRegulator {
         let silicon_ceiling_ua = Self::probe_silicon_charge_ceiling_ua();
         let silicon_ceiling_ma = (silicon_ceiling_ua / 1000) as u32;
         let target_ua = if is_qcom { silicon_ceiling_ua.to_string() } else { "4500000".to_string() };
+        let target_usb_ua = if is_qcom && !Self::has_qcom_direct_charge_pump() {
+            Self::probe_silicon_usb_current_max_ua().to_string()
+        } else {
+            target_ua.clone()
+        };
         for node in &[
             format!("{}/constant_charge_current_max", BATT_DIR),
             format!("{}/constant_charge_current", BATT_DIR),
-            format!("{}/current_max", USB_DIR),
             format!("{}/current_max", MAIN_DIR),
-            format!("{}/input_current_limit", BATT_DIR),
-            format!("{}/hw_current_max", USB_DIR),
         ] {
             if Path::new(node).exists() {
                 Self::set_perm(node, 0o666);
                 Self::write_node(node, &target_ua);
+            }
+        }
+        for node in &[
+            format!("{}/current_max", USB_DIR),
+            format!("{}/input_current_limit", BATT_DIR),
+        ] {
+            if Path::new(node).exists() {
+                Self::set_perm(node, 0o666);
+                Self::write_node(node, &target_usb_ua);
             }
         }
 
@@ -3321,6 +3400,14 @@ impl ChargingRegulator {
         }
 
         // Dynamic Sysfs Charger Topology Regulation Sweeper
+        let qcom_single = is_qcom && !Self::has_qcom_direct_charge_pump();
+        let custom_usb_ua_str = if qcom_single {
+            (effective_ma as u64 * 1000)
+                .min(Self::probe_silicon_usb_current_max_ua())
+                .to_string()
+        } else {
+            usb_max_ua_str.clone()
+        };
         for node in Self::crawl_dynamic_power_supply_nodes() {
             let leaf = Path::new(&node).file_name().and_then(|n| n.to_str()).unwrap_or("");
             match leaf {
@@ -3328,9 +3415,9 @@ impl ChargingRegulator {
                     Self::set_perm(&node, 0o666);
                     Self::write_node(&node, &effective_ua_str);
                 }
-                "current_max" | "input_current_limit" | "hw_current_max" => {
+                "current_max" | "input_current_limit" => {
                     Self::set_perm(&node, 0o666);
-                    Self::write_node(&node, &usb_max_ua_str);
+                    Self::write_node(&node, &custom_usb_ua_str);
                 }
                 "fastcharge_mode" | "fast_charge" => {
                     Self::write_node(&node, if is_qcom && effective_ma >= 2000 { "1" } else { "0" });
@@ -3342,10 +3429,10 @@ impl ChargingRegulator {
                     Self::write_node(&node, "0");
                 }
                 "thermal_input_current_limit" => {
-                    Self::write_node_lock(&node, "-1");
+                    if is_qcom { Self::write_node(&node, "-1"); } else { Self::write_node_lock(&node, "-1"); }
                 }
                 "system_temp_level" | "temp_state" => {
-                    Self::write_node_lock(&node, "0");
+                    if is_qcom { Self::write_node(&node, "0"); } else { Self::write_node_lock(&node, "0"); }
                 }
                 "step_charging_enabled" => {
                     // Keep kernel step-chg-jeita disabled (0) to prevent artificial throttling at 60% SoC / 40°C
@@ -3438,7 +3525,6 @@ impl ChargingRegulator {
             format!("{}/current_max", USB_DIR),
             format!("{}/current_max", MAIN_DIR),
             format!("{}/input_current_limit", BATT_DIR),
-            format!("{}/hw_current_max", USB_DIR),
         ] {
             if Path::new(node).exists() {
                 Self::set_perm(node, 0o666);
@@ -3472,13 +3558,12 @@ impl ChargingRegulator {
     /// Mode 3: Hyper Mode (100% dynamic peak, unconstrained)
     pub fn apply_hyper_mode() {
         let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-        Self::clear_bypass_hardware_state();
         Self::write_node("/proc/lynx/hyper_charge", "1");
         Self::apply_extreme_charging(100, true, 12000);
         let _ = fs::write("/dev/lynx_charging_state", format!("state=hyper cap={}\n", cur_cap));
 
-        // Immediate Zero-Touch Soft-Reconnect on mode activation ONLY if charger is stalled at low voltage/current:
-        // Do NOT trigger if cable was connected within the last 4 seconds to allow natural HVDCP/PE handshake!
+        // Immediate Zero-Touch Soft-Reconnect on manual mode activation ONLY if charger is already settled
+        // (>= 6s plugged) and genuinely stalled at low current (< 1550mA at < 6.5V):
         let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
         let plugged_elapsed = now_sec.saturating_sub(plugged_at);
@@ -3486,8 +3571,9 @@ impl ChargingRegulator {
         if Self::is_hardware_plugged()
             && !Self::is_laptop_port()
             && !Self::is_usb_pd_active()
-            && cur_cap < 90
-            && (plugged_at == 0 || plugged_elapsed >= 4)
+            && cur_cap < 85
+            && plugged_at > 0
+            && plugged_elapsed >= 6
         {
             let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
                 .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
@@ -3498,15 +3584,7 @@ impl ChargingRegulator {
             let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
 
             if Self::is_qualcomm_soc() {
-                // Qualcomm QC: Reset stall counters and kick AICL ONLY when genuinely stuck (< 1550mA at < 6.5V),
-                // so active QC 3.0 INOV / rapid charging is undisturbed while collapsed 5V DCP escalates cleanly.
-                if cur_cap < 78 && adpv_clean > 3500 && adpv_clean < 6500 && cur_now_ma > 0 && cur_now_ma < 1550 {
-                    let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
-                    let _ = fs::remove_file("/dev/lynx_qcom_apsd_wait_count");
-                    let _ = fs::remove_file("/dev/lynx_qcom_apsd_attempts");
-                    let _ = fs::remove_file("/dev/lynx_last_apsd_kick");
-                    let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
-                    LAST_SOFT_RECONNECT_EPOCH.store(0, Ordering::Relaxed);
+                if adpv_clean > 3500 && adpv_clean < 6500 && cur_now_ma > 0 && cur_now_ma < 1550 {
                     Self::trigger_charger_soft_reconnect();
                 }
             } else if adpv_clean > 3500 && cur_now_ma < 350 {
@@ -3994,12 +4072,14 @@ impl ChargingRegulator {
         let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
 
         let mountinfo = fs::read_to_string("/proc/self/mountinfo").unwrap_or_default();
-        let has_deleted_mount = mountinfo.lines().any(|l| l.contains("lynx_thermal_engine.conf//deleted"));
-        let already_mounted = Path::new(live_conf).exists()
-            && !has_deleted_mount
-            && TARGET_CONFS
-                .iter()
-                .any(|t| Self::mountinfo_has_active_lynx_thermal_mount(&mountinfo, t));
+        let pid1_mountinfo = fs::read_to_string("/proc/1/mountinfo").unwrap_or_else(|_| mountinfo.clone());
+        let has_clean_self = TARGET_CONFS
+            .iter()
+            .any(|t| Self::mountinfo_has_clean_single_lynx_thermal_mount(&mountinfo, t));
+        let has_clean_pid1 = TARGET_CONFS
+            .iter()
+            .any(|t| Self::mountinfo_has_clean_single_lynx_thermal_mount(&pid1_mountinfo, t));
+        let already_mounted = Path::new(live_conf).exists() && has_clean_self && has_clean_pid1;
 
         if already_mounted {
             let last_chk = LAST_THERMAL_BIND_CHECK_EPOCH.load(Ordering::Relaxed);
@@ -4010,26 +4090,31 @@ impl ChargingRegulator {
             return;
         }
 
-        // Purge any orphaned `//deleted` bind mounts from prior sessions before re-mounting
-        if has_deleted_mount {
-            for target in Self::mountinfo_stale_or_lynx_thermal_targets(&mountinfo) {
-                for _ in 0..8 {
-                    let mi = fs::read_to_string("/proc/self/mountinfo").unwrap_or_default();
-                    if !mi.lines().any(|l| l.contains(&target) && l.contains("lynx_thermal_engine.conf")) {
-                        break;
-                    }
-                    let _ = std::process::Command::new("umount").args(["-l", &target]).output();
-                    let _ = std::process::Command::new("nsenter")
-                        .args(["-t", "1", "-m", "umount", "-l", &target])
-                        .output();
-                }
-            }
-        }
-
         let stock_conf = match Self::discover_qcom_thermal_engine_conf_path() {
             Some(p) => p,
             None => return,
         };
+
+        // Purge ALL stale, `//deleted`, or stacked duplicate thermal-engine mounts cleanly
+        let mut stale_targets = Self::mountinfo_stale_or_lynx_thermal_targets(&mountinfo);
+        if !stale_targets.contains(&stock_conf) {
+            stale_targets.push(stock_conf.clone());
+        }
+        for target in stale_targets {
+            for _ in 0..16 {
+                let mi_self = fs::read_to_string("/proc/self/mountinfo").unwrap_or_default();
+                let mi_pid1 = fs::read_to_string("/proc/1/mountinfo").unwrap_or_else(|_| mi_self.clone());
+                let in_self = mi_self.lines().any(|l| l.split_whitespace().nth(4) == Some(target.as_str()));
+                let in_pid1 = mi_pid1.lines().any(|l| l.split_whitespace().nth(4) == Some(target.as_str()));
+                if !in_self && !in_pid1 {
+                    break;
+                }
+                let _ = std::process::Command::new("umount").args(["-l", &target]).output();
+                let _ = std::process::Command::new("nsenter")
+                    .args(["-t", "1", "-m", "umount", "-l", &target])
+                    .output();
+            }
+        }
 
         // Try reading bundled module Qualcomm thermal-engine.conf first
         let candidates = &[
@@ -4135,9 +4220,14 @@ impl ChargingRegulator {
             let _ = std::process::Command::new("mount")
                 .args(["-o", "bind", live_conf, &stock_conf])
                 .output();
-            let _ = std::process::Command::new("nsenter")
-                .args(["-t", "1", "-m", "mount", "-o", "bind", live_conf, &stock_conf])
-                .output();
+            let pid1_has_mount = fs::read_to_string("/proc/1/mountinfo")
+                .map(|mi| Self::mountinfo_has_clean_single_lynx_thermal_mount(&mi, &stock_conf))
+                .unwrap_or(false);
+            if !pid1_has_mount {
+                let _ = std::process::Command::new("nsenter")
+                    .args(["-t", "1", "-m", "mount", "-o", "bind", live_conf, &stock_conf])
+                    .output();
+            }
 
             // Restart thermal-engine ONCE when bind-mounted so it parses the elevated configuration:
             if !Path::new("/dev/lynx_thermal_reloaded").exists() {
@@ -4785,12 +4875,31 @@ impl ChargingRegulator {
                 };
                 let is_pd = Self::is_usb_pd_active();
                 let is_pc = Self::is_laptop_port();
-                let min_qcom_ua = if is_pc { 500_000 } else { 2_800_000 };
+                let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
+                let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
+                let adpv = Self::read_i64(&format!("{}/voltage_now", USB_DIR))
+                    .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+                    .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+                    .unwrap_or(0);
+                let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
+                let now_s = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+                let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+                let plugged_elapsed = if plugged_at > 0 { now_s.saturating_sub(plugged_at) } else { 999 };
                 let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
-                let fcc_ok = cur_fcc == 0 || cur_fcc >= min_qcom_ua || is_pd;
                 let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
-                let usb_ok = cur_usb == 0 || cur_usb >= min_qcom_ua || is_pd;
-                susp == "0" && en == "1" && direct_ok && fcc_ok && usb_ok
+                Self::should_qcom_hyper_invariants_pass(
+                    &susp,
+                    &en,
+                    direct_ok,
+                    cur_cap,
+                    cur_now_ma,
+                    adpv_mv,
+                    plugged_elapsed,
+                    is_pc,
+                    is_pd,
+                    cur_fcc,
+                    cur_usb,
+                )
             };
 
             // If hyper mode is already active and critical invariants are intact, skip re-init!
@@ -4961,27 +5070,28 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_last_apsd_kick");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
+        let _ = fs::remove_file("/dev/lynx_qcom_aicl_attempts");
         let _ = fs::remove_file("/dev/lynx_pdc_uncapped");
         let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
         let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
 
-        // Stage 1: Cold-Plug Immediate Arming
+        // Stage 1: Cold-Plug Immediate Arming (never lock QCOM sysfs 0444)
         let is_qcom = Self::is_qualcomm_soc();
         if is_qcom {
-            Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
-            Self::write_node_lock(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
-            Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-            Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+            Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+            Self::write_node(&format!("{}/allow_hvdcp3", BATT_DIR), "1");
+            Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+            Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
             Self::write_node("/sys/class/power_supply/usb/pd_allowed", "1");
             Self::write_node("/sys/class/power_supply/usb/boost_current", "1");
             Self::write_node(&format!("{}/charging_enabled", BATT_DIR), "1");
-            Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-            Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-            Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-            Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+            Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+            Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+            Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+            Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+            Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
             Self::write_node(&format!("{}/input_suspend", BATT_DIR), "0");
         } else {
             Self::ensure_mtk_power_path_enabled();
@@ -5014,6 +5124,8 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_qcom_apsd_wait_count");
         let _ = fs::remove_file("/dev/lynx_qcom_apsd_attempts");
         let _ = fs::remove_file("/dev/lynx_last_apsd_kick");
+        let _ = fs::remove_file("/dev/lynx_qcom_aicl_attempts");
+        let _ = fs::remove_file("/dev/lynx_last_aicl_kick");
         let _ = fs::remove_file("/dev/lynx_cold_plug_kicked");
         let _ = fs::remove_file("/dev/lynx_cold_plug_verified");
         let _ = fs::remove_file("/dev/lynx_pdc_uncapped");
@@ -5327,18 +5439,43 @@ impl ChargingRegulator {
         let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
         let plugged_elapsed = now_sec.saturating_sub(plugged_at);
 
-        // Stage 2: Automated Zero-Touch AICL Kick (3.0s post cold-plug)
-        // At 3 seconds, hardware APSD/BC1.2 is settled and VBUS has stepped up to 9V.
-        // We ensure registers are unconstrained and kick rerun_aicl to ramp current immediately!
-        if plugged_elapsed >= 3 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
+        let is_qcom_single = Self::is_qualcomm_soc() && !Self::has_qcom_direct_charge_pump();
+        let is_pc_cold = Self::is_laptop_port();
+        let is_pd_cold = Self::is_usb_pd_active();
+        let adpv_cold = Self::read_i64(&format!("{}/voltage_now", USB_DIR))
+            .or_else(|| Self::read_i64(&format!("{}/charger_voltage", BATT_DIR)))
+            .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
+            .unwrap_or(0);
+        let adpv_cold_mv = if adpv_cold > 100_000 { adpv_cold / 1000 } else { adpv_cold };
+        let cur_cap_cold = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+        let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
+            is_qcom_single,
+            plugged_elapsed,
+            adpv_cold_mv,
+            is_pd_cold,
+            is_pc_cold,
+            cur_cap_cold,
+        );
+
+        // Stage 2: Automated Zero-Touch Uncap Post Cold-Plug Negotiation
+        // On single-PMIC Qualcomm, hold a gentle 1.5A warm-up while VBUS < 6.0V for up to 5s
+        // so `hvdcp_opti` passes `S_OPTI_DP_PULSE` (`usb_uv >= 5.0V`) cleanly. Once VBUS >= 6.0V
+        // OR 5s settle completes, push full FCC (3.15A) and USB ICL (<= hw_current_max = 3.0A)
+        // WITHOUT blindly firing `rerun_aicl = 1`.
+        if !hold_coldplug && plugged_elapsed >= 3 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
             let _ = fs::write("/dev/lynx_cold_plug_kicked", "1");
-            if Self::is_qualcomm_soc() && !Self::is_laptop_port() {
-                let ceiling_ua = Self::probe_silicon_charge_ceiling_ua().to_string();
-                let usb_cap_ua = Self::probe_silicon_usb_current_max_ua().to_string();
+            if Self::is_qualcomm_soc() && !is_pc_cold {
+                let ceiling_ua_val = Self::probe_silicon_charge_ceiling_ua();
+                let ceiling_ua = ceiling_ua_val.to_string();
+                let ceiling_ma_str = (ceiling_ua_val / 1000).to_string();
+                let usb_cap_ua = if !is_qcom_single {
+                    "6000000".to_string()
+                } else {
+                    Self::probe_silicon_usb_current_max_ua().to_string()
+                };
                 for node in &[
                     format!("{}/constant_charge_current_max", BATT_DIR),
                     format!("{}/constant_charge_current", BATT_DIR),
-                    format!("{}/current_max", MAIN_DIR),
                 ] {
                     if Path::new(node).exists() {
                         Self::set_perm(node, 0o666);
@@ -5347,6 +5484,7 @@ impl ChargingRegulator {
                 }
                 for node in &[
                     format!("{}/current_max", USB_DIR),
+                    format!("{}/current_max", MAIN_DIR),
                     format!("{}/input_current_limit", BATT_DIR),
                 ] {
                     if Path::new(node).exists() {
@@ -5354,74 +5492,18 @@ impl ChargingRegulator {
                         Self::write_node(node, &usb_cap_ua);
                     }
                 }
-                Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-                Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-                Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-                Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-                Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
-                Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-                for rerun in &[
-                    format!("{}/rerun_aicl", USB_DIR),
-                    format!("{}/rerun_aicl", BATT_DIR),
-                    format!("{}/rerun_aicl", MAIN_DIR),
-                ] {
-                    if Path::new(rerun).exists() {
-                        Self::set_perm(rerun, 0o666);
-                        Self::write_node(rerun, "1");
-                    }
-                }
-            }
-        }
-
-        // Stage 3: Current Ramp Assurance (5.0s post cold-plug)
-        // If current is still lagging (< 2000mA at < 90% SoC), re-kick AICL once more
-        if plugged_elapsed >= 5 && !Path::new("/dev/lynx_cold_plug_verified").exists() {
-            let _ = fs::write("/dev/lynx_cold_plug_verified", "1");
-            let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
-            let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
-            let cur_cap = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50);
-            if cur_now_ma < 2000 && cur_cap < 90 && !Self::is_laptop_port() {
-                if Self::is_qualcomm_soc() {
-                    let ceiling_ua = Self::probe_silicon_charge_ceiling_ua().to_string();
-                    let usb_cap_ua = Self::probe_silicon_usb_current_max_ua().to_string();
-                    for node in &[
-                        format!("{}/constant_charge_current_max", BATT_DIR),
-                        format!("{}/constant_charge_current", BATT_DIR),
-                        format!("{}/current_max", MAIN_DIR),
-                    ] {
-                        if Path::new(node).exists() {
-                            Self::set_perm(node, 0o666);
-                            Self::write_node(node, &ceiling_ua);
-                        }
-                    }
-                    for node in &[
-                        format!("{}/current_max", USB_DIR),
-                        format!("{}/input_current_limit", BATT_DIR),
-                    ] {
-                        if Path::new(node).exists() {
-                            Self::set_perm(node, 0o666);
-                            Self::write_node(node, &usb_cap_ua);
-                        }
-                    }
-                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-                    Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
-                    Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-                    for rerun in &[
-                        format!("{}/rerun_aicl", USB_DIR),
-                        format!("{}/rerun_aicl", BATT_DIR),
-                        format!("{}/rerun_aicl", MAIN_DIR),
-                    ] {
-                        if Path::new(rerun).exists() {
-                            Self::set_perm(rerun, 0o666);
-                            Self::write_node(rerun, "1");
-                        }
-                    }
-                }
+                Self::write_node(&format!("{}/restrict_cur", QC_DIR), &ceiling_ma_str);
+                Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
+                Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
+                Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+                Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+                Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+                Self::clear_charge_control_limit(&format!("{}/charge_control_limit", BATT_DIR), &ceiling_ua);
             }
         }
 
@@ -5471,17 +5553,19 @@ impl ChargingRegulator {
             let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         }
 
-        // Qualcomm Autonomous Anti-Throttle & AICL Recovery:
-        // In Hyper/Standard mode, autonomously un-choke voters & rerun AICL on dip,
-        // and escalate once via APSD re-detection ONLY if stuck at < 1550mA (< 6.5V) for >= 8s.
+        // Qualcomm Autonomous Anti-Throttle & Guarded AICL Recovery:
+        // After cold-plug settle (>= 10s), smoothly un-choke throttled sysfs voters without spamming
+        // `rerun_aicl = 1` every 60s or kicking AICL when VBUS has already sagged < 4.6V under load.
         let is_bypass_mode = cfg.bypass_enabled || Path::new("/dev/lynx_bypass_active").exists();
         let is_regulated_low = cfg.charging_mode == "cool"
             || (cfg.charging_mode == "custom" && cfg.custom_limit_current_ma < 2000);
+        let _ = fs::remove_file("/dev/lynx_qcom_apsd_wait_count");
         if Self::is_qualcomm_soc()
             && !Self::is_laptop_port()
             && !is_pd_active
             && !is_bypass_mode
             && !is_regulated_low
+            && plugged_elapsed >= 10
         {
             let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(2000000);
             let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(2000000);
@@ -5492,6 +5576,7 @@ impl ChargingRegulator {
                 .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
                 .unwrap_or(0);
             let adpv_clean = if adpv > 100_000 { adpv / 1000 } else { adpv };
+            let is_high_voltage = adpv_clean >= 6500;
 
             let has_cp = Self::has_qcom_direct_charge_pump();
             let volt_raw = Self::read_i64(&format!("{}/voltage_now", BATT_DIR)).unwrap_or(0);
@@ -5500,19 +5585,30 @@ impl ChargingRegulator {
             let adaptive_ma = Self::calculate_adaptive_charge_current_ma(base_ceiling_ma, cur_cap, v_clean_mv, true, has_cp);
             let adaptive_ua = (adaptive_ma as u64) * 1000;
             let target_limit_str = adaptive_ua.to_string();
-            let usb_cap_str = if has_cp {
-                "6000000".to_string()
+            let usb_cap_ua = if has_cp {
+                6_000_000i64
             } else {
-                Self::probe_silicon_usb_current_max_ua().to_string()
+                Self::probe_silicon_usb_current_max_ua() as i64
             };
+            let usb_cap_str = usb_cap_ua.to_string();
+            let main_cap_str = if has_cp { &target_limit_str } else { &usb_cap_str };
             let target_ma_str = adaptive_ma.to_string();
             let now_ts = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
 
-            // Stage 1: Fast voter un-choke & rerun_aicl (60s cooldown)
-            let is_stalled_current = cur_cap < 78 && cur_now_ma > 0 && cur_now_ma < 2000;
+            let last_kick = Self::read_i64("/dev/lynx_last_aicl_kick").unwrap_or(0).max(0) as u64;
+            let kick_attempts = Self::read_i64("/dev/lynx_qcom_aicl_attempts").unwrap_or(0);
+            let qcom_needs_aicl_kick = Self::should_trigger_qcom_aicl_kick(
+                cur_cap,
+                cur_now_ma,
+                cur_usb,
+                adpv_clean,
+                plugged_elapsed,
+                now_ts.saturating_sub(last_kick),
+                kick_attempts,
+            );
             let is_choked_register = cur_fcc > 0 && cur_fcc < (adaptive_ua as i64 - 200_000);
-            let is_choked_usb = cur_usb > 0 && cur_usb < 2_000_000;
-            let qcom_stalled = (cur_cap < 78 && is_stalled_current) || (cur_cap < 95 && (is_choked_register || is_choked_usb));
+            let is_choked_usb = !is_high_voltage && cur_usb > 0 && cur_usb < 1_500_000;
+            let qcom_stalled = qcom_needs_aicl_kick || (cur_cap < 95 && (is_choked_register || is_choked_usb));
 
             if qcom_stalled {
                 let marker_path = "/dev/lynx_qcom_stalled_count";
@@ -5520,10 +5616,9 @@ impl ChargingRegulator {
                 if count >= 2 {
                     let _ = fs::remove_file(marker_path);
 
-                    let last_kick = Self::read_i64("/dev/lynx_last_aicl_kick").unwrap_or(0).max(0) as u64;
-                    if now_ts.saturating_sub(last_kick) >= 60 {
+                    if qcom_needs_aicl_kick {
                         let _ = fs::write("/dev/lynx_last_aicl_kick", now_ts.to_string());
-                        Self::uncap_usb_pd_protocol(if has_cp { 12000 } else { base_ceiling_ma });
+                        let _ = fs::write("/dev/lynx_qcom_aicl_attempts", (kick_attempts + 1).to_string());
                         for rerun in &[
                             format!("{}/rerun_aicl", USB_DIR),
                             format!("{}/rerun_aicl", BATT_DIR),
@@ -5539,37 +5634,39 @@ impl ChargingRegulator {
                     for node in &[
                         format!("{}/constant_charge_current_max", BATT_DIR),
                         format!("{}/constant_charge_current", BATT_DIR),
-                        format!("{}/current_max", MAIN_DIR),
                     ] {
                         if Path::new(node).exists() {
                             Self::set_perm(node, 0o666);
                             Self::write_node(node, &target_limit_str);
                         }
                     }
-                    for node in &[
-                        format!("{}/current_max", USB_DIR),
-                        format!("{}/input_current_limit", BATT_DIR),
-                        format!("{}/hw_current_max", USB_DIR),
-                    ] {
-                        if Path::new(node).exists() {
-                            Self::set_perm(node, 0o666);
-                            Self::write_node(node, &usb_cap_str);
+                    Self::write_node(&format!("{}/current_max", MAIN_DIR), main_cap_str);
+                    if !is_high_voltage {
+                        for node in &[
+                            format!("{}/current_max", USB_DIR),
+                            format!("{}/input_current_limit", BATT_DIR),
+                        ] {
+                            if Path::new(node).exists() {
+                                Self::set_perm(node, 0o666);
+                                Self::write_node(node, &usb_cap_str);
+                            }
                         }
                     }
                     let direct_val = if has_cp { "1" } else { "0" };
                     Self::write_node(&format!("{}/direct_charging", QC_DIR), direct_val);
-                    Self::write_node_lock(&format!("{}/restricted_charging", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/restricted_charging", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/restricted_charging", QC_DIR), "0");
+                    Self::write_node(&format!("{}/restricted_charging", BATT_DIR), "0");
                     Self::write_node(&format!("{}/restrict_cur", QC_DIR), &target_ma_str);
-                    Self::write_node_lock(&format!("{}/system_temp_level", QC_DIR), "0");
-                    Self::write_node_lock(&format!("{}/system_temp_level", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", QC_DIR), "0");
+                    Self::write_node(&format!("{}/system_temp_level", BATT_DIR), "0");
                     Self::write_node(&format!("{}/temp_state", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
-                    Self::write_node_lock(&format!("{}/step_charging_enabled", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
-                    Self::write_node_lock(&format!("{}/allow_hvdcp3", USB_DIR), "1");
-                    Self::write_node_lock("/sys/class/power_supply/allow_hvdcp3", "1");
-                    Self::write_node_lock(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+                    Self::write_node(&format!("{}/thermal_input_current_limit", BATT_DIR), "-1");
+                    Self::write_node(&format!("{}/step_charging_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/sw_jeita_enabled", BATT_DIR), "0");
+                    Self::write_node(&format!("{}/allow_hvdcp3", USB_DIR), "1");
+                    Self::write_node("/sys/class/power_supply/allow_hvdcp3", "1");
+                    Self::write_node(&format!("{}/hvdcp_opti_allowed", USB_DIR), "1");
+                    Self::clear_charge_control_limit(&format!("{}/charge_control_limit", BATT_DIR), &target_limit_str);
                     Self::write_node("/sys/class/thermal/thermal_message/boost", "1");
                     Self::write_node("/sys/class/thermal/thermal_message/sconfig", "0");
                     Self::write_node("/sys/class/thermal/thermal_message/temp_state", "0");
@@ -5580,36 +5677,6 @@ impl ChargingRegulator {
             } else {
                 let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
             }
-
-            // Stage 2: Controlled APSD re-detection ONLY if Hyper Mode remains trapped (< 1550mA at < 6.5V)
-            // for >= 8 consecutive ticks despite Stage 1 unlock + rerun_aicl.
-            let apsd_wait_path = "/dev/lynx_qcom_apsd_wait_count";
-            if is_hyper && cur_cap < 78 && plugged_elapsed >= 10 && adpv_clean > 3500 && adpv_clean < 6500 && cur_now_ma > 0 && cur_now_ma < 1550 {
-                let next_wait = Self::read_i64(apsd_wait_path).unwrap_or(0) + 1;
-                let attempts = Self::read_i64("/dev/lynx_qcom_apsd_attempts").unwrap_or(0);
-                let last_apsd = Self::read_i64("/dev/lynx_last_apsd_kick").unwrap_or(0).max(0) as u64;
-                if Self::should_escalate_qcom_apsd(
-                    is_hyper,
-                    cur_cap,
-                    false,
-                    false,
-                    false,
-                    plugged_elapsed,
-                    adpv_clean,
-                    cur_now_ma,
-                    next_wait,
-                    attempts,
-                    now_ts.saturating_sub(last_apsd),
-                ) {
-                    Self::trigger_qcom_apsd_renegotiate();
-                } else {
-                    let _ = fs::write(apsd_wait_path, next_wait.to_string());
-                }
-            } else {
-                let _ = fs::remove_file(apsd_wait_path);
-            }
-        } else {
-            let _ = fs::remove_file("/dev/lynx_qcom_apsd_wait_count");
         }
 
         Self::enforce_live_charging_invariants();
@@ -6151,19 +6218,14 @@ mod tests {
 
     #[test]
     fn test_adaptive_charge_current_and_thermal_pacing() {
-        // Phase 2: CV Saturation Curve
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 100, 4400, true, false), 100);
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 95, 4395, true, false), 600);
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 90, 4390, true, false), 1000);
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 85, 4385, true, false), 1400);
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 80, 4382, true, false), 1900);
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 78, 4380, true, false), 2400);
-
-        // Phase 1: High voltage (>= 4380 mV) enters Phase 2 CV even if SoC < 78%
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(4000, 75, 4385, true, false), 2400);
-
-        // Phase 1: On host without sysfs (defaults to 35°C nominal cool), returns base peak
-        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3500, 30, 4100, true, false), 3500);
+        // Qualcomm Single-PMIC: preserve full CC peak below 85% (even when IR-drop pushes V_bat >= 4380 mV)
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 30, 4100, true, false), 3150);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 75, 4385, true, false), 3150);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 84, 4390, true, false), 3150);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 85, 4385, true, false), 2400);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 90, 4390, true, false), 1800);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 95, 4395, true, false), 1200);
+        assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(3150, 100, 4400, true, false), 100);
 
         // MediaTek Direct Charge Pump 3-Phase Curve (0-84% Hyper, 85-94% Step-Down, 95-99% Taper >= 1500mA)
         assert_eq!(ChargingRegulator::calculate_adaptive_charge_current_ma(6500, 75, 4410, false, false), 6500);
@@ -6267,39 +6329,62 @@ mod tests {
     }
 
     #[test]
-    fn test_qcom_apsd_renegotiate_escalation_guards() {
-        // RN7 trapped at 4.34V / 1.39A for >= 8s in Hyper Mode -> must escalate APSD without replug
-        assert!(ChargingRegulator::should_escalate_qcom_apsd(
-            true, 38, false, false, false, 20, 4336, 1389, 8, 0, 200
+    fn test_qcom_hyper_invariants_and_charge_control_limit() {
+        // Cold-plug negotiation (< 8s) with usb=1.5A must NOT trigger 1Hz apply_hyper_mode() re-init storm
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 30, 800, 5200, 2, false, false, 3_150_000, 1_500_000
         ));
-        // Healthy QC 3.0 INOV (5.25V @ 2.95A) -> must never trigger APSD
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, false, false, 30, 5250, 2948, 8, 0, 200
+        // Active 9V HVDCP (adpv >= 6.5V) where usb/current_max legitimately sits at 1.8A-2.0A -> intact
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 40, 2950, 9000, 25, false, false, 3_150_000, 1_800_000
         ));
-        // Short transient dip -> wait for 8 consecutive ticks
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, false, false, 30, 4410, 1400, 2, 0, 200
+        // Active >= 2.5A cell current -> intact
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 45, 2980, 5400, 20, false, false, 3_150_000, 2_000_000
         ));
-        // Cooldown (< 180s) & max-attempts (2) caps prevent infinite retry on non-QC chargers
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, false, false, 200, 4950, 1300, 10, 1, 120
+        // Late CV phase (85-89% -> FCC 2.4A, 90-94% -> FCC 1.8A) -> intact without 4s re-init spam
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 86, 1600, 5200, 600, false, false, 2_400_000, 1_800_000
         ));
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, false, false, 500, 4950, 1300, 10, 2, 400
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 92, 1200, 5200, 600, false, false, 1_800_000, 1_800_000
         ));
-        // Exclusions: USB-PD, laptop SDP/CDP, bypass active, or >= 78% CV phase
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, true, false, false, 30, 4900, 500, 10, 0, 200
+        // Genuine choke: FCC throttled to 1.5A at 35% SoC after cold plug -> must detect & recover
+        assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 35, 1300, 5100, 20, false, false, 1_500_000, 1_500_000
         ));
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, true, false, 30, 5000, 1200, 10, 0, 200
+        // Genuine USB ICL choke below 1.5A with low batt current after negotiation -> must recover
+        assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 35, 900, 4900, 20, false, false, 3_150_000, 1_000_000
         ));
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 42, false, false, true, 30, 5000, 100, 10, 0, 200
+        // Input suspended -> must detect & recover
+        assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "1", "1", true, 35, 2800, 5400, 20, false, false, 3_150_000, 3_150_000
         ));
-        assert!(!ChargingRegulator::should_escalate_qcom_apsd(
-            true, 78, false, false, false, 30, 4900, 1200, 10, 0, 200
-        ));
+
+        // Cold-plug QC 3.0 handshake shield: hold soft ramp < 5s while VBUS < 6V so DP_PULSE succeeds
+        assert!(ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5050, false, false, 40));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 9000, false, false, 40));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 5, 5100, false, false, 40));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5000, true, false, 40));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(false, 2, 5000, false, false, 40));
+
+        // Guarded AICL kick: never fire when VBUS < 4.6V under load or USB ICL already >= 1.5A
+        assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 1380, 1_850_000, 4199, 120, 400, 0));
+        assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 900, 1_000_000, 4250, 120, 400, 0));
+        assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 800, 500_000, 5000, 5, 400, 0));
+        assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 800, 500_000, 5000, 60, 120, 0));
+        assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 800, 500_000, 5000, 60, 400, 2));
+        assert!(ChargingRegulator::should_trigger_qcom_aicl_kick(45, 700, 500_000, 5000, 15, 400, 0));
+
+        // charge_control_limit helper must NEVER write 3_150_000 uA into an integer 0..6 cooling index
+        assert_eq!(ChargingRegulator::pick_charge_control_limit_value(Some(7), "3150000"), Some("0".to_string()));
+        assert_eq!(ChargingRegulator::pick_charge_control_limit_value(None, "3150000"), Some("0".to_string()));
+        assert_eq!(ChargingRegulator::pick_charge_control_limit_value(Some(100), "3150000"), None);
+        assert_eq!(
+            ChargingRegulator::pick_charge_control_limit_value(Some(6_000_000), "3150000"),
+            Some("3150000".to_string())
+        );
     }
 
     #[test]
@@ -6317,14 +6402,29 @@ mod tests {
         assert_eq!(
             stale_targets,
             vec![
+                "/vendor/etc/thermal-engine.conf".to_string(),
                 "/data/local/tmp/thermal-engine.conf".to_string(),
-                "/vendor/etc/thermal-engine.conf".to_string()
             ]
         );
 
-        let clean_mountinfo = "\
+        let conflicting_or_stacked = "\
 9144 43 259:34 /local/tmp/thermal-engine.conf /vendor/etc/thermal-engine.conf rw,nosuid - f2fs /dev/block/mmcblk0p66 rw
 7920 9144 0:14 /lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf rw,nosuid - tmpfs tmpfs rw";
+        assert!(!ChargingRegulator::mountinfo_has_active_lynx_thermal_mount(
+            conflicting_or_stacked,
+            "/vendor/etc/thermal-engine.conf"
+        ));
+
+        let stacked_lynx = "\
+7919 43 0:14 /lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf rw,nosuid - tmpfs tmpfs rw
+7920 7919 0:14 /lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf rw,nosuid - tmpfs tmpfs rw";
+        assert!(!ChargingRegulator::mountinfo_has_active_lynx_thermal_mount(
+            stacked_lynx,
+            "/vendor/etc/thermal-engine.conf"
+        ));
+
+        let clean_mountinfo = "\
+7920 43 0:14 /lynx_thermal_engine.conf /vendor/etc/thermal-engine.conf rw,nosuid - tmpfs tmpfs rw";
         assert!(ChargingRegulator::mountinfo_has_active_lynx_thermal_mount(
             clean_mountinfo,
             "/vendor/etc/thermal-engine.conf"

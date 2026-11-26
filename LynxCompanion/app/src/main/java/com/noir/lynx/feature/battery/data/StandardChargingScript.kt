@@ -52,7 +52,6 @@ object StandardChargingScript {
                     /sys/class/power_supply/battery/constant_charge_current \
                     /sys/class/power_supply/battery/input_current_limit \
                     /sys/class/power_supply/usb/current_max \
-                    /sys/class/power_supply/usb/hw_current_max \
                     /sys/class/power_supply/main/current_max; do
             [ -e "${'$'}node" ] && chmod 666 "${'$'}node" 2>/dev/null && echo 3000000 > "${'$'}node" 2>/dev/null
         done
@@ -71,7 +70,6 @@ object StandardChargingScript {
         echo 1 > /sys/class/power_supply/usb/pd_allowed 2>/dev/null
         echo 1 > /sys/class/power_supply/allow_hvdcp3 2>/dev/null
         echo 68 > /sys/devices/platform/charger/pdc_max_watt 2>/dev/null
-        [ -e /sys/class/power_supply/usb/rerun_aicl ] && echo 1 > /sys/class/power_supply/usb/rerun_aicl 2>/dev/null
         for cd in /sys/class/thermal/cooling_device*; do
             if [ -f "${'$'}cd/type" ]; then
                 read -r t < "${'$'}cd/type" 2>/dev/null

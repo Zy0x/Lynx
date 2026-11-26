@@ -237,8 +237,9 @@ object LynxRepository {
                 if [ -f /data/local/tmp/thermal-engine.conf ]; then
                     mkdir -p /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc 2>/dev/null
                     cp -af /data/local/tmp/thermal-engine.conf /data/adb/modules/Lynx/platforms/qcom/system/vendor/etc/thermal-engine.conf 2>/dev/null
-                    mount --bind /data/local/tmp/thermal-engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
-                    mount --bind /data/local/tmp/thermal-engine.conf /system/vendor/etc/thermal-engine.conf 2>/dev/null
+                    if ! grep -qE " (/vendor/etc/thermal-engine\.conf|/system/vendor/etc/thermal-engine\.conf) " /proc/1/mountinfo 2>/dev/null; then
+                        [ -e /vendor/etc/thermal-engine.conf ] && mount --bind /data/local/tmp/thermal-engine.conf /vendor/etc/thermal-engine.conf 2>/dev/null
+                    fi
                     if [ ! -f /dev/lynx_thermal_reloaded ]; then
                         touch /dev/lynx_thermal_reloaded 2>/dev/null
                         killall thermal-engine 2>/dev/null

@@ -17,10 +17,11 @@ if [ -x "$MODPATH/system/bin/lynxd" ]; then
         "$MODPATH/system/bin/lynxd" zygote-guard reconcile --early >/dev/null 2>&1
 fi
 
-# Early Qualcomm Snapdragon thermal-engine conf bind-mount (zero throttle past 40°C)
-if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ]; then
-    [ -f /vendor/etc/thermal-engine.conf ] && mount --bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null
-    [ -f /system/vendor/etc/thermal-engine.conf ] && mount --bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /system/vendor/etc/thermal-engine.conf 2>/dev/null
+# Early Qualcomm Snapdragon thermal-engine conf bind-mount (mount once cleanly, zero stacking)
+if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ] && [ -f /vendor/etc/thermal-engine.conf ]; then
+    if ! grep -q " /vendor/etc/thermal-engine\.conf " /proc/1/mountinfo 2>/dev/null; then
+        mount --bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null
+    fi
 fi
 
 exit 0

@@ -1,3 +1,33 @@
+# Lynx Universal [Perisai Cold-Plug QC 3.0 Qualcomm, Pembersihan Bind Mount Termal Ganda & Stabilisasi AICL PM660] 7.0.0-RC475
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.94
+
+### Native Core & Charging Regulator (`native/lynxd/src/hardware/charging.rs`)
+- **Perisai Negosiasi Cold-Plug QC 3.0 & Perlindungan Batas Arus PM660 (`qpnp-smb2`)**:
+  - Menambahkan penahan beban lembut 5 detik awal (`should_hold_qcom_coldplug_soft_ramp`) pada cold-plug Qualcomm single-PMIC (`1500 mA` FCC / `1800 mA` USB saat VBUS `< 6,0 V`), sehingga tegangan VBUS tetap `>= 5,0 V` selama `hvdcp_opti` mengeksekusi pulsa QC 3.0 (`5 V -> 9 V`), lalu langsung melepas penuh ke `3150 mA` FCC / `3000 mA` USB begitu tegangan tinggi tercapai atau `>= 5` detik.
+  - Membatasi `probe_silicon_usb_current_max_ua` pada `pm660`/`qpnp-smb2` agar mematuhi batas keras hardware `usb/hw_current_max` (`3000 mA`), serta menghentikan penulisan ke register baca-saja `hw_current_max`, `voltage_max_design`, dan kunci `0444` pada sysfs Qualcomm maupun `pd_voltage_max`/`pd_current_max` non-PD.
+  - Mengganti pemicuan `rerun_aicl = 1` tiap 60 detik di `tick()` dengan `should_trigger_qcom_aicl_kick` yang terukur (tidak menembak `rerun_aicl` saat `VBUS < 4,6 V` atau saat `USB_ICL >= 1,5 A`, dengan jeda 300 detik dan maksimal 2 kali per sesi colok) serta menyelaraskan ambang `should_qcom_hyper_invariants_pass` pada SoC `>= 85%` agar tidak memicu siklus ulang setiap 4 detik.
+  - Memperbaiki `apply_qcom_thermal_engine_bind_mount` agar mendeteksi serta membersihkan seluruh tumpukan bind mount ganda pada `thermal-engine.conf` dan memasang tepat 1 kali secara bersih.
+  - Jalur pengisian MediaTek / Infinix (`RT9759` / `RT9471`) tetap terlindungi penuh tanpa perubahan perilaku kecepatan.
+
+### Gaming Engine, Memory & CPU/GPU Isolation (`device_tier.rs`, `game.rs`, `memory.rs`, `translator.rs`)
+- **Anti-Swap & Anti-Stall Gaming MicroSD (`swappiness=1` + `memcg=1` + `wsf=125` + `efk=48 MB` + `extfrag=750`)**:
+  - Menurunkan `vm.swappiness` & batas bawah clamp `/dev/memcg/*/memory.swappiness` ke `1` khusus saat gaming aktif di `has_mountx_sd` (`performance`/`extreme`) sambil menjaga `vfs_cache_pressure=100`, serta menaikkan async `kswapd` headroom ke `watermark_scale_factor=125` + `extra_free_kbytes=49152` (`48 MB`) dan `extfrag_threshold=750` (restorasi otomatis ke `swappiness=60`, `memcg=60`, `extfrag=850` saat `game_off`).
+- **Isolasi Core Besar Dinamis (`foreground/cpus` Non-Prime + `sched_energy_aware=0`), Mali Preemption `10 ms`, & Boost `Worker Thread`**:
+  - Mengisolasi `foreground/cpus` ke cluster non-prime secara dinamis pada SoC heterogen (`0-5` pada 6+2) dan menonaktifkan `sched_energy_aware` saat gaming (menyimpan & mengembalikan state asli secara otomatis saat `game_off`), menurunkan `mali/js_scheduling_period` ke `10 ms` saat gaming (`100 ms` saat idle), serta menaikkan prioritas `Worker Thread` Unity ke `nice -10` di dalam worker pool non-prime.
+
+# Lynx Universal [Pemulihan Kecepatan Cold Charging Qualcomm 3000mA+, Eliminasi Loop AICL/APSD 1 Hz & Proteksi Invarian QC 3.0] 7.0.0-RC474
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.93
+
+### Native Core & Charging Regulator (`native/lynxd/src/hardware/charging.rs`)
+- **Pemulihan Kecepatan Cold Charging 3000 mA+ pada Qualcomm (`qpnp-smb2` / `pm660`)**:
+  - Menghilangkan pemicuan otomatis `rerun_apsd = 1` dari loop `tick()` yang sebelumnya mereset garis D+/D- saat QC 3.0 INOV berjalan di tegangan 5,2V–6,4V dan menjatuhkan pengisian ke 5V DCP `<= 1500 mA`.
+  - Memperbaiki pemeriksaan `invariants_intact` (`should_qcom_hyper_invariants_pass`) pada `apply_from_config` dengan masa tenggang negosiasi cold-plug (`< 8 dtk`), toleransi 9V HVDCP (`adpv >= 6,5 V`), dan jalur cepat arus aktif `>= 2500 mA` agar tidak memicu badai re-inisialisasi `apply_hyper_mode()` & `rerun_aicl = 1` setiap 1 detik (`1 Hz`).
+  - Memperbaiki `clear_bypass_hardware_state` agar tidak menimpa `PLUGGED_AT_EPOCH` atau menjalankan `dumpsys battery reset` berulang saat tidak keluar dari mode bypass, serta memindahkan `rerun_aicl` keluar dari `apply_extreme_charging` agar negosiasi awal charger tidak terputus di detik ke-0.
+  - Menjaga kalibrasi `3,15 A` tanpa write `3,2 A` ke `usb/current_max` pada PM660/SMB2 (`probe_silicon_charge_ceiling_ua` / `probe_silicon_usb_current_max_ua`), menjaga akses tulis sysfs Qualcomm (`0666`) pada crawler dinamis, dan menambahkan `pick_charge_control_limit_value` agar indeks termal `0..20` tidak ditimpa nilai mikroampere.
+  - Memperbaiki kurva `calculate_adaptive_charge_current_ma` khusus Qualcomm single-PMIC agar tidak memangkas target arus lebih dini akibat kenaikan voltase IR-drop (`>= 4380 mV`) sebelum `85%` SoC, sementara logika MediaTek / Infinix (`RT9759` / `PE+`) tetap dipertahankan 100%.
+
 # Lynx Universal [Perombakan Modern Tab Jendela Lynx Engine: Bento Subtabs, Live Phone Mockup Preview, & Instant Search Dock App Manager] 7.0.0-RC473
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.92

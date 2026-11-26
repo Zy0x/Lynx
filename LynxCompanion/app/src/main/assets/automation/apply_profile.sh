@@ -987,12 +987,17 @@ case "$PROFILE" in
                 write_node "0" "/sys/devices/platform/charger/BN_TestMode"
                 write_node "0" "/sys/class/power_supply/battery/input_suspend"
                 write_node "1" "/sys/class/power_supply/battery/charging_enabled"
-                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current_max"
-                write_node "6000000" "/sys/class/power_supply/battery/constant_charge_current"
-                write_node "6000000" "/sys/class/power_supply/main/current_max"
-                write_node "6000000" "/sys/class/power_supply/usb/current_max"
+                usb_cap="3000000"
+                [ -f /sys/class/power_supply/usb/hw_current_max ] && read -r hw_cap < /sys/class/power_supply/usb/hw_current_max 2>/dev/null && [ "${hw_cap:-0}" -ge 1500000 ] 2>/dev/null && [ "$hw_cap" -le 3000000 ] 2>/dev/null && usb_cap="$hw_cap"
+                if [ -d /sys/class/power_supply/smb1390 ] || [ -d /sys/class/power_supply/smb1396 ] || [ -d /sys/class/power_supply/charge_pump ] || [ -d /sys/class/power_supply/charge_pump_master ]; then
+                    usb_cap="6000000"
+                fi
+                write_node "3150000" "/sys/class/power_supply/battery/constant_charge_current_max"
+                write_node "3150000" "/sys/class/power_supply/battery/constant_charge_current"
+                write_node "$usb_cap" "/sys/class/power_supply/main/current_max"
+                write_node "$usb_cap" "/sys/class/power_supply/usb/current_max"
                 write_node "0" "/sys/class/qcom-battery/restricted_charging"
-                write_node "6000000" "/sys/class/qcom-battery/restrict_cur"
+                write_node "3150" "/sys/class/qcom-battery/restrict_cur"
                 write_node "1" "/sys/class/power_supply/battery/fastcharge_mode"
             fi
         else

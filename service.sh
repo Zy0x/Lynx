@@ -27,10 +27,11 @@ fi
     # Preserve genuine OEM /vendor/firmware/wifi.cfg RF/EDCCA/antenna calibration on MediaTek gen4m
     # and avoid runtime /proc/net/wlan/{cfg,autoPerfCfg,setCAM} writes that can stall MT6631 FW.
 
-    # Qualcomm Snapdragon thermal-engine override
-    if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ]; then
-        [ -f /vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null || true
-        [ -f /system/vendor/etc/thermal-engine.conf ] && mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /system/vendor/etc/thermal-engine.conf 2>/dev/null || true
+    # Qualcomm Snapdragon thermal-engine override (skip if post-fs-data already bind-mounted)
+    if [ -f "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" ] && [ -f /vendor/etc/thermal-engine.conf ]; then
+        if ! grep -q " /vendor/etc/thermal-engine\.conf " /proc/1/mountinfo 2>/dev/null; then
+            mount -o bind "$MODPATH/platforms/qcom/system/vendor/etc/thermal-engine.conf" /vendor/etc/thermal-engine.conf 2>/dev/null || true
+        fi
     fi
 
     # 2. Dynamic Multi-Vendor Kernel Module Parameter Discovery (Safe Baseline)
