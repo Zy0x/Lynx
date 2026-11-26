@@ -72,6 +72,10 @@ class HudPreferencesStore(context: Context) {
         prefs.edit().putStringSet("mini_metrics_v1", next).apply()
     }
 
+    fun selectBatch(keys: Set<String>) {
+        prefs.edit().putStringSet("mini_metrics_v1", keys).apply()
+    }
+
     fun reset() { prefs.edit().putStringSet("mini_metrics_v1", setOf("fps", "frame_time")).apply() }
 
     fun setFloatingEnabled(value: Boolean) {

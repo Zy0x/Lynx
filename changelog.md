@@ -1,6 +1,27 @@
-# Lynx Universal [Perombakan Ergonomi Subscreen Lynx Engine: EngineTabRow 52dp, Hero Master Bento Card, & Navigasi Aplikasi/Jendela Apung Terfokus] 7.0.0-RC470
+# Lynx Universal [Perombakan Modern Tab Metrik Lynx Engine: Bento Metric Tiles 54dp, Live Preview Mockup, & 1-Click Quick Presets] 7.0.0-RC471
 Released on: 2026-11-26
-> Lynx Kernel Manager v3.4.89
+> Lynx Kernel Manager v3.4.90
+
+### UI/UX & Companion App (`feature/hud/ui/`)
+- **Bento Metric Tiles 54dp Ber-Ikon Semantik (`HudMiniSettings.kt`)**:
+  - Mengeliminasi tombol pilihan abu-abu datar lawas (`HudChoice`) dan menggantinya dengan Bento Metric Tiles modern setinggi 54dp (touch target $\ge 48\text{ dp}$).
+  - Melengkapi setiap metrik dengan ikon semantik spesifik, label tebal, badge satuan monospace (`FPS`, `ms`, `Hz`, `MHz`, `%`, `°C`, `GiB`, `W`, `mA`, `mV`), serta animasi indikator centang cyan.
+- **Kartu Kategori Terstruktur (Expandable Bento Groups)**:
+  - Menggantikan baris kapsul horizontal tersembunyi dengan 4 kartu grup kategori Bento yang rapi dan terorganisir:
+    - 🎮 **Frame Rate & Layar** (FPS Game, 1% Low FPS, Frame Time, Rata-rata Frame, Display Refresh Hz)
+    - ⚡ **Prosesor & Grafis** (Beban CPU, Clock CPU, Beban GPU, Clock GPU)
+    - 🌡️ **Memori & Suhu** (RAM Terpakai, Suhu SoC, Suhu CPU, Suhu GPU)
+    - 🔋 **Daya & Baterai** (Level Baterai, Suhu Baterai, Arus Baterai, Konsumsi Daya, Tegangan Sel)
+  - Dilengkapi badge counter jumlah aktif (`X dari Y aktif`) dan kontrol buka/tutup mandiri.
+- **Interactive Live Preview Mockup Box**:
+  - Menghadirkan kotak preview simulasi HUD mengambang cyberpunk secara real-time yang langsung memperlihatkan contoh tata letak metrik yang sedang dipilih pengguna.
+- **Pintasan Cepat 1-Klik (Quick Preset Bar)**:
+  - ⚡ **Esport**: Otomatis memilih *FPS + 1% Low + Frame Time*.
+  - ⚖️ **Hardware**: Otomatis memilih *FPS + CPU Load + GPU Load + Suhu SoC*.
+  - 🔥 **Lengkap**: Otomatis memilih seluruh metrik penting telemetri hardware.
+  - 🔄 **Reset**: Mengembalikan konfigurasi ke bawaan default.
+- **Master Pin Bento Card**:
+  - Merapikan sakelar pin overlay ke dalam Bento Card beraksen dengan pulsing liveness dot dan switch tactile 48dp.
 
 ### UI/UX & Companion App (`feature/hud/ui/`)
 - **EngineTabRow Standar Ergonomis 52dp (`EngineTabRow.kt`, `TuningTabSubscreenPagers.kt`)**:
