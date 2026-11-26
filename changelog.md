@@ -1,3 +1,34 @@
+# Lynx Universal [Perombakan Modern Tab Perekaman Lynx Engine: Hero Studio Bento, 4-Segment Subtabs, Audio Internal & Stealth Privacy] 7.0.0-RC476
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.95
+
+### UI/UX & Companion App (`feature/hud/ui/HudRecorderControls.kt`)
+- **Hero Studio Recording Bento Card (`HudRecorderControls.kt`)**:
+  - Merombak total antarmuka perekaman game menjadi **Studio Bento Card** beraksen dinamis:
+    - *Liveness status pulse dot*: `● STUDIO SIAP MEREKAM` (Cyan) vs `🔴 SEDANG MEREKAM GAME` (Neon Red beranimasi pulsing).
+    - *Active telemetry badges*: Menampilkan resolusi ril (`880×1920 px`), bitrate aktif (`16 Mbps`), mode audio (`🔊 Game Murni`), dan privasi (`🛡️ Stealth: AKTIF`).
+    - *Tactile Hero CTA Record button*: Tombol kendali berukuran penuh ($\ge 52\text{ dp}$ touch target) dengan getaran respon sentuh, transisi warna semantik saat merekam (`⏹️ HENTIKAN & SIMPAN REKAMAN`), dan deteksi fase proses (*Countdown, Recording, Saving, Failed*).
+    - *Quick Last-Recording Card*: Kartu jalan pintas `📁 Buka Rekaman Terakhir Siap Diputar` saat berkas video tersimpan di `/sdcard/Movies/Lynx/`.
+- **RecorderSubtabRow Ergonomis 4-Segment (`HudRecorderControls.kt`)**:
+  - Mengeliminasi deretan pil abu-abu lawas yang mengambang terpisah, menggantinya dengan kontainer navigasi terpadu setinggi 44–48dp dengan 4 sub-halaman:
+    - 🎮 **Studio** (`Icons.Default.Videocam`)
+    - 🎬 **Video** (`Icons.Default.Movie`)
+    - 🎙️ **Audio** (`Icons.Default.Mic`)
+    - ⚙️ **Lanjutan** (`Icons.Default.Tune`)
+- **Subpage 0: Studio Kontrol & Status Hardware GPU (`HudRecorderControls.kt`)**:
+  - Menampilkan panel informasi akselerasi hardware internal SoC (`/system/bin/screenrecord`) yang berjalan di thread mandiri GPU tanpa membebani core CPU game (*zero jank*).
+  - Menampilkan direktori penyimpanan video `/sdcard/Movies/Lynx/` dan tips perekaman instan dari sidebar in-game.
+- **Subpage 1: Kualitas Video & Bitrate Streaming (`HudRecorderControls.kt`)**:
+  - 3 Bento Resolusi Video: **Ringan (720p)** untuk turnamen kompetitif, **Seimbang (1080p)** rekomendasi tajam untuk YouTube/TikTok, dan **Asli (Native)** untuk kualitas piksel 1:1 fisik layar.
+  - 4 Bento Bitrate: **4 Mbps** (~30 MB/mnt), **8 Mbps** (~60 MB/mnt), **16 Mbps** (~120 MB/mnt), dan **24 Mbps** Ultra Studio (~180 MB/mnt).
+- **Subpage 2: Sumber Audio Game & Reaksi (`HudRecorderControls.kt`)**:
+  - 4 Bento Sumber Suara: **Tanpa Suara (Mati)** untuk file paling hemat, **Mikrofon Saja** untuk rekaman suara luar, **Audio Game Murni (Internal)** rekaman 100% digital tanpa noise sekitar, dan **Campuran (Game + Mikrofon)** untuk video commentary creator.
+  - Banner informasi enkoder internal AAC stereo 48 kHz 192 kbps level kernel.
+- **Subpage 3: Fitur Privasi Stealth & Kompatibilitas (`HudRecorderControls.kt`)**:
+  - **Stealth Overlay (Anti-Bocor)**: Switch proteksi privasi untuk menyembunyikan floating windows, dock, dan HUD telemetri dari hasil rekaman video akhir.
+  - **Software Codec Fallback**: Switch darurat untuk menggunakan software encoder `c2.android.avc.encoder` jika GPU encoder tidak stabil pada custom ROM.
+  - Petunjuk manajemen kapasitas penyimpanan dan pemulihan otomatis jika sesi rekaman terhenti mendadak.
+
 # Lynx Universal [Perisai Cold-Plug QC 3.0 Qualcomm, Pembersihan Bind Mount Termal Ganda & Stabilisasi AICL PM660] 7.0.0-RC475
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.94
