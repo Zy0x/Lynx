@@ -1,3 +1,49 @@
+# Lynx Universal [Perombakan Modern Tab Jendela Lynx Engine: Bento Subtabs, Live Phone Mockup Preview, & Instant Search Dock App Manager] 7.0.0-RC472
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.91
+
+### UI/UX & Companion App (`feature/hud/ui/`)
+- **Master Floating Hero Card (`HudFloatingSettings.kt`)**:
+  - Merombak sakelar utama aplikasi mengambang menjadi Bento Hero Card modern beraksen `AccentCyan` dengan pulsing liveness dot (`AKTIF • Siap Diluncurkan dari Dock`), ikon `PictureInPicture`, subtitle informatif, dan switch tactile 50dp.
+  - Menghadirkan kartu panduan bantuan saat fitur dalam status nonaktif sehingga pengguna memahami fungsionalitas multitasking mini.
+- **FloatingSubtabRow Ergonomis 4-Segment (`HudFloatingSettings.kt`)**:
+  - Mengeliminasi deretan pil abu-abu terpisah yang sebelumnya terpotong pada layar ponsel, menggantinya dengan Subtab Row terpadu setinggi 44–48dp dengan 4 seksi berlabel dan berikon:
+    - ⚙️ **Engine** (`Icons.Default.Memory`)
+    - 📐 **Ukuran** (`Icons.Default.AspectRatio`)
+    - 📱 **Aplikasi (N)** (`Icons.Default.Apps`) dengan badge counter jumlah aplikasi aktif
+    - ℹ️ **Panduan** (`Icons.Default.Info`)
+- **Dual Bento Engine Selection (`HudFloatingSettings.kt`)**:
+  - Menghadirkan kartu seleksi engine berdesain Bento modern dengan badge semantik:
+    - **Lynx Virtual (Root Engine)**: Disertai badge `⭐ REKOMENDASI LYNX` dan penjelasan keunggulan stabilitas root virtual display.
+    - **Freeform ROM Native**: Disertai badge `SISTEM AOSP/MIUI` dan keterangan kebutuhan fitur multi-window bawaan ROM.
+- **Interactive Phone Screen Mockup & 4 Quick Size Bento Tiles (`HudFloatingSettings.kt`)**:
+  - Menghadirkan siluet layar ponsel miniatur interaktif yang menampilkan pratinjau proporsional ukuran jendela mengambang secara langsung (*live aspect ratio preview*) saat pengguna memilih preset atau menggeser slider.
+  - Menyediakan 4 preset Bento instan:
+    - 📱 **Kompak** (55% × 50%) — Cocok untuk kalkulator & chat
+    - 💻 **Standar** (70% × 65%) — Seimbang untuk multitasking umum
+    - 🖥️ **Besar** (85% × 80%) — Lega untuk browser & video streaming
+    - ⚙️ **Kustom** — Bebas mengatur persentase lebar dan tinggi
+  - Slider kustom tactile dengan chip nilai monospace presisi dan batas sentuh $\ge 48\text{ dp}$.
+- **Dock App Manager Modern dengan Pencarian Instan & Filter Chips (`HudAppManager.kt`)**:
+  - Menambahkan **Search Bar Cepat** (`OutlinedTextField`) untuk mencari nama aplikasi atau paket dalam 0 ms di antara ratusan aplikasi yang terpasang.
+  - Menambahkan **Filter Pills**: `Semua`, `Terpilih`, dan `Lainnya` untuk navigasi kilat aplikasi dock.
+  - Memperbarui ubin aplikasi menjadi Bento Tile modern dengan touch target $\ge 48\text{ dp}$, ikon resolusi tinggi 30dp, label tebal, package monospace, dan chip status ukuran kustom.
+  - Mengintegrasikan editor urutan dock (Naik / Turun) dan penyesuaian ukuran khusus per-aplikasi dengan animasi buka/tutup halus.
+  - Menggantikan teks kosong saat pemindaian awal dengan indikator loading circular yang elegan.
+- **Kartu Panduan & Gestur Praktis (`HudFloatingSettings.kt`)**:
+  - Menyertakan instruksi visual cara memindahkan jendela (drag header), mengubah ukuran (drag corner), meminimalkan (_), dan menutup jendela (X), serta panduan alokasi RAM per jendela.
+
+# Lynx Universal [Optimalisasi MicroSD Gaming DMA 1024KB, Read-Ahead 256KB, & Penjadwalan Thread Unity Job.Worker / Asset Loader] 7.0.0-RC472
+Released on: 2026-11-26
+> Lynx Kernel Manager v3.4.91
+
+### Native Rust Engine (`native/lynxd/`)
+- **Full Hardware MicroSD DMA Burst & Balanced Streaming Window (`hardware/storage.rs`, `subsystems/game.rs`)**:
+  - Menaikkan `read_ahead_kb` profil *Performance/Extreme* khusus MicroSD dari `128 KB` ke **`256 KB`** (selaras dengan blok streaming aset `.blk` 64 KB tanpa amplifikasi baca berlebih).
+  - Membuka batas `max_sectors_kb` saat Game Mode pada disk yang dikelola MountX hingga **`1024 KB`** (dibatasi aman ke `max_hw_sectors_kb`, lengkap dengan snapshot & pemulihan otomatis saat keluar game), menghilangkan pemecahan transaksi DMA 4× lipat untuk pembacaan sekuensial penuh hingga **`85 MB/s`**.
+- **Prioritas Lintas-Core untuk Engine Loader & Unity Job Workers (`subsystems/game.rs`)**:
+  - Memindahkan klasifikasi `Job.Worker`, `UnityJob`, `MHYLoadThreadWo`, `AsyncReadManage`, `AssetBundle`, dan `FileIO` ke atas filter generik `worker/job` agar thread pemuatan aset dan verifikasi game dijadwalkan sebagai `EngineHeavyWorker` (`nice -12`, seluruh core) tanpa menumpuk di satu core efisiensi.
+
 # Lynx Universal [Perombakan Modern Tab Metrik Lynx Engine: Bento Metric Tiles 54dp, Live Preview Mockup, & 1-Click Quick Presets] 7.0.0-RC471
 Released on: 2026-11-26
 > Lynx Kernel Manager v3.4.90

@@ -268,13 +268,18 @@ impl GameController {
                         let wexp = SysfsReader::read_trimmed(dev.queue_path.join("iosched/write_expire")).unwrap_or_else(|_| "350".into());
                         let batch = SysfsReader::read_trimmed(dev.queue_path.join("iosched/fifo_batch")).unwrap_or_else(|_| "16".into());
                         let starv = SysfsReader::read_trimmed(dev.queue_path.join("iosched/writes_starved")).unwrap_or_else(|_| "4".into());
-                        let _ = fs::write(orig_path, format!("{}|{}|{}|{}|{}|{}|{}\n", dev.name, ra, nr, rexp, wexp, batch, starv));
+                        let maxsec = SysfsReader::read_trimmed(dev.queue_path.join("max_sectors_kb")).unwrap_or_else(|_| "512".into());
+                        let _ = fs::write(orig_path, format!("{}|{}|{}|{}|{}|{}|{}|{}\n", dev.name, ra, nr, rexp, wexp, batch, starv, maxsec));
                     }
                     if let Some(params) = crate::hardware::storage::StoragePolicy::profile_targets(dev, "performance") {
                         Self::apply_game_block_params(&dev.queue_path, &params);
                         Self::write_opt(dev.queue_path.join("iosched/front_merges"), "1");
-                        // Cap single SD DMA request to 256KB so giant 1MB bursts never head-of-line block random .blk asset slices
-                        Self::write_opt(dev.queue_path.join("max_sectors_kb"), "256");
+                        // Unlock full hardware DMA burst up to 1024KB so AUTOCMD23 transfers run unsplit
+                        // (eliminating 4x CMD/IRQ overhead vs 256KB cap during asset/verification streaming).
+                        let hw_max = SysfsReader::read_int::<u32>(dev.queue_path.join("max_hw_sectors_kb"))
+                            .unwrap_or(512);
+                        let target_maxsec = hw_max.min(1024).max(256);
+                        Self::write_opt(dev.queue_path.join("max_sectors_kb"), target_maxsec.to_string());
                     }
                 }
                 continue;
@@ -655,6 +660,9 @@ impl GameController {
                     Self::write_opt(q.join("iosched/fifo_batch"), parts[5]);
                     if parts.len() >= 7 {
                         Self::write_opt(q.join("iosched/writes_starved"), parts[6]);
+                    }
+                    if parts.len() >= 8 {
+                        Self::write_opt(q.join("max_sectors_kb"), parts[7]);
                     }
                 }
             }
@@ -1317,6 +1325,23 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
     if lower.contains("audio") || lower.contains("sound") || lower.contains("fmod") || lower.starts_with("ak::") {
         return ThreadRole::AudioRealtime;
     }
+    // Engine multi-render, Unity Job.Worker, & active asset/shader/file I/O loader threads run strongly
+    // across all CPU cores (checked BEFORE generic worker/job catch-all so Job.Worker / MHYLoadThreadWo
+    // never pile onto a single little core during open-world streaming or integrity verification).
+    if lower.contains("multirend")
+        || lower.contains("nativethread")
+        || lower.contains("asyncread")
+        || lower.contains("loadthread")
+        || lower.contains("shaderload")
+        || lower.contains("mhyload")
+        || lower.starts_with("job.worker")
+        || lower.contains("unityjob")
+        || lower.contains("assetbundle")
+        || lower.contains("fileio")
+    {
+        return ThreadRole::EngineHeavyWorker;
+    }
+
     if lower.contains("worker")
         || lower.starts_with("job")
         || lower.contains("network")
@@ -1337,16 +1362,6 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
         || lower.contains("gcd")
     {
         return ThreadRole::BackgroundHelper;
-    }
-
-    // Engine multi-render & active asset/shader decompress threads run strongly across shared pool
-    if lower.contains("multirend")
-        || lower.contains("nativethread")
-        || lower.contains("asyncread")
-        || lower.contains("loadthread")
-        || lower.contains("shaderload")
-    {
-        return ThreadRole::EngineHeavyWorker;
     }
 
     // Primary render backend (Unity, Unreal RHI/RenderThread, Vulkan/GLES render)
@@ -1440,6 +1455,7 @@ mod tests {
         assert_eq!(classify_thread_role("NativeThread", 145, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("ShaderLoadManag", 90, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("Job.Worker 0", 85, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("mali-cmar-backe", 110, "game"), ThreadRole::GpuDriverWorker);
         assert_eq!(classify_thread_role("IL2CPP Threadpo", 120, "game"), ThreadRole::BackgroundHelper);
