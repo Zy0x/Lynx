@@ -58,7 +58,7 @@ impl MemoryController {
         Self::write_opt("/sys/module/page_writeback/parameters/vm_dirty_ratio", &dirty_ratio);
         Self::write_opt("/proc/sys/vm/dirty_expire_centisecs", &dirty_expire);
         Self::write_opt("/proc/sys/vm/dirty_writeback_centisecs", &dirty_writeback);
-        Self::write_opt("/proc/sys/vm/extfrag_threshold", "250");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "750");
         Self::write_opt("/proc/sys/vm/oom_kill_allocating_task", "0");
         Self::write_opt("/proc/sys/vm/oom_dump_tasks", "0");
         Self::write_opt("/proc/sys/vm/overcommit_ratio", "80");
@@ -377,7 +377,7 @@ impl MemoryController {
         let memcg = if vm_swappiness == 0 {
             0
         } else {
-            vm_swappiness.clamp(10, 60)
+            vm_swappiness.clamp(1, 60)
         };
         (direct, memcg)
     }
@@ -646,7 +646,8 @@ mod tests {
 
     #[test]
     fn swappiness_controls_sync_direct_and_memcg_without_starving_file_cache() {
-        assert_eq!(MemoryController::derived_swappiness_targets(8), (5, 10));
+        assert_eq!(MemoryController::derived_swappiness_targets(1), (1, 1));
+        assert_eq!(MemoryController::derived_swappiness_targets(8), (5, 8));
         assert_eq!(MemoryController::derived_swappiness_targets(10), (5, 10));
         assert_eq!(MemoryController::derived_swappiness_targets(15), (5, 15));
         assert_eq!(MemoryController::derived_swappiness_targets(40), (13, 40));

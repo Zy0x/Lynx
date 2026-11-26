@@ -215,7 +215,7 @@ impl GameController {
         for entry in MtkHardware::mali_sysfs_paths() {
             Self::write_opt(entry.join("dvfs_period"), "10");
             Self::write_opt(entry.join("power_policy"), "always_on");
-            Self::write_opt(entry.join("js_scheduling_period"), "50");
+            Self::write_opt(entry.join("js_scheduling_period"), "10");
             Self::write_opt(entry.join("js_ctx_scheduling_mode"), "0");
             crate::subsystems::GpuController::sync_mali_mempool_dir(&entry, mali_4k, mali_2m);
         }
@@ -237,6 +237,7 @@ impl GameController {
         Self::write_opt(MtkHardware::PERFMGR_BIG_TASK_ROTATION, "1");
         let cap_for_irq = HardwareCapability::resolve();
         let topo_for_irq = TopologyMasks::from_policies(&cap_for_irq.cpu.policies, cap_for_irq.cpu.total_cores);
+        Self::isolate_prime_cores_for_game(&topo_for_irq);
         Self::offload_heavy_irqs(&topo_for_irq);
         Self::offload_kswapd_kcompactd(topo_for_irq.little_mask);
         Self::pin_self_to_little(topo_for_irq.little_mask);
@@ -345,7 +346,7 @@ impl GameController {
             Self::write_opt("/proc/sys/kernel/sched_migration_cost_ns", "1500000");
         }
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
-        Self::write_opt("/proc/sys/vm/extfrag_threshold", "250");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "750");
         Self::write_opt("/proc/sys/vm/compact_unevictable_allowed", "0");
         Self::ensure_unfragmented_normal_zone();
         Self::write_opt("/proc/sys/vm/min_free_kbytes", vm.min_free_kbytes.to_string());
@@ -516,6 +517,7 @@ impl GameController {
         } else {
             crate::subsystems::GpuController::apply_freq_ephemeral(0, Some(0));
         }
+        Self::restore_prime_cores_after_game();
         Self::restore_offloaded_irqs();
 
         // Restore MediaTek GPU limit table (Re-enable THERMAL ID 3 & PBM ID 7)
@@ -610,6 +612,7 @@ impl GameController {
         Self::write_opt("/proc/sys/vm/extra_free_kbytes", vm.extra_free_kbytes.to_string());
         Self::write_opt("/proc/sys/vm/watermark_scale_factor", vm.watermark_scale_factor.to_string());
         Self::write_opt("/proc/sys/vm/watermark_boost_factor", "0");
+        Self::write_opt("/proc/sys/vm/extfrag_threshold", "850");
 
         for id in 0..16 {
             Self::write_opt(
@@ -818,7 +821,8 @@ impl GameController {
                     .map(|s| Self::parse_stat_ticks(&s))
                     .unwrap_or(0);
                 let role = classify_thread_role(&comm, ticks, &proc_comm);
-                threads.push(ThreadInfo { tid, ticks, role });
+                let is_engine_worker_pool = comm.eq_ignore_ascii_case("Worker Thread");
+                threads.push(ThreadInfo { tid, ticks, role, is_engine_worker_pool });
             }
         }
 
@@ -899,8 +903,10 @@ impl GameController {
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
                     // Quarantine non-critical workers & background pools strictly off prime cores
                     // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
+                    // Elevate Unity's core "Worker Thread" culling/animation/decompression pool to nice -10
+                    // inside the non-prime worker mask so frame preparation finishes faster without touching prime cores.
                     ThreadRole::ActiveGeneric => (worker_mask, 0),
-                    ThreadRole::BackgroundHelper => (worker_mask, 0),
+                    ThreadRole::BackgroundHelper => (worker_mask, if t.is_engine_worker_pool { -10 } else { 0 }),
                 };
                 Self::set_thread_affinity_and_nice(t.tid, mask, nice);
             }
@@ -1018,6 +1024,69 @@ impl GameController {
                 }
             }
         }
+    }
+
+    /// Confines non-top-app `foreground` cpuset to non-prime cores and disables EAS overhead while
+    /// a game holds max-boosted clocks, saving original state for exact restoration on `game_off`.
+    fn isolate_prime_cores_for_game(topo: &TopologyMasks) {
+        if topo.has_asymmetric_worker_pool() {
+            let prime_mask: u64 = topo
+                .prime_cores
+                .iter()
+                .fold(0u64, |acc, &c| if c < 64 { acc | (1u64 << c) } else { acc });
+            let non_prime_mask = topo.all_mask & !prime_mask;
+            let non_prime_list = mask_to_cpuset_list(non_prime_mask);
+            if !non_prime_list.is_empty() {
+                let fg_save = Path::new("/dev/lynx_orig_fg_cpus");
+                if !fg_save.exists() {
+                    if let Some(orig) = Self::read_trimmed("/dev/cpuset/foreground/cpus")
+                        .or_else(|| Self::read_trimmed("/sys/fs/cgroup/cpuset/foreground/cpus"))
+                    {
+                        let _ = fs::write(fg_save, orig);
+                    }
+                }
+                Self::write_opt("/dev/cpuset/foreground/cpus", &non_prime_list);
+                Self::write_opt("/sys/fs/cgroup/cpuset/foreground/cpus", &non_prime_list);
+            }
+        }
+        let eas_path = Path::new("/proc/sys/kernel/sched_energy_aware");
+        if eas_path.exists() {
+            let eas_save = Path::new("/dev/lynx_orig_eas");
+            if !eas_save.exists() {
+                if let Some(orig) = Self::read_trimmed(eas_path) {
+                    let _ = fs::write(eas_save, orig);
+                }
+            }
+            Self::write_opt(eas_path, "0");
+        }
+    }
+
+    fn restore_prime_cores_after_game() {
+        let fg_save = Path::new("/dev/lynx_orig_fg_cpus");
+        let fg_restore = fs::read_to_string(fg_save)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| {
+                let cap = HardwareCapability::resolve();
+                let max_cpu = cap.cpu.total_cores.saturating_sub(1);
+                format!("0-{}", max_cpu)
+            });
+        Self::write_opt("/dev/cpuset/foreground/cpus", &fg_restore);
+        Self::write_opt("/sys/fs/cgroup/cpuset/foreground/cpus", &fg_restore);
+        let _ = fs::remove_file(fg_save);
+
+        let eas_path = Path::new("/proc/sys/kernel/sched_energy_aware");
+        let eas_save = Path::new("/dev/lynx_orig_eas");
+        if eas_path.exists() {
+            let eas_restore = fs::read_to_string(eas_save)
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "1".to_string());
+            Self::write_opt(eas_path, &eas_restore);
+        }
+        let _ = fs::remove_file(eas_save);
     }
 
     fn offload_heavy_irqs(topo: &TopologyMasks) {
@@ -1206,6 +1275,7 @@ struct ThreadInfo {
     tid: u32,
     ticks: u64,
     role: ThreadRole,
+    is_engine_worker_pool: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -1282,6 +1352,29 @@ impl TopologyMasks {
         let non_prime = self.all_mask & !prime_mask;
         non_prime != 0
     }
+}
+
+pub(crate) fn mask_to_cpuset_list(mask: u64) -> String {
+    if mask == 0 {
+        return String::new();
+    }
+    let mut ranges: Vec<String> = Vec::new();
+    let mut cpu = 0usize;
+    while cpu < 64 {
+        if (mask & (1u64 << cpu)) != 0 {
+            let start = cpu;
+            while cpu + 1 < 64 && (mask & (1u64 << (cpu + 1))) != 0 {
+                cpu += 1;
+            }
+            if start == cpu {
+                ranges.push(start.to_string());
+            } else {
+                ranges.push(format!("{}-{}", start, cpu));
+            }
+        }
+        cpu += 1;
+    }
+    ranges.join(",")
 }
 
 pub(crate) fn parse_cpu_list(spec: &str) -> Vec<usize> {

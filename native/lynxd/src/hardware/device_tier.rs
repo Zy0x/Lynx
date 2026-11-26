@@ -191,11 +191,11 @@ impl DeviceTier {
         }
 
         // MountX MicroSD active gaming long-session protection:
-        // Live 2-minute 39MB open-world streaming trace showed wsf=80 + efk=24576 still hit
-        // zone Normal order-4+ depletion (allocstall=10, compact_stall=21, pgscan_direct=44).
-        // wsf=100 + efk=32768 (~120MB async kswapd runway) eliminates direct stalls cleanly.
+        // Live 2-minute traces showed wsf=80/efk=24576 hit allocstall=10 and wsf=100/efk=32768
+        // with swappiness=1 still hit allocstall=2/compact_stall=3/pgscan_direct=271.
+        // wsf=125 + efk=49152 (~140MB async kswapd runway) restores 0/0/0 direct stalls cleanly.
         if self.has_mountx_sd && matches!(profile, "extreme" | "performance" | "gaming" | "game") {
-            return (100, 32768);
+            return (125, 49152);
         }
 
         // Secondary microSD presence on full-duplex UFS/NVMe systems must not halve /data VM buffers.
@@ -296,7 +296,9 @@ impl DeviceTier {
                 swappiness: if self.is_low_end_ram {
                     35
                 } else if self.has_mountx_sd {
-                    10
+                    // Minimize Unity anon swap-out/swap-in faults while vfs_cache_pressure=100
+                    // cleanly recycles stale MountX .blk file caches first.
+                    1
                 } else if is_high_ram_zram {
                     60
                 } else {
@@ -317,7 +319,7 @@ impl DeviceTier {
                 swappiness: if self.is_low_end_ram {
                     35
                 } else if self.has_mountx_sd {
-                    10
+                    1
                 } else if is_high_ram_zram {
                     60
                 } else {
@@ -540,10 +542,10 @@ mod tests {
 
         let ufs8g_sd = DeviceTier::classify_with_vm_caps(7812, Some(BlockDeviceType::Ufs), false, true, true, true);
         let ufs8g_sd_ext = ufs8g_sd.vm_profile_targets("extreme");
-        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 80);
-        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 24576);
-        assert_eq!(ufs8g_sd_ext.swappiness, 10);
-        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 50);
+        assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 125);
+        assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 49152);
+        assert_eq!(ufs8g_sd_ext.swappiness, 1);
+        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 100);
         assert_eq!(ufs8g_sd_ext.dirty_writeback_cs, 1500);
         assert_eq!(ufs8g_sd_ext.dirty_expire_cs, 3000);
 
