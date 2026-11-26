@@ -1,6 +1,6 @@
-# Lynx Universal [Perombakan Modern Tab Jendela Lynx Engine: Bento Subtabs, Live Phone Mockup Preview, & Instant Search Dock App Manager] 7.0.0-RC472
+# Lynx Universal [Perombakan Modern Tab Jendela Lynx Engine: Bento Subtabs, Live Phone Mockup Preview, & Instant Search Dock App Manager] 7.0.0-RC473
 Released on: 2026-11-26
-> Lynx Kernel Manager v3.4.91
+> Lynx Kernel Manager v3.4.92
 
 ### UI/UX & Companion App (`feature/hud/ui/`)
 - **Master Floating Hero Card (`HudFloatingSettings.kt`)**:
