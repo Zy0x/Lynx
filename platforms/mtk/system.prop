@@ -44,9 +44,9 @@ debug.sf.enable_hwc_vds=0
 ro.surface_flinger.supports_background_blur=0
 ro.sf.blurs_are_expensive=1
 
-# ── 4. Expanded Persistent EGL Shader BlobCache (64 MB vs 2 MB single-file cap)
+# ── 4. Expanded Persistent EGL Shader BlobCache (128 MB sweet spot vs 2 MB cap)
 # Verified on Android 14 libEGL.so + Mali r32p1: single-file mode caps & evicts at 2 MB,
 # whereas multifile persists to /data/user_de/0/<pkg>/cache/com.android.opengl.shaders_cache.multifile
-# up to 64 MB, preventing shader eviction hitches when entering new open-world towns/buildings.
+# up to 128 MB (~10k+ Mali shaders) — zero eviction across cross-region teleports without startup bloat.
 debug.egl.blobcache.multifile=true
-debug.egl.blobcache.multifile_limit=67108864
+debug.egl.blobcache.multifile_limit=134217728
