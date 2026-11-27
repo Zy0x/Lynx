@@ -203,7 +203,8 @@ impl LifecycleHooks {
         let _ = MemoryController::apply_ram();
         Self::log_msg("[+] Memory & VM optimizations, Charging & ADB Keep-Alive applied natively via lynxd");
 
-        // 8. Profile Action Execution & Autonomous Daemon Spawning
+        // 8. Profile Action Execution (in-process, avoiding duplicate binary spawn & double network apply)
+        // & Autonomous Daemon Spawning
         let lynxd_bin = format!("{}/system/bin/lynxd", MODPATH);
         let normalized = if active_profile == "balanced" || active_profile == "auto" {
             "balance"
@@ -211,12 +212,23 @@ impl LifecycleHooks {
             active_profile.as_str()
         };
 
-        // Always apply baseline profile initially
-        let _ = Command::new(&lynxd_bin)
-            .args(["profile", "apply", normalized])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        // Apply baseline profile directly in-process via transactional executor
+        if let Some(profile) = crate::profile::get_profile_by_name(normalized) {
+            if crate::profile::ProfileValidator::validate(&profile).is_ok() {
+                let display_name = if crate::profile::user_catalog::resolve_profile(normalized).is_some() {
+                    normalized
+                } else {
+                    profile.name
+                };
+                let plan = crate::apply::ExecutionPlan::build_named(&profile, display_name);
+                if crate::apply::ProfileExecutor::execute(&plan, false).is_ok() {
+                    ConfigStore::sync_baseline_marker(&plan.profile_name);
+                    if plan.profile_name == "performance" || plan.profile_name == "extreme" {
+                        crate::subsystems::NetworkController::apply_game();
+                    }
+                }
+            }
+        }
         Self::log_msg(&format!(
             "[+] Applied baseline profile '{}' via lynxd transactional pipeline",
             normalized

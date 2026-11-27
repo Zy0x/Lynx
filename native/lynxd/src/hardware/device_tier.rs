@@ -352,11 +352,17 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary && !self.is_low_end_ram && !self.has_mountx_sd,
             },
             "powersave" | "battery" => VmProfileTargets {
-                swappiness: if self.is_low_end_ram { 70 } else { 50 },
-                vfs_cache_pressure: if self.has_mountx_sd {
-                    10
-                } else if self.is_emmc_primary {
+                swappiness: if self.is_low_end_ram {
+                    70
+                } else if is_high_ram_zram {
+                    25
+                } else {
                     40
+                },
+                vfs_cache_pressure: if self.is_emmc_primary {
+                    40
+                } else if self.has_mountx_sd {
+                    50
                 } else {
                     85
                 },
@@ -371,20 +377,20 @@ impl DeviceTier {
                 allow_drop_caches_full: !self.is_emmc_primary,
             },
             "balance" | "balanced" | _ => VmProfileTargets {
-                // Keep ZRAM-backed 8GB+ devices at moderate swappiness (50-60) so idle background anon
-                // pages move to compressed ZRAM without stripping active game/MountX file caches.
+                // Keep high-RAM ZRAM devices at low-moderate swappiness (20) and balanced vfs_cache_pressure (50)
+                // so cold-boot / daily DEX/APK read bursts recycle throwaway file caches smoothly instead of
+                // thrashing ZRAM (400MB+ swap storms) and stalling kswapd/direct reclaim, while preserving
+                // higher swappiness (60) for <=4.5GB RAM devices that rely on ZRAM compression.
                 swappiness: if self.is_low_end_ram {
                     60
                 } else if is_high_ram_zram {
-                    if self.has_mountx_sd { 60 } else { 50 }
+                    20
                 } else if self.is_mid_ram || self.is_emmc_primary {
-                    50
+                    35
                 } else {
-                    40
+                    25
                 },
-                vfs_cache_pressure: if self.has_mountx_sd {
-                    10
-                } else if self.is_emmc_primary {
+                vfs_cache_pressure: if self.is_emmc_primary {
                     40
                 } else if self.is_low_end_ram {
                     75
@@ -533,6 +539,8 @@ mod tests {
         assert_eq!(ufs8g_bal.min_free_kbytes, 24576);
         assert_eq!(ufs8g_bal.watermark_scale_factor, 75);
         assert_eq!(ufs8g_bal.extra_free_kbytes, 24576);
+        assert_eq!(ufs8g_bal.swappiness, 20);
+        assert_eq!(ufs8g_bal.vfs_cache_pressure, 50);
         assert_eq!(ufs8g_bal.f2fs_cp_interval_secs, 300);
 
         // 12GB UFS caps step size cleanly without over-scanning normal zone

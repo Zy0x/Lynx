@@ -94,26 +94,8 @@ impl MemoryController {
             Self::write_opt("/sys/kernel/mm/lru_gen/min_ttl_ms", ttl_ms);
         }
 
-        // ActivityManager cached process headroom & phantom process protection
-        let _ = Command::new("device_config")
-            .args(["put", "activity_manager", "max_cached_processes", max_cached])
-            .output();
-        let _ = Command::new("device_config")
-            .args(["put", "activity_manager", "max_phantom_processes", phantom])
-            .output();
-        let _ = Command::new("device_config")
-            .args(["put", "activity_manager", "max_empty_time_millis", "7200000"])
-            .output();
-
-        let _ = Command::new("setprop").args(["persist.sys.fw.bg_apps_limit", bg_limit]).output();
-        let _ = Command::new("resetprop").args(["ro.sys.fw.bg_apps_limit", bg_limit]).output();
-
-        // LMKD (Low Memory Killer Daemon) Tuning
-        let _ = Command::new("resetprop").args(["ro.lmk.swap_free_low_percentage", swap_low_pct]).output();
-        let _ = Command::new("resetprop").args(["ro.lmk.kill_heaviest_task", kill_heaviest]).output();
-        let _ = Command::new("resetprop").args(["ro.lmk.kill_timeout_ms", kill_timeout]).output();
-
-        // Runtime dynamic Dalvik VM Heap enforcement via resetprop
+        // Runtime dynamic Dalvik VM Heap & LMKD / ActivityManager enforcement batched in 1 shell call
+        // (avoids 13 serial subprocess fork/execs during cold boot).
         let (growth_limit, heap_size, start_size, max_free) = if mem.total_ram_mb <= 4500 {
             ("192m", "512m", "8m", "16m")
         } else if mem.total_ram_mb <= 6500 {
@@ -124,11 +106,40 @@ impl MemoryController {
             ("512m", "1024m", "24m", "48m")
         };
 
-        let _ = Command::new("resetprop").args(["dalvik.vm.heapgrowthlimit", growth_limit]).output();
-        let _ = Command::new("resetprop").args(["dalvik.vm.heapsize", heap_size]).output();
-        let _ = Command::new("resetprop").args(["dalvik.vm.heapstartsize", start_size]).output();
-        let _ = Command::new("resetprop").args(["dalvik.vm.heapmaxfree", max_free]).output();
-        let _ = Command::new("resetprop").args(["dalvik.vm.heaptargetutilization", "0.75"]).output();
+        let batch_props = format!(
+            concat!(
+                "setprop persist.sys.fw.bg_apps_limit {bg} 2>/dev/null; ",
+                "if command -v resetprop >/dev/null 2>&1; then ",
+                "resetprop ro.sys.fw.bg_apps_limit {bg} 2>/dev/null; ",
+                "resetprop ro.lmk.swap_free_low_percentage {swap_low} 2>/dev/null; ",
+                "resetprop ro.lmk.kill_heaviest_task {kill_h} 2>/dev/null; ",
+                "resetprop ro.lmk.kill_timeout_ms {kill_t} 2>/dev/null; ",
+                "resetprop dalvik.vm.heapgrowthlimit {gl} 2>/dev/null; ",
+                "resetprop dalvik.vm.heapsize {hs} 2>/dev/null; ",
+                "resetprop dalvik.vm.heapstartsize {ss} 2>/dev/null; ",
+                "resetprop dalvik.vm.heapmaxfree {mf} 2>/dev/null; ",
+                "resetprop dalvik.vm.heaptargetutilization 0.75 2>/dev/null; ",
+                "fi; ",
+                "if command -v device_config >/dev/null 2>&1; then ",
+                "[ \"$(device_config get activity_manager max_cached_processes 2>/dev/null)\" != \"{mc}\" ] && device_config put activity_manager max_cached_processes {mc} 2>/dev/null; ",
+                "[ \"$(device_config get activity_manager max_phantom_processes 2>/dev/null)\" != \"{ph}\" ] && device_config put activity_manager max_phantom_processes {ph} 2>/dev/null; ",
+                "[ \"$(device_config get activity_manager max_empty_time_millis 2>/dev/null)\" != \"7200000\" ] && device_config put activity_manager max_empty_time_millis 7200000 2>/dev/null; ",
+                "fi"
+            ),
+            bg = bg_limit,
+            swap_low = swap_low_pct,
+            kill_h = kill_heaviest,
+            kill_t = kill_timeout,
+            gl = growth_limit,
+            hs = heap_size,
+            ss = start_size,
+            mf = max_free,
+            mc = max_cached,
+            ph = phantom,
+        );
+        let _ = Command::new("/system/bin/sh")
+            .args(["-c", &batch_props])
+            .status();
 
         let default_swap = vm.swappiness.to_string();
         let swap_val = ConfigStore::get("swappiness")

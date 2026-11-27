@@ -71,13 +71,20 @@ impl SystemController {
             }
         }
 
-        // Android settings for perfetto profiler and watchdog
-        let _ = Command::new("settings")
-            .args(["put", "global", "debug.perfetto.profiler.enabled", "0"])
-            .output();
-        let _ = Command::new("settings")
-            .args(["put", "global", "watchdog_enabled", "0"])
-            .output();
+        // Android settings for perfetto profiler and watchdog + running telemetry daemon suppression
+        // Batched in a single shell invocation to avoid 12 serial fork/execs during cold boot.
+        let _ = Command::new("/system/bin/sh")
+            .args([
+                "-c",
+                concat!(
+                    "[ \"$(settings get global debug.perfetto.profiler.enabled 2>/dev/null)\" != \"0\" ] && settings put global debug.perfetto.profiler.enabled 0 2>/dev/null; ",
+                    "[ \"$(settings get global watchdog_enabled 2>/dev/null)\" != \"0\" ] && settings put global watchdog_enabled 0 2>/dev/null; ",
+                    "for d in logcatd tcpdump statsd traced idd-logreader idd-logreadermain dumpstate aplogd vendor_tcpdump vendor.tcpdump; do ",
+                    "[ \"$(getprop init.svc.$d 2>/dev/null)\" = \"running\" ] && stop \"$d\" 2>/dev/null; ",
+                    "done"
+                ),
+            ])
+            .status();
 
         // 4. Printk & Kernel Panic Overhead Reduction
         let panic_nodes = [
@@ -91,15 +98,6 @@ impl SystemController {
                 Self::write_opt(path, val);
                 count += 1;
             }
-        }
-
-        // 5. Universal Telemetry & Logger Daemon Suppression
-        let daemons_to_stop = [
-            "logcatd", "tcpdump", "statsd", "traced", "idd-logreader",
-            "idd-logreadermain", "dumpstate", "aplogd", "vendor_tcpdump", "vendor.tcpdump",
-        ];
-        for d in daemons_to_stop {
-            let _ = Command::new("stop").arg(d).output();
         }
 
         // 6. Platform-Specific Kernel Driver Optimizations (MediaTek & Qualcomm)
@@ -214,7 +212,25 @@ impl SystemController {
             .unwrap_or(false)
     }
 
-    /// Probes Android ELF libraries at runtime and applies lossless OpenGL ES / HWUI optimizations
+    fn graphics_lib_fingerprint(paths: &[&str]) -> String {
+        use std::time::UNIX_EPOCH;
+        let mut fp = String::new();
+        for p in paths {
+            if let Ok(meta) = std::fs::metadata(p) {
+                let mtime = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                fp.push_str(&format!("{}:{}:{};", p, meta.len(), mtime));
+            }
+        }
+        fp
+    }
+
+    /// Probes Android ELF libraries at runtime (with persistent size+mtime cache to avoid
+    /// multi-MB ELF reads on every cold boot) and applies lossless OpenGL ES / HWUI optimizations
     /// (EGL multi-file shader blobcache + HWUI ADPF hint manager + skip empty damage).
     pub fn apply_universal_graphics_pipeline() -> usize {
         let mut applied = 0usize;
@@ -222,49 +238,88 @@ impl SystemController {
         let limit_bytes = Self::compute_adaptive_egl_blobcache_limit_bytes(mem.total_ram_mb);
 
         let egl_libs = ["/system/lib64/libEGL.so", "/system/lib/libEGL.so"];
-        let supports_multifile = egl_libs
-            .iter()
-            .map(Path::new)
-            .any(|p| Self::binary_contains_bytes(p, b"debug.egl.blobcache.multifile"));
-        if supports_multifile {
-            let user_opt_out = std::fs::read_to_string("/data/adb/lynx/user_egl_multifile")
-                .map(|s| s.trim() == "0")
-                .unwrap_or(false);
-            if !user_opt_out {
-                if Self::set_system_prop("debug.egl.blobcache.multifile", "true") {
-                    applied += 1;
-                }
-                if Self::set_system_prop("debug.egl.blobcache.multifile_limit", &limit_bytes.to_string()) {
-                    applied += 1;
-                }
-            }
-        }
-
         let hwui_libs = [
             "/system/lib64/libhwui.so",
             "/system/lib/libhwui.so",
             "/system_ext/lib64/libhwui.so",
             "/system_ext/lib/libhwui.so",
         ];
-        let supports_hint = hwui_libs
-            .iter()
-            .map(Path::new)
-            .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.use_hint_manager"));
+        let all_libs = [
+            "/system/lib64/libEGL.so",
+            "/system/lib/libEGL.so",
+            "/system/lib64/libhwui.so",
+            "/system/lib/libhwui.so",
+            "/system_ext/lib64/libhwui.so",
+            "/system_ext/lib/libhwui.so",
+        ];
+        let fp = Self::graphics_lib_fingerprint(&all_libs);
+        let cache_path = Path::new("/data/adb/lynx/graphics_probe.cache");
+
+        let (supports_multifile, supports_hint, supports_skip_dmg) = std::fs::read_to_string(cache_path)
+            .ok()
+            .and_then(|raw| {
+                let mut lines = raw.lines();
+                let saved_fp = lines.next()?;
+                let flags = lines.next()?;
+                if saved_fp == fp {
+                    let parts: Vec<&str> = flags.split(',').collect();
+                    if parts.len() == 3 {
+                        return Some((parts[0] == "1", parts[1] == "1", parts[2] == "1"));
+                    }
+                }
+                None
+            })
+            .unwrap_or_else(|| {
+                let mf = egl_libs
+                    .iter()
+                    .map(Path::new)
+                    .any(|p| Self::binary_contains_bytes(p, b"debug.egl.blobcache.multifile"));
+                let hint = hwui_libs
+                    .iter()
+                    .map(Path::new)
+                    .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.use_hint_manager"));
+                let dmg = hwui_libs
+                    .iter()
+                    .map(Path::new)
+                    .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.skip_empty_damage"));
+                if !fp.is_empty() {
+                    let _ = std::fs::create_dir_all("/data/adb/lynx");
+                    let _ = std::fs::write(
+                        cache_path,
+                        format!("{}\n{},{},{}\n", fp, mf as u8, hint as u8, dmg as u8),
+                    );
+                }
+                (mf, hint, dmg)
+            });
+
+        let mut prop_cmds: Vec<String> = Vec::new();
+        if supports_multifile {
+            let user_opt_out = std::fs::read_to_string("/data/adb/lynx/user_egl_multifile")
+                .map(|s| s.trim() == "0")
+                .unwrap_or(false);
+            if !user_opt_out {
+                prop_cmds.push("setprop debug.egl.blobcache.multifile true".to_string());
+                prop_cmds.push(format!("setprop debug.egl.blobcache.multifile_limit {}", limit_bytes));
+                applied += 2;
+            }
+        }
         if supports_hint {
             let user_opt_out = std::fs::read_to_string("/data/adb/lynx/user_hwui_hint_mgr")
                 .map(|s| s.trim() == "0")
                 .unwrap_or(false);
-            if !user_opt_out && Self::set_system_prop("debug.hwui.use_hint_manager", "true") {
+            if !user_opt_out {
+                prop_cmds.push("setprop debug.hwui.use_hint_manager true".to_string());
                 applied += 1;
             }
         }
-
-        let supports_skip_dmg = hwui_libs
-            .iter()
-            .map(Path::new)
-            .any(|p| Self::binary_contains_bytes(p, b"debug.hwui.skip_empty_damage"));
-        if supports_skip_dmg && Self::set_system_prop("debug.hwui.skip_empty_damage", "true") {
+        if supports_skip_dmg {
+            prop_cmds.push("setprop debug.hwui.skip_empty_damage true".to_string());
             applied += 1;
+        }
+        if !prop_cmds.is_empty() {
+            let _ = Command::new("/system/bin/sh")
+                .args(["-c", &prop_cmds.join("; ")])
+                .status();
         }
 
         applied

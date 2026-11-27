@@ -45,11 +45,13 @@ class LynxBootReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
 
         val isPackageReplaced = action == Intent.ACTION_MY_PACKAGE_REPLACED
+        val isLockedBoot = action == Intent.ACTION_LOCKED_BOOT_COMPLETED
         val isBootAction = action == Intent.ACTION_BOOT_COMPLETED ||
-            action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
             action == "android.intent.action.QUICKBOOT_POWERON"
 
-        if (!isPackageReplaced && !isBootAction) return
+        // Never run heavy root/libsu sync during Direct Boot (LOCKED_BOOT_COMPLETED) while
+        // credential-encrypted storage is locked and native `lynxd boot` is still staging.
+        if (isLockedBoot || (!isPackageReplaced && !isBootAction)) return
 
         Log.i("LynxBootReceiver", "System/Package broadcast received: $action")
         val pendingResult = goAsync()
