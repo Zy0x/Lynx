@@ -554,7 +554,14 @@ impl DaemonRunner {
             let screen_on = current_screen == ScreenState::On;
             let bat_changed = bat_pct != last_tmp_bat_pct;
             let tier = crate::hardware::DeviceTier::cached_live();
-            let tele_mirror_interval = if tier.is_emmc_primary { 3u64 } else { 2u64 };
+            let is_plugged_now = ChargingRegulator::is_hardware_plugged();
+            let tele_mirror_interval = if !is_plugged_now && (active_prof == "balance" || active_prof == "powersave") {
+                5u64
+            } else if tier.is_emmc_primary {
+                3u64
+            } else {
+                2u64
+            };
 
             let mirror_status_tmp = status_changed
                 || (screen_on && (bat_changed || now.saturating_sub(last_tmp_status_sync) >= 30));
@@ -605,7 +612,16 @@ impl DaemonRunner {
             } else {
                 match current_screen {
                     ScreenState::Off => Duration::from_secs(20), // Deep Sleep Shield: 20 seconds
-                    _ => Duration::from_secs(1),                // Active screen: 1 second for instant responsiveness
+                    _ => {
+                        if (active_prof == "balance" || active_prof == "powersave")
+                            && !crate::daemon::TouchDetector::is_touch_recent(2000)
+                            && !crate::daemon::TouchDetector::is_finger_down()
+                        {
+                            Duration::from_secs(2) // Stationary daily idle: halve daemon wakeups while keeping <=1s plug-in checks
+                        } else {
+                            Duration::from_secs(1) // Active touch / gaming: 1 second for instant responsiveness
+                        }
+                    }
                 }
             };
 
@@ -655,34 +671,52 @@ impl DaemonRunner {
                     }
                 }
             } else {
-                // Active screen (unplugged): 1s sleep in 250ms chunks checking lifecycle and charger plug-in
-                let chunks = (sleep_duration.as_millis() / 250).max(1);
-                for _ in 0..chunks {
-                    if !DaemonLifecycle::is_running() {
-                        break;
-                    }
-                    let currently_plugged = ChargingRegulator::is_hardware_plugged();
-                    if currently_plugged {
-                        // Cable plugged in while screen is active: break sleep loop immediately
-                        break;
-                    }
-                    sleep(Duration::from_millis(250));
+                // Active screen (unplugged):
+                // - During active touch or gaming profiles: 250ms sub-cycle ticks for instant 60<->120Hz & GPU scaling.
+                // - During stationary reading/idle in Balance/Powersave: single clean sleep (<=1000ms) to avoid 4x/sec CPU wakeups.
+                let needs_subcycle = active_prof == "performance"
+                    || active_prof == "extreme"
+                    || crate::daemon::TouchDetector::is_touch_recent(1500)
+                    || crate::daemon::TouchDetector::is_finger_down();
+                if needs_subcycle {
+                    let chunks = (sleep_duration.as_millis() / 250).max(1);
+                    for _ in 0..chunks {
+                        if !DaemonLifecycle::is_running() {
+                            break;
+                        }
+                        if ChargingRegulator::is_hardware_plugged() {
+                            break;
+                        }
+                        sleep(Duration::from_millis(250));
 
-                    // Sub-cycle dynamic display & GPU scaler responsiveness (every 250ms chunk)
-                    crate::subsystems::DisplayController::tick_dynamic_display_scaler(
-                        fg_app.as_ref(),
-                        active_prof,
-                        true,
-                        is_multitask,
-                    );
-                    crate::subsystems::GpuController::tick_dynamic_scaler(
-                        state.derived.workload_level,
-                        state.derived.temp_celsius_float,
-                        active_prof,
-                        true,
-                        is_multitask,
-                        fg_app.as_ref(),
-                    );
+                        crate::subsystems::DisplayController::tick_dynamic_display_scaler(
+                            fg_app.as_ref(),
+                            active_prof,
+                            true,
+                            is_multitask,
+                        );
+                        crate::subsystems::GpuController::tick_dynamic_scaler(
+                            state.derived.workload_level,
+                            state.derived.temp_celsius_float,
+                            active_prof,
+                            true,
+                            is_multitask,
+                            fg_app.as_ref(),
+                        );
+                    }
+                } else {
+                    let secs = (sleep_duration.as_secs()).max(1);
+                    for _ in 0..secs {
+                        if !DaemonLifecycle::is_running() || ChargingRegulator::is_hardware_plugged() {
+                            break;
+                        }
+                        sleep(Duration::from_secs(1));
+                        if crate::daemon::TouchDetector::is_touch_recent(1000)
+                            || crate::daemon::TouchDetector::is_finger_down()
+                        {
+                            break;
+                        }
+                    }
                 }
             }
         }

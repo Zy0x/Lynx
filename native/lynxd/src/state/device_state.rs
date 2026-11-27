@@ -192,13 +192,14 @@ impl DeviceState {
             .unwrap_or_default()
             .as_secs();
 
-        let (vendor, _) = ScoreBoard::evaluate();
+        static CACHED_VENDOR: std::sync::OnceLock<Vendor> = std::sync::OnceLock::new();
+        let vendor = *CACHED_VENDOR.get_or_init(|| ScoreBoard::evaluate().0);
 
         let (cpu, cpu_ok) = Self::capture_cpu();
         let (gpu, gpu_ok) = Self::capture_gpu(vendor);
         let (battery, battery_ok) = Self::capture_battery();
         let (memory, memory_ok) = Self::capture_memory();
-        let thermal_zones = Self::capture_thermal_zones();
+        let thermal_zones = Self::capture_thermal_zones(timestamp);
 
         let health = DeviceHealth {
             cpu_available: cpu_ok,
@@ -333,7 +334,7 @@ impl DeviceState {
     }
 
     fn capture_gpu(vendor: Vendor) -> (GpuRaw, bool) {
-        let gpu = HardwareCapability::resolve_gpu(vendor);
+        let gpu = HardwareCapability::sample_gpu_fast(vendor);
         let found = gpu.is_supported || gpu.cur_freq_mhz > 0 || gpu.load_pct > 0;
         (
             GpuRaw {
@@ -348,23 +349,43 @@ impl DeviceState {
         )
     }
 
-    fn capture_thermal_zones() -> Vec<ThermalZoneEntry> {
-        let mut zones = Vec::with_capacity(16);
-        for id in 0..64 {
-            let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
-            let p = Path::new(&tz_dir);
-            if !p.exists() {
-                continue;
+    fn capture_thermal_zones(now_secs: u64) -> Vec<ThermalZoneEntry> {
+        static DISCOVERED_ZONES: std::sync::OnceLock<Vec<(u32, String, std::path::PathBuf)>> =
+            std::sync::OnceLock::new();
+        static LAST_SNAPSHOT: std::sync::OnceLock<std::sync::Mutex<(u64, Vec<ThermalZoneEntry>)>> =
+            std::sync::OnceLock::new();
+
+        let cache = LAST_SNAPSHOT.get_or_init(|| std::sync::Mutex::new((0, Vec::new())));
+        if let Ok(guard) = cache.lock() {
+            if !guard.1.is_empty() && now_secs.saturating_sub(guard.0) < 5 {
+                return guard.1.clone();
             }
-            let z_type = SysfsReader::read_trimmed(format!("{}/type", tz_dir))
-                .unwrap_or_else(|_| format!("zone{}", id));
-            let z_type_lower = z_type.to_ascii_lowercase();
-            // Skip connectivity SDIO radio thermal sensors (e.g. mtktswmt) during background capture
-            // to avoid synchronous _stp_psm_do_wait wakeups (~22ms SDIO stalls per cycle).
-            if z_type_lower.contains("tswmt") || z_type_lower.ends_with("wmt") {
-                continue;
+        }
+
+        let zone_defs = DISCOVERED_ZONES.get_or_init(|| {
+            let mut defs = Vec::with_capacity(16);
+            for id in 0..64 {
+                let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
+                let p = Path::new(&tz_dir);
+                if !p.exists() {
+                    continue;
+                }
+                let z_type = SysfsReader::read_trimmed(format!("{}/type", tz_dir))
+                    .unwrap_or_else(|_| format!("zone{}", id));
+                let z_type_lower = z_type.to_ascii_lowercase();
+                // Skip connectivity SDIO radio thermal sensors (e.g. mtktswmt) during background capture
+                // to avoid synchronous _stp_psm_do_wait wakeups (~22ms SDIO stalls per cycle).
+                if z_type_lower.contains("tswmt") || z_type_lower.ends_with("wmt") {
+                    continue;
+                }
+                defs.push((id, z_type, std::path::PathBuf::from(format!("{}/temp", tz_dir))));
             }
-            let z_raw = SysfsReader::read_int::<i64>(format!("{}/temp", tz_dir)).unwrap_or(0);
+            defs
+        });
+
+        let mut zones = Vec::with_capacity(zone_defs.len());
+        for (id, z_type, temp_path) in zone_defs {
+            let z_raw = SysfsReader::read_int::<i64>(temp_path).unwrap_or(0);
             let temp_c = if z_raw.abs() > 1000 {
                 z_raw as f32 / 1000.0
             } else if z_raw.abs() > 100 {
@@ -373,10 +394,13 @@ impl DeviceState {
                 z_raw as f32
             };
             zones.push(ThermalZoneEntry {
-                id,
-                zone_type: z_type,
+                id: *id,
+                zone_type: z_type.clone(),
                 temp_c,
             });
+        }
+        if let Ok(mut guard) = cache.lock() {
+            *guard = (now_secs, zones.clone());
         }
         zones
     }

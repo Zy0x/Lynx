@@ -13,6 +13,8 @@ use crate::utils::Logger;
 
 static CURRENT_DISPLAY_HZ: AtomicU32 = AtomicU32::new(0);
 static LAST_HZ_CHANGE_MS: AtomicU64 = AtomicU64::new(0);
+static LAST_LOCK_CFG_CHECK_MS: AtomicU64 = AtomicU64::new(0);
+static CACHED_REFRESH_LOCK_HZ: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Debug, Clone, Default)]
 pub struct DisplayModeTable {
@@ -391,11 +393,23 @@ impl DisplayController {
             return;
         }
 
-        // Check user config override (fixed rate vs auto)
+        // Check user config override (fixed rate vs auto) cached for 3s to prevent 4x/sec flash reads
         // 0 = Auto (Dynamic Adaptive), >0 = Explicitly locked rate (e.g. 60, 90, 120, 144)
-        let lock_cfg = ConfigStore::get("display_touch.refresh_rate_lock")
-            .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(0);
+        let now_check_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        let last_cfg_ms = LAST_LOCK_CFG_CHECK_MS.load(Ordering::Relaxed);
+        let lock_cfg = if last_cfg_ms == 0 || now_check_ms.saturating_sub(last_cfg_ms) >= 3000 {
+            LAST_LOCK_CFG_CHECK_MS.store(now_check_ms, Ordering::Relaxed);
+            let parsed = ConfigStore::get("display_touch.refresh_rate_lock")
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(0);
+            CACHED_REFRESH_LOCK_HZ.store(parsed, Ordering::Relaxed);
+            parsed
+        } else {
+            CACHED_REFRESH_LOCK_HZ.load(Ordering::Relaxed)
+        };
 
         if lock_cfg > 0 {
             // User explicitly chose a fixed locked rate! DO NOT AUTO-SCALE!

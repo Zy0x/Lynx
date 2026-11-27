@@ -539,7 +539,8 @@ impl GpuController {
             return;
         }
 
-        let (vendor, _) = ScoreBoard::evaluate();
+        static CACHED_VENDOR: OnceLock<crate::hardware::detector::Vendor> = OnceLock::new();
+        let vendor = *CACHED_VENDOR.get_or_init(|| ScoreBoard::evaluate().0);
         let gpu = HardwareCapability::sample_gpu_fast(vendor);
         if !gpu.is_supported || gpu.opp_table.is_empty() {
             return;

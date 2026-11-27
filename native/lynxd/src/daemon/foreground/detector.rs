@@ -14,18 +14,25 @@ pub struct ForegroundDetector {
 
 impl ForegroundDetector {
     pub fn new() -> Self {
-        // Multi-tier cgroup candidates: Tier 1 (cpuset v1 top-app & foreground), Tier 2 (unified cgroup v2)
-        let candidates = [
-            "/dev/cpuset/top-app/cgroup.procs",
-            "/dev/cpuset/top-app/tasks",
-            "/dev/cpuset/foreground/cgroup.procs",
-            "/dev/cpuset/foreground/tasks",
-            "/sys/fs/cgroup/top-app/cgroup.procs",
-            "/sys/fs/cgroup/cgroup.procs",
-        ];
-
+        // Multi-tier cgroup candidates: prefer `cgroup.procs` (process PIDs only, ~20 entries)
+        // and fall back to `tasks` (all threads, 500-1000+ TIDs) ONLY if `cgroup.procs` is absent.
         let mut cgroup_nodes = Vec::new();
-        for &c in &candidates {
+        let paired_candidates = [
+            ("/dev/cpuset/top-app/cgroup.procs", "/dev/cpuset/top-app/tasks"),
+            ("/dev/cpuset/foreground/cgroup.procs", "/dev/cpuset/foreground/tasks"),
+        ];
+        for (procs_path, tasks_path) in &paired_candidates {
+            let p = PathBuf::from(procs_path);
+            if SysfsReader::exists(&p) {
+                cgroup_nodes.push(p);
+            } else {
+                let t = PathBuf::from(tasks_path);
+                if SysfsReader::exists(&t) {
+                    cgroup_nodes.push(t);
+                }
+            }
+        }
+        for c in &["/sys/fs/cgroup/top-app/cgroup.procs", "/sys/fs/cgroup/cgroup.procs"] {
             let p = PathBuf::from(c);
             if SysfsReader::exists(&p) {
                 cgroup_nodes.push(p);
