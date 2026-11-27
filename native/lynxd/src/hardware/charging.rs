@@ -8,6 +8,7 @@ use crate::sysfs::SysfsReader;
 
 static LAST_SOFT_RECONNECT_EPOCH: AtomicU64 = AtomicU64::new(0);
 static LAST_FCC_WRITE_EPOCH: AtomicU64 = AtomicU64::new(0);
+static LAST_HYPER_REINIT_EPOCH: AtomicU64 = AtomicU64::new(0);
 static LAST_THERMAL_BIND_CHECK_EPOCH: AtomicU64 = AtomicU64::new(0);
 static WAS_PLUGGED_STATE: AtomicBool = AtomicBool::new(false);
 static PLUGGED_AT_EPOCH: AtomicU64 = AtomicU64::new(0);
@@ -1008,8 +1009,11 @@ impl ChargingRegulator {
         let in_negotiation = plugged_elapsed < 10 || is_pd || is_pc || adpv_mv >= 6500;
         let fcc_ok = cur_fcc == 0 || cur_fcc >= min_fcc_ua || is_pd || plugged_elapsed < 6;
         // On single-PMIC Qualcomm (smb2), `usb/current_max` reads back settled AICL.
-        // Only treat it as choked when genuinely stuck below 1.5A outside negotiation.
-        let usb_ok = cur_now_ma >= 2400 || in_negotiation || cur_usb == 0 || cur_usb >= 1_500_000;
+        // When VBUS is already drooping below 4.6V (`adpv_mv > 0 && adpv_mv < 4600`), AICL
+        // has physically hit the cable/adapter brownout ceiling — do NOT trigger a 4s re-init loop.
+        // Only treat it as choked when genuinely stuck below 1.5A with healthy VBUS (>= 4.6V).
+        let aicl_vbus_bound = adpv_mv > 0 && adpv_mv < 4600;
+        let usb_ok = cur_now_ma >= 2400 || in_negotiation || aicl_vbus_bound || cur_usb == 0 || cur_usb >= 1_500_000;
         fcc_ok && usb_ok
     }
 
@@ -1021,13 +1025,19 @@ impl ChargingRegulator {
         is_pd: bool,
         is_pc: bool,
         cur_cap: u32,
+        real_type: &str,
     ) -> bool {
-        is_qcom_single
-            && !is_pd
-            && !is_pc
-            && cur_cap < 90
-            && plugged_elapsed < 5
-            && (adpv_mv <= 0 || adpv_mv < 6000)
+        if !is_qcom_single || is_pd || is_pc || cur_cap >= 90 || (adpv_mv >= 6000) {
+            return false;
+        }
+        // Let initial hardware APSD (0-2s) identify DCP vs HVDCP before slamming full load.
+        if plugged_elapsed < 2 {
+            return true;
+        }
+        // Extend up to 4s ONLY for active HVDCP negotiation with healthy VBUS (>= 4.7V)
+        // so `hvdcp_opti` passes `S_OPTI_DP_PULSE` cleanly without holding back 5V DCP cold charges.
+        let is_hvdcp = real_type.to_ascii_uppercase().contains("HVDCP");
+        plugged_elapsed < 4 && is_hvdcp && adpv_mv >= 4700
     }
 
     #[inline]
@@ -1090,6 +1100,7 @@ impl ChargingRegulator {
         active_lynx == 1
     }
 
+    #[allow(dead_code)]
     pub(crate) fn mountinfo_has_active_lynx_thermal_mount(mountinfo: &str, target_path: &str) -> bool {
         Self::mountinfo_has_clean_single_lynx_thermal_mount(mountinfo, target_path)
     }
@@ -1223,26 +1234,21 @@ impl ChargingRegulator {
         let is_qcom_single = Self::is_qualcomm_soc() && !Self::has_qcom_direct_charge_pump();
         let is_smb2 = is_qcom_single && Self::is_qcom_smb2_or_pm660();
 
-        let smb2_hw_max = if is_smb2 {
-            let hw = Self::read_i64(&format!("{}/hw_current_max", USB_DIR)).unwrap_or(3_000_000);
-            let ua = if hw > 100_000 { hw as u64 } else { (hw.max(0) as u64) * 1000 };
-            if (1_500_000..=3_000_000).contains(&ua) { ua } else { 3_000_000 }
-        } else {
-            30_000_000
-        };
-
-        if let Some(cached) = Self::read_i64(cache_file) {
-            let max_valid = if is_smb2 { smb2_hw_max as i64 } else { 30_000_000 };
-            if (1_500_000..=max_valid).contains(&cached) {
-                return cached as u64;
+        if is_smb2 {
+            // PM660 / qpnp-smb2 physical USB_ICL ceiling is 3000mA; `usb/hw_current_max`
+            // is dynamic AICL readback (2.0A on USB_DCP or < 1.5A on brownout) and MUST NOT
+            // cap the USB/Main ceiling. Never write 3150mA+ or SMB2 voter arbitration destabilizes.
+            const SMB2_MAX_UA: u64 = 3_000_000;
+            if Self::read_i64(cache_file) != Some(SMB2_MAX_UA as i64) {
+                let _ = fs::write(cache_file, SMB2_MAX_UA.to_string());
             }
+            return SMB2_MAX_UA;
         }
 
-        if is_smb2 {
-            // PM660 / qpnp-smb2 physical AICR ceiling is `hw_current_max` (3000mA on RN7).
-            // Never write 3150mA+ to USB ICL or AICL/SMB2 voter arbitration destabilizes.
-            let _ = fs::write(cache_file, smb2_hw_max.to_string());
-            return smb2_hw_max;
+        if let Some(cached) = Self::read_i64(cache_file) {
+            if (1_500_000..=30_000_000).contains(&cached) {
+                return cached as u64;
+            }
         }
 
         let candidates: &[u64] = if is_qcom_single {
@@ -1367,7 +1373,6 @@ impl ChargingRegulator {
             "/sys/class/power_supply/main/constant_charge_current_max",
             "/sys/class/power_supply/main/current_max",
             "/sys/class/power_supply/usb/current_max",
-            "/sys/class/power_supply/usb/hw_current_max",
             "/sys/class/power_supply/battery/charge_control_limit_max",
             "/sys/class/power_supply/battery/charge_control_limit",
             "/sys/class/power_supply/battery/input_suspend",
@@ -1423,7 +1428,6 @@ impl ChargingRegulator {
             "/sys/class/power_supply/battery/sw_jeita_enabled",
             "/sys/class/power_supply/battery/temp_state",
             "/sys/class/power_supply/usb/voltage_max",
-            "/sys/class/power_supply/usb/voltage_max_design",
             "/sys/class/power_supply/usb/voltage_max_limit",
             "/sys/class/power_supply/usb/input_current_limit",
             "/sys/class/power_supply/main/voltage_max",
@@ -1688,6 +1692,7 @@ impl ChargingRegulator {
             let now_sec = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
             let plugged_elapsed = if plugged_at > 0 { now_sec.saturating_sub(plugged_at) } else { 999 };
+            let real_type = Self::read_node(&format!("{}/real_type", USB_DIR)).unwrap_or_default();
             let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
                 is_qcom && !has_qcom_cp,
                 plugged_elapsed,
@@ -1695,6 +1700,7 @@ impl ChargingRegulator {
                 is_pd_active,
                 Self::is_laptop_port(),
                 cur_cap,
+                &real_type,
             );
             if hold_coldplug {
                 effective_ma = effective_ma.min(1500);
@@ -1749,8 +1755,9 @@ impl ChargingRegulator {
                 fcc_cooldown_expired && !is_high_voltage && cur_now_ma < 1500 && cur_fcc > 0 && cur_fcc < (target_ua - 200_000)
             };
 
+            let aicl_vbus_bound = is_qcom && !has_qcom_cp && adpv_clean > 0 && adpv_clean < 4600;
             let usb_needs_reapply = if is_qcom {
-                if !hold_coldplug && fcc_cooldown_expired {
+                if !hold_coldplug && !aicl_vbus_bound && fcc_cooldown_expired {
                     if is_high_voltage || is_pd_active {
                         cur_usb > 0 && cur_usb < 1_500_000
                     } else if is_hyper || qcom_unclamp_active {
@@ -1766,7 +1773,7 @@ impl ChargingRegulator {
             };
 
             let in_lim_needs_reapply = if is_qcom {
-                if !hold_coldplug && fcc_cooldown_expired {
+                if !hold_coldplug && !aicl_vbus_bound && fcc_cooldown_expired {
                     if is_high_voltage || is_pd_active {
                         cur_in_lim > 0 && cur_in_lim < 1_500_000
                     } else if is_hyper || qcom_unclamp_active {
@@ -2716,6 +2723,7 @@ impl ChargingRegulator {
         let now_sec_cold = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         let plugged_at_cold = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
         let plugged_elapsed_cold = if plugged_at_cold > 0 { now_sec_cold.saturating_sub(plugged_at_cold) } else { 999 };
+        let real_type_cold = Self::read_node(&format!("{}/real_type", USB_DIR)).unwrap_or_default();
         let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
             is_qcom && !has_qcom_cp,
             plugged_elapsed_cold,
@@ -2723,6 +2731,7 @@ impl ChargingRegulator {
             is_pd_active_cold,
             Self::is_laptop_port(),
             cur_cap,
+            &real_type_cold,
         );
 
         let platform_ma = if is_qcom && !has_qcom_cp {
@@ -4796,13 +4805,16 @@ impl ChargingRegulator {
         }
 
         if is_hyper {
+            let now_epoch = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
             let marker = Self::read_node("/dev/lynx_extreme_charging").unwrap_or_default();
             if !marker.starts_with("hyper-") {
+                LAST_HYPER_REINIT_EPOCH.store(now_epoch, Ordering::Relaxed);
                 Self::apply_hyper_mode();
                 return;
             }
 
             let is_mtk = Path::new(MTK_DIR).exists();
+            let mut only_usb_mismatch = false;
             let invariants_intact = if is_mtk {
                 let cur_now_raw = Self::read_i64(&format!("{}/current_now", BATT_DIR)).unwrap_or(0).abs();
                 let cur_now_ma = if cur_now_raw > 10_000 { cur_now_raw / 1000 } else { cur_now_raw };
@@ -4882,12 +4894,11 @@ impl ChargingRegulator {
                     .or_else(|| Self::read_i64(&format!("{}/voltage_now", MAIN_DIR)))
                     .unwrap_or(0);
                 let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
-                let now_s = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
                 let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
-                let plugged_elapsed = if plugged_at > 0 { now_s.saturating_sub(plugged_at) } else { 999 };
+                let plugged_elapsed = if plugged_at > 0 { now_epoch.saturating_sub(plugged_at) } else { 999 };
                 let cur_fcc = Self::read_i64(&format!("{}/constant_charge_current_max", BATT_DIR)).unwrap_or(0);
                 let cur_usb = Self::read_i64(&format!("{}/current_max", USB_DIR)).unwrap_or(0);
-                Self::should_qcom_hyper_invariants_pass(
+                let passed = Self::should_qcom_hyper_invariants_pass(
                     &susp,
                     &en,
                     direct_ok,
@@ -4899,14 +4910,38 @@ impl ChargingRegulator {
                     is_pd,
                     cur_fcc,
                     cur_usb,
-                )
+                );
+                if !passed {
+                    // Distinguish critical rail/FCC faults (recover immediately) from USB-only dips (60s cooldown)
+                    only_usb_mismatch = Self::should_qcom_hyper_invariants_pass(
+                        &susp,
+                        &en,
+                        direct_ok,
+                        cur_cap,
+                        cur_now_ma,
+                        adpv_mv,
+                        plugged_elapsed,
+                        is_pc,
+                        is_pd,
+                        cur_fcc,
+                        3_000_000,
+                    );
+                }
+                passed
             };
 
             // If hyper mode is already active and critical invariants are intact, skip re-init!
             if marker.starts_with("hyper-") && invariants_intact {
                 return;
             }
+            if marker.starts_with("hyper-") && only_usb_mismatch {
+                let last_reinit = LAST_HYPER_REINIT_EPOCH.load(Ordering::Relaxed);
+                if now_epoch.saturating_sub(last_reinit) < 60 {
+                    return;
+                }
+            }
 
+            LAST_HYPER_REINIT_EPOCH.store(now_epoch, Ordering::Relaxed);
             Self::apply_hyper_mode();
             return;
         }
@@ -5061,6 +5096,7 @@ impl ChargingRegulator {
     pub fn handle_connect(now_sec: u64) {
         PLUGGED_AT_EPOCH.store(now_sec, Ordering::Relaxed);
         LAST_THERMAL_BIND_CHECK_EPOCH.store(0, Ordering::Relaxed);
+        LAST_HYPER_REINIT_EPOCH.store(0, Ordering::Relaxed);
         let _ = fs::remove_file("/dev/lynx_soft_reconnect_done");
         let _ = fs::remove_file("/dev/lynx_stalled_5v_count");
         let _ = fs::remove_file("/dev/lynx_qcom_stalled_count");
@@ -5132,6 +5168,7 @@ impl ChargingRegulator {
         let _ = fs::remove_file("/dev/lynx_probed_max_fcc_ua");
         let _ = fs::remove_file("/dev/lynx_probed_max_usb_ua");
         LAST_THERMAL_BIND_CHECK_EPOCH.store(0, Ordering::Relaxed);
+        LAST_HYPER_REINIT_EPOCH.store(0, Ordering::Relaxed);
         PLUGGED_AT_EPOCH.store(0, Ordering::Relaxed);
         WAS_PLUGGED_STATE.store(false, Ordering::Relaxed);
         if !needs_session_cleanup {
@@ -5448,6 +5485,7 @@ impl ChargingRegulator {
             .unwrap_or(0);
         let adpv_cold_mv = if adpv_cold > 100_000 { adpv_cold / 1000 } else { adpv_cold };
         let cur_cap_cold = Self::read_i64(&format!("{}/capacity", BATT_DIR)).unwrap_or(50) as u32;
+        let real_type_cold = Self::read_node(&format!("{}/real_type", USB_DIR)).unwrap_or_default();
         let hold_coldplug = Self::should_hold_qcom_coldplug_soft_ramp(
             is_qcom_single,
             plugged_elapsed,
@@ -5455,14 +5493,14 @@ impl ChargingRegulator {
             is_pd_cold,
             is_pc_cold,
             cur_cap_cold,
+            &real_type_cold,
         );
 
         // Stage 2: Automated Zero-Touch Uncap Post Cold-Plug Negotiation
-        // On single-PMIC Qualcomm, hold a gentle 1.5A warm-up while VBUS < 6.0V for up to 5s
-        // so `hvdcp_opti` passes `S_OPTI_DP_PULSE` (`usb_uv >= 5.0V`) cleanly. Once VBUS >= 6.0V
-        // OR 5s settle completes, push full FCC (3.15A) and USB ICL (<= hw_current_max = 3.0A)
-        // WITHOUT blindly firing `rerun_aicl = 1`.
-        if !hold_coldplug && plugged_elapsed >= 3 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
+        // Hold 1.5A only during 0-2s initial APSD (or up to 4s for active HVDCP at 4.7-6.0V)
+        // so `hvdcp_opti` passes `S_OPTI_DP_PULSE` cleanly, then immediately push full 3.15A FCC
+        // and 3.0A SMB2 USB ICL without holding back 5V DCP cold charges or blind `rerun_aicl`.
+        if !hold_coldplug && plugged_elapsed >= 2 && !Path::new("/dev/lynx_cold_plug_kicked").exists() {
             let _ = fs::write("/dev/lynx_cold_plug_kicked", "1");
             if Self::is_qualcomm_soc() && !is_pc_cold {
                 let ceiling_ua_val = Self::probe_silicon_charge_ceiling_ua();
@@ -5607,7 +5645,7 @@ impl ChargingRegulator {
                 kick_attempts,
             );
             let is_choked_register = cur_fcc > 0 && cur_fcc < (adaptive_ua as i64 - 200_000);
-            let is_choked_usb = !is_high_voltage && cur_usb > 0 && cur_usb < 1_500_000;
+            let is_choked_usb = !is_high_voltage && (adpv_clean == 0 || adpv_clean >= 4600) && cur_usb > 0 && cur_usb < 1_500_000;
             let qcom_stalled = qcom_needs_aicl_kick || (cur_cap < 95 && (is_choked_register || is_choked_usb));
 
             if qcom_stalled {
@@ -6353,21 +6391,28 @@ mod tests {
         assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
             "0", "1", true, 35, 1300, 5100, 20, false, false, 1_500_000, 1_500_000
         ));
-        // Genuine USB ICL choke below 1.5A with low batt current after negotiation -> must recover
+        // Genuine USB ICL choke below 1.5A with healthy VBUS (>= 4.6V) and low batt current -> must recover
         assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
             "0", "1", true, 35, 900, 4900, 20, false, false, 3_150_000, 1_000_000
+        ));
+        // Physical cable/adapter brownout (VBUS < 4.6V, AICL settled at 1.075A) -> do NOT loop apply_hyper_mode every 4s
+        assert!(ChargingRegulator::should_qcom_hyper_invariants_pass(
+            "0", "1", true, 7, 750, 4120, 60, false, false, 3_150_000, 1_075_000
         ));
         // Input suspended -> must detect & recover
         assert!(!ChargingRegulator::should_qcom_hyper_invariants_pass(
             "1", "1", true, 35, 2800, 5400, 20, false, false, 3_150_000, 3_150_000
         ));
 
-        // Cold-plug QC 3.0 handshake shield: hold soft ramp < 5s while VBUS < 6V so DP_PULSE succeeds
-        assert!(ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5050, false, false, 40));
-        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 9000, false, false, 40));
-        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 5, 5100, false, false, 40));
-        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5000, true, false, 40));
-        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(false, 2, 5000, false, false, 40));
+        // Cold-plug QC 3.0 handshake shield: 0-2s APSD window; extend < 4s ONLY for active HVDCP at >= 4.7V
+        assert!(ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 1, 5050, false, false, 40, "USB_DCP"));
+        assert!(ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5050, false, false, 40, "USB_HVDCP"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5050, false, false, 40, "USB_DCP"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 4120, false, false, 40, "USB_HVDCP"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 9000, false, false, 40, "USB_HVDCP_3"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 4, 5100, false, false, 40, "USB_HVDCP"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(true, 2, 5000, true, false, 40, "USB_PD"));
+        assert!(!ChargingRegulator::should_hold_qcom_coldplug_soft_ramp(false, 1, 5000, false, false, 40, "USB_DCP"));
 
         // Guarded AICL kick: never fire when VBUS < 4.6V under load or USB ICL already >= 1.5A
         assert!(!ChargingRegulator::should_trigger_qcom_aicl_kick(72, 1380, 1_850_000, 4199, 120, 400, 0));

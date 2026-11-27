@@ -1,3 +1,14 @@
+# Lynx Universal [Kalibrasi Ulang Golden Base RN7 PM660 (`v3.4.24`), Pencegahan Cache USB DCP 2A & Eliminasi Spam Re-Init AICL] 7.0.0-RC480
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.99
+
+### Native Core & Charging Regulator (`native/lynxd/src/hardware/charging.rs`)
+- **Sinkronisasi Penuh dengan Golden Base Qualcomm PM660 (`v3.4.24-rn7-qc3-base`)**:
+  - Memperbaiki `probe_silicon_usb_current_max_ua` agar tidak membaca atau men-cache nilai dinamis `usb/hw_current_max` (yang sementara terbaca `2000 mA` saat fase awal `USB_DCP` atau turun saat *AICL droop*), sehingga batas input PM660 tetap terjaga pada kapasitas `3000 mA` untuk jalur `USB` dan `Main` buck.
+  - Menyempurnakan perisai cold-plug `should_hold_qcom_coldplug_soft_ramp` berbasiskan `usb/real_type` dan headroom `VBUS` (`2 dtk` untuk klasifikasi awal APSD, dan `<= 4 dtk` khusus `USB_HVDCP*` saat `4,7–6,0 V`), lalu langsung melepas beban penuh `3150 mA` FCC / `3000 mA` USB tanpa menahan pengisi daya 5V non-QC.
+  - Memperbaiki `should_qcom_hyper_invariants_pass` serta menambahkan jeda `LAST_HYPER_REINIT_EPOCH` (60 detik) pada `apply_from_config` agar kondisi *brownout* kabel/adaptor `< 4,6 V` (`AICL` droop) tidak memicu siklus `apply_hyper_mode()` dan penulisan `config.json` berulang setiap 4 detik.
+  - Membersihkan warning `dead_code` serta mengecualikan descriptor baca-saja `usb/hw_current_max` dan `usb/voltage_max_design` dari `unlock_extreme_nodes`.
+
 # Lynx Universal [Perombakan Total Lab Benchmark, Optimasi Storage FSTRIM, & In-Game Floating HUD Benchmark Suite] 7.0.0-RC479
 Released on: 2026-11-27
 > Lynx Kernel Manager v3.4.98
