@@ -166,6 +166,13 @@ impl SystemController {
         }
     }
 
+    pub fn resolve_egl_blobcache_limit_bytes(total_ram_mb: u64, override_mb: Option<u64>) -> u64 {
+        match override_mb {
+            Some(mb) if mb > 0 => mb.clamp(4, 256) * 1024 * 1024,
+            _ => Self::compute_adaptive_egl_blobcache_limit_bytes(total_ram_mb),
+        }
+    }
+
     /// Streams ELF/shared libraries in bounded 256 KiB chunks to check whether a property key is supported.
     pub fn binary_contains_bytes(path: &Path, needle: &[u8]) -> bool {
         use std::io::Read;
@@ -235,7 +242,10 @@ impl SystemController {
     pub fn apply_universal_graphics_pipeline() -> usize {
         let mut applied = 0usize;
         let mem = crate::hardware::capability::HardwareCapability::resolve_memory();
-        let limit_bytes = Self::compute_adaptive_egl_blobcache_limit_bytes(mem.total_ram_mb);
+        let override_mb = std::fs::read_to_string("/data/adb/lynx/user_egl_blobcache_mb")
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok());
+        let limit_bytes = Self::resolve_egl_blobcache_limit_bytes(mem.total_ram_mb, override_mb);
 
         let egl_libs = ["/system/lib64/libEGL.so", "/system/lib/libEGL.so"];
         let hwui_libs = [
@@ -518,6 +528,15 @@ mod tests {
         assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(3584), 16 * 1024 * 1024);
         assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(7680), 64 * 1024 * 1024);
         assert_eq!(SystemController::compute_adaptive_egl_blobcache_limit_bytes(12288), 128 * 1024 * 1024);
+    }
+
+    #[test]
+    fn resolve_egl_blobcache_limit_respects_clamped_user_override() {
+        assert_eq!(SystemController::resolve_egl_blobcache_limit_bytes(7680, None), 64 * 1024 * 1024);
+        assert_eq!(SystemController::resolve_egl_blobcache_limit_bytes(7680, Some(0)), 64 * 1024 * 1024);
+        assert_eq!(SystemController::resolve_egl_blobcache_limit_bytes(7680, Some(128)), 128 * 1024 * 1024);
+        assert_eq!(SystemController::resolve_egl_blobcache_limit_bytes(3584, Some(1)), 4 * 1024 * 1024);
+        assert_eq!(SystemController::resolve_egl_blobcache_limit_bytes(7680, Some(1024)), 256 * 1024 * 1024);
     }
 
     #[test]
