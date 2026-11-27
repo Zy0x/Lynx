@@ -1,3 +1,48 @@
+# Lynx Universal [Perbaikan Infinite Height Constraint Flasher & Integrasi Scanner Root Shell Storage] 7.0.0-RC482
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.101
+
+### UI/UX & Companion App (`feature/flasher/` & `FlasherManager.kt`)
+- **Eliminasi Infinite Height Constraint Crash pada Jetpack Compose (`FlasherSubscreen.kt`)**:
+  - Mengubah container utama `FlasherSubscreen` dari `LazyColumn` menjadi `Column(Modifier.fillMaxWidth())` terstruktur.
+  - Menghilangkan tabrakan pengukuran batas tinggi tak terhingga (*infinity height constraint exception*) saat disematkan di dalam subscreen `LazyColumn` milik `ToolsTabContent.kt`.
+- **Integrasi Scanner Root Shell untuk File Berproteksi Tinggi (`FlasherManager.kt`)**:
+  - Menambahkan scanner berbasis Root Shell (`ls -l`, `stat`, `sha256sum`, `head -c 8`) pada `scanDiscoveredFiles()` dan `listBackups()`.
+  - Mengatasi keterbatasan Scoped Storage / FUSE Android 11+ sehingga berkas `.img` dan `.zip` yang dimiliki oleh `root:everybody` di `/sdcard/Download/` dan `/sdcard/Lynx/backups/` dapat terdeteksi, divalidasi, dan dicadangkan secara instan dan akurat.
+  - Menambahkan sinkronisasi `refreshDataInternal()` langsung pasca-pencadangan partisi di dalam modal dialog.
+
+# Lynx Universal [Universal Dual-Mode Flasher: Dukungan Paket .ZIP & Citra Mentah .IMG, Proteksi Anti-Brick, & Boot Vault] 7.0.0-RC481
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.100
+
+### UI/UX & Companion App (`feature/flasher/` & `ui/ToolsTabContent.kt`)
+- **Perombakan Total Studio Flasher & Partisi Boot (`FlasherSubscreen.kt`)**:
+  - Mentransformasikan menu flasher lama menjadi subscreen studio mandiri berstandar Bento Cyberpunk OLED:
+    - **Hero Active Slot & Hardware Partition Inspector Card (`ActiveKernelSlotHeroCard`)**:
+      - Deteksi instan slot boot aktif (`SLOT A (AKTIF)` / `SLOT B` / `NON-A/B`).
+      - Pemetaan blok partisi fisik kernel: `boot_a` (32.0 MB), `vendor_boot_a` (64.0 MB), `dtbo_a` (8.0 MB), dan `init_boot_a` (jika perangkat GKI Android 13+).
+      - Badge jaminan keamanan: `🛡️ AUTO PRE-FLASH BACKUP TERPASANG`.
+    - **Universal Dual-Mode Flasher Studio (`UniversalFlasherStudioCard`)**:
+      - **Dukungan Format Lengkap**: Menerima berkas **`.ZIP`** (AnyKernel3) DAN berkas **`.IMG`** (Raw Partition Image).
+      - **Storage Access Framework (SAF) File Picker**: Memilih berkas dari penyimpanan internal / SD Card tanpa mengetik path manual.
+      - **Quick Carousel Berkas Terdeteksi**: Otomatis memindai dan menampilkan kartu berkas `.zip` dan `.img` yang ada di `/sdcard/Download/` dan `/sdcard/` secara instan.
+      - **Bento Validasi Forensik & Anti-Brick Protection**:
+        - Deteksi otomatis format: `ANYKERNEL3_ZIP`, `ANDROID_BOOT_IMG`, `VENDOR_BOOT_IMG`, atau `RAW_IMAGE`.
+        - Pemeriksaan magic header Android Boot (`ANDROID!` / `VNDRBOOT`) untuk mencegah salah pilih berkas non-boot.
+        - **Capacity Overflow Guard**: Memverifikasi ukuran berkas fisik tidak melebihi kapasitas partisi target (contoh: partisi boot 32 MB) guna mencegah korupsi tabel partisi.
+        - Perhitungan checksum SHA-256 dengan tombol 1-klik salin hash.
+        - Selector partisi target dinamis untuk berkas `.img` (Boot, Vendor Boot, DTBO, Init Boot).
+        - Toggle switch pencadangan otomatis sebelum flashing (*Auto Pre-Flash Backup*).
+      - **Terminal Flashing Real-Time**: Output log monospace hacker/matrix dengan auto-scroll dan penanda status step-by-step.
+      - **Dialog Pasca-Flash Cerdas**: Tombol *Reboot ke Sistem*, *Reboot ke Recovery*, atau *Tutup*.
+    - **Vault Cadangan & Restorasi Partisi Boot (`BootBackupVaultCard`)**:
+      - Tombol pembuatan cadangan baru dengan modal pemilih partisi target (`Boot`, `Vendor Boot`, `DTBO`, `Init Boot`).
+      - Daftar riwayat berkas cadangan tersimpan di `/sdcard/Lynx/backups/` dengan badge jenis partisi, ukuran MB, dan tanggal terformat.
+      - Aksi 1-klik per-cadangan: **Pulihkan (Restore)** langsung ke partisi fisik asal dengan konfirmasi keamanan, **Bagikan (.img)** via Android Sharesheet, dan **Hapus** cadangan.
+    - **Safety & Disaster Recovery Suite (`FlasherSafetyToolsCard`)**:
+      - Tombol pintasan reboot cepat: *Reboot Sistem*, *Reboot Recovery*, dan *Reboot Fastboot*.
+      - Tombol *Reset Aman Tuning Kernel ke Bawaan (Stock Safe)*.
+
 # Lynx Universal [Kalibrasi Ulang Golden Base RN7 PM660 (`v3.4.24`), Pencegahan Cache USB DCP 2A & Eliminasi Spam Re-Init AICL] 7.0.0-RC480
 Released on: 2026-11-27
 > Lynx Kernel Manager v3.4.99

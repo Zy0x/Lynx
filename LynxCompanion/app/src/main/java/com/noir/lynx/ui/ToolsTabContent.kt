@@ -9,6 +9,7 @@ import com.noir.lynx.feature.battery.*
 import com.noir.lynx.feature.battery.ui.*
 import com.noir.lynx.feature.battery.ui.lab.BatteryLabSubscreen
 import com.noir.lynx.feature.benchmark.ui.BenchmarkLabSubscreen
+import com.noir.lynx.feature.flasher.ui.FlasherSubscreen
 
 import android.os.Bundle
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -394,49 +395,11 @@ fun ToolsTabContent(
                         }
 
                         ToolsCategory.FLASHER -> {
-                            item(key = "flasher") {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                    FlasherCard(
-                                        isFlashing = uiState.isFlashing,
-                                        flashLog = uiState.flashLog,
-                                        onFlash = { viewModel.flashKernel(it) }
-                                    )
-                                }
-                            }
-
-                            item(key = "boot_backup") {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                                    BootBackupCard(
-                                        backups = uiState.backups,
-                                        isBackingUp = uiState.isBackingUp,
-                                        onBackup = { viewModel.backupBoot() },
-                                        onRestore = { viewModel.restoreBoot(it) }
-                                    )
-                                }
-                            }
-
-                            item(key = "flasher_reset_action") {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                    LynxCard(
-                                        title = "Restorasi Keamanan Kernel",
-                                        icon = Icons.Default.Security,
-                                        accentColor = AccentGreen
-                                    ) {
-                                        Text(
-                                            "Kembalikan seluruh parameter sysfs dan governor ke setelan aman bawaan pabrik OEM tanpa menghapus data.",
-                                            color = TextSecondary,
-                                            fontSize = 11.5.sp,
-                                            lineHeight = 16.sp,
-                                            modifier = Modifier.padding(bottom = 10.dp)
-                                        )
-                                        LynxActionButton(
-                                            text = "Reset Aman Kernel ke Bawaan (Stock Safe)",
-                                            icon = Icons.Default.RestartAlt,
-                                            onClick = { viewModel.resetKernelToStock() },
-                                            accentColor = AccentGreen
-                                        )
-                                    }
-                                }
+                            item(key = "flasher_subscreen") {
+                                FlasherSubscreen(
+                                    uiState = uiState,
+                                    viewModel = viewModel
+                                )
                             }
                         }
 
