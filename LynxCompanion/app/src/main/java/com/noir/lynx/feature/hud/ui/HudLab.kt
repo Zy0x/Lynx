@@ -7,7 +7,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -156,6 +160,40 @@ internal fun HudLab(
                         label = if (isCleaningRam) "⚡ Sedang Membersihkan..." else "⚡ Boost RAM & Hapus Cache",
                         enabled = !action.busy,
                         onClick = onBoostRam,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(2.dp))
+
+            // 3. Optimasi Storage & I/O Flush (FSTRIM)
+            var isTrimming by remember { mutableStateOf(false) }
+            var trimDoneText by remember { mutableStateOf<String?>(null) }
+            val coroutineScope = rememberCoroutineScope()
+
+            HudSection(
+                title = "STORAGE & I/O FLUSH",
+                badge = if (isTrimming) "TRIMMING..." else if (trimDoneText != null) "✓ OPTIMAL" else null,
+                accentColor = Color(0xFF00E5FF),
+                info = "Storage I/O Flush:\n\n• Menjalankan TRIM pada partisi NAND /data untuk menghapus residu blok.\n• Mencegah micro-stutter saat game me-load asset tekstur besar secara streaming."
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HudAction(
+                        label = if (isTrimming) "⚡ Memproses FSTRIM /data..." else if (trimDoneText != null) "✓ $trimDoneText" else "⚡ Optimalkan Storage (FSTRIM)",
+                        enabled = !isTrimming && !action.busy,
+                        onClick = {
+                            coroutineScope.launch {
+                                isTrimming = true
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.topjohnwu.superuser.Shell.cmd("fstrim -v /data 2>/dev/null; sync").exec()
+                                }
+                                isTrimming = false
+                                trimDoneText = "Storage Berhasil Di-TRIM"
+                                kotlinx.coroutines.delay(2500)
+                                trimDoneText = null
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

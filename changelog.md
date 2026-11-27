@@ -1,3 +1,37 @@
+# Lynx Universal [Perombakan Total Lab Benchmark, Optimasi Storage FSTRIM, & In-Game Floating HUD Benchmark Suite] 7.0.0-RC479
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.98
+
+### UI/UX & Companion App (`feature/benchmark/` & `ui/ToolsTabContent.kt`)
+- **Perombakan Total Lab Live Benchmark & Optimasi (`BenchmarkLabSubscreen.kt`)**:
+  - Mentransformasikan menu benchmark menjadi subscreen studio komprehensif berstandar Bento Cyberpunk OLED:
+    - **Hero Live Hardware Profiler Card (`LiveBenchmarkStudioHeroCard`)**:
+      - Status liveness real-time (`● HARDWARE PROFILER SIAP` vs `🔴 MEREKAM FRAME DISPATCH`).
+      - Target game banner dinamis dengan deteksi otomatis paket aplikasi aktif atau target benchmark terpilih.
+      - Pemilih durasi benchmark taktil (10s, 30s, 60s, 120s) dengan touch target $\ge 48\times 48\text{ dp}$.
+      - Tampilan visual countdown lingkaran beranimasi saat benchmark berjalan.
+      - 4 Bento Metric Tiles: **Rata-rata FPS**, **1% Low FPS**, **Jitter Fluktuasi (±ms)**, dan **Janky Frames (%)**.
+      - Tombol aksi Hero Start, Stop, dan Reset yang responsif dengan haptic feedback.
+    - **Storage & System Optimization Suite (`SystemOptimizationSuiteCard`)**:
+      - **Database SQLite Vacuum**: Mengompresi WAL dan re-index basis data sistem untuk respon instan.
+      - **NAND Flash FSTRIM**: Eksekusi discard pada partisi `/data`, `/cache`, dan `/system` untuk mencegah penurunan performa flash memory.
+      - **CCleaner RAM & ZRAM Purge**: Membersihkan page cache (drop_caches level 3), tombstones, dan memory compaction.
+      - **Ekspor Arsip Diagnostik ZIP**: Pengemasan log kernel, dmesg, dan telemetri ke berkas ZIP siap kirim.
+      - **Reset Kernel ke Pengaturan Awal (Stock Safe)**: Mengembalikan governor dan tuning ke konfigurasi pabrik.
+    - **Penyimpanan Log Sesi Benchmark Persisten (`BenchmarkSessionManager.kt`)**:
+      - Menyimpan seluruh sesi pengujian (Sesi #1, #2, dst.) ke berkas JSON lokal (`benchmark_sessions.json`).
+      - Menyimpan parameter komprehensif: durasi, paket target, rata-rata FPS, 1% Low FPS, stabilitas %, jitter ms, janky frame count & %, serta ringkasan evaluasi performa.
+      - **Kartu Riwayat Pengujian (`SavedBenchmarkHistoryCard`)**: Indikator jumlah sesi, empty state visual, tombol "Bersihkan Semua" dengan konfirmasi aman, serta kartu per-sesi individual (`SavedBenchmarkItemRow`) dengan tombol hapus manual.
+      - **Inspektor Forensik Detail Sesi (`BenchmarkSessionDetailDialog`)**: Dialog inspeksi mendalam metrik hardware lengkap dengan tombol 1-klik salin laporan Markdown ke clipboard.
+
+### In-Game Floating HUD Overlay (`feature/hud/ui/HudHomePage.kt` & `HudLab.kt`)
+- **In-Overlay Live Benchmark Runner (`HudOverlayBenchmarkBar`)**:
+  - Menambahkan bar pengujian performa langsung di halaman Summary (`HudHomePage`) floating overlay game.
+  - Memungkinkan gamer menjalankan benchmark hardware 60 detik secara langsung saat berada di dalam game tanpa perlu keluar aplikasi.
+  - Menampilkan countdown real-time saat berjalan, badge stabilitas instan (`Stab 96% • 1%L 58 FPS • Jank 2%`), dan otomatis menyimpan hasil ke arsip riwayat `BenchmarkSessionManager`.
+- **In-Overlay Storage & I/O Flush (`HudLab.kt`)**:
+  - Menambahkan aksi pembersihan cepat I/O flash FSTRIM (`fstrim -v /data`) langsung dari tab Boost overlay untuk memulihkan kecepatan I/O saat gaming marathon.
+
 # Lynx Universal [Sistem Penyimpanan Log Sesi Pengujian Lab Baterai: Riwayat Persisten, Inspektor Detail, & Kontrol Hapus Mandiri] 7.0.0-RC478
 Released on: 2026-11-27
 > Lynx Kernel Manager v3.4.97

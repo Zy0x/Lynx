@@ -8,6 +8,7 @@ import com.noir.lynx.designsystem.profile.*
 import com.noir.lynx.feature.battery.*
 import com.noir.lynx.feature.battery.ui.*
 import com.noir.lynx.feature.battery.ui.lab.BatteryLabSubscreen
+import com.noir.lynx.feature.benchmark.ui.BenchmarkLabSubscreen
 
 import android.os.Bundle
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -120,6 +121,7 @@ fun ToolsTabContent(
     onNavigateToTuning: (String) -> Unit = {}
 ) {
     val state = uiState.state
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.loadCustomRules()
@@ -371,51 +373,23 @@ fun ToolsTabContent(
                         }
 
                         ToolsCategory.BENCHMARK -> {
-                            item(key = "maintenance_actions") {
-                                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                    LynxCard(
-                                        title = "Pemeliharaan & Benchmark 1-Klik",
-                                        icon = Icons.Default.Assessment,
-                                        accentColor = AccentPurple
-                                    ) {
-                                        LynxActionButton(
-                                            text = "Live Benchmark & Hardware Frame Profiler",
-                                            icon = Icons.Default.Assessment,
-                                            onClick = { viewModel.openBenchmarkDialog() },
-                                            accentColor = AccentPurple,
-                                            modifier = Modifier.padding(bottom = 10.dp)
-                                        )
-                                        LynxActionButton(
-                                            text = "Optimasi SQLite & FSTRIM Storage",
-                                            icon = Icons.Default.Storage,
-                                            onClick = { viewModel.runMaintenance() },
-                                            isLoading = uiState.maintenanceRunning,
-                                            accentColor = AccentCyan,
-                                            modifier = Modifier.padding(bottom = 10.dp)
-                                        )
-                                        LynxActionButton(
-                                            text = "Jalankan CCleaner (Memory Purge)",
-                                            icon = Icons.Default.Speed,
-                                            onClick = { viewModel.runCCleaner() },
-                                            accentColor = AccentBlue,
-                                            modifier = Modifier.padding(bottom = 10.dp)
-                                        )
-                                        LynxActionButton(
-                                            text = "Ekspor Laporan Diagnostik 1-Klik (.ZIP)",
-                                            icon = Icons.Default.Build,
-                                            onClick = { viewModel.exportBugReport() },
-                                            isLoading = uiState.exportRunning,
-                                            accentColor = AccentOrange,
-                                            modifier = Modifier.padding(bottom = 10.dp)
-                                        )
-                                        LynxActionButton(
-                                            text = "Reset Aman Kernel ke Bawaan (Stock Safe)",
-                                            icon = Icons.Default.RestartAlt,
-                                            onClick = { viewModel.resetKernelToStock() },
-                                            accentColor = AccentGreen
-                                        )
+                            item(key = "benchmark_lab_subscreen") {
+                                BenchmarkLabSubscreen(
+                                    uiState = uiState,
+                                    viewModel = viewModel,
+                                    onOpenOverlay = {
+                                        try {
+                                            val intent = android.content.Intent(context, com.noir.lynx.service.LynxFloatingHudService::class.java).apply {
+                                                putExtra(com.noir.lynx.service.LynxFloatingHudService.EXTRA_STYLE, 1)
+                                            }
+                                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                                context.startForegroundService(intent)
+                                            } else {
+                                                context.startService(intent)
+                                            }
+                                        } catch (_: Exception) {}
                                     }
-                                }
+                                )
                             }
                         }
 

@@ -63,6 +63,9 @@ import kotlinx.coroutines.flow.update
                 ) { remaining ->
                     _uiState.update { it.copy(benchmarkProgressSeconds = remaining) }
                 }
+                if (result != null) {
+                    com.noir.lynx.feature.benchmark.BenchmarkSessionManager.saveSession(com.noir.lynx.LynxApp.instance, result)
+                }
                 _uiState.update {
                     it.copy(
                         isBenchmarking = false,
