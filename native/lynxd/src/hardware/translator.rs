@@ -285,11 +285,13 @@ impl HardwareTranslator {
             }
 
             // C. Governor Sub-Directory Rate Limits (schedutil / walt / sugov_ext)
+            // Balance: 2ms ramp-up handles multitasking & heavy bursts instantaneously (<1/8th of a 60Hz frame)
+            // while filtering sub-millisecond background wakes and dropping back to idle clocks in 3ms.
             let (up_rate, down_rate) = match profile.name {
                 "extreme" => ("0", "20000"),
                 "performance" => ("0", "15000"),
-                "powersave" => ("4000", "1000"),
-                _ => ("500", "10000"),
+                "powersave" => ("5000", "1000"),
+                _ => ("2000", "3000"),
             };
 
             for gdir in &pol.gov_tunable_dirs {
@@ -572,21 +574,21 @@ impl HardwareTranslator {
                 let ged_fence_bypass = if is_perf_or_ext { "1" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED monitor 3D fence bypass", MtkHardware::GED_MONITOR_3D_FENCE_DISABLE, ged_fence_bypass, false);
 
-                // MediaTek GED GPU Boost Amplitude (0=stock, 1=balanced, 2=perf, 3=extreme)
-                let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else if is_powersave { "0" } else { "1" };
+                // MediaTek GED GPU Boost Amplitude (0=native dynamic, 2=perf, 3=extreme)
+                let boost_amp = if is_extreme { "3" } else if is_perf_or_ext { "2" } else { "0" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED boost amplitude", MtkHardware::GED_BOOST_AMP, boost_amp, false);
 
-                // MediaTek GED GPU Boost Level (100 for extreme, 50 for perf, 25 for balance, 0 for powersave)
-                let boost_lvl = if is_extreme { "100" } else if is_perf_or_ext { "50" } else if is_powersave { "0" } else { "25" };
+                // MediaTek GED GPU Boost Level (100 for extreme, 50 for perf, 10 for balance, 0 for powersave)
+                let boost_lvl = if is_extreme { "100" } else if is_perf_or_ext { "50" } else if is_powersave { "0" } else { "10" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED GPU boost level", "/sys/kernel/ged/hal/gpu_boost_level", boost_lvl, false);
 
                 // MediaTek GED DVFS Loading Mode: 1 (load-based scaling) in Balanced, Perf & Extreme so GPU scales instantly with UI load
                 let loading_mode = if is_powersave { "0" } else { "1" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS loading mode", MtkHardware::GED_HAL_DVFS, loading_mode, false);
 
-                // MediaTek GED DVFS Step & Margin (responsive step-up and head-room)
-                let dvfs_step = if is_extreme { "10" } else if is_perf_or_ext { "8" } else if is_powersave { "4" } else { "6" };
-                let dvfs_margin = if is_extreme { "100" } else if is_perf_or_ext { "75" } else if is_powersave { "30" } else { "50" };
+                // MediaTek GED DVFS Step & Margin (frugal 25% headroom in Balance prevents idle 600MHz inflation)
+                let dvfs_step = if is_extreme { "10" } else if is_perf_or_ext { "8" } else if is_powersave { "4" } else { "5" };
+                let dvfs_margin = if is_extreme { "100" } else if is_perf_or_ext { "75" } else if is_powersave { "15" } else { "25" };
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS step", "/sys/kernel/ged/hal/loading_base_dvfs_step", dvfs_step, false);
                 Self::push_op(&mut ops, "MTK-GPU", "GED DVFS margin", "/sys/kernel/ged/hal/dvfs_margin_value", dvfs_margin, false);
 
@@ -613,7 +615,7 @@ impl HardwareTranslator {
                 Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM System Boost Policy", MtkHardware::PPM_POLICY_STATUS, ppm_sys_boost, false);
                 if is_extreme {
                     Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Disable", MtkHardware::PPM_POLICY_STATUS, "3 0", false);
-                } else if is_powersave {
+                } else {
                     Self::push_op(&mut ops, "MTK-PPM", "MediaTek PPM Power Throttling Restore", MtkHardware::PPM_POLICY_STATUS, "3 1", false);
                 }
 
@@ -632,8 +634,8 @@ impl HardwareTranslator {
                 } else if is_powersave {
                     ("0", "0", "0", "0", "0")
                 } else {
-                    // Balanced: 10% top-app, 5% foreground, 0% global root min (never clamp 102->100!)
-                    ("10", "5", "0", "10", "1")
+                    // Balanced: zero static idle floor; touch-boost & big_task_rotation handle heavy bursts instantly
+                    ("0", "0", "0", "0", "1")
                 };
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr top-app boost", MtkHardware::PERFMGR_TA_BOOST, ta_boost, false);
                 Self::push_op(&mut ops, "MTK-EAS", "MediaTek Perfmgr foreground boost", MtkHardware::PERFMGR_FG_BOOST, fg_boost, false);
@@ -705,7 +707,7 @@ impl HardwareTranslator {
                         }
                     }
                     "powersave" => ("90 95", "75 85"),
-                    _ => ("70 85", "55 70"), // Balanced: rapid migration to Big cores for media decode and scrolling
+                    _ => ("80 90", "65 75"), // Balanced: pack light daily work on efficiency cores, burst >80% to Big cores
                 };
 
                 // Critical Linux WALT rule: downmigrate must strictly be <= upmigrate.
@@ -1231,8 +1233,8 @@ impl HardwareTranslator {
             }
         }
 
-        // KSM (Kernel Samepage Merging) scanning suppression during gaming
-        let ksm_run = if is_perf_or_ext { "0" } else { "1" };
+        // KSM (Kernel Samepage Merging): only needed on <=4.5GB low-end RAM devices; avoid ksmd idle wakeups on 6GB+ RAM
+        let ksm_run = if tier.is_low_end_ram && !is_perf_or_ext { "1" } else { "0" };
         Self::push_op(&mut ops, "Memory", "KSM background memory scanning control", "/sys/kernel/mm/ksm/run", ksm_run, false);
 
         // ── 5. EAS Schedtune, CFS CPU Shares & Media-Aware Storage Policy ───
@@ -1255,7 +1257,8 @@ impl HardwareTranslator {
 
         let stune_fg = Path::new("/dev/stune/foreground");
         if stune_fg.is_dir() {
-            let fg_idle = if is_powersave { "0" } else { "1" };
+            // In Balance/Powersave, pack foreground services onto efficiency cores instead of waking idle Big cores
+            let fg_idle = if is_perf_or_ext { "1" } else { "0" };
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground boost", stune_fg.join("schedtune.boost"), fg_boost, false);
             Self::push_op(&mut ops, "Scheduler", "Schedtune foreground prefer_idle", stune_fg.join("schedtune.prefer_idle"), fg_idle, false);
         }

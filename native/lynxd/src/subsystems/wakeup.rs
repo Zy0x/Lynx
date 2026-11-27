@@ -224,10 +224,10 @@ pub fn run_wakeup_boost(duration_ms: u64) -> String {
             "2048"
         };
         write_opt("/dev/cpuctl/top-app/cpu.shares", restored_shares);
-        let restored_up = if latest_profile == "powersave" {
-            "4000"
-        } else {
-            "500"
+        let restored_up = match latest_profile.as_str() {
+            "extreme" | "performance" => "0",
+            "powersave" => "5000",
+            _ => "2000",
         };
         for pol in &cpu.policies {
             for gdir in &pol.gov_tunable_dirs {

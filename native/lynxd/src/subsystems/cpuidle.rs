@@ -21,6 +21,46 @@ impl CpuIdleController {
             .filter(|s| !s.is_empty())
     }
 
+    /// Dynamically parses kernel procfs help text (e.g. `0: on  1: gating  2: off`) so mode codes
+    /// are never hardcoded blindly across differing SoC/kernel driver revisions.
+    fn parse_control_mode_code(help_text: &str, wanted_keywords: &[&str]) -> Option<String> {
+        let lower = help_text.to_ascii_lowercase();
+        for kw in wanted_keywords {
+            let needle = kw.to_ascii_lowercase();
+            let mut search_from = 0usize;
+            while let Some(pos) = lower[search_from..].find(&needle) {
+                let abs_pos = search_from + pos;
+                let prefix = lower[..abs_pos].trim_end();
+                if let Some(before_colon) = prefix.strip_suffix(':') {
+                    let digits: String = before_colon
+                        .trim_end()
+                        .chars()
+                        .rev()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                        .chars()
+                        .rev()
+                        .collect();
+                    if !digits.is_empty() {
+                        return Some(digits);
+                    }
+                }
+                search_from = abs_pos + needle.len();
+            }
+        }
+        None
+    }
+
+    fn write_control_mode(path: &str, wanted_keywords: &[&str], fallback: &str) {
+        if !Path::new(path).exists() {
+            return;
+        }
+        let code = Self::read_trimmed(path)
+            .and_then(|txt| Self::parse_control_mode_code(&txt, wanted_keywords))
+            .unwrap_or_else(|| fallback.to_string());
+        Self::write_opt(path, &code);
+    }
+
     /// Emits JSON report of CPU idle states across all CPU cores.
     pub fn info_json() -> String {
         let mut states_json = Vec::new();
@@ -95,7 +135,8 @@ impl CpuIdleController {
                     }
                 }
 
-                Self::write_opt("/proc/cpuidle/control/armpll_mode", "0");
+                Self::write_control_mode("/proc/cpuidle/control/armpll_mode", &["on"], "0");
+                Self::write_control_mode("/proc/cpuidle/control/buck_mode", &["on"], "0");
                 Self::write_opt("/proc/sys/kernel/sched_cstate_aware", "0");
                 Self::write_opt("/sys/module/lpm_levels/parameters/sleep_disabled", "1");
 
@@ -121,12 +162,12 @@ impl CpuIdleController {
                     }
                 }
 
-                Self::write_opt("/proc/cpuidle/control/armpll_mode", "1");
-                Self::write_opt("/proc/cpuidle/control/buck_mode", "0");
+                Self::write_control_mode("/proc/cpuidle/control/armpll_mode", &["off", "gating"], "2");
+                Self::write_control_mode("/proc/cpuidle/control/buck_mode", &["off", "low power"], "2");
                 Self::write_opt("/proc/sys/kernel/sched_cstate_aware", "1");
                 Self::write_opt("/sys/module/lpm_levels/parameters/sleep_disabled", "0");
 
-                "CpuIdle Battery preset applied (Full deep sleep C-states 0-9 enabled).".to_string()
+                "CpuIdle Battery preset applied (Full deep sleep C-states 0-9 + ARMPLL/Buck power-down enabled).".to_string()
             }
 
             "balanced" | "default" => {
@@ -141,6 +182,9 @@ impl CpuIdleController {
                     }
                 }
 
+                // Always restore ARMPLL & Vproc buck idle gating after exiting gaming/extreme mode
+                Self::write_control_mode("/proc/cpuidle/control/armpll_mode", &["off", "gating"], "2");
+                Self::write_control_mode("/proc/cpuidle/control/buck_mode", &["off", "low power"], "2");
                 Self::write_opt("/proc/sys/kernel/sched_cstate_aware", "1");
                 Self::write_opt("/sys/module/lpm_levels/parameters/sleep_disabled", "0");
 
@@ -150,7 +194,7 @@ impl CpuIdleController {
                     Self::write_opt(&online_path, "1");
                 }
 
-                "CpuIdle Balanced preset applied (All C-states active, all cores unparked)."
+                "CpuIdle Balanced preset applied (All C-states + ARMPLL/Buck gating active, all cores unparked)."
                     .to_string()
             }
 
@@ -180,5 +224,22 @@ impl CpuIdleController {
             if disabled { "DISABLED" } else { "ENABLED" },
             count
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_kernel_cpuidle_control_modes_dynamically() {
+        let armpll_help = "armpll mode : on  ======== Command Usage ======== echo [mode] > /proc/cpuidle/control/armpll_mode mode: \t0: on \t1: gating \t2: off";
+        let buck_help = "Vproc/Vproc_sram buck mode : off  ======== Command Usage ======== echo [mode] > /proc/cpuidle/control/buck_mode mode: \t0: on \t1: low power \t2: off";
+
+        assert_eq!(CpuIdleController::parse_control_mode_code(armpll_help, &["off", "gating"]).as_deref(), Some("2"));
+        assert_eq!(CpuIdleController::parse_control_mode_code(armpll_help, &["gating"]).as_deref(), Some("1"));
+        assert_eq!(CpuIdleController::parse_control_mode_code(armpll_help, &["on"]).as_deref(), Some("0"));
+        assert_eq!(CpuIdleController::parse_control_mode_code(buck_help, &["off", "low power"]).as_deref(), Some("2"));
+        assert_eq!(CpuIdleController::parse_control_mode_code(buck_help, &["low power"]).as_deref(), Some("1"));
     }
 }

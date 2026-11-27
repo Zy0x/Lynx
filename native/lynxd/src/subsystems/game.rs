@@ -456,19 +456,19 @@ impl GameController {
         Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", "0");
         Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", "0");
 
-        // Balanced Schedutil Rate Limits
+        // Balanced Schedutil Rate Limits (2ms snappy ramp-up, 3ms rapid drop to idle floor)
         for id in 0..16 {
             Self::write_opt(
                 format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/up_rate_limit_us", id),
-                "1000",
+                "2000",
             );
             Self::write_opt(
                 format!("/sys/devices/system/cpu/cpufreq/policy{}/schedutil/down_rate_limit_us", id),
-                "4000",
+                "3000",
             );
         }
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "1000");
-        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "10000");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/up_rate_limit_us", "2000");
+        Self::write_opt("/sys/devices/system/cpu/cpufreq/schedutil/down_rate_limit_us", "3000");
 
         // 3. Clear Sched Lib only on kernels exposing Qualcomm/WALT sched_lib_name
         if Path::new("/proc/sys/kernel/sched_lib_name").exists() {
