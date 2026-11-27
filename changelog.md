@@ -1,3 +1,25 @@
+# Lynx Universal [Sistem Penyimpanan Log Sesi Pengujian Lab Baterai: Riwayat Persisten, Inspektor Detail, & Kontrol Hapus Mandiri] 7.0.0-RC478
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.97
+
+### UI/UX & Companion App (`feature/battery/lab/` & `feature/battery/ui/lab/`)
+- **Penyimpanan Log Sesi Pengujian Persisten (`BatteryLabSessionManager.kt`)**:
+  - Mengimplementasikan `SavedBatteryLabSession` dengan struktur data lengkap: nomor sesi urut (`sessionNumber`), stempel waktu terformat (`dateFormatted`), durasi (`durationSeconds`), level awal & akhir (`startLevel` → `endLevel`), voltase awal & akhir (`startVoltageMv` → `endVoltageMv`), daya puncak (`peakWatt`), arus puncak (`peakCurrentMa`), suhu puncak (`peakTempC`), energi terserap (`absorbedMah`), tahapan IC aktif, milestone per level, dan ringkasan sesi (`summary`).
+  - Menyimpan data riwayat pengujian secara persisten ke berkas JSON lokal (`battery_lab_sessions.json`) di direktori internal aplikasi (`filesDir`), sehingga sesi 1, 2, 3, 4, dst tetap tersimpan aman meskipun aplikasi ditutup atau perangkat direstart.
+  - Sesi otomatis diarsipkan seketika pengguna menekan tombol "Selesai & Kunci Data" atau ketika pengisian daya mencapai saturasi penuh 100%.
+- **Kartu Riwayat Pengujian Lab (`BatteryLabSubscreen.kt` - `SavedSessionsHistoryCard`)**:
+  - Menghadirkan kartu arsip riwayat pengujian lab modern berdesain Bento Cyberpunk:
+    - Indikator badge dinamis jumlah pengujian aktif (`N Sesi`).
+    - *Empty state visual* dengan ilustrasi ikon saat belum ada sesi tersimpan.
+    - Tombol "Bersihkan Semua" dengan dialog konfirmasi keamanan pencegah penghapusan tak disengaja.
+    - Daftar kartu per-sesi (`SavedSessionItemRow`) menampilkan badge nomor sesi, tanggal & jam, 4 chip metrik instan (Level delta %, Durasi, Peak Watt, dan Energi Terserap mAh), tag status tahapan IC, tombol hapus per-sesi individual (touch target $\ge 48\times 48\text{ dp}$), serta tombol "Buka Detail".
+- **Inspektor Detail Sesi & Ekspor Mandiri (`BatteryLabSubscreen.kt` - `BatterySessionDetailDialog`)**:
+  - Modal dialog interaktif inspeksi mendalam saat sesi pengujian diketuk:
+    - Ringkasan forensik sesi lengkap dalam kartu elevasi berkontras tinggi.
+    - Grid metrik analitik 2x3: Rentang %, Durasi total, Daya puncak Watt (mA), Energi terserap mAh, Tegangan sel akhir mV, dan Suhu puncak °C dengan status aman/throttling.
+    - Tabel timeline milestone pengisian daya per persentase level (Waktu capai, Daya W, Arus mA, Suhu °C, dan Tahap regulasi IC).
+    - Tombol "Salin Laporan" satu klik untuk mengekspor laporan sesi individual dalam format Markdown rapi ke clipboard.
+
 # Lynx Universal [Perombakan Modern Lab Baterai & Daya: Live Sparkline Waveform, Audit Kapasitas Sel 1:1, & Interactive Stage Pipeline] 7.0.0-RC477
 Released on: 2026-11-27
 > Lynx Kernel Manager v3.4.96

@@ -8,8 +8,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,11 +29,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.feature.battery.lab.BatteryLabSessionManager
 import com.noir.lynx.feature.battery.lab.BatteryLabSessionState
+import com.noir.lynx.feature.battery.lab.SavedBatteryLabSession
 import com.noir.lynx.feature.battery.ui.ChargingSparklineWaveform
 import com.noir.lynx.ui.LynxViewModel
 import java.util.Locale
@@ -50,13 +55,22 @@ fun BatteryLabSubscreen(
 ) {
     val context = LocalContext.current
     val sessionState by BatteryLabSessionManager.sessionState.collectAsState()
+    val savedSessions by BatteryLabSessionManager.savedSessions.collectAsState()
     val details = uiState.batteryDetails
     val health = uiState.batteryHealthStats
+
+    var inspectedSession by remember { mutableStateOf<SavedBatteryLabSession?>(null) }
+    var showClearAllConfirm by remember { mutableStateOf(false) }
+    var sessionToDelete by remember { mutableStateOf<SavedBatteryLabSession?>(null) }
+
+    LaunchedEffect(Unit) {
+        BatteryLabSessionManager.loadSessions(context)
+    }
 
     // Update telemetry whenever uiState delivers fresh battery details
     LaunchedEffect(details?.currentMa, details?.voltageMv, details?.level, details?.tempC) {
         if (sessionState.isRunning) {
-            BatteryLabSessionManager.updateTelemetry(details, health)
+            BatteryLabSessionManager.updateTelemetry(context, details, health)
         }
     }
 
@@ -71,7 +85,7 @@ fun BatteryLabSubscreen(
             sessionState = sessionState,
             uiState = uiState,
             onStart = { BatteryLabSessionManager.startSession(details, health) },
-            onStop = { BatteryLabSessionManager.stopSession(details, health) },
+            onStop = { BatteryLabSessionManager.stopSession(context, details, health) },
             onReset = { BatteryLabSessionManager.resetSession() }
         )
 
@@ -92,7 +106,15 @@ fun BatteryLabSubscreen(
             ChargingMilestonesCard(sessionState = sessionState)
         }
 
-        // ── 5. 1-Click Export Report Card ───────────────────────────────────
+        // ── 5. Saved Sessions History Card (Pengujian 1, 2, 3, dst) ─────────
+        SavedSessionsHistoryCard(
+            savedSessions = savedSessions,
+            onInspect = { inspectedSession = it },
+            onDelete = { sessionToDelete = it },
+            onClearAll = { showClearAllConfirm = true }
+        )
+
+        // ── 6. 1-Click Export Report Card ───────────────────────────────────
         ChargingExportReportCard(
             sessionState = sessionState,
             onExport = {
@@ -100,12 +122,105 @@ fun BatteryLabSubscreen(
             }
         )
 
-        // ── 6. Non-Redundant Navigation Link to Tuning ─────────────────────
+        // ── 7. Non-Redundant Navigation Link to Tuning ─────────────────────
         NonRedundantTuningLinkCard(
             onNavigate = onNavigateToTuningBattery
         )
 
         Spacer(Modifier.height(115.dp).navigationBarsPadding())
+    }
+
+    // Dialogs: Inspected Session, Clear All Confirm, and Delete Single Confirm
+    if (inspectedSession != null) {
+        BatterySessionDetailDialog(
+            session = inspectedSession!!,
+            health = health,
+            onDismiss = { inspectedSession = null },
+            onExport = {
+                BatteryLabSessionManager.exportSavedSessionReport(context, inspectedSession!!, health)
+            }
+        )
+    }
+
+    if (showClearAllConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearAllConfirm = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = AccentRed)
+                    Text("Bersihkan Seluruh Riwayat?", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Text(
+                    "Semua catatan riwayat pengujian baterai (${savedSessions.size} sesi) akan dihapus secara permanen dari penyimpanan perangkat.",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        BatteryLabSessionManager.clearAllSessions(context)
+                        showClearAllConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
+                ) {
+                    Text("Bersihkan", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showClearAllConfirm = false },
+                    border = BorderStroke(0.8.dp, BorderSubtle)
+                ) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (sessionToDelete != null) {
+        val s = sessionToDelete!!
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = AccentRed)
+                    Text("Hapus Sesi #${s.sessionNumber}?", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Text(
+                    "Catatan pengujian sesi #${s.sessionNumber} (${s.dateFormatted}, ${s.startLevel}% → ${s.endLevel}%) akan dihapus permanen.",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        BatteryLabSessionManager.deleteSession(context, s.id)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentRed)
+                ) {
+                    Text("Hapus", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { sessionToDelete = null },
+                    border = BorderStroke(0.8.dp, BorderSubtle)
+                ) {
+                    Text("Batal", color = TextSecondary)
+                }
+            },
+            containerColor = BgCard,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -1037,6 +1152,615 @@ private fun NonRedundantTuningLinkCard(
                 tint = TextTertiary,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+// ============================================================================
+// 5. Saved Sessions History Card (Pengujian 1, 2, 3, dst)
+// ============================================================================
+@Composable
+private fun SavedSessionsHistoryCard(
+    savedSessions: List<SavedBatteryLabSession>,
+    onInspect: (SavedBatteryLabSession) -> Unit,
+    onDelete: (SavedBatteryLabSession) -> Unit,
+    onClearAll: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = BgCard,
+        border = BorderStroke(1.dp, BorderSubtle),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header: Title + Session Count Badge + Clear All Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AccentPurple.copy(alpha = 0.15f))
+                            .border(BorderStroke(0.8.dp, AccentPurple.copy(alpha = 0.4f)), RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "LOG RIWAYAT PENGUJIAN",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentPurple,
+                                letterSpacing = 0.5.sp
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = BgElevated,
+                                border = BorderStroke(0.8.dp, BorderGlass)
+                            ) {
+                                Text(
+                                    text = "${savedSessions.size} Sesi",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextSecondary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Arsip Pengujian 1, 2, 3, dst",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+
+                if (savedSessions.isNotEmpty()) {
+                    Surface(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onClearAll()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentRed.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, AccentRed.copy(alpha = 0.4f)),
+                        modifier = Modifier.defaultMinSize(minHeight = 44.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.DeleteSweep, null, tint = AccentRed, modifier = Modifier.size(15.dp))
+                            Text("Bersihkan", fontSize = 10.5.sp, color = AccentRed, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Setiap pengujian charging yang dihentikan akan otomatis diarsipkan secara lokal. Anda dapat membuka detail metrik atau menghapus sesi kapan saja.",
+                fontSize = 11.sp,
+                color = TextSecondary,
+                lineHeight = 15.sp
+            )
+
+            if (savedSessions.isEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = BgElevated,
+                    border = BorderStroke(0.8.dp, BorderGlass),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HourglassEmpty,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = "Belum Ada Sesi Pengujian Tersimpan",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "Jalankan pengujian di atas lalu tekan 'Selesai & Kunci Data' untuk mengarsipkan data sesi pengujian pertama.",
+                            fontSize = 10.5.sp,
+                            color = TextTertiary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    savedSessions.forEach { session ->
+                        SavedSessionItemRow(
+                            session = session,
+                            onInspect = { onInspect(session) },
+                            onDelete = { onDelete(session) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedSessionItemRow(
+    session: SavedBatteryLabSession,
+    onInspect: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val deltaLevel = session.endLevel - session.startLevel
+    val formattedDuration = BatteryLabSessionManager.formatDuration(session.durationSeconds)
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = BgElevated,
+        border = BorderStroke(0.8.dp, BorderGlass),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onInspect()
+            }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Top Row: Sesi # badge + Date + Delete icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = AccentCyan.copy(alpha = 0.16f),
+                        border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = "SESI #${session.sessionNumber}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentCyan,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = session.dateFormatted,
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onDelete()
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Hapus Sesi",
+                        tint = AccentRed.copy(alpha = 0.85f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Middle Row: Metrics chips (Delta level, Duration, Peak Watt, Absorbed)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Delta level chip
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("LEVEL", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${session.startLevel}%→${session.endLevel}%",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (deltaLevel >= 0) AccentGreen else AccentOrange
+                        )
+                    }
+                }
+
+                // Duration chip
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("DURASI", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                        Text(formattedDuration, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    }
+                }
+
+                // Peak Watt chip
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("PEAK", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                        Text("${String.format(Locale.US, "%.1f", session.peakWatt)}W", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                    }
+                }
+
+                // Absorbed chip
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BgCard,
+                    border = BorderStroke(0.6.dp, BorderSubtle),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("TERSERAP", fontSize = 8.5.sp, color = TextTertiary, fontWeight = FontWeight.Bold)
+                        Text("${session.absorbedMah}mAh", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = AccentPurple)
+                    }
+                }
+            }
+
+            // Bottom Row: Stage tag + Open button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(AccentGreen)
+                    )
+                    Text(
+                        text = session.activeStageName,
+                        fontSize = 10.5.sp,
+                        color = TextSecondary,
+                        maxLines = 1
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Buka Detail",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AccentCyan
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = AccentCyan,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// BatterySessionDetailDialog — Inspection Dialog for Saved Session
+// ============================================================================
+@Composable
+private fun BatterySessionDetailDialog(
+    session: SavedBatteryLabSession,
+    health: com.noir.lynx.data.BatteryHealthStats,
+    onDismiss: () -> Unit,
+    onExport: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val deltaLevel = session.endLevel - session.startLevel
+    val formattedDuration = BatteryLabSessionManager.formatDuration(session.durationSeconds)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = BgCard,
+            border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(18.dp)
+            ) {
+                // Dialog Header: Title + Session # + Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AccentCyan.copy(alpha = 0.16f))
+                                .border(BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.5f)), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.BatteryChargingFull, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
+                        }
+                        Column {
+                            Text(
+                                text = "DETAIL SESI #${session.sessionNumber}",
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = session.dateFormatted,
+                                fontSize = 10.5.sp,
+                                color = TextTertiary
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.Close, "Tutup", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Scrollable Body Content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Summary Banner
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = BgElevated,
+                        border = BorderStroke(0.8.dp, BorderGlass),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("RINGKASAN SESI", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = AccentCyan)
+                            Text(session.summary, fontSize = 11.5.sp, color = TextPrimary, lineHeight = 16.sp)
+                        }
+                    }
+
+                    // 2x3 Metric Grid
+                    Text("METRIK ANALITIK PENGISIAN", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextTertiary)
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MetricMiniTile(
+                            title = "Rentang Persentase",
+                            value = "${session.startLevel}% → ${session.endLevel}%",
+                            subtitle = if (deltaLevel >= 0) "+$deltaLevel% Baterai" else "$deltaLevel% Baterai",
+                            accent = if (deltaLevel >= 0) AccentGreen else AccentOrange,
+                            icon = Icons.Default.Bolt,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricMiniTile(
+                            title = "Durasi Pengujian",
+                            value = formattedDuration,
+                            subtitle = "${session.durationSeconds} detik total",
+                            accent = TextPrimary,
+                            icon = Icons.Default.Timer,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MetricMiniTile(
+                            title = "Daya Puncak (Watt)",
+                            value = "${String.format(Locale.US, "%.1f", session.peakWatt)} W",
+                            subtitle = "Arus Puncak: ${session.peakCurrentMa} mA",
+                            accent = AccentCyan,
+                            icon = Icons.Default.FlashOn,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricMiniTile(
+                            title = "Energi Terserap",
+                            value = "${session.absorbedMah} mAh",
+                            subtitle = "Kapasitas muatan masuk",
+                            accent = AccentPurple,
+                            icon = Icons.Default.BatteryFull,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MetricMiniTile(
+                            title = "Tegangan Sel Akhir",
+                            value = "${session.endVoltageMv} mV",
+                            subtitle = "Awal: ${session.startVoltageMv} mV",
+                            accent = AccentBlue,
+                            icon = Icons.Default.Power,
+                            modifier = Modifier.weight(1f)
+                        )
+                        MetricMiniTile(
+                            title = "Suhu Puncak",
+                            value = "${String.format(Locale.US, "%.1f", session.peakTempC)} °C",
+                            subtitle = if (session.peakTempC < 42f) "Suhu Aman Termal" else "Mendekati Throttling",
+                            accent = if (session.peakTempC < 42f) AccentGreen else AccentRed,
+                            icon = Icons.Default.Thermostat,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    // Milestone Timeline if available
+                    if (session.milestones.isNotEmpty()) {
+                        Text("MILESTONE WAKTU CAPAI TAHAP", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextTertiary)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.8.dp, BorderGlass),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                session.milestones.forEach { m ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = AccentGreen.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    "${m.level}%",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AccentGreen,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                            Text(
+                                                m.stage,
+                                                fontSize = 10.sp,
+                                                color = TextSecondary,
+                                                maxLines = 1
+                                            )
+                                        }
+
+                                        Text(
+                                            "${BatteryLabSessionManager.formatDuration(m.elapsedSeconds)} • ${String.format(Locale.US, "%.1f", m.watt)}W",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Bottom Action Buttons: Copy Markdown Report + Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(0.8.dp, BorderSubtle),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 46.dp)
+                    ) {
+                        Text("Tutup", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onExport()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
+                        modifier = Modifier
+                            .weight(1.4f)
+                            .heightIn(min = 46.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Salin Laporan", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     }
 }
