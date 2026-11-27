@@ -1,6 +1,6 @@
 use std::fmt::Write as FmtWrite;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -15,6 +15,8 @@ use crate::sysfs::{SysfsReader, SysfsWriter, WriteMode};
 
 static LAST_CPU_TOUCH_BOOST_MS: AtomicU64 = AtomicU64::new(0);
 static IS_CPU_TOUCH_BOOSTED: AtomicBool = AtomicBool::new(false);
+// 0 = powersave, 1 = balance, 2 = performance, 3 = extreme
+static ACTIVE_PROFILE_TIER: AtomicU8 = AtomicU8::new(1);
 
 #[derive(Clone)]
 struct CachedTouchCluster {
@@ -372,8 +374,15 @@ impl ClusterController {
     }
 
     /// Sub-millisecond physical touch boost notification called from touchscreen interrupt thread.
-    /// Elevates top-app EAS schedtune boost and discovered performance cluster floors dynamically.
+    /// Adapts dynamically to the active profile so daily Balance/Powersave taps stay ultra-frugal
+    /// while Performance/Extreme profiles unleash full Big-cluster floor & uclamp responsiveness.
     pub fn on_hardware_touch() {
+        let prof_tier = ACTIVE_PROFILE_TIER.load(Ordering::Relaxed);
+        if prof_tier == 0 {
+            // Powersave: zero synthetic CPU touch-boost (let kernel schedutil scale naturally)
+            return;
+        }
+
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -387,6 +396,16 @@ impl ClusterController {
         }
 
         IS_CPU_TOUCH_BOOSTED.store(true, Ordering::Relaxed);
+
+        if prof_tier == 1 {
+            // Balance (Daily Mode): Crisp, energy-frugal touch response without forcing keyboard taps
+            // onto 2GHz+ Big cores or locking PPM floors (heavy bursts still ramp in 2ms via schedutil).
+            let cur_stune = SysfsReader::read_int::<u32>("/dev/stune/top-app/schedtune.boost").unwrap_or(0);
+            if cur_stune < 10 {
+                let _ = SysfsWriter::write("/dev/stune/top-app/schedtune.boost", "10", WriteMode::Direct);
+            }
+            return;
+        }
 
         let tier = DeviceTier::cached_live();
         let (base_top, _, base_fg) = tier.stune_targets("performance");
@@ -451,6 +470,13 @@ impl ClusterController {
     /// 1. Un-clamps performance cluster scaling_max_freq only if restricted below hardware capability.
     /// 2. Decays touch boost cleanly via motion-adaptive hysteresis back to tier-appropriate baseline.
     pub fn tick_dynamic_scaler(is_screen_on: bool, current_profile: &str) {
+        let tier_code = match current_profile {
+            "powersave" | "battery" => 0,
+            "performance" => 2,
+            "extreme" => 3,
+            _ => 1,
+        };
+        ACTIVE_PROFILE_TIER.store(tier_code, Ordering::Relaxed);
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()

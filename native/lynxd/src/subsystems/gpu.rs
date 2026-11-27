@@ -31,6 +31,13 @@ static IS_GPU_LOCKED_CACHED: AtomicBool = AtomicBool::new(false);
 static ACTIVE_PROFILE_IS_EXTREME: AtomicBool = AtomicBool::new(false);
 static ACTIVE_WORKLOAD_IS_HEAVY: AtomicBool = AtomicBool::new(false);
 static SCREEN_IS_ON: AtomicBool = AtomicBool::new(true);
+// 0 = powersave, 1 = balance, 2 = performance, 3 = extreme
+static ACTIVE_GPU_PROFILE_TIER: AtomicU8 = AtomicU8::new(1);
+
+fn cached_gpu_vendor() -> crate::hardware::detector::Vendor {
+    static CACHED_VENDOR: OnceLock<crate::hardware::detector::Vendor> = OnceLock::new();
+    *CACHED_VENDOR.get_or_init(|| ScoreBoard::evaluate().0)
+}
 
 struct SocThermalSensor {
     temp_path: PathBuf,
@@ -461,21 +468,25 @@ impl GpuController {
         if !SCREEN_IS_ON.load(Ordering::Relaxed) || IS_GPU_LOCKED_CACHED.load(Ordering::Relaxed) {
             return;
         }
+        let prof_tier = ACTIVE_GPU_PROFILE_TIER.load(Ordering::Relaxed);
+        if prof_tier == 0 {
+            return; // Powersave: zero synthetic GPU touch boost
+        }
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
 
-        let tier = DeviceTier::cached_live();
         let is_extreme = ACTIVE_PROFILE_IS_EXTREME.load(Ordering::Relaxed);
         let is_heavy = ACTIVE_WORKLOAD_IS_HEAVY.load(Ordering::Relaxed);
         let is_kinetic = crate::daemon::TouchDetector::is_touch_moving(120)
             || crate::daemon::TouchDetector::is_rapid_touch(160, 2);
 
-        // On low-end/14nm devices, initial tap wakes instantly to Light OPP (~30% quantile) and
-        // seamlessly promotes to Fluid (~50% quantile) <8ms later if finger motion/fling begins.
-        let target_state = if is_extreme || is_heavy || !tier.is_low_end_ram || is_kinetic {
+        // Balance: single taps (e.g. keyboard typing) wake cleanly to frugal Light OPP (~30% quantile)
+        // and only promote to Fluid (~50% quantile) on active kinetic scroll/fling or heavy load.
+        // Performance/Extreme: instant Fluid promotion on every touch.
+        let target_state = if prof_tier >= 2 || is_extreme || is_heavy || is_kinetic {
             DynamicGpuState::Fluid
         } else {
             DynamicGpuState::Light
@@ -489,7 +500,7 @@ impl GpuController {
         LAST_TOUCH_BOOST_MS.store(now_ms, Ordering::Relaxed);
 
         if current < (target_state as u8) {
-            let (vendor, _) = ScoreBoard::evaluate();
+            let vendor = cached_gpu_vendor();
             let gpu = HardwareCapability::sample_gpu_fast(vendor);
             if gpu.is_supported && !gpu.opp_table.is_empty() {
                 let target_u8 = target_state as u8;
@@ -517,6 +528,13 @@ impl GpuController {
         SCREEN_IS_ON.store(is_screen_on, Ordering::Relaxed);
         ACTIVE_PROFILE_IS_EXTREME.store(active_profile == "extreme", Ordering::Relaxed);
         ACTIVE_WORKLOAD_IS_HEAVY.store(workload == WorkloadLevel::Heavy, Ordering::Relaxed);
+        let tier_code = match active_profile {
+            "powersave" | "battery" => 0,
+            "performance" => 2,
+            "extreme" => 3,
+            _ => 1,
+        };
+        ACTIVE_GPU_PROFILE_TIER.store(tier_code, Ordering::Relaxed);
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -539,8 +557,7 @@ impl GpuController {
             return;
         }
 
-        static CACHED_VENDOR: OnceLock<crate::hardware::detector::Vendor> = OnceLock::new();
-        let vendor = *CACHED_VENDOR.get_or_init(|| ScoreBoard::evaluate().0);
+        let vendor = cached_gpu_vendor();
         let gpu = HardwareCapability::sample_gpu_fast(vendor);
         if !gpu.is_supported || gpu.opp_table.is_empty() {
             return;
@@ -623,14 +640,14 @@ impl GpuController {
                 DynamicGpuState::Peak
             } else if is_rapid
                 || is_moving
-                || (!is_holding_still && is_touch)
-                || is_kinetic_motion
                 || workload == WorkloadLevel::Moderate
                 || effective_calc > thresh_fluid
                 || gpu.load_pct > 50
             {
                 DynamicGpuState::Fluid
             } else if is_touch
+                || is_kinetic_motion
+                || (!is_holding_still && is_touch)
                 || fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false)
                 || effective_calc > thresh_light
                 || gpu.load_pct > 30
@@ -657,7 +674,9 @@ impl GpuController {
             _ => DynamicGpuState::Idle,
         };
 
-        let fluid_hold_ms = if tier.is_low_end_ram || tier.is_emmc_primary {
+        let fluid_hold_ms = if active_profile == "balance" {
+            350
+        } else if tier.is_low_end_ram || tier.is_emmc_primary {
             450
         } else {
             600
