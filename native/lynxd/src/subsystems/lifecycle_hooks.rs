@@ -190,6 +190,9 @@ impl LifecycleHooks {
         }
 
         // 6. Universal & Platform-Specific Subsystem Optimization
+        // Pre-arm 60s cold-boot Big-Core thermal burst window immediately so early boot storm
+        // does not choke Big cores at premature 56°C skin/adaptive thermal trip points.
+        let _ = ThermalController::start_cold_boot_burst(&active_profile);
         let _ = SystemController::apply();
         let _ = crate::subsystems::NetworkController::apply_universal();
         let _ = crate::subsystems::NetworkController::apply_balance();
@@ -228,6 +231,11 @@ impl LifecycleHooks {
                     }
                 }
             }
+        }
+        // Re-assert cold-boot 60s Big-Core thermal burst after baseline profile execution
+        // (since `balance` profile restores OEM thermal limits; daemon restores cleanly at t+60s or on safety trigger).
+        if ThermalController::start_cold_boot_burst(normalized) {
+            Self::log_msg("[+] Cold-boot 60s Big-Core thermal burst window armed (auto-restores at +60s or >=42°C batt / >=82°C SoC)");
         }
         Self::log_msg(&format!(
             "[+] Applied baseline profile '{}' via lynxd transactional pipeline",

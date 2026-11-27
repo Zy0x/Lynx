@@ -22,6 +22,252 @@ impl ThermalController {
 
     const SAFE_SILICON_TRIP_FLOOR_MC: i64 = 90_000;
     const SILICON_RECOVERY_CEILING_MC: i64 = 80_000;
+    const BOOT_BURST_MARKER: &'static str = "/dev/lynx_boot_burst_until";
+    const BOOT_BURST_DURATION_SECS: u64 = 60;
+    const BOOT_BURST_MAX_UPTIME_SECS: f64 = 120.0;
+    const BOOT_BURST_MAX_BATT_C: f32 = 42.0;
+    const BOOT_BURST_MAX_SOC_C: f32 = 82.0;
+
+    /// Dynamically parses `/proc/ppm/policy_status` to locate a MediaTek PPM policy index
+    /// (e.g., `"[4] PPM_POLICY_THERMAL: enabled"` -> `Some(4)`) without hardcoding indices.
+    pub(crate) fn parse_ppm_policy_index(policy_status: &str, needle: &str) -> Option<u32> {
+        let target = needle.to_ascii_uppercase();
+        for line in policy_status.lines() {
+            let trimmed = line.trim();
+            if !trimmed.starts_with('[') {
+                continue;
+            }
+            if let Some((idx_part, rest)) = trimmed[1..].split_once(']') {
+                if rest.to_ascii_uppercase().contains(&target) {
+                    if let Ok(idx) = idx_part.trim().parse::<u32>() {
+                        return Some(idx);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Evaluates whether the 60-second cold-boot Big-Core thermal burst window should terminate
+    /// and restore normal OEM thermal limits.
+    pub(crate) fn boot_burst_should_restore(
+        now_secs: u64,
+        deadline_secs: u64,
+        batt_c: f32,
+        soc_c: f32,
+        screen_on: bool,
+        active_profile: &str,
+        game_active: bool,
+    ) -> Option<&'static str> {
+        if game_active {
+            return Some("handoff_game");
+        }
+        if matches!(active_profile, "powersave" | "battery" | "dormant") {
+            return Some("powersave_profile");
+        }
+        if !screen_on {
+            return Some("screen_off");
+        }
+        if batt_c >= Self::BOOT_BURST_MAX_BATT_C {
+            return Some("thermal_guard_batt");
+        }
+        if soc_c >= Self::BOOT_BURST_MAX_SOC_C {
+            return Some("thermal_guard_soc");
+        }
+        if now_secs >= deadline_secs {
+            return Some("expired_60s");
+        }
+        None
+    }
+
+    fn read_uptime_secs() -> Option<f64> {
+        std::fs::read_to_string("/proc/uptime")
+            .ok()?
+            .split_whitespace()
+            .next()?
+            .parse::<f64>()
+            .ok()
+    }
+
+    fn now_epoch_secs() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+
+    /// Returns the highest valid silicon compute thermal zone temperature in °C.
+    pub fn max_silicon_temp_c() -> f32 {
+        let mut max_c: f32 = 0.0;
+        for id in 0..64 {
+            let tz_dir = format!("/sys/class/thermal/thermal_zone{}", id);
+            if !Path::new(&tz_dir).exists() {
+                continue;
+            }
+            if let Some(t_type) = Self::read_trimmed(format!("{}/type", tz_dir)) {
+                if Self::is_silicon_compute_zone(&t_type) {
+                    if let Some(raw_mc) = Self::read_trimmed(format!("{}/temp", tz_dir))
+                        .and_then(|s| s.parse::<i64>().ok())
+                    {
+                        if raw_mc > 0 && raw_mc < 120_000 {
+                            let c = if raw_mc > 1000 {
+                                raw_mc as f32 / 1000.0
+                            } else {
+                                raw_mc as f32
+                            };
+                            if c > max_c {
+                                max_c = c;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        max_c
+    }
+
+    fn apply_boot_burst_unthrottle() {
+        // 1. Kernel custom thermal silencer hook (when present; keeps hardware critical sysrst 100% intact)
+        if Path::new(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER).exists() {
+            Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER, "1");
+        }
+        // 2. MediaTek PPM dynamic thermal policy pause (never hardcoded index)
+        if let Ok(ppm) = std::fs::read_to_string("/proc/ppm/policy_status") {
+            if let Some(idx) = Self::parse_ppm_policy_index(&ppm, "PPM_POLICY_THERMAL") {
+                Self::write_opt("/proc/ppm/policy_status", format!("{} 0", idx));
+            }
+        }
+        // 3. Universal Qualcomm / Generic Linux: ensure all CPU clusters stay un-isolated at physical Fmax
+        for i in 0..16 {
+            let iso = format!("/sys/devices/system/cpu/cpu{}/isolate", i);
+            if Path::new(&iso).exists() && Self::read_trimmed(&iso).as_deref() == Some("1") {
+                Self::write_opt(&iso, "0");
+            }
+            let max_info = format!("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", i);
+            let scaling_max = format!("/sys/devices/system/cpu/cpu{}/cpufreq/scaling_max_freq", i);
+            if let Some(info_max) = Self::read_trimmed(&max_info) {
+                if Self::read_trimmed(&scaling_max).as_deref() != Some(info_max.as_str()) {
+                    Self::write_opt(&scaling_max, &info_max);
+                }
+            }
+        }
+        // 4. Clear premature adaptive CPU cooling clamps (never touches sysrst/shutdown)
+        for id in 0..64 {
+            let cdev = format!("/sys/class/thermal/cooling_device{}", id);
+            if !Path::new(&cdev).exists() {
+                continue;
+            }
+            if let Some(ct) = Self::read_trimmed(format!("{}/type", cdev)) {
+                let lower = ct.to_lowercase();
+                if lower.contains("sysrst") || lower.contains("shutdown") || lower.contains("rst") {
+                    continue;
+                }
+                if lower.contains("thermal-cpufreq") || lower.contains("cpu_adaptive") {
+                    if Self::read_trimmed(format!("{}/cur_state", cdev))
+                        .and_then(|s| s.parse::<i64>().ok())
+                        .unwrap_or(0)
+                        > 0
+                    {
+                        Self::write_opt(format!("{}/cur_state", cdev), "0");
+                    }
+                }
+            }
+        }
+    }
+
+    fn user_explicitly_bypassed_thermal() -> bool {
+        std::fs::read_to_string("/data/adb/modules/Lynx/thermal_boot_mode.json")
+            .ok()
+            .and_then(|c| crate::state::extract_json_string(&c, "mode"))
+            .map(|m| matches!(m.trim().to_ascii_lowercase().as_str(), "bypass" | "unrestricted" | "extreme"))
+            .unwrap_or(false)
+    }
+
+    fn restore_boot_burst_thermal() {
+        if Self::user_explicitly_bypassed_thermal() {
+            return;
+        }
+        if Path::new(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER).exists() {
+            Self::write_opt(crate::hardware::mtk::MtkHardware::LYNX_THERMAL_SILENCER, "0");
+        }
+        if let Ok(ppm) = std::fs::read_to_string("/proc/ppm/policy_status") {
+            if let Some(idx) = Self::parse_ppm_policy_index(&ppm, "PPM_POLICY_THERMAL") {
+                Self::write_opt("/proc/ppm/policy_status", format!("{} 1", idx));
+            }
+        }
+    }
+
+    /// Starts (or refreshes) the universal 60-second cold-boot Big-Core thermal burst window.
+    /// Prevents premature 56°C skin/adaptive thermal throttling from chopping Big cores to ~1.0 GHz
+    /// during the post-unlock cold-boot app storm, guarded strictly by uptime, battery, and silicon ceilings.
+    pub fn start_cold_boot_burst(active_profile: &str) -> bool {
+        let prof = active_profile.trim().to_ascii_lowercase();
+        if matches!(prof.as_str(), "dormant" | "powersave" | "battery") {
+            return false;
+        }
+        let uptime = Self::read_uptime_secs().unwrap_or(999.0);
+        if uptime > Self::BOOT_BURST_MAX_UPTIME_SECS {
+            return false;
+        }
+        let state = crate::state::DeviceState::capture();
+        let batt_c = state.derived.temp_celsius_float;
+        let soc_c = Self::max_silicon_temp_c();
+        if batt_c >= Self::BOOT_BURST_MAX_BATT_C || soc_c >= (Self::BOOT_BURST_MAX_SOC_C - 4.0) {
+            return false;
+        }
+
+        let now = Self::now_epoch_secs();
+        // Preserve original 60s deadline if pre-armed earlier in boot so total burst never exceeds 60s
+        let deadline = std::fs::read_to_string(Self::BOOT_BURST_MARKER)
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .filter(|&d| d > now && d <= now + Self::BOOT_BURST_DURATION_SECS)
+            .unwrap_or(now + Self::BOOT_BURST_DURATION_SECS);
+
+        Self::apply_boot_burst_unthrottle();
+        let _ = std::fs::write(Self::BOOT_BURST_MARKER, format!("{}\n", deadline));
+        true
+    }
+
+    /// Maintains or cleanly terminates the 60-second cold-boot thermal burst window from `DaemonRunner`.
+    /// Zero-cost fast path (`!Path::exists`) once the boot window has ended.
+    pub fn maintain_cold_boot_burst(
+        now_secs: u64,
+        batt_c: f32,
+        screen_on: bool,
+        active_profile: &str,
+        game_active: bool,
+    ) -> Option<&'static str> {
+        let marker = Path::new(Self::BOOT_BURST_MARKER);
+        if !marker.exists() {
+            return None;
+        }
+        let deadline = std::fs::read_to_string(marker)
+            .ok()
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .unwrap_or(0);
+        let soc_c = Self::max_silicon_temp_c();
+
+        if let Some(reason) = Self::boot_burst_should_restore(
+            now_secs,
+            deadline,
+            batt_c,
+            soc_c,
+            screen_on,
+            active_profile,
+            game_active,
+        ) {
+            let _ = std::fs::remove_file(marker);
+            if reason != "handoff_game" {
+                Self::restore_boot_burst_thermal();
+            }
+            return Some(reason);
+        }
+
+        // Still inside the safe 60s cold-boot window: re-assert unthrottled Big-Core ceiling if OEM daemon re-clamped
+        Self::apply_boot_burst_unthrottle();
+        None
+    }
 
     pub fn is_battery_zone(zone_type: &str) -> bool {
         let t = zone_type.to_lowercase();
@@ -686,6 +932,58 @@ mod tests {
         assert_eq!(
             ThermalController::resolve_zone_trip_write("bms", "passive", Some(45_000), 52_000),
             None
+        );
+    }
+
+    #[test]
+    fn ppm_policy_index_parser_is_dynamic_and_zero_hardcoded() {
+        let sample = "\
+[0] PPM_POLICY_PTPOD: enabled
+[3] PPM_POLICY_PWR_THRO: enabled
+[4] PPM_POLICY_THERMAL: enabled
+[5] PPM_POLICY_DLPT: enabled
+[7] PPM_POLICY_USER_LIMIT: enabled
+";
+        assert_eq!(ThermalController::parse_ppm_policy_index(sample, "PPM_POLICY_THERMAL"), Some(4));
+        assert_eq!(ThermalController::parse_ppm_policy_index(sample, "PPM_POLICY_PWR_THRO"), Some(3));
+        assert_eq!(ThermalController::parse_ppm_policy_index(sample, "PPM_POLICY_MISSING"), None);
+    }
+
+    #[test]
+    fn cold_boot_thermal_burst_respects_60s_timer_and_all_safety_guardrails() {
+        // Safe inside 60s window
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1030, 1060, 37.5, 68.0, true, "balance", false),
+            None
+        );
+        // Expires cleanly at 60s
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1060, 1060, 37.5, 68.0, true, "balance", false),
+            Some("expired_60s")
+        );
+        // Immediate thermal guard on battery >= 42°C
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1020, 1060, 42.0, 68.0, true, "balance", false),
+            Some("thermal_guard_batt")
+        );
+        // Immediate thermal guard on SoC >= 82°C
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1020, 1060, 38.0, 82.5, true, "balance", false),
+            Some("thermal_guard_soc")
+        );
+        // Restores on screen off or powersave
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1020, 1060, 36.0, 60.0, false, "balance", false),
+            Some("screen_off")
+        );
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1020, 1060, 36.0, 60.0, true, "powersave", false),
+            Some("powersave_profile")
+        );
+        // Hands off cleanly without killing active game thermal policy
+        assert_eq!(
+            ThermalController::boot_burst_should_restore(1020, 1060, 39.0, 75.0, true, "performance", true),
+            Some("handoff_game")
         );
     }
 }

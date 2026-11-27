@@ -448,6 +448,20 @@ impl DaemonRunner {
                 game_boost_recheck_at = None;
                 game_mem_guard_at = None;
             }
+
+            // Maintain or cleanly restore the universal 60s cold-boot Big-Core thermal burst window
+            if let Some(reason) = crate::subsystems::ThermalController::maintain_cold_boot_burst(
+                now,
+                state.derived.temp_celsius_float,
+                current_screen == ScreenState::On,
+                active_prof,
+                game_boost_active,
+            ) {
+                Logger::info(format!(
+                    "[DAEMON] Cold-boot Big-Core thermal burst ended cleanly (reason: {}, batt: {:.1}°C).",
+                    reason, state.derived.temp_celsius_float
+                ));
+            }
             let current_mod = decision_engine.current_modifier();
             let profile_desc = if current_mod == ModifierLevel::None {
                 active_prof.to_string()
