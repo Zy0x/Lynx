@@ -5,33 +5,42 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.noir.lynx.core.locale.LynxText as Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.noir.lynx.core.locale.LynxText as Text
 import com.noir.lynx.data.LynxUiState
-import com.noir.lynx.designsystem.card.LynxCard
 import com.noir.lynx.designsystem.theme.*
 import com.noir.lynx.feature.battery.lab.BatteryLabSessionManager
 import com.noir.lynx.feature.battery.lab.BatteryLabSessionState
+import com.noir.lynx.feature.battery.ui.ChargingSparklineWaveform
 import com.noir.lynx.ui.LynxViewModel
 import java.util.Locale
 
+/**
+ * BatteryLabSubscreen — Modern Battery & Power Lab Studio.
+ * Features live charging stopwatch with real-time waveform sparkline,
+ * true capacity fuel-gauge audit, interactive stage pipeline, and 1-click reports.
+ */
 @Composable
 fun BatteryLabSubscreen(
     uiState: LynxUiState,
@@ -101,7 +110,7 @@ fun BatteryLabSubscreen(
 }
 
 // ============================================================================
-// 1. Live Charging Session Card
+// 1. Live Charging Session Card with Waveform Sparkline
 // ============================================================================
 @Composable
 private fun LiveChargingSessionCard(
@@ -113,80 +122,117 @@ private fun LiveChargingSessionCard(
 ) {
     val details = uiState.batteryDetails
     val isRunning = sessionState.isRunning
+    val isCharging = details?.isCharging == true || (details?.currentMa ?: 0) > 0
     val curVolt = details?.voltageMv ?: 0
     val curMa = details?.currentMa ?: 0
     val liveWatt = if ((details?.chargerWatt ?: 0f) > 0f) details!!.chargerWatt else ((curVolt * curMa) / 1_000_000f)
+    val haptic = LocalHapticFeedback.current
+
+    val infiniteTransition = rememberInfiniteTransition(label = "charging_dot_pulse")
+    val dotAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "charging_dot_alpha"
+    )
 
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = BgCard,
-        border = BorderStroke(0.8.dp, if (isRunning) AccentGreen.copy(alpha = 0.5f) else BorderSubtle),
+        border = BorderStroke(1.dp, if (isRunning) AccentGreen.copy(alpha = 0.6f) else BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row: Title + Live Status Badge
+            // Header Row: Icon + Title + Liveness Dot + Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = AccentGreen.copy(alpha = 0.15f),
-                        modifier = Modifier.size(38.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isRunning) AccentGreen.copy(alpha = 0.16f) else BgElevated)
+                            .border(
+                                BorderStroke(0.8.dp, if (isRunning) AccentGreen.copy(alpha = 0.5f) else BorderSubtle),
+                                RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = AccentGreen,
-                                modifier = Modifier.size(20.dp)
+                        Icon(
+                            imageVector = if (isCharging) Icons.Default.Bolt else Icons.Default.BatteryChargingFull,
+                            contentDescription = null,
+                            tint = if (isRunning) AccentGreen else AccentCyan,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "SESI PENGUJIAN CHARGING",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isRunning) AccentGreen else AccentCyan,
+                            letterSpacing = 0.6.sp
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isRunning) AccentGreen.copy(alpha = dotAlpha)
+                                        else TextSecondary.copy(alpha = 0.4f)
+                                    )
+                            )
+                            Text(
+                                text = if (isRunning) "MEREKAM DATA CHARGING" else "SIAP MENGUJI",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
                             )
                         }
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            "Sesi Pengujian Charging",
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            if (isRunning) "Perekaman aktif di background..." else "Siap untuk menguji sesi pengisian daya",
-                            color = if (isRunning) AccentGreen else TextSecondary,
-                            fontSize = 11.sp
-                        )
-                    }
                 }
 
+                // Mode Badge: Charging vs Discharging
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isRunning) AccentGreen.copy(alpha = 0.2f) else BgElevated,
-                    border = BorderStroke(0.8.dp, if (isRunning) AccentGreen else BorderSubtle)
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isCharging) AccentGreen.copy(alpha = 0.18f) else BgElevated,
+                    border = BorderStroke(0.8.dp, if (isCharging) AccentGreen.copy(alpha = 0.5f) else BorderSubtle)
                 ) {
                     Text(
-                        if (isRunning) "RECORDING" else "IDLE",
-                        color = if (isRunning) AccentGreen else TextSecondary,
-                        fontSize = 10.sp,
+                        text = if (isCharging) "CHARGING IN" else "DISCHARGING",
+                        color = if (isCharging) AccentGreen else AccentOrange,
+                        fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-
             // Main Stopwatch Banner
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF070B0E),
-                border = BorderStroke(1.dp, if (isRunning) AccentGreen.copy(alpha = 0.35f) else BorderGlass),
+                border = BorderStroke(1.dp, if (isRunning) AccentGreen.copy(alpha = 0.4f) else BorderGlass),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -196,7 +242,7 @@ private fun LiveChargingSessionCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "DURASI PENGUJIAN AKTIF",
+                        text = "DURASI PENGUJIAN AKTIF",
                         color = TextTertiary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -216,107 +262,121 @@ private fun LiveChargingSessionCard(
                         Spacer(Modifier.height(4.dp))
                         val delta = sessionState.currentLevel - sessionState.startLevel
                         Text(
-                            text = "Rentang: ${sessionState.startLevel}% → ${sessionState.currentLevel}% (+$delta%)",
+                            text = "Rentang: ${sessionState.startLevel}% → ${sessionState.currentLevel}% (${if (delta >= 0) "+$delta" else "$delta"}%)",
                             color = AccentCyan,
-                            fontSize = 11.5.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            // Integrated Live Sparkline Waveform
+            val currentSamples = details?.currentHistorySamples ?: emptyList()
+            if (currentSamples.isNotEmpty()) {
+                ChargingSparklineWaveform(
+                    samples = currentSamples,
+                    currentMa = curMa,
+                    accentColor = if (isCharging) AccentGreen else AccentCyan,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             // 4-Tile Live Metrics Bento Grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Daya (Watt)
                 MetricMiniTile(
-                    title = "Daya Saat Ini",
+                    title = "Daya Baterai",
                     value = "${String.format(Locale.US, "%.1f", liveWatt)} W",
                     subtitle = "Peak: ${String.format(Locale.US, "%.1f", sessionState.peakWatt)}W",
                     accent = AccentGreen,
+                    icon = Icons.Default.Bolt,
                     modifier = Modifier.weight(1f)
                 )
-                // Arus (mA)
                 MetricMiniTile(
-                    title = "Arus Pengisian",
-                    value = "$curMa mA",
+                    title = if (isCharging) "Arus Pengisian" else "Arus Keluar",
+                    value = "${if (curMa > 0) "+$curMa" else "$curMa"} mA",
                     subtitle = "Peak: ${sessionState.peakCurrentMa}mA",
-                    accent = AccentCyan,
+                    accent = if (isCharging) AccentCyan else AccentOrange,
+                    icon = Icons.Default.Speed,
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Tegangan Sel (Volt)
                 MetricMiniTile(
                     title = "Tegangan Sel",
                     value = "${String.format(Locale.US, "%.2f", curVolt / 1000f)} V",
                     subtitle = "$curVolt mV",
                     accent = AccentOrange,
+                    icon = Icons.Default.FlashOn,
                     modifier = Modifier.weight(1f)
                 )
-                // Total Terserap (mAh)
                 MetricMiniTile(
-                    title = "Energi Terserap",
+                    title = "Energi & Suhu",
                     value = "${sessionState.absorbedMah} mAh",
                     subtitle = "Suhu: ${String.format(Locale.US, "%.1f", details?.tempC ?: 0f)}°C",
                     accent = AccentPurple,
+                    icon = Icons.Default.Thermostat,
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
-
-            // Action Buttons Row (min 48dp touch target)
+            // Action Buttons Row (min 50dp touch target)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (!isRunning) {
                     Button(
-                        onClick = onStart,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onStart()
+                        },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentGreen),
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 50.dp)
                     ) {
-                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Mulai Sesi Uji", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Mulai Sesi Uji Lab", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
 
                     if (sessionState.elapsedSeconds > 0) {
                         OutlinedButton(
-                            onClick = onReset,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onReset()
+                            },
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, BorderGlass),
                             colors = ButtonDefaults.outlinedButtonColors(containerColor = BgElevated),
-                            modifier = Modifier.heightIn(min = 48.dp)
+                            modifier = Modifier.heightIn(min = 50.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                         }
                     }
                 } else {
                     Button(
-                        onClick = onStop,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onStop()
+                        },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = 50.dp)
                     ) {
-                        Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text("Hentikan & Catat Sesi", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -324,19 +384,18 @@ private fun LiveChargingSessionCard(
 
             // Summary of completed session if available
             sessionState.lastCompletedSessionSummary?.let { summary ->
-                Spacer(Modifier.height(10.dp))
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = BgElevated,
-                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.3f)),
+                    border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.CheckCircle, null, tint = AccentCyan, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Default.CheckCircle, null, tint = AccentCyan, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
                         Text(
                             text = summary,
                             color = TextPrimary,
@@ -351,7 +410,7 @@ private fun LiveChargingSessionCard(
 }
 
 // ============================================================================
-// 2. True Battery Capacity & Label Audit Card
+// 2. True Battery Capacity & Label Audit Card (with Cell Silhouette)
 // ============================================================================
 @Composable
 private fun BatteryTrueCapacityAuditCard(
@@ -366,88 +425,153 @@ private fun BatteryTrueCapacityAuditCard(
     val healthPct = if (designMah > 0) ((actualMah.toFloat() / designMah.toFloat()) * 100f).toInt() else 100
     val isScamOrDegraded = healthPct < 75
 
+    val healthGrade = when {
+        healthPct >= 95 -> "Grade A+ • Sangat Prima"
+        healthPct >= 85 -> "Grade A • Sehat Normal"
+        healthPct >= 75 -> "Grade B • Degradasi Ringan"
+        else -> "Grade C • Disarankan Servis"
+    }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = BgCard,
-        border = BorderStroke(0.8.dp, if (isScamOrDegraded) AccentOrange.copy(alpha = 0.4f) else BorderSubtle),
+        border = BorderStroke(1.dp, if (isScamOrDegraded) AccentOrange.copy(alpha = 0.5f) else BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isScamOrDegraded) AccentOrange.copy(alpha = 0.15f) else AccentGreen.copy(alpha = 0.15f),
-                        modifier = Modifier.size(38.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isScamOrDegraded) AccentOrange.copy(alpha = 0.16f) else AccentGreen.copy(alpha = 0.16f))
+                            .border(
+                                BorderStroke(0.8.dp, if (isScamOrDegraded) AccentOrange.copy(alpha = 0.4f) else AccentGreen.copy(alpha = 0.4f)),
+                                RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                if (isScamOrDegraded) Icons.Default.Warning else Icons.Default.VerifiedUser,
-                                contentDescription = null,
-                                tint = if (isScamOrDegraded) AccentOrange else AccentGreen,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = if (isScamOrDegraded) Icons.Default.Warning else Icons.Default.VerifiedUser,
+                            contentDescription = null,
+                            tint = if (isScamOrDegraded) AccentOrange else AccentGreen,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Column {
+
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            "Diagnostik Kapasitas Fisik Baterai",
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "DIAGNOSTIK KAPASITAS FISIK BATERAI",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isScamOrDegraded) AccentOrange else AccentGreen,
+                            letterSpacing = 0.6.sp
                         )
                         Text(
-                            "Audit Fuel Gauge Kernel vs Klaim Kemasan Label",
-                            color = TextSecondary,
-                            fontSize = 11.sp
+                            text = "Audit Fuel Gauge Kernel vs Klaim Label",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                     }
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = if (isScamOrDegraded) AccentOrange.copy(alpha = 0.18f) else AccentGreen.copy(alpha = 0.18f),
                     border = BorderStroke(0.8.dp, if (isScamOrDegraded) AccentOrange else AccentGreen)
                 ) {
                     Text(
-                        if (isScamOrDegraded) "3RD-PARTY" else "GENUINE",
+                        text = if (isScamOrDegraded) "3RD-PARTY" else "GENUINE",
                         color = if (isScamOrDegraded) AccentOrange else AccentGreen,
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            // Visual Silhouette Battery Cell
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF070B0E),
+                border = BorderStroke(1.dp, BorderGlass),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = healthGrade,
+                            color = if (isScamOrDegraded) AccentOrange else AccentGreen,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Kapasitas Kimia: $actualMah mAh (${healthPct}% Integritas)",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    // Battery Terminal Icon & Level
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = BgElevated,
+                            border = BorderStroke(0.6.dp, BorderSubtle)
+                        ) {
+                            Text(
+                                text = "${details?.level ?: 0}% SoC",
+                                color = AccentCyan,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
 
             // Capacity Comparison Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Tertera / Label
+                // Klaim Label
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = BgElevated,
                     border = BorderStroke(0.8.dp, BorderGlass),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(Modifier.padding(10.dp)) {
+                    Column(Modifier.padding(12.dp)) {
                         Text("Klaim Label / Desain OEM", color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text("$designMah mAh", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Text("PowerProfile spesifikasi", color = TextSecondary, fontSize = 9.5.sp)
                     }
@@ -460,9 +584,9 @@ private fun BatteryTrueCapacityAuditCard(
                     border = BorderStroke(0.8.dp, if (isScamOrDegraded) AccentOrange.copy(alpha = 0.4f) else BorderGlass),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Column(Modifier.padding(10.dp)) {
+                    Column(Modifier.padding(12.dp)) {
                         Text("Kapasitas Fisik Aktual", color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             "$actualMah mAh",
                             color = if (isScamOrDegraded) AccentOrange else AccentGreen,
@@ -474,8 +598,6 @@ private fun BatteryTrueCapacityAuditCard(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-
             // Capacity Integrity Bar
             Column(Modifier.fillMaxWidth()) {
                 Row(
@@ -485,19 +607,17 @@ private fun BatteryTrueCapacityAuditCard(
                     Text("Rasio Integritas Sel Nyata", color = TextSecondary, fontSize = 11.sp)
                     Text("$healthPct%", color = if (isScamOrDegraded) AccentOrange else AccentGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 LinearProgressIndicator(
                     progress = { (healthPct / 100f).coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp)
+                        .height(8.dp)
                         .clip(CircleShape),
                     color = if (isScamOrDegraded) AccentOrange else AccentGreen,
                     trackColor = BgElevated
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
 
             // Forensic Explanation Box
             Surface(
@@ -540,7 +660,7 @@ private fun BatteryTrueCapacityAuditCard(
 }
 
 // ============================================================================
-// 3. Dual-IC Handover & Physical Curve Card
+// 3. Interactive Charging Pipeline Stepper Card
 // ============================================================================
 @Composable
 private fun DualIcHandoverStageCard(
@@ -556,67 +676,80 @@ private fun DualIcHandoverStageCard(
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle),
+        border = BorderStroke(1.dp, BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = AccentCyan.copy(alpha = 0.15f),
-                    modifier = Modifier.size(38.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AccentCyan.copy(alpha = 0.16f))
+                        .border(BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.4f)), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Hub,
-                            contentDescription = null,
-                            tint = AccentCyan,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Hub,
+                        contentDescription = null,
+                        tint = AccentCyan,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-                Spacer(Modifier.width(10.dp))
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        if (isTranssionHw) "Tahapan Fisik & Handover Dual-IC" else "Tahapan Fisik & Regulasi Pengisian",
-                        color = TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
+                        if (isTranssionHw) "TAHAPAN FISIK & HANDOVER DUAL-IC" else "PIPELINE TAHAPAN REGULASI CHARGING",
+                        color = AccentCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.6.sp
                     )
                     Text(
-                        if (isTranssionHw) "Alur perpindahan hardware Direct Charge Pump ke Switching Buck"
-                        else "Alur tahapan regulasi Constant Current (CC) ke Constant Voltage (CV)",
-                        color = TextSecondary,
-                        fontSize = 11.sp
+                        if (isTranssionHw) "Direct Pump 2:1 ke Switching Buck" else "Alur Constant Current (CC) ke Constant Voltage (CV)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-
             // Active Stage Highlight Box
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = AccentCyan.copy(alpha = 0.08f),
-                border = BorderStroke(0.8.dp, AccentCyan.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text("TAHAPAN AKTIF SAAT INI:", color = AccentCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(3.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp)
+                ) {
                     Text(
-                        sessionState.activeStageName,
+                        text = "TAHAPAN REGULASI AKTIF SAAT INI:",
+                        color = AccentCyan,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = sessionState.activeStageName,
                         color = TextPrimary,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(3.dp))
                     Text(
-                        sessionState.activeStageDetail,
+                        text = sessionState.activeStageDetail,
                         color = TextSecondary,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
@@ -624,54 +757,80 @@ private fun DualIcHandoverStageCard(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            // Stage Step Indicators
+            // Pipeline Stepper List
             val stages = if (isTranssionHw) {
                 listOf(
-                    Triple("1. Direct Pump 2:1", "0% - 90% @ High-Current Direct", curLevel < 90 && curMa > 3000),
-                    Triple("2. Switching Buck", "Modulasi arus adaptif baterai", curLevel < 90 && curMa in 1500..3000),
-                    Triple("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", curLevel in 90..99),
-                    Triple("4. AutoCut Cutoff", "100% Full Saturation", curLevel >= 100)
+                    StageStepData("1. Direct Pump 2:1", "0% - 90% @ High-Current Direct", "Target > 3000 mA", curLevel < 90 && curMa > 3000),
+                    StageStepData("2. Switching Buck", "Modulasi arus adaptif baterai", "Target 1500–3000 mA", curLevel < 90 && curMa in 1500..3000),
+                    StageStepData("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", "Taper < 1500 mA", curLevel in 90..99),
+                    StageStepData("4. AutoCut Cutoff", "100% Full Saturation / Cutoff", "Target 0 mA", curLevel >= 100)
                 )
             } else {
                 listOf(
-                    Triple("1. Rapid CC Phase", "0% - 90% @ Puncak Arus via PMIC", curLevel < 90 && curMa >= 2000),
-                    Triple("2. Regulated CC Step", "Modulasi arus adaptif baterai", curLevel < 90 && curMa < 2000),
-                    Triple("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", curLevel in 90..99),
-                    Triple("4. AutoCut Cutoff", "100% Full Saturation", curLevel >= 100)
+                    StageStepData("1. Rapid CC Phase", "0% - 90% @ Puncak Arus via PMIC", "Target > 2000 mA", curLevel < 90 && curMa >= 2000),
+                    StageStepData("2. Regulated CC Step", "Modulasi arus adaptif baterai", "Target 1000–2000 mA", curLevel < 90 && curMa in 1..1999),
+                    StageStepData("3. CV Safe Tapering", "90% - 100% @ Tapered Saturation", "Taper < 1000 mA", curLevel in 90..99),
+                    StageStepData("4. AutoCut Cutoff", "100% Full Saturation / Cutoff", "Target 0 mA", curLevel >= 100)
                 )
             }
 
-            stages.forEach { (title, desc, isCurrent) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isCurrent) AccentCyan else BorderGlass)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            title,
-                            color = if (isCurrent) AccentCyan else TextPrimary,
-                            fontSize = 11.5.sp,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium
-                        )
-                        Text(desc, color = TextTertiary, fontSize = 10.sp)
-                    }
-                    if (isCurrent) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = AccentCyan.copy(alpha = 0.2f)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                stages.forEach { stage ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (stage.isCurrent) AccentCyan.copy(alpha = 0.12f) else BgElevated,
+                        border = BorderStroke(
+                            1.dp,
+                            if (stage.isCurrent) AccentCyan.copy(alpha = 0.6f) else BorderGlass
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("AKTIF", color = AccentCyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (stage.isCurrent) AccentCyan else BorderGlass)
+                                )
+                                Column {
+                                    Text(
+                                        text = stage.title,
+                                        color = if (stage.isCurrent) AccentCyan else TextPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (stage.isCurrent) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = stage.desc,
+                                        color = TextSecondary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (stage.isCurrent) AccentCyan.copy(alpha = 0.2f) else BgSurfaceLowest,
+                                border = BorderStroke(0.6.dp, if (stage.isCurrent) AccentCyan.copy(alpha = 0.4f) else BorderSubtle)
+                            ) {
+                                Text(
+                                    text = if (stage.isCurrent) "AKTIF • ${stage.tag}" else stage.tag,
+                                    color = if (stage.isCurrent) AccentCyan else TextTertiary,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -679,6 +838,13 @@ private fun DualIcHandoverStageCard(
         }
     }
 }
+
+private data class StageStepData(
+    val title: String,
+    val desc: String,
+    val tag: String,
+    val isCurrent: Boolean
+)
 
 // ============================================================================
 // 4. Milestone Timeline Card
@@ -690,13 +856,14 @@ private fun ChargingMilestonesCard(
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle),
+        border = BorderStroke(1.dp, BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Timeline, null, tint = AccentPurple, modifier = Modifier.size(20.dp))
@@ -709,19 +876,15 @@ private fun ChargingMilestonesCard(
                 )
             }
 
-            Spacer(Modifier.height(10.dp))
-
             sessionState.milestones.forEach { m ->
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = BgElevated,
                     border = BorderStroke(0.8.dp, BorderGlass),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -772,10 +935,12 @@ private fun ChargingExportReportCard(
     sessionState: BatteryLabSessionState,
     onExport: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         color = BgCard,
-        border = BorderStroke(0.8.dp, BorderSubtle),
+        border = BorderStroke(1.dp, BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -785,25 +950,34 @@ private fun ChargingExportReportCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
-                    "Ekspor Laporan Pengujian",
+                    text = "Ekspor Laporan Pengujian",
                     color = TextPrimary,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "Salin ringkasan telemetri charging & audit kapasitas ke clipboard (Markdown)",
+                    text = "Salin ringkasan telemetri charging & audit kapasitas ke clipboard (format Markdown rapi)",
                     color = TextSecondary,
-                    fontSize = 11.sp
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
                 )
             }
 
             Button(
-                onClick = onExport,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onExport()
+                },
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                modifier = Modifier.heightIn(min = 44.dp)
+                modifier = Modifier.heightIn(min = 46.dp)
             ) {
                 Icon(Icons.Default.ContentCopy, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
@@ -834,7 +1008,12 @@ private fun NonRedundantTuningLinkCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(modifier = Modifier.weight(1f).padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(Icons.Default.Tune, null, tint = AccentGreen, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Column {
@@ -871,6 +1050,7 @@ private fun MetricMiniTile(
     value: String,
     subtitle: String,
     accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -880,10 +1060,19 @@ private fun MetricMiniTile(
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(10.dp)
+            modifier = Modifier.padding(12.dp)
         ) {
-            Text(title, color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(3.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(title, color = TextTertiary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                if (icon != null) {
+                    Icon(icon, null, tint = accent.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+                }
+            }
+            Spacer(Modifier.height(4.dp))
             Text(value, color = accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(2.dp))
             Text(subtitle, color = TextSecondary, fontSize = 9.5.sp)

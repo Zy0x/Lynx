@@ -1,3 +1,33 @@
+# Lynx Universal [Perombakan Modern Lab Baterai & Daya: Live Sparkline Waveform, Audit Kapasitas Sel 1:1, & Interactive Stage Pipeline] 7.0.0-RC477
+Released on: 2026-11-27
+> Lynx Kernel Manager v3.4.96
+
+### UI/UX & Companion App (`feature/battery/ui/lab/BatteryLabSubscreen.kt`)
+- **Live Charging Session Hero Bento Card (`BatteryLabSubscreen.kt`)**:
+  - Merombak kartu sesi pengujian pengisian daya dengan *liveness status dot* (`● PENGUJIAN SIAP` vs `🔴 MEREKAM DATA CHARGING`).
+  - Menghadirkan badge semantik dinamis `CHARGING IN` (Hijau/Cyan saat arus masuk positif) vs `DISCHARGING` (Amber saat arus keluar).
+  - Mengintegrasikan **Live Bezier Sparkline Waveform** (`ChargingSparklineWaveform`) langsung di bawah stopwatch banner untuk menampilkan fluktuasi arus (mA) secara riil saat pengujian lab berlangsung.
+  - 4 Mini-Tile Metrik Bento berikon: **Daya Baterai (W)** dengan peak tracker, **Arus Pengisian/Keluar (mA)**, **Tegangan Sel (V)**, serta **Energi Terserap (mAh)** dan **Suhu (°C)**.
+  - Tombol aksi Hero Start/Stop/Reset berukuran tinggi $\ge 50\text{ dp}$ dengan *haptic feedback* taktil dan ringkasan sesi otomatis saat selesai.
+- **True Capacity & Battery Integrity Audit Card (`BatteryLabSubscreen.kt`)**:
+  - Menghadirkan kartu diagnostik kapasitas kimia fisik dengan visualisasi sel baterai dan pemeringkatan mutu kesehatan sel:
+    - `Grade A+ • Sangat Prima` (Integritas $\ge 95\%$)
+    - `Grade A • Sehat Normal` (Integritas $85-94\%$)
+    - `Grade B • Degradasi Ringan` (Integritas $75-84\%$)
+    - `Grade C • Disarankan Servis` (Integritas $< 75\%$)
+  - Membandingkan kapasitas label OEM (`designMah`) vs kapasitas aktual fisik kernel (`actualMah / charge_full`) serta status kalibrasi fuel gauge.
+  - Progress bar integritas sel berdesain tebal 8dp dengan warna adaptif dan kotak analisis status baterai ilmiah.
+- **Interactive Charging Pipeline Stepper Card (`BatteryLabSubscreen.kt`)**:
+  - Merombak daftar teks vertikal polos menjadi **Pipeline Stepper Interaktif** 4 tahapan fisik:
+    - ⚡ **Tahap 1: Rapid CC Phase** (0% - 90% @ Puncak Arus via PMIC, target $> 2000\text{ mA}$)
+    - ⚖️ **Tahap 2: Regulated CC Step** (Modulasi arus adaptif baterai, target $1000-2000\text{ mA}$)
+    - 📉 **Tahap 3: CV Safe Tapering** (90% - 100% @ Tapered Saturation, target $< 1000\text{ mA}$)
+    - 🛑 **Tahap 4: AutoCut Cutoff** (100% Penuh / Proteksi Bypass, target $0\text{ mA}$)
+  - Tahap aktif disorot dengan kartu menyala border Cyan, dot toska pulsing, dan badge status `AKTIF`.
+- **Ekspor Laporan & Link Navigasi Non-Redundan (`BatteryLabSubscreen.kt`)**:
+  - Tombol ekspor laporan satu klik ke clipboard (Markdown) dengan haptic tactile.
+  - Tombol pintas navigasi langsung ke pengaturan parameter kernel baterai di Tab Tuning (*Zero Redundancy*).
+
 # Lynx Universal [Perombakan Modern Tab Perekaman Lynx Engine: Hero Studio Bento, 4-Segment Subtabs, Audio Internal & Stealth Privacy] 7.0.0-RC476
 Released on: 2026-11-27
 > Lynx Kernel Manager v3.4.95
