@@ -785,15 +785,26 @@ impl GameController {
     /// Optimizes thread scheduling, CPU affinity, and I/O priority for a specific process ID
     /// dynamically across any SoC cluster layout and any game engine without hardcoding.
     pub fn optimize_pid(pid: u32) {
+        static INITIALIZED_PIDS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<u32>>> =
+            std::sync::OnceLock::new();
+        let first_pass = {
+            let set = INITIALIZED_PIDS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+            let mut guard = set.lock().unwrap_or_else(|e| e.into_inner());
+            if guard.len() > 64 {
+                guard.clear();
+            }
+            guard.insert(pid)
+        };
+
         let pid_str = pid.to_string();
 
-        // Process level priority & I/O
+        // Process level priority & one-time cpuset/IO/GED binding (avoid 10s fork+exec / Binder storms)
         Self::set_tid_nice(pid, -20);
-        let _ = Command::new("ionice").args(&["-c", "1", "-n", "0", "-p", &pid_str]).output();
-
-        // Put process into top-app cpuset & notify GED top app PID
-        Self::write_opt("/dev/cpuset/top-app/cgroup.procs", &pid_str);
-        Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", &pid_str);
+        if first_pass {
+            let _ = Command::new("ionice").args(&["-c", "1", "-n", "0", "-p", &pid_str]).output();
+            Self::write_opt("/dev/cpuset/top-app/cgroup.procs", &pid_str);
+            Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", &pid_str);
+        }
 
         // Dynamic topology discovery (Zero hardcoding of core counts or SoC IDs)
         let cap = HardwareCapability::resolve();
@@ -894,12 +905,13 @@ impl GameController {
                 let (mask, nice) = match t.role {
                     // Secondary render/main threads stay on worker pool so they never fight primary -20 threads.
                     ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14),
-                    // Asset/shader decompressors (MHYLoadThreadWo, AsyncReadManage, ShaderLoadManag,
-                    // UnityMultiRende, NativeThread) & GPU driver submitters (mali-cmar-backe) run at nice -12
-                    // across all cores so they can burst 3x faster onto idle Big/Prime cores whenever primary
-                    // -20 render/main threads block waiting on newly streamed open-world characters/buildings.
-                    ThreadRole::EngineHeavyWorker => (topo.all_mask, -12),
-                    ThreadRole::GpuDriverWorker => (topo.all_mask, -12),
+                    // Quarantine heavy asset/shader decompressors (MHYLoadThreadWo, AsyncReadManage,
+                    // ShaderLoadManag, UnityMultiRende, NativeThread) & GPU driver utility compilers
+                    // (mali-utility-wo, mali-cmar-backe, mali-mem-purge) strictly onto the non-prime
+                    // worker pool so world/building streaming bursts never preempt or thrash L1/L2
+                    // caches on exclusive Big/Prime render & main cores.
+                    ThreadRole::EngineHeavyWorker => (worker_mask, -10),
+                    ThreadRole::GpuDriverWorker => (worker_mask, -8),
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
                     // Quarantine non-critical workers & background pools strictly off prime cores
                     // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
@@ -912,25 +924,27 @@ impl GameController {
             }
         }
 
-        // Keep background VM reclaimers and lynxd itself confined to energy-efficient cores
-        Self::offload_kswapd_kcompactd(topo.little_mask);
-        Self::pin_self_to_little(topo.little_mask);
+        if first_pass {
+            // Keep background VM reclaimers and lynxd itself confined to energy-efficient cores
+            Self::offload_kswapd_kcompactd(topo.little_mask);
+            Self::pin_self_to_little(topo.little_mask);
 
-        // Trigger asynchronous Ahead-Of-Time (AOT) machine code compilation in background if not already compiled with 'speed'
-        if let Ok(cmd_bytes) = fs::read(format!("/proc/{}/cmdline", pid)) {
-            let cmd_str = String::from_utf8_lossy(&cmd_bytes);
-            let pkg = cmd_str.split('\0').next().unwrap_or("").trim().to_string();
-            if !pkg.is_empty() && !pkg.starts_with('/') && pkg.contains('.') {
-                std::thread::spawn(move || {
-                    let dump = Command::new("dumpsys").args(&["package", &pkg]).output().ok();
-                    let already_speed = dump.map(|d| {
-                        let s = String::from_utf8_lossy(&d.stdout);
-                        s.contains("status=speed]")
-                    }).unwrap_or(false);
-                    if !already_speed {
-                        let _ = Command::new("cmd").args(&["package", "compile", "-m", "speed", &pkg]).output();
-                    }
-                });
+            // Trigger asynchronous Ahead-Of-Time (AOT) machine code compilation ONCE per PID if not already 'speed'
+            if let Ok(cmd_bytes) = fs::read(format!("/proc/{}/cmdline", pid)) {
+                let cmd_str = String::from_utf8_lossy(&cmd_bytes);
+                let pkg = cmd_str.split('\0').next().unwrap_or("").trim().to_string();
+                if !pkg.is_empty() && !pkg.starts_with('/') && pkg.contains('.') {
+                    std::thread::spawn(move || {
+                        let dump = Command::new("dumpsys").args(&["package", &pkg]).output().ok();
+                        let already_speed = dump.map(|d| {
+                            let s = String::from_utf8_lossy(&d.stdout);
+                            s.contains("status=speed]")
+                        }).unwrap_or(false);
+                        if !already_speed {
+                            let _ = Command::new("cmd").args(&["package", "compile", "-m", "speed", &pkg]).output();
+                        }
+                    });
+                }
             }
         }
     }

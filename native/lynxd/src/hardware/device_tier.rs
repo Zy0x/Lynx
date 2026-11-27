@@ -296,15 +296,15 @@ impl DeviceTier {
                 swappiness: if self.is_low_end_ram {
                     35
                 } else if self.has_mountx_sd {
-                    // Minimize Unity anon swap-out/swap-in faults while vfs_cache_pressure=100
-                    // cleanly recycles stale MountX .blk file caches first.
+                    // Minimize Unity anon swap-out/swap-in faults while vfs_cache_pressure=40
+                    // preserves F2FS .blk inode/dentry metadata and kswapd recycles old file pages.
                     1
                 } else if is_high_ram_zram {
                     60
                 } else {
                     8
                 },
-                vfs_cache_pressure: if self.has_mountx_sd { 100 } else { 100 },
+                vfs_cache_pressure: if self.has_mountx_sd { 40 } else { 100 },
                 dirty_background_ratio: dirty_bg,
                 dirty_ratio,
                 dirty_writeback_cs: writeback_cs,
@@ -325,9 +325,10 @@ impl DeviceTier {
                 } else {
                     10
                 },
-                // Recycle stale old-zone MountX .blk file cache cleanly so zone Normal keeps contiguous blocks.
+                // Keep F2FS .blk inode/dentry trees resident in RAM during open-world streaming
+                // while wsf=125/efk=49152 continues reclaiming cold file pages asynchronously (0/0/0 stalls).
                 vfs_cache_pressure: if self.has_mountx_sd {
-                    100
+                    40
                 } else if self.is_emmc_primary {
                     40
                 } else {
@@ -545,7 +546,7 @@ mod tests {
         assert_eq!(ufs8g_sd_ext.watermark_scale_factor, 125);
         assert_eq!(ufs8g_sd_ext.extra_free_kbytes, 49152);
         assert_eq!(ufs8g_sd_ext.swappiness, 1);
-        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 100);
+        assert_eq!(ufs8g_sd_ext.vfs_cache_pressure, 40);
         assert_eq!(ufs8g_sd_ext.dirty_writeback_cs, 1500);
         assert_eq!(ufs8g_sd_ext.dirty_expire_cs, 3000);
 

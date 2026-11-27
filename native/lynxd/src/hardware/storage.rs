@@ -225,12 +225,13 @@ impl StoragePolicy {
                 // External MicroSD (UHS SDR104 / SD_HS serial bus) — Dual-Mode Latency/Throughput Engine:
                 // - Balance (Download/Verify/Extract): 256KB RA + 128 depth (+ 1024KB max_sectors_kb) saturates
                 //   sequential R/W up to 85 MB/s read & 16 MB/s synced write.
-                // - Performance/Extreme (Active Open-World Gaming & MountX random 32-45KB .blk streaming):
-                //   64KB RA eliminates 4x-6x random prefetch congestion (cutting SD avg_q 4.6ms -> <1.0ms
-                //   across 400-940 IOs/5s bursts) while 256 queue depth + 10ms read_expire + 5000ms
-                //   write_expire + writes_starved=16 + fifo_batch=32 on mq-deadline prevent write stalls.
+                // - Performance/Extreme (Active Open-World Gaming & MountX .blk streaming):
+                //   128KB RA balances sequential .blk mesh bursts (half the round-trips vs 64KB)
+                //   while keeping random prefetch amplification <=2x (1.6ms bus time on SDR104),
+                //   paired with 256 queue depth + 10ms read_expire + 5000ms write_expire +
+                //   writes_starved=16 + fifo_batch=32 on mq-deadline to prevent write stalls.
                 let (ra, nr, exp, wexp, starv, batch, sched) = match profile_name {
-                    "extreme" | "performance" => (64, 256, 10, 5000, 16, 32, "mq-deadline"),
+                    "extreme" | "performance" => (128, 256, 10, 5000, 16, 32, "mq-deadline"),
                     "powersave" => (128, 64, 100, 500, 2, 16, "noop"),
                     _ => (256, 128, 20, 350, 4, 16, "mq-deadline"),
                 };
@@ -733,7 +734,7 @@ mod tests {
         assert_eq!(sd_bal.read_ahead_kb, 256);
         assert_eq!(sd_bal.nr_requests, Some(128));
         assert_eq!(sd_bal.fifo_batch, Some(16));
-        assert_eq!(sd_perf.read_ahead_kb, 64);
+        assert_eq!(sd_perf.read_ahead_kb, 128);
         assert_eq!(sd_perf.nr_requests, Some(256));
         assert_eq!(sd_perf.read_expire_ms, Some(10));
         assert_eq!(sd_perf.write_expire_ms, Some(5000));
