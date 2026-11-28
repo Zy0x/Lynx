@@ -1636,10 +1636,14 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
     if lower.contains("audio") || lower.contains("sound") || lower.contains("fmod") || lower.starts_with("ak::") {
         return ThreadRole::AudioRealtime;
     }
-    // Burst asset/bundle streaming & decompression loaders (Unity AsyncReadManager, MHYLoadThreadWo,
-    // AssetBundle, Loading.Preload, Unreal PakAsync, FileIO) run on all_mask at nice -11 + RT I/O
-    // so area/character transitions use idle Big/Prime cores without preempting nice -20 render/main.
-    if lower.contains("asyncread")
+    // Burst asset/bundle streaming & decompression loaders (Unity AsyncReadManager / Loading.AsyncRe /
+    // Loading.Prefetc / Loading.Preload, MHYLoadThreadWo, AssetBundle, Unreal PakAsync, FileIO) run
+    // on all_mask at nice -11 + RT I/O so area/character transitions use idle Big/Prime cores without
+    // preempting nice -20 render/main.
+    if lower.starts_with("loading.")
+        || lower.contains("asyncread")
+        || lower.contains("asyncre")
+        || lower.contains("prefetc")
         || lower.contains("loadthread")
         || lower.contains("mhyload")
         || lower.contains("assetbundle")
@@ -1779,6 +1783,8 @@ mod tests {
         assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::AssetStreamLoader);
         assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::AssetStreamLoader);
         assert_eq!(classify_thread_role("Loading.Preload", 75, "game"), ThreadRole::AssetStreamLoader);
+        assert_eq!(classify_thread_role("Loading.AsyncRe", 75, "game"), ThreadRole::AssetStreamLoader);
+        assert_eq!(classify_thread_role("Loading.Prefetc", 75, "game"), ThreadRole::AssetStreamLoader);
         assert_eq!(classify_thread_role("AssetBundleLoad", 70, "game"), ThreadRole::AssetStreamLoader);
         assert_eq!(classify_thread_role("Job.Worker 0", 85, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("mali-compiler", 95, "game"), ThreadRole::GpuShaderCompiler);
