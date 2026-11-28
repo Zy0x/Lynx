@@ -247,7 +247,17 @@ impl GameController {
             if SysfsReader::read_trimmed(block.join("ro")).ok().as_deref() == Some("1") {
                 continue;
             }
+            // Keep physical SD/eMMC/UFS controllers active (`power/control = on`) during active gameplay
+            // so 3s runtime autosuspend never power-gates / re-tunes the storage bus before random asset reads.
             let effective_type = crate::hardware::storage::StoragePolicy::effective_device_type(dev);
+            if matches!(
+                effective_type,
+                crate::hardware::capability::BlockDeviceType::Sd
+                    | crate::hardware::capability::BlockDeviceType::Emmc
+                    | crate::hardware::capability::BlockDeviceType::Ufs
+            ) {
+                Self::disable_block_runtime_pm(block, &dev.name);
+            }
             if mountx.is_disk_protected(&dev.name) {
                 if effective_type == crate::hardware::capability::BlockDeviceType::Sd {
                     let orig_path = Path::new("/dev/lynx_orig_sd_io");
@@ -652,6 +662,9 @@ impl GameController {
         Self::write_opt(QcomHardware::CPU_BOOST_INPUT_MS, "40");
         Self::write_opt(QcomHardware::CPU_BOOST_SCHED_BOOST_ON_INPUT, "0");
 
+        // Restore physical block device runtime PM (`auto`) so standby battery drain stays untouched.
+        Self::restore_block_runtime_pm();
+
         // Restore MountX-protected SD queue & smooth compile/download writeback pacing
         let orig_sd_path = Path::new("/dev/lynx_orig_sd_io");
         if let Ok(saved) = fs::read_to_string(orig_sd_path) {
@@ -726,6 +739,48 @@ impl GameController {
         }
         let sysctl_uclamp = ((min_ratio * 1024) / 100).to_string();
         Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", &sysctl_uclamp);
+        // Re-apply permission shield after writing so PowerHAL/mtkpower (UID system) cannot drop
+        // top-app uclamp.min back to 25% or GED gpu_bottom_freq back to 300 MHz mid-gameplay.
+        crate::subsystems::SchedulerGuardian::enforce_permission_shield(true);
+    }
+
+    /// Disables runtime PM autosuspend (`power/control = on`) for a physical block device during
+    /// active gameplay, saving original state once so `game_off` restores `auto` cleanly.
+    fn disable_block_runtime_pm(block_dir: &Path, dev_name: &str) {
+        let pm_ctrl = block_dir.join("device/power/control");
+        if !pm_ctrl.exists() {
+            return;
+        }
+        let save_file = Path::new("/dev/lynx_orig_blk_pm");
+        let existing = fs::read_to_string(save_file).unwrap_or_default();
+        let prefix = format!("{}|", dev_name);
+        if !existing.lines().any(|l| l.starts_with(&prefix)) {
+            if let Some(orig) = Self::read_trimmed(&pm_ctrl) {
+                let mut updated = existing;
+                if !updated.is_empty() && !updated.ends_with('\n') {
+                    updated.push('\n');
+                }
+                updated.push_str(&format!("{}|{}|{}\n", dev_name, pm_ctrl.display(), orig));
+                let _ = fs::write(save_file, updated);
+            }
+        }
+        Self::write_opt(&pm_ctrl, "on");
+    }
+
+    fn restore_block_runtime_pm() {
+        let save_file = Path::new("/dev/lynx_orig_blk_pm");
+        if let Ok(saved) = fs::read_to_string(save_file) {
+            for line in saved.lines() {
+                let mut parts = line.split('|');
+                let _dev = parts.next();
+                if let (Some(path_s), Some(orig)) = (parts.next(), parts.next()) {
+                    if !path_s.is_empty() && !orig.is_empty() {
+                        Self::write_opt(path_s, orig);
+                    }
+                }
+            }
+            let _ = fs::remove_file(save_file);
+        }
     }
 
     fn apply_game_block_params(

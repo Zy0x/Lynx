@@ -24,6 +24,15 @@ impl SchedulerGuardian {
     pub const PERFMGR_FG_BOOST: &'static str = MtkHardware::PERFMGR_FG_BOOST;
     pub const PERFMGR_UCLAMP_MIN: &'static str = MtkHardware::PERFMGR_UCLAMP_MIN;
     pub const PERFMGR_TA_UCLAMP_MIN: &'static str = MtkHardware::PERFMGR_TA_UCLAMP_MIN;
+    pub const PERFMGR_PERF_TA_UCLAMP_MIN: &'static str = "/proc/perfmgr/boost_ctrl/eas_ctrl/perf_ta_uclamp_min";
+
+    pub const CPUCTL_TOP_UCLAMP_MIN: &'static str = "/dev/cpuctl/top-app/cpu.uclamp.min";
+    pub const CPUCTL_TOP_UCLAMP_LAT: &'static str = "/dev/cpuctl/top-app/cpu.uclamp.latency_sensitive";
+    pub const CG2_TOP_UCLAMP_MIN: &'static str = "/sys/fs/cgroup/top-app/cpu.uclamp.min";
+    pub const CG2_TOP_UCLAMP_LAT: &'static str = "/sys/fs/cgroup/top-app/cpu.uclamp.latency_sensitive";
+
+    pub const GED_CUSTOM_BOOST_GPU_FREQ: &'static str = "/sys/kernel/ged/hal/custom_boost_gpu_freq";
+    pub const GED_CUSTOM_UPBOUND_GPU_FREQ: &'static str = "/sys/kernel/ged/hal/custom_upbound_gpu_freq";
 
     /// Sets node permission safely on Unix.
     pub fn set_node_mode(_path_str: &str, _mode: u32) {
@@ -57,12 +66,26 @@ impl SchedulerGuardian {
             Self::set_node_mode(Self::STUNE_TOP_HIGH_CAP, 0o644);
             Self::set_node_mode(Self::PERFMGR_TA_BOOST, 0o444);
             Self::set_node_mode(Self::PERFMGR_TA_UCLAMP_MIN, 0o444);
+            Self::set_node_mode(Self::PERFMGR_PERF_TA_UCLAMP_MIN, 0o444);
+            Self::set_node_mode(Self::CPUCTL_TOP_UCLAMP_MIN, 0o444);
+            Self::set_node_mode(Self::CPUCTL_TOP_UCLAMP_LAT, 0o444);
+            Self::set_node_mode(Self::CG2_TOP_UCLAMP_MIN, 0o444);
+            Self::set_node_mode(Self::CG2_TOP_UCLAMP_LAT, 0o444);
+            Self::set_node_mode(Self::GED_CUSTOM_BOOST_GPU_FREQ, 0o444);
+            Self::set_node_mode(Self::GED_CUSTOM_UPBOUND_GPU_FREQ, 0o444);
         } else {
             Self::set_node_mode(Self::STUNE_TOP_BOOST, 0o666);
             Self::set_node_mode(Self::STUNE_TOP_IDLE, 0o666);
             Self::set_node_mode(Self::STUNE_TOP_HIGH_CAP, 0o666);
             Self::set_node_mode(Self::PERFMGR_TA_BOOST, 0o664);
             Self::set_node_mode(Self::PERFMGR_TA_UCLAMP_MIN, 0o664);
+            Self::set_node_mode(Self::PERFMGR_PERF_TA_UCLAMP_MIN, 0o664);
+            Self::set_node_mode(Self::CPUCTL_TOP_UCLAMP_MIN, 0o644);
+            Self::set_node_mode(Self::CPUCTL_TOP_UCLAMP_LAT, 0o644);
+            Self::set_node_mode(Self::CG2_TOP_UCLAMP_MIN, 0o644);
+            Self::set_node_mode(Self::CG2_TOP_UCLAMP_LAT, 0o644);
+            Self::set_node_mode(Self::GED_CUSTOM_BOOST_GPU_FREQ, 0o664);
+            Self::set_node_mode(Self::GED_CUSTOM_UPBOUND_GPU_FREQ, 0o664);
         }
     }
 
