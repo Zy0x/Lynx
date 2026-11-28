@@ -45,7 +45,43 @@ struct SocThermalSensor {
     passive_trip_c: Option<f32>,
 }
 
-/// Discovers the device's physical GPU/SoC thermal zone and its kernel passive trip point once,
+/// Resolves a silicon throttle reference temperature (°C) from a thermal zone's trip points.
+/// - Prefers the lowest valid `passive` trip in `[55, 115]°C` (standard Linux / Qualcomm / Exynos).
+/// - On MediaTek and kernels exposing only `active` trips (e.g., `mtktscpu` with `117/68/56°C active`
+///   where lower trips are daemon polling/ATM hooks), uses the highest `active` trip in `[75, 120]°C`
+///   capped to a safe silicon reference (`<= 103°C`) so `103 - 8 = 95°C` guards overheating without
+///   false-throttling normal `78–92°C` die gaming temps.
+pub(crate) fn resolve_thermal_trip_c(trips: &[(f32, &str)]) -> Option<f32> {
+    let mut min_passive: Option<f32> = None;
+    let mut max_active: Option<f32> = None;
+
+    for &(t_c, t_type) in trips {
+        let ty = t_type.to_lowercase();
+        if ty.contains("passive") && (55.0..=115.0).contains(&t_c) {
+            min_passive = Some(match min_passive {
+                Some(prev) => prev.min(t_c),
+                None => t_c,
+            });
+        } else if ty.contains("active") && (75.0..=120.0).contains(&t_c) {
+            max_active = Some(match max_active {
+                Some(prev) => prev.max(t_c),
+                None => t_c,
+            });
+        }
+    }
+
+    min_passive.or_else(|| max_active.map(|t| t.min(103.0)))
+}
+
+/// Computes the SoC die temperature ceiling (°C) above which GPU Peak steps down to Fluid
+/// (or stationary UI drops to Idle). Avoids unrealistically low fallback ceilings on junction sensors.
+pub(crate) fn compute_soc_thermal_ceiling_c(trip_c: Option<f32>, margin_from_trip: f32) -> f32 {
+    trip_c
+        .map(|t| (t - margin_from_trip).max(52.0))
+        .unwrap_or(if margin_from_trip > 10.0 { 82.0 } else { 92.0 })
+}
+
+/// Discovers the device's physical GPU/SoC thermal zone and its kernel throttle trip point once,
 /// completely free of device-specific paths or hardcoded thermal zone IDs.
 fn cached_soc_thermal_sensor() -> Option<&'static SocThermalSensor> {
     static SENSOR: OnceLock<Option<SocThermalSensor>> = OnceLock::new();
@@ -78,8 +114,8 @@ fn cached_soc_thermal_sensor() -> Option<&'static SocThermalSensor> {
                     continue;
                 }
 
-                // Parse lowest plausible passive trip threshold from kernel DT thermal zone
-                let mut passive_trip: Option<f32> = None;
+                // Collect valid trip points (both passive and active) from kernel DT thermal zone
+                let mut parsed_trips: Vec<(f32, String)> = Vec::new();
                 for tid in 0..8 {
                     let tp = tz_dir.join(format!("trip_point_{}_temp", tid));
                     if let Ok(raw_t) = SysfsReader::read_int::<i64>(&tp) {
@@ -90,19 +126,18 @@ fn cached_soc_thermal_sensor() -> Option<&'static SocThermalSensor> {
                         } else {
                             raw_t as f32
                         };
-                        if (50.0..=115.0).contains(&t_c) {
-                            let is_passive = SysfsReader::read_trimmed(tz_dir.join(format!("trip_point_{}_type", tid)))
-                                .map(|s| s.to_lowercase().contains("passive"))
-                                .unwrap_or(true);
-                            if is_passive {
-                                passive_trip = Some(match passive_trip {
-                                    Some(prev) => prev.min(t_c),
-                                    None => t_c,
-                                });
-                            }
+                        if (50.0..=125.0).contains(&t_c) {
+                            let trip_type = SysfsReader::read_trimmed(tz_dir.join(format!("trip_point_{}_type", tid)))
+                                .unwrap_or_else(|_| "passive".to_string());
+                            parsed_trips.push((t_c, trip_type));
                         }
                     }
                 }
+                let trip_refs: Vec<(f32, &str)> = parsed_trips
+                    .iter()
+                    .map(|(t, ty)| (*t, ty.as_str()))
+                    .collect();
+                let passive_trip = resolve_thermal_trip_c(&trip_refs);
 
                 if is_gpu_zone && best_gpu.is_none() {
                     best_gpu = Some((temp_path, passive_trip));
@@ -451,10 +486,7 @@ impl GpuController {
         }
         if let Some(sensor) = cached_soc_thermal_sensor() {
             if let Some(die_c) = read_sensor_celsius(&sensor.temp_path) {
-                let ceiling = sensor
-                    .passive_trip_c
-                    .map(|t| (t - margin_from_passive).max(52.0))
-                    .unwrap_or(if margin_from_passive > 10.0 { 64.0 } else { 72.0 });
+                let ceiling = compute_soc_thermal_ceiling_c(sensor.passive_trip_c, margin_from_passive);
                 if die_c >= ceiling {
                     return true;
                 }
@@ -1143,7 +1175,7 @@ impl GpuController {
 
 #[cfg(test)]
 mod tests {
-    use super::GpuController;
+    use super::{compute_soc_thermal_ceiling_c, resolve_thermal_trip_c, GpuController};
 
     #[test]
     fn mali_pool_targets_scale_monotonically_with_ram_and_profile() {
@@ -1161,5 +1193,27 @@ mod tests {
 
         assert_eq!(GpuController::format_group_attr_payload("64", 48), "48");
         assert_eq!(GpuController::format_group_attr_payload("64 64 64", 48), "48 48 48");
+    }
+
+    #[test]
+    fn thermal_trip_resolver_handles_mtk_active_only_and_qcom_passive_zones() {
+        // MediaTek mtktscpu: active-only trips (117C ceiling, 68C/56C daemon hooks)
+        let mtk_trips = [(117.0, "active"), (68.0, "active"), (56.0, "active")];
+        let mtk_ref = resolve_thermal_trip_c(&mtk_trips);
+        assert_eq!(mtk_ref, Some(103.0));
+        // 95C ceiling prevents false Peak->Fluid throttling at 78-91C normal gaming die temps
+        assert_eq!(compute_soc_thermal_ceiling_c(mtk_ref, 8.0), 95.0);
+        assert_eq!(compute_soc_thermal_ceiling_c(mtk_ref, 12.0), 91.0);
+
+        // Qualcomm gpuss-0-usr: passive trip preferred over critical/active
+        let qcom_trips = [(115.0, "critical"), (95.0, "passive"), (88.0, "passive")];
+        let qcom_ref = resolve_thermal_trip_c(&qcom_trips);
+        assert_eq!(qcom_ref, Some(88.0));
+        assert_eq!(compute_soc_thermal_ceiling_c(qcom_ref, 8.0), 80.0);
+
+        // Fallback when kernel exposes no usable trips must not false-trigger at 72C
+        assert_eq!(resolve_thermal_trip_c(&[(45.0, "active")]), None);
+        assert_eq!(compute_soc_thermal_ceiling_c(None, 8.0), 92.0);
+        assert_eq!(compute_soc_thermal_ceiling_c(None, 12.0), 82.0);
     }
 }
