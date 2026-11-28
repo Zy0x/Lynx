@@ -910,6 +910,11 @@ impl GameController {
                     // (mali-utility-wo, mali-cmar-backe, mali-mem-purge) strictly onto the non-prime
                     // worker pool so world/building streaming bursts never preempt or thrash L1/L2
                     // caches on exclusive Big/Prime render & main cores.
+                    // On-demand GPU shader compilers (mali-compiler, qgl-compiler, vkpipeline, etc.)
+                    // run while the primary render thread blocks waiting for shader compilation. Allowing
+                    // all_mask at nice -12 lets them burst onto freshly-idled Big/Prime cores (2.5-3x faster
+                    // IR compilation) while nice -20 RenderBackend/MainGameLoop strictly preempts whenever runnable.
+                    ThreadRole::GpuShaderCompiler => (topo.all_mask, -12),
                     ThreadRole::EngineHeavyWorker => (worker_mask, -10),
                     ThreadRole::GpuDriverWorker => (worker_mask, -8),
                     ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
@@ -1263,6 +1268,7 @@ pub(crate) enum ThreadRole {
     MainGameLoop,
     EngineHeavyWorker,
     ActiveGeneric,
+    GpuShaderCompiler,
     GpuDriverWorker,
     AudioRealtime,
     BackgroundHelper,
@@ -1275,7 +1281,7 @@ impl ThreadRole {
             Self::MainGameLoop => 3,
             Self::EngineHeavyWorker => 2,
             Self::ActiveGeneric => 1,
-            Self::GpuDriverWorker | Self::AudioRealtime | Self::BackgroundHelper => 0,
+            Self::GpuShaderCompiler | Self::GpuDriverWorker | Self::AudioRealtime | Self::BackgroundHelper => 0,
         }
     }
 
@@ -1418,6 +1424,20 @@ pub(crate) fn parse_cpu_list(spec: &str) -> Vec<usize> {
 
 pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> ThreadRole {
     let lower = comm.trim().to_ascii_lowercase();
+
+    // On-demand GPU shader / pipeline compiler threads (Mali, Adreno, Xclipse, Vulkan/GLES).
+    // Checked BEFORE generic driver utility quarantine so synchronous shader compilation bursts
+    // can leverage idle Big/Prime cores instead of stalling 2.5-3x longer on Little cores.
+    if lower.contains("mali-compil")
+        || lower.contains("shadercomp")
+        || lower.contains("qgl-compil")
+        || lower.contains("vkpipeline")
+        || lower.contains("shader_comp")
+        || lower.contains("glsl_comp")
+        || lower.contains("spirv")
+    {
+        return ThreadRole::GpuShaderCompiler;
+    }
 
     // Driver / kernel-helper / audio / telemetry / async loader threads MUST stay off reserved exclusive render cores
     if lower.starts_with("mali-")
@@ -1562,6 +1582,9 @@ mod tests {
         assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("Job.Worker 0", 85, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("mali-compiler", 95, "game"), ThreadRole::GpuShaderCompiler);
+        assert_eq!(classify_thread_role("qgl-compiler", 95, "game"), ThreadRole::GpuShaderCompiler);
+        assert_eq!(classify_thread_role("vkpipeline", 95, "game"), ThreadRole::GpuShaderCompiler);
         assert_eq!(classify_thread_role("mali-cmar-backe", 110, "game"), ThreadRole::GpuDriverWorker);
         assert_eq!(classify_thread_role("IL2CPP Threadpo", 120, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("Thread-108", 20, "game"), ThreadRole::BackgroundHelper);
