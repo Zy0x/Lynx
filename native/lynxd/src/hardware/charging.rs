@@ -1582,6 +1582,32 @@ impl ChargingRegulator {
     /// Continuous live hardware invariant enforcer called on every tick.
     /// Defends charging current ceilings and battery cooling state against background OEM resets
     /// (e.g. thermal-engine, kernel workqueues, and screen-off power save routines).
+    /// Determines whether MediaTek/Transsion 33W Direct Charge Pump (`RT9759` / `pca_dv2_algo`)
+    /// fell back to 5V switching mode after a transient screen-on thermal cutoff and should be
+    /// cleanly re-armed via `/proc/lynx/hyper_charge`. Strictly MTK/Transsion only — never invoked on Qualcomm/RN7.
+    pub(crate) fn should_mtk_hyper_rearm_dv2(
+        has_rt9759: bool,
+        is_laptop: bool,
+        is_pd: bool,
+        cur_cap: i64,
+        batt_temp_c: f32,
+        adpv_mv: i64,
+        cur_now_ma: i64,
+        plugged_elapsed: u64,
+        since_last_rearm: u64,
+    ) -> bool {
+        has_rt9759
+            && !is_laptop
+            && !is_pd
+            && cur_cap < 90
+            && batt_temp_c < 44.5
+            && adpv_mv >= 4000
+            && adpv_mv < 6500
+            && cur_now_ma < 2200
+            && plugged_elapsed >= 15
+            && since_last_rearm >= 60
+    }
+
     pub fn enforce_live_charging_invariants() {
         if !Self::is_hardware_plugged() {
             Self::release_charging_wake_lock();
@@ -4862,7 +4888,7 @@ impl ChargingRegulator {
                         // Throttle reads of sc_ibat_limit / pe20 / pe40 (show_* emits kernel printk per open)
                         let now_s = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
                         let last_noisy = LAST_MTK_NOISY_CHECK_EPOCH.load(Ordering::Relaxed);
-                        if now_s.saturating_sub(last_noisy) >= 30 {
+                        let noisy_ok = if now_s.saturating_sub(last_noisy) >= 30 {
                             LAST_MTK_NOISY_CHECK_EPOCH.store(now_s, Ordering::Relaxed);
                             let sc_limit = Self::read_i64(&format!("{}/sc_ibat_limit", MTK_DIR)).unwrap_or(0);
                             let pe_ok = !require_pe || (
@@ -4872,7 +4898,37 @@ impl ChargingRegulator {
                             (sc_limit >= 1000 || Self::is_lynx_kernel_full_bypass_latched() || sc_limit == 0) && pe_ok
                         } else {
                             true
+                        };
+                        if noisy_ok && Path::new("/proc/lynx/hyper_charge").exists() {
+                            static LAST_MTK_DV2_REARM_EPOCH: std::sync::atomic::AtomicU64 =
+                                std::sync::atomic::AtomicU64::new(0);
+                            let has_rt9759 = Path::new("/sys/bus/i2c/drivers/rt9759").exists();
+                            if has_rt9759 {
+                                let adpv = Self::read_i64(&format!("{}/ADC_Charger_Voltage", MTK_DIR))
+                                    .or_else(|| Self::read_i64("/sys/devices/platform/odm/odm:tran_battery/Pump_Express_VCharger"))
+                                    .unwrap_or(0);
+                                let adpv_mv = if adpv > 100_000 { adpv / 1000 } else { adpv };
+                                let batt_temp_c = Self::read_authentic_battery_temp_c();
+                                let plugged_at = PLUGGED_AT_EPOCH.load(Ordering::Relaxed);
+                                let plugged_elapsed = if plugged_at > 0 { now_s.saturating_sub(plugged_at) } else { 999 };
+                                let last_rearm = LAST_MTK_DV2_REARM_EPOCH.load(Ordering::Relaxed);
+                                if Self::should_mtk_hyper_rearm_dv2(
+                                    has_rt9759,
+                                    is_laptop,
+                                    Self::is_usb_pd_active(),
+                                    cur_cap_i,
+                                    batt_temp_c,
+                                    adpv_mv,
+                                    cur_now_ma,
+                                    plugged_elapsed,
+                                    now_s.saturating_sub(last_rearm),
+                                ) {
+                                    LAST_MTK_DV2_REARM_EPOCH.store(now_s, Ordering::Relaxed);
+                                    Self::write_node("/proc/lynx/hyper_charge", "1");
+                                }
+                            }
                         }
+                        noisy_ok
                     }
                 }
             } else {
@@ -6076,6 +6132,39 @@ mod tests {
         let ratio = (pump_3300 as f64) / 3300.0;
         assert!(ratio >= 1.85 && ratio <= 2.05);
         assert!((ratio - 1.94).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_mtk_hyper_dv2_rearm_guards() {
+        // Active 5V fallback on RT9759 after cooling below 44.5C -> re-arm!
+        assert!(ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, false, 30, 36.5, 4570, 1200, 120, 60
+        ));
+        // Qualcomm / RN7 (has_rt9759 = false) -> NEVER triggers!
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            false, false, false, 30, 36.5, 4570, 1200, 120, 60
+        ));
+        // Already running 9V Direct Pump -> do not touch!
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, false, 30, 40.0, 8950, 5400, 120, 60
+        ));
+        // Still warm (>= 44.5C) -> wait for hysteresis cooldown!
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, false, 30, 44.5, 4570, 1200, 120, 60
+        ));
+        // High SoC (>= 90%) or laptop/PD or within 60s cooldown -> do not re-arm!
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, false, 90, 36.0, 4570, 1200, 120, 60
+        ));
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, true, false, 30, 36.0, 4570, 1200, 120, 60
+        ));
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, true, 30, 36.0, 4570, 1200, 120, 60
+        ));
+        assert!(!ChargingRegulator::should_mtk_hyper_rearm_dv2(
+            true, false, false, 30, 36.0, 4570, 1200, 120, 30
+        ));
     }
 
     #[test]
