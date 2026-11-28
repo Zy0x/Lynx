@@ -36,44 +36,7 @@ impl GameController {
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(70)
             .min(100);
-
-        let cpuctl_min_path = "/dev/cpuctl/top-app/cpu.uclamp.min";
-        let cpuctl_max_path = "/dev/cpuctl/top-app/cpu.uclamp.max";
-        let cpuctl_lat_path = "/dev/cpuctl/top-app/cpu.uclamp.latency_sensitive";
-        if Path::new(cpuctl_min_path).exists() {
-            if !Path::new("/dev/lynx_orig_cpuctl_uclamp_min").exists() {
-                if let Some(orig) = Self::read_trimmed(cpuctl_min_path) {
-                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_min", orig);
-                }
-            }
-            let cpuctl_max = Self::read_trimmed(cpuctl_max_path);
-            let cpuctl_val = format_uclamp_min_for_max(min_ratio, cpuctl_max.as_deref());
-            Self::write_opt(cpuctl_min_path, &cpuctl_val);
-        }
-        if Path::new(cpuctl_lat_path).exists() {
-            if !Path::new("/dev/lynx_orig_cpuctl_uclamp_lat").exists() {
-                if let Some(orig) = Self::read_trimmed(cpuctl_lat_path) {
-                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_lat", orig);
-                }
-            }
-            Self::write_opt(cpuctl_lat_path, "1");
-        }
-        // Unified cgroup2 mount fallback (some modern ROMs)
-        let cg2_min_path = "/sys/fs/cgroup/top-app/cpu.uclamp.min";
-        if Path::new(cg2_min_path).exists() {
-            let cg2_max = Self::read_trimmed("/sys/fs/cgroup/top-app/cpu.uclamp.max");
-            let cg2_val = format_uclamp_min_for_max(min_ratio, cg2_max.as_deref());
-            Self::write_opt(cg2_min_path, &cg2_val);
-            Self::write_opt("/sys/fs/cgroup/top-app/cpu.uclamp.latency_sensitive", "1");
-        }
-        // Legacy Android 10/11 cpuset backport fallback
-        if Path::new("/dev/cpuset/top-app/cpu.uclamp.min").exists() {
-            let legacy_max = Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.max");
-            let legacy_val = format_uclamp_min_for_max(min_ratio, legacy_max.as_deref());
-            Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", &legacy_val);
-        }
-        let sysctl_uclamp = ((min_ratio * 1024) / 100).to_string();
-        Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", &sysctl_uclamp);
+        Self::enforce_game_uclamp(min_ratio, true);
 
         // Schedutil Ultra-Fast Rate Limits (Sub-millisecond latency)
         for id in 0..16 {
@@ -727,6 +690,44 @@ impl GameController {
         "Game Mode disengaged (Restored Balanced EAS, Network, and Audio profiles).".to_string()
     }
 
+    fn enforce_game_uclamp(min_ratio: u32, save_orig: bool) {
+        let cpuctl_min_path = "/dev/cpuctl/top-app/cpu.uclamp.min";
+        let cpuctl_max_path = "/dev/cpuctl/top-app/cpu.uclamp.max";
+        let cpuctl_lat_path = "/dev/cpuctl/top-app/cpu.uclamp.latency_sensitive";
+        if Path::new(cpuctl_min_path).exists() {
+            if save_orig && !Path::new("/dev/lynx_orig_cpuctl_uclamp_min").exists() {
+                if let Some(orig) = Self::read_trimmed(cpuctl_min_path) {
+                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_min", orig);
+                }
+            }
+            let cpuctl_max = Self::read_trimmed(cpuctl_max_path);
+            let cpuctl_val = format_uclamp_min_for_max(min_ratio, cpuctl_max.as_deref());
+            Self::write_opt(cpuctl_min_path, &cpuctl_val);
+        }
+        if Path::new(cpuctl_lat_path).exists() {
+            if save_orig && !Path::new("/dev/lynx_orig_cpuctl_uclamp_lat").exists() {
+                if let Some(orig) = Self::read_trimmed(cpuctl_lat_path) {
+                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_lat", orig);
+                }
+            }
+            Self::write_opt(cpuctl_lat_path, "1");
+        }
+        let cg2_min_path = "/sys/fs/cgroup/top-app/cpu.uclamp.min";
+        if Path::new(cg2_min_path).exists() {
+            let cg2_max = Self::read_trimmed("/sys/fs/cgroup/top-app/cpu.uclamp.max");
+            let cg2_val = format_uclamp_min_for_max(min_ratio, cg2_max.as_deref());
+            Self::write_opt(cg2_min_path, &cg2_val);
+            Self::write_opt("/sys/fs/cgroup/top-app/cpu.uclamp.latency_sensitive", "1");
+        }
+        if Path::new("/dev/cpuset/top-app/cpu.uclamp.min").exists() {
+            let legacy_max = Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.max");
+            let legacy_val = format_uclamp_min_for_max(min_ratio, legacy_max.as_deref());
+            Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", &legacy_val);
+        }
+        let sysctl_uclamp = ((min_ratio * 1024) / 100).to_string();
+        Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", &sysctl_uclamp);
+    }
+
     fn apply_game_block_params(
         q_dir: &Path,
         params: &crate::hardware::storage::StorageTuneParams,
@@ -850,9 +851,20 @@ impl GameController {
             Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", &pid_str);
         }
 
+        // Re-assert cpuctl/cgroup2 uclamp floor on periodic sweeps so Android PowerHAL idle hints
+        // cannot drag top-app cpu.uclamp.min down to 25% mid-gameplay.
+        if Path::new("/dev/lynx_active_game").exists() {
+            let min_ratio = ConfigStore::get("game_min_ratio")
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(70)
+                .min(100);
+            Self::enforce_game_uclamp(min_ratio, false);
+        }
+
         // Dynamic topology discovery (Zero hardcoding of core counts or SoC IDs)
         let cap = HardwareCapability::resolve();
         let topo = TopologyMasks::from_policies(&cap.cpu.policies, cap.cpu.total_cores);
+        let shader_compiler_mask = topo.big_plus_prime_mask();
 
         // Read process short binary name for unknown-engine fallback matching
         let proc_comm = fs::read_to_string(format!("/proc/{}/comm", pid))
@@ -951,11 +963,12 @@ impl GameController {
                     // Secondary render/main threads stay on worker pool so they never fight primary -20 threads.
                     ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14, false),
                     // On-demand GPU shader compilers & shader loaders (mali-compiler, qgl-compiler, vkpipeline,
-                    // ShaderLoadManag, etc.) run while the primary render thread blocks waiting for shader
-                    // compilation. Allowing all_mask at nice -12 + RT I/O prio 0 lets them burst onto
-                    // freshly-idled Big/Prime cores (2.5-3x faster IR compilation) while nice -20
+                    // ShaderLoadManag, etc.) run synchronously while the primary render thread blocks waiting
+                    // for shader compilation. Confining them strictly to Big/Prime cores (`big_plus_prime_mask`,
+                    // e.g. CPU 6-7 on 6+2 or CPU 4-7 on 1+3+4) at nice -12 + RT I/O prio 0 prevents CFS/EAS
+                    // from ever demoting shader IR compilation onto slow Little cores, while nice -20
                     // RenderBackend/MainGameLoop strictly preempts whenever runnable.
-                    ThreadRole::GpuShaderCompiler => (topo.all_mask, -12, true),
+                    ThreadRole::GpuShaderCompiler => (shader_compiler_mask, -12, true),
                     // Burst asset/bundle streaming & decompression loaders (AsyncReadManage, MHYLoadThreadWo,
                     // AssetBundle, Loading.Preload, FileIO, etc.) directly stall scene/character transitions
                     // while primary render/main threads wait on I/O + LZ4/ZSTD decode. Allowing all_mask at
@@ -1478,6 +1491,17 @@ impl TopologyMasks {
         let non_prime = self.all_mask & !prime_mask;
         non_prime != 0
     }
+
+    /// Returns a CPU bitmask covering all high-performance (Big + Prime) cores by excluding the
+    /// lowest-frequency Little cluster. Falls back to `all_mask` on symmetric topologies.
+    pub(crate) fn big_plus_prime_mask(&self) -> u64 {
+        let high = self.all_mask & !self.little_mask;
+        if high != 0 {
+            high
+        } else {
+            self.all_mask
+        }
+    }
 }
 
 pub(crate) fn mask_to_cpuset_list(mask: u64) -> String {
@@ -1664,6 +1688,7 @@ mod tests {
         );
         assert_eq!(topo_6_2.prime_cores, vec![6, 7]);
         assert_eq!(topo_6_2.little_mask, 0b0011_1111);
+        assert_eq!(topo_6_2.big_plus_prime_mask(), 0b1100_0000);
         assert!(topo_6_2.has_asymmetric_worker_pool());
 
         // 1+3+4 SoC (e.g. Snapdragon flagship)
@@ -1677,11 +1702,13 @@ mod tests {
         );
         assert_eq!(topo_1_3_4.prime_cores, vec![7]);
         assert_eq!(topo_1_3_4.little_mask, 0b0000_1111);
+        assert_eq!(topo_1_3_4.big_plus_prime_mask(), 0b1111_0000);
         assert!(topo_1_3_4.has_asymmetric_worker_pool());
 
         // Symmetric quad-core (must not isolate or split worker pool)
         let topo_sym = TopologyMasks::from_policies(&[mock_policy(0, "0 1 2 3", 1_800_000)], 4);
         assert_eq!(topo_sym.prime_cores, vec![0, 1, 2, 3]);
+        assert_eq!(topo_sym.big_plus_prime_mask(), 0b1111);
         assert!(!topo_sym.has_asymmetric_worker_pool());
     }
 
