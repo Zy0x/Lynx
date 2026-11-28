@@ -31,23 +31,49 @@ impl GameController {
         // 1. Freeze OEM background throttlers
         ThermalController::freeze_oem_throttlers();
 
-        // 2. UCLAMP Min Allocation
+        // 2. UCLAMP Min & Latency-Sensitive Allocation (Android 12+ cpuctl + legacy cpuset + global sysctl)
         let min_ratio = ConfigStore::get("game_min_ratio")
             .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(70);
+            .unwrap_or(70)
+            .min(100);
 
-        let max_scale = Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.max")
-            .and_then(|v| v.parse::<u32>().ok())
-            .unwrap_or(100);
-
-        let scaled_val = if max_scale > 100 {
-            (min_ratio * 1024) / 100
-        } else {
-            min_ratio
-        };
-
-        Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", scaled_val.to_string());
-        Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", scaled_val.to_string());
+        let cpuctl_min_path = "/dev/cpuctl/top-app/cpu.uclamp.min";
+        let cpuctl_max_path = "/dev/cpuctl/top-app/cpu.uclamp.max";
+        let cpuctl_lat_path = "/dev/cpuctl/top-app/cpu.uclamp.latency_sensitive";
+        if Path::new(cpuctl_min_path).exists() {
+            if !Path::new("/dev/lynx_orig_cpuctl_uclamp_min").exists() {
+                if let Some(orig) = Self::read_trimmed(cpuctl_min_path) {
+                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_min", orig);
+                }
+            }
+            let cpuctl_max = Self::read_trimmed(cpuctl_max_path);
+            let cpuctl_val = format_uclamp_min_for_max(min_ratio, cpuctl_max.as_deref());
+            Self::write_opt(cpuctl_min_path, &cpuctl_val);
+        }
+        if Path::new(cpuctl_lat_path).exists() {
+            if !Path::new("/dev/lynx_orig_cpuctl_uclamp_lat").exists() {
+                if let Some(orig) = Self::read_trimmed(cpuctl_lat_path) {
+                    let _ = fs::write("/dev/lynx_orig_cpuctl_uclamp_lat", orig);
+                }
+            }
+            Self::write_opt(cpuctl_lat_path, "1");
+        }
+        // Unified cgroup2 mount fallback (some modern ROMs)
+        let cg2_min_path = "/sys/fs/cgroup/top-app/cpu.uclamp.min";
+        if Path::new(cg2_min_path).exists() {
+            let cg2_max = Self::read_trimmed("/sys/fs/cgroup/top-app/cpu.uclamp.max");
+            let cg2_val = format_uclamp_min_for_max(min_ratio, cg2_max.as_deref());
+            Self::write_opt(cg2_min_path, &cg2_val);
+            Self::write_opt("/sys/fs/cgroup/top-app/cpu.uclamp.latency_sensitive", "1");
+        }
+        // Legacy Android 10/11 cpuset backport fallback
+        if Path::new("/dev/cpuset/top-app/cpu.uclamp.min").exists() {
+            let legacy_max = Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.max");
+            let legacy_val = format_uclamp_min_for_max(min_ratio, legacy_max.as_deref());
+            Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", &legacy_val);
+        }
+        let sysctl_uclamp = ((min_ratio * 1024) / 100).to_string();
+        Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", &sysctl_uclamp);
 
         // Schedutil Ultra-Fast Rate Limits (Sub-millisecond latency)
         for id in 0..16 {
@@ -452,9 +478,25 @@ impl GameController {
         // 1. Unfreeze OEM Throttlers
         ThermalController::unfreeze_oem_throttlers();
 
-        // 2. Reset UCLAMP
+        // 2. Reset UCLAMP (restore cpuctl, cgroup2, legacy cpuset, and global sysctl)
+        let orig_uclamp_min = fs::read_to_string("/dev/lynx_orig_cpuctl_uclamp_min")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "0".to_string());
+        let orig_uclamp_lat = fs::read_to_string("/dev/lynx_orig_cpuctl_uclamp_lat")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "0".to_string());
+        Self::write_opt("/dev/cpuctl/top-app/cpu.uclamp.min", &orig_uclamp_min);
+        Self::write_opt("/dev/cpuctl/top-app/cpu.uclamp.latency_sensitive", &orig_uclamp_lat);
+        Self::write_opt("/sys/fs/cgroup/top-app/cpu.uclamp.min", "0");
+        Self::write_opt("/sys/fs/cgroup/top-app/cpu.uclamp.latency_sensitive", "0");
         Self::write_opt("/dev/cpuset/top-app/cpu.uclamp.min", "0");
         Self::write_opt("/proc/sys/kernel/sched_util_clamp_min", "0");
+        let _ = fs::remove_file("/dev/lynx_orig_cpuctl_uclamp_min");
+        let _ = fs::remove_file("/dev/lynx_orig_cpuctl_uclamp_lat");
 
         // Balanced Schedutil Rate Limits (2ms snappy ramp-up, 3ms rapid drop to idle floor)
         for id in 0..16 {
@@ -798,11 +840,13 @@ impl GameController {
 
         let pid_str = pid.to_string();
 
-        // Process level priority & one-time cpuset/IO/GED binding (avoid 10s fork+exec / Binder storms)
+        // Process level priority & one-time cpuset/cpuctl/IO/GED binding (avoid 10s fork+exec / Binder storms)
         Self::set_tid_nice(pid, -20);
         if first_pass {
-            let _ = Command::new("ionice").args(&["-c", "1", "-n", "0", "-p", &pid_str]).output();
+            Self::set_tid_ioprio_rt(pid, 0);
             Self::write_opt("/dev/cpuset/top-app/cgroup.procs", &pid_str);
+            Self::write_opt("/dev/cpuctl/top-app/cgroup.procs", &pid_str);
+            Self::write_opt("/sys/fs/cgroup/top-app/cgroup.procs", &pid_str);
             Self::write_opt("/sys/module/ged/parameters/gx_top_app_pid", &pid_str);
         }
 
@@ -897,35 +941,43 @@ impl GameController {
                     next_isolated_idx += 1;
                     let core_mask = if core < 64 { 1u64 << core } else { topo.all_mask };
                     Self::set_thread_affinity_and_nice(t.tid, core_mask, -20);
+                    Self::set_tid_ioprio_rt(t.tid, 0);
                     pinned_exclusive = true;
                 }
             }
 
             if !pinned_exclusive {
-                let (mask, nice) = match t.role {
+                let (mask, nice, rt_io) = match t.role {
                     // Secondary render/main threads stay on worker pool so they never fight primary -20 threads.
-                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14),
-                    // Quarantine heavy asset/shader decompressors (MHYLoadThreadWo, AsyncReadManage,
-                    // ShaderLoadManag, UnityMultiRende, NativeThread) & GPU driver utility compilers
-                    // (mali-utility-wo, mali-cmar-backe, mali-mem-purge) strictly onto the non-prime
-                    // worker pool so world/building streaming bursts never preempt or thrash L1/L2
-                    // caches on exclusive Big/Prime render & main cores.
-                    // On-demand GPU shader compilers (mali-compiler, qgl-compiler, vkpipeline, etc.)
-                    // run while the primary render thread blocks waiting for shader compilation. Allowing
-                    // all_mask at nice -12 lets them burst onto freshly-idled Big/Prime cores (2.5-3x faster
-                    // IR compilation) while nice -20 RenderBackend/MainGameLoop strictly preempts whenever runnable.
-                    ThreadRole::GpuShaderCompiler => (topo.all_mask, -12),
-                    ThreadRole::EngineHeavyWorker => (worker_mask, -10),
-                    ThreadRole::GpuDriverWorker => (worker_mask, -8),
-                    ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10),
+                    ThreadRole::RenderBackend | ThreadRole::MainGameLoop => (worker_mask, -14, false),
+                    // On-demand GPU shader compilers & shader loaders (mali-compiler, qgl-compiler, vkpipeline,
+                    // ShaderLoadManag, etc.) run while the primary render thread blocks waiting for shader
+                    // compilation. Allowing all_mask at nice -12 + RT I/O prio 0 lets them burst onto
+                    // freshly-idled Big/Prime cores (2.5-3x faster IR compilation) while nice -20
+                    // RenderBackend/MainGameLoop strictly preempts whenever runnable.
+                    ThreadRole::GpuShaderCompiler => (topo.all_mask, -12, true),
+                    // Burst asset/bundle streaming & decompression loaders (AsyncReadManage, MHYLoadThreadWo,
+                    // AssetBundle, Loading.Preload, FileIO, etc.) directly stall scene/character transitions
+                    // while primary render/main threads wait on I/O + LZ4/ZSTD decode. Allowing all_mask at
+                    // nice -11 + RT I/O prio 0 lets them jump ahead of background writes on SD/UFS and burst
+                    // onto idle Big/Prime cores without ever preempting nice -20 RenderBackend/MainGameLoop.
+                    ThreadRole::AssetStreamLoader => (topo.all_mask, -11, true),
+                    // Continuous per-frame workers (UnityMultiRende, NativeThread, Job.Worker) stay on
+                    // non-prime worker pool so steady-state frame prep never thrashes L1/L2 on Big/Prime cores.
+                    ThreadRole::EngineHeavyWorker => (worker_mask, -10, false),
+                    ThreadRole::GpuDriverWorker => (worker_mask, -8, false),
+                    ThreadRole::AudioRealtime => (topo.little_mask.max(1), -10, false),
                     // Quarantine non-critical workers & background pools strictly off prime cores
                     // so IL2CPP/pool/telemetry threads never steal cache/cycles from primary render.
                     // Elevate Unity's core "Worker Thread" culling/animation/decompression pool to nice -10
                     // inside the non-prime worker mask so frame preparation finishes faster without touching prime cores.
-                    ThreadRole::ActiveGeneric => (worker_mask, 0),
-                    ThreadRole::BackgroundHelper => (worker_mask, if t.is_engine_worker_pool { -10 } else { 0 }),
+                    ThreadRole::ActiveGeneric => (worker_mask, 0, false),
+                    ThreadRole::BackgroundHelper => (worker_mask, if t.is_engine_worker_pool { -10 } else { 0 }, false),
                 };
                 Self::set_thread_affinity_and_nice(t.tid, mask, nice);
+                if rt_io {
+                    Self::set_tid_ioprio_rt(t.tid, 0);
+                }
             }
         }
 
@@ -1223,6 +1275,34 @@ impl GameController {
         Self::set_thread_affinity(tid, mask);
     }
 
+    /// Assigns Real-Time I/O scheduling class (`IOPRIO_CLASS_RT`) to a specific thread ID via native
+    /// `ioprio_set` syscall (zero fork/exec overhead) so asset/shader reads preempt background writes.
+    #[cfg(any(target_os = "android", target_os = "linux"))]
+    pub(crate) fn set_tid_ioprio_rt(tid: u32, level: i32) {
+        extern "C" {
+            fn syscall(num: i64, ...) -> i64;
+        }
+        #[cfg(target_arch = "aarch64")]
+        const SYS_IOPRIO_SET: i64 = 30;
+        #[cfg(target_arch = "arm")]
+        const SYS_IOPRIO_SET: i64 = 314;
+        #[cfg(target_arch = "x86_64")]
+        const SYS_IOPRIO_SET: i64 = 251;
+        #[cfg(target_arch = "x86")]
+        const SYS_IOPRIO_SET: i64 = 289;
+
+        const IOPRIO_WHO_PROCESS: i64 = 1;
+        const IOPRIO_CLASS_RT: i32 = 1;
+        const IOPRIO_CLASS_SHIFT: i32 = 13;
+        let ioprio = ((IOPRIO_CLASS_RT << IOPRIO_CLASS_SHIFT) | level.clamp(0, 7)) as i64;
+        unsafe {
+            let _ = syscall(SYS_IOPRIO_SET, IOPRIO_WHO_PROCESS, tid as i32 as i64, ioprio);
+        }
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    pub(crate) fn set_tid_ioprio_rt(_tid: u32, _level: i32) {}
+
     /// Locates the primary process ID (PID) for a given package name by scanning /proc cmdlines.
     pub fn find_pid_for_package(pkg: &str) -> Option<u32> {
         let pkg_clean = pkg.split(':').next().unwrap_or(pkg).trim();
@@ -1251,7 +1331,10 @@ impl GameController {
     /// Emits JSON status of the game optimizer.
     pub fn status_json() -> String {
         let is_active = Path::new("/dev/lynx_active_game").exists();
-        let uclamp_val = Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.min").unwrap_or_else(|| "0".to_string());
+        let uclamp_val = Self::read_trimmed("/dev/cpuctl/top-app/cpu.uclamp.min")
+            .or_else(|| Self::read_trimmed("/sys/fs/cgroup/top-app/cpu.uclamp.min"))
+            .or_else(|| Self::read_trimmed("/dev/cpuset/top-app/cpu.uclamp.min"))
+            .unwrap_or_else(|| "0".to_string());
         let sched_lib = Self::read_trimmed("/proc/sys/kernel/sched_lib_name").unwrap_or_default();
         let has_sched_lib = !sched_lib.is_empty();
 
@@ -1262,6 +1345,24 @@ impl GameController {
     }
 }
 
+/// Formats `cpu.uclamp.min` for both modern percentage-based `cpuctl`/`cgroup2` (`max` or decimal
+/// `100.00`) and legacy 1024-scaled `cpuset` backports without hardcoding kernel version.
+pub(crate) fn format_uclamp_min_for_max(min_ratio_pct: u32, max_raw: Option<&str>) -> String {
+    let clamped = min_ratio_pct.min(100);
+    if let Some(raw) = max_raw {
+        let trimmed = raw.trim();
+        if trimmed.eq_ignore_ascii_case("max") || trimmed.contains('.') {
+            return clamped.to_string();
+        }
+        if let Ok(max_num) = trimmed.parse::<u32>() {
+            if max_num > 100 {
+                return ((clamped * max_num) / 100).to_string();
+            }
+        }
+    }
+    clamped.to_string()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ThreadRole {
     RenderBackend,
@@ -1269,6 +1370,7 @@ pub(crate) enum ThreadRole {
     EngineHeavyWorker,
     ActiveGeneric,
     GpuShaderCompiler,
+    AssetStreamLoader,
     GpuDriverWorker,
     AudioRealtime,
     BackgroundHelper,
@@ -1281,7 +1383,11 @@ impl ThreadRole {
             Self::MainGameLoop => 3,
             Self::EngineHeavyWorker => 2,
             Self::ActiveGeneric => 1,
-            Self::GpuShaderCompiler | Self::GpuDriverWorker | Self::AudioRealtime | Self::BackgroundHelper => 0,
+            Self::GpuShaderCompiler
+            | Self::AssetStreamLoader
+            | Self::GpuDriverWorker
+            | Self::AudioRealtime
+            | Self::BackgroundHelper => 0,
         }
     }
 
@@ -1425,11 +1531,12 @@ pub(crate) fn parse_cpu_list(spec: &str) -> Vec<usize> {
 pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> ThreadRole {
     let lower = comm.trim().to_ascii_lowercase();
 
-    // On-demand GPU shader / pipeline compiler threads (Mali, Adreno, Xclipse, Vulkan/GLES).
+    // On-demand GPU shader / pipeline compiler & shader loader threads (Mali, Adreno, Xclipse, Vulkan/GLES).
     // Checked BEFORE generic driver utility quarantine so synchronous shader compilation bursts
     // can leverage idle Big/Prime cores instead of stalling 2.5-3x longer on Little cores.
     if lower.contains("mali-compil")
         || lower.contains("shadercomp")
+        || lower.contains("shaderload")
         || lower.contains("qgl-compil")
         || lower.contains("vkpipeline")
         || lower.contains("shader_comp")
@@ -1450,19 +1557,27 @@ pub(crate) fn classify_thread_role(comm: &str, ticks: u64, proc_comm: &str) -> T
     if lower.contains("audio") || lower.contains("sound") || lower.contains("fmod") || lower.starts_with("ak::") {
         return ThreadRole::AudioRealtime;
     }
-    // Engine multi-render, Unity Job.Worker, & active asset/shader/file I/O loader threads run strongly
-    // across all CPU cores (checked BEFORE generic worker/job catch-all so Job.Worker / MHYLoadThreadWo
-    // never pile onto a single little core during open-world streaming or integrity verification).
+    // Burst asset/bundle streaming & decompression loaders (Unity AsyncReadManager, MHYLoadThreadWo,
+    // AssetBundle, Loading.Preload, Unreal PakAsync, FileIO) run on all_mask at nice -11 + RT I/O
+    // so area/character transitions use idle Big/Prime cores without preempting nice -20 render/main.
+    if lower.contains("asyncread")
+        || lower.contains("loadthread")
+        || lower.contains("mhyload")
+        || lower.contains("assetbundle")
+        || lower.contains("preload")
+        || lower.contains("fileio")
+        || lower.contains("pakasync")
+        || lower.contains("decompress")
+        || lower.contains("streamload")
+    {
+        return ThreadRole::AssetStreamLoader;
+    }
+    // Continuous per-frame workers (UnityMultiRende, NativeThread, Job.Worker) stay inside worker_mask
+    // at nice -10 so frame preparation stays fast without thrashing L1/L2 cache on Big/Prime cores.
     if lower.contains("multirend")
         || lower.contains("nativethread")
-        || lower.contains("asyncread")
-        || lower.contains("loadthread")
-        || lower.contains("shaderload")
-        || lower.contains("mhyload")
         || lower.starts_with("job.worker")
         || lower.contains("unityjob")
-        || lower.contains("assetbundle")
-        || lower.contains("fileio")
     {
         return ThreadRole::EngineHeavyWorker;
     }
@@ -1578,10 +1693,12 @@ mod tests {
         assert_eq!(classify_thread_role("GameThread", 210, "ue4game"), ThreadRole::MainGameLoop);
         assert_eq!(classify_thread_role("UnityMultiRende", 150, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("NativeThread", 145, "game"), ThreadRole::EngineHeavyWorker);
-        assert_eq!(classify_thread_role("ShaderLoadManag", 90, "game"), ThreadRole::EngineHeavyWorker);
-        assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::EngineHeavyWorker);
+        assert_eq!(classify_thread_role("ShaderLoadManag", 90, "game"), ThreadRole::GpuShaderCompiler);
+        assert_eq!(classify_thread_role("MHYLoadThreadWo", 90, "game"), ThreadRole::AssetStreamLoader);
+        assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::AssetStreamLoader);
+        assert_eq!(classify_thread_role("Loading.Preload", 75, "game"), ThreadRole::AssetStreamLoader);
+        assert_eq!(classify_thread_role("AssetBundleLoad", 70, "game"), ThreadRole::AssetStreamLoader);
         assert_eq!(classify_thread_role("Job.Worker 0", 85, "game"), ThreadRole::EngineHeavyWorker);
-        assert_eq!(classify_thread_role("AsyncReadManage", 80, "game"), ThreadRole::EngineHeavyWorker);
         assert_eq!(classify_thread_role("mali-compiler", 95, "game"), ThreadRole::GpuShaderCompiler);
         assert_eq!(classify_thread_role("qgl-compiler", 95, "game"), ThreadRole::GpuShaderCompiler);
         assert_eq!(classify_thread_role("vkpipeline", 95, "game"), ThreadRole::GpuShaderCompiler);
@@ -1590,6 +1707,16 @@ mod tests {
         assert_eq!(classify_thread_role("Thread-108", 20, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("MIHOYO_NETWORK", 25, "game"), ThreadRole::BackgroundHelper);
         assert_eq!(classify_thread_role("CustomRenderX", 190, "custom"), ThreadRole::ActiveGeneric);
+    }
+
+    #[test]
+    fn uclamp_formatter_handles_cpuctl_max_decimal_and_legacy_1024_scales() {
+        assert_eq!(format_uclamp_min_for_max(70, Some("max")), "70");
+        assert_eq!(format_uclamp_min_for_max(70, Some("100.00")), "70");
+        assert_eq!(format_uclamp_min_for_max(70, Some("100")), "70");
+        assert_eq!(format_uclamp_min_for_max(70, Some("1024")), "716");
+        assert_eq!(format_uclamp_min_for_max(120, Some("max")), "100");
+        assert_eq!(format_uclamp_min_for_max(70, None), "70");
     }
 
     #[cfg(any(target_os = "android", target_os = "linux"))]
@@ -1601,6 +1728,7 @@ mod tests {
         let pid = child.id();
         GameController::set_tid_nice(pid, -12);
         GameController::set_thread_affinity(pid, 0b0000_0001);
+        GameController::set_tid_ioprio_rt(pid, 0);
 
         let stat_ok = fs::read_to_string(format!("/proc/{}/stat", pid))
             .ok()
@@ -1618,11 +1746,23 @@ mod tests {
             .map(|s| s.lines().any(|l| l.starts_with("Uid:") && l.split_whitespace().nth(1) == Some("0")))
             .unwrap_or(false);
 
+        #[cfg(target_arch = "aarch64")]
+        let ioprio_val = {
+            extern "C" {
+                fn syscall(num: i64, ...) -> i64;
+            }
+            const SYS_IOPRIO_GET: i64 = 31;
+            const IOPRIO_WHO_PROCESS: i64 = 1;
+            unsafe { syscall(SYS_IOPRIO_GET, IOPRIO_WHO_PROCESS, pid as i32 as i64) }
+        };
+
         let _ = child.kill();
         let _ = child.wait();
 
         if is_root {
             assert_eq!(stat_ok.as_deref(), Some("-12"));
+            #[cfg(target_arch = "aarch64")]
+            assert_eq!(ioprio_val, 1 << 13);
         }
         if let Some(mask) = cpus_ok {
             let parsed = u64::from_str_radix(mask.trim_start_matches('0'), 16).unwrap_or(1);
