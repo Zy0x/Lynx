@@ -413,9 +413,9 @@ impl DaemonRunner {
                     if let Some(pid) = game_boost_pid {
                         crate::subsystems::GameController::optimize_pid(pid);
                     }
-                    // Keep periodic sub-millisecond thread quarantine sweeps active so late-spawned
-                    // dynamic worker/network threads never preempt prime render cores mid-session.
-                    game_boost_recheck_at = Some(now + 10);
+                    // Keep periodic sub-millisecond thread quarantine & uclamp sweeps snappy (4s)
+                    // so late-spawned workers and PowerHAL scene-transition resets recover immediately.
+                    game_boost_recheck_at = Some(now + 4);
                 }
                 if game_mem_guard_at.map(|ts| now >= ts).unwrap_or(false) {
                     let mut triggered = false;

@@ -30,6 +30,7 @@ static LAST_LOCK_CHECK_MS: AtomicU64 = AtomicU64::new(0);
 static IS_GPU_LOCKED_CACHED: AtomicBool = AtomicBool::new(false);
 static ACTIVE_PROFILE_IS_EXTREME: AtomicBool = AtomicBool::new(false);
 static ACTIVE_WORKLOAD_IS_HEAVY: AtomicBool = AtomicBool::new(false);
+static ACTIVE_GAME_PEAK_LOCK: AtomicBool = AtomicBool::new(false);
 static SCREEN_IS_ON: AtomicBool = AtomicBool::new(true);
 // 0 = powersave, 1 = balance, 2 = performance, 3 = extreme
 static ACTIVE_GPU_PROFILE_TIER: AtomicU8 = AtomicU8::new(1);
@@ -574,6 +575,9 @@ impl GpuController {
 
         let tier = DeviceTier::cached_live();
         let normalized_pct = normalized_gpu_compute_pct(gpu.cur_freq_mhz, gpu.max_freq_mhz, gpu.load_pct);
+        let is_active_game = fg_app
+            .map(|a| a.category == AppCategory::Game || a.category == AppCategory::Benchmark)
+            .unwrap_or(false);
 
         // Step 1: Base State Resolution from Profile, Workload, Normalized GPU Demand & Touch Dynamics
         let mut target_state = if active_profile == "extreme" {
@@ -586,7 +590,14 @@ impl GpuController {
             let is_touch = crate::daemon::TouchDetector::is_touch_recent(450);
             let is_media = fg_app.map(|a| a.category == AppCategory::Media).unwrap_or(false);
 
-            if workload == WorkloadLevel::Heavy || gpu.load_pct > 75 || normalized_pct > 62 {
+            // Keep active Game/Benchmark sessions pinned to Peak in performance mode (subject to
+            // Step 2's 47.5C battery / thermal guard) so mid-combat DVFS drops (e.g. 1004 -> 689 MHz
+            // during turn-based pauses or 30 FPS pacing) never cause frame-time spikes on sudden bursts.
+            if is_active_game
+                || workload == WorkloadLevel::Heavy
+                || gpu.load_pct > 75
+                || normalized_pct > 62
+            {
                 DynamicGpuState::Peak
             } else if workload == WorkloadLevel::Moderate
                 || is_moving
@@ -665,6 +676,12 @@ impl GpuController {
         {
             target_state = DynamicGpuState::Fluid;
         }
+        ACTIVE_GAME_PEAK_LOCK.store(
+            is_active_game
+                && matches!(active_profile, "performance" | "extreme")
+                && target_state == DynamicGpuState::Peak,
+            Ordering::Relaxed,
+        );
 
         let current_u8 = CURRENT_SCALER_STATE.load(Ordering::Relaxed);
         let current_state = match current_u8 {
@@ -753,7 +770,9 @@ impl GpuController {
             CURRENT_SCALER_STATE.store(new_u8, Ordering::Relaxed);
             Self::apply_state_hardware(&gpu, resolved_state);
         } else if resolved_state == DynamicGpuState::Peak
-            && (active_profile == "extreme" || workload == WorkloadLevel::Heavy)
+            && (active_profile == "extreme"
+                || workload == WorkloadLevel::Heavy
+                || ACTIVE_GAME_PEAK_LOCK.load(Ordering::Relaxed))
         {
             // Self-healing GPU ceiling guard: prevents GED / PowerHAL / screen-wake transitions
             // from releasing fixed peak OPP or dropping gpu_bottom_freq back down to 300 MHz.
@@ -842,10 +861,11 @@ impl GpuController {
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_boost_freq", high.freq_khz.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_cust_upbound_freq", high.freq_khz.to_string());
                             Self::write_opt("/sys/module/ged/parameters/gpu_bottom_freq", high.freq_khz.to_string());
-                            // Hard-lock peak OPP in gpufreq when Extreme or Heavy workload is active so
-                            // GPU clock stays 100% flat at ceiling with zero DVFS oscillation.
+                            // Hard-lock peak OPP in gpufreq when Extreme, Heavy workload, or an active
+                            // Performance-mode Game session is running so GPU clock stays 100% flat at ceiling.
                             if ACTIVE_PROFILE_IS_EXTREME.load(Ordering::Relaxed)
                                 || ACTIVE_WORKLOAD_IS_HEAVY.load(Ordering::Relaxed)
+                                || ACTIVE_GAME_PEAK_LOCK.load(Ordering::Relaxed)
                             {
                                 Self::write_opt("/proc/gpufreq/gpufreq_opp_freq", high.freq_khz.to_string());
                                 Self::write_opt("/proc/gpufreqv2/gpufreq_opp_freq", high.freq_khz.to_string());
